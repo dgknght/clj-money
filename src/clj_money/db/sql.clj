@@ -55,6 +55,8 @@
    :transaction-item/account
    :transaction-item/reconciliation
    :transaction-item/transaction
+   :transaction-lot-item/transaction
+   :transaction-lot-item/lot
    :scheduled-transaction/entity
    :scheduled-transaction-item/account
    :reconciliation/account
@@ -63,7 +65,8 @@
    :attachment/image
    :attachment/transaction
    :lot/account
-   :lot/commodity])
+   :lot/commodity
+   :lot-transaction/transaction])
 
 (def ^:private sql-ref-keys
   (mapv #(keyword (namespace %)
