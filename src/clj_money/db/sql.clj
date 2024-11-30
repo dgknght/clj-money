@@ -4,15 +4,12 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
-            [cheshire.core :as json]
             [camel-snake-kebab.core :refer [->snake_case_keyword]]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
                                            for-delete]]
             [next.jdbc.date-time]
-            [next.jdbc.result-set :as rs]
-            [next.jdbc.prepare :as p]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.inflection :refer [plural
@@ -22,22 +19,9 @@
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
                                               ->update]]
-            [clj-money.db.sql.types :refer [temp-id?
-                                            coerce-id]])
-  (:import org.postgresql.util.PGobject
-           [java.sql Array PreparedStatement]))
-
-(next.jdbc.date-time/read-as-local)
-
-(extend-protocol rs/ReadableColumn
-  Array
-  (read-column-by-label [^Array v _] (vec (.getArray v)))
-  (read-column-by-index [^Array v _ _] (vec (.getArray v))))
-
-(extend-protocol p/SettableParameter
-  clojure.lang.Keyword
-  (set-parameter [^clojure.lang.Keyword k ^PreparedStatement s ^long i]
-    (.setObject s i (name k))))
+            [clj-money.db.sql.types :refer [temp-id
+                                            temp-id?
+                                            coerce-id]]))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
@@ -322,15 +306,3 @@
       (delete [_ models] (delete* ds models))
       (close [_]) ; this is a no-op for next-jdbc
       (reset [_] (reset* ds)))))
-
-(defn ->json
-  [x]
-  (when x
-    (doto (PGobject.)
-      (.setType "jsonb")
-      (.setValue (json/generate-string x)))))
-
-(defn json->map
-  [^org.postgresql.util.PGobject x & {:keys [key-fn] :or {key-fn true}}]
-  (when x
-    (json/parse-string (.getValue x) key-fn)))

@@ -1,6 +1,12 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [cheshire.core :as json]
+            [next.jdbc.result-set :as rs]
+            [next.jdbc.prepare :as p]
+            [next.jdbc.date-time])
+  (:import org.postgresql.util.PGobject
+           [java.sql Array PreparedStatement]))
 
 (derive java.lang.Integer ::integer)
 (derive java.lang.Long ::integer)
@@ -9,6 +15,18 @@
 (derive clojure.lang.PersistentVector ::vector)
 (derive ::integer ::id)
 (derive ::uuid ::id)
+
+(next.jdbc.date-time/read-as-local)
+
+(extend-protocol rs/ReadableColumn
+  Array
+  (read-column-by-label [^Array v _] (vec (.getArray v)))
+  (read-column-by-index [^Array v _ _] (vec (.getArray v))))
+
+(extend-protocol p/SettableParameter
+  clojure.lang.Keyword
+  (set-parameter [^clojure.lang.Keyword k ^PreparedStatement s ^long i]
+    (.setObject s i (name k))))
 
 (defn temp-id
   "Generates a new temporary id"
@@ -43,3 +61,15 @@
             (coerce-id x)
             x))
         v))
+
+(defn ->json
+  [x]
+  (when x
+    (doto (PGobject.)
+      (.setType "jsonb")
+      (.setValue (json/generate-string x)))))
+
+(defn json->map
+  [^org.postgresql.util.PGobject x & {:keys [key-fn] :or {key-fn true}}]
+  (when x
+    (json/parse-string (.getValue x) key-fn)))
