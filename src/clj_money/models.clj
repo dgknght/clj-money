@@ -12,6 +12,7 @@
 
 (s/def ::id (some-fn uuid? int?))
 (s/def ::model-ref (s/keys :req-un [::id]))
+(s/def ::weak-model-ref (s/keys :opt-un [::id]))
 
 (defmulti prepare-criteria db/type-dispatch)
 (defmethod prepare-criteria :default [m] m)
