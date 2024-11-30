@@ -523,8 +523,7 @@
                                  affected (map (comp polarize
                                                      #(assoc % :transaction-item/account a))
                                                (account-items-on-or-after a earliest-date))]
-                             (apply models/put-many
-                               (re-index a (cons basis affected)))))
+                             (models/put-many (re-index a (cons basis affected)))))
                          #(models/find % :account)))
               (reduce (fn [prg _put-result]
                         (a/>!! progress-chan prg)

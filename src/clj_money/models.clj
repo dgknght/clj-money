@@ -90,16 +90,17 @@
                            model-type))))
 
 (defn put-many
-  [& models]
-  (->> models
-       (map (comp validate
-                  before-validation))
-       (mapcat propagate)
-       (map before-save)
-       (db/put (db/storage))
-       (map (comp append-before
-                  after-save
-                  #(after-read % {})))))
+  ([models] (put-many {} models))
+  ([_opts models]
+   (->> models
+        (map (comp validate
+                   before-validation))
+        (mapcat propagate)
+        (map before-save)
+        (db/put (db/storage))
+        (map (comp append-before
+                   after-save
+                   #(after-read % {}))))))
 
 (defn put
   [model]

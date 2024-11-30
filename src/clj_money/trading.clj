@@ -311,13 +311,13 @@
   ; commodity account also
   ; Finall save the affected accounts
   (let [result (group-by db/model-type
-                         (apply models/put-many
-                                commodity-account
-                                lot
-                                transaction
-                                commodity
-                                account
-                                affected-accounts))]
+                         (models/put-many
+                           [commodity-account
+                            lot
+                            transaction
+                            commodity
+                            account
+                            affected-accounts]))]
     (assoc context
            :transaction (first (:transaction result)))))
 
