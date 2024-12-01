@@ -139,10 +139,6 @@
                                :purchase-price 10M
                                :purchase-date (t/local-date 2016 1 2)}
                          (:lot result))))
-      (testing "The lot transaction"
-        (is (comparable? #:lot-transaction{:shares 100M
-                                           :price 10M
-                                           :action :purchase})))
       (testing "The trading account"
         (is (contains? (:account/system-tags (models/find ira))
                        :trading)
