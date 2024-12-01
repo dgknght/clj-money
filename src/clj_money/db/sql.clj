@@ -38,6 +38,9 @@
 (defmulti after-read db/model-type)
 (defmethod after-read :default [m] m)
 
+(defmulti model-keys db/model-type)
+(defmethod model-keys :default [_] [])
+
 (def ^:private model-ref-keys
   [:image/user
    :identity/user
@@ -185,12 +188,18 @@
                          (or id (temp-id))))
     m))
 
+(defn- strip-unrecognized-keys
+  [m]
+  (if-let [keys (seq (model-keys m))]
+    (select-keys m keys)
+    m))
+
 (defn- execute-and-aggregate
   "Returns a function that executes the database operation, saves the result
   and updates the id map for resolving temporary ids"
   [ds]
   (fn [{:as result :keys [id-map]} [operator m]]
-    (let [id-resolved (cond-> m
+    (let [id-resolved (cond-> (strip-unrecognized-keys m)
                         (seq id-map) (resolve-temp-ids id-map)
                         (temp-id? m) (dissoc :id))
           saved (put-one ds [operator id-resolved])]
