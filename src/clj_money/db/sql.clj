@@ -26,12 +26,6 @@
                           (db/model-type x))))
 (defmethod deconstruct :default [m] [m])
 
-(defmulti reconstruct
-  (fn [ms]
-    (when-let [m1 (first ms)]
-      (db/model-type m1))))
-(defmethod reconstruct :default [ms] ms)
-
 (defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m] m)
 
@@ -68,6 +62,37 @@
    :lot/account
    :lot/commodity
    :lot-transaction/transaction])
+
+(def ^:private reconstruction-rules
+  {:budget [{:parent? :budget/name
+             :child? :budget-item/account
+             :children-key :budget/items}]
+   :reconciliation [{:parent? :reconciliation/end-of-period
+                     :child? :transaction-item/reconciliation
+                     :children-key :reconciliation/item-refs}]
+   :scheduled-transaction [{:parent? :scheduled-transaction/description
+                            :child? :scheduled-transaction-item/action
+                            :children-key :scheduled-transaction/items}]
+   :transaction [{:parent? :transaction/description
+                  :child? :transaction-item/action
+                  :children-key :transaction/items}
+                 {:parent? :transaction/description
+                  :child? :lot-item/action
+                  :children-key :transaction/lot-items}]})
+
+(defn- reconstruct
+  [models]
+  (if-let [rules (->> models
+                   (map db/model-type)
+                   set
+                   (mapcat reconstruction-rules)
+                   (filter identity)
+                   seq)]
+    (reduce (fn [ms rule-map]
+              (util/reconstruct rule-map ms))
+            models
+            rules)
+    models))
 
 (def ^:private sql-ref-keys
   (mapv #(keyword (namespace %)

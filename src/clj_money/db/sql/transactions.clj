@@ -1,7 +1,6 @@
 (ns clj-money.db.sql.transactions
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
@@ -18,14 +17,6 @@
                              :lot-item/transaction-id id
                              :lot-item/transaction-date transaction-date)
                      lot-items))))
-
-(defmethod sql/reconstruct :transaction
-  [models]
-  ; TODO: should we remove :transaction-item/transaction to be consistent with Datomic?
-  (util/reconstruct {:parent? :transaction/description
-                     :child? :transaction-item/action
-                     :children-key :transaction/items}
-                    models))
 
 (defmethod sql/after-read :transaction
   [trx]

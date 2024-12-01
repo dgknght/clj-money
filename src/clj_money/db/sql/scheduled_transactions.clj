@@ -1,7 +1,6 @@
 (ns clj-money.db.sql.scheduled-transactions
   (:require [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [->json json->map]]))
@@ -28,14 +27,6 @@
       (update-in-if [:scheduled-transaction/date-spec :day] #(if (string? %)
                                                                (keyword %)
                                                                %))))
-
-(defmethod sql/reconstruct :scheduled-transaction
-  [models]
-  ; TODO: should we remove :scheduled-transaction-item/scheduled-transaction to be consistent with Datomic?
-  (util/reconstruct {:parent? :scheduled-transaction/description
-                     :child? :scheduled-transaction-item/action
-                     :children-key :scheduled-transaction/items}
-                    models))
 
 (defmethod sql/post-select :scheduled-transaction
   [storage trxs]
