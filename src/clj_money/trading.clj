@@ -140,14 +140,20 @@
   {:pre [(and account commodity)]}
   (cond-> context
     (util/model-ref? account)
-    (assoc :account (ensure-tag (models/find account :account)
-                                :trading))
-    
-    (not (util/model-ref? account))
-    (update-in [:account] ensure-tag :trading)
+    (assoc :account (models/find account :account))
 
     (nil? commodity-account)
     (assoc :commodity-account (find-or-create-commodity-account account commodity))))
+
+(defn- update-accounts
+  [{:as context :keys [price]}]
+
+  ; Note that :account/commodity-price is not saved, but is used in
+  ; transactions in order to calculate the value of the account
+  (-> context
+      (update-in [:account] ensure-tag :trading)
+      (update-in [:commodity-account] ensure-tag :tradable)
+      (assoc-in [:commodity-account :account/commodity-price] (:price/price price))))
 
 (defn- append-entity
   [{{:account/keys [entity]} :account
@@ -346,6 +352,7 @@
         append-accounts
         append-entity
         create-price
+        update-accounts
         create-lot
         create-purchase-transaction
         propagate-price-to-accounts

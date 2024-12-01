@@ -331,9 +331,13 @@
   "Given an account and a list of items, take the index and balance
   of the 1st item and calculate indices and balances forward, then
   apply the final to the account. Returns a sequence of all updated
-  models, which may be fewer than the input."
-  [account items]
-
+  models, which may be fewer than the input.
+ 
+  Additionally, an attempt is made to calculate the ending value of the account
+  based on the most recent price of the tracked commodity. This price may be
+  supplied in the account at :account/commodity-price, or it will be searched
+  and will default to 1M if not found."
+  [{:as account :account/keys [commodity]} items]
   (let [updated-items (->> (rest items)
                            (reduce (fn [output item]
                                      (let [updated (apply-prev item (last output))]
@@ -342,14 +346,24 @@
                                          (conj output updated))))
                                    [(first items)])
                            (drop 1)) ; the 1st is the basis and is not updated
-        to-return (map #(dissoc % ::polarized-quantity) updated-items)]
+        to-return (map #(dissoc % ::polarized-quantity) updated-items)
+        final-qty (or (:transaction-item/balance (last updated-items))
+                       0M)
+        price (or (:account/commodity-price account)
+                  (:price/price
+                    (models/find-by
+                      {:price/commodity (:account/commodity account)
+                       :price/trade-date [:between
+                                          (:commodity/earliest-price commodity)
+                                          (:commodity/latest-price commodity)]}
+                      {:sort [[:price/trade-date :desc]]}))
+                  1M)]
     (if (= (count to-return)
            (- (count items)
               1))  ; this means a short-circuit did not take place
       (cons (assoc account
-                   :account/quantity
-                   (or (:transaction-item/balance (last updated-items))
-                       0M))
+                   :account/quantity final-qty
+                   :account/value (* final-qty price))
             to-return)
       to-return)))
 
@@ -377,9 +391,14 @@
                                 (map #(assoc % :transaction-item/account account))))]
       (re-index (if delete?
                   account
-                  (push-date-boundaries account as-of
-                                        [:account/earliest-transaction-date]
-                                        [:account/latest-transaction-date]))
+                  (-> account
+                      (update-in [:account/commodity] #(if (util/model-ref? %)
+                                                         (models/find % :commodity)
+                                                         %))
+                      (push-date-boundaries
+                        as-of
+                        [:account/earliest-transaction-date]
+                        [:account/latest-transaction-date])))
                 (cons (propagation-basis account as-of)
                       (->> (cond->> affected-items
                              (not delete?) (concat items))
