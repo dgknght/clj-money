@@ -332,7 +332,13 @@
                                     account]
                                    affected-accounts)))]
     (assoc context
-           :transaction (first (:transaction result)))))
+           :transaction (first (:transaction result))
+           :account (->> (:account result)
+                         (filter (fn [a] ((:account/system-tags a) :trading)))
+                         first)
+           :commodity-account (->> (:account result)
+                                   (filter (fn [a] ((:account/system-tags a) :tradable)))
+                                   first))))
 
 ; expect
 ; either
