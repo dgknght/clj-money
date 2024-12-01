@@ -88,6 +88,18 @@
    (find-by (db/model-type (util/->model-ref id-or-ref)
                            model-type))))
 
+(defn- merge-dupes
+  "Given a sequence of models, merge any that have the same id"
+  [models]
+  (loop [input models output []]
+    (if-let [model (first input)]
+      (if-let [id (:id model)]
+        (let [{dupes true
+               others false} (group-by #(= id (:id %)) (rest input))]
+          (recur others (conj output (apply merge model dupes))))
+        (recur (rest input) (conj output model)))
+      output)))
+
 (defn put-many
   [models]
   (->> models
@@ -95,6 +107,7 @@
                   before-validation))
        (mapcat propagate)
        (map before-save)
+       (merge-dupes)
        (db/put (db/storage))
        (map (comp append-before
                   after-save
