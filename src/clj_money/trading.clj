@@ -6,6 +6,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.util :as util]
             [clj-money.models.accounts :as accounts]
@@ -72,11 +73,13 @@
 (defn- create-price
   "Given a context, calculates and appends the share price"
   [{:keys [shares value commodity trade-date] :as context}]
-  (assoc context
-         :price
-         #:price{:commodity commodity
-                 :trade-date trade-date
-                 :price (with-precision 4 (/ value shares))}))
+  (-> context
+      (update-in [:commodity-account :account/price-as-of]
+                 #(dates/earliest % trade-date))
+      (assoc :price
+             #:price{:commodity commodity
+                     :trade-date trade-date
+                     :price (with-precision 4 (/ value shares))})))
 
 (defn- ensure-tag
   "Appends the :trading tag to the account if it isn't there already"
