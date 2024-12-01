@@ -82,12 +82,10 @@
                      :price (with-precision 4 (/ value shares))})))
 
 (defn- ensure-tag
-  "Appends the :trading tag to the account if it isn't there already"
-  [{:keys [system-tags] :as account} tag]
+  "Appends the specified tag to the account if it isn't there already"
+  [account tag]
   (when account
-    (if (contains? system-tags tag)
-      account
-      (accounts/update (update-in account [:system-tags] conj tag)))))
+    (update-in account [:account/system-tags] (fnil conj #{}) tag)))
 
 (defn- append-commodity-account
   "If the argument contains a commodity-account, ensure it is a full model map
@@ -142,8 +140,12 @@
   {:pre [(and account commodity)]}
   (cond-> context
     (util/model-ref? account)
-    (assoc :account (models/find account :account))
+    (assoc :account (ensure-tag (models/find account :account)
+                                :trading))
     
+    (not (util/model-ref? account))
+    (update-in [:account] ensure-tag :trading)
+
     (nil? commodity-account)
     (assoc :commodity-account (find-or-create-commodity-account account commodity))))
 
