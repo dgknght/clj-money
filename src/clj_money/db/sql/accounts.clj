@@ -26,6 +26,24 @@
   [^PgArray pg-arr]
   (->keyword-set (.getArray pg-arr)))
 
+(defmethod sql/model-keys :account [_]
+  [:id
+   :account/name
+   :account/type
+   :account/entity-id
+   :account/commodity-id
+   :account/parent-id
+   :account/quantity
+   :account/value
+   :account/system-tags
+   :account/user-tags
+   :account/allocations
+   :account/price-as-of
+   :account/earliest-transaction-date
+   :account/latest-transaction-date
+   :account/created-at
+   :account/updated-at])
+
 (defmethod sql/before-save :account
   [account]
   (-> account
