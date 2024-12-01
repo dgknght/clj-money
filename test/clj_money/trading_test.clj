@@ -113,7 +113,7 @@
                                        :items [#:transaction-item{:action :credit
                                                                   :quantity 1000M
                                                                   :value 1000M
-                                                                  :account (util/->model-ref ira)}
+                                                                  :account (util/->model-ref (:account result))}
                                                #:transaction-item{:action :debit
                                                                   :quantity 100M
                                                                   :value 1000M
