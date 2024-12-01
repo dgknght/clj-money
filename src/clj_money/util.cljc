@@ -327,23 +327,31 @@
   "Given a list of models and a few options, aggregates child models into their parents."
   [{:keys [children-key parent? child?]} models]
   {:pre [(seq models) children-key parent? child?]}
-  ; This logic assume the order established in deconstruct is maintained
-  (let [{:keys [current assembled]}
-        (reduce (fn [{:keys [current] :as res} mdl]
-                  (cond
-                    (child? mdl)
-                    (update-in res [:current children-key] (fnil conj []) mdl)
+  ; This logic assumes the order established in deconstruct is maintained
+  (loop [input models output [] current nil]
+    (if-let [mdl (first input)]
+      (cond
+        (child? mdl)
+        (recur (rest input)
+               output
+               (update-in current [children-key] (fnil conj []) mdl))
 
-                    (parent? mdl)
-                    (cond-> (assoc res :current mdl)
-                      current (update-in [:assembled] conj current))
+        (parent? mdl)
+        (recur (rest input)
+               (if current
+                 (conj output current)
+                 output)
+               mdl)
 
-                    :else
-                    res))
-                {:current nil
-                 :assembled []}
-                models)]
-    (conj assembled current)))
+        :else
+        (recur (rest input)
+               (if current
+                 (conj output current mdl)
+                 (conj output mdl))
+               nil))
+      (if current
+        (conj output current)
+        output))))
 
 (defn cache-fn
   "Given a function that takes a single argument and returns a resource,

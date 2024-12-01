@@ -144,7 +144,8 @@
                                                    :quantity 1000M}
                                 #:transaction-item{:account {:id :rent}
                                                    :action :credit
-                                                   :quantity 1000M}]}]
+                                                   :quantity 1000M}]}
+          #:entity {:name "Personal"}]
          (util/reconstruct {:parent? :transaction/description
                             :child? :transaction-item/account
                             :children-key :transaction/items}
