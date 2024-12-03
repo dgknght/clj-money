@@ -8,8 +8,7 @@
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
-            [clj-money.util :as util]
-            [clj-money.models.accounts :as accounts]
+            [clj-money.util :as util :refer [model=]]
             [clj-money.db :as db])
   (:import java.math.BigDecimal))
 
@@ -317,6 +316,7 @@
            lot
            commodity
            account
+           fee-account
            commodity-account
            affected-accounts] :as context}]
   ; First save the primary accounts so they all have ids
@@ -333,11 +333,14 @@
                                    affected-accounts)))]
     (assoc context
            :transaction (first (:transaction result))
+           :fee-account (->> (:account result)
+                             (filter #(model= fee-account %))
+                             first)
            :account (->> (:account result)
-                         (filter (fn [a] ((:account/system-tags a) :trading)))
+                         (filter #(model= account %))
                          first)
            :commodity-account (->> (:account result)
-                                   (filter (fn [a] ((:account/system-tags a) :tradable)))
+                                   (filter #(model= commodity-account %))
                                    first))))
 
 ; expect
