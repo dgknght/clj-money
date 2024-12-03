@@ -179,8 +179,16 @@
           accounts))
 
 (defn user-tagged?
-  [{:account/keys [user-tags]} tag]
-  (contains? user-tags tag))
+  ([tag]
+   #(user-tagged? % tag))
+  ([{:account/keys [user-tags]} tag]
+   (contains? user-tags tag)))
+
+(defn system-tagged?
+  ([tag]
+   #(system-tagged? % tag))
+  ([{:account/keys [system-tags]} tag]
+   (contains? system-tags tag)))
 
 (defn format-quantity
   [quantity {:keys [commodity]}]
