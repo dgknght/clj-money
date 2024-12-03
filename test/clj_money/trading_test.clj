@@ -127,12 +127,18 @@
                                    :type :asset
                                    :parent (util/->model-ref ira)
                                    :system-tags #{:tradable}
-                                   :quantity 100M
                                    :price-as-of (t/local-date 2016 1 2)
+                                   :quantity 100M
                                    :value 1000M}
                          (models/find-by #:account{:commodity commodity
                                                    :entity personal}))
             "An account to track shares of the commodity is created"))
+      (testing "The trading account"
+        (is (comparable? #:account{:name "IRA"
+                                   :quantity 1000M
+                                   :value 1000M}
+                         (models/find ira))
+            "The trading account balance is updated to reflect money paid out"))
       (testing "The lot"
         (is (comparable? #:lot{:shares-purchased 100M
                                :shares-owned 100M
@@ -144,25 +150,22 @@
                        :trading)
             "The :trading tag is added to the trading account")))))
 
-; (deftest purchase-a-commodity-with-a-fee
-;   (let [context (realize purchase-context)
-;         ira (->> context
-;                  :accounts
-;                  (filter #(= "IRA" (:name %)))
-;                  first)
-;         inv-exp (->> context
-;                      :accounts
-;                      (filter #(= "Investment Expenses" (:name %)))
-;                      first)]
-;     (trading/buy (-> context
-;                      purchase-attributes
-;                      (assoc :fee 5M
-;                             :fee-account-id (:id inv-exp))))
-;     (is (= 995M (:quantity (accounts/reload ira)))
-;         "The investment account balance reflects the fee")
-;     (is (= 5M (:quantity (accounts/reload inv-exp)))
-;         "The investment expense account reflects the fee")))
-; 
+(deftest purchase-a-commodity-with-a-fee
+  (with-context purchase-context
+    (let [ira (find-account "IRA")
+          inv-exp (find-account "Investment Expenses")]
+
+      (pprint {::ira ira})
+
+      (-> (purchase-attributes)
+          (assoc :fee 5M
+                 :fee-account inv-exp)
+          trading/buy)
+      (is (= 995M (:account/quantity (models/find ira)))
+          "The investment account balance reflects the fee")
+      (is (= 5M (:account/quantity (models/find inv-exp)))
+          "The investment expense account reflects the fee"))))
+
 ; (deftest purchase-requires-a-trade-date
 ;   (let [context (realize purchase-context)
 ;         result (trading/buy  (-> context
