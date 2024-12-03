@@ -387,3 +387,28 @@
     id))
 
 (def live-id? (complement temp-id?))
+
+(def simple-keys
+  [:user/email
+   :account/name
+   :entity/name
+   :commodity/symbol
+   :transaction/transaction-date
+   :transaction/description
+   :transaction-item/quantity
+   :transaction-item/action
+   :scheduled-transaction/description
+   :scheduled-transaction-item/quantity
+   :scheduled-transaction-item/action
+   :lot/purchase-date
+   :lot/shares-owned
+   :lot-item/lot-action
+   :lot-item/quantity
+   :budget/name
+   :budget-item/account])
+
+(defn simplify
+  [x & {:keys [include]}]
+  (if (map? x)
+    (select-keys x (concat simple-keys include))
+    (map #(simplify % :include include) x)))
