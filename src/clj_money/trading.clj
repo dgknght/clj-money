@@ -6,6 +6,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
+            [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.util :as util :refer [model=]]
@@ -327,20 +328,20 @@
                          (models/put-many
                            (concat [commodity-account
                                     lot
-                                    transaction
                                     commodity
-                                    account]
+                                    account
+                                    transaction]
                                    affected-accounts)))]
     (assoc context
            :transaction (first (:transaction result))
            :fee-account (->> (:account result)
-                             (filter #(model= fee-account %))
+                             (filter #(= :expense (:account/type %)))
                              first)
            :account (->> (:account result)
-                         (filter #(model= account %))
+                         (filter (system-tagged? :trading))
                          first)
            :commodity-account (->> (:account result)
-                                   (filter #(model= commodity-account %))
+                                   (filter (system-tagged? :tradable))
                                    first))))
 
 ; expect
