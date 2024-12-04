@@ -154,9 +154,6 @@
   (with-context purchase-context
     (let [ira (find-account "IRA")
           inv-exp (find-account "Investment Expenses")]
-
-      (pprint {::ira ira})
-
       (-> (purchase-attributes)
           (assoc :fee 5M
                  :fee-account inv-exp)
