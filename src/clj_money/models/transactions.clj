@@ -405,13 +405,19 @@
                            (sort-by :transaction-item/transaction-date t/before?)
                            (map polarize)))))))
 
+; TODO: Need to think some more about how to handle differences
+; between the account in the item (when not a simple model-ref) and
+; the account read from the database.
+; It's passible the caller has made unsaved changes they want to keep.
+; It's also possble the account has changed since the specified account
+; was read from the database.
 (defn- realize-accounts
   "Given a list of items, lookup the associated account and assoc
   it into the item"
   [items]
   (let [cached-fn (util/cache-fn #(models/find % :account))
         find-account (fn [act]
-                       (if (util/live-id? (:id act))
+                       (if (util/model-ref? act)
                          (cached-fn (util/->model-ref act))
                          act))]
     (map #(update-in % [:transaction-item/account] find-account)
