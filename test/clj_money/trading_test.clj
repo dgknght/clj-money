@@ -4,6 +4,7 @@
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.validation :as v]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
@@ -148,7 +149,12 @@
       (testing "The trading account"
         (is (contains? (:account/system-tags (models/find ira))
                        :trading)
-            "The :trading tag is added to the trading account")))))
+            "The :trading tag is added to the trading account"))
+      (testing "The price"
+        (is (comparable? #:price{:price 10M
+                                 :trade-date (t/local-date 2016 1 2)}
+                         (:price result))
+            "The price is returned")))))
 
 (deftest purchase-a-commodity-with-a-fee
   (with-context purchase-context
@@ -163,78 +169,31 @@
       (is (= 5M (:account/quantity (models/find inv-exp)))
           "The investment expense account reflects the fee"))))
 
-; (deftest purchase-requires-a-trade-date
-;   (let [context (realize purchase-context)
-;         result (trading/buy  (-> context
-;                                  (purchase-attributes)
-;                                  (dissoc :trade-date)))]
-;     (is (invalid? result [:trade-date] "Trade date is required"))))
-; 
-; (deftest purchase-requires-a-number-of-shares
-;   (let [context (realize purchase-context)
-;         result (trading/buy (-> context
-;                                 (purchase-attributes)
-;                                 (dissoc :shares)))]
-;     (is (invalid? result [:shares] "Shares is required"))))
-; 
-; (deftest purchase-requires-a-value
-;   (let [context (realize purchase-context)
-;         result (trading/buy (-> context
-;                                 (purchase-attributes)
-;                                 (dissoc :value)))]
-;     (is (invalid? result [:value] "Value is required"))))
-; 
-; (deftest a-purchase-creates-a-lot-record
-;   (let [context (realize purchase-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         _ (trading/buy {:commodity-id (:id commodity)
-;                         :account-id (:id ira)
-;                         :trade-date (t/local-date 2016 1 2)
-;                         :shares 100M
-;                         :value 1000M})
-;         expected [{:purchase-date (t/local-date 2016 1 2)
-;                    :commodity-id (:id commodity)
-;                    :account-id (:id ira)
-;                    :shares-purchased 100M
-;                    :shares-owned 100M}]
-;         actual (map #(select-keys % [:purchase-date
-;                                      :commodity-id
-;                                      :account-id
-;                                      :shares-purchased
-;                                      :shares-owned])
-;                     (lots/select-by-commodity-id (:id commodity)))]
-;     (is (= expected actual) "The lot can be retrieved from the database")))
-; 
-; (deftest a-purchase-creates-a-price-record
-;   (let [context (realize purchase-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         _ (trading/buy {:commodity-id (:id commodity)
-;                         :account-id (:id ira)
-;                         :trade-date (t/local-date 2016 1 2)
-;                         :shares 100M
-;                         :value 1000M})
-;         expected [{:commodity-id (:id commodity)
-;                    :trade-date (t/local-date 2016 1 2)
-;                    :price 10M}]
-;         actual (map #(select-keys % [:commodity-id :trade-date :price])
-;                     (prices/search {:commodity-id (:id commodity)
-;                                     :trade-date (t/local-date 2016 1 2)}))]
-;     (is (= expected actual) "The price can be retrieved from the database")))
-; 
-; (deftest buying-a-commodity-reduces-the-balance-of-the-account
-;   (let [context (realize purchase-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         _ (trading/buy {:commodity-id (:id commodity)
-;                         :account-id (:id ira)
-;                         :trade-date (t/local-date 2016 1 2)
-;                         :shares 100M
-;                         :value 999M})
-;         new-balance (:quantity (accounts/reload ira))]
-;     (is (= 1001M new-balance) "The account balance decreases by the amount of the purchase")))
-; 
+(defn- assert-invalid-purchase
+  [attr errors]
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors errors}
+        (trading/buy attr))))
+
+(deftest purchase-requires-a-trade-date
+  (with-context purchase-context
+    (assert-invalid-purchase
+      (dissoc (purchase-attributes) :trade-date)
+      {:trade-date ["Trade date is required"]})))
+
+(deftest purchase-requires-a-number-of-shares
+  (with-context purchase-context
+    (assert-invalid-purchase
+      (dissoc (purchase-attributes) :shares)
+      {:shares ["Shares is required"]})))
+
+(deftest purchase-requires-a-value
+  (with-context purchase-context
+    (assert-invalid-purchase
+      (dissoc (purchase-attributes) :value)
+      {:value ["Value is required"]})))
+
 ; (defn- sale-attributes
 ;   [context]
 ;   (let [[ira

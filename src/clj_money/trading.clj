@@ -9,7 +9,7 @@
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util]
             [clj-money.db :as db])
   (:import java.math.BigDecimal))
 
@@ -317,9 +317,9 @@
            lot
            commodity
            account
-           fee-account
            commodity-account
-           affected-accounts] :as context}]
+           affected-accounts
+           price] :as context}]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
@@ -329,6 +329,7 @@
                            (concat [commodity-account
                                     lot
                                     commodity
+                                    price
                                     account
                                     transaction]
                                    affected-accounts)))]
@@ -340,6 +341,7 @@
            :account (->> (:account result)
                          (filter (system-tagged? :trading))
                          first)
+           :price (first (:price result))
            :commodity-account (->> (:account result)
                                    (filter (system-tagged? :tradable))
                                    first))))
