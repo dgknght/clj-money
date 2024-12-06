@@ -1,0 +1,142 @@
+{:updated-lots
+ ({:lot/shares-purchased 100.0000M,
+   :lot/purchase-price 10.0000M,
+   :lot/purchase-date #local-date "2016-03-02",
+   :lot/created-at
+   #object[java.time.LocalDateTime 0xd61ac34 "2024-12-06T23:30:08.910282"],
+   :lot/shares-owned 75.0000M,
+   :lot/updated-at
+   #object[java.time.LocalDateTime 0x78235b90 "2024-12-06T23:30:08.910282"],
+   :id 910,
+   :lot/commodity {:id 16950},
+   :lot/account {:id 55247}}),
+ :affected-accounts (),
+ :commodity-account
+ {:account/allocations nil,
+  :account/quantity 100.0000M,
+  :account/hidden false,
+  :account/updated-at
+  #object[java.time.LocalDateTime 0x543e79cb "2024-12-06T23:30:08.910282"],
+  :account/entity {:id 18004},
+  :account/system-tags #{:tradable},
+  :account/created-at
+  #object[java.time.LocalDateTime 0x8f7544a "2024-12-06T23:30:08.910282"],
+  :account/user-tags nil,
+  :account/price-as-of #local-date "2016-03-02",
+  :id 55255,
+  :account/earliest-transaction-date #local-date "2016-03-02",
+  :account/parent {:id 55247},
+  :account/commodity {:id 16950},
+  :account/type :asset,
+  :account/latest-transaction-date #local-date "2016-03-02",
+  :account/value 1000.0000M,
+  :account/name "AAPL"},
+ :commodity
+ {:commodity/name "Apple, Inc.",
+  :commodity/symbol "AAPL",
+  :commodity/type :stock,
+  :commodity/exchange :nasdaq,
+  :commodity/price-config #:price-config{:enabled true},
+  :id 16950,
+  :commodity/entity {:id 18004}},
+ :price
+ #:price{:commodity
+         {:commodity/name "Apple, Inc.",
+          :commodity/symbol "AAPL",
+          :commodity/type :stock,
+          :commodity/exchange :nasdaq,
+          :commodity/price-config #:price-config{:enabled true},
+          :id 16950,
+          :commodity/entity {:id 18004}},
+         :trade-date #local-date "2017-03-02",
+         :price 15M},
+ :account
+ {:account/allocations nil,
+  :account/quantity 0M,
+  :account/entity {:id 18004},
+  :account/system-tags nil,
+  :account/user-tags nil,
+  :id 55247,
+  :account/commodity {:id 16949},
+  :account/type :asset,
+  :account/value 0M,
+  :account/name "IRA"},
+ :transaction
+ #:transaction{:entity {:id 18004},
+               :transaction-date #local-date "2017-03-02",
+               :description "Sell 25 shares of AAPL at 15.000",
+               :items
+               [#:transaction-item{:action :credit,
+                                   :account
+                                   {:account/allocations nil,
+                                    :account/quantity 0M,
+                                    :account/entity {:id 18004},
+                                    :account/system-tags nil,
+                                    :account/user-tags nil,
+                                    :id 55249,
+                                    :account/commodity {:id 16949},
+                                    :account/type :income,
+                                    :account/value 0M,
+                                    :account/name
+                                    "Long-term Capital Gains"},
+                                   :quantity 125.00M,
+                                   :value 125.00M,
+                                   :memo
+                                   "Sell 25 shares of AAPL at 15.000"}
+                #:transaction-item{:action :debit,
+                                   :account
+                                   {:account/allocations nil,
+                                    :account/quantity 0M,
+                                    :account/entity {:id 18004},
+                                    :account/system-tags nil,
+                                    :account/user-tags nil,
+                                    :id 55247,
+                                    :account/commodity {:id 16949},
+                                    :account/type :asset,
+                                    :account/value 0M,
+                                    :account/name "IRA"},
+                                   :quantity 375M,
+                                   :value 375M}
+                #:transaction-item{:action :credit,
+                                   :account
+                                   {:account/allocations nil,
+                                    :account/quantity 100.0000M,
+                                    :account/hidden false,
+                                    :account/updated-at
+                                    #object[java.time.LocalDateTime 0x543e79cb "2024-12-06T23:30:08.910282"],
+                                    :account/entity {:id 18004},
+                                    :account/system-tags #{:tradable},
+                                    :account/created-at
+                                    #object[java.time.LocalDateTime 0x8f7544a "2024-12-06T23:30:08.910282"],
+                                    :account/user-tags nil,
+                                    :account/price-as-of
+                                    #local-date "2016-03-02",
+                                    :id 55255,
+                                    :account/earliest-transaction-date
+                                    #local-date "2016-03-02",
+                                    :account/parent {:id 55247},
+                                    :account/commodity {:id 16950},
+                                    :account/type :asset,
+                                    :account/latest-transaction-date
+                                    #local-date "2016-03-02",
+                                    :account/value 1000.0000M,
+                                    :account/name "AAPL"},
+                                   :quantity 25M,
+                                   :value 250.00M}],
+               :lot-items
+               [#:lot-item{:lot
+                           {:lot/shares-purchased 100.0000M,
+                            :lot/purchase-price 10.0000M,
+                            :lot/purchase-date
+                            #local-date "2016-03-02",
+                            :lot/created-at
+                            #object[java.time.LocalDateTime 0xd61ac34 "2024-12-06T23:30:08.910282"],
+                            :lot/shares-owned 100.0000M,
+                            :lot/updated-at
+                            #object[java.time.LocalDateTime 0x78235b90 "2024-12-06T23:30:08.910282"],
+                            :id 910,
+                            :lot/commodity {:id 16950},
+                            :lot/account {:id 55247}},
+                           :lot-action :sell,
+                           :shares 25M,
+                           :price 15M}]}}

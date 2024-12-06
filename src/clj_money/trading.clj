@@ -194,8 +194,8 @@
 
 (defn- sale-transaction-description
   [{:trade/keys [shares]
-    {:commodity/keys [symbol]} :commodity
-    {:price/keys [price]} :price}]
+    {:commodity/keys [symbol]} :trade/commodity
+    {:price/keys [price]} :trade/price}]
   (format "Sell %s shares of %s at %s"
           shares
           symbol
@@ -249,62 +249,68 @@
                                                 :shares shares}]})))
 
 (defn- create-capital-gains-item
-  [{:trade/keys [quantity description long-term?]} trade]
+  [{:keys [quantity description long-term?]} trade]
   (let [[action effect] (if (< quantity 0)
                           [:debit "loss"]
                           [:credit "gains"])
         account-key (keyword
-                     (format "%s-capital-%s-account-id"
-                             (if long-term? "lt" "st")
-                             effect))
-        account-id (account-key trade)]
-    {:action action
-     :account-id account-id
-     :quantity (.abs quantity)
-     :value (.abs quantity)
-     :memo description}))
+                      "trade"
+                      (format "%s-capital-%s-account"
+                              (if long-term? "lt" "st")
+                              effect))
+        account (account-key trade)]
+    #:transaction-item{:action action
+                       :account account
+                       :quantity (.abs quantity)
+                       :value (.abs quantity)
+                       :memo description}))
 
 (defn- create-capital-gains-items
   [{:trade/keys [gains] :as trade}]
   (mapv #(create-capital-gains-item % trade) gains))
 
 (defn- create-sale-transaction-items
-  [{:trade/keys [shares value] :as trade}]
-  (let [total-gains (->> (:gains trade)
+  [{:trade/keys [shares
+                 value
+                 account
+                 commodity-account
+                 fee
+                 fee-account
+                 gains]
+    :or {fee 0M}
+    :as trade}]
+  (let [total-gains (->> gains
                          (map :quantity)
-                         (reduce +))
-        fee (or (:fee trade) 0M)
-        items (-> (create-capital-gains-items trade)
-                  (conj {:action :debit
-                         :account-id (-> trade :account :id)
-                         :quantity (- value fee)
-                         :value (- value fee)})
-                  (conj {:action :credit
-                         :account-id (-> trade :commodity-account :id)
-                         :quantity shares
-                         :value (- value total-gains)}))]
-    (cond-> items
-      (not (zero? fee)) (conj {:action :debit
-                               :account-id (:fee-account-id trade)
-                               :quantity fee
-                               :value fee}))))
+                         (reduce +))]
+    (cond-> (conj (create-capital-gains-items trade)
+                  #:transaction-item{:action :debit
+                                     :account account
+                                     :quantity (- value fee)
+                                     :value (- value fee)}
+                  #:transaction-item{:action :credit
+                                     :account commodity-account
+                                     :quantity shares
+                                     :value (- value total-gains)})
+      (not (zero? fee)) (conj #:transaction-item{:action :debit
+                                                 :account fee-account
+                                                 :quantity fee
+                                                 :value fee}))))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [date] :as trade}]
+  [{:trade/keys [date account lot-items] :as trade}]
   (let [items (create-sale-transaction-items trade)
-        transaction (models/put
-                      #:transaction{:entity (-> trade :account :account/entity)
-                                    :transaction-date date
-                                    :description (sale-transaction-description trade)
-                                    :items items
-                                    :lot-items (:lot-items trade)})]
+        transaction #:transaction{:entity (:account/entity account)
+                                  :transaction-date date
+                                  :description (sale-transaction-description trade)
+                                  :items items
+                                  :lot-items lot-items}]
     (if (v/has-error? transaction)
       (do
         (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
         (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
-      (assoc trade :transaction transaction))))
+      (assoc trade :trade/transaction transaction))))
 
 (defn- create-lot
   "Given a trade map, creates and appends the commodity lot"
@@ -421,18 +427,19 @@
   shares that can be sold"
   [{:trade/keys [inventory-method commodity account] :as trade}]
   (assoc trade
-         :lots (models/select #:lot{:commodity commodity
-                                    :account account
-                                    :shares-owned [:!= 0M]}
-                              {:sort [[:lot/purchase-date
-                                       (if (= :lifo inventory-method)
-                                         :desc
-                                         :asc)]]})))
+         :trade/lots (models/select #:lot{:commodity commodity
+                                          :account account
+                                          :shares-owned [:!= 0M]}
+                                    {:sort [[:lot/purchase-date
+                                             (if (= :lifo inventory-method)
+                                               :desc
+                                               :asc)]]})))
 
 (defn- process-lot-sale
-  [trade lot shares-to-sell]
-  (let [shares-owned (:lot/shares-owned lot)
-        [shares-sold
+  [{:as trade :trade/keys [price commodity]}
+   {:as lot :lot/keys [shares-owned purchase-price]}
+   shares-to-sell]
+  (let [[shares-sold
          remaining-shares-to-sell
          new-lot-balance] (if (>= shares-owned shares-to-sell)
                             [shares-to-sell
@@ -441,9 +448,7 @@
                             [shares-owned
                              (- shares-to-sell shares-owned)
                              0M])
-        sale-price (-> trade :price :price/price)
-        purchase-price (:lot/purchase-price lot)
-        adj-lot (models/put (assoc lot :lot/shares-owned new-lot-balance))
+        sale-price (:price/price price)
         gain (.setScale
               (- (* shares-sold sale-price)
                  (* shares-sold purchase-price))
@@ -452,20 +457,21 @@
         cut-off-date (t/plus (:lot/purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
                                   (:trade/date trade)))]
-    (when (v/has-error? adj-lot)
-      (log/errorf "Unable to update lot for sale %s" adj-lot))
     [(-> trade
-         (update-in [:lot-items] #(conj % #:lot-item{:lot adj-lot
-                                                     :lot-action :sell
-                                                     :shares shares-sold
-                                                     :price sale-price}))
-         (update-in [:updated-lots] #(conj % adj-lot))
-         (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
-                                                            shares-sold
-                                                            (-> trade :commodity :symbol)
-                                                            (format-decimal sale-price {:fraction-digits 3}))
-                                       :quantity gain
-                                       :long-term? long-term?})))
+         (update-in [:trade/lot-items]
+                    #(conj % #:lot-item{:lot lot
+                                        :lot-action :sell
+                                        :shares shares-sold
+                                        :price sale-price}))
+         (update-in [:trade/updated-lots]
+                    #(conj % (assoc lot :lot/shares-owned new-lot-balance)))
+         (update-in [:trade/gains]
+                    #(conj % {:description (format "Sell %s shares of %s at %s"
+                                                   shares-sold
+                                                   (:commodity/symbol commodity)
+                                                   (format-decimal sale-price {:fraction-digits 3}))
+                              :quantity gain
+                              :long-term? long-term?})))
      remaining-shares-to-sell]))
 
 (defn- process-lot-sales
@@ -495,8 +501,7 @@
           (recur adj-trd shares-to-be-sold (first remaining-lots)  (rest remaining-lots))))
       (do
         (log/error "Unable to find a lot to sell shares " (prn-str trd))
-        (throw (ex-info "Unable to find a lot to sell the shares"
-                        {:context trd}))))))
+        (throw (ex-info "Unable to find a lot to sell the shares" trd))))))
  
 (defn- update-entity-settings
   [{:trade/keys [entity] :as trade}]
@@ -549,38 +554,38 @@
 
 (defn- put-sale
   [{:trade/keys [transaction
-           lots
-           commodity
-           account
-           commodity-account
-           affected-accounts
-           price] :as trade}]
+                 updated-lots
+                 commodity
+                 account
+                 commodity-account
+                 affected-accounts
+                 price] :as trade}]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finall save the affected accounts
   (let [result (group-by db/model-type
                          (models/put-many
-                           (concat lots
+                           (concat updated-lots
+                                   affected-accounts
                                    [commodity-account
                                     commodity
                                     price
                                     account
-                                    transaction]
-                                   affected-accounts)))]
+                                    transaction])))]
     (assoc trade
            :trade/transaction (first (:transaction result))
            :trade/fee-account (->> (:account result)
-                             (filter #(= :expense (:account/type %)))
-                             first)
+                                   (filter #(= :expense (:account/type %)))
+                                   first)
            :trade/account (->> (:account result)
-                         (filter (system-tagged? :trading))
-                         first)
+                               (filter (system-tagged? :trading))
+                               first)
            :trade/price (first (:trade/price result))
            :trade/commodity-account (->> (:account result)
-                                   (filter (system-tagged? :tradable))
-                                   first)
-           :trade/lots (:lot result))))
+                                         (filter (system-tagged? :tradable))
+                                         first)
+           :trade/updated-lots (:lot result))))
 (defn sell
   [sale]
   (with-ex-validation sale ::models/sale
