@@ -195,7 +195,7 @@
       {:trade/value ["Value is required"]})))
 
 (defn- sale-attributes []
-  #:trade{:commodity (:id (find-commodity "AAPL"))
+  #:trade{:commodity (find-commodity "AAPL")
           :account (find-account "IRA")
           :lt-capital-gains-account (find-account "Long-term Capital Gains")
           :lt-capital-loss-account (find-account "Long-term Capital Losses")
@@ -208,12 +208,12 @@
 
 (def ^:private sale-context
   (conj purchase-context
-        #:purchase{:type :purchase
-                   :account "IRA"
-                   :commodity "AAPL"
-                   :trade-date (t/local-date 2016 3 2)
-                   :shares 100M
-                   :value 1000M}))
+        #:trade{:type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :trade-date (t/local-date 2016 3 2)
+                :shares 100M
+                :value 1000M}))
 
 (deftest sell-a-commodity-for-a-gain
   (with-context sale-context
@@ -229,8 +229,8 @@
                          (:trade/price result))
             "The price is created and returned"))
       (testing "The lots"
-        (is (seq-of-maps-like? [#:lot{:shares-purchased 100M}
-                                :shares-owned 75M]
+        (is (seq-of-maps-like? [#:lot{:shares-purchased 100M
+                                      :shares-owned 75M}]
                                (:trade/lots result))
             "The affected lots are returned"))
       (testing "The transaction"

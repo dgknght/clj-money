@@ -71,7 +71,9 @@
                 :trade/lt-capital-gains-account
                 :trade/lt-capital-loss-account
                 :trade/st-capital-gains-account
-                :trade/st-capital-loss-account]))
+                :trade/st-capital-loss-account
+                :trade/fee
+                :trade/fee-account]))
 
 (defmethod sale-spec :separate [_]
   (s/keys :req [:trade/trade-date
@@ -83,7 +85,9 @@
                 :trade/lt-capital-gains-account
                 :trade/lt-capital-loss-account
                 :trade/st-capital-gains-account
-                :trade/st-capital-loss-account]))
+                :trade/st-capital-loss-account
+                :trade/fee
+                :trade/fee-account]))
 
 (s/def ::models/sale (s/multi-spec sale-spec :trade/commodity-account))
 
@@ -97,9 +101,9 @@
                                 ::shares-gained]))
 
 (defn- create-price
-  "Given a context, calculates and appends the share price"
-  [{:trade/keys [shares value commodity trade-date] :as context}]
-  (-> context
+  "Given a trade map, calculates and appends the share price"
+  [{:trade/keys [shares value commodity trade-date] :as trade}]
+  (-> trade
       (update-in [:trade/commodity-account :account/price-as-of]
                  #(dates/earliest % trade-date))
       (assoc :trade/price
@@ -116,23 +120,23 @@
 (defn- append-commodity-account
   "If the argument contains a commodity-account, ensure it is a full model map
   and add the account and commodity refs to the result."
-  [{:trade/keys [commodity-account] :as context}]
+  [{:trade/keys [commodity-account] :as trade}]
   (if commodity-account
     (let [{:account/keys [parent commodity]
            :as account} (models/find commodity-account :account)]
       (assert account (format "Unable to load the commodity account: %s" commodity-account))
-      (assoc context
+      (assoc trade
              :trade/commodity-account account
              :trade/account parent
              :trade/commodity commodity))
-    context))
+    trade))
 
 (defn- append-commodity
-  "Given a context, appends the commodity"
-  [{:trade/keys [commodity] :as context}]
+  "Given a trade map, appends the commodity"
+  [{:trade/keys [commodity] :as trade}]
   {:pre [commodity]}
 
-  (cond-> context
+  (cond-> trade
     (util/model-ref? commodity)
     (assoc :commodity (models/find commodity :commodity))))
 
@@ -159,12 +163,12 @@
          create-commodity-account]))
 
 (defn- append-accounts
-  "Give a purchase context, acquires the accounts
+  "Give a trade map, acquires the accounts
   necessary to complete the purchase"
   [{:trade/keys [account commodity commodity-account]
-    :as context}]
+    :as trade}]
   {:pre [(and account commodity)]}
-  (cond-> context
+  (cond-> trade
     (util/model-ref? account)
     (assoc :account (models/find account :account))
 
@@ -172,11 +176,11 @@
     (assoc :trade/commodity-account (find-or-create-commodity-account account commodity))))
 
 (defn- update-accounts
-  [{:as context :trade/keys [price]}]
+  [{:as trade :trade/keys [price]}]
 
   ; Note that :account/commodity-price is not saved, but is used in
   ; transactions in order to calculate the value of the account
-  (-> context
+  (-> trade
       (update-in [:trade/account] ensure-tag :trading)
       (update-in [:trade/commodity-account] ensure-tag :tradable)
       (assoc-in [:trade/commodity-account :account/commodity-price] (:price/price price))))
@@ -207,7 +211,7 @@
           (format-decimal price {:fraction-digits 3})))
 
 (defn- create-purchase-transaction
-  "Given a purchase context, creates the general currency
+  "Given a trade map, creates the general currency
   transaction"
   [{:trade/keys [trade-date
                  value
@@ -219,7 +223,7 @@
                  account
                  commodity-account]
     :or {fee 0M}
-    :as context}]
+    :as trade}]
   (let [currency-amount (+ value fee)
         items (cond-> [#:transaction-item{:action :credit
                                           :account account
@@ -233,11 +237,11 @@
                                                        :account fee-account
                                                        :quantity fee
                                                        :value fee}))]
-    (assoc context
+    (assoc trade
            :trade/transaction
            #:transaction{:entity entity
                          :transaction-date trade-date
-                         :description (purchase-transaction-description context)
+                         :description (purchase-transaction-description trade)
                          :items items
                          :lot-items [#:lot-item{:lot lot
                                                 :lot-action :buy
@@ -245,7 +249,7 @@
                                                 :shares shares}]})))
 
 (defn- create-capital-gains-item
-  [{:trade/keys [quantity description long-term?]} context]
+  [{:trade/keys [quantity description long-term?]} trade]
   (let [[action effect] (if (< quantity 0)
                           [:debit "loss"]
                           [:credit "gains"])
@@ -253,7 +257,7 @@
                      (format "%s-capital-%s-account-id"
                              (if long-term? "lt" "st")
                              effect))
-        account-id (account-key context)]
+        account-id (account-key trade)]
     {:action action
      :account-id account-id
      :quantity (.abs quantity)
@@ -261,55 +265,55 @@
      :memo description}))
 
 (defn- create-capital-gains-items
-  [{:trade/keys [gains] :as context}]
-  (mapv #(create-capital-gains-item % context) gains))
+  [{:trade/keys [gains] :as trade}]
+  (mapv #(create-capital-gains-item % trade) gains))
 
 (defn- create-sale-transaction-items
-  [{:trade/keys [shares value] :as context}]
-  (let [total-gains (->> (:gains context)
+  [{:trade/keys [shares value] :as trade}]
+  (let [total-gains (->> (:gains trade)
                          (map :quantity)
                          (reduce +))
-        fee (or (:fee context) 0M)
-        items (-> (create-capital-gains-items context)
+        fee (or (:fee trade) 0M)
+        items (-> (create-capital-gains-items trade)
                   (conj {:action :debit
-                         :account-id (-> context :account :id)
+                         :account-id (-> trade :account :id)
                          :quantity (- value fee)
                          :value (- value fee)})
                   (conj {:action :credit
-                         :account-id (-> context :commodity-account :id)
+                         :account-id (-> trade :commodity-account :id)
                          :quantity shares
                          :value (- value total-gains)}))]
     (cond-> items
       (not (zero? fee)) (conj {:action :debit
-                               :account-id (:fee-account-id context)
+                               :account-id (:fee-account-id trade)
                                :quantity fee
                                :value fee}))))
 
 (defn- create-sale-transaction
-  "Given a purchase context, creates the general currency
+  "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [trade-date] :as context}]
-  (let [items (create-sale-transaction-items context)
+  [{:trade/keys [trade-date] :as trade}]
+  (let [items (create-sale-transaction-items trade)
         transaction (models/put
-                      #:transaction{:entity (-> context :account :account/entity)
+                      #:transaction{:entity (-> trade :account :account/entity)
                                     :transaction-date trade-date
-                                    :description (sale-transaction-description context)
+                                    :description (sale-transaction-description trade)
                                     :items items
-                                    :lot-items (:lot-items context)})]
+                                    :lot-items (:lot-items trade)})]
     (if (v/has-error? transaction)
       (do
         (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
         (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
-      (assoc context :transaction transaction))))
+      (assoc trade :transaction transaction))))
 
 (defn- create-lot
-  "Given a purchase context, creates and appends the commodity lot"
+  "Given a trade map, creates and appends the commodity lot"
   [{:trade/keys [trade-date
                  shares
                  commodity
                  account
-                 price] :as context}]
-  (assoc context :trade/lot {:id (util/temp-id)
+                 price] :as trade}]
+  (assoc trade :trade/lot {:id (util/temp-id)
                              :lot/account account
                              :lot/commodity commodity
                              :lot/purchase-date trade-date
@@ -413,10 +417,10 @@
 ;        :commodity commodity})))
  
 (defn- acquire-lots
-  "Given a sell context, finds the next lot containing
+  "Given a trade map, finds the next lot containing
   shares that can be sold"
-  [{:trade/keys [inventory-method commodity account] :as context}]
-  (assoc context
+  [{:trade/keys [inventory-method commodity account] :as trade}]
+  (assoc trade
          :lots (models/select #:lot{:commodity commodity
                                     :account account
                                     :shares-owned [:!= 0M]}
@@ -426,7 +430,7 @@
                                          :asc)]]})))
 
 (defn- process-lot-sale
-  [context lot shares-to-sell]
+  [trade lot shares-to-sell]
   (let [shares-owned (:lot/shares-owned lot)
         [shares-sold
          remaining-shares-to-sell
@@ -437,7 +441,7 @@
                             [shares-owned
                              (- shares-to-sell shares-owned)
                              0M])
-        sale-price (-> context :price :price/price)
+        sale-price (-> trade :price :price/price)
         purchase-price (:lot/purchase-price lot)
         adj-lot (models/put (assoc lot :lot/shares-owned new-lot-balance))
         gain (.setScale
@@ -447,10 +451,10 @@
               BigDecimal/ROUND_HALF_UP)
         cut-off-date (t/plus (:lot/purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
-                                  (:trade-date context)))]
+                                  (:trade-date trade)))]
     (when (v/has-error? adj-lot)
       (log/errorf "Unable to update lot for sale %s" adj-lot))
-    [(-> context
+    [(-> trade
          (update-in [:lot-items] #(conj % #:lot-item{:lot adj-lot
                                                      :lot-action :sell
                                                      :shares shares-sold
@@ -458,54 +462,54 @@
          (update-in [:updated-lots] #(conj % adj-lot))
          (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
                                                             shares-sold
-                                                            (-> context :commodity :symbol)
+                                                            (-> trade :commodity :symbol)
                                                             (format-decimal sale-price {:fraction-digits 3}))
                                        :quantity gain
                                        :long-term? long-term?})))
      remaining-shares-to-sell]))
 
 (defn- process-lot-sales
-  "Given a sell context, processes the lot changes and appends
+  "Given a trade map, processes the lot changes and appends
   the new lot transactions and the affected lots"
-  [{:trade/keys [lots shares] :as context}]
+  [{:trade/keys [lots shares] :as trade}]
 
   (when (> shares (->> lots
                        (map :lot/shares-owned)
                        (reduce + 0M)))
-    (log/warnf "Attempt to sell more shares when owned: %s" context))
+    (log/warnf "Attempt to sell more shares when owned: %s" trade))
 
-  (loop [context (assoc context
-                        :lots []
-                        :gains []
-                        :lot-items [])
-         shares-remaining (:sale/shares context)
+  (loop [trd (assoc trade
+                    :trade/lots []
+                    :trade/gains []
+                    :trade/lot-items [])
+         shares-remaining (:trade/shares trd)
          lot (first lots)
          remaining-lots (rest lots)]
     (if lot
-      (let [[adj-context
-             shares-to-be-sold] (process-lot-sale context
+      (let [[adj-trd
+             shares-to-be-sold] (process-lot-sale trd
                                                   lot
                                                   shares-remaining)]
         (if (zero? shares-to-be-sold)
-          adj-context
-          (recur adj-context shares-to-be-sold (first remaining-lots)  (rest remaining-lots))))
+          adj-trd
+          (recur adj-trd shares-to-be-sold (first remaining-lots)  (rest remaining-lots))))
       (do
-        (log/error "Unable to find a lot to sell shares " (prn-str context))
+        (log/error "Unable to find a lot to sell shares " (prn-str trd))
         (throw (ex-info "Unable to find a lot to sell the shares"
-                        {:context context}))))))
+                        {:context trd}))))))
  
 (defn- update-entity-settings
-  [{:trade/keys [entity] :as context}]
+  [{:trade/keys [entity] :as trade}]
   (models/put (update-in entity
                          [:entity/settings]
-                         #(merge % (-> context
+                         #(merge % (-> trade
                                        (select-keys [:lt-capital-gains-account
                                                      :st-capital-gains-account
                                                      :lt-capital-loss-account
                                                      :st-capital-loss-account
                                                      :inventory-method])
                                        (util/qualify-keys :settings)))))
-  context)
+  trade)
  
 (defn- find-or-create-account
   [account]
@@ -525,23 +529,23 @@
                          (if (= "gains" result) "Gains" "Losses"))}))
  
 (defn- ensure-gains-account
-  [{:trade/keys [entity] :as context} [term result]]
+  [{:trade/keys [entity] :as trade} [term result]]
   (let [k (keyword (str term "-capital-" result "-account"))]
-    (if (k context)
-      context
-      (assoc context k (or (k (:settings entity))
-                           (find-or-create-gains-account context
+    (if (k trade)
+      trade
+      (assoc trade k (or (k (:settings entity))
+                           (find-or-create-gains-account trade
                                                          term
                                                          result))))))
 
 (defn- ensure-gains-accounts
   "Ensures that the gain/loss accounts are present
   in the sale transaction."
-  [context]
+  [trade]
   (->> (for [term ["lt" "st"]
              result ["gains" "loss"]]
          [term result])
-       (reduce ensure-gains-account context)))
+       (reduce ensure-gains-account trade)))
 
 (defn- put-sale
   [{:trade/keys [transaction
@@ -550,7 +554,7 @@
            account
            commodity-account
            affected-accounts
-           price] :as context}]
+           price] :as trade}]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
@@ -564,7 +568,7 @@
                                     account
                                     transaction]
                                    affected-accounts)))]
-    (assoc context
+    (assoc trade
            :trade/transaction (first (:transaction result))
            :trade/fee-account (->> (:account result)
                              (filter #(= :expense (:account/type %)))

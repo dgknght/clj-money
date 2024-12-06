@@ -5,9 +5,11 @@
             [clojure.java.io :as io]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
+            [clj-money.db :as db]
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
-            [clj-money.transactions :refer [expand]]))
+            [clj-money.transactions :refer [expand]]
+            [clj-money.trading :as trading]))
 
 (def ^:dynamic *context* nil)
 
@@ -385,6 +387,21 @@
       (update-in [:lot/account] (find-account ctx))
       (update-in [:lot/commodity] (find-commodity ctx))))
 
+(defmethod prepare :trade
+  [attr ctx]
+  (-> attr
+      (update-in-if [:trade/account] (find-account ctx))
+      (update-in-if [:trade/commodity] (find-commodity ctx))
+      (update-in-if [:trade/commodity-account] (find-account ctx))))
+
+(defn- process
+  [m]
+  (case (db/model-type m)
+    :trade (if (= :purchase (:trade/type m))
+             (trading/buy m)
+             (trading/sell m))
+    (models/put m)))
+
 (defn realize
   "Realizes a test context"
   [input]
@@ -392,7 +409,7 @@
             (conj ctx
                   (-> m
                       (prepare ctx)
-                      models/put)))
+                      process)))
           []
           input))
 
