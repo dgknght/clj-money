@@ -21,7 +21,7 @@
 (s/def :trade/lt-capital-loss-account ::models/model-ref)
 (s/def :trade/st-capital-gains-account ::models/model-ref)
 (s/def :trade/st-capital-loss-account ::models/model-ref)
-(s/def :trade/trade-date t/local-date?)
+(s/def :trade/date t/local-date?)
 (s/def :trade/fee decimal?)
 (s/def :trade/fee-account ::models/model-ref)
 (s/def :trade/shares decimal?)
@@ -38,7 +38,7 @@
       :separate)))
 
 (defmethod purchase-spec :combined [_]
-  (s/keys :req [:trade/trade-date
+  (s/keys :req [:trade/date
                 :trade/shares
                 :trade/value
                 :trade/commodity-account]
@@ -46,7 +46,7 @@
                 :trade/fee-account]))
 
 (defmethod purchase-spec :separate [_]
-  (s/keys :req [:trade/trade-date
+  (s/keys :req [:trade/date
                 :trade/shares
                 :trade/value
                 :trade/commodity
@@ -63,7 +63,7 @@
       :separate)))
 
 (defmethod sale-spec :combined [_]
-  (s/keys :req [:trade/trade-date
+  (s/keys :req [:trade/date
                 :trade/shares
                 :trade/value
                 :trade/commodity-account]
@@ -76,7 +76,7 @@
                 :trade/fee-account]))
 
 (defmethod sale-spec :separate [_]
-  (s/keys :req [:trade/trade-date
+  (s/keys :req [:trade/date
                 :trade/shares
                 :trade/value
                 :trade/commodity
@@ -102,13 +102,13 @@
 
 (defn- create-price
   "Given a trade map, calculates and appends the share price"
-  [{:trade/keys [shares value commodity trade-date] :as trade}]
+  [{:trade/keys [shares value commodity date] :as trade}]
   (-> trade
       (update-in [:trade/commodity-account :account/price-as-of]
-                 #(dates/earliest % trade-date))
+                 #(dates/earliest % date))
       (assoc :trade/price
              #:price{:commodity commodity
-                     :trade-date trade-date
+                     :trade-date date
                      :price (with-precision 4 (/ value shares))})))
 
 (defn- ensure-tag
@@ -213,7 +213,7 @@
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [trade-date
+  [{:trade/keys [date
                  value
                  shares
                  fee-account
@@ -240,7 +240,7 @@
     (assoc trade
            :trade/transaction
            #:transaction{:entity entity
-                         :transaction-date trade-date
+                         :transaction-date date
                          :description (purchase-transaction-description trade)
                          :items items
                          :lot-items [#:lot-item{:lot lot
@@ -292,11 +292,11 @@
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [trade-date] :as trade}]
+  [{:trade/keys [date] :as trade}]
   (let [items (create-sale-transaction-items trade)
         transaction (models/put
                       #:transaction{:entity (-> trade :account :account/entity)
-                                    :transaction-date trade-date
+                                    :transaction-date date
                                     :description (sale-transaction-description trade)
                                     :items items
                                     :lot-items (:lot-items trade)})]
@@ -308,7 +308,7 @@
 
 (defn- create-lot
   "Given a trade map, creates and appends the commodity lot"
-  [{:trade/keys [trade-date
+  [{:trade/keys [date
                  shares
                  commodity
                  account
@@ -316,14 +316,14 @@
   (assoc trade :trade/lot {:id (util/temp-id)
                              :lot/account account
                              :lot/commodity commodity
-                             :lot/purchase-date trade-date
+                             :lot/purchase-date date
                              :lot/purchase-price (:price/price price)
                              :lot/shares-purchased shares
                              :lot/shares-owned shares}))
 
 (defn- propagate-price-to-accounts
   "Propagate price change to affected accounts"
-  [{:trade/keys [price commodity trade-date commodity-account] :as trade}]
+  [{:trade/keys [price commodity date commodity-account] :as trade}]
   ; For any account that references the commodity in this trade,
   ; that reflects a price-as-of date that is earlier than this
   ; trade date, update the value of the account based on the current
@@ -331,14 +331,14 @@
   (assoc trade
          :trade/affected-accounts
          (->> (models/select (cond-> #:account{:commodity commodity
-                                               :price-as-of [:<= trade-date]
+                                               :price-as-of [:<= date]
                                                :quantity [:> 0M]}
 
                                (util/live-id? (:id commodity-account))
                                (assoc :account/id [:!= (:id commodity-account)])))
               (map (fn [{:as act :account/keys [quantity]}]
                      (assoc act
-                            :account/price-as-of trade-date
+                            :account/price-as-of date
                             :account/value (with-precision 2
                                              (* price quantity))))))))
 
@@ -378,13 +378,13 @@
 
 ; expect
 ; either
-;   :commodity
-;   :account
+;   :trade/commodity
+;   :trade/account
 ; or
-;   :commodity-account
-; :trade-date
-; :shares
-; :value
+;   :trade/commodity-account
+; :trade/date
+; :trade/shares
+; :trade/value
 (defn buy
   [purchase]
   (with-ex-validation purchase ::models/purchase []
@@ -451,7 +451,7 @@
               BigDecimal/ROUND_HALF_UP)
         cut-off-date (t/plus (:lot/purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
-                                  (:trade-date trade)))]
+                                  (:trade/date trade)))]
     (when (v/has-error? adj-lot)
       (log/errorf "Unable to update lot for sale %s" adj-lot))
     [(-> trade

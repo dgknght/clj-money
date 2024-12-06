@@ -92,7 +92,7 @@
 (defn- purchase-attributes []
   #:trade{:commodity (find-commodity "AAPL")
           :account (find-account "IRA")
-          :trade-date (t/local-date 2016 1 2)
+          :date (t/local-date 2016 1 2)
           :shares 100M
           :value 1000M})
 
@@ -179,8 +179,8 @@
 (deftest purchase-requires-a-trade-date
   (with-context purchase-context
     (assert-invalid-purchase
-      (dissoc (purchase-attributes) :trade/trade-date)
-      {:trade/trade-date ["Trade date is required"]})))
+      (dissoc (purchase-attributes) :trade/date)
+      {:trade/date ["Date is required"]})))
 
 (deftest purchase-requires-a-number-of-shares
   (with-context purchase-context
@@ -202,7 +202,7 @@
           :st-capital-gains-account (find-account "Short-term Capital Gains")
           :st-capital-loss-account (find-account "Short-term Capital Losses")
           :inventory-method :fifo
-          :trade-date (t/local-date 2017 3 2)
+          :date (t/local-date 2017 3 2)
           :shares 25M
           :value 375M}) ; Sell at $15/share and $125 gain
 
@@ -211,7 +211,7 @@
         #:trade{:type :purchase
                 :account "IRA"
                 :commodity "AAPL"
-                :trade-date (t/local-date 2016 3 2)
+                :date (t/local-date 2016 3 2)
                 :shares 100M
                 :value 1000M}))
 
