@@ -35,7 +35,7 @@
   [{:account/keys [parent type]}]
   (or (nil? parent)
       (= type
-         (:account/type (models/find parent)))))
+         (:account/type (models/find parent :account)))))
 (v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
                                    :path [:account/type]})
 
