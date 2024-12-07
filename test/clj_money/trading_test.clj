@@ -748,13 +748,6 @@
 ;                 :value 1000M
 ;                 :trade-date (t/local-date 2015 1 1)}))
 ; 
-; #_(deftest deleting-trading-transactions-deletes-lots-created-by-the-transaction
-;   (with-context delete-trading-transaction-context
-;     (let [[{:keys [transaction lot]}] (:trades *context*)]
-;       (is lot "The lot is present before deleting the transaction")
-;       (transactions/delete transaction)
-;       (is (nil? (lots/find lot)) "The lot is not retreivable after deleting the transaction."))))
-; 
 ; #_(def ^:private trading-update-context
 ;   (conj basic-context
 ;         #:commodity{:name "Apple, Inc."
