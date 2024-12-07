@@ -478,20 +478,25 @@
                 :shares 100M
                 :value 2000M}))
 
+(defn- multi-lot-sale-attributes
+  [account commodity]
+  #:trade{:date (t/local-date 2017 3 2)
+          :account account
+          :commodity commodity
+          :shares 50M
+          :value 1500M
+          :lt-capital-gains-account (find-account "Long-term Capital Gains")
+          :st-capital-gains-account (find-account "Short-term Capital Gains")
+          :lt-capital-loss-account (find-account "Long-term Capital Losses")
+          :st-capital-loss-account (find-account "Short-term Capital Losses")})
+
 (deftest lifo-sale
   (with-context multi-lot-context
     (let [commodity (find-commodity "AAPL")
           ira (find-account "IRA")]
-      (trading/sell #:trade{:date (t/local-date 2017 3 2)
-                            :account ira
-                            :commodity commodity
-                            :shares 50M
-                            :value 1500M
-                            :inventory-method :lifo
-                            :lt-capital-gains-account (find-account "Long-term Capital Gains")
-                            :st-capital-gains-account (find-account "Short-term Capital Gains")
-                            :lt-capital-loss-account (find-account "Long-term Capital Losses")
-                            :st-capital-loss-account (find-account "Short-term Capital Losses")})
+      (-> (multi-lot-sale-attributes ira commodity)
+          (assoc :trade/inventory-method :lifo)
+          trading/sell)
       (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 3 2)
                                     :shares-purchased 100M
                                     :shares-owned 100M
@@ -504,60 +509,25 @@
                                                   :account ira}))
           "Shares are sold from the most recent lot"))))
 
-; (deftest fifo-sale
-;   (let [context (realize
-;                  (update-in purchase-context
-;                             [:entities 0]
-;                             #(assoc-in % [:settings :inventory-method] :fifo)))
-;         commodity (find-commodity context "AAPL")
-;         [ira
-;          lt-gains
-;          st-gains
-;          lt-loss
-;          st-loss] (map-accounts context
-;                                 "IRA"
-;                                 "Long-term Capital Gains"
-;                                 "Short-term Capital Gains"
-;                                 "Long-term Capital Gains"
-;                                 "Short-term Capital Gains")
-;         _ (trading/buy {:trade-date (t/local-date 2015 3 2)
-;                         :account-id (:id ira)
-;                         :commodity-id (:id commodity)
-;                         :shares 100M
-;                         :value 1000M})
-;         _ (trading/buy {:trade-date (t/local-date 2016 3 2)
-;                         :account-id (:id ira)
-;                         :commodity-id (:id commodity)
-;                         :shares 100M
-;                         :value 2000M})
-;         _ (trading/sell {:trade-date (t/local-date 2017 3 2)
-;                          :account-id (:id ira)
-;                          :commodity-id (:id commodity)
-;                          :shares 50M
-;                          :value 1500M
-;                          :lt-capital-gains-account-id (:id lt-gains)
-;                          :st-capital-gains-account-id (:id st-gains)
-;                          :lt-capital-loss-account-id (:id lt-loss)
-;                          :st-capital-loss-account-id (:id st-loss)})
-;         actual (->> (lots/search {:commodity-id (:id commodity)
-;                                   :account-id (:id ira)})
-;                     (sort-by :purchase-date)
-;                     (map #(dissoc %
-;                                   :id
-;                                   :created-at
-;                                   :updated-at
-;                                   :commodity-id
-;                                   :account-id)))
-;         expected [{:purchase-date (t/local-date 2015 3 2)
-;                    :shares-purchased 100M
-;                    :shares-owned 50M
-;                    :purchase-price 10M}
-;                   {:purchase-date (t/local-date 2016 3 2)
-;                    :shares-purchased 100M
-;                    :shares-owned 100M
-;                    :purchase-price 20M}]]
-;     (is (= expected actual) "Shares are sold from the most recent lot")))
-; 
+(deftest fifo-sale
+  (with-context multi-lot-context
+    (let [commodity (find-commodity "AAPL")
+          ira (find-account "IRA")]
+      (-> (multi-lot-sale-attributes ira commodity)
+          (assoc :trade/inventory-method :fifo)
+          trading/sell)
+      (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 50M
+                                    :purchase-price 10M}
+                              #:lot{:purchase-date (t/local-date 2016 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 100M
+                                    :purchase-price 20M}]
+                             (models/select #:lot{:commodity commodity
+                                                  :account ira}))
+          "Shares are sold from the earliest lot"))))
+
 ; (deftest undo-a-purchase
 ;   (let [context (realize purchase-context)
 ;         ira (find-account context "IRA")
