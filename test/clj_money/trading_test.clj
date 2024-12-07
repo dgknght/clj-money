@@ -45,7 +45,7 @@
          (filter #(model= acc (:transaction-item/account %)))
          first))
 
-(def ^:private purchase-context
+(def ^:private base-context
   [(factory :user {:user/email "john@doe.com"})
    #:entity{:name "Personal"
             :user "john@doe.com"}
@@ -64,18 +64,6 @@
    #:account{:name "Opening balances"
              :entity "Personal"
              :type :income}
-   #:account{:name "Long-term Capital Gains"
-             :entity "Personal"
-             :type :income}
-   #:account{:name "Long-term Capital Losses"
-             :entity "Personal"
-             :type :expense}
-   #:account{:name "Short-term Capital Gains"
-             :entity "Personal"
-             :type :income}
-   #:account{:name "Short-term Capital Losses"
-             :entity "Personal"
-             :type :expense}
    #:account{:name "Investment Expenses"
              :entity "Personal"
              :type :expense}
@@ -88,6 +76,21 @@
                  :debit-account "IRA"
                  :credit-account "Opening balances"
                  :quantity 2000M}])
+
+(def ^:private purchase-context
+  (conj base-context
+        #:account{:name "Long-term Capital Gains"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "Long-term Capital Losses"
+                  :entity "Personal"
+                  :type :expense}
+        #:account{:name "Short-term Capital Gains"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "Short-term Capital Losses"
+                  :entity "Personal"
+                  :type :expense}))
 
 (defn- purchase-attributes []
   #:trade{:commodity (find-commodity "AAPL")
@@ -321,47 +324,69 @@
                                           (:trade/transaction result)))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
-; (def ^:private auto-create-context
-;   (update-in sale-context [:accounts] (fn [accounts]
-;                                         (remove #(re-find #"Capital" (:name %)) accounts))))
-; 
-; (deftest auto-create-gains-accounts
-;   (let [context (realize auto-create-context)
-;         _ (trading/sell (sale-attributes context))
-;         entity (entities/find (find-entity context "Personal"))
-;         ltcg (accounts/find-by {:entity-id (:id entity)
-;                                 :name "Long-term Capital Gains"})
-;         stcg (accounts/find-by {:entity-id (:id entity)
-;                                 :name "Short-term Capital Gains"})
-;         ltcl (accounts/find-by {:entity-id (:id entity)
-;                                 :name "Long-term Capital Losses"})
-;         stcl (accounts/find-by {:entity-id (:id entity)
-;                                 :name "Short-term Capital Losses"})]
-;     (is (comparable? {:type :income}
-;                      ltcg)
-;         "The long-term capital gains account is an income account")
-;     (is (= (get-in entity [:settings :lt-capital-gains-account-id])
-;            (:id ltcg))
-;         "The Long-term Capital Gains account id is placed in the entity settings")
-;     (is (comparable? {:type :income}
-;                      stcg)
-;         "The short-term capital gains account is an income account")
-;     (is (= (get-in entity [:settings :st-capital-gains-account-id])
-;            (:id stcg))
-;         "The Short-term Capital Gains account id is placed in the entity settings")
-;     (is (comparable? {:type :expense}
-;                      ltcl)
-;         "The long-term capital losses account is an expense account")
-;     (is (= (get-in entity [:settings :lt-capital-loss-account-id])
-;            (:id ltcl))
-;         "The Long-term Capital Losses account id is placed in the entity settings")
-;     (is (comparable? {:type :expense}
-;                      stcl)
-;         "The short-term capital losses account is an expense account")
-;     (is (= (get-in entity [:settings :st-capital-loss-account-id])
-;            (:id stcl))
-;         "The Short-term Capital Losses account id is placed in the entity settings")))
-; 
+(def ^:private auto-create-context
+  (conj base-context
+        #:trade{:type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :date (t/local-date 2016 3 2)
+                :shares 100M
+                :value 1000M}))
+
+(deftest auto-create-gains-accounts
+  (with-context auto-create-context
+    (trading/sell #:trade{:commodity (find-commodity "AAPL")
+                          :account (find-account "IRA")
+                          :inventory-method :fifo
+                          :date (t/local-date 2017 3 2)
+                          :shares 25M
+                          :value 375M})
+    (let [entity (models/find (find-entity "Personal"))]
+      (testing "Long-term capital gains"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Long-term Capital Gains"})]
+          (is (comparable? {:account/type :income}
+                           account)
+              "The long-term capital gains account is an income account")
+          (is (model= (get-in entity
+                              [:entity/settings
+                               :settings/lt-capital-gains-account])
+                      account)
+              "The Long-term Capital Gains account is specified in the entity settings")))
+      (testing "Short-term capital gains"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Short-term Capital Gains"})]
+          (is (comparable? {:account/type :income}
+                           account)
+              "The short-term capital gains account is an income account")
+          (is (model= (get-in entity
+                              [:entity/settings
+                               :settings/st-capital-gains-account])
+                      account)
+              "The Short-term Capital Gains account id is placed in the entity settings")))
+      (testing "Long-term capital losses"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Long-term Capital Losses"})]
+          (is (comparable? {:account/type :expense}
+                           account)
+              "The long-term capital losses account is an expense account")
+          (is (model= (get-in entity
+                              [:entity/settings
+                               :settings/lt-capital-loss-account])
+                      account)
+              "The Long-term Capital Losses account id is placed in the entity settings")))
+      (testing "Short-term capital losses"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Short-term Capital Losses"})]
+          (is (comparable? {:account/type :expense}
+                           account)
+              "The short-term capital losses account is an expense account")
+          (is (model= (get-in entity
+                              [:entity/settings
+                               :settings/st-capital-loss-account])
+                      account)
+              "The Short-term Capital Losses account id is placed in the entity settings"))))))
+
 ; (deftest sell-a-commodity-with-a-fee
 ;   (let [context (realize sale-context)
 ;         ira (find-account context "IRA")

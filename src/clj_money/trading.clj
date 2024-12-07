@@ -512,21 +512,22 @@
  
 (defn- update-entity-settings
   [trade]
-  (update-in trade
-             [:trade/entity :entity/settings]
-             #(merge % (-> trade
-                           (select-keys [:trade/lt-capital-gains-account
-                                         :trade/st-capital-gains-account
-                                         :trade/lt-capital-loss-account
-                                         :trade/st-capital-loss-account
-                                         :trade/inventory-method])
-                           (update-keys (fn [k] (keyword "settings" (name k))))))))
+  (let [settings (-> trade
+                     (select-keys [:trade/lt-capital-gains-account
+                                   :trade/st-capital-gains-account
+                                   :trade/lt-capital-loss-account
+                                   :trade/st-capital-loss-account
+                                   :trade/inventory-method])
+                     (update-keys #(keyword "settings" (name %)))
+                     (update-vals #(if (map? %)
+                                     (util/->model-ref %)
+                                     %)))]
+    (update-in trade
+               [:trade/entity :entity/settings]
+               #(merge settings %))))
  
-(defn- find-or-create-account
-  [account]
-  (some #(% account)
-        [models/find-by
-         models/put]))
+(def ^:private find-or-create-account
+  (some-fn models/find-by models/put))
  
 (defn- find-or-create-gains-account
   [{:trade/keys [entity]} term result]
@@ -541,13 +542,15 @@
  
 (defn- ensure-gains-account
   [{:trade/keys [entity] :as trade} [term result]]
-  (let [k (keyword "trade" (str term "-capital-" result "-account"))]
-    (if (k trade)
-      trade
-      (assoc trade k (or (k (:settings entity))
-                           (find-or-create-gains-account trade
-                                                         term
-                                                         result))))))
+  (let [naked-key (str term "-capital-" result "-account")
+        trade-key (keyword "trade" naked-key)
+        settings-key (keyword "settings" naked-key)]
+    (update-in trade
+               [trade-key]
+               (fn [account]
+                 (or account
+                     (get-in entity [:entity/settings settings-key])
+                     (find-or-create-gains-account trade term result))))))
 
 (defn- ensure-gains-accounts
   "Ensures that the gain/loss accounts are present
