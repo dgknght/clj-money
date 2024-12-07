@@ -220,12 +220,10 @@
 
 (deftest sell-a-commodity-for-a-gain
   (with-context sale-context
-    (let [aapl (find-commodity "AAPL")
-          result (trading/sell (sale-attributes))
-          ira (find-account "IRA")
+    (let [result (trading/sell (sale-attributes))
           ltcg (find-account "Long-term Capital Gains")
           aapl-acc (models/find-by #:account{:entity (find-entity "Personal")
-                                             :commodity aapl})]
+                                             :commodity (find-commodity "AAPL")})]
       (testing "The price"
         (is (comparable? #:price{:price 15M
                                  :trade-date (t/local-date 2017 3 2)}
@@ -251,7 +249,8 @@
         (is (comparable? #:transaction-item{:action :debit
                                             :value 375M
                                             :quantity 375M}
-                         (item-by-account ira (:trade/transaction result)))
+                         (item-by-account (find-account "IRA")
+                                          (:trade/transaction result)))
             "The trading account is debited the total proceeds from the purchase")
         (is (comparable? #:transaction-item{:action :credit
                                             :value 250M
