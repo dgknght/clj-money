@@ -279,45 +279,49 @@
                       (get-in entity [:entity/settings :settings/st-capital-loss-account]))
               "The short-term capital losses account is saved"))))))
 
-; (deftest sell-a-commodity-for-a-loss
-;   (let [context (realize sale-context)
-;         entity (find-entity context "Personal")
-;         aapl (find-commodity context "AAPL")
-;         attr (assoc (sale-attributes context) :value 200M) ; 25 shares, $50 loss
-;         {:keys [lots transaction price]} (trading/sell attr)
-;         ira (find-account context "IRA")
-;         ltcl (find-account context "Long-term Capital Losses")
-;         aapl-acc (accounts/find-by {:entity-id (:id entity)
-;                                     :commodity-id (:id aapl)})
-;         lot (lots/find-by {:commodity-id (:id aapl)
-;                            :account-id (:id ira)
-;                            :purchase-date (t/local-date 2016 3 2)})]
-;     (is (= 8M (:price price))
-;         "The result contains the correct price")
-;     (is (valid? price) "The price is valid")
-;     (is lots "The result contains the lots affected")
-;     (doseq [lot lots]
-;       (is (valid? lot) "Each lot is valid"))
-;     (is (= 75M (:shares-owned lot))
-;         "The shares-owned value of the original lot is updated")
-;     (is transaction "The result contains the transaction record")
-;     (is (valid? transaction) "The transaction is valid")
-;     (is (comparable? {:action :debit
-;                       :value 200M
-;                       :quantity 200M}
-;                      (item-by-account ira transaction))
-;         "The trading account is debited the total proceeds from the purchase")
-;     (is (comparable? {:action :debit
-;                       :value 50M
-;                       :quantity 50M}
-;                      (item-by-account ltcl transaction))
-;         "The capital loss account is debited the cost the shares less the sale proceeds")
-;     (is (comparable? {:action :credit
-;                       :value 250M
-;                       :quantity 25M}
-;                      (item-by-account aapl-acc transaction))
-;         "The commodity account is credited the number of shares and purchase value of the shares.")))
-; 
+; sell 25 shares at $8.00 per share and $50 loss
+; value before sale: $800.00
+; value after sale: $600.00
+(deftest sell-a-commodity-for-a-loss
+  (with-context sale-context
+    (let [result (-> (sale-attributes)
+                     (assoc :trade/value 200M)
+                     trading/sell)]
+      (testing "The price"
+        (is (comparable? #:price{:price 8M
+                                 :trade-date (t/local-date 2017 3 2)}
+                         (:trade/price result))
+            "The result contains the new price"))
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:shares-owned 75M}]
+                               (:trade/updated-lots result))
+            "The result contains the updated lots"))
+
+      (testing "The transaction"
+        (is (comparable? #:transaction{:transaction-date (t/local-date 2017 3 2)
+                                       :description "Sell 25 shares of AAPL at 8.000"}
+                         (:trade/transaction result))
+            "The result contains the transaction")
+        (is (comparable? #:transaction-item{:action :debit
+                                            :value 200M
+                                            :quantity 200M}
+                         (item-by-account (find-account "IRA")
+                                          (:trade/transaction result)))
+            "The trading account is debited the total proceeds from the purchase")
+        (is (comparable? #:transaction-item{:action :debit
+                                            :value 50M
+                                            :quantity 50M}
+                         (item-by-account (find-account "Long-term Capital Losses")
+                                          (:trade/transaction result)))
+            "The capital loss account is debited the cost the shares less the sale proceeds")
+        (is (comparable? #:transaction-item{:action :credit
+                                            :value 250M
+                                            :quantity 25M}
+                         (item-by-account (models/find-by #:account{:entity (find-entity "Personal")
+                                                                    :commodity (find-commodity "AAPL")})
+                                          (:trade/transaction result)))
+            "The commodity account is credited the number of shares and purchase value of the shares.")))))
+
 ; (def ^:private auto-create-context
 ;   (update-in sale-context [:accounts] (fn [accounts]
 ;                                         (remove #(re-find #"Capital" (:name %)) accounts))))
