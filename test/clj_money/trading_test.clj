@@ -554,28 +554,39 @@
                             (find-transaction [(t/local-date 2016 3 2)
                                                "Purchase 100 shares of AAPL at 10.000"]))))))
 
-; (deftest undo-a-sale
-;   (let [context (realize purchase-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         _ (trading/buy {:trade-date (t/local-date 2017 3 2)
-;                         :shares 100M
-;                         :commodity-id (:id commodity)
-;                         :account-id (:id ira)
-;                         :value 1000M})
-;         sale (trading/sell (sale-attributes context))
-;         _ (trading/unsell (:transaction sale))]
-;     ; IRA balance balance before purchase: $2,000
-;     ;                      after purchase: $1,000
-;     ;                          after sale: $1,375
-;     ;                        after unsale: $1,000
-;     (is (= 1000M (:quantity (accounts/reload ira)))
-;         "The account balance is restored")
-;     (testing "the affected lots"
-;       (doseq [lot (map lots/find (:lots sale))]
-;         (is (= (:shares-owned lot) (:shares-purchased lot))
-;             "The shares-owned should be restored")))))
-; 
+(def ^:privat existing-sale-context
+  (conj sale-context
+        #:trade{:type :sale
+                :commodity "AAPL"
+                :account "IRA"
+                :inventory-method :fifo
+                :date (t/local-date 2017 3 2)
+                :shares 25M
+                :value 375M}))
+
+; IRA balance balance before purchase: $2,000
+;                      after purchase: $1,000
+;                          after sale: $1,375
+;                        after unsale: $1,000
+(deftest undo-a-sale
+  (with-context existing-sale-context
+    (let [trx (find-transaction [(t/local-date 2017 3 2)
+                                 "Sell 25 shares of AAPL at 15.000"])
+          ira (find-account "IRA")]
+      (trading/unsell trx)
+      (testing "The transaction"
+        (is (nil? (models/find trx))
+            "The transaction cannot be retrieved after unsell"))
+      (testing "The trading account"
+        (is (comparable? {:account/quantity 1000M}
+                         (models/find ira))
+            "The account balance is restored"))
+      (testing "The affected lots"
+        (is (seq-of-maps-like? [#:lot{:shares-purchased 100M
+                                      :shares-owned 100M}]
+                               (models/select {:lot/account ira}))
+            "The shares owned are restored")))))
+
 ; (def ^:private transfer-context
 ;   (update-in sale-context [:accounts] conj {:name "IRA 2"
 ;                                             :type :asset}))

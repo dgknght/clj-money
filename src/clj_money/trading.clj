@@ -4,6 +4,7 @@
             [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.accounts :refer [system-tagged?]]
@@ -599,7 +600,6 @@
                                          (filter (system-tagged? :tradable))
                                          first)
            :trade/updated-lots (:lot result))))
-
 (defn sell
   [sale]
   (with-ex-validation sale ::models/sale
@@ -618,15 +618,26 @@
         propagate-price-to-accounts
         put-sale)))
 
-; (defn unsell
-;   [{transaction-id :id transaction-date :transaction-date}]
-;   (with-transacted-storage (env :db)
-;     (let [transaction (transactions/find transaction-id transaction-date)]
-;       (doseq [lot-item (:lot-items transaction)]
-;         (let [lot (lots/find (:lot-id lot-item))]
-;           (lots/update (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
-;       (transactions/delete transaction))))
-; 
+(defn unsell
+  [trx]
+  (let [lot-items (models/select
+                    #:lot-item{:transaction trx
+                               :transaction-date (:transaction/transaction-date trx)})
+        lots (index-by :id
+                       (models/select (db/model-type
+                                        {:id [:in (map (comp :id :lot-item/lot)
+                                                       lot-items)]}
+                                        :lot)))
+        updated-lots (vals (reduce (fn [lots lot-item]
+                                     (update-in lots
+                                                [(get-in lot-item [:lot-item/lot :id])
+                                                 :lot/shares-owned]
+                                                #(+ % (:lot-item/shares lot-item))))
+                                   lots
+                                   lot-items))]
+    (models/put-many (cons [::db/delete trx]
+                           updated-lots))))
+
 ; (defn- append-transfer-accounts
 ;   [{:keys  [from-account from-account-id to-account to-account-id commodity] :as context}]
 ;   (let [to-account (ensure-tag (or to-account
