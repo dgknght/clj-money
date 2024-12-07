@@ -399,27 +399,31 @@
                      (models/find (find-account "Investment Expenses")))
         "The investment fee account balance reflects the fee")))
 
-; (deftest sales-requires-a-trade-date
-;   (let [context (realize sale-context)
-;         result (trading/sell (-> context
-;                                  sale-attributes
-;                                  (dissoc :trade-date)))]
-;     (is (invalid? result [:trade-date] "Trade date is required"))))
-; 
-; (deftest sales-requires-a-number-of-shares
-;   (let [context (realize sale-context)
-;         result (trading/sell (-> context
-;                                  sale-attributes
-;                                  (dissoc :shares)))]
-;     (is (invalid? result [:shares] "Shares is required"))))
-; 
-; (deftest sales-requires-a-value
-;   (let [context (realize sale-context)
-;         result (trading/sell (-> context
-;                                  sale-attributes
-;                                  (dissoc :value)))]
-;     (is (invalid? result [:value] "Value is required"))))
-; 
+(defn- assert-invalid-sale
+  [attr errors]
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors errors}
+        (trading/sell attr))))
+
+(deftest sales-requires-a-trade-date
+  (with-context sale-context
+    (assert-invalid-sale
+      (dissoc (sale-attributes) :trade/date)
+      {:trade/date ["Date is required"]})))
+
+(deftest sales-requires-a-number-of-shares
+  (with-context sale-context
+    (assert-invalid-sale
+      (dissoc (sale-attributes) :trade/shares)
+      {:trade/shares ["Shares is required"]})))
+
+(deftest sales-requires-a-value
+  (with-context sale-context
+    (assert-invalid-sale
+      (dissoc (sale-attributes) :trade/value)
+      {:trade/value ["Value is required"]})))
+
 ; (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
 ;   (let [context (realize purchase-context)
 ;         [ira] (:accounts context)
