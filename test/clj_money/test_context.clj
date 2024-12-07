@@ -394,22 +394,39 @@
       (update-in-if [:trade/commodity] (find-commodity ctx))
       (update-in-if [:trade/commodity-account] (find-account ctx))))
 
+(def ^:private extract-purchase-models
+  (juxt :trade/transaction
+        :trade/commodity-account
+        :trade/lot))
+
+(defn- buy
+  [trade]
+  (extract-purchase-models (trading/buy trade)))
+
+(def ^:private extract-sale-models
+  (juxt :trade/transaction))
+
+(defn- sell
+  [trade]
+  (extract-sale-models (trading/sell trade)))
+
 (defn- process
   [m]
   (case (db/model-type m)
     :trade (if (= :purchase (:trade/type m))
-             (trading/buy m)
-             (trading/sell m))
-    (models/put m)))
+             (buy m)
+             (sell m))
+    [(models/put m)]))
 
 (defn realize
   "Realizes a test context"
   [input]
   (reduce (fn [ctx m]
-            (conj ctx
-                  (-> m
-                      (prepare ctx)
-                      process)))
+            (apply conj
+                   ctx
+                   (-> m
+                       (prepare ctx)
+                       process)))
           []
           input))
 
