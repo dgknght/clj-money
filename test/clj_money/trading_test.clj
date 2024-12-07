@@ -200,6 +200,10 @@
 ; Sell 25 shares at $15/share and $125 gain
 ; value before sale: 1,500
 ; value after sale:  1,125
+;
+; The trading account:
+; quantity before: 1,000
+; quantity after: 1,375
 (defn- sale-attributes []
   #:trade{:commodity (find-commodity "AAPL")
           :account (find-account "IRA")
@@ -241,14 +245,7 @@
         (is (comparable? #:transaction{:transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"}
                          (:trade/transaction result))
-            "The transaction is created and returned"))
-      (testing "The commodity account"
-        (is (comparable? #:account{:name "AAPL"
-                                   :value 1125M
-                                   :price-as-of (t/local-date 2017 3 2)}
-                         (models/find aapl-acc))
-            "The commodity account is updated wth new value and price date"))
-      (testing "The trading account"
+            "The transaction is created and returned")
         (is (comparable? #:transaction-item{:action :debit
                                             :value 375M
                                             :quantity 375M}
@@ -260,6 +257,19 @@
                                             :quantity 25M}
                          (item-by-account aapl-acc (:trade/transaction result)))
             "The commodity account is credited the number of shares and purchase value of the shares."))
+      (testing "The commodity account"
+        (is (comparable? #:account{:name "AAPL"
+                                   :quantity 75M
+                                   :value 1125M
+                                   :price-as-of (t/local-date 2017 3 2)}
+                         (models/find aapl-acc))
+            "The commodity account is updated wth new value and price date"))
+      (testing "The trading account"
+        (is (comparable? #:account{:name "IRA"
+                                   :quantity 1375M
+                                   :value 1375M}
+                         (models/find (find-account "IRA")))
+            "The trading account is updated wth new value"))
       (testing "The capital gains account"
         (is (comparable? #:transaction-item{:action :credit
                                             :value 125M
@@ -423,21 +433,6 @@
     (assert-invalid-sale
       (dissoc (sale-attributes) :trade/value)
       {:trade/value ["Value is required"]})))
-
-; (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
-;   (let [context (realize purchase-context)
-;         [ira] (:accounts context)
-;         commodity (find-commodity context "AAPL")
-;         _ (trading/buy {:commodity-id (:id commodity)
-;                         :account-id (:id ira)
-;                         :trade-date (t/local-date 2016 1 2)
-;                         :shares 100M
-;                         :value 1000M})
-;         _ (trading/sell (-> context
-;                             sale-attributes
-;                             (assoc :shares 50M :value 560M)))
-;         new-balance (:quantity (accounts/reload ira))]
-;     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 ; 
 ; (deftest selling-a-commodity-updates-a-lot-record
 ;   (let [context (realize sale-context)
