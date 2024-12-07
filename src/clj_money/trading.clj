@@ -105,7 +105,7 @@
   [{:trade/keys [shares value commodity date] :as trade}]
   (-> trade
       (update-in [:trade/commodity-account :account/price-as-of]
-                 #(dates/earliest % date))
+                 #(dates/latest % date))
       (assoc :trade/price
              #:price{:commodity commodity
                      :trade-date date
@@ -165,15 +165,16 @@
 (defn- append-accounts
   "Give a trade map, acquires the accounts
   necessary to complete the purchase"
-  [{:trade/keys [account commodity commodity-account]
+  [{:trade/keys [account commodity]
     :as trade}]
   {:pre [(and account commodity)]}
-  (cond-> trade
-    (util/model-ref? account)
-    (assoc :account (models/find account :account))
-
-    (nil? commodity-account)
-    (assoc :trade/commodity-account (find-or-create-commodity-account account commodity))))
+  (-> trade
+      (update-in [:trade/account]
+                 (models/resolve-ref :account))
+      (update-in [:trade/commodity-account]
+                 #(if %
+                    (models/resolve-ref % :account)
+                    (find-or-create-commodity-account account commodity)))))
 
 (defn- update-accounts
   [{:as trade :trade/keys [price]}]
@@ -186,11 +187,9 @@
       (assoc-in [:trade/commodity-account :account/commodity-price] (:price/price price))))
 
 (defn- append-entity
-  [{{:account/keys [entity]} :trade/account
-    :as trade}]
-  (assoc trade :trade/entity (if (util/model-ref? entity)
-                                 (models/find entity :entity)
-                                 entity)))
+  [{{:account/keys [entity]} :trade/account :as trade}]
+  (update-in trade [:trade/entity] (fnil (models/resolve-ref :entity)
+                                         entity)))
 
 (defn- sale-transaction-description
   [{:trade/keys [shares]
@@ -320,12 +319,12 @@
                  account
                  price] :as trade}]
   (assoc trade :trade/lot {:id (util/temp-id)
-                             :lot/account account
-                             :lot/commodity commodity
-                             :lot/purchase-date date
-                             :lot/purchase-price (:price/price price)
-                             :lot/shares-purchased shares
-                             :lot/shares-owned shares}))
+                           :lot/account account
+                           :lot/commodity commodity
+                           :lot/purchase-date date
+                           :lot/purchase-price (:price/price price)
+                           :lot/shares-purchased shares
+                           :lot/shares-owned shares}))
 
 (defn- propagate-price-to-accounts
   "Propagate price change to affected accounts"
@@ -371,7 +370,7 @@
                                    affected-accounts)))]
     (assoc trade
            :trade/transaction (first (:transaction result))
-           :trade/fee-account (->> (:trade/account result)
+           :trade/fee-account (->> (:account result)
                                    (filter #(= :expense (:account/type %)))
                                    first)
            :trade/account (->> (:account result)
@@ -425,13 +424,14 @@
 (defn- acquire-lots
   "Given a trade map, finds the next lot containing
   shares that can be sold"
-  [{:trade/keys [inventory-method commodity account] :as trade}]
+  [{:trade/keys [inventory-method commodity account entity] :as trade}]
   (assoc trade
          :trade/lots (models/select #:lot{:commodity commodity
                                           :account account
                                           :shares-owned [:!= 0M]}
                                     {:sort [[:lot/purchase-date
-                                             (if (= :lifo inventory-method)
+                                             (if (= :lifo (or inventory-method
+                                                              (:settings/inventory-method entity)))
                                                :desc
                                                :asc)]]})))
 
@@ -474,14 +474,18 @@
                               :long-term? long-term?})))
      remaining-shares-to-sell]))
 
+(defn- total-shares-owned
+  [lots]
+  (->> lots
+       (map :lot/shares-owned)
+       (reduce + 0M)))
+
 (defn- process-lot-sales
   "Given a trade map, processes the lot changes and appends
   the new lot transactions and the affected lots"
   [{:trade/keys [lots shares] :as trade}]
 
-  (when (> shares (->> lots
-                       (map :lot/shares-owned)
-                       (reduce + 0M)))
+  (when (< (total-shares-owned lots) shares)
     (log/warnf "Attempt to sell more shares when owned: %s" trade))
 
   (loop [trd (assoc trade
@@ -493,28 +497,30 @@
          remaining-lots (rest lots)]
     (if lot
       (let [[adj-trd
-             shares-to-be-sold] (process-lot-sale trd
+             unsold-shares] (process-lot-sale trd
                                                   lot
                                                   shares-remaining)]
-        (if (zero? shares-to-be-sold)
+        (if (zero? unsold-shares)
           adj-trd
-          (recur adj-trd shares-to-be-sold (first remaining-lots)  (rest remaining-lots))))
+          (recur adj-trd
+                 unsold-shares
+                 (first remaining-lots)
+                 (rest remaining-lots))))
       (do
-        (log/error "Unable to find a lot to sell shares " (prn-str trd))
+        (log/errorf "Unable to find a lot to sell shares %s" trd)
         (throw (ex-info "Unable to find a lot to sell the shares" trd))))))
  
 (defn- update-entity-settings
-  [{:trade/keys [entity] :as trade}]
-  (models/put (update-in entity
-                         [:entity/settings]
-                         #(merge % (-> trade
-                                       (select-keys [:lt-capital-gains-account
-                                                     :st-capital-gains-account
-                                                     :lt-capital-loss-account
-                                                     :st-capital-loss-account
-                                                     :inventory-method])
-                                       (util/qualify-keys :settings)))))
-  trade)
+  [trade]
+  (update-in trade
+             [:trade/entity :entity/settings]
+             #(merge % (-> trade
+                           (select-keys [:trade/lt-capital-gains-account
+                                         :trade/st-capital-gains-account
+                                         :trade/lt-capital-loss-account
+                                         :trade/st-capital-loss-account
+                                         :trade/inventory-method])
+                           (update-keys (fn [k] (keyword "settings" (name k))))))))
  
 (defn- find-or-create-account
   [account]
@@ -535,7 +541,7 @@
  
 (defn- ensure-gains-account
   [{:trade/keys [entity] :as trade} [term result]]
-  (let [k (keyword (str term "-capital-" result "-account"))]
+  (let [k (keyword "trade" (str term "-capital-" result "-account"))]
     (if (k trade)
       trade
       (assoc trade k (or (k (:settings entity))
@@ -559,7 +565,8 @@
                  account
                  commodity-account
                  affected-accounts
-                 price] :as trade}]
+                 price
+                 entity] :as trade}]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
@@ -572,7 +579,8 @@
                                     commodity
                                     price
                                     account
-                                    transaction])))]
+                                    transaction
+                                    entity])))]
     (assoc trade
            :trade/transaction (first (:transaction result))
            :trade/fee-account (->> (:account result)
@@ -581,27 +589,29 @@
            :trade/account (->> (:account result)
                                (filter (system-tagged? :trading))
                                first)
-           :trade/price (first (:trade/price result))
+           :trade/price (first (:price result))
            :trade/commodity-account (->> (:account result)
                                          (filter (system-tagged? :tradable))
                                          first)
            :trade/updated-lots (:lot result))))
+
 (defn sell
   [sale]
   (with-ex-validation sale ::models/sale
-    (->> sale
-         append-commodity-account
-         append-commodity
-         append-accounts
-         append-entity
-         acquire-lots
-         ensure-gains-accounts
-         update-entity-settings
-         create-price
-         process-lot-sales
-         create-sale-transaction
-         propagate-price-to-accounts
-         put-sale)))
+    (-> sale
+        append-commodity-account
+        append-commodity
+        append-accounts
+        append-entity
+        acquire-lots
+        ensure-gains-accounts
+        update-entity-settings
+        create-price
+        update-accounts
+        process-lot-sales
+        create-sale-transaction
+        propagate-price-to-accounts
+        put-sale)))
 
 ; (defn unsell
 ;   [{transaction-id :id transaction-date :transaction-date}]
