@@ -37,7 +37,15 @@
 (defmulti propagate-delete db/type-dispatch)
 (defmethod propagate-delete :default [m & _] [m])
 
-(defn- validate
+(defmulti validate type)
+
+(defmethod validate ::util/vector
+  [[oper model :as puttable]]
+  (if (= oper ::db/delete)
+    puttable
+    (validate model)))
+
+(defmethod validate ::util/map
   [model]
   (let [validated (v/validate model (keyword "clj-money.models"
                                              (name (db/model-type model))))]
@@ -105,7 +113,13 @@
   (->> models
        (map (comp validate
                   before-validation))
-       (mapcat propagate)
+       (mapcat (fn [x]
+                 (if (and (vector? x)
+                          (= ::db/delete (first x)))
+                   (let [[m & ms] (propagate-delete (second x))]
+                     (cons [::db/delete m]
+                           ms))
+                   (propagate x))))
        (map before-save)
        (merge-dupes)
        (db/put (db/storage))
@@ -129,7 +143,7 @@
 
 (defn delete
   [model]
-  (delete-many model))
+  (delete-many [model]))
 
 (defn update
   "Updates multiple records in the data store against criteria instead of a
