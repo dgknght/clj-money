@@ -225,7 +225,7 @@
                 :shares 100M
                 :value 1000M}))
 
-(deftest sell-a-commodity-for-a-gain
+(deftest sell-a-commodity-for-a-gain-after-1-year
   (with-context sale-context
     (let [result (trading/sell (sale-attributes))
           ltcg (find-account "Long-term Capital Gains")
@@ -290,6 +290,19 @@
           (is (model= (find-account "Short-term Capital Losses")
                       (get-in entity [:entity/settings :settings/st-capital-loss-account]))
               "The short-term capital losses account is saved"))))))
+
+(deftest sell-a-commodity-for-a-gain-before-1-year
+  (with-context sale-context
+    (let [result (-> (sale-attributes)
+                     (assoc :trade/date (t/local-date 2016 4 2))
+                     trading/sell)]
+      (testing "The capital gains account"
+        (is (comparable? #:transaction-item{:action :credit
+                                            :value 125M
+                                            :quantity 125M}
+                         (item-by-account (find-account "Short-term Capital Gains")
+                                          (:trade/transaction result)))
+            "The capital gains account is credited the amount received above the original cost of the shares.")))))
 
 ; sell 25 shares at $8.00 per share and $50 loss
 ; value before sale: $800.00
@@ -433,25 +446,7 @@
     (assert-invalid-sale
       (dissoc (sale-attributes) :trade/value)
       {:trade/value ["Value is required"]})))
-; 
-; (deftest selling-a-commodity-updates-a-lot-record
-;   (let [context (realize sale-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         _ (trading/sell (-> context
-;                             sale-attributes
-;                             (assoc :shares 25M :value 375M)))
-;         lots (map #(dissoc % :id :created-at :updated-at)
-;                   (lots/search {:account-id (:id ira)
-;                                 :commodity-id (:id commodity)}))
-;         expected [{:purchase-date (t/local-date 2016 3 2)
-;                    :account-id (:id ira)
-;                    :commodity-id (:id commodity)
-;                    :shares-purchased 100M
-;                    :shares-owned 75M
-;                    :purchase-price 10M}]]
-;     (is (= expected lots) "The lot is updated to reflect the sale")))
-; 
+
 ; (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
 ;   (let [context (realize sale-context)
 ;         lt-capital-gains (find-account context "Long-term Capital Gains")
