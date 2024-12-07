@@ -136,3 +136,12 @@
   single model or group of models"
   [criteria changes]
   (db/update (db/storage) criteria changes))
+
+(defn resolve-ref
+  ([model-type]
+   (fn [model-or-ref]
+     (resolve-ref model-or-ref model-type)))
+  ([model-or-ref model-type]
+   (if (util/model-ref? model-or-ref)
+     (find model-or-ref model-type)
+     model-or-ref)))

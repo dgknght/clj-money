@@ -64,25 +64,24 @@
 (defn- default-commodity
   [entity]
   (if-let [ref (get-in entity [:entity/settings :settings/default-commodity])]
-    (models/find (:id ref) :commodity)
-    (models/find-by {:commodity/entity entity
-                     :commodity/type :currency})))
+    (models/find ref :commodity)
+    (models/find-by #:commodity{:entity entity
+                                :type :currency})))
 
-(defn- resolve-entity
-  [{:account/keys [entity] :as account}]
-  (if entity
-    account
-    (assoc account :account/entity (models/find (:id entity) :entity))))
-
-(defn- append-default-commodity
+(defn- ensure-commodity
   [{:as account :account/keys [entity]}]
-  (assoc account :account/commodity (default-commodity entity)))
+  (update-in account
+             [:account/commodity]
+             #(or %
+                  (default-commodity entity))))
 
 (defmethod models/before-validation :account
   [{:as account :account/keys [commodity]}]
   (if commodity
     account
-    (-> account resolve-entity append-default-commodity)))
+    (-> account
+        (update-in [:account/entity] (models/resolve-ref :entity))
+        ensure-commodity)))
 
 (declare find)
 #_(defn- before-validation
