@@ -546,19 +546,14 @@
       (is (= 0 (models/count {:lot/account (find-account "IRA")}))
           "The lot is deleted"))))
 
-; (deftest cannot-undo-a-purchase-if-shares-have-been-sold
-;   (let [context (realize purchase-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         purchase (trading/buy {:trade-date (t/local-date 2017 3 2)
-;                                :shares 100M
-;                                :commodity-id (:id commodity)
-;                                :account-id (:id ira)
-;                                :value 1000M})
-;         _ (trading/sell (sale-attributes context))]
-;     (is (thrown-with-msg? IllegalStateException #"Cannot undo"
-;                           (trading/unbuy (:transaction purchase))))))
-; 
+(deftest cannot-undo-a-purchase-if-shares-have-been-sold
+  (with-context sale-context
+    (trading/sell (sale-attributes))
+    (is (thrown-with-msg? IllegalStateException #"Cannot undo"
+                          (trading/unbuy
+                            (find-transaction [(t/local-date 2016 3 2)
+                                               "Purchase 100 shares of AAPL at 10.000"]))))))
+
 ; (deftest undo-a-sale
 ;   (let [context (realize purchase-context)
 ;         ira (find-account context "IRA")
