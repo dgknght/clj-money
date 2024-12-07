@@ -405,21 +405,23 @@
         propagate-price-to-accounts
         put-purchase)))
 
-; (defn unbuy
-;   "Reverses a commodity purchase"
-;   [{transaction-id :id transaction-date :transaction-date}]
-;   (with-transacted-storage (env :db)
-;     (let [transaction (transactions/find transaction-id transaction-date)
-;           lot (lots/find (-> transaction :lot-items first :lot-id))
-;           commodity (commodities/find (:commodity-id lot))]
-;       (when (not= (:shares-purchased lot) (:shares-owned lot))
-;         (throw (IllegalStateException.
-;                 "Cannot undo a purchase if shares have been sold from the lot")))
-;       (transactions/delete transaction)
-;       (lots/delete lot)
-;       {:transaction transaction
-;        :lot lot
-;        :commodity commodity})))
+(defn unbuy
+  "Reverses a commodity purchase"
+  [trx]
+  (let [lot (models/resolve-ref
+              (get-in trx [:transaction/lot-items
+                           0
+                           :lot-item/lot])
+              :lot)
+        commodity (models/resolve-ref (:lot/commodity lot)
+                                      :commodity)]
+    (when (not= (:lot/shares-purchased lot) (:lot/shares-owned lot))
+      (throw (IllegalStateException.
+               "Cannot undo a purchase if shares have been sold from the lot")))
+    (models/delete-many [trx lot])
+    {:transaction trx
+     :lot lot
+     :commodity commodity}))
  
 (defn- acquire-lots
   "Given a trade map, finds the next lot containing

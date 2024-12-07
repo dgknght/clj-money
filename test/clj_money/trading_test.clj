@@ -11,7 +11,8 @@
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-account
-                                            find-commodity]]
+                                            find-commodity
+                                            find-transaction]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
@@ -528,24 +529,23 @@
                                                   :account ira}))
           "Shares are sold from the earliest lot"))))
 
-; (deftest undo-a-purchase
-;   (let [context (realize purchase-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         purchase (trading/buy {:trade-date (t/local-date 2017 3 2)
-;                                :shares 100M
-;                                :commodity-id (:id commodity)
-;                                :account-id (:id ira)
-;                                :value 1000M})]
-;     (trading/unbuy (:transaction purchase))
-;     ; TODO Should we delete the price that was created?
-;     (testing "the account balance"
-;       (is (= 2000M (:quantity (accounts/reload ira)))
-;           "The account balance is restored"))
-;     (testing "the affected lots"
-;       (is (= [] (lots/search {:account-id (:id ira)}))
-;           "The lot is deleted"))))
-; 
+(deftest undo-a-purchase
+  (with-context sale-context
+    (trading/unbuy (find-transaction [(t/local-date 2016 3 2)
+                                      "Purchase 100 shares of AAPL at 10.000"] ))
+    ; TODO Should we delete the price that was created?
+    (testing "The trading account"
+      (is (comparable? {:account/quantity 2000M}
+                       (models/find (find-account "IRA")))
+          "The trading account balance is restored"))
+    (testing "The commodity account"
+      (is (comparable? {:account/quantity 0M}
+                       (models/find (find-account "AAPL")))
+          "The commodity account balance is restored"))
+    (testing "The lot"
+      (is (= 0 (models/count {:lot/account (find-account "IRA")}))
+          "The lot is deleted"))))
+
 ; (deftest cannot-undo-a-purchase-if-shares-have-been-sold
 ;   (let [context (realize purchase-context)
 ;         ira (find-account context "IRA")
