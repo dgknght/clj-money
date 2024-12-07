@@ -338,15 +338,18 @@
   supplied in the account at :account/commodity-price, or it will be searched
   and will default to 1M if not found."
   [{:as account :account/keys [commodity]} items]
-  (let [updated-items (->> (rest items)
+  (let [updated-items (->> items
+                           rest
                            (reduce (fn [output item]
                                      (let [updated (apply-prev item (last output))]
                                        (if (= item updated)
                                          (reduced output)
                                          (conj output updated))))
-                                   [(first items)])
-                           (drop 1)) ; the 1st is the basis and is not updated
-        to-return (map #(dissoc % ::polarized-quantity) updated-items)
+                                   [(first items)]))
+        ; the 1st is the basis and is not updated
+        to-return (->> updated-items
+                       (drop 1)
+                       (map #(dissoc % ::polarized-quantity)))
         final-qty (or (:transaction-item/balance (last updated-items))
                        0M)
         price (or (:account/commodity-price account)
