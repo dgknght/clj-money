@@ -460,69 +460,50 @@
       (dissoc (sale-attributes) :trade/value)
       {:trade/value ["Value is required"]})))
  
-; ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
-; 
-; (defn- map-accounts
-;   [context & account-names]
-;   (map (fn [account-name]
-;          (->> context
-;               :accounts
-;               (filter #(= account-name (:name %)))
-;               first))
-;        account-names))
-; 
-; (deftest lifo-sale
-;   (let [context (realize purchase-context)
-;         commodity (find-commodity context "AAPL")
-;         [ira
-;          lt-gains
-;          st-gains
-;          lt-loss
-;          st-loss] (map-accounts context
-;                                 "IRA"
-;                                 "Long-term Capital Gains"
-;                                 "Short-term Capital Gains"
-;                                 "Long-term Capital Losses"
-;                                 "Short-term Capital Losses")
-;         _ (trading/buy {:trade-date (t/local-date 2015 3 2)
-;                         :account-id (:id ira)
-;                         :commodity-id (:id commodity)
-;                         :shares 100M
-;                         :value 1000M})
-;         _ (trading/buy {:trade-date (t/local-date 2016 3 2)
-;                         :account-id (:id ira)
-;                         :commodity-id (:id commodity)
-;                         :shares 100M
-;                         :value 2000M})
-;         _ (trading/sell {:trade-date (t/local-date 2017 3 2)
-;                          :account-id (:id ira)
-;                          :commodity-id (:id commodity)
-;                          :shares 50M
-;                          :value 1500M
-;                          :inventory-method :lifo
-;                          :lt-capital-gains-account-id (:id lt-gains)
-;                          :st-capital-gains-account-id (:id st-gains)
-;                          :lt-capital-loss-account-id (:id lt-loss)
-;                          :st-capital-loss-account-id (:id st-loss)})
-;         actual (->> (lots/search {:commodity-id (:id commodity)
-;                                   :account-id (:id ira)})
-;                     (sort-by :purchase-date)
-;                     (map #(dissoc %
-;                                   :id
-;                                   :created-at
-;                                   :updated-at
-;                                   :commodity-id
-;                                   :account-id)))
-;         expected [{:purchase-date (t/local-date 2015 3 2)
-;                    :shares-purchased 100M
-;                    :shares-owned 100M
-;                    :purchase-price 10M}
-;                   {:purchase-date (t/local-date 2016 3 2)
-;                    :shares-purchased 100M
-;                    :shares-owned 50M
-;                    :purchase-price 20M}]]
-;     (is (= expected actual) "Shares are sold from the most recent lot")))
-; 
+; Selling a commodity updates a lot record
+; (FILO updates the most recent, FIFO updates the oldest)
+
+(def ^:private multi-lot-context
+  (conj purchase-context
+        #:trade{:type :purchase
+                :date (t/local-date 2015 3 2)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 1000M}
+        #:trade{:type :purchase
+                :date (t/local-date 2016 3 2)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 2000M}))
+
+(deftest lifo-sale
+  (with-context multi-lot-context
+    (let [commodity (find-commodity "AAPL")
+          ira (find-account "IRA")]
+      (trading/sell #:trade{:date (t/local-date 2017 3 2)
+                            :account ira
+                            :commodity commodity
+                            :shares 50M
+                            :value 1500M
+                            :inventory-method :lifo
+                            :lt-capital-gains-account (find-account "Long-term Capital Gains")
+                            :st-capital-gains-account (find-account "Short-term Capital Gains")
+                            :lt-capital-loss-account (find-account "Long-term Capital Losses")
+                            :st-capital-loss-account (find-account "Short-term Capital Losses")})
+      (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 100M
+                                    :purchase-price 10M}
+                              #:lot{:purchase-date (t/local-date 2016 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 50M
+                                    :purchase-price 20M}]
+                             (models/select #:lot{:commodity commodity
+                                                  :account ira}))
+          "Shares are sold from the most recent lot"))))
+
 ; (deftest fifo-sale
 ;   (let [context (realize
 ;                  (update-in purchase-context
