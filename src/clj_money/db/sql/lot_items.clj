@@ -1,10 +1,15 @@
 (ns clj-money.db.sql.lot-items
-  (:require [clj-money.db.sql :as sql]
+  (:require [clojure.pprint :refer [pprint]]
+            [clj-money.db.sql :as sql]
             [clj-money.util :refer [temp-id?]]))
 
+(defmethod sql/before-save :lot-item
+  [lot-item]
+  (update-in lot-item [:lot-item/lot-action] name))
+
 (defmethod sql/after-read :lot-item
-  [trx]
-  (update-in trx [:lot-item/action] keyword))
+  [lot-item]
+  (update-in lot-item [:lot-item/lot-action] keyword))
 
 (defmethod sql/resolve-temp-ids :lot-item
   [{:as item :lot-item/keys [transaction-id lot-id]} id-map]
