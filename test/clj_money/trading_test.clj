@@ -307,7 +307,7 @@
 ; sell 25 shares at $8.00 per share and $50 loss
 ; value before sale: $800.00
 ; value after sale: $600.00
-(deftest sell-a-commodity-for-a-loss
+(deftest sell-a-commodity-for-a-loss-after-1-year
   (with-context sale-context
     (let [result (-> (sale-attributes)
                      (assoc :trade/value 200M)
@@ -346,6 +346,19 @@
                                                                     :commodity (find-commodity "AAPL")})
                                           (:trade/transaction result)))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
+
+(deftest sell-a-commodity-for-a-loss-before-1-year
+  (with-context sale-context
+    (let [result (-> (sale-attributes)
+                     (assoc :trade/value 200M
+                            :trade/date (t/local-date 2016 4 2))
+                     trading/sell)]
+      (is (comparable? #:transaction-item{:action :debit
+                                          :value 50M
+                                          :quantity 50M}
+                       (item-by-account (find-account "Short-term Capital Losses")
+                                        (:trade/transaction result)))
+          "The capital loss account is debited the cost the shares less the sale proceeds"))))
 
 (def ^:private auto-create-context
   (conj base-context
@@ -446,39 +459,7 @@
     (assert-invalid-sale
       (dissoc (sale-attributes) :trade/value)
       {:trade/value ["Value is required"]})))
-
-; (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
-;   (let [context (realize sale-context)
-;         lt-capital-gains (find-account context "Long-term Capital Gains")
-;         _ (trading/sell (-> context
-;                             sale-attributes
-;                             (assoc :shares 25M :value 375M)))
-;         gains-items (items-by-account (:id lt-capital-gains))
-;         expected [{:transaction-date (t/local-date 2017 3 2)
-;                    :description "Sell 25 shares of AAPL at 15.000"
-;                    :action :credit
-;                    :account-id (:id lt-capital-gains)
-;                    :quantity 125M
-;                    :memo "Sell 25 shares of AAPL at 15.000"}]]
-;     (is (seq-of-maps-like? expected gains-items) "The capital gains account is credited the correct amount")))
-; 
-; (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
-;   (let [context (realize sale-context)
-;         st-capital-gains (find-account context "Short-term Capital Gains")
-;         _ (trading/sell (-> context
-;                             sale-attributes
-;                             (assoc :shares 25M
-;                                    :value 375M
-;                                    :trade-date (t/local-date 2017 3 1))))
-;         gains-items (items-by-account (:id st-capital-gains))
-;         expected [{:transaction-date (t/local-date 2017 3 1)
-;                    :description "Sell 25 shares of AAPL at 15.000"
-;                    :action :credit
-;                    :account-id (:id st-capital-gains)
-;                    :quantity 125M
-;                    :memo "Sell 25 shares of AAPL at 15.000"}]]
-;     (is (seq-of-maps-like? expected gains-items) "The capital gains account is credited the correct amount")))
-; 
+ 
 ; ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 ; 
 ; (defn- map-accounts
