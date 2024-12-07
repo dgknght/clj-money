@@ -138,7 +138,7 @@
                            (map :id)
                            set)]
       (when-let [to-remove (seq (remove #(current-ids (:id %)) existing))]
-        (apply models/delete-many to-remove))
+        (models/delete-many to-remove))
       (models/put-many (map #(assoc % :budget-item/budget (select-keys budget [:id]))
                             items)))))
 

@@ -118,7 +118,7 @@
   (first (put-many [model])))
 
 (defn delete-many
-  [& models]
+  [models]
   (->> models
        (map before-delete)
        (mapcat (comp (fn [[m & ms]]
