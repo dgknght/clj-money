@@ -387,22 +387,18 @@
                       account)
               "The Short-term Capital Losses account id is placed in the entity settings"))))))
 
-; (deftest sell-a-commodity-with-a-fee
-;   (let [context (realize sale-context)
-;         ira (find-account context "IRA")
-;         inv-exp (->> context
-;                      :accounts
-;                      (filter #(= "Investment Expenses" (:name %)))
-;                      first)]
-;     (trading/sell (-> context
-;                       sale-attributes
-;                       (assoc :fee 5M
-;                              :fee-account-id (:id inv-exp))))
-;     (is (= 1370M (:quantity (accounts/reload ira)))
-;         "The investment account balance reflects the fee")
-;     (is (= 5M (:quantity (accounts/reload inv-exp)))
-;         "The investment fee account balance reflects the fee")))
-; 
+(deftest sell-a-commodity-with-a-fee
+  (with-context sale-context
+    (trading/sell (assoc (sale-attributes)
+                         :trade/fee 5M
+                         :trade/fee-account (find-account "Investment Expenses")))
+    (is (comparable? {:account/quantity 1370M}
+                     (models/find (find-account "IRA")))
+        "The investment account balance reflects the fee")
+    (is (comparable? {:account/quantity 5M}
+                     (models/find (find-account "Investment Expenses")))
+        "The investment fee account balance reflects the fee")))
+
 ; (deftest sales-requires-a-trade-date
 ;   (let [context (realize sale-context)
 ;         result (trading/sell (-> context
