@@ -824,13 +824,15 @@
 (defn- put-split
   [{:split/keys [transaction
                  lots
-                 lot-items]}]
+                 lot-items
+                 ratio]}]
   (let [result (->> (cons transaction (concat lots lot-items))
                     models/put-many
                     (group-by db/model-type))]
     {:split/transaction (first (:transaction result))
      :split/lots (:lot result)
-     :split/lot-items (:lot-item result)}))
+     :split/lot-items (:lot-item result)
+     :split/ratio ratio}))
 
 (s/def :split/date t/local-date?)
 (s/def :split/commodity ::models/model-ref)

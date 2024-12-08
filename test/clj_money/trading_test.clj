@@ -663,26 +663,24 @@
       (is (= 2M (:split/ratio result))
           "The split ratio is returned")
       (testing "The transaction"
-        (is (comparable? #:transaction{:entity (util/->model-ref commodity)
+        (is (comparable? #:transaction{:entity (:commodity/entity commodity)
                                        :transaction-date (t/local-date 2016 3 3)
                                        :description "Split shares of AAPL 2 for 1"
                                        :value 0M
                                        :items [#:transaction-item{:action :debit
-                                                                  :account-id (:id commodity-account)
+                                                                  :account (util/->model-ref commodity-account)
                                                                   :quantity 100M
-                                                                  :polarized-quantity 100M
                                                                   :balance 200M
-                                                                  :value 0M
-                                                                  :description "Split shares of AAPL 2 for 1"}]}
+                                                                  :value 0M}]}
                          (:split/transaction result))
             "The result contains the transaction that was created"))
       (testing "The lots"
-        (is (= [#:lot{:purchase-date (t/local-date 2016 3 2)
-                          :account-id (:id ira)
-                          :purchase-price 5M
-                          :shares-purchased 200M
-                          :shares-owned 200M}]
-               (models/select #:lot{:commodity commodity}))
+        (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)
+                                      :account (util/->model-ref ira)
+                                      :purchase-price 5M
+                                      :shares-purchased 200M
+                                      :shares-owned 200M}]
+                               (models/select #:lot{:commodity commodity}))
             "The lots are adjusted correctly"))
       (testing "The trading account"
         (is (comparable? {:account/quantity 1000M}
