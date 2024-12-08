@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
+            [clj-money.models :as models]
             [clj-money.json] ; to ensure encoders are registered
             [clj-money.util :as util]
             [clj-money.db :as db]))
@@ -89,7 +90,7 @@
 
 (defn find
   ([{:keys [id] :as m}]
-   {:pre [(map? m) (:id m)]}
+   {:pre [(s/valid? ::models/model-ref m)]}
    (find id (keyword (db/model-type m))))
   ([id-or-ref model-type]
    {:pre [id-or-ref (keyword? model-type)]}
