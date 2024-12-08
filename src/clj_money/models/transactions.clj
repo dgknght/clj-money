@@ -56,7 +56,9 @@
 
 (defn- sum-of-credits-equals-sum-of-debits?
   [items]
-  (let [{:keys [debit credit]}
+  (if (= 1 (count items))
+    (zero? (:transaction-item/value (first items))) ; a split transaction will have one item with a value of zero
+    (let [{:keys [debit credit]}
         (->> items
              (group-by :transaction-item/action)
              (map #(update-in % [1] (fn [itms]
@@ -64,7 +66,7 @@
                                            (map :transaction-item/value)
                                            (reduce + 0M)))))
              (into {}))]
-    (= debit credit)))
+    (= debit credit))))
 
 (v/reg-msg sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
 
@@ -86,10 +88,14 @@
 ; the item belongs
 (s/def :transaction-item/balance decimal?)
 ; Value is the value of the line item expressed in the entity's
-; default commodity. For most transactions, this will be the same
-; as the quantity. For transactions involving foreign currencies
-; and commodity purchases (like stock trades) it will be different.
-(s/def :transaction-item/value (s/and decimal? pos?))
+; default commodity. For transactions in the default currenty,
+; this will be the same as the quantity. For transactions involving
+; foreign currencies and commodity purchases (like stock trades)
+; it will be different.
+;
+; A value can be zero for a transaction split. Otherwise, it must
+; be positive.
+(s/def :transaction-item/value (s/and decimal? (complement neg?)))
 (s/def :transaction-item/memo (s/nilable string?))
 (s/def :transaction-item/index integer?)
 
@@ -111,6 +117,8 @@
                                          :opt [:transaction-item/balance
                                                :transaction-item/index
                                                :transaction-item/memo]))
+; Most transactions need at least 2 items, but a commodity split
+; will only have 1
 (s/def :transaction/items (s/and (s/coll-of ::models/transaction-item :min-count 1)
                                  sum-of-credits-equals-sum-of-debits?))
 (s/def ::models/transaction (s/and (s/keys :req [:transaction/description
@@ -332,7 +340,7 @@
   of the 1st item and calculate indices and balances forward, then
   apply the final to the account. Returns a sequence of all updated
   models, which may be fewer than the input.
- 
+
   Additionally, an attempt is made to calculate the ending value of the account
   based on the most recent price of the tracked commodity. This price may be
   supplied in the account at :account/commodity-price, or it will be searched
