@@ -111,7 +111,7 @@
                                          :opt [:transaction-item/balance
                                                :transaction-item/index
                                                :transaction-item/memo]))
-(s/def :transaction/items (s/and (s/coll-of ::models/transaction-item :min-count 2)
+(s/def :transaction/items (s/and (s/coll-of ::models/transaction-item :min-count 1)
                                  sum-of-credits-equals-sum-of-debits?))
 (s/def ::models/transaction (s/and (s/keys :req [:transaction/description
                                                  :transaction/transaction-date

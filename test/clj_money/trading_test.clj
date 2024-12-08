@@ -650,44 +650,45 @@
                          (models/find to-account))
             "The account balance reflects the cash on hand before the transfer")))))
 
-; (deftest split-a-commodity
-;   (let [context (realize sale-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         commodity-account (accounts/find-by {:commodity-id (:id commodity)
-;                                              :entity-id (:entity-id commodity)})
-;         result (trading/split {:commodity-id (:id commodity)
-;                                :account-id (:id ira)
-;                                :shares-gained 100M
-;                                :split-date (t/local-date 2016 3 3)})
-;         lots (lots/search {:commodity-id (:id commodity)})
-;         actual-lots (map #(dissoc % :id :created-at :updated-at :commodity-id) lots)
-;         expected-lots [{:purchase-date (t/local-date 2016 3 2)
-;                         :account-id (:id ira)
-;                         :purchase-price 5M
-;                         :shares-purchased 200M
-;                         :shares-owned 200M}]
-;         expected-transaction {:entity-id (:entity-id commodity)
-;                               :transaction-date (t/local-date 2016 3 3)
-;                               :description "Split shares of AAPL 2 for 1"
-;                               :value 0M
-;                               :items [{:action :debit
-;                                        :account-id (:id commodity-account)
-;                                        :quantity 100M
-;                                        :polarized-quantity 100M
-;                                        :balance 200M
-;                                        :value 0M
-;                                        :description "Split shares of AAPL 2 for 1"}]}]
-;     (is (valid? result) "The result has no validation errors")
-;     (is (= 2M (:ratio result))
-;         "The correct split ratio is returned")
-;     (is (comparable? expected-transaction (:transaction result))
-;         "The result contains the transaction that was created")
-;     (is (= expected-lots actual-lots)
-;         "The lots are adjusted correctly")
-;     (is (= 1000M (:quantity (accounts/reload ira)))
-;           "The account has the correct balance after the transfer.")))
-; 
+(deftest split-a-commodity
+  (with-context sale-context
+    (let [ira (find-account "IRA")
+          commodity (find-commodity "AAPL")
+          commodity-account (models/find-by #:account{:name "AAPL"
+                                                      :parent ira})
+          result (trading/split #:split{:commodity commodity
+                                        :account ira
+                                        :shares-gained 100M
+                                        :date (t/local-date 2016 3 3)})]
+      (is (= 2M (:split/ratio result))
+          "The split ratio is returned")
+      (testing "The transaction"
+        (is (comparable? #:transaction{:entity (util/->model-ref commodity)
+                                       :transaction-date (t/local-date 2016 3 3)
+                                       :description "Split shares of AAPL 2 for 1"
+                                       :value 0M
+                                       :items [#:transaction-item{:action :debit
+                                                                  :account-id (:id commodity-account)
+                                                                  :quantity 100M
+                                                                  :polarized-quantity 100M
+                                                                  :balance 200M
+                                                                  :value 0M
+                                                                  :description "Split shares of AAPL 2 for 1"}]}
+                         (:split/transaction result))
+            "The result contains the transaction that was created"))
+      (testing "The lots"
+        (is (= [#:lot{:purchase-date (t/local-date 2016 3 2)
+                          :account-id (:id ira)
+                          :purchase-price 5M
+                          :shares-purchased 200M
+                          :shares-owned 200M}]
+               (models/select #:lot{:commodity commodity}))
+            "The lots are adjusted correctly"))
+      (testing "The trading account"
+        (is (comparable? {:account/quantity 1000M}
+                         (models/find ira))
+            "The account balance is unchanged")))))
+
 ; (def ^:private rev-split-context
 ;   (assoc purchase-context :trades [{:type :purchase
 ;                                     :trade-date (t/local-date 2016 3 2)

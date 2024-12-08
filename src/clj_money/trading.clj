@@ -92,23 +92,6 @@
 
 (s/def ::models/sale (s/multi-spec sale-spec :trade/commodity-account))
 
-
-(s/def :transfer/date t/local-date?)
-(s/def :transfer/from-account ::models/model-ref)
-(s/def :transfer/to-account ::models/model-ref)
-(s/def :transfer/commodity ::models/model-ref)
-(s/def :transfer/shares decimal?)
-(s/def ::models/transfer (s/keys :req [:transfer/date
-                                       :transfer/shares
-                                       :transfer/from-account
-                                       :transfer/to-account
-                                       :transfer/commodity]))
-
-(s/def ::split (s/keys :req-un [::split-date
-                                ::commodity
-                                ::account
-                                ::shares-gained]))
-
 (defn- create-price
   "Given a trade map, calculates and appends the share price"
   [{:trade/keys [shares value commodity date] :as trade}]
@@ -719,14 +702,25 @@
     {:transfer/transaction (first (:transaction result))
      :transfer/lots (:lot result)}))
 
+(s/def :transfer/date t/local-date?)
+(s/def :transfer/from-account ::models/model-ref)
+(s/def :transfer/to-account ::models/model-ref)
+(s/def :transfer/commodity ::models/model-ref)
+(s/def :transfer/shares decimal?)
+(s/def ::models/transfer (s/keys :req [:transfer/date
+                                       :transfer/shares
+                                       :transfer/from-account
+                                       :transfer/to-account
+                                       :transfer/commodity]))
+
 (defn transfer
   "Transfers a commodity from one account to another
 
-  :commodity        - the commodity to be moved
-  :shares           - the number of shares of the commodity to be transfered
-  :transaction-date - the date on which the transfer takes place
-  :from-account     - the account from which the commodity is to be moved
-  :to-account       - the account to which the commodity is to be moved"
+  :commodity    - the commodity to be moved
+  :shares       - the number of shares of the commodity to be transfered
+  :date         - the date on which the transfer takes place
+  :from-account - the account from which the commodity is to be moved
+  :to-account   - the account to which the commodity is to be moved"
   [transfer]
   (with-ex-validation transfer ::models/transfer
     (some-> transfer
@@ -736,92 +730,132 @@
             create-transfer-transaction
             put-transfer)))
 
-; ; TODO: Simplify this by updating stowaway to allow operators in mass update
-; (defn- apply-split-to-lot
-;   [ratio lot]
-;   (doseq [trx (lot-trans/search {:lot-id (:id lot)
-;                                  :transaction-date (:purchase-date lot)})]
-;     (lot-trans/update (-> trx
-;                           (update-in [:price] #(with-precision 4 (/ % ratio)))
-;                           (update-in [:shares] #(* % ratio)))))
-;   (lots/update (-> lot
-;                    (update-in [:shares-purchased] #(* % ratio))
-;                    (update-in [:shares-owned] #(* % ratio))
-;                    (update-in [:purchase-price] #(with-precision 4 (/ % ratio))))))
-; 
-; (defn- append-split-lots
-;   [{:keys [commodity-id account-id] :as context}]
-;   (assoc context :lots (lots/search {:commodity-id commodity-id
-;                                      :account-id account-id
-;                                      :shares-owned [:!= 0M]})))
-; 
-; (defn- append-split-ratio
-;   [{:keys [shares-gained lots] :as context}]
-;   (assert (seq lots) "No lots found to which to apply the split.")
-;   (let [shares-owned (->> lots
-;                           (map :shares-owned)
-;                           (reduce + 0M))]
-;     (assoc context :ratio (with-precision 4
-;                             (/ (+ shares-owned shares-gained)
-;                                shares-owned)))))
-; 
-; (defn- process-split-lots
-;   [{:keys [lots ratio] :as context}]
-;   (assoc context
-;          :lots
-;          (mapv #(apply-split-to-lot ratio %) lots)))
-; 
-; (defn- ratio->words
-;   [ratio]
-;   ; We'll need to expand this at some point to handle
-;   ; reverse splits and stranger splits, like 3:2
-;   (let [[n d] (cond->> [ratio 1]
-;                 (< ratio 1)
-;                 (map (comp int
-;                            #(/ % ratio))))]
-;     (format "%s for %s" n d)))
-; 
-; (defn- create-split-transaction
-;   [{:keys [commodity
-;            split-date
-;            ratio
-;            commodity-account
-;            shares-gained] :as context}]
-;   (assoc context
-;          :transaction
-;          (transactions/create {:entity-id (:entity-id commodity)
-;                                :transaction-date split-date
-;                                :description (format "Split shares of %s %s"
-;                                                     (:symbol commodity)
-;                                                     (ratio->words ratio))
-;                                :items [{:action (if (< 0 shares-gained)
-;                                                   :debit
-;                                                   :credit)
-;                                         :account-id (:id commodity-account)
-;                                         :quantity (.abs shares-gained)
-;                                         :value 0M}]})))
-; 
-; (defn- validate-split
-;   [split]
-;   (v/validate split ::split))
-; 
-; (defn split
-;   "Records a stock split
-; 
-;   :commodity-id  - identifies the commodity being split
-;   :split-date    - the date the split is effective
-;   :shares-gained - the difference in the number of shares held before and after the split
-;   :account-id    - the trading account through which the commodity was purchased"
-; 
-;   [split]
-;   (let [validated (validate-split split)]
-;     (if (v/valid? validated)
-;       (with-transacted-storage (env :db)
-;         (-> validated
-;             append-commodity
-;             append-accounts
-;             append-split-lots
-;             append-split-ratio
-;             process-split-lots
-;             create-split-transaction))
-;       validated)))
+(defn- append-split-lots
+  [{:split/keys [commodity account] :as split}]
+  (assoc split
+         :split/lots
+         (models/select #:lot{:commodity commodity
+                              :account account
+                              :shares-owned [:!= 0M]})))
+
+(defn- append-split-ratio
+  [{:split/keys [shares-gained lots] :as split}]
+  (assert (seq lots) "No lots found to which to apply the split.")
+  (let [shares-owned (->> lots
+                          (map :lot/shares-owned)
+                          (reduce + 0M))]
+    (assoc split :split/ratio (with-precision 4
+                                (/ (+ shares-owned shares-gained)
+                                   shares-owned)))))
+
+(defn- apply-ratio-to-lot-item
+  [item ratio]
+  (-> item
+      (update-in [:lot-item/price] #(with-precision 4 (/ % ratio)))
+      (update-in [:lot-item/shares] #(* % ratio))))
+
+(defn- fetch-and-adjust-lot-items
+  [lot ratio]
+  (mapv #(apply-ratio-to-lot-item % ratio)
+        (models/select #:lot-item{:lot lot
+                                  :transaction-date (:lot/purchase-date lot)})))
+
+(defn- apply-ratio-to-lot
+  [lot ratio]
+  (-> lot
+      (update-in [:lot/shares-purchased] #(* % ratio))
+      (update-in [:lot/shares-owned] #(* % ratio))
+      (update-in [:lot/purchase-price] #(with-precision 4 (/ % ratio)))))
+
+(defn- adjust-lot-and-fetch-lot-items
+  [ratio lots]
+  (reduce (fn [acc lot]
+            (-> acc
+                (update-in [:lots] conj (apply-ratio-to-lot lot ratio))
+                (update-in [:lot-items] concat (fetch-and-adjust-lot-items lot ratio))))
+          {:lots []
+           :lot-items []}
+          lots))
+
+(defn- adjust-split-lots
+  [{:split/keys [lots ratio] :as split}]
+  (let [{:keys [lots lot-items]} (adjust-lot-and-fetch-lot-items ratio lots)]
+    (assoc split
+           :split/lots lots
+           :split/lot-items lot-items)))
+
+(defn- ratio->words
+  [ratio]
+  ; We'll need to expand this at some point to handle
+  ; reverse splits and stranger splits, like 3:2
+  (let [[n d] (cond->> [ratio 1]
+                (< ratio 1)
+                (map (comp int
+                           #(/ % ratio))))]
+    (format "%s for %s" n d)))
+
+(defn- create-split-transaction
+  [{:split/keys [commodity
+                 date
+                 ratio
+                 commodity-account
+                 shares-gained] :as split}]
+  (assoc split
+         :split/transaction
+         #:transaction{:entity (:commodity/entity commodity)
+                       :transaction-date date
+                       :description (format "Split shares of %s %s"
+                                            (:commodity/symbol commodity)
+                                            (ratio->words ratio))
+                       :items [#:transaction-item{:action (if (< 0 shares-gained)
+                                                            :debit
+                                                            :credit)
+                                                  :account commodity-account
+                                                  :quantity (.abs shares-gained)
+                                                  :value 0M}]}))
+
+(defn- append-split-accounts
+  [{:as split :split/keys [commodity account]}]
+  (-> split
+      (update-in [:split/account] (models/resolve-ref :account))
+      (assoc :split/commodity-account (models/find-by #:account{:commodity commodity
+                                                                :parent account}))))
+
+(defn- put-split
+  [{:split/keys [transaction
+                 lots
+                 lot-items]}]
+  (let [result (->> (cons transaction (concat lots lot-items))
+                    models/put-many
+                    (group-by db/model-type))]
+    {:split/transaction (first (:transaction result))
+     :split/lots (:lot result)
+     :split/lot-items (:lot-item result)}))
+
+(s/def :split/date t/local-date?)
+(s/def :split/commodity ::models/model-ref)
+(s/def :split/account ::models/model-ref)
+(s/def :split/shares-gained decimal?)
+(s/def ::models/split (s/keys :req [:split/date
+                                    :split/commodity
+                                    :split/account
+                                    :split/shares-gained]))
+
+(defn split
+  "Records a stock split
+
+  :commodity     - the commodity being split
+  :date          - the date the split is effective
+  :shares-gained - the difference in the number of shares held before and after the split
+  :account       - the trading account through which the commodity was purchased"
+
+  [split]
+  (with-ex-validation split ::models/split
+    (-> split
+        (update-in [:split/commodity] (models/resolve-ref :commodity))
+        append-split-accounts
+        append-split-lots
+        append-split-ratio
+        adjust-split-lots
+        create-split-transaction
+        put-split)))
