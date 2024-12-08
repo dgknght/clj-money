@@ -10,6 +10,7 @@
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
+            [clj-money.models.prices :as prices]
             [clj-money.util :as util]
             [clj-money.db :as db])
   (:import java.math.BigDecimal))
@@ -27,9 +28,8 @@
 (s/def :trade/fee-account ::models/model-ref)
 (s/def :trade/shares decimal?)
 (s/def :trade/value decimal?)
-(s/def ::transfer-date t/local-date?)
+
 (s/def ::split-date t/local-date?)
-(s/def :trade/to-account ::models/model-ref)
 (s/def ::shares-gained decimal?)
 
 (defmulti ^:private purchase-spec
@@ -92,10 +92,18 @@
 
 (s/def ::models/sale (s/multi-spec sale-spec :trade/commodity-account))
 
-(s/def ::transfer (s/keys :req-un [::transfer-date
-                                   ::shares
-                                   ::to-account
-                                   ::commodity]))
+
+(s/def :transfer/date t/local-date?)
+(s/def :transfer/from-account ::models/model-ref)
+(s/def :transfer/to-account ::models/model-ref)
+(s/def :transfer/commodity ::models/model-ref)
+(s/def :transfer/shares decimal?)
+(s/def ::models/transfer (s/keys :req [:transfer/date
+                                       :transfer/shares
+                                       :transfer/from-account
+                                       :transfer/to-account
+                                       :transfer/commodity]))
+
 (s/def ::split (s/keys :req-un [::split-date
                                 ::commodity
                                 ::account
@@ -136,10 +144,7 @@
   "Given a trade map, appends the commodity"
   [{:trade/keys [commodity] :as trade}]
   {:pre [commodity]}
-
-  (cond-> trade
-    (util/model-ref? commodity)
-    (assoc :commodity (models/find commodity :commodity))))
+  (update-in trade [:trade/commodity] (models/resolve-ref :commodity)))
 
 (defn- find-commodity-account
   [parent commodity]
@@ -638,92 +643,99 @@
     (models/put-many (cons [::db/delete trx]
                            updated-lots))))
 
-; (defn- append-transfer-accounts
-;   [{:keys  [from-account from-account-id to-account to-account-id commodity] :as context}]
-;   (let [to-account (ensure-tag (or to-account
-;                                    (accounts/find to-account-id))
-;                                :trading)
-;         from-account (ensure-tag (or from-account
-;                                      (accounts/find from-account-id))
-;                                  :trading)
-;         [from-commodity-account
-;          to-commodity-account] (map #(find-or-create-commodity-account
-;                                       %
-;                                       commodity)
-;                                     [from-account to-account])]
-;     (assoc context
-;            :from-account from-account
-;            :from-commodity-account from-commodity-account
-;            :to-account to-account
-;            :to-commodity-account to-commodity-account)))
-; 
-; (defn- process-transfer-lots
-;   [{:keys [commodity from-account to-account shares] :as context}]
-;   (let [to-move (->> (lots/search {:commodity-id (:id commodity)
-;                                    :account-id (:id from-account)
-;                                    :shares-owned [:> 0M]}
-;                                   {:sort [:purchase-date]})
-;                      (reduce (fn [acc {:keys [shares-owned] :as lot}]
-;                                (if (>= (:shares acc) shares)
-;                                  (reduced acc)
-;                                  (-> acc
-;                                      (update-in [:lots] conj lot)
-;                                      (update-in [:shares] + shares-owned))))
-;                              {:shares 0M
-;                               :lots []})
-;                      :lots)]
-;     (if (empty? to-move)
-;       (log/warnf "No lots found to transfer %s" (prn-str context))
-;       (assoc context :lots (mapv #(lots/update
-;                                    (assoc % :account-id (:id to-account)))
-;                                  to-move)))))
-; 
-; (defn- create-transfer-transaction
-;   [{:keys [commodity
-;            from-commodity-account
-;            to-commodity-account
-;            transfer-date
-;            shares]
-;     :as context}]
-;   (let [price (prices/most-recent commodity transfer-date)
-;         value (* shares (:price price))
-;         transaction (transactions/create {:entity-id (:entity-id commodity)
-;                                           :transaction-date transfer-date
-;                                           :description (format "Transfer %s shares of %s"
-;                                                                shares
-;                                                                (:symbol commodity))
-;                                           :items [{:action :credit
-;                                                    :quantity shares
-;                                                    :value value
-;                                                    :account-id (:id from-commodity-account)}
-;                                                   {:action :debit
-;                                                    :quantity shares
-;                                                    :value value
-;                                                    :account-id (:id to-commodity-account)}]})]
-;     (assoc context :transaction transaction)))
-; 
-; (defn transfer
-;   "Transfers a commodity from one account to another
-; 
-;   :commodity-id     - identifies the commodity to be moved
-;   :shares           - the number of shares of the commodity to be transfered
-;   :transaction-date - the date on which the transfer takes place
-;   :from-account-id  - identifies the account from which the commodity is to be moved
-;   :from-account     - the account from which the commodity is to be moved. Supplying this instead of :from-account-id bypasses the database lookup for the account.
-;   :to-account-id    - identifies the account to which the commodity is to be moved
-;   :to-account       - the account to which the commodity is to be moved. Supplying this instead of :to-account-id bypasses the database lookup for the account."
-;   [transfer]
-;   (let [validated (v/validate transfer ::transfer)]
-;     (if (v/valid? validated)
-;       (with-transacted-storage (env :db)
-;         (some-> validated
-;                 append-commodity
-;                 append-transfer-accounts
-;                 process-transfer-lots
-;                 create-transfer-transaction
-;                 (select-keys [:lots :transaction])))
-;       validated)))
-; 
+(defn- append-transfer-accounts
+  [{:transfer/keys  [from-account
+                     to-account
+                     commodity]
+    :as transfer}]
+  (-> transfer
+      (update-in [:transfer/from-account] (models/resolve-ref :account))
+      (update-in [:transfer/to-account] (models/resolve-ref :account))
+      (assoc :transfer/from-commodity-account
+             (models/find-by #:account{:commodity commodity
+                                       :parent from-account}))
+      (assoc :transfer/to-commodity-account
+             (find-or-create-commodity-account to-account commodity))))
+
+(defn- process-transfer-lots
+  [{:transfer/keys [commodity
+                    from-account
+                    to-account
+                    shares] :as context}]
+  (let [lots (->> (models/select #:lot{:commodity commodity
+                                       :account from-account
+                                       :shares-owned [:> 0M]}
+                                 {:sort [:lot/purchase-date]})
+                  (reduce (fn [acc {:lot/keys [shares-owned] :as lot}]
+                            (if (>= (:shares acc) shares)
+                              (reduced acc)
+                              (-> acc
+                                  (update-in [:lots] conj lot)
+                                  (update-in [:shares] + shares-owned))))
+                          {:shares 0M
+                           :lots []})
+                  :lots)]
+    (if (empty? lots)
+      (log/warnf "No lots found to transfer %s" context)
+      (assoc context
+             :transfer/lots
+             (mapv #(assoc % :lot/account to-account)
+                   lots)))))
+
+(defn- create-transfer-transaction
+  [{:transfer/keys [commodity
+                    from-commodity-account
+                    to-commodity-account
+                    date
+                    shares]
+    :as transfer}]
+  (let [price (prices/most-recent commodity date)
+        value (* shares (:price/price price))]
+    (assoc transfer
+           :transfer/transaction
+           #:transaction{:entity (:commodity/entity commodity)
+                         :transaction-date date
+                         :description (format "Transfer %s shares of %s"
+                                              shares
+                                              (:commodity/symbol commodity))
+                         :items [#:transaction-item{:action :credit
+                                                    :quantity shares
+                                                    :value value
+                                                    :account from-commodity-account}
+                                 #:transaction-item{:action :debit
+                                                    :quantity shares
+                                                    :value value
+                                                    :account to-commodity-account}]})))
+
+(defn- put-transfer
+  [{:transfer/keys [transaction
+                    lots
+                    to-commodity-account]}]
+  (let [result (->> (cond->> (cons transaction lots)
+                      (util/temp-id? to-commodity-account)
+                      (cons to-commodity-account))
+                    models/put-many
+                    (group-by db/model-type))]
+    {:transfer/transaction (first (:transaction result))
+     :transfer/lots (:lot result)}))
+
+(defn transfer
+  "Transfers a commodity from one account to another
+
+  :commodity        - the commodity to be moved
+  :shares           - the number of shares of the commodity to be transfered
+  :transaction-date - the date on which the transfer takes place
+  :from-account     - the account from which the commodity is to be moved
+  :to-account       - the account to which the commodity is to be moved"
+  [transfer]
+  (with-ex-validation transfer ::models/transfer
+    (some-> transfer
+            (update-in [:transfer/commodity] (models/resolve-ref :commodity))
+            append-transfer-accounts
+            process-transfer-lots
+            create-transfer-transaction
+            put-transfer)))
+
 ; ; TODO: Simplify this by updating stowaway to allow operators in mass update
 ; (defn- apply-split-to-lot
 ;   [ratio lot]

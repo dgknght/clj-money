@@ -587,79 +587,69 @@
                                (models/select {:lot/account ira}))
             "The shares owned are restored")))))
 
-; (def ^:private transfer-context
-;   (update-in sale-context [:accounts] conj {:name "IRA 2"
-;                                             :type :asset}))
-; 
-; (deftest transfer-a-commodity
-;   (let [context (realize transfer-context)
-;         [ira ira-2] (find-accounts context "IRA" "IRA 2")
-;         commodity (find-commodity context "AAPL")
-;         result (trading/transfer {:commodity-id (:id commodity)
-;                                   :from-account-id (:id ira)
-;                                   :to-account-id (:id ira-2)
-;                                   :shares 100M
-;                                   :transfer-date (t/local-date 2016 4 2)})
-;         [ira-commodity-account
-;          ira-2-commodity-account] (->> [ira ira-2]
-;                                        (map :id)
-;                                        (map #(accounts/search
-;                                               {:parent-id %
-;                                                :commodity-id (:id commodity)}))
-;                                        (map first))
-;         actual-lots (map #(dissoc % :created-at :updated-at :id)
-;                          (lots/search {:commodity-id (:id commodity)}))
-;         expected-lots [{:commodity-id (:id commodity)
-;                         :account-id (:id ira-2)
-;                         :shares-owned 100M
-;                         :purchase-price 10M
-;                         :shares-purchased 100M
-;                         :purchase-date (t/local-date 2016 3 2)}]
-;         expected-transaction {:transaction-date (t/local-date 2016 4 2)
-;                               :description "Transfer 100 shares of AAPL"
-;                               :entity-id (:entity-id commodity)
-;                               :items [{:action :credit
-;                                        :quantity 100M
-;                                        :value 1000M
-;                                        :balance 0M
-;                                        :account-id (:id ira-commodity-account)}
-;                                       {:action :debit
-;                                        :quantity 100M
-;                                        :value 1000M
-;                                        :balance 100M
-;                                        :account-id (:id ira-2-commodity-account)}]}
-;         actual-transaction (-> (:transaction result)
-;                                (select-keys [:entity-id
-;                                              :transaction-date
-;                                              :description
-;                                              :items])
-;                                (update-in [:items]
-;                                           (fn [items]
-;                                             (map #(select-keys
-;                                                    %
-;                                                    [:action
-;                                                     :account-id
-;                                                     :quantity
-;                                                     :action
-;                                                     :value
-;                                                     :balance])
-;                                                  items))))]
-;     (is result "A non-nil result is returned")
-;     (is (valid? result) "The result is valid")
-;     (is (= expected-transaction actual-transaction)
-;         "The correct transaction is returned")
-;     (is (= expected-lots actual-lots)
-;         "The lots are adjusted correctly.")
-;     ; Original account balance was 2,000, we bought 1,000 worth of
-;     ; shares of AAPL, then transfered those shares out of the account
-;     ; leaving 1,000 in cash
-;     (is (= 1000M (:quantity (accounts/reload ira)))
-;         "The balance in the 'from' account is updated correctly")
-;     ; No money was ever addedto the second account, so the balance
-;     ; is still 0
-;     (is (= 0M (:quantity (accounts/reload ira-2)))
-;         "The balance in the 'to' account is updated correclty")))
-; 
+(def ^:private transfer-context
+  (conj sale-context
+        #:account{:name "IRA 2"
+                  :entity "Personal"
+                  :type :asset}))
+
+(deftest transfer-a-commodity
+  (with-context transfer-context
+    (let [from-account (find-account "IRA")
+          to-account (find-account "IRA 2")
+          commodity (models/find (find-commodity "AAPL")) ; reload to get the date boundaries
+          result (trading/transfer
+                   #:transfer{:commodity commodity
+                              :from-account from-account
+                              :to-account to-account
+                              :shares 100M
+                              :date (t/local-date 2016 4 2)})]
+      (testing "The transaction"
+        (is (comparable?
+              #:transaction{:transaction-date (t/local-date 2016 4 2)
+                            :description "Transfer 100 shares of AAPL"
+                            :entity (util/->model-ref (find-entity "Personal"))
+                            :items [#:transaction-item{:action :credit
+                                                       :quantity 100M
+                                                       :value 1000M
+                                                       :balance 0M
+                                                       :account (util/->model-ref
+                                                                  (models/find-by #:account{:name "AAPL"
+                                                                                            :parent from-account}))}
+                                    #:transaction-item{:action :debit
+                                                       :quantity 100M
+                                                       :value 1000M
+                                                       :balance 100M
+                                                       :account (util/->model-ref
+                                                                  (models/find-by #:account{:name "AAPL"
+                                                                                            :parent to-account}))}]}
+              (:transfer/transaction result))
+            "A transaction is created and returned"))
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:commodity (util/->model-ref commodity)
+                                      :account (util/->model-ref to-account)
+                                      :shares-owned 100M
+                                      :purchase-price 10M
+                                      :shares-purchased 100M
+                                      :purchase-date (t/local-date 2016 3 2)}]
+                               (models/select {:lot/commodity commodity}))
+            "The lot is updated to reflect the new account"))
+      (testing "The originating account"
+        ; Original account balance was 2,000, we bought 1,000 worth of
+        ; shares of AAPL, then transfered those shares out of the account
+        ; leaving 1,000 in cash
+        (is (comparable? #:account{:quantity 1000M
+                                   :name "IRA"}
+                         (models/find from-account))
+            "The account balance reflects the cash before the transfer"))
+      (testing "The destination account"
+        ; No money was ever addedto the second account, so the balance
+        ; is still 0
+        (is (comparable? #:account{:quantity 0M
+                                   :name "IRA 2"}
+                         (models/find to-account))
+            "The account balance reflects the cash on hand before the transfer")))))
+
 ; (deftest split-a-commodity
 ;   (let [context (realize sale-context)
 ;         ira (find-account context "IRA")
