@@ -687,39 +687,37 @@
                          (models/find ira))
             "The account balance is unchanged")))))
 
-; (def ^:private rev-split-context
-;   (assoc purchase-context :trades [{:type :purchase
-;                                     :trade-date (t/local-date 2016 3 2)
-;                                     :entity-id "Personal"
-;                                     :account-id "IRA"
-;                                     :commodity-id "AAPL"
-;                                     :shares 1500M
-;                                     :value 30000M}]))
-; 
-; (deftest reverse-split-a-commodity
-;   (let  [ctx (realize rev-split-context)
-;          account (find-account ctx "IRA")
-;          commodity (find-commodity ctx "AAPL")
-;          result (trading/split {:split-date (t/local-date 2016 4 1)
-;                                 :account-id (:id account)
-;                                 :commodity-id (:id commodity)
-;                                 :shares-gained -1350M})
-;          lots (lots/search {:account-id (:id account)
-;                             :commodity-id (:id commodity)})]
-;     (is (= "Split shares of AAPL 1 for 10"
-;            (get-in result [:transaction :description]))
-;         "The transaction has the correct description")
-;     (is (= :credit (get-in result [:transaction :items 0 :action]))
-;         "The transaction item has the correct action")
-;     (is (= [{:purchase-date (t/local-date 2016 3 2)
-;              :shares-owned 150M
-;              :purchase-price 200M}]
-;            (map #(select-keys % [:purchase-date
-;                                  :shares-owned
-;                                  :purchase-price])
-;                 lots))
-;         "The lot is updated correctly.")))
-; 
+(def ^:private rev-split-context
+  (conj purchase-context
+        #:trade{:type :purchase
+                :date (t/local-date 2016 3 2)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 1500M
+                :value 30000M}))
+
+(deftest reverse-split-a-commodity
+  (with-context rev-split-context
+    (let [account (find-account "IRA")
+          commodity (find-commodity "AAPL")
+          result (trading/split #:split{:date (t/local-date 2016 4 1)
+                                        :account account
+                                        :commodity commodity
+                                        :shares-gained -1350M})]
+      (testing "The transaction"
+        (is (comparable? #:transaction{:description "Split shares of AAPL 1 for 10"
+                                       :items [#:transaction-item{:action :credit
+                                                                  :quantity 1350M}]}
+                         (:split/transaction result))))
+
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)
+                                      :shares-purchased 150M
+                                      :shares-owned 150M
+                                      :purchase-price 200M}]
+                               (models/select #:lot{:account account
+                                                    :commodity commodity})))))))
+
 ; #_(def delete-trading-transaction-context
 ;   (conj base-context
 ;         #:account{:name "IRA"
