@@ -236,25 +236,6 @@
            :lot/account act
            :lot/commodity cmd))))
 
-#_(defn- execute-trade
-  [trade context]
-  {:pre [(#{:buy :purchase :sell :sale} (:type trade))]}
-
-  (let [f (case (:type trade)
-            :buy      trading/buy
-            :purchase trading/buy
-            :sell     trading/sell
-            :sale     trading/sell)]
-    (-> trade
-        (resolve-entity context :entity)
-        (resolve-account context)
-        (resolve-account context :lt-capital-gains-account-id)
-        (resolve-account context :st-capital-gains-account-id)
-        (resolve-account context :lt-capital-loss-account-id)
-        (resolve-account context :st-capital-loss-account-id)
-        (resolve-commodity context :trade/commodity)
-        f)))
-
 (defmulti ^:private prepare
   (fn [m _ctx]
     (-> m keys first namespace keyword)))
