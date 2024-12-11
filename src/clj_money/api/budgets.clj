@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [clojure.tools.logging :as log]
             [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
