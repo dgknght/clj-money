@@ -83,14 +83,13 @@
                       (summarize-accounts (inc depth))
                       (sort-by :account/name))]
     (cons (-> account
-              (select-keys [:id :account/name :account/value])
+              (select-keys [:id
+                            :account/name
+                            :account/total-value
+                            :account/type])
               (rename-keys {:account/name :report/caption
-                            :account/value :report/value})
-              (update-in [:report/value] (fn [value]
-                                            (->> children
-                                                 (filter #(= (inc depth) (:account/depth %)))
-                                                 (map :report/value)
-                                                 (reduce + (or value 0M)))))
+                            :account/total-value :report/value
+                            :account/type :report/type})
               (assoc :report/style :data
                      :report/depth depth))
           children)))
@@ -102,23 +101,23 @@
  
 (defn- summarize-group
   [{:keys [type accounts]}]
-  (let [children (summarize-accounts accounts)]
+  (let [records (summarize-accounts accounts)]
     (cons {:report/caption (humanize type)
            :report/type type
-           :report/value (->> children
-                              (filter #(= 0 (:report/depth %)))
+           :report/style :header
+           :report/value (->> records
+                              (filter #(-> % :report/depth zero?))
                               (map :report/value)
-                              (reduce +))
-           :report/style :header}
-          (vec children))))
+                              (reduce + 0M))}
+          (vec records))))
  
 (defn summarize-income-statement
   [records]
   (let [{:keys [income expense]} (->> records
-                                      (filter :report/type)
+                                      (filter #(= 0 (:report/depth %)))
                                       (map (juxt :report/type :report/value))
                                       (into {}))]
-    (concat (map #(dissoc % :type) records)
+    (concat (map #(dissoc % :report/type) records)
             [{:report/caption "Net"
               :report/value (- income expense)
               :report/style :summary}])))
