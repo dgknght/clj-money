@@ -24,7 +24,8 @@
     :grant
     :scheduled-transaction
     :reconciliation
-    :lot})
+    :lot
+    :lot-item})
 
 (def valid-model-type? model-types)
 
