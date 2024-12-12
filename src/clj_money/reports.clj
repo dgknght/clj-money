@@ -49,7 +49,7 @@
                 :fetch-fn (fn [ids date]
                             (models/select
                               #:transaction-item{:account [:in ids]
-                                                 :transaction-date [:between>
+                                                 :transaction-date [:<between
                                                                     (t/minus date (t/years 1))
                                                                     date]}))
                 :id-fn (comp :id :transaction-item/account)
