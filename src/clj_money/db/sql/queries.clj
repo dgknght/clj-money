@@ -13,7 +13,8 @@
                     [:entities :budgets]
                     [:accounts :transaction_items]
                     [:transactions :transaction_items]
-                    [:transactions :attachments]}})
+                    [:transactions :attachments]
+                    [:transactions :lot_items]}})
 
 (defn criteria->query
   [criteria & [options]]
