@@ -114,7 +114,7 @@
 (defn summarize-income-statement
   [records]
   (let [{:keys [income expense]} (->> records
-                                      (filter #(= 0 (:report/depth %)))
+                                      (filter #(= :header (:report/style %)))
                                       (map (juxt :report/type :report/value))
                                       (into {}))]
     (concat (map #(dissoc % :report/type) records)
