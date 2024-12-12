@@ -289,41 +289,40 @@
                                                      (t/local-date 2016 1 31)))
         "The return is a report data structure with income and expense accounts")))
 
-; (deftest create-a-balance-sheet-report
-;   (let [context (realize report-context)
-;         actual (strip-accounts
-;                 (reports/balance-sheet (-> context :entities first)
-;                                        (t/local-date 2016 1 31)))
-;         expected [{:caption "Asset"
-;                    :value 749M
-;                    :style :header}
-;                   {:caption "Checking"
-;                    :value 749M
-;                    :style :data
-;                    :depth 0}
-;                   {:caption "Liability"
-;                    :value 500M
-;                    :style :header}
-;                   {:caption "Credit Card"
-;                    :value 500M
-;                    :style :data
-;                    :depth 0}
-;                   {:caption "Equity"
-;                    :value 249M
-;                    :style :header}
-;                   {:caption "Retained Earnings"
-;                    :value 249M ;  2,003 - 1,754
-;                    :style :data
-;                    :depth 0}
-;                   #_{:caption "Unrealized Gains"
-;                      :value 0M
-;                      :style :data
-;                      :depth 0}
-;                   {:caption "Liabilities + Equity"
-;                    :value 749M
-;                    :style :summary}]]
-;     (is (= expected actual) "The report data is correct")))
-; 
+(deftest create-a-balance-sheet-report
+  (with-context report-context
+    (is (seq-of-maps-like? [{:report/caption "Asset"
+                             :report/value 749M
+                             :report/style :header}
+                            {:report/caption "Checking"
+                             :report/value 749M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "Liability"
+                             :report/value 500M
+                             :report/style :header}
+                            {:report/caption "Credit Card"
+                             :report/value 500M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "Equity"
+                             :report/value 249M
+                             :report/style :header}
+                            {:report/caption "Retained Earnings"
+                             :report/value 249M ;  2,003 - 1,754
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "Unrealized Gains"
+                             :report/value 0M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "Liabilities + Equity"
+                             :report/value 749M
+                             :report/style :summary}]
+                           (reports/balance-sheet (models/find (find-entity "Personal"))
+                                                  (t/local-date 2016 1 31)))
+        "The report include assets, liabilities, and equity totals")))
+
 ; (def ^:private commodities-context
 ;   (-> report-context
 ;       (update-in [:accounts] #(concat % [{:name "IRA"
