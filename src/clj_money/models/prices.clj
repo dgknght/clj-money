@@ -9,11 +9,11 @@
             [stowaway.implicit :as storage :refer [with-transacted-storage]]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
-            [clj-money.models.settings :as settings]
-            [clj-money.models.commodities :as commodities]))
+            [clj-money.models.settings :as settings]))
 
 (def ^:dynamic *skip-account-updates* false)
 
@@ -21,12 +21,13 @@
 
 (defn- trade-date-unique?
   [{:keys [id] :as price}]
-  (-> price
-      (select-keys [:price/commodity
-                    :price/trade-date])
-      (assoc-if :id (when id [:!= id]))
-      models/find-by
-      nil?))
+  (zero?
+    (-> price
+        (select-keys [:price/commodity
+                      :price/trade-date])
+        (assoc-if :id (when id [:!= id]))
+        (db/model-type :price)
+        models/count)))
 (v/reg-spec trade-date-unique? {:message "%s already exists"
                                 :path [:price/trade-date]})
 
