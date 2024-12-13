@@ -370,10 +370,16 @@
 
 (defmethod prepare :trade
   [attr ctx]
-  (-> attr
-      (update-in-if [:trade/account] (find-account ctx))
-      (update-in-if [:trade/commodity] (find-commodity ctx))
-      (update-in-if [:trade/commodity-account] (find-account ctx))))
+  (let [find-act (find-account ctx)]
+    (reduce (fn [m k]
+              (update-in-if m [k] find-act))
+            (update-in-if attr [:trade/commodity] (find-commodity ctx))
+            [:trade/account
+             :trade/commodity-account
+             :trade/lt-capital-gains-account
+             :trade/lt-capital-loss-account
+             :trade/st-capital-gains-account
+             :trade/st-capital-loss-account])))
 
 (def ^:private extract-purchase-models
   (juxt :trade/transaction
