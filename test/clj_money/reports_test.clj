@@ -319,95 +319,99 @@
                                                   (t/local-date 2016 1 31)))
         "The report include assets, liabilities, and equity totals")))
 
-; (def ^:private commodities-context
-;   (-> report-context
-;       (update-in [:accounts] #(concat % [{:name "IRA"
-;                                           :type :asset}
-;                                          {:name "LT Gains"
-;                                           :type :income}
-;                                          {:name "ST Gains"
-;                                           :type :income}
-;                                          {:name "LT Losses"
-;                                           :type :expense}
-;                                          {:name "ST Losses"
-;                                           :type :expense}]))
-;       (update-in [:transactions] #(conj % {:transaction-date (t/local-date 2016 1 2)
-;                                            :description "Retirement savings"
-;                                            :items [#:transaction-item{:action :credit
-;                                                     :account "Checking"
-;                                                     :quantity 1000M}
-;                                                    #:transaction-item{:action :debit
-;                                                     :account "IRA"
-;                                                     :quantity 1000M}]}))
-;       (update-in [:commodities] #(concat % [{:name "Apple, Inc."
-;                                              :symbol "AAPL"
-;                                              :type :stock
-;                                              :exchange :nasdaq}
-;                                             {:name "Microsoft Corp"
-;                                              :symbol "MSFT"
-;                                              :type :stock
-;                                              :exchange :nasdaq}
-;                                             {:name "General Electric Co."
-;                                              :symbol "GE"
-;                                              :type :stock
-;                                              :exchange :nyse}]))
-;       (assoc :prices [{:trade-date (t/local-date 2017 2 1)
-;                        :price 20M
-;                        :commodity "AAPL"}
-;                       {:trade-date (t/local-date 2017 2 1)
-;                        :price 5M
-;                        :commodity "MSFT"}])))
-; 
-; (deftest balance-sheet-report-with-commodities
-;   (let [context (realize commodities-context)
-;         ira (find-account context "IRA")
-;         commodity (find-commodity context "AAPL")
-;         _ (trading/buy {:account (:id ira)
-;                         :commodity (:id commodity)
-;                         :shares 100M
-;                         :value 500M
-;                         :trade-date (t/local-date 2016 3 2)})
-;         report (strip-accounts
-;                 (reports/balance-sheet (-> context :entities first)
-;                                        (t/local-date 2017 3 2)))
-;         expected [{:caption "Asset"
-;                    :value 3279M
-;                    :style :header}
-;                   {:caption "Checking"
-;                    :value 779M
-;                    :style :data
-;                    :depth 0}
-;                   {:caption "IRA"
-;                    :value 2500M
-;                    :style :data
-;                    :depth 0}
-;                   {:caption "AAPL"
-;                    :value 2000M
-;                    :style :data
-;                    :depth 1}
-;                   {:caption "Liability"
-;                    :value 904M
-;                    :style :header}
-;                   {:caption "Credit Card"
-;                    :value 904M
-;                    :style :data
-;                    :depth 0}
-;                   {:caption "Equity"
-;                    :value 2375M
-;                    :style :header}
-;                   {:caption "Retained Earnings"
-;                    :value 875M
-;                    :style :data
-;                    :depth 0}
-;                   {:caption "Unrealized Gains"
-;                    :value 1500M
-;                    :style :data
-;                    :depth 0}
-;                   {:caption "Liabilities + Equity"
-;                    :value 3279M
-;                    :style :summary}]]
-;     (is (= expected report) "The report contains the correct data")))
-; 
+(def ^:private commodities-context
+  (conj report-context
+        #:commodity{:name "Apple, Inc."
+                    :entity "Personal"
+                    :symbol "AAPL"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:commodity{:name "Microsoft Corp"
+                    :entity "Personal"
+                    :symbol "MSFT"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:commodity{:name "General Electric Co."
+                    :entity "Personal"
+                    :symbol "GE"
+                    :type :stock
+                    :exchange :nyse}
+        #:price{:trade-date (t/local-date 2017 2 1)
+                :price 20M
+                :commodity "AAPL"}
+        #:price{:trade-date (t/local-date 2017 2 1)
+                :price 5M
+                :commodity "MSFT"}
+        #:account{:name "IRA"
+                  :entity "Personal"
+                  :type :asset}
+        #:account{:name "LT Gains"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "ST Gains"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "LT Losses"
+                  :entity "Personal"
+                  :type :expense}
+        #:account{:name "ST Losses"
+                  :entity "Personal"
+                  :type :expense}
+        #:transaction{:transaction-date (t/local-date 2016 1 2)
+                      :entity "Personal"
+                      :description "Retirement savings"
+                      :debit-account "IRA"
+                      :credit-account "Checking"
+                      :quantity 1000M}
+        #:trade{:type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 500M
+                :date (t/local-date 2016 3 2)}))
+
+(deftest balance-sheet-report-with-commodities
+  (with-context commodities-context
+    (is (seq-of-maps-like? [{:report/caption "Asset"
+                             :report/value 3279M
+                             :report/style :header}
+                            {:report/caption "Checking"
+                             :report/value 779M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "IRA"
+                             :report/value 2500M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "AAPL"
+                             :report/value 2000M
+                             :report/style :data
+                             :report/depth 1}
+                            {:report/caption "Liability"
+                             :report/value 904M
+                             :report/style :header}
+                            {:report/caption "Credit Card"
+                             :report/value 904M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "Equity"
+                             :report/value 2375M
+                             :report/style :header}
+                            {:report/caption "Retained Earnings"
+                             :report/value 875M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "Unrealized Gains"
+                             :report/value 1500M
+                             :report/style :data
+                             :report/depth 0}
+                            {:report/caption "Liabilities + Equity"
+                             :report/value 3279M
+                             :report/style :summary}]
+                           (reports/balance-sheet (models/find (find-entity "Personal"))
+                                                  (t/local-date 2017 3 2)))
+        "THe balance sheet includes unrealized gains")))
+
 ; (def commodities-account-summary-context
 ;   (assoc commodities-context
 ;          :trades [{:type :buy

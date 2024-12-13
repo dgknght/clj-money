@@ -9,7 +9,8 @@
             [clj-money.models :as models]
             [dgknght.app-lib.inflection :refer [humanize]]
             [dgknght.app-lib.core :refer [index-by]]
-            [clj-money.util :as util :refer [earliest]]
+            [clj-money.util :as util :refer [earliest
+                                             model=]]
             [clj-money.dates :as dates]
             [clj-money.models.accounts :as accounts]
             [clj-money.accounts :refer [nest
@@ -213,23 +214,22 @@
                              (mapcat summarize-account-type)
                              vec))))
 
-(defn- extract-commodity-ids
+(defn- extract-commodity-refs
   [{:keys [accounts entity] :as ctx}]
-  (assoc ctx
-         :commodity-ids
-         (->> accounts
-              (map (comp :id :account/commodity))
-              (remove #(= % (get-in entity [:entity/settings
-                                            :settings/default-commodity
-                                            :id])))
-              (into #{}))))
+  (let [default (get-in entity [:entity/settings
+                                :settings/default-commodity])
+        commodities (->> accounts
+                         (map :account/commodity)
+                         (remove #(model= % default))
+                         (into #{}))]
+    (assoc ctx :commodities commodities)))
 
 (defn- append-lots
-  [{:keys [commodity-ids as-of entity] :as ctx}]
+  [{:keys [commodities as-of entity] :as ctx}]
   (assoc ctx
          :lots
-         (if (seq commodity-ids)
-           (models/select #:lot{:commodity [:in commodity-ids]
+         (if (seq commodities)
+           (models/select #:lot{:commodity [:in (map :id commodities)]
                                 :purchase-date [:<= as-of]})
            (models/select (db/model-type
                             {:commodity/entity entity
@@ -238,15 +238,45 @@
 
 (defn- fetch-lot-items
   [{:keys [entity as-of]}]
-  (group-by :lot-id
+  (group-by (comp :id :lot-item/lot)
             (models/select (db/model-type
                              {:transaction/entity entity
-                               :lot-item/lot-action :sell
-                               :lot-item/transaction-date [:<= as-of]}
+                              :lot-item/lot-action :sell
+                              :lot-item/transaction-date [:<= as-of]}
                              :lot-item))))
 
+(defn- append-lot-items
+  [ctx]
+  (assoc ctx
+         :lot-items
+         (fetch-lot-items ctx)))
+
+(defn- realize-commodity-refs
+  [ctx]
+  (update-in ctx
+             [:commodities]
+             #(models/select (db/model-type
+                               {:id [:in (mapv :id %)]}
+                               :commodity))))
+
+(defn- append-latest-prices
+  [{:as ctx :keys [commodities as-of]}]
+  (assoc ctx
+         :prices
+         (->> commodities
+              (map #(prices/most-recent % as-of))
+              (map (juxt (comp :id :price/commodity)
+                         :price/price))
+              (into {}))))
+
 (defn- update-lot
-  [lot-items prices {:lot/keys [commodity id shares-purchased purchase-price] :keys [id] :as lot}]
+  [{:lot/keys [commodity
+               shares-purchased
+               purchase-price]
+    :keys [id]
+    :as lot}
+   {:keys [prices
+           lot-items]}]
   (let [current-price (get-in prices [(:id commodity)])
         current-shares (- shares-purchased
                           (->> (get-in lot-items [id])
@@ -261,24 +291,14 @@
            :lot/current-value current-value
            :lot/gains (- current-value cost-basis))))
 
-(defn- fetch-latest-prices
-  [commodity-ids as-of]
-  (->> commodity-ids
-       (map (comp (fn [c]
-                    [(:id c)
-                     (:price (prices/most-recent c as-of))])
-                  #(models/find % :commodity)))
-       (into {})))
-
 (defn- update-lots
-  [{:keys [lots as-of] :as ctx}]
-  (let [lot-items (fetch-lot-items ctx)
-        prices (fetch-latest-prices (set (map :commodity-id lots))
-                                    as-of)]
-    (update-in ctx
-               [:lots]
-               #(map (partial update-lot lot-items prices)
-                     %))))
+  "Append current price and value information to the lots"
+  [ctx]
+  (update-in ctx
+             [:lots]
+             (fn [lots]
+               (map #(update-lot % ctx)
+                    lots))))
 
 (defn- update-equity-total
   [records delta]
@@ -368,8 +388,11 @@
    (-> {:entity entity
         :as-of as-of
         :accounts (models/select {:account/entity entity})}
-       extract-commodity-ids
+       extract-commodity-refs
+       realize-commodity-refs
+       append-latest-prices
        append-lots
+       append-lot-items
        update-lots
        append-balances
        apply-balances
