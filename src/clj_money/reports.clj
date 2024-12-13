@@ -23,6 +23,17 @@
             [clj-money.models.prices :as prices]
             [clj-money.models.lots :as lots]))
 
+(defn- header?
+  [{:report/keys [style]}]
+  (= :header style))
+
+(defn- equity?
+  [{:report/keys [type]}]
+  (= :equity type))
+
+(def ^:private equity-header?
+  (every-pred header? equity?))
+
 (defn- max-by-item-index
   [items]
   (when (seq items)
@@ -100,7 +111,7 @@
   ([depth accounts]
    (mapcat #(summarize-account % depth) accounts)))
 
-(defn- summarize-group
+(defn- summarize-account-type
   [{:keys [type accounts]}]
   (let [records (summarize-accounts accounts)]
     (cons {:report/caption (humanize type)
@@ -112,12 +123,16 @@
                               (reduce + 0M))}
           (vec records))))
 
+(defn- map-record-headers
+  [records]
+  (->> records
+       (filter header?)
+       (map (juxt :report/type :report/value))
+       (into {})))
+
 (defn summarize-income-statement
   [records]
-  (let [{:keys [income expense]} (->> records
-                                      (filter #(= :header (:report/style %)))
-                                      (map (juxt :report/type :report/value))
-                                      (into {}))]
+  (let [{:keys [income expense]} (map-record-headers records)]
     (concat (map #(dissoc % :report/type) records)
             [{:report/caption "Net"
               :report/value (- income expense)
@@ -136,7 +151,7 @@
                         :end end
                         :earliest-date (:settings/earliest-transaction-date settings)})
         (nest {:types [:income :expense]})
-        (mapcat summarize-group)
+        (mapcat summarize-account-type)
         summarize-income-statement)))
 
 (defn- summarize-lots
@@ -166,7 +181,7 @@
                               :account/value
                               (or (get-in values [[(:id (:account/parent %))
                                                    (:id (:account/commodity %))]])
-                                  (get-in balances [(:id %) :balance])
+                                  (get-in balances [(:id %) :transaction-item/balance])
                                   0M))
                       accounts)))))
 
@@ -187,57 +202,16 @@
                    {})]
     (assoc ctx :balances balances)))
 
-(defn- append-retained-earnings
-  [mapped-accounts]
-  (let [{:keys [income expense]} (->> (select-keys mapped-accounts [:income :expense])
-                                      (map #(hash-map :type (first %) :accounts (second %)))
-                                      (mapcat summarize-group)
-                                      (filter :report/type)
-                                      (map (juxt :report/type :report/value))
-                                      (into {}))]
-    (update-in mapped-accounts [:equity] (fnil conj []) {:account/name "Retained Earnings"
-                                                         :account/total-value (- income expense)})))
-(defn- calc-unrealized-gains
-  [{:keys [lots]}]
-  (when (seq lots)
-    (.setScale
-     (->> lots
-          (map :lot/gains)
-          (reduce + 0M))
-     2
-     BigDecimal/ROUND_HALF_UP)))
-
-(defn- append-unrealized-gains
-  [mapped-accounts ctx]
-  (if-let [gains (calc-unrealized-gains ctx)]
-    (update-in mapped-accounts
-               [:equity]
-               (fnil conj [])
-               {:account/name "Unrealized Gains"
-                :account/total-value gains})
-    mapped-accounts))
-
-(defn- summarize-balance-sheet
+(defn- append-records
   [{:keys [accounts] :as ctx}]
   (let [mapped (->> accounts
                     nest
                     (map (juxt :type :accounts))
-                    (into {}))
-        with-pseudo (-> mapped
-                        (append-retained-earnings)
-                        (append-unrealized-gains ctx))
-        records (->> [:asset :liability :equity]
-                     (map #(hash-map :type % :accounts (% with-pseudo)))
-                     (mapcat summarize-group))
-        totals (->> records
-                    (filter :report/type)
-                    (map (juxt :report/type :report/value))
                     (into {}))]
-    (concat (map #(dissoc % :type) records)
-            [#:report{:caption "Liabilities + Equity"
-                      :value (+ (get-in totals [:liability])
-                                (get-in totals [:equity]))
-                      :style :summary}])))
+    (assoc ctx :records (->> [:asset :liability :equity :income :expense]
+                             (map #(hash-map :type % :accounts (% mapped)))
+                             (mapcat summarize-account-type)
+                             vec))))
 
 (defn- extract-commodity-ids
   [{:keys [accounts entity] :as ctx}]
@@ -306,23 +280,85 @@
                #(map (partial update-lot lot-items prices)
                      %))))
 
+(defn- update-equity-total
+  [records delta]
+  (mapv (fn [r]
+          (if (equity-header? r)
+            (update-in r [:report/value] + delta)
+            r))
+        records))
+
+(defn- append-equity-record
+  [ctx calc-fn caption]
+  (let [value (calc-fn ctx)]
+    (if (not (zero? value))
+      (update-in ctx [:records] #(-> %
+                                     (conj {:report/caption caption
+                                            :report/style :data
+                                            :report/type :equity
+                                            :report/depth 0
+                                            :report/value value})
+                                     (update-equity-total value)))
+      ctx)))
+
+(defn- calc-retained-earnings
+  [{:keys [records]}]
+  (let [{:keys [income expense]} (map-record-headers records)]
+    (- income expense)))
+
+(defn- append-retained-earnings
+  [ctx]
+  (append-equity-record
+    ctx
+    calc-retained-earnings
+    "Retained Earnings"))
+
+(defn- calc-unrealized-gains
+  [{:keys [lots]}]
+  (if (seq lots)
+    (.setScale
+      (->> lots
+           (map :lot/gains)
+           (reduce + 0M))
+      2
+      BigDecimal/ROUND_HALF_UP)
+    0M))
+
+(defn- append-unrealized-gains
+  [ctx]
+  (append-equity-record
+    ctx
+    calc-unrealized-gains
+    "Unrealized Gains"))
+
+(defn- calc-liabilities-plus-equity
+  [{:keys [records]}]
+  (let [{:keys [liability equity]} (map-record-headers records)]
+    (+ liability equity )))
+
+(defn- append-balance-sheet-summary
+  [ctx]
+  (update-in ctx [:records] conj {:report/caption "Liabilities + Equity"
+                                  :report/type :equity
+                                  :report/style :summary
+                                  :report/value (calc-liabilities-plus-equity ctx)}))
+
+(defn- extract-balance-sheet
+  [{:keys [records]}]
+  (filter #(#{:asset :liability :equity} (:report/type %))
+          records))
+
 (defn- check-balance
-  [report]
-  (let [balances (->> report
-                      (filter #(= :header (:report/style %)))
-                      (map (juxt :report/caption :report/value))
-                      (into {}))]
-    (when-not (= (balances "Asset")
-                 (+ (balances "Liability")
-                    (balances "Equity")))
+  [records]
+  (let [{:keys [asset liability equity]} (map-record-headers records)
+        l-and-e (+ liability equity)]
+    (when-not (= asset
+                 l-and-e)
       (log/warnf "Balance sheet out of balance. Asset: %s, Liability + Equity %s, difference %s"
-                 (balances "Asset")
-                 (+ (balances "Liability")
-                    (balances "Equity"))
-                 (- (balances "Asset")
-                    (+ (balances "Liability")
-                       (balances "Equity"))))))
-  report)
+                 asset
+                 l-and-e
+                 (- asset l-and-e))))
+  records)
 
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
@@ -337,9 +373,12 @@
        update-lots
        append-balances
        apply-balances
-       summarize-balance-sheet
-       (util/pp-> :applied-balances)
-       #_check-balance)))
+       append-records
+       append-retained-earnings
+       append-unrealized-gains
+       append-balance-sheet-summary
+       extract-balance-sheet
+       check-balance)))
 
 ; (defn- ->budget-report-record
 ;   [account budget {:keys [period-count]}]

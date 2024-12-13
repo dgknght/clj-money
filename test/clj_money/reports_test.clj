@@ -309,11 +309,7 @@
                              :report/value 249M
                              :report/style :header}
                             {:report/caption "Retained Earnings"
-                             :report/value 249M ;  2,003 - 1,754
-                             :report/style :data
-                             :report/depth 0}
-                            {:report/caption "Unrealized Gains"
-                             :report/value 0M
+                             :report/value 249M ;  2,003 - 1,754 : Same as the Net line in the income statement
                              :report/style :data
                              :report/depth 0}
                             {:report/caption "Liabilities + Equity"
