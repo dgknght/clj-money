@@ -430,13 +430,13 @@
 ;                                           (/ difference budget-amount)))
 ;                   :actual-per-period (with-precision 5
 ;                                        (/ actual-amount period-count))})))))
-;
-; (defn- sum
-;   [attr col]
-;   (->> col
-;        (map attr)
-;        (reduce + 0M)))
-;
+
+(defn- sum
+  [attr col]
+  (->> col
+       (map attr)
+       (reduce + 0M)))
+
 ; (defn- budget-group-header
 ;   [period-count header-key records]
 ;   (let [[budget actual diff] (map #(sum % records)
@@ -716,55 +716,61 @@
 ;      {:caption (:name account)
 ;       :account account
 ;       :message (format "There is no budget for %s" (dates/format-local-date as-of))})))
-;
-; (defn- summarize-commodity
-;   [[commodity-id lots]]
-;   (let [commodity (commodities/find commodity-id)
-;         shares (sum :shares-owned lots)
-;         cost (->> lots
-;                   (map #(* (:shares-owned %)
-;                            (:purchase-price %)))
-;                   (reduce +))
-;         price (:price (prices/most-recent commodity))
-;         value (* price shares)
-;         gain (- value cost)]
-;     {:caption (format "%s (%s)" (:name commodity) (:symbol commodity))
-;      :commodity-id (:id commodity)
-;      :style :data
-;      :shares shares
-;      :price price
-;      :cost cost
-;      :value value
-;      :gain gain}))
-;
-; (defn commodities-account-summary
-;   ([account]
-;    (commodities-account-summary account (t/local-date)))
-;   ([account as-of]
-;    (let [data (conj (->> (lots/search {:account-id (:id account)})
-;                          (filter #(not= 0M (:shares-owned %)))
-;                          (group-by :commodity-id)
-;                          (map #(summarize-commodity %))
-;                          (sort-by :caption)
-;                          (into []))
-;                     {:caption "Cash"
-;                      :style :data
-;                      :value (transactions/balance-as-of
-;                              account
-;                              as-of)})
-;          summary (reduce (fn [result record]
-;                            (reduce (fn [r k]
-;                                      (update-in r [k] #(+ % (or (k record) 0M))))
-;                                    result
-;                                    [:cost :value :gain]))
-;                          {:caption "Total"
-;                           :style :summary
-;                           :cost 0M
-;                           :value 0M
-;                           :gain 0M}
-;                          data)]
-;      (conj data summary))))
-;
+
+(defn- summarize-commodity
+  [[commodity-id lots]]
+  (let [commodity (models/find commodity-id :commodity)
+        shares (sum :lot/shares-owned lots)
+        cost (->> lots
+                  (map #(* (:lot/shares-owned %)
+                           (:lot/purchase-price %)))
+                  (reduce +))
+        price (:price/price (prices/most-recent commodity))
+        value (* price shares)
+        gain (- value cost)]
+    #:report{:caption (format "%s (%s)"
+                              (:commodity/name commodity)
+                              (:commodity/symbol commodity))
+             :commodity (util/->model-ref commodity)
+             :style :data
+             :depth 0
+             :shares shares
+             :price price
+             :cost cost
+             :value value
+             :gain gain}))
+
+(defn commodities-account-summary
+  ([account]
+   (commodities-account-summary account (t/local-date)))
+  ([account as-of]
+   (let [records (conj (->> (models/select {:lot/account account
+                                            :lot/shares-owned [:!= 0]})
+                            (group-by (comp :id :lot/commodity))
+                            (map #(summarize-commodity %))
+                            (sort-by :report/caption)
+                            (into []))
+                       #:report{:caption "Cash"
+                                :style :data
+                                :depth 0
+                                :value (transactions/balance-as-of
+                                         account
+                                         as-of)})
+         summary (reduce (fn [result record]
+                           (reduce (fn [r k]
+                                     (update-in r [k] #(+ % (or (k record) 0M))))
+                                   result
+                                   [:report/cost
+                                    :report/value
+                                    :report/gain]))
+                         #:report{:caption "Total"
+                                  :style :summary
+                                  :cost 0M
+                                  :value 0M
+                                  :gain 0M}
+                         records)]
+     (conj records summary))))
+
 ; (defn- append-commodity
 ;   [{:keys [commodity-id] :as lot}]
 ;   (let [{:keys [name symbol] :as commodity} (commodities/find commodity-id)]

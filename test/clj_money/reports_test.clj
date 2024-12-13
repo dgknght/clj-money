@@ -11,6 +11,7 @@
             [clj-money.models.ref]
             [clj-money.models :as models]
             [clj-money.core]
+            [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -412,70 +413,75 @@
                                                   (t/local-date 2017 3 2)))
         "THe balance sheet includes unrealized gains")))
 
-; (def commodities-account-summary-context
-;   (assoc commodities-context
-;          :trades [{:type :buy
-;                    :account "IRA"
-;                    :commodity "GE"
-;                    :shares 100M
-;                    :value 1000M
-;                    :trade-date (t/local-date 2015 1 1)}
-;                   {:type :sell
-;                    :account "IRA"
-;                    :commodity "GE"
-;                    :shares 100M
-;                    :value 2000M
-;                    :trade-date (t/local-date 2015 12 20)
-;                    :lt-capital-gains-account "LT Gains"
-;                    :st-capital-gains-account "ST Gains"
-;                    :lt-capital-loss-account  "LT Losses"
-;                    :st-capital-loss-account "ST Losses"}
-;                   {:type :buy
-;                    :account "IRA"
-;                    :commodity "AAPL"
-;                    :shares 50M
-;                    :value 500M
-;                    :trade-date (t/local-date 2016 3 2)}
-;                   {:type :buy
-;                    :account "IRA"
-;                    :commodity "MSFT"
-;                    :shares 50M
-;                    :value 500M
-;                    :trade-date (t/local-date 2016 3 2)}]))
-; 
-; (deftest create-a-commodities-account-summary
-;   (with-context commodities-account-summary-context
-;     (let [ira (accounts/find-by {:name "IRA"})
-;           [aapl msft] (find-commodities "AAPL"
-;                                         "MSFT")
-;           actual (reports/commodities-account-summary ira
-;                                                       (t/local-date 2017 3 2))
-;           expected [{:caption "Apple, Inc. (AAPL)"
-;                      :commodity (:id aapl)
-;                      :shares 50M
-;                      :price 20M
-;                      :cost 500M
-;                      :value 1000M
-;                      :gain 500M
-;                      :style :data}
-;                     {:caption "Microsoft Corp (MSFT)"
-;                      :commodity (:id msft)
-;                      :shares 50M
-;                      :price 5M
-;                      :cost 500M
-;                      :value 250M
-;                      :gain -250M
-;                      :style :data}
-;                     {:caption "Cash"
-;                      :style :data
-;                      :value 1000M}
-;                     {:caption "Total"
-;                      :cost 1000M
-;                      :value 2250M
-;                      :gain 250M
-;                      :style :summary}]]
-;       (is (= expected actual) "The report contains the correct data"))))
-; 
+(def commodities-account-summary-context
+  (conj commodities-context
+        #:trade{:type :purchase
+                :account "IRA"
+                :commodity "GE"
+                :shares 100M
+                :value 1000M
+                :date (t/local-date 2015 1 1)}
+        #:trade{:type :sell
+                :account "IRA"
+                :commodity "GE"
+                :shares 100M
+                :value 2000M
+                :date (t/local-date 2015 12 20)
+                :lt-capital-gains-account "LT Gains"
+                :st-capital-gains-account "ST Gains"
+                :lt-capital-loss-account  "LT Losses"
+                :st-capital-loss-account "ST Losses"}
+        #:trade{:type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 50M
+                :value 500M
+                :date (t/local-date 2016 3 3)}
+        #:trade{:type :purchase
+                :account "IRA"
+                :commodity "MSFT"
+                :shares 50M
+                :value 500M
+                :date (t/local-date 2016 3 3)}))
+
+(deftest create-a-commodities-account-summary
+  (with-context commodities-account-summary-context
+    (let [aapl (find-commodity "AAPL")
+          msft (find-commodity "MSFT")]
+      ; AAPL
+      ; purchased 100 shares at $ 5 ($500) on 2016-03-02
+      ; purchased  50 shares at $10 ($500) on 2016-03-03
+      ; latest price $20 on 2017-02-01
+      (is (seq-of-maps-like? [{:report/caption "Apple, Inc. (AAPL)"
+                               :report/commodity (util/->model-ref aapl)
+                               :report/shares 150M
+                               :report/price 20M
+                               :report/cost 1000M
+                               :report/value 3000M
+                               :report/gain 2000M
+                               :report/style :data}
+                              {:report/caption "Microsoft Corp (MSFT)"
+                               :report/commodity (util/->model-ref msft)
+                               :report/shares 50M
+                               :report/price 5M
+                               :report/cost 500M
+                               :report/value 250M
+                               :report/gain -250M
+                               :report/style :data}
+                              {:report/caption "Cash"
+                               :report/style :data
+                               :report/value 500M}
+                              {:report/caption "Total"
+                               :report/cost 1500M
+                               :report/value 3750M
+                               :report/gain 1750M
+                               :report/style :summary}]
+                             (-> "IRA"
+                                 find-account
+                                 models/find
+                                 (reports/commodities-account-summary (t/local-date 2017 3 2))))
+          "The report contains the correct data"))))
+
 ; (def ^:private budget-fixtures
 ;   (edn/read {:readers {'local-date dates/unserialize-local-date
 ;                        'repeat (fn [[n x]]
