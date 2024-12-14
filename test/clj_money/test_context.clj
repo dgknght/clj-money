@@ -298,7 +298,8 @@
 
   (update-in item
              [:transaction-item/account]
-             #(find-account ctx %)))
+             (comp util/->model-ref
+                   #(find-account ctx %))))
 
 (defmethod prepare :scheduled-transaction-item
   [item ctx]
