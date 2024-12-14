@@ -94,105 +94,12 @@
                        report)
           "Data reflecting the actual vs prorated budget is returned"))))
 
-; (deftest get-a-lot-report
-;   (let [context (realize commodities-context)
-;         [ira
-;          lt-gains
-;          st-gains
-;          lt-losses
-;          st-losses] (find-accounts context "IRA"
-;                                    "LT Gains"
-;                                    "ST Gains"
-;                                    "LT Losses"
-;                                    "ST Losses")
-;         [aapl
-;          msft
-;          ge] (find-commodities context "AAPL"
-;                                "MSFT"
-;                                "GE")
-;         p1 (trading/buy {:trade-date (t/local-date 2017 1 15)
-;                          :commodity (:id aapl)
-;                          :account (:id ira)
-;                          :shares 10M
-;                          :value 100M})
-;         p2 (trading/buy {:trade-date (t/local-date 2017 1 15)
-;                          :commodity (:id msft)
-;                          :account (:id ira)
-;                          :shares 10M
-;                          :value 100M})
-;         p3 (trading/buy {:trade-date (t/local-date 2017 1 15)
-;                          :commodity (:id ge)
-;                          :account (:id ira)
-;                          :shares 10M
-;                          :value 100M})
-;         s1 (trading/sell {:trade-date (t/local-date 2017 1 31)
-;                           :commodity (:id aapl)
-;                           :account (:id ira)
-;                           :shares 5M
-;                           :value 55M
-;                           :lt-capital-gains-account (:id lt-gains)
-;                           :st-capital-gains-account (:id st-gains)
-;                           :lt-capital-loss-account (:id lt-losses)
-;                           :st-capital-loss-account (:id st-losses)})
-;         actual (map (fn [record]
-;                       (update-in record [:transactions] (fn [transactions]
-;                                                           (map #(dissoc % :lot)
-;                                                                transactions))))
-;                     (reports/lot-report (:id ira)))
-;         expected [{:caption "Apple, Inc. (AAPL)"
-;                    :commodity (:id aapl)
-;                    :purchase-date (t/local-date 2017 1 15)
-;                    :shares-owned 5M
-;                    :purchase-price 10M
-;                    :cost 50M
-;                    :current-price 20M
-;                    :value 100M
-;                    :gain 50M
-;                    :transactions [{:transaction-date (t/local-date 2017 1 15)
-;                                    :id (-> p1 :transaction :id)
-;                                    :lot-action :buy
-;                                    :price 10M
-;                                    :shares 10M}
-;                                   {:transaction-date (t/local-date 2017 1 31)
-;                                    :id (-> s1 :transaction :id)
-;                                    :lot-action :sell
-;                                    :price 11M
-;                                    :shares 5M}]}
-;                   {:caption "General Electric Co. (GE)"
-;                    :commodity (:id ge)
-;                    :purchase-date (t/local-date 2017 1 15)
-;                    :shares-owned 10M
-;                    :purchase-price 10M
-;                    :cost 100M
-;                    :value 100M
-;                    :current-price 10M
-;                    :gain 0M
-;                    :transactions [{:transaction-date (t/local-date 2017 1 15)
-;                                    :id (-> p3 :transaction :id)
-;                                    :lot-action :buy
-;                                    :shares 10M
-;                                    :price 10M}]}
-;                   {:caption "Microsoft Corp (MSFT)"
-;                    :commodity (:id msft)
-;                    :purchase-date (t/local-date 2017 1 15)
-;                    :shares-owned 10M
-;                    :purchase-price 10M
-;                    :cost 100M
-;                    :value 50M
-;                    :current-price 5M
-;                    :gain -50M
-;                    :transactions [{:transaction-date (t/local-date 2017 1 15)
-;                                    :id (-> p2 :transaction :id)
-;                                    :lot-action :buy
-;                                    :shares 10M
-;                                    :price 10M}]}]]
-;     (when (not= expected actual)
-;       (pprint {:expected expected
-;                :actual actual
-;                :diff (diff expected actual)}))
-;     (is (= expected actual)
-;         "The report contains the correct data")))
-; 
+(deftest get-a-lot-report
+  (with-context fixtures/lot-report-context
+    (is (seq-of-maps-like? fixtures/expected-lot-report
+                           (reports/lot-report (find-account "IRA")))
+        "The report contains lot information grouped by commodity")))
+
 ; (def ^:private portfolio-context
 ;   (-> basic-context
 ;       (update-in [:accounts] concat [{:name "IRA"

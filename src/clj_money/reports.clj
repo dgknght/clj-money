@@ -799,34 +799,36 @@
                          records)]
      (conj records summary))))
 
-; (defn- append-commodity
-;   [{:keys [commodity-id] :as lot}]
-;   (let [{:keys [name symbol] :as commodity} (commodities/find commodity-id)]
-;     (assoc lot
-;            :caption (format "%s (%s)" name symbol)
-;            :commodity commodity)))
-;
-; (defn- append-current-price
-;   [lot]
-;   (assoc lot :current-price (->> (:commodity lot)
-;                                  prices/most-recent
-;                                  :price)))
-;
-; (defn- transform-lot-transactions
-;   [trans]
-;   (map #(merge % (select-keys trans [:id :transaction-date]))
-;        (:lot-items trans)))
-;
-; (defn- append-lot-transactions
-;   [lot]
-;   (assoc lot
-;          :transactions
-;          (mapcat transform-lot-transactions
-;                  (transactions/search
-;                   {[:lot-transaction :lot-id] (:id lot)
-;                    :transaction-date [:>= (:purchase-date lot)]}
-;                   {:include-lot-items? true}))))
-;
+(defn- append-commodity
+  [{:lot/keys [commodity] :as lot}]
+  (let [{:commodity/keys [name symbol] :as commodity}
+        (models/find commodity :commodity)]
+    (assoc lot
+           :report/caption (format "%s (%s)" name symbol)
+           :lot/commodity commodity)))
+
+(defn- append-current-price
+  [lot]
+  (assoc lot :lot/current-price (->> (:lot/commodity lot)
+                                     prices/most-recent
+                                     :price/price)))
+
+(defn- transform-lot-transactions
+  [trx]
+  (map #(merge % (select-keys trx [:id :transaction/transaction-date]))
+       (:lot-items trx)))
+
+(defn- append-lot-transactions
+  [lot]
+  (assoc lot
+         :lot/transactions
+         (mapcat transform-lot-transactions
+                 (models/select
+                   (db/model-type
+                     {:lot-item/lot lot
+                      :transaction/transaction-date [:>= (:lot/purchase-date lot)]}
+                     :transaction)))))
+
 ; (defn- append-lot-calculated-values
 ;   [lot]
 ;   (let [cost (* (:shares-owned lot) (:purchase-price lot))
@@ -836,23 +838,23 @@
 ;            :cost cost
 ;            :value value
 ;            :gain gain)))
-;
-; (defn lot-report
-;   ([account-id]
-;    (lot-report account-id nil))
-;   ([account-id commodity-id]
-;    (->> (lots/search (cond-> {:account-id account-id}
-;                        commodity-id
-;                        (assoc :commodity-id commodity-id)))
-;         (map #(-> %
-;                   append-commodity
-;                   append-current-price
-;                   (dissoc :commodity)
-;                   append-lot-transactions
-;                   append-lot-calculated-values))
-;         (sort-by :caption)
-;         (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
-;
+
+(defn lot-report
+  ([account]
+   (lot-report account nil))
+  ([account commodity]
+   (->> (models/select (cond-> {:lot/account account}
+                         commodity
+                         (assoc :lot/commodity commodity)))
+        (map #(-> %
+                  append-commodity
+                  append-current-price
+                  (dissoc :commodity)
+                  append-lot-transactions
+                  append-lot-calculated-values))
+        (sort-by :caption)
+        (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
+
 ; (defn- append-portfolio-accounts
 ;   [{:keys [lots] :as ctx}]
 ;   (assoc ctx :accounts (if (seq lots)
