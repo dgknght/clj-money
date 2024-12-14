@@ -291,8 +291,8 @@
   [account start end]
   (let [t1 (last-account-item-before account start)
         t2 (last-account-item-on-or-before account end)]
-    (- (or (:transaction-item/balance t2) 0M)
-       (or (:transaction-item/balance t1) 0M))))
+    (- (:transaction-item/balance t2 0M)
+       (:transaction-item/balance t1 0M))))
 
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
