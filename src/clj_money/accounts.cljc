@@ -78,7 +78,10 @@
   [types]
   (->> types
        (mapcat :accounts)
-       models/unnest))
+       (models/unnest {:children-key :account/children
+                       :path-key :account/path
+                       :path-segment-fn :account/name
+                       :parent-ids-key :account/parent-ids})))
 
 (defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"

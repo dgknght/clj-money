@@ -12,4 +12,5 @@
             clj-money.models.reconciliations
             clj-money.models.images
             clj-money.models.attachments
-            clj-money.models.scheduled-transactions))
+            clj-money.models.scheduled-transactions
+            clj-money.models.budgets))

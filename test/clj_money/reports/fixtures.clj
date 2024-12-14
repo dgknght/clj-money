@@ -660,11 +660,11 @@
                                      :difference 0M
                                      :percent-difference nil
                                      :actual-per-period 0M
-                                     :roll-up {:budget 1128M ; 60 + 268 + 800
-                                               :actual 831M ; 45 + 186 + 600
-                                               :difference 297M
-                                               :percent-difference 0.2632978723M
-                                               :actual-per-period 415.5M}}
+                                     :roll-up #:report{:budget 1128M ; 60 + 268 + 800
+                                                       :actual 831M ; 45 + 186 + 600
+                                                       :difference 297M
+                                                       :percent-difference 0.2632978723M
+                                                       :actual-per-period 415.5M}}
                             #:report{:caption "Taxes/Medicare"
                                      :style :data
                                      :depth 1
@@ -703,7 +703,8 @@
                     :actual 554M
                     :difference 382M
                     :percent-difference 2.220930233M
-                    :actual-per-period 277M}]})
+                    :actual-per-period 277M}
+           ]})
 
 (def expected-budget-report-by-tag
   {:title "2016: January to February"
