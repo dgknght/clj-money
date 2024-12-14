@@ -17,7 +17,8 @@
             [clj-money.db :as db]
             [clj-money.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.prices :as prices]))
+            [clj-money.models.prices :as prices]
+            [clj-money.models.budgets :as bdgs]))
 
 (defn- header?
   [{:report/keys [style]}]
@@ -653,89 +654,96 @@
                    (t/format (t/formatter "MMMM") (:budget/start-date budget))
                    (t/format (t/formatter "MMMM") as-of))}))
 
-; (defn- monitor-item
-;   [budget actual percentage]
-;   {:total-budget budget
-;    :actual actual
-;    :percentage percentage
-;    :prorated-budget (* percentage budget)
-;    :actual-percent (/ actual budget)})
-;
-; (defn- aggregate-account-actuals
-;   [accounts start end]
-;   (->> accounts
-;        (map #(transactions/balance-delta % start end))
-;        (reduce + 0M)))
-;
-; (defn- monitor-from-item
-;   [{:keys [account as-of budget children] {:keys [periods]} :item}]
-;   (let [period (budgets/period-containing budget as-of)
-;         period-budget (nth periods (:index period) 0M)
-;         total-budget (reduce + 0M periods)
-;         percent-of-period (budgets/percent-of-period budget
-;                                                      as-of)
-;         period-actual (aggregate-account-actuals (conj children account)
-;                                                  (:start period)
-;                                                  as-of)
-;         total-actual (aggregate-account-actuals (conj children account)
-;                                                 (:start-date budget)
-;                                                 as-of)
-;         percent-of-total (with-precision 5
-;                            (->> [as-of (:end-date budget)]
-;                                 (map (comp inc
-;                                            #(dates/days-between
-;                                              (:start-date budget)
-;                                              %)))
-;                                 (apply /)))]
-;     (with-precision 5
-;       {:caption (:name account)
-;        :account account
-;        :period (monitor-item period-budget period-actual percent-of-period)
-;        :budget (monitor-item total-budget total-actual percent-of-total)})))
-;
-; (defn- aggregate-item
-;   [{:keys [budget account]}]
-;   (let [items (budgets/find-items-by-account budget account)]
-;     (when (seq items)
-;       {:account account
-;        :periods (->> items
-;                      (map :periods)
-;                      (apply interleave)
-;                      (partition (count items))
-;                      (map #(reduce + %)))})))
-;
-; (defn- append-account-children
-;   [{:keys [account] :as ctx}]
-;   (let [children (remove
-;                   #(= (:id %)  (:id account))
-;                   (accounts/search {:id (:id account)}
-;                                    {:include-children? true}))]
-;     (-> ctx
-;         (update-in [:account] assoc :child-ids (map :id children))
-;         (assoc :children children))))
-;
-; (defn- monitor-from-budget
-;   [{:keys [account] :as ctx}]
-;   (if-let [item (aggregate-item ctx)]
-;     (monitor-from-item (-> ctx
-;                            (assoc :item item)
-;                            append-account-children))
-;     {:caption (:name account)
-;      :account account
-;      :message "There is no budget item for this account"}))
-;
-; (defn monitor
-;   "Returns a mini-report for a specified account against a budget period"
-;   ([account]
-;    (monitor account (t/local-date)))
-;   ([account as-of]
-;    (if-let [budget (budgets/find-by-date (:entity-id account) as-of)]
-;      (monitor-from-budget {:account account
-;                            :as-of as-of
-;                            :budget budget})
-;      {:caption (:name account)
-;       :account account
-;       :message (format "There is no budget for %s" (dates/format-local-date as-of))})))
+(defn- monitor-item
+  [budget actual percentage]
+  {:pre [(not (zero? budget))]}
+
+  #:report{:total-budget budget
+           :actual actual
+           :percentage percentage
+           :prorated-budget (* percentage budget)
+           :actual-percent (/ actual budget)})
+
+(defn- aggregate-account-actuals
+  [accounts start end]
+  {:pre [start end (t/before? start end)]}
+  (->> accounts
+       (map #(transactions/balance-delta % start end))
+       (reduce + 0M)))
+
+(defn- monitor-from-item
+  [{:keys [account as-of budget children] {:keys [periods]} :item}]
+  (let [period (budgets/period-containing budget as-of)
+        period-budget (nth periods (:index period) 0M)
+        total-budget (reduce + 0M periods)
+        percent-of-period (budgets/percent-of-period budget
+                                                     as-of)
+        period-actual (aggregate-account-actuals (conj children account)
+                                                 (:start period)
+                                                 as-of)
+        total-actual (aggregate-account-actuals (conj children account)
+                                                (:budget/start-date budget)
+                                                as-of)
+        percent-of-total (with-precision 5
+                           (->> [as-of (:budget/end-date budget)]
+                                (map (comp inc
+                                           #(dates/days-between
+                                             (:budget/start-date budget)
+                                             %)))
+                                (apply /)))]
+    (with-precision 5
+      #:report{:caption (:account/name account)
+               :account account
+               :period (monitor-item period-budget period-actual percent-of-period)
+               :budget (monitor-item total-budget total-actual percent-of-total)})))
+
+(defn- aggregate-item
+  [{:keys [budget account]}]
+  (let [items (bdgs/find-items-by-account budget account)]
+    (when (seq items)
+      {:account account
+       :periods (->> items
+                     (map :budget-item/periods)
+                     (apply interleave)
+                     (partition (count items))
+                     (mapv #(reduce + %)))})))
+
+(defn- append-account-children
+  [{:keys [account] :as ctx}]
+  (let [children (remove
+                  #(model= %  account)
+                  (models/select (db/model-type
+                                   (util/->model-ref account)
+                                   :account)
+                                 {:include-children? true}))]
+    (-> ctx
+        (update-in [:account] assoc :account/child-ids (map :id children))
+        (assoc :children children))))
+
+(defn- monitor-from-budget
+  [{:keys [account] :as ctx}]
+  (if-let [item (aggregate-item ctx)]
+    (monitor-from-item (-> ctx
+                           (assoc :item item)
+                           append-account-children))
+    #:report{:caption (:account/name account)
+             :account account
+             :message "There is no budget item for this account"}))
+
+(defn monitor
+  "Returns a mini-report for a specified account against a budget period"
+  ([account]
+   (monitor account (t/local-date)))
+  ([account as-of]
+   {:pre [account as-of]}
+
+   (if-let [budget (bdgs/find-by-date (:account/entity account) as-of)]
+     (monitor-from-budget {:account account
+                           :as-of as-of
+                           :budget budget})
+     #:report{:caption (:account/name account)
+              :account account
+              :message (format "There is no budget for %s" (dates/format-local-date as-of))})))
 
 (defn- summarize-commodity
   [[commodity-id lots]]

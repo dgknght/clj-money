@@ -74,27 +74,26 @@
             (:items report))
           "The result contains records describing planned income and expenses vs actual, grouped by account tags"))))
 
-; (deftest create-a-budget-monitor
-;   (with-context budget-report-context
-;     (let [groceries (accounts/find-by {:name "Groceries"})
-; 
-;           ; half-way through january
-;           actual (-> (reports/monitor groceries
-;                                       (t/local-date 2016 1 15))
-;                      (dissoc :account))
-;           expected {:caption "Groceries"
-;                     :period {:total-budget 450M
-;                              :prorated-budget 217.74M
-;                              :percentage 15/31
-;                              :actual 200M
-;                              :actual-percent 0.44444M}
-;                     :budget {:total-budget 5400M
-;                              :prorated-budget 221.31M
-;                              :percentage 15/366
-;                              :actual 200M
-;                              :actual-percent 0.037037M}}]
-;       (is (= expected actual) "The correct information is returned"))))
-; 
+(deftest create-a-budget-monitor
+  (with-context fixtures/budget-context
+    (let [groceries (models/find-by {:account/name "Groceries"})
+          ; half-way through january
+          report (reports/monitor groceries
+                                  (t/local-date 2016 1 15))]
+      (is (comparable? #:report{:caption "Groceries"
+                                :period #:report{:total-budget 450M
+                                                 :prorated-budget 217.74M
+                                                 :percentage 15/31
+                                                 :actual 200M
+                                                 :actual-percent 0.44444M}
+                                :budget #:report{:total-budget 5400M
+                                                 :prorated-budget 221.31M
+                                                 :percentage 15/366
+                                                 :actual 200M
+                                                 :actual-percent 0.037037M}}
+                       report)
+          "Data reflecting the actual vs prorated budget is returned"))))
+
 ; (deftest get-a-lot-report
 ;   (let [context (realize commodities-context)
 ;         [ira
