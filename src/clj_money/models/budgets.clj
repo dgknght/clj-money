@@ -126,6 +126,10 @@
 (defn find-by-date
   "Returns the budget containing the specified date"
   [entity date]
+  {:pre [entity
+         (:id entity)
+         date
+         (t/local-date? date)]}
   (models/find-by #:budget{:start-date [:<= date]
                            :end-date [:>= date]
                            :entity entity}))
@@ -147,7 +151,7 @@
   (throw (UnsupportedOperationException. "Use models/put instead")))
 
 (defn find-items-by-account
-  "Finds items in the specified match belonging to the specified account or its children."
+  "Finds items in the specified budget belonging to the specified account or its children."
   [{:budget/keys [items]} {:account/keys [child-ids] account-id :id}]
   (let [ids (if (seq child-ids)
               (conj (into #{} child-ids) account-id)
