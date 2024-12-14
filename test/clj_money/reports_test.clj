@@ -53,26 +53,27 @@
   (with-context fixtures/budget-context
     (let [report (reports/budget (find-budget "2016")
                                  {:as-of (t/local-date 2016 2 29)})]
-      (is (= "2016: January to February"
+      (is (= (:title fixtures/expected-budget-report)
              (:title report))
           "The report title includes the budget name of the periods covered")
       (is (seq-of-maps-like?
             (:items fixtures/expected-budget-report)
             (:items report))
-          "The result contains records described planned income and expenses vs actual"))))
+          "The result contains records describing planned income and expenses vs actual"))))
 
-; (def ^:private  expected-tagged-budget
-;   (:expected-tagged budget-fixtures))
-; 
-; (deftest create-a-budget-report-grouped-by-tags
-;   (let [ctx (realize budget-report-context)
-;         actual (-> ctx
-;                    (find-budget "2016")
-;                    (reports/budget {:as-of (t/local-date 2016 2 29)
-;                                     :tags [:tax :mandatory :discretionary]})
-;                    (update-in [:items] strip-accounts))]
-;     (is (= expected-tagged-budget actual) "The function produces the correct data")))
-; 
+(deftest create-a-budget-report-grouped-by-tags
+  (with-context fixtures/budget-context
+    (let [report (reports/budget (find-budget "2016")
+                                 {:as-of (t/local-date 2016 2 29)
+                                  :tags [:tax :mandatory :discretionary]})]
+      (is (= (:title fixtures/expected-budget-report-by-tag)
+             (:title report))
+          "The report title includes the budget name of the periods covered")
+      (is (seq-of-maps-like?
+            (:items fixtures/expected-budget-report-by-tag)
+            (:items report))
+          "The result contains records describing planned income and expenses vs actual, grouped by account tags"))))
+
 ; (deftest create-a-budget-monitor
 ;   (with-context budget-report-context
 ;     (let [groceries (accounts/find-by {:name "Groceries"})

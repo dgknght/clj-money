@@ -640,10 +640,11 @@
   "Returns a budget report"
   ([bdg]
    (budget bdg {}))
-  ([budget {:keys [as-of]}]
-   {:items (-> {:budget budget
-                :as-of (or as-of
-                           (default-budget-end-date budget))}
+  ([budget {:keys [as-of] :as opts}]
+   {:items (-> opts
+               (merge {:budget budget
+                       :as-of (or as-of
+                                  (default-budget-end-date budget))})
                append-entity
                append-period-count
                calc-budget-records)

@@ -703,132 +703,122 @@
                     :actual 554M
                     :difference 382M
                     :percent-difference 2.220930233M
-                    :actual-per-period 277M}
-           ]})
+                    :actual-per-period 277M}]})
 
 (def expected-budget-report-by-tag
   {:title "2016: January to February"
-   :items [{:caption "Income"
-            :style :header
-            :budget 4000M
-            :actual 4010M
-            :difference 10M
-            :percent-difference 0.0025M
-            :actual-per-period 2005M
-            :items [{:caption "Salary"
-                     :user-tags #{}
-                     :style :data
-                     :depth 0
-                     :budget 4000M
-                     :actual 4010M
-                     :difference 10M
-                     :percent-difference 0.0025M
-                     :actual-per-period 2005M}]}
-           {:caption "Tax"
-            :style :header
-            :budget 1128M
-            :actual 831M
-            :difference 297M
-            :percent-difference 0.2632978723M
-            :actual-per-period 415.5M
-            :items [{:caption "Taxes"
-                     :user-tags #{:tax}
-                     :style :data
-                     :depth 0
-                     :budget 0M
-                     :actual 0M
-                     :difference 0M
-                     :percent-difference nil
-                     :actual-per-period 0M
-                     :roll-up {:budget 1128M ; 60 + 268 + 800
-                               :actual 831M ; 45 + 186 + 600
-                               :difference 297M
-                               :percent-difference 0.2632978723M
-                               :actual-per-period 415.5M}}
-                    {:caption "Taxes/Medicare"
-                     :user-tags #{:tax}
-                     :style :data
-                     :depth 1
-                     :budget 60M
-                     :actual 45M
-                     :difference 15M
-                     :percent-difference 0.25M
-                     :actual-per-period 22.5M}
-                    {:caption "Taxes/Social Security"
-                     :user-tags #{:tax}
-                     :style :data
-                     :depth 1
-                     :budget 268M
-                     :actual 186M
-                     :difference 82M
-                     :percent-difference 0.30597M
-                     :actual-per-period 93M}
-                    {:caption "Taxes/FIT"
-                     :user-tags #{:tax}
-                     :style :data
-                     :depth 1
-                     :budget 800M
-                     :actual 600M
-                     :difference 200M
-                     :percent-difference 0.25M
-                     :actual-per-period 300M}]}
-           {:caption "Mandatory"
-            :style :header
-            :budget 2300M
-            :actual 2304M
-            :difference -4M
-            :percent-difference -0.001739130435M
-            :actual-per-period 1152M
-            :items [{:caption "Groceries"
-                     :user-tags #{:mandatory}
-                     :style :data
-                     :depth 0
-                     :budget 900M
-                     :actual 904M
-                     :difference -4M
-                     :percent-difference -0.0044444M
-                     :actual-per-period 452M}
-                    {:caption "Rent"
-                     :user-tags #{:mandatory}
-                     :style :data
-                     :depth 0
-                     :budget 1400M
-                     :actual 1400M
-                     :difference 0M
-                     :percent-difference 0M
-                     :actual-per-period 700M}]}
-           {:caption "Discretionary"
-            :style :header
-            :budget 400M
-            :actual 321M
-            :difference 79M
-            :percent-difference 0.1975M
-            :actual-per-period 160.50M
-            :items [{:caption "Clothes"
-                     :user-tags #{:discretionary}
-                     :style :data
-                     :depth 0
-                     :budget 0M
-                     :actual 321M
-                     :difference -321M
-                     :percent-difference nil
-                     :actual-per-period 160.50M}
-                    {:caption "Dining"
-                     :user-tags #{:discretionary}
-                     :style :data
-                     :depth 0
-                     :budget 400M
-                     :actual 0M
-                     :difference 400M
-                     :percent-difference 1M
-                     :actual-per-period 0M}]}
-           {:caption "Net"
-            :style :summary
-            :budget 172M
-            :actual 554M
-            :difference 382M
-            :percent-difference 2.220930233M
-            :actual-per-period 277M}]})
+   :items [#:report{:caption "Income"
+                    :style :header
+                    :budget 4000M
+                    :actual 4010M
+                    :difference 10M
+                    :percent-difference 0.0025M
+                    :actual-per-period 2005M
+                    :items [#:report{:caption "Salary"
+                                     :style :data
+                                     :depth 0
+                                     :budget 4000M
+                                     :actual 4010M
+                                     :difference 10M
+                                     :percent-difference 0.0025M
+                                     :actual-per-period 2005M}]}
+           #:report{:caption "Tax"
+                    :style :header
+                    :budget 1128M
+                    :actual 831M
+                    :difference 297M
+                    :percent-difference 0.2632978723M
+                    :actual-per-period 415.5M
+                    :items [#:report{:caption "Taxes"
+                                     :style :data
+                                     :depth 0
+                                     :budget 0M
+                                     :actual 0M
+                                     :difference 0M
+                                     :percent-difference nil
+                                     :actual-per-period 0M
+                                     :roll-up #:report{:budget 1128M ; 60 + 268 + 800
+                                                       :actual 831M ; 45 + 186 + 600
+                                                       :difference 297M
+                                                       :percent-difference 0.2632978723M
+                                                       :actual-per-period 415.5M}}
+                            #:report{:caption "Taxes/Medicare"
+                                     :style :data
+                                     :depth 1
+                                     :budget 60M
+                                     :actual 45M
+                                     :difference 15M
+                                     :percent-difference 0.25M
+                                     :actual-per-period 22.5M}
+                            #:report{:caption "Taxes/Social Security"
+                                     :style :data
+                                     :depth 1
+                                     :budget 268M
+                                     :actual 186M
+                                     :difference 82M
+                                     :percent-difference 0.30597M
+                                     :actual-per-period 93M}
+                            #:report{:caption "Taxes/FIT"
+                                     :style :data
+                                     :depth 1
+                                     :budget 800M
+                                     :actual 600M
+                                     :difference 200M
+                                     :percent-difference 0.25M
+                                     :actual-per-period 300M}]}
+           #:report{:caption "Mandatory"
+                    :style :header
+                    :budget 2300M
+                    :actual 2304M
+                    :difference -4M
+                    :percent-difference -0.001739130435M
+                    :actual-per-period 1152M
+                    :items [#:report{:caption "Groceries"
+                                     :style :data
+                                     :depth 0
+                                     :budget 900M
+                                     :actual 904M
+                                     :difference -4M
+                                     :percent-difference -0.0044444M
+                                     :actual-per-period 452M}
+                            #:report{:caption "Rent"
+                                     :style :data
+                                     :depth 0
+                                     :budget 1400M
+                                     :actual 1400M
+                                     :difference 0M
+                                     :percent-difference 0M
+                                     :actual-per-period 700M}]}
+           #:report{:caption "Discretionary"
+                    :style :header
+                    :budget 400M
+                    :actual 321M
+                    :difference 79M
+                    :percent-difference 0.1975M
+                    :actual-per-period 160.50M
+                    :items [#:report{:caption "Clothes"
+                                     :style :data
+                                     :depth 0
+                                     :budget 0M
+                                     :actual 321M
+                                     :difference -321M
+                                     :percent-difference nil
+                                     :actual-per-period 160.50M}
+                            #:report{:caption "Dining"
+                                     :style :data
+                                     :depth 0
+                                     :budget 400M
+                                     :actual 0M
+                                     :difference 400M
+                                     :percent-difference 1M
+                                     :actual-per-period 0M}]}
+           #:report{:caption "Net"
+                    :style :summary
+                    :budget 172M
+                    :actual 554M
+                    :difference 382M
+                    :percent-difference 2.220930233M
+                    :actual-per-period 277M}]})
 
 ; AAPL
 ; purchased 100 shares at $ 5 ($500) on 2016-03-02
