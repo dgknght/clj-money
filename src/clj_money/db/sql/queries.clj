@@ -14,7 +14,9 @@
                     [:accounts :transaction_items]
                     [:transactions :transaction_items]
                     [:transactions :attachments]
-                    [:transactions :lot_items]}})
+                    [:transactions :lot_items]
+                    [:commodities :lots]
+                    [:accounts :lots]}})
 
 (defn criteria->query
   [criteria & [options]]
