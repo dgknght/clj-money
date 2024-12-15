@@ -881,47 +881,71 @@
                 :lt-capital-loss-account "LT Losses"
                 :st-capital-loss-account "ST Losses"}))
 
-(def expected-lot-report []
-  [#:report{:caption "Apple, Inc. (AAPL)"
-            :commodity (find-commodity "AAPL")
-            :purchase-date (t/local-date 2017 1 15)
-            :shares-owned 5M
-            :purchase-price 10M
-            :cost 50M
-            :current-price 20M
-            :value 100M
-            :gain 50M
-            :transactions [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                      :lot-action :buy
-                                      :price 10M
-                                      :shares 10M}
-                           #:lot-item{:transaction-date (t/local-date 2017 1 31)
-                                      :lot-action :sell
-                                      :price 11M
-                                      :shares 5M}]}
-   #:report{:caption "General Electric Co. (GE)"
-            :commodity (find-commodity "GE")
-            :purchase-date (t/local-date 2017 1 15)
-            :shares-owned 10M
-            :purchase-price 10M
-            :cost 100M
-            :value 100M
-            :current-price 10M
-            :gain 0M
-            :transactions [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                      :lot-action :buy
-                                      :shares 10M
-                                      :price 10M}]}
-   #:report{:caption "Microsoft Corp (MSFT)"
-            :commodity (find-commodity "MSFT")
-            :purchase-date (t/local-date 2017 1 15)
-            :shares-owned 10M
-            :purchase-price 10M
-            :cost 100M
-            :value 50M
-            :current-price 5M
-            :gain -50M
-            :transactions [{:transaction-date (t/local-date 2017 1 15)
-                            :lot-action :buy
-                            :shares 10M
-                            :price 10M}]}])
+(def expected-lot-report
+  [#:commodity{:name "Apple, Inc."
+               :symbol "AAPL"
+               :current-price 20M
+               :cost-basis 575M
+               :shares-owned 105M
+               :current-value 2100M
+               :gain 1525M
+               :lots [#:lot{:purchase-date (t/local-date 2016 3 2)
+                            :purchase-price 5M
+                            :shares-purchased 100M
+                            :shares-owned 95M
+                            :cost-basis 475M
+                            :current-value 1900M
+                            :gain 1425M
+                            :items [#:lot-item{:transaction-date (t/local-date 2016 3 2)
+                                               :lot-action :buy
+                                               :price 5M
+                                               :shares 100M}
+                                    #:lot-item{:transaction-date (t/local-date 2017 1 31)
+                                               :lot-action :sell
+                                               :price 11M
+                                               :shares 5M}]}
+                      #:lot{:purchase-date (t/local-date 2017 1 15)
+                            :shares-purchased 10M
+                            :purchase-price 10M
+                            :shares-owned 10M
+                            :cost-basis 100M
+                            :current-value 200M
+                            :gain 100M
+                            :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
+                                               :lot-action :buy
+                                               :price 10M
+                                               :shares 10M}]}]}
+   #:commodity{:name"General Electric Co."
+               :symbol "GE"
+               :cost-basis 100M
+               :current-price 10M
+               :shares-owned 10M
+               :current-value 100M
+               :gain 0M
+               :lots [#:lot{:purchase-date (t/local-date 2017 1 15)
+                            :shares-owned 10M
+                            :purchase-price 10M
+                            :cost-basis 100M
+                            :current-value 100M
+                            :gain 0M
+                            :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
+                                               :lot-action :buy
+                                               :shares 10M
+                                               :price 10M}]}]}
+   #:commodity{:name "Microsoft Corp"
+               :symbol "MSFT"
+               :cost-basis 100M
+               :shares-owned 10M
+               :current-price 5M
+               :current-value 50M
+               :gain -50M
+               :lots [#:lot{:purchase-date (t/local-date 2017 1 15)
+                            :shares-owned 10M
+                            :purchase-price 10M
+                            :cost-basis 100M
+                            :current-value 50M
+                            :gain -50M
+                            :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
+                                               :lot-action :buy
+                                               :shares 10M
+                                               :price 10M}]}]}])

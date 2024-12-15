@@ -799,61 +799,46 @@
                          records)]
      (conj records summary))))
 
-(defn- append-commodity
-  [{:lot/keys [commodity] :as lot}]
-  (let [{:commodity/keys [name symbol] :as commodity}
-        (models/find commodity :commodity)]
-    (assoc lot
-           :report/caption (format "%s (%s)" name symbol)
-           :lot/commodity commodity)))
+(defn- valuate-lot
+  [current-price]
+  (fn [{:as lot :lot/keys [shares-owned purchase-price]}]
+    (let [cost-basis (* purchase-price shares-owned)
+          current-value (* current-price shares-owned)]
+      (assoc lot
+             :lot/cost-basis cost-basis
+             :lot/current-value current-value
+             :lot/gain (- current-value cost-basis)))))
 
-(defn- append-current-price
-  [lot]
-  (assoc lot :lot/current-price (->> (:lot/commodity lot)
-                                     prices/most-recent
-                                     :price/price)))
-
-(defn- transform-lot-transactions
-  [trx]
-  (map #(merge % (select-keys trx [:id :transaction/transaction-date]))
-       (:lot-items trx)))
-
-(defn- append-lot-transactions
-  [lot]
-  (assoc lot
-         :lot/transactions
-         (mapcat transform-lot-transactions
-                 (models/select
-                   (db/model-type
-                     {:lot-item/lot lot
-                      :transaction/transaction-date [:>= (:lot/purchase-date lot)]}
-                     :transaction)))))
-
-; (defn- append-lot-calculated-values
-;   [lot]
-;   (let [cost (* (:shares-owned lot) (:purchase-price lot))
-;         value (* (:shares-owned lot) (:current-price lot))
-;         gain (- value cost)]
-;     (assoc lot
-;            :cost cost
-;            :value value
-;            :gain gain)))
+(defn- valuate-lots
+  [commodity lots]
+  (let [current-price (:price/price (prices/most-recent commodity))
+        adj-lots (map (valuate-lot current-price) lots)
+        shares-owned (sum :lot/shares-owned adj-lots)
+        current-value (* shares-owned current-price)
+        cost-basis (sum :lot/cost-basis adj-lots)]
+    (assoc commodity
+           :commodity/current-price current-price
+           :commodity/current-value current-value
+           :commodity/shares-owned shares-owned
+           :commodity/cost-basis cost-basis
+           :commodity/gain (- current-value cost-basis)
+           :commodity/lots adj-lots)))
 
 (defn lot-report
   ([account]
    (lot-report account nil))
   ([account commodity]
-   (->> (models/select (cond-> {:lot/account account}
+   (->> (models/select (cond-> {:lot/account account
+                                :lot/shares-owned [:> 0]}
                          commodity
-                         (assoc :lot/commodity commodity)))
-        (map #(-> %
-                  append-commodity
-                  append-current-price
-                  (dissoc :commodity)
-                  append-lot-transactions
-                  append-lot-calculated-values))
-        (sort-by :caption)
-        (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
+                         (assoc :lot/commodity commodity))
+                       {:sort [[:lot/purchase-date :asc]]})
+        (map #(assoc % :lot/items (models/select {:lot-item/lot %}
+                                                 {:sort [[:lot-item/transaction-date :asc]]})))
+        (group-by (comp :id :lot/commodity))
+        (map (comp #(apply valuate-lots %)
+                   #(update-in % [0] (fn [id] (models/find id :commodity)))))
+        (sort-by :commodity/name))))
 
 ; (defn- append-portfolio-accounts
 ;   [{:keys [lots] :as ctx}]
