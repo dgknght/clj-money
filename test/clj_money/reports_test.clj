@@ -100,106 +100,24 @@
                            (reports/lot-report (find-account "IRA")))
         "The report contains lot information grouped by commodity")))
 
-; (def ^:private portfolio-context
-;   (-> basic-context
-;       (update-in [:accounts] concat [{:name "IRA"
-;                                       :type :asset
-;                                       :tags #{:trading}
-;                                       :entity "Personal"}
-;                                      {:name "401k"
-;                                       :type :asset
-;                                       :tags #{:trading}
-;                                       :entity "Personal"}])
-;       (update-in [:commodities] concat [{:name "Apple, Inc."
-;                                          :symbol "AAPL"
-;                                          :type :stock
-;                                          :exchange :nasdaq}
-;                                         {:name "Microsoft, Inc."
-;                                          :symbol "MSFT"
-;                                          :type :stock
-;                                          :exchange :nasdaq}
-;                                         {:name "Alphabet, Inc."
-;                                          :symbol "GOOG"
-;                                          :type :stock
-;                                          :exchange :nasdaq}])
-;       (assoc :transactions [{:transaction-date (t/local-date 2015 1 1)
-;                              :description "Begining balance"
-;                              :quantity 10000M
-;                              :debit-account "401k"
-;                              :credit-account "Opening Balances"}
-;                             {:transaction-date (t/local-date 2015 1 1)
-;                              :description "Begining balance"
-;                              :quantity 10000M
-;                              :debit-account "IRA"
-;                              :credit-account "Opening Balances"}]
-;              :trades [{:trade-date (t/local-date 2015 2 1)
-;                        :type :purchase
-;                        :account "IRA"
-;                        :commodity "AAPL"
-;                        :shares 200M
-;                        :value 2000M} ; $10.00/share
-;                       {:trade-date (t/local-date 2015 3 1)
-;                        :type :purchase
-;                        :account "IRA"
-;                        :commodity "AAPL"
-;                        :shares 100M
-;                        :value 1100M} ; $11.00/share
-;                       {:trade-date (t/local-date 2015 4 1)
-;                        :type :sale
-;                        :account "IRA"
-;                        :commodity "AAPL"
-;                        :shares 100M
-;                        :value 1200M} ; $12.00/share
-;                       {:trade-date (t/local-date 2015 2 1)
-;                        :type :purchase
-;                        :account "401k"
-;                        :commodity "MSFT"
-;                        :shares 400M
-;                        :value 2000M} ; $4.00/share
-;                       {:trade-date (t/local-date 2015 3 1)
-;                        :type :purchase
-;                        :account "401k"
-;                        :commodity "MSFT"
-;                        :shares 200M
-;                        :value 800M} ; $4.00/share
-;                       {:trade-date (t/local-date 2015 4 1)
-;                        :type :purchase
-;                        :account "401k"
-;                        :commodity "MSFT"
-;                        :shares 100M
-;                        :value 300M}]))) ; $3.00/share
-; 
-; (def portfolio-fixture
-;   (read-string (slurp "resources/fixtures/reports_test/portfolio.edn")))
-; 
-; (defn- test-portfolio
-;   [ctx as-of grouping]
-;   (let [entity (find-entity ctx "Personal")
-;         expected (get-in portfolio-fixture [:expected grouping as-of])
-;         actual (map #(select-keys % [:caption
-;                                      :style
-;                                      :shares-purchased
-;                                      :shares-owned
-;                                      :cost-basis
-;                                      :current-value
-;                                      :gain-loss
-;                                      :gain-loss-percent])
-;                     (reports/portfolio {:aggregate grouping
-;                                         :entity entity
-;                                         :as-of as-of}))]
-;     (is (= expected actual)
-;         "The correct report data is generated")))
-; 
-; (deftest get-a-portfolio-report-by-account
-;   (let [ctx (realize portfolio-context)]
-;     (testing "most recent"
-;       (test-portfolio ctx (t/local-date 2015 4 30) :by-account))
-;     (testing "1 month ago"
-;       (test-portfolio ctx (t/local-date 2015 3 31) :by-account))))
-; 
-; (deftest get-a-portfolio-report-by-commodity
-;   (let [ctx (realize portfolio-context)]
-;     (testing "most recent"
-;       (test-portfolio ctx (t/local-date 2015 4 30) :by-commodity))
-;     (testing "1 month ago"
-;       (test-portfolio ctx (t/local-date 2015 3 31) :by-commodity))))
+(defn- test-portfolio
+  [as-of grouping]
+  (let [entity (models/find (find-entity "Personal"))
+        expected (get-in fixtures/expected-portfolio-report
+                         [:expected grouping as-of])]
+    (is (seq-of-maps-like? expected
+                           (reports/portfolio {:aggregate grouping
+                                               :entity entity
+                                               :as-of as-of}))
+        "The data reflects the commodities owned and their values of the specified date")))
+
+(deftest get-a-portfolio-report-by-account
+  (with-context fixtures/portfolio-context
+    (testing "most recent by account"
+      (test-portfolio (t/local-date 2015 4 30) :by-account))
+    (testing "1 month ago by account"
+      (test-portfolio (t/local-date 2015 3 31) :by-account))
+    (testing "most recent by commodity"
+      (test-portfolio (t/local-date 2015 4 30) :by-commodity))
+    (testing "1 month ago by commodity"
+      (test-portfolio (t/local-date 2015 3 31) :by-commodity))))

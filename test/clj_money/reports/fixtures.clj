@@ -2,7 +2,8 @@
   (:require [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [find-commodity]]
+            [clj-money.test-context :refer [find-commodity
+                                            basic-context]]
             [clj-money.util :as util]))
 
 
@@ -296,10 +297,10 @@
                     :symbol "GE"
                     :type :stock
                     :exchange :nyse}
-        #:price{:trade-date (t/local-date 2017 2 1)
+        #:price{:date (t/local-date 2017 2 1)
                 :price 20M
                 :commodity "AAPL"}
-        #:price{:trade-date (t/local-date 2017 2 1)
+        #:price{:date (t/local-date 2017 2 1)
                 :price 5M
                 :commodity "MSFT"}
         #:account{:name "IRA"
@@ -606,14 +607,14 @@
 
 (def expected-budget-report
   {:title "2016: January to February"
-   :items [#:report{:caption "Income"
+   :items [#:report#:report{:caption "Income"
                     :style :header
                     :budget 4000M
                     :actual 4010M
                     :difference 10M
                     :percent-difference 0.0025M
                     :actual-per-period 2005M
-                    :items [#:report{:caption "Salary"
+                    :items [#:report#:report{:caption "Salary"
                                      :style :data
                                      :depth 0
                                      :budget 4000M
@@ -621,14 +622,14 @@
                                      :difference 10M
                                      :percent-difference 0.0025M
                                      :actual-per-period 2005M}]}
-           #:report{:caption "Expense"
+           #:report#:report{:caption "Expense"
                     :style :header
                     :budget 3828M
                     :actual 3456M
                     :difference 372M
                     :percent-difference 0.09717868339M
                     :actual-per-period 1728M
-                    :items [#:report{:caption "Clothes"
+                    :items [#:report#:report{:caption "Clothes"
                                      :style :data
                                      :depth 0
                                      :budget 0M
@@ -636,7 +637,7 @@
                                      :difference -321M
                                      :percent-difference nil
                                      :actual-per-period 160.50M}
-                            #:report{:caption "Groceries"
+                            #:report#:report{:caption "Groceries"
                                      :style :data
                                      :depth 0
                                      :budget 900M
@@ -644,7 +645,7 @@
                                      :difference -4M
                                      :percent-difference -0.0044444M
                                      :actual-per-period 452M}
-                            #:report{:caption "Rent"
+                            #:report#:report{:caption "Rent"
                                      :style :data
                                      :depth 0
                                      :budget 1400M
@@ -652,7 +653,7 @@
                                      :difference 0M
                                      :percent-difference 0M
                                      :actual-per-period 700M}
-                            #:report{:caption "Taxes"
+                            #:report#:report{:caption "Taxes"
                                      :style :data
                                      :depth 0
                                      :budget 0M
@@ -665,7 +666,7 @@
                                                        :difference 297M
                                                        :percent-difference 0.2632978723M
                                                        :actual-per-period 415.5M}}
-                            #:report{:caption "Taxes/Medicare"
+                            #:report#:report{:caption "Taxes/Medicare"
                                      :style :data
                                      :depth 1
                                      :budget 60M
@@ -673,7 +674,7 @@
                                      :difference 15M
                                      :percent-difference 0.25M
                                      :actual-per-period 22.5M}
-                            #:report{:caption "Taxes/Social Security"
+                            #:report#:report{:caption "Taxes/Social Security"
                                      :style :data
                                      :depth 1
                                      :budget 268M
@@ -681,7 +682,7 @@
                                      :difference 82M
                                      :percent-difference 0.30597M
                                      :actual-per-period 93M}
-                            #:report{:caption "Taxes/FIT"
+                            #:report#:report{:caption "Taxes/FIT"
                                      :style :data
                                      :depth 1
                                      :budget 800M
@@ -689,7 +690,7 @@
                                      :difference 200M
                                      :percent-difference 0.25M
                                      :actual-per-period 300M}
-                            #:report{:caption "Dining"
+                            #:report#:report{:caption "Dining"
                                      :style :data
                                      :depth 0
                                      :budget 400M
@@ -697,7 +698,7 @@
                                      :difference 400M
                                      :percent-difference 1M
                                      :actual-per-period 0M}]}
-           #:report{:caption "Net"
+           #:report#:report{:caption "Net"
                     :style :summary
                     :budget 172M
                     :actual 554M
@@ -707,14 +708,14 @@
 
 (def expected-budget-report-by-tag
   {:title "2016: January to February"
-   :items [#:report{:caption "Income"
+   :items [#:report#:report{:caption "Income"
                     :style :header
                     :budget 4000M
                     :actual 4010M
                     :difference 10M
                     :percent-difference 0.0025M
                     :actual-per-period 2005M
-                    :items [#:report{:caption "Salary"
+                    :items [#:report#:report{:caption "Salary"
                                      :style :data
                                      :depth 0
                                      :budget 4000M
@@ -722,14 +723,14 @@
                                      :difference 10M
                                      :percent-difference 0.0025M
                                      :actual-per-period 2005M}]}
-           #:report{:caption "Tax"
+           #:report#:report{:caption "Tax"
                     :style :header
                     :budget 1128M
                     :actual 831M
                     :difference 297M
                     :percent-difference 0.2632978723M
                     :actual-per-period 415.5M
-                    :items [#:report{:caption "Taxes"
+                    :items [#:report#:report{:caption "Taxes"
                                      :style :data
                                      :depth 0
                                      :budget 0M
@@ -742,7 +743,7 @@
                                                        :difference 297M
                                                        :percent-difference 0.2632978723M
                                                        :actual-per-period 415.5M}}
-                            #:report{:caption "Taxes/Medicare"
+                            #:report#:report{:caption "Taxes/Medicare"
                                      :style :data
                                      :depth 1
                                      :budget 60M
@@ -750,7 +751,7 @@
                                      :difference 15M
                                      :percent-difference 0.25M
                                      :actual-per-period 22.5M}
-                            #:report{:caption "Taxes/Social Security"
+                            #:report#:report{:caption "Taxes/Social Security"
                                      :style :data
                                      :depth 1
                                      :budget 268M
@@ -758,7 +759,7 @@
                                      :difference 82M
                                      :percent-difference 0.30597M
                                      :actual-per-period 93M}
-                            #:report{:caption "Taxes/FIT"
+                            #:report#:report{:caption "Taxes/FIT"
                                      :style :data
                                      :depth 1
                                      :budget 800M
@@ -766,14 +767,14 @@
                                      :difference 200M
                                      :percent-difference 0.25M
                                      :actual-per-period 300M}]}
-           #:report{:caption "Mandatory"
+           #:report#:report{:caption "Mandatory"
                     :style :header
                     :budget 2300M
                     :actual 2304M
                     :difference -4M
                     :percent-difference -0.001739130435M
                     :actual-per-period 1152M
-                    :items [#:report{:caption "Groceries"
+                    :items [#:report#:report{:caption "Groceries"
                                      :style :data
                                      :depth 0
                                      :budget 900M
@@ -781,7 +782,7 @@
                                      :difference -4M
                                      :percent-difference -0.0044444M
                                      :actual-per-period 452M}
-                            #:report{:caption "Rent"
+                            #:report#:report{:caption "Rent"
                                      :style :data
                                      :depth 0
                                      :budget 1400M
@@ -789,14 +790,14 @@
                                      :difference 0M
                                      :percent-difference 0M
                                      :actual-per-period 700M}]}
-           #:report{:caption "Discretionary"
+           #:report#:report{:caption "Discretionary"
                     :style :header
                     :budget 400M
                     :actual 321M
                     :difference 79M
                     :percent-difference 0.1975M
                     :actual-per-period 160.50M
-                    :items [#:report{:caption "Clothes"
+                    :items [#:report#:report{:caption "Clothes"
                                      :style :data
                                      :depth 0
                                      :budget 0M
@@ -804,7 +805,7 @@
                                      :difference -321M
                                      :percent-difference nil
                                      :actual-per-period 160.50M}
-                            #:report{:caption "Dining"
+                            #:report#:report{:caption "Dining"
                                      :style :data
                                      :depth 0
                                      :budget 400M
@@ -812,7 +813,7 @@
                                      :difference 400M
                                      :percent-difference 1M
                                      :actual-per-period 0M}]}
-           #:report{:caption "Net"
+           #:report#:report{:caption "Net"
                     :style :summary
                     :budget 172M
                     :actual 554M
@@ -949,3 +950,358 @@
                                                :lot-action :buy
                                                :shares 10M
                                                :price 10M}]}]}])
+(def portfolio-context
+  (conj basic-context
+        #:account{:name "IRA"
+                  :type :asset
+                  :tags #{:trading}
+                  :entity "Personal"}
+        #:account{:name "401k"
+                  :type :asset
+                  :tags #{:trading}
+                  :entity "Personal"}
+        #:commodity{:name "Apple, Inc."
+                    :entity "Personal"
+                    :symbol "AAPL"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:commodity{:name "Microsoft, Inc."
+                    :entity "Personal"
+                    :symbol "MSFT"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:commodity{:name "Alphabet, Inc."
+                    :entity "Personal"
+                    :symbol "GOOG"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Begining balance"
+                      :quantity 10000M
+                      :debit-account "401k"
+                      :credit-account "Opening Balances"}
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Begining balance"
+                      :quantity 10000M
+                      :debit-account "IRA"
+                      :credit-account "Opening Balances"}
+        #:trade{:date (t/local-date 2015 2 1)
+                :type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 200M
+                :value 2000M} ; $10.00/share
+        #:trade{:date (t/local-date 2015 3 1)
+                :type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 1100M} ; $11.00/share
+        #:trade{:date (t/local-date 2015 4 1)
+                :type :sale
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 1200M} ; $12.00/share
+        #:trade{:date (t/local-date 2015 2 1)
+                :type :purchase
+                :account "401k"
+                :commodity "MSFT"
+                :shares 200M
+                :value 800M} ; $4.00/share
+        #:trade{:date (t/local-date 2015 4 1)
+                :type :purchase
+                :account "401k"
+                :commodity "MSFT"
+                :shares 100M
+                :value 300M})) ; $3.00/share
+
+(def expected-portfolio-report
+  {:by-commodity
+   {(t/local-date 2015 3 31)
+    [#:report{:caption "Cash"
+              :style :subheader
+              :shares-owned 14100M ; IRA 6,900 + 401k 7,200
+              :cost-basis 14100M
+              :current-value 14100M
+              :gain-loss 0M
+              :gain-loss-percent 0.0M}
+     #:report{:caption "Apple, Inc."
+              :style :subheader
+              :shares-owned 300M
+              :cost-basis 3100M
+              :current-value 3300M
+              :gain-loss 200M
+              :gain-loss-percent 0.065M}
+     #:report{:caption "3/1/2015"
+              :style :data
+              :shares-purchased 100M
+              :shares-owned 100M
+              :cost-basis 1100M
+              :current-value 1100M
+              :gain-loss 0M
+              :gain-loss-percent 0.0M}
+     #:report{:caption "2/1/2015"
+              :style :data
+              :shares-purchased 200M
+              :shares-owned 200M
+              :cost-basis 2000M
+              :current-value 2200M
+              :gain-loss 200M
+              :gain-loss-percent 0.1M}
+     #:report{:caption "Microsoft, Inc."
+              :style :subheader
+              :shares-owned 600M
+              :cost-basis 2800M
+              :current-value 2400M
+              :gain-loss -400M
+              :gain-loss-percent -0.14M}
+     #:report{:caption "3/1/2015"
+              :style :data
+              :shares-purchased 200M
+              :shares-owned 200M
+              :cost-basis 800M
+              :current-value 800M
+              :gain-loss 0M
+              :gain-loss-percent 0.0M}
+     #:report{:caption "2/1/2015"
+              :style :data
+              :shares-purchased 400M
+              :shares-owned 400M
+              :cost-basis 2000M
+              :current-value 1600M
+              :gain-loss -400M
+              :gain-loss-percent -0.2M}
+     #:report{:caption "Total"
+              :style :summary
+              :cost-basis 20000M
+              :current-value 19800M
+              :gain-loss -200M
+              :gain-loss-percent -0.01M}]
+    (t/local-date 2015 4 30) [#:report{:caption "Cash"
+                                       :style :subheader
+                                       :shares-owned 15000M ; IRA 8,100 + 401k 6,900
+                                       :cost-basis 15000M
+                                       :current-value 15000M
+                                       :gain-loss 0M
+                                       :gain-loss-percent 0.0M}
+                              #:report{:caption "Apple, Inc."
+                                       :style :subheader
+                                       :shares-owned 200M
+                                       :cost-basis 2100M
+                                       :current-value 2400M
+                                       :gain-loss 300M
+                                       :gain-loss-percent 0.14M}
+                              #:report{:caption "3/1/2015"
+                                       :style :data
+                                       :shares-purchased 100M
+                                       :shares-owned 100M
+                                       :cost-basis 1100M
+                                       :current-value 1200M
+                                       :gain-loss 100M
+                                       :gain-loss-percent 0.091M}
+                              #:report{:caption "2/1/2015"
+                                       :style :data
+                                       :shares-purchased 200M
+                                       :shares-owned 100M
+                                       :cost-basis 1000M
+                                       :current-value 1200M
+                                       :gain-loss 200M
+                                       :gain-loss-percent 0.2M}
+                              #:report{:caption "Microsoft, Inc."
+                                       :style :subheader
+                                       :shares-owned 700M
+                                       :cost-basis 3100M
+                                       :current-value 2100M
+                                       :gain-loss -1000M
+                                       :gain-loss-percent -0.32M}
+                              #:report{:caption "4/1/2015"
+                                       :style :data
+                                       :shares-purchased 100M
+                                       :shares-owned 100M
+                                       :cost-basis 300M
+                                       :current-value 300M
+                                       :gain-loss 0M
+                                       :gain-loss-percent 0.0M}
+                              #:report{:caption "3/1/2015"
+                                       :style :data
+                                       :shares-purchased 200M
+                                       :shares-owned 200M
+                                       :cost-basis 800M
+                                       :current-value 600M
+                                       :gain-loss -200M
+                                       :gain-loss-percent -0.25M}
+                              #:report{:caption "2/1/2015"
+                                       :style :data
+                                       :shares-purchased 400M
+                                       :shares-owned 400M
+                                       :cost-basis 2000M
+                                       :current-value 1200M
+                                       :gain-loss -800M
+                                       :gain-loss-percent -0.4M}
+                              #:report{:caption "Total"
+                                       :style :summary
+                                       :cost-basis 20200M
+                                       :current-value 19500M
+                                       :gain-loss -700M
+                                       :gain-loss-percent -0.035M}]}
+   :by-account
+   {(t/local-date 2015 3 31)
+    [#:report{:caption "401k"
+              :style :header
+              :cost-basis 10000M
+              :current-value 9600M
+              :gain-loss -400M
+              :gain-loss-percent -0.04M}
+     #:report{:caption "Cash"
+              :style :subheader
+              :current-value 7200M
+              :cost-basis 7200M
+              :gain-loss 0M}
+     #:report{:caption "Microsoft, Inc."
+              :style :subheader
+              :shares-owned 600M
+              :cost-basis 2800M
+              :current-value 2400M
+              :gain-loss -400M
+              :gain-loss-percent -0.14M}
+     #:report{:caption "3/1/2015"
+              :style :data
+              :shares-purchased 200M
+              :shares-owned 200M
+              :cost-basis 800M
+              :current-value 800M
+              :gain-loss 0M
+              :gain-loss-percent 0.0M}
+     #:report{:caption "2/1/2015"
+              :style :data
+              :shares-purchased 400M
+              :shares-owned 400M
+              :cost-basis 2000M
+              :current-value 1600M
+              :gain-loss -400M
+              :gain-loss-percent -0.2M}
+     #:report{:caption "IRA"
+              :style :header
+              :cost-basis 10000M
+              :current-value 10200M
+              :gain-loss 200M
+              :gain-loss-percent 0.02M}
+     #:report{:caption "Cash"
+              :style :subheader
+              :current-value 6900M
+              :cost-basis 6900M
+              :gain-loss 0M}
+     #:report{:caption "Apple, Inc."
+              :style :subheader
+              :shares-owned 300M
+              :cost-basis 3100M
+              :current-value 3300M
+              :gain-loss 200M
+              :gain-loss-percent 0.065M}
+     #:report{:caption "3/1/2015"
+              :style :data
+              :shares-purchased 100M
+              :shares-owned 100M
+              :cost-basis 1100M
+              :current-value 1100M
+              :gain-loss 0M
+              :gain-loss-percent 0.0M}
+     #:report{:caption "2/1/2015"
+              :style :data
+              :shares-purchased 200M
+              :shares-owned 200M
+              :cost-basis 2000M
+              :current-value 2200M
+              :gain-loss 200M
+              :gain-loss-percent 0.1M}
+     #:report{:caption "Total"
+              :style :summary
+              :cost-basis 20000M
+              :current-value 19800M
+              :gain-loss -200M
+              :gain-loss-percent -0.01M}]
+    (t/local-date 2015 4 30) [#:report{:caption "401k"
+                                       :style :header
+                                       :cost-basis 10000M
+                                       :current-value 9000M
+                                       :gain-loss -1000M
+                                       :gain-loss-percent -0.1M}
+                              #:report{:caption "Cash"
+                                       :style :subheader
+                                       :current-value 6900M
+                                       :cost-basis 6900M
+                                       :gain-loss 0M}
+                              #:report{:caption "Microsoft, Inc."
+                                       :style :subheader
+                                       :shares-owned 700M
+                                       :cost-basis 3100M
+                                       :current-value 2100M
+                                       :gain-loss -1000M
+                                       :gain-loss-percent -0.32M}
+                              #:report{:caption "4/1/2015"
+                                       :style :data
+                                       :shares-purchased 100M
+                                       :shares-owned 100M
+                                       :cost-basis 300M
+                                       :current-value 300M
+                                       :gain-loss 0M
+                                       :gain-loss-percent 0.0M}
+                              #:report{:caption "3/1/2015"
+                                       :style :data
+                                       :shares-purchased 200M
+                                       :shares-owned 200M
+                                       :cost-basis 800M
+                                       :current-value 600M
+                                       :gain-loss -200M
+                                       :gain-loss-percent -0.25M}
+                              #:report{:caption "2/1/2015"
+                                       :style :data
+                                       :shares-purchased 400M
+                                       :shares-owned 400M
+                                       :cost-basis 2000M
+                                       :current-value 1200M
+                                       :gain-loss -800M
+                                       :gain-loss-percent -0.4M}
+                              #:report{:caption "IRA"
+                                       :style :header
+                                       :cost-basis 10200M
+                                       :current-value 10500M
+                                       :gain-loss 300M
+                                       :gain-loss-percent 0.029M}
+                              #:report{:caption "Cash"
+                                       :style :subheader
+                                       :current-value 8100M
+                                       :cost-basis 8100M
+                                       :gain-loss 0M}
+                              #:report{:caption "Apple, Inc."
+                                       :style :subheader
+                                       :shares-owned 200M
+                                       :cost-basis 2100M
+                                       :current-value 2400M
+                                       :gain-loss 300M
+                                       :gain-loss-percent 0.14M}
+                              #:report{:caption "3/1/2015"
+                                       :style :data
+                                       :shares-purchased 100M
+                                       :shares-owned 100M
+                                       :cost-basis 1100M
+                                       :current-value 1200M
+                                       :gain-loss 100M
+                                       :gain-loss-percent 0.091M}
+                              #:report{:caption "2/1/2015"
+                                       :style :data
+                                       :shares-purchased 200M
+                                       :shares-owned 100M
+                                       :cost-basis 1000M
+                                       :current-value 1200M
+                                       :gain-loss 200M
+                                       :gain-loss-percent 0.2M}
+                              #:report{:caption "Total"
+                                       :style :summary
+                                       :cost-basis 20200M
+                                       :current-value 19500M
+                                       :gain-loss -700M
+                                       :gain-loss-percent -0.035M}]}})
