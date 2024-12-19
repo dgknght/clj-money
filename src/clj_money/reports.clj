@@ -165,8 +165,48 @@
 
 (defn- valuate-commodity-accounts
   "Perform validation of the accounts that track tradable commodities"
-  [_opts accounts]
-  accounts)
+  [{:keys [as-of other-accounts]} accounts]
+  ; TODO: this is currently aggregating all commodities across all accounts
+  ; we need to ensure that if a commodity is held in more than one account
+  ; it is only counted once for each account
+  (throw (UnsupportedOperationException. "valuate-commodity-accounts is a work in progress"))
+  #_(let [others (->> other-accounts
+                    (map (juxt :id identity))
+                    (into {}))
+        parent-ids (map (comp :id
+                              others
+                              :id
+                              :account/parent)
+                        accounts)
+        lots (models/select {:lot/account [:in parent-ids]})
+        lot-items (group-by (comp :id :lot-item/lot)
+                            (models/select {:lot-item/lot [:in (map :id lots)]
+                                            :lot-item/lot-action :sell
+                                            :lot-item/transaction-date [:<= as-of]}))
+        shares-owned (->> lots
+                          (map (fn [lot]
+                                 (assoc lot
+                                        :lot/shares-owned-as-of
+                                        (->> (lot-items (:id lot))
+                                             (map :lot-item/shares)
+                                             (reduce - (:lot/shares-purchased lot))))))
+                          (map (juxt (comp :id :lot/commodity)
+                                     :lot/shares-owned-as-of))
+                          (into {}))
+        prices (->> (models/select (db/model-type
+                                     {:id [:in (->> lots
+                                                    (map (comp :id :lot/commodity))
+                                                    set)]}
+                                     :commodity))
+                    (map (comp (juxt (comp :id :price/commodity)
+                                     :price/price)
+                               #(prices/most-recent % as-of)))
+                    (into {}))]
+    (map (fn [{:account/keys [commodity] :as a}]
+           (let [shares (shares-owned (:id commodity))
+                 price (prices (:id commodity))]
+             (assoc a :account/value (* (price shares)))))
+         accounts)))
 
 (defn- default-commodity?
   [{:entity/keys [settings]}]
@@ -192,7 +232,9 @@
               :earliest-date (get-in entity [:entity/settings
                                              :settings/earliest-transaction-date])}]
     (concat (valuate-simple-accounts opts simple)
-            (valuate-commodity-accounts opts commodity))))
+            (valuate-commodity-accounts
+              (assoc opts :other-accounts simple)
+              commodity))))
 
 (defn- apply-account-valuations
   [ctx]
@@ -504,18 +546,8 @@
                                    append-retained-earnings))
        apply-unrealized-gains
        (update-in [:records] append-balance-sheet-summary)
-       :records)
-   #_(-> {:entity entity
-          :as-of as-of
-          :accounts (models/select {:account/entity entity})}
-         append-commodities
-         apply-account-valuations
-         append-records
-         append-retained-earnings
-         append-unrealized-gains
-         append-balance-sheet-summary
-         extract-balance-sheet
-         check-balance)))
+       :records
+       check-balance)))
 
 (defn- ->budget-report-record
   [account budget {:keys [period-count]}]

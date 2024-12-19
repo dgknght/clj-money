@@ -297,10 +297,10 @@
                     :symbol "GE"
                     :type :stock
                     :exchange :nyse}
-        #:price{:date (t/local-date 2017 2 1)
+        #:price{:trade-date (t/local-date 2017 2 1)
                 :price 20M
                 :commodity "AAPL"}
-        #:price{:date (t/local-date 2017 2 1)
+        #:price{:trade-date (t/local-date 2017 2 1)
                 :price 5M
                 :commodity "MSFT"}
         #:account{:name "IRA"
