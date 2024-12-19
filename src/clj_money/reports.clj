@@ -57,6 +57,17 @@
   [{:report/keys [type]}]
   (= :equity type))
 
+(defn- asset?
+  [{:report/keys [type]}]
+  (= :asset type))
+
+(defn- liability?
+  [{:report/keys [type]}]
+  (= :liability type))
+
+(def ^:private balance-sheet?
+  (some-fn asset? liability? equity?))
+
 (def ^:private equity-header?
   (every-pred header? equity?))
 
@@ -131,51 +142,61 @@
                                       (get-in start-balances [(:id a) :transaction-item/balance] 0M))))
          accounts)))
 
-(defn- valuate-accounts
-  "Given a sequence of accounts, assess their value based on the given date or range of dates"
-  ([as-of opts accounts]
-   (valuate-accounts nil as-of opts accounts))
-  ([start end {:keys [earliest-date]} accounts]
-   (let [account-ids (->> accounts
-                          (map :id)
-                          set)
-         start-balances (when start
-                          (fetch-trx-items
-                            account-ids
-                            start
-                            :find-one-fn (partial last-item :before start)
-                            :earliest-date earliest-date))
-         end-balances (fetch-trx-items
-                        account-ids
-                        end
-                        :earliest-date earliest-date)]
-     (map (fn [{:keys [id] :as a}]
-            (assoc a :account/value (- (get-in end-balances [id :transaction-item/balance] 0M)
-                                       (get-in start-balances [id :transaction-item/balance] 0M))))
-          accounts))))
+(defn- valuate-simple-accounts
+  "Perform valuation of accounts that use the default entity commodity"
+  [{:keys [since as-of earliest-date]} accounts]
+  (let [account-ids (->> accounts
+                         (map :id)
+                         set)
+        start-balances (when since
+                         (fetch-trx-items
+                           account-ids
+                           since
+                           :find-one-fn (partial last-item :before since)
+                           :earliest-date earliest-date))
+        end-balances (fetch-trx-items
+                       account-ids
+                       as-of
+                       :earliest-date earliest-date)]
+    (map (fn [{:keys [id] :as a}]
+           (assoc a :account/value (- (get-in end-balances [id :transaction-item/balance] 0M)
+                                      (get-in start-balances [id :transaction-item/balance] 0M))))
+         accounts)))
 
-; TODO: start using since and as-of instead of start and end
+(defn- valuate-commodity-accounts
+  "Perform validation of the accounts that track tradable commodities"
+  [_opts accounts]
+  accounts)
+
+(defn- default-commodity?
+  [{:entity/keys [settings]}]
+  (let [default (:settings/default-commodity settings)]
+    (fn [{:account/keys [commodity]}]
+      (model= default commodity))))
+
+(defn- valuate-accounts
+  "Given a sequence of accounts, assess their value based on the given date or
+  range of dates.
+
+  For accounts tracking the default commodity for the entity, the value comes
+  from the balance of the transaction items that bound the date range.
+
+  For accounts that track other commodities, the value comes from the quantity
+  of that commodity held in the account and the most recent price based on the
+  specified date."
+  [{:keys [entity since as-of]} accounts]
+  (let [{simple true commodity false} (group-by (default-commodity? entity)
+                                                accounts)
+        opts {:since since
+              :as-of as-of
+              :earliest-date (get-in entity [:entity/settings
+                                             :settings/earliest-transaction-date])}]
+    (concat (valuate-simple-accounts opts simple)
+            (valuate-commodity-accounts opts commodity))))
+
 (defn- apply-account-valuations
-  [{:keys [entity commodities as-of] :as ctx}]
-  (let [earliest-date (get-in entity
-                              [:entity/settings
-                               :settings/earliest-transaction-date])
-        commodity-ids (->> commodities
-                           (map :id)
-                           set
-                           seq)
-        lots (when commodity-ids
-               (models/select {:lot/commodity [:in commodity-ids]
-                               :lot/shares-owned [:> 0M]}))
-        prices (when commodity-ids
-                 (->> (models/select {:price/commodity [:in commodity-ids]
-                                      :price/trade-date [:<= as-of]})
-                      (group-by (comp :id :price/commodity))
-                      (map #(update-in % [1] (fn [prices]
-                                               (->> prices
-                                                    (sort-by :price/trade-date t/after?)
-                                                    first))))))]
-    (update-in ctx [:accounts] #(valuate-accounts ))))
+  [ctx]
+  (update-in ctx [:accounts] (partial valuate-accounts ctx)))
 
 (declare summarize-accounts)
 (defn- summarize-account
@@ -212,6 +233,10 @@
                               (reduce + 0M))}
           (vec records))))
 
+(defn apply-account-summarization
+  [{:keys [accounts] :as ctx}]
+  (assoc ctx :records (mapcat summarize-account-type accounts)))
+
 (defn- map-record-headers
   [records]
   (->> records
@@ -234,12 +259,14 @@
 (defn income-statement
   "Returns the data used to populate an income statement report"
   ([entity]
-   (let [[start end] (default-income-statement-range)]
-     (income-statement entity start end)))
-  ([{:as entity :entity/keys [settings]} start end]
+   (let [[since as-of] (default-income-statement-range)]
+     (income-statement entity since as-of)))
+  ([entity since as-of]
    (->> (models/select #:account{:entity entity
                                  :type [:in #{:income :expense}]})
-        (valuate-accounts start end {:earliest-date (:settings/earliest-transaction-date settings)})
+        (valuate-accounts {:entity entity
+                           :since since
+                           :as-of as-of})
         (nest {:types [:income :expense]})
         (mapcat summarize-account-type)
         summarize-income-statement)))
@@ -381,33 +408,35 @@
         records))
 
 (defn- append-equity-record
-  [ctx calc-fn caption]
-  (let [value (calc-fn ctx)]
-    (if (not (zero? value))
-      (update-in ctx [:records] #(-> %
-                                     (conj {:report/caption caption
-                                            :report/style :data
-                                            :report/type :equity
-                                            :report/depth 0
-                                            :report/value value})
-                                     (update-equity-total value)))
-      ctx)))
+  [records value caption]
+  (-> records
+      vec
+      (conj {:report/caption caption
+             :report/style :data
+             :report/type :equity
+             :report/depth 0
+             :report/value value})
+      (update-equity-total value)))
 
 (defn- calc-retained-earnings
-  [{:keys [records]}]
+  [records]
   (let [{:keys [income expense]} (map-record-headers records)]
     (- income expense)))
 
 (defn- append-retained-earnings
-  [ctx]
-  (append-equity-record
-    ctx
-    calc-retained-earnings
-    "Retained Earnings"))
+  [records]
+  (let [earnings (calc-retained-earnings records)]
+    (if (zero? earnings)
+      records
+      (append-equity-record
+        records
+        earnings
+        "Retained Earnings"))))
 
 (defn- calc-unrealized-gains
-  [{:keys [lots]}]
-  (if (seq lots)
+  [_ctx]
+  0M
+  #_(if (seq lots)
     (.setScale
       (->> lots
            (map :lot/gains)
@@ -417,23 +446,31 @@
     0M))
 
 (defn- append-unrealized-gains
-  [ctx]
+  [records gains]
   (append-equity-record
-    ctx
-    calc-unrealized-gains
+    records
+    gains
     "Unrealized Gains"))
 
+(defn- apply-unrealized-gains
+  [ctx]
+  (let [gains (calc-unrealized-gains ctx)]
+    (if (zero? gains)
+      ctx
+      (update-in ctx [:records] append-unrealized-gains gains))))
+
 (defn- calc-liabilities-plus-equity
-  [{:keys [records]}]
+  [records]
   (let [{:keys [liability equity]} (map-record-headers records)]
     (+ liability equity )))
 
 (defn- append-balance-sheet-summary
-  [ctx]
-  (update-in ctx [:records] conj {:report/caption "Liabilities + Equity"
-                                  :report/type :equity
-                                  :report/style :summary
-                                  :report/value (calc-liabilities-plus-equity ctx)}))
+  [records]
+  (conj records
+        {:report/caption "Liabilities + Equity"
+         :report/type :equity
+         :report/style :summary
+         :report/value (calc-liabilities-plus-equity records)}))
 
 (defn- extract-balance-sheet
   [{:keys [records]}]
@@ -460,14 +497,25 @@
    (-> {:entity entity
         :as-of as-of
         :accounts (models/select {:account/entity entity})}
-       append-commodities
        apply-account-valuations
-       append-records
-       append-retained-earnings
-       append-unrealized-gains
-       append-balance-sheet-summary
-       extract-balance-sheet
-       check-balance)))
+       (update-in [:accounts] nest)
+       apply-account-summarization
+       (update-in [:records] (comp (partial filterv balance-sheet?)
+                                   append-retained-earnings))
+       apply-unrealized-gains
+       (update-in [:records] append-balance-sheet-summary)
+       :records)
+   #_(-> {:entity entity
+          :as-of as-of
+          :accounts (models/select {:account/entity entity})}
+         append-commodities
+         apply-account-valuations
+         append-records
+         append-retained-earnings
+         append-unrealized-gains
+         append-balance-sheet-summary
+         extract-balance-sheet
+         check-balance)))
 
 (defn- ->budget-report-record
   [account budget {:keys [period-count]}]

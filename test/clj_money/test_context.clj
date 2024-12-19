@@ -406,17 +406,35 @@
              (sell m))
     [(models/put m)]))
 
+(defmulti post-process db/model-type)
+
+(defmethod post-process :default [m] m)
+
+(defmethod post-process :entity
+  [entity]
+  (if (get-in entity [:entity/settings :settings/default-commodity])
+    entity
+    (-> entity
+        models/find
+        (assoc-in [:entity/settings
+                   :settings/default-commodity]
+                  (util/->model-ref
+                    (models/find-by {:commodity/entity entity
+                                     :commodity/type :currency})))
+        models/put)))
+
 (defn realize
   "Realizes a test context"
   [input]
-  (reduce (fn [ctx m]
-            (apply conj
-                   ctx
-                   (-> m
-                       (prepare ctx)
-                       process)))
-          []
-          input))
+  (->> input
+       (reduce (fn [ctx m]
+                 (apply conj
+                        ctx
+                        (-> m
+                            (prepare ctx)
+                            process)))
+               [])
+       (mapv post-process)))
 
 (defmacro with-context
   [& args]
