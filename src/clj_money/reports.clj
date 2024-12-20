@@ -862,8 +862,7 @@
   ([account]
    (lot-report account nil))
   ([account commodity]
-   []
-   #_(->> (models/select (cond-> {:lot/account account
+   (->> (models/select (cond-> {:lot/account account
                                 :lot/shares-owned [:> 0]}
                          commodity
                          (assoc :lot/commodity commodity))
