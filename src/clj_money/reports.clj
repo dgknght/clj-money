@@ -106,23 +106,6 @@
                opts))
     {}))
 
-(defn- append-balances
-  [{:keys [accounts as-of entity] :as ctx}]
-  {:pre [(:accounts ctx)]}
-
-  (let [accounts (if (map? accounts)
-                   (vals accounts)
-                   accounts)
-        balances (if (seq accounts)
-                   (fetch-trx-items (->> accounts
-                                        (map :id)
-                                        set)
-                                   as-of
-                                   :earliest-date (get-in entity [:entity/settings
-                                                                  :settings/earliest-transaction-date]))
-                   {})]
-    (assoc ctx :balances balances)))
-
 (defn- append-deltas
   [{:keys [start end earliest-date]} accounts]
   (let [account-ids (->> accounts
@@ -143,7 +126,11 @@
          accounts)))
 
 (defn- valuate-simple-accounts
-  "Perform valuation of accounts that use the default entity commodity"
+  "Perform valuation of accounts that use the default entity commodity.
+
+  This is done by getting the balance from the last transaction item on or
+  before the as-of date. If a since date is specified, the balance of the
+  last transaction on or before that date is subtracted."
   [{:keys [since as-of earliest-date]} accounts]
   (let [account-ids (->> accounts
                          (map :id)
@@ -163,46 +150,79 @@
                                       (get-in start-balances [id :transaction-item/balance] 0M))))
          accounts)))
 
+(defn- fetch-lots
+  "Fetch all of the lots for all of the specified tradable accounts."
+  [accounts]
+  (let [parent-ids (->> accounts
+                        (map (comp :id :account/parent))
+                        set)]
+    (models/select {:lot/account [:in parent-ids]})))
+
+(defn- fetch-lot-items
+  "Fetch all of the lot items for the specified lots as of the specified date."
+  [lots as-of]
+  (group-by (comp :id :lot-item/lot)
+            (models/select {:lot-item/lot [:in (map :id lots)]
+                            :lot-item/lot-action :sell
+                            :lot-item/transaction-date [:<= as-of]})))
+
+(defn- append-lot-current-shares-owned-as-of
+  [as-of lots]
+  (let [lot-items (fetch-lot-items lots as-of)]
+    (map (fn [lot]
+           (assoc lot
+                  :lot/shares-owned-as-of
+                  (->> (lot-items (:id lot))
+                       (map :lot-item/shares)
+                       (reduce - (:lot/shares-purchased lot)))))
+         lots)))
+
+(defn- fetch-prices-as-of
+  [lots as-of]
+  (->> (models/select (db/model-type
+                        {:id [:in (->> lots
+                                       (map (comp :id :lot/commodity))
+                                       set)]}
+                        :commodity))
+       (map (comp (juxt (comp :id :price/commodity)
+                        :price/price)
+                  #(prices/most-recent % as-of)))
+       (into {})))
+
+(defn- valuate-commodity-account
+  [account & {:keys [fetch-lots]}]
+  (let [{:keys [shares-owned cost-basis]}
+        (reduce (fn [res {:lot/keys [shares-owned-as-of purchase-price]}]
+                  (-> res
+                      (update-in [:shares-owned] + shares-owned-as-of)
+                      (update-in [:cost-basis] + (* purchase-price
+                                                    shares-owned-as-of))))
+                {:shares-owned 0M
+                 :cost-basis 0M}
+                (fetch-lots account))
+        value (* shares-owned (:account/current-price account))]
+    (assoc account
+           :account/gains (- value cost-basis)
+           :account/value value
+           :account/shares-owned shares-owned
+           :account/cost-basis cost-basis)))
+
 (defn- valuate-commodity-accounts
-  "Perform validation of the accounts that track tradable commodities"
-  [{:keys [as-of other-accounts]} accounts]
-  (let [others (->> other-accounts
-                    (map (juxt :id identity))
-                    (into {}))
-        parent-ids (map (comp :id
-                              others
-                              :id
-                              :account/parent)
-                        accounts)
-        lots (models/select {:lot/account [:in parent-ids]})
-        lot-items (group-by (comp :id :lot-item/lot)
-                            (models/select {:lot-item/lot [:in (map :id lots)]
-                                            :lot-item/lot-action :sell
-                                            :lot-item/transaction-date [:<= as-of]}))
-        shares-owned (->> lots
-                          (map (fn [lot]
-                                 (assoc lot
-                                        :lot/shares-owned-as-of
-                                        (->> (lot-items (:id lot))
-                                             (map :lot-item/shares)
-                                             (reduce - (:lot/shares-purchased lot))))))
-                          (map (juxt (juxt (comp :id :lot/account)
-                                           (comp :id :lot/commodity))
-                                     :lot/shares-owned-as-of))
-                          (into {}))
-        prices (->> (models/select (db/model-type
-                                     {:id [:in (->> lots
-                                                    (map (comp :id :lot/commodity))
-                                                    set)]}
-                                     :commodity))
-                    (map (comp (juxt (comp :id :price/commodity)
-                                     :price/price)
-                               #(prices/most-recent % as-of)))
-                    (into {}))]
-    (mapv (comp #(assoc % :account/value (* (:account/shares-owned %)
-                                            (:account/commodity-price %)))
-                #(assoc % :account/shares-owned (shares-owned [(-> % :account/parent :id)
-                                                               (-> % :account/commodity :id)]))
+  "Perform validation of the accounts that track tradable commodities.
+
+  This is done by fetching all of the shares of the underlying commodities
+  that are currently held by the account and valuating them based on the
+  most recent price on or before the as-of date."
+  [{:keys [as-of]} accounts]
+  (let [lots (fetch-lots accounts)
+        mapped-lots (->> lots
+                         (append-lot-current-shares-owned-as-of as-of)
+                         (group-by (juxt (comp :id :lot/account)
+                                         (comp :id :lot/commodity))))
+        prices (fetch-prices-as-of lots as-of)]
+    (mapv (comp #(valuate-commodity-account % :fetch-lots (comp mapped-lots
+                                                                (juxt (comp :id :account/parent)
+                                                                      (comp :id :account/commodity))))
                 #(assoc % :account/current-price (prices (-> % :account/commodity :id))))
           accounts)))
 
@@ -230,9 +250,7 @@
               :earliest-date (get-in entity [:entity/settings
                                              :settings/earliest-transaction-date])}]
     (concat (valuate-simple-accounts opts simple)
-            (valuate-commodity-accounts
-              (assoc opts :other-accounts simple)
-              commodity))))
+            (valuate-commodity-accounts opts commodity))))
 
 (defn- apply-account-valuations
   [ctx]
@@ -311,48 +329,6 @@
         (mapcat summarize-account-type)
         summarize-income-statement)))
 
-(defn- summarize-lots
-  [lots]
-  (.setScale
-   (->> lots
-        (map :lot/current-value)
-        (reduce + 0M))
-   2
-   BigDecimal/ROUND_HALF_UP))
-
-(defn- summarize-commodity-value
-  [entry]
-  (update-in entry [1] summarize-lots))
-
-(defn- apply-balances
-  [{:keys [balances lots] :as ctx}]
-  (let [values (->> lots
-                    (group-by (juxt (comp :id :lot/account)
-                                    (comp :id :lot/commodity)))
-                    (map summarize-commodity-value)
-                    (into {}))]
-    (update-in ctx
-               [:accounts]
-               (fn [accounts]
-                 (map #(assoc %
-                              :account/value
-                              (or (get-in values [[(:id (:account/parent %))
-                                                   (:id (:account/commodity %))]])
-                                  (get-in balances [(:id %) :transaction-item/balance])
-                                  0M))
-                      accounts)))))
-
-(defn- append-records
-  [{:keys [accounts] :as ctx}]
-  (let [mapped (->> accounts
-                    nest
-                    (map (juxt :type :accounts))
-                    (into {}))]
-    (assoc ctx :records (->> [:asset :liability :equity :income :expense]
-                             (map #(hash-map :type % :accounts (% mapped)))
-                             (mapcat summarize-account-type)
-                             vec))))
-
 (defn- append-commodities
   [{:keys [accounts entity] :as ctx}]
   (let [default (get-in entity [:entity/settings
@@ -367,77 +343,6 @@
            (models/select (db/model-type
                             {:id [:in ids]}
                             :commodity)))))
-
-(defn- append-lots
-  [{:keys [commodities as-of entity] :as ctx}]
-  (assoc ctx
-         :lots
-         (if (seq commodities)
-           (models/select #:lot{:commodity [:in (map :id commodities)]
-                                :purchase-date [:<= as-of]})
-           (models/select (db/model-type
-                            {:commodity/entity entity
-                             :lot/purchase-date [:<= as-of]}
-                            :lot)))))
-
-(defn- fetch-lot-items
-  [{:keys [entity as-of]}]
-  (group-by (comp :id :lot-item/lot)
-            (models/select (db/model-type
-                             {:transaction/entity entity
-                              :lot-item/lot-action :sell
-                              :lot-item/transaction-date [:<= as-of]}
-                             :lot-item))))
-
-(defn- append-lot-items
-  [ctx]
-  (assoc ctx
-         :lot-items
-         (fetch-lot-items ctx)))
-
-(defn- append-latest-prices
-  [{:as ctx :keys [commodities as-of]}]
-  (assoc ctx
-         :prices
-         (->> (if (map? commodities)
-                (vals commodities)
-                commodities)
-              (map #(prices/most-recent % as-of))
-              (map (juxt (comp :id :price/commodity)
-                         :price/price))
-              (into {}))))
-
-(defn- update-lot
-  [{:lot/keys [commodity
-               shares-purchased
-               purchase-price]
-    :keys [id]
-    :as lot}
-   {:keys [prices
-           lot-items]}]
-  (let [current-price (get-in prices [(:id commodity)])
-        current-shares (- shares-purchased
-                          (->> (get-in lot-items [id])
-                               (map :lot-item/shares)
-                               (reduce + 0M)))
-        cost-basis (* current-shares purchase-price)
-        current-value (* current-price current-shares)]
-    (assoc lot
-           :lot/cost-basis cost-basis
-           :lot/current-price current-price
-           :lot/current-shares current-shares
-           :lot/current-value current-value
-           :lot/gains (- current-value cost-basis))))
-
-; TODO: dedupe this with valuate-lots
-(defn- update-lots
-  "Append current price and value information to the lots"
-  [ctx]
-  (update-in ctx
-             [:lots]
-             (fn [lots]
-               (map #(update-lot % ctx)
-                    lots))))
 
 (defn- update-equity-total
   [records delta]
@@ -476,16 +381,9 @@
 (defn- calc-unrealized-gains
   [{:keys [accounts]}]
   (->> accounts
-       (filter :account/shares-owned)
-       (map #()))
-  #_(if (seq lots)
-    (.setScale
-      (->> lots
-           (map :lot/gains)
-           (reduce + 0M))
-      2
-      BigDecimal/ROUND_HALF_UP)
-    0M))
+       (map :account/gains)
+       (filter identity)
+       (reduce + 0M)))
 
 (defn- append-unrealized-gains
   [records gains]
@@ -514,11 +412,6 @@
          :report/style :summary
          :report/value (calc-liabilities-plus-equity records)}))
 
-(defn- extract-balance-sheet
-  [{:keys [records]}]
-  (filter #(#{:asset :liability :equity} (:report/type %))
-          records))
-
 (defn- check-balance
   [records]
   (let [{:keys [asset liability equity]} (map-record-headers records)
@@ -544,6 +437,7 @@
        apply-account-summarization
        (update-in [:records] (comp (partial filterv balance-sheet?)
                                    append-retained-earnings))
+       (update-in [:accounts] unnest)
        apply-unrealized-gains
        (update-in [:records] append-balance-sheet-summary)
        :records
