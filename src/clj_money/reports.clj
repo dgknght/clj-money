@@ -13,7 +13,8 @@
             [clj-money.dates :as dates]
             [clj-money.accounts :refer [nest
                                         unnest
-                                        left-side?]]
+                                        left-side?
+                                        system-tagged?]]
             [clj-money.db :as db]
             [clj-money.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
@@ -153,6 +154,7 @@
   (let [lot-items (fetch-lot-items lots as-of)]
     (map (fn [lot]
            (assoc lot
+                  :lot/lot-items lot-items
                   :lot/shares-owned-as-of
                   (->> (lot-items (:id lot))
                        (map :lot-item/shares)
@@ -173,7 +175,9 @@
 
 (defn- valuate-commodity-account
   [account & {:keys [fetch-lots]}]
-  (let [{:keys [shares-owned cost-basis]}
+  (let [lots (fetch-lots account)
+
+        {:keys [shares-owned cost-basis]}
         (reduce (fn [res {:lot/keys [shares-owned-as-of purchase-price]}]
                   (-> res
                       (update-in [:shares-owned] + shares-owned-as-of)
@@ -181,9 +185,11 @@
                                                     shares-owned-as-of))))
                 {:shares-owned 0M
                  :cost-basis 0M}
-                (fetch-lots account))
+                lots)
+
         value (* shares-owned (:account/current-price account))]
     (assoc account
+           :account/lots lots
            :account/gains (- value cost-basis)
            :account/value value
            :account/shares-owned shares-owned
@@ -1059,10 +1065,15 @@
     entity    - The entity for which a report is to be generated (required)
     as-of     - The date for which a report is to be generated. Defaults to today
     aggregate - The method, :by-commodity or :by-account, defaults to :by-commodity"
-  [options]
+  [{:keys [entity] :as options}]
   {:pre [(:entity options)]}
 
-  []
+  (->> (models/select {:account/entity entity
+                       :account/type :asset
+                       #_:account/system-tags #_[:&& #{:tradable}]})
+       (filter (system-tagged? :tradable)) ; TODO: Make the system tag query above work
+       (valuate-accounts options)
+       (util/pp->> ::accounts))
   #_(-> (merge {:as-of (t/local-date)
               :aggregate :by-commodity}
              options)
@@ -1072,7 +1083,6 @@
       update-lots
       append-portfolio-accounts
       append-balances
-      (util/pp-> :with-balances)
       aggregate-portfolio-values
       flatten-and-summarize-portfolio
       :report))
