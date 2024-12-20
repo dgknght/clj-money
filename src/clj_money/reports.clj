@@ -692,10 +692,13 @@
            :actual-percent (/ actual budget)})
 
 (defn- aggregate-account-actuals
-  [accounts start end]
-  {:pre [start end (t/before? start end)]}
+  [accounts entity since as-of]
+  {:pre [since as-of (t/before? since as-of)]}
   (->> accounts
-       (map #(transactions/balance-delta % start end))
+       (valuate-accounts {:since since
+                          :as-of as-of
+                          :entity entity})
+       (map :account/value)
        (reduce + 0M)))
 
 (defn- monitor-from-item
@@ -706,17 +709,19 @@
         percent-of-period (budgets/percent-of-period budget
                                                      as-of)
         period-actual (aggregate-account-actuals (conj children account)
+                                                 (:budget/entity budget)
                                                  (:start period)
                                                  as-of)
         total-actual (aggregate-account-actuals (conj children account)
+                                                (:budget/entity budget)
                                                 (:budget/start-date budget)
                                                 as-of)
         percent-of-total (with-precision 5
                            (->> [as-of (:budget/end-date budget)]
                                 (map (comp inc
                                            #(dates/days-between
-                                             (:budget/start-date budget)
-                                             %)))
+                                              (:budget/start-date budget)
+                                              %)))
                                 (apply /)))]
     (with-precision 5
       #:report{:caption (:account/name account)
@@ -767,7 +772,9 @@
    (if-let [budget (bdgs/find-by-date (:account/entity account) as-of)]
      (monitor-from-budget {:account account
                            :as-of as-of
-                           :budget budget})
+                           :budget (update-in budget
+                                              [:budget/entity]
+                                              (models/find :entity))})
      #:report{:caption (:account/name account)
               :account account
               :message (format "There is no budget for %s" (dates/format-local-date as-of))})))
