@@ -166,11 +166,7 @@
 (defn- valuate-commodity-accounts
   "Perform validation of the accounts that track tradable commodities"
   [{:keys [as-of other-accounts]} accounts]
-  ; TODO: this is currently aggregating all commodities across all accounts
-  ; we need to ensure that if a commodity is held in more than one account
-  ; it is only counted once for each account
-  (throw (UnsupportedOperationException. "valuate-commodity-accounts is a work in progress"))
-  #_(let [others (->> other-accounts
+  (let [others (->> other-accounts
                     (map (juxt :id identity))
                     (into {}))
         parent-ids (map (comp :id
@@ -190,7 +186,8 @@
                                         (->> (lot-items (:id lot))
                                              (map :lot-item/shares)
                                              (reduce - (:lot/shares-purchased lot))))))
-                          (map (juxt (comp :id :lot/commodity)
+                          (map (juxt (juxt (comp :id :lot/account)
+                                           (comp :id :lot/commodity))
                                      :lot/shares-owned-as-of))
                           (into {}))
         prices (->> (models/select (db/model-type
@@ -202,11 +199,12 @@
                                      :price/price)
                                #(prices/most-recent % as-of)))
                     (into {}))]
-    (map (fn [{:account/keys [commodity] :as a}]
-           (let [shares (shares-owned (:id commodity))
-                 price (prices (:id commodity))]
-             (assoc a :account/value (* (price shares)))))
-         accounts)))
+    (mapv (comp #(assoc % :account/value (* (:account/shares-owned %)
+                                            (:account/commodity-price %)))
+                #(assoc % :account/shares-owned (shares-owned [(-> % :account/parent :id)
+                                                               (-> % :account/commodity :id)]))
+                #(assoc % :account/current-price (prices (-> % :account/commodity :id))))
+          accounts)))
 
 (defn- default-commodity?
   [{:entity/keys [settings]}]
@@ -476,8 +474,10 @@
         "Retained Earnings"))))
 
 (defn- calc-unrealized-gains
-  [_ctx]
-  0M
+  [{:keys [accounts]}]
+  (->> accounts
+       (filter :account/shares-owned)
+       (map #()))
   #_(if (seq lots)
     (.setScale
       (->> lots
