@@ -106,25 +106,6 @@
                opts))
     {}))
 
-(defn- append-deltas
-  [{:keys [start end earliest-date]} accounts]
-  (let [account-ids (->> accounts
-                         (map :id)
-                         set)
-        start-balances (fetch-trx-items
-                         account-ids
-                         start
-                         :find-one-fn (partial last-item :before start)
-                         :earliest-date earliest-date)
-        end-balances (fetch-trx-items
-                       account-ids
-                       end
-                       :earliest-date earliest-date)]
-    (map (fn [a]
-           (assoc a :account/value (- (get-in end-balances [(:id a) :transaction-item/balance] 0M)
-                                      (get-in start-balances [(:id a) :transaction-item/balance] 0M))))
-         accounts)))
-
 (defn- valuate-simple-accounts
   "Perform valuation of accounts that use the default entity commodity.
 
@@ -132,6 +113,7 @@
   before the as-of date. If a since date is specified, the balance of the
   last transaction on or before that date is subtracted."
   [{:keys [since as-of earliest-date]} accounts]
+  {:pre [(seq accounts)]}
   (let [account-ids (->> accounts
                          (map :id)
                          set)
@@ -214,6 +196,7 @@
   that are currently held by the account and valuating them based on the
   most recent price on or before the as-of date."
   [{:keys [as-of]} accounts]
+  {:pre [(seq accounts)]}
   (let [lots (fetch-lots accounts)
         mapped-lots (->> lots
                          (append-lot-current-shares-owned-as-of as-of)
@@ -249,8 +232,10 @@
               :as-of as-of
               :earliest-date (get-in entity [:entity/settings
                                              :settings/earliest-transaction-date])}]
-    (concat (valuate-simple-accounts opts simple)
-            (valuate-commodity-accounts opts commodity))))
+    (concat (when (seq simple)
+              (valuate-simple-accounts opts simple))
+            (when (seq commodity)
+              (valuate-commodity-accounts opts commodity)))))
 
 (defn- apply-account-valuations
   [ctx]
@@ -670,11 +655,9 @@
   [{:keys [budget as-of entity] :as ctx}]
   (->> (models/select #:account{:entity (:budget/entity budget)
                                 :type [:in [:income :expense]]})
-       (append-deltas
-           {:start (:budget/start-date budget)
-            :end as-of
-            :earliest-date (get-in entity [:entity/settings
-                                           :settings/earliest-transaction-date])})
+       (valuate-accounts {:entity entity
+                          :since (:budget/start-date budget)
+                          :as-of as-of})
        (nest {:types [:income :expense]})
        unnest
        (group-by :account/type)
@@ -686,8 +669,7 @@
   ([bdg]
    (budget bdg {}))
   ([budget {:keys [as-of] :as opts}]
-   {}
-   #_{:items (-> opts
+   {:items (-> opts
                (merge {:budget budget
                        :as-of (or as-of
                                   (default-budget-end-date budget))})
