@@ -89,9 +89,19 @@
                          model-type)))
 
 (defn find
-  ([{:keys [id] :as m}]
-   {:pre [(s/valid? ::models/model-ref m)]}
-   (find id (keyword (db/model-type m))))
+  "Find a model by id or by reference map.
+
+  When given one argument:
+    - If the argument is a model reference, return the model
+    - If the argument is a keyword, a function that will look up models of the specified type
+  When given two arguments, look up a model of the spcified type having the specified id"
+  ([arg]
+   (if (keyword? arg)
+     #(find % arg)
+     (do
+       (assert (s/valid? ::models/model-ref arg))
+       (find (:id arg)
+           (keyword (db/model-type arg)))))) ; TODO: can we remove the call to keyword?
   ([id-or-ref model-type]
    {:pre [id-or-ref (keyword? model-type)]}
    (find-by (db/model-type (util/->model-ref id-or-ref)
