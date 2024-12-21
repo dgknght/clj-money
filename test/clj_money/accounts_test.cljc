@@ -3,7 +3,7 @@
                :cljs [cljs.test :refer [deftest is testing]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [dgknght.app-lib.core :refer [index-by]]
+            [dgknght.app-lib.test-assertions]
             [clj-money.accounts :as accounts]))
 
 (deftest create-criteria-from-one-account
@@ -302,3 +302,147 @@
   (is (= :debit  (accounts/derive-action -1 {:account/type :equity})))
   (is (= :credit (accounts/derive-action  1 {:account/type :liability})))
   (is (= :debit  (accounts/derive-action -1 {:account/type :liability}))))
+
+(deftest valuate-some-accounts
+  (testing "Simple accounts (with the default commodity)"
+    #_(is (seq-of-maps-like? [{:account/name "Checking"
+                             :account/value 1000M
+                             :account/total-value 1000M}
+                            {:account/name "Savings"
+                             :account/value 0M
+                             :account/children-value 15000M
+                             :account/total-value 15000M}
+                            {:account/name "Reserve"
+                             :account/value 10000M
+                             :account/total-value 10000M}
+                            {:account/name "Car"
+                             :account/value 5000M
+                             :account/total-value 5000M}]
+                           (accounts/valuate-accounts
+                             {:fetch-balance (comp {100 1000M
+                                                    110 0M
+                                                    111 10000M
+                                                    112 5000M}
+                                                   :id)
+                              :default-commodity? (constantly true)}
+                             [{:id 100
+                               :account/name "Checking"
+                               :account/type :asset}
+                              {:id 110
+                               :account/name "Savings"
+                               :account/type :asset}
+                              {:id 111
+                               :account/parent {:id 110}
+                               :account/name "Reserve"
+                               :account/type :asset}
+                              {:id 112
+                               :account/parent {:id 110}
+                               :account/name "Car"
+                               :account/type :asset}]))))
+  (testing "Simple and commodity accounts"
+    (is (seq-of-maps-like? [{:account/name "IRA"
+                             :account/value 1000M
+                             :account/total-value 2900M ; 1500M of AAPL + 500M of MSFT + 1000M in cash
+                             :account/gain 400M}
+                            {:account/name "AAPL"
+                             :account/shares-owned 100M
+                             :account/cost-basis 1000M
+                             :account/current-price 15M
+                             :account/total-value 1500M
+                             :account/gain 500M}
+                            {:account/name "MSFT"
+                             :account/shares-owned 50M
+                             :account/cost-basis 500M
+                             :account/current-price 8M
+                             :account/total-value 400M
+                             :account/gain -100M}
+                            {:account/name "401k"
+                             :account/cost-basis 3200M
+                             :account/total-value 3800M
+                             :account/gain 600M}
+                            {:account/name "AAPL"
+                             :account/shares-owned 200M
+                             :account/cost-basis 2200M
+                             :account/current-price 15M
+                             :account/total-value 3000M
+                             :account/gain 800M}
+                            {:account/name "MSFT"
+                             :account/shares-owned 100M
+                             :account/cost-basis 1000M
+                             :account/current-price 8M
+                             :account/total-value 800M
+                             :account/gain -200M}]
+                           (accounts/valuate-accounts
+                             {:default-commodity? #(= :usd (:id (:account/commodity %)))
+                              :fetch-balance (comp {:ira 1000M
+                                                    :four-o-one-k 2000M}
+                                                   :id)
+                              :fetch-lots (comp {[:ira :aapl] [{:id 300}]
+                                                 [:ira :msft] [{:id 301}]
+                                                 [:four-o-one-k :aapl] [{:id 302}
+                                                                        {:id 304}]
+                                                 [:four-o-one-k :msft] [{:id 303}]}
+                                                (juxt (comp :id :account/parent)
+                                                      (comp :id :account/commodity)))
+                              :fetch-lot-items (comp {300 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
+                                                            :lot-item/action :buy
+                                                            :lot-item/shares 100M
+                                                            :lot-item/price 10M}]
+                                                      301 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
+                                                            :lot-item/action :buy
+                                                            :lot-item/shares 100M
+                                                            :lot-item/price 10M}
+                                                           {:lot-item/transaction-date (t/local-date 2020 2 1)
+                                                            :lot-item/action :sell
+                                                            :lot-item/shares 50M
+                                                            :lot-item/price 9M}]
+                                                      302 [{:lot-item/transaction-date (t/local-date 2020 1 1); AAPL in 401k
+                                                            :lot-item/action :buy
+                                                            :lot-item/shares 100M
+                                                            :lot-item/price 10M}]
+                                                      303 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
+                                                            :lot-item/action :buy
+                                                            :lot-item/shares 100M
+                                                            :lot-item/price 10M}]
+                                                      304 [{:lot-item/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
+                                                            :lot-item/action :buy
+                                                            :lot-item/shares 100M
+                                                            :lot-item/price 12M}]}
+                                                     :id)
+                              :fetch-price (comp {:aapl 15M
+                                                  :msft 8M}
+                                                 :id)}
+                             [{:id :ira
+                               :account/name "IRA"
+                               :acocunt/type :asset
+                               :account/system-tags #{:trading}
+                               :account/commodity {:id :usd}}
+                              {:id :ira-aapl
+                               :account/parent {:id :ira}
+                               :account/name "AAPL"
+                               :account/type :asset
+                               :account/system-tags #{:tradable}
+                               :account/commodity {:id :aapl}}
+                              {:id :ira-msft
+                               :account/parent {:id :ira}
+                               :account/name "MSFT"
+                               :account/type :asset
+                               :account/system-tags #{:tradable}
+                               :account/commodity {:id :msft}}
+                              {:id :four-o-one-k
+                               :account/name "401k"
+                               :acocunt/type :asset
+                               :account/system-tags #{:trading}
+                               :account/commodity {:id :usd}}
+                              {:id :four-o-one-k-aapl
+                               :account/parent {:id :four-o-one-k}
+                               :account/name "AAPL"
+                               :account/type :asset
+                               :account/system-tags #{:tradable}
+                               :account/commodity {:id :aapl}}
+                              {:id :four-o-one-k-msft
+                               :account/parent {:id :four-o-one-k}
+                               :account/name "MSFT"
+                               :account/type :asset
+                               :account/system-tags #{:tradable}
+                               :account/commodity {:id :msft}}])))))

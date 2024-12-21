@@ -236,3 +236,62 @@
     (if (zero? net)
       result
       (update-in result [0 :adj-value] - net))))
+
+(defn- valuate-simple-accounts
+  "Perform valuation of accounts that use the default entity commodity."
+  [{:keys [fetch-balance]} accounts]
+  {:pre [(seq accounts)]}
+  (map #(assoc % :account/value (fetch-balance %))
+         accounts))
+
+(defn- aggr
+  ([attr oper coll]
+   (aggr attr oper 0M coll))
+  ([attr oper initial coll]
+   (->> coll
+        (map attr)
+        (reduce oper initial))))
+
+(defn- sum
+  [attr coll]
+  (aggr attr + 0M coll))
+
+(defn- valuate-commodity-account
+  [{:as account :account/keys [commodity]} {:keys [fetch-lots fetch-lot-items fetch-price]}]
+  (let [price (fetch-price commodity)
+        lots (map (fn [lot]
+                    (let [[purchase & sales] (fetch-lot-items lot)
+                          shares-owned (- (:lot-item/shares purchase)
+                                          (sum :lot-item/shares sales))
+                          cost-basis (* (:lot-item/price purchase)
+                                        shares-owned)
+                          current-value (* price shares-owned)]
+                      (assoc lot
+                             :lot/shares-owned shares-owned
+                             :lot/current-price price
+                             :lot/value current-value
+                             :lot/gain (- current-value cost-basis))))
+                  (fetch-lots account))]
+    (assoc account
+           :account/lots lots
+           :account/cost-basis (sum :lot/cost-basis lots)
+           :account/value (sum :lot/value lots)
+           :account/current-price price)))
+
+(defn- valuate-commodity-accounts
+  [opts accounts]
+  (map #(valuate-commodity-account % opts)
+       accounts))
+
+(defn valuate-accounts
+  "Given a sequence of accounts, assess their value based on the given date or
+  range of dates."
+  [{:keys [default-commodity?] :as opts} accounts]
+  (let [{simple true commodity false} (group-by default-commodity?
+                                                accounts)]
+    (->> (when (seq simple)
+           (valuate-simple-accounts opts simple))
+         (concat (when (seq commodity)
+                   (valuate-commodity-accounts opts commodity)))
+         nest
+         unnest)))
