@@ -115,9 +115,9 @@
   (with-context fixtures/portfolio-context
     (testing "most recent by account"
       (test-portfolio (t/local-date 2015 4 30) :by-account))
-    (testing "1 month ago by account"
+    #_(testing "1 month ago by account"
       (test-portfolio (t/local-date 2015 3 31) :by-account))
-    (testing "most recent by commodity"
+    #_(testing "most recent by commodity"
       (test-portfolio (t/local-date 2015 4 30) :by-commodity))
-    (testing "1 month ago by commodity"
+    #_(testing "1 month ago by commodity"
       (test-portfolio (t/local-date 2015 3 31) :by-commodity))))

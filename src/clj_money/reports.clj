@@ -5,50 +5,22 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [java-time.api :as t]
+            [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
-            [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.util :as util :refer [earliest
                                              model=]]
             [clj-money.dates :as dates]
             [clj-money.accounts :refer [nest
                                         unnest
                                         left-side?
-                                        system-tagged?]]
+                                        system-tagged?
+                                        valuate]]
             [clj-money.db :as db]
             [clj-money.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.prices :as prices]
             [clj-money.models.budgets :as bdgs]))
-
-; Report structure
-;   - column headers
-;   - row
-;      - headers
-;      - data
-;      - children
-
-; income statement
-;   - collect transaction item balance deltas for range
-;   - xform into report records
-;   - roll up per account hierarchy
-; balance sheet
-;   - collect transaction item balance as of
-;   - assess value (direct or indirect via lots of commodity)
-;     - fetch account lots
-;     - valuate lots
-;   - xform into report records
-;   - roll up per account hierarchy
-; budget
-;   - aggregate value by budget period
-;     - collect transaction item balance deltas for range
-;     - xform into report records
-;     - roll up
-; portfolio
-;   - fetch lots
-;   - valuate lots
-;   - xform into report records
-;   - roll up by account or by commodity
 
 (defn- header?
   [{:report/keys [style]}]
@@ -107,15 +79,16 @@
                opts))
     {}))
 
-(defn- valuate-simple-accounts
-  "Perform valuation of accounts that use the default entity commodity.
+(defn- default-commodity?
+  [{:entity/keys [settings]}]
+  (let [default (:settings/default-commodity settings)]
+    (fn [{:account/keys [commodity]}]
+      (model= default commodity))))
 
-  This is done by getting the balance from the last transaction item on or
-  before the as-of date. If a since date is specified, the balance of the
-  last transaction on or before that date is subtracted."
-  [{:keys [since as-of earliest-date]} accounts]
-  {:pre [(seq accounts)]}
-  (let [account-ids (->> accounts
+(defn- fetch-balance
+  [{:keys [accounts since as-of entity]}]
+  (let [earliest-date (get-in entity [:entity/settings :settings/earliest-transaction-date])
+        account-ids (->> accounts
                          (map :id)
                          set)
         start-balances (when since
@@ -127,99 +100,49 @@
         end-balances (fetch-trx-items
                        account-ids
                        as-of
-                       :earliest-date earliest-date)]
-    (map (fn [{:keys [id] :as a}]
-           (assoc a :account/value (- (get-in end-balances [id :transaction-item/balance] 0M)
-                                      (get-in start-balances [id :transaction-item/balance] 0M))))
-         accounts)))
+                       :earliest-date earliest-date)
+        mapped (->> account-ids
+                    (map (fn [id]
+                           [id (- (get-in end-balances [id :transaction-item/balance] 0M)
+                                  (get-in start-balances [id :transaction-item/balance] 0M))]))
+                    (into {}))]
+    (fn [account]
+      (mapped (:id account)))))
 
-(defn- fetch-lots
-  "Fetch all of the lots for all of the specified tradable accounts."
-  [accounts]
-  (let [parent-ids (->> accounts
-                        (map (comp :id :account/parent))
-                        set)]
-    (models/select {:lot/account [:in parent-ids]})))
+(defn- fetch-lots-and-items
+  "Returns a tuple containing two functions. The first fetches lots for a given account,
+  and the second fetches lot transactions for a given lot"
+  [{:keys [accounts as-of]}]
+  (let [trading-account-ids (->> accounts
+                                 (filter (system-tagged? :trading))
+                                 (map :id))
+        lots (when (seq trading-account-ids)
+               (models/select {:lot/account [:in trading-account-ids]
+                               :lot/purchase-date [:<= as-of]}))
+        mapped-lots (group-by (juxt (comp :id :lot/account)
+                                    (comp :id :lot/commodity))
+                              lots)
+        lot-items (when (seq lots)
+                    (group-by (comp :id :lot-item/lot)
+                              (models/select {:lot-item/lot [:in (map :id lots)]})))]
+    [(fn [{:account/keys [parent commodity]}]
+       (mapped-lots (mapv :id [parent commodity])))
+     (fn [{:keys [id]}]
+       (lot-items id))]))
 
-(defn- fetch-lot-items
-  "Fetch all of the lot items for the specified lots as of the specified date."
-  [lots as-of]
-  (group-by (comp :id :lot-item/lot)
-            (models/select {:lot-item/lot [:in (map :id lots)]
-                            :lot-item/lot-action :sell
-                            :lot-item/transaction-date [:<= as-of]})))
-
-(defn- append-lot-current-shares-owned-as-of
-  [as-of lots]
-  (let [lot-items (fetch-lot-items lots as-of)]
-    (map (fn [lot]
-           (assoc lot
-                  :lot/lot-items lot-items
-                  :lot/shares-owned-as-of
-                  (->> (lot-items (:id lot))
-                       (map :lot-item/shares)
-                       (reduce - (:lot/shares-purchased lot)))))
-         lots)))
-
-(defn- fetch-prices-as-of
-  [lots as-of]
-  (->> (models/select (db/model-type
-                        {:id [:in (->> lots
-                                       (map (comp :id :lot/commodity))
-                                       set)]}
-                        :commodity))
-       (map (comp (juxt (comp :id :price/commodity)
-                        :price/price)
-                  #(prices/most-recent % as-of)))
-       (into {})))
-
-(defn- valuate-commodity-account
-  [account & {:keys [fetch-lots]}]
-  (let [lots (fetch-lots account)
-
-        {:keys [shares-owned cost-basis]}
-        (reduce (fn [res {:lot/keys [shares-owned-as-of purchase-price]}]
-                  (-> res
-                      (update-in [:shares-owned] + shares-owned-as-of)
-                      (update-in [:cost-basis] + (* purchase-price
-                                                    shares-owned-as-of))))
-                {:shares-owned 0M
-                 :cost-basis 0M}
-                lots)
-
-        value (* shares-owned (:account/current-price account))]
-    (assoc account
-           :account/lots lots
-           :account/gains (- value cost-basis)
-           :account/value value
-           :account/shares-owned shares-owned
-           :account/cost-basis cost-basis)))
-
-(defn- valuate-commodity-accounts
-  "Perform validation of the accounts that track tradable commodities.
-
-  This is done by fetching all of the shares of the underlying commodities
-  that are currently held by the account and valuating them based on the
-  most recent price on or before the as-of date."
-  [{:keys [as-of]} accounts]
-  {:pre [(seq accounts)]}
-  (let [lots (fetch-lots accounts)
-        mapped-lots (->> lots
-                         (append-lot-current-shares-owned-as-of as-of)
-                         (group-by (juxt (comp :id :lot/account)
-                                         (comp :id :lot/commodity))))
-        prices (fetch-prices-as-of lots as-of)]
-    (mapv (comp #(valuate-commodity-account % :fetch-lots (comp mapped-lots
-                                                                (juxt (comp :id :account/parent)
-                                                                      (comp :id :account/commodity))))
-                #(assoc % :account/current-price (prices (-> % :account/commodity :id))))
-          accounts)))
-
-(defn- default-commodity?
-  [{:entity/keys [settings]}]
-  (let [default (:settings/default-commodity settings)]
-    (fn [{:account/keys [commodity]}]
-      (model= default commodity))))
+(defn- fetch-price
+  "Return a function that fetches a price for a given commodity as of the :as-of
+  attribute in the options"
+  [{:keys [as-of]}]
+  (let [cache (atom {})]
+    (fn [{:keys [id] :as commodity}]
+      (if-let [cached (get-in @cache [id])]
+        cached
+        (let [price (:price/price (prices/most-recent commodity as-of))]
+          (when-not price
+            (throw (ex-info "No price found for commodity" {:commodity commodity})))
+          (swap! cache assoc id price)
+          price)))))
 
 (defn- valuate-accounts
   "Given a sequence of accounts, assess their value based on the given date or
@@ -231,17 +154,16 @@
   For accounts that track other commodities, the value comes from the quantity
   of that commodity held in the account and the most recent price based on the
   specified date."
-  [{:keys [entity since as-of]} accounts]
-  (let [{simple true commodity false} (group-by (default-commodity? entity)
-                                                accounts)
-        opts {:since since
-              :as-of as-of
-              :earliest-date (get-in entity [:entity/settings
-                                             :settings/earliest-transaction-date])}]
-    (concat (when (seq simple)
-              (valuate-simple-accounts opts simple))
-            (when (seq commodity)
-              (valuate-commodity-accounts opts commodity)))))
+  [{:as opts :keys [entity]} accounts]
+  (let [options (assoc opts :accounts accounts)
+        [fetch-lots fetch-lot-items] (fetch-lots-and-items options)]
+    (valuate
+      {:default-commodity? (default-commodity? entity)
+       :fetch-balance (fetch-balance options)
+       :fetch-lots  fetch-lots
+       :fetch-lot-items fetch-lot-items
+       :fetch-price (fetch-price options)}
+      accounts)))
 
 (defn- apply-account-valuations
   [ctx]
@@ -319,21 +241,6 @@
         (nest {:types [:income :expense]})
         (mapcat summarize-account-type)
         summarize-income-statement)))
-
-(defn- append-commodities
-  [{:keys [accounts entity] :as ctx}]
-  (let [default (get-in entity [:entity/settings
-                                :settings/default-commodity])
-        ids (->> accounts
-                  (map :account/commodity)
-                  (remove #(model= % default))
-                  (into #{})
-                  (mapv :id))]
-    (assoc ctx
-           :commodities
-           (models/select (db/model-type
-                            {:id [:in ids]}
-                            :commodity)))))
 
 (defn- update-equity-total
   [records delta]
@@ -880,32 +787,52 @@
                    #(update-in % [0] (fn [id] (models/find id :commodity)))))
         (sort-by :commodity/name))))
 
-(defmulti aggregate-portfolio-values (fn [opts _] (:aggregate opts)))
+(defmulti ^:private aggregate-portfolio-values (fn [opts _] (:aggregate opts)))
 
 (declare aggregate-portfolio-account)
 
-(defn- aggregate-portfolio-children
-  [parent depth]
-  (if-let [children (:account/children parent)]
-    (mapcat #(aggregate-portfolio-account % :depth (inc depth))
-            children)
-    (if-let [lots (:account/lots parent)]
-      (map (fn [lot]
+(defmulti ^:private aggregate-portfolio-children
+  (fn [m _]
+    (cond
+      (:account/children m) :account
+      (:account/lots m)     :lot
+      (:lot/items m)        :lot-item)))
 
-             (pprint {::lot lot})
+(defmethod aggregate-portfolio-children :account
+  [{:account/keys [children]} depth]
+  (mapcat #(aggregate-portfolio-account % :depth (inc depth))
+          children))
 
-             {:report/caption (dates/format-local-date (:lot/purchase-date lot))
-              :report/value (:lot/current-value lot)})
-           lots)
-      [])))
+(defmethod aggregate-portfolio-children :lot
+  [{:account/keys [lots]} depth]
+  (map (fn [lot]
+         {:report/caption (dates/format-local-date (:lot/purchase-date lot))
+          :report/depth depth
+          :report/style :data
+          :report/current-value (:lot/value lot)
+          :report/cost-basis (:lot/cost-basis lot)
+          :report/gain-loss (:lot/gain lot)})
+       lots))
 
 (defn- aggregate-portfolio-account
   [account & {:keys [depth] :or {depth 0}}]
-  (cons {:report/caption (:account/name account)
-         :report/style :data
-         :report/depth depth
-         :report/current-value (:account/total-value account)}
-        (aggregate-portfolio-children account depth)))
+  (let [shared {:report/caption (:account/name account)
+                :report/depth depth
+                :report/current-value (:account/total-value account)
+                :report/cost-basis (:account/cost-basis account)
+                :report/gain-loss (:account/gain account)}]
+    (if (system-tagged? account :trading)
+      (cons (merge shared
+                   {:report/style :header})
+            (cons {:report/caption "Cash"
+                   :report/style :header
+                   :report/current-value (:account/value account)
+                   :report/cost-basis (:account/value account)
+                   :report/gain-loss 0M}
+                  (aggregate-portfolio-children account depth)))
+      (cons (merge shared
+                   {:report/style :subheader})
+            (aggregate-portfolio-children account depth)))))
 
 (defmethod aggregate-portfolio-values :by-account
   [_options nested-accounts]
@@ -1056,16 +983,4 @@
                         (system-tagged? :trading))) ; TODO: Make the system tag query above work
        (valuate-accounts options)
        (nest)
-       (aggregate-portfolio-values options))
-  #_(-> (merge {:as-of (t/local-date)
-              :aggregate :by-commodity}
-             options)
-      append-lots
-      append-commodities
-      append-latest-prices
-      update-lots
-      append-portfolio-accounts
-      append-balances
-      aggregate-portfolio-values
-      flatten-and-summarize-portfolio
-      :report))
+       (aggregate-portfolio-values options)))

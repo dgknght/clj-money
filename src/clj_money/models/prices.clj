@@ -9,6 +9,7 @@
             [stowaway.implicit :as storage :refer [with-transacted-storage]]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.find-in-chunks :as ch]
@@ -154,32 +155,36 @@
 (defn most-recent
   ([commodity]
    (most-recent commodity nil))
-  ([{:commodity/keys [earliest-price latest-price] :as commodity} as-of]
+  ([commodity as-of]
    {:pre [(map? commodity)]}
 
-   (cond
-     (every? nil? [earliest-price latest-price])
-     (log/warnf
-       "No price bounding for commodity %s %s"
-       (:id commodity)
-       (:commodity/symbol commodity))
+   (let [{:commodity/keys [earliest-price
+                           latest-price]} (if (util/model-ref? commodity)
+                                            (models/find commodity :commodity)
+                                            commodity)]
+     (cond
+       (every? nil? [earliest-price latest-price])
+       (log/warnf
+         "No price bounding for commodity %s %s"
+         (:id commodity)
+         (:commodity/symbol commodity))
 
-     (and as-of
-          (t/after? earliest-price as-of))
-     (log/warnf
-       "Unable to find %s price for commodity %s %s before first available date %s"
-       as-of
-       (:id commodity)
-       (:commodity/symbol commodity)
-       earliest-price)
+       (and as-of
+            (t/after? earliest-price as-of))
+       (log/warnf
+         "Unable to find %s price for commodity %s %s before first available date %s"
+         as-of
+         (:id commodity)
+         (:commodity/symbol commodity)
+         earliest-price)
 
-     :else
-     (models/find-by #:price{:commodity commodity
-                             :trade-date [:between
-                                          earliest-price
-                                          (or as-of
-                                              latest-price)]}
-                     {:sort [[:price/trade-date :desc]]}))))
+       :else
+       (models/find-by #:price{:commodity commodity
+                               :trade-date [:between
+                                            earliest-price
+                                            (or as-of
+                                                latest-price)]}
+                       {:sort [[:price/trade-date :desc]]})))))
 
 (defn rebound-commodity
   "Given a commodity, look up the earliest and latest prices and update the

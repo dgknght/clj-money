@@ -257,13 +257,18 @@
 
 (defn- valuate-simple-accounts
   "Perform valuation of accounts that use the default entity commodity."
-  [{:keys [fetch-balance]} accounts]
-  {:pre [(seq accounts)]}
+  [{:keys [fetch-balance] :as opts} accounts]
+  {:pre [(seq accounts)
+         (:fetch-balance opts)]}
   (map #(assoc % :account/value (fetch-balance %))
          accounts))
 
 (defn- valuate-commodity-account
-  [{:as account :account/keys [commodity]} {:keys [fetch-lots fetch-lot-items fetch-price]}]
+  [{:as account :account/keys [commodity]}
+   {:keys [fetch-lots fetch-lot-items fetch-price] :as opts}]
+  {:pre [(:fetch-lots opts)
+         (:fetch-lot-items opts)
+         (:fetch-price opts)]}
   (let [price (fetch-price commodity)
         lots (mapv (fn [lot]
                      (let [[purchase & sales :as items] (fetch-lot-items lot)
@@ -297,8 +302,16 @@
 
 (defn valuate
   "Given a sequence of accounts, assess their value based on the given date or
-  range of dates."
+  range of dates.
+
+  In the options, specify the following:
+    :default-commodity? - a function that determines if an account uses the entity default commodity
+    :fetch-balance   - a function that fetches the balance of an account
+    :fetch-lots      - a function that fetches lots for a commodity account
+    :fetch-lot-items - a function that fetches lot items for a lot
+    :fetch-price     - a function that fetch the price of a commodity"
   [{:keys [default-commodity?] :as opts} accounts]
+  {:pre [(:default-commodity? opts)]}
   (let [{simple true commodity false} (group-by default-commodity?
                                                 accounts)]
     (->> (when (seq simple)
