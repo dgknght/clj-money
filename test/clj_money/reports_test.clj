@@ -104,7 +104,7 @@
   [as-of grouping]
   (let [entity (models/find (find-entity "Personal"))
         expected (get-in fixtures/expected-portfolio-report
-                         [:expected grouping as-of])]
+                         [grouping as-of])]
     (is (seq-of-maps-like? expected
                            (reports/portfolio {:aggregate grouping
                                                :entity entity

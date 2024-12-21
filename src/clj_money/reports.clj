@@ -880,61 +880,42 @@
                    #(update-in % [0] (fn [id] (models/find id :commodity)))))
         (sort-by :commodity/name))))
 
-(defn- append-portfolio-accounts
-  [{:keys [lots] :as ctx}]
-  (assoc ctx
-         :accounts
-         (if (seq lots)
-           (->> (models/select (db/model-type
-                                 {:id [:in (set (map (comp :id :lot/account) lots))]}
-                                 :account))
-                (map (juxt :id identity))
-                (into {}))
-           {})))
+(defmulti aggregate-portfolio-values (fn [opts _] (:aggregate opts)))
 
-(defn- append-commodities
-  [{:keys [lots] :as ctx}]
-  (assoc ctx :commodities (if (seq lots)
-                            (->> (models/select
-                                   (db/model-type
-                                     {:id [:in (->> lots
-                                                    (map (comp :id :lot/commodity))
-                                                    set)]}
-                                     :commodity))
-                                 (map (juxt :id identity))
-                                 (into {}))
-                            {})))
+(declare aggregate-portfolio-account)
 
-; TODO: Dedupe this with valudate-lot, standardize gain-loss vs gain key
-(defn- calc-gains
-  [{:lot/keys [current-value current-shares purchase-price] :as lot}]
-  (let [cost-basis (* current-shares purchase-price)
-        gain-loss (- current-value cost-basis)]
-    (assoc lot
-           :lot/cost-basis cost-basis
-           :lot/gain-loss gain-loss
-           :lot/gain-loss-percent (when-not (zero? cost-basis)
-                                    (with-precision 2
-                                      (/ gain-loss cost-basis))))))
+(defn- aggregate-portfolio-children
+  [parent depth]
+  (if-let [children (:account/children parent)]
+    (mapcat #(aggregate-portfolio-account % :depth (inc depth))
+            children)
+    (if-let [lots (:account/lots parent)]
+      (map (fn [lot]
 
-(defmulti aggregate-portfolio-values :aggregate)
+             (pprint {::lot lot})
+
+             {:report/caption (dates/format-local-date (:lot/purchase-date lot))
+              :report/value (:lot/current-value lot)})
+           lots)
+      [])))
+
+(defn- aggregate-portfolio-account
+  [account & {:keys [depth] :or {depth 0}}]
+  (cons {:report/caption (:account/name account)
+         :report/style :data
+         :report/depth depth
+         :report/current-value (:account/total-value account)}
+        (aggregate-portfolio-children account depth)))
 
 (defmethod aggregate-portfolio-values :by-account
-  [{:keys [lots] :as ctx}]
-  (assoc ctx
-         :report
-         (->> lots
-              (map calc-gains)
-              (group-by (comp :id :lot/account))
-              (map #(update-in % [1] (partial group-by (comp :id :lot/commodity)))))))
+  [_options nested-accounts]
+  (->> nested-accounts
+       (mapcat :accounts)
+       (mapcat aggregate-portfolio-account)))
 
 (defmethod aggregate-portfolio-values :by-commodity
-  [{:keys [lots] :as ctx}]
-  (assoc ctx
-         :report
-         (->> lots
-              (map calc-gains)
-              (group-by (comp :id :lot/commodity)))))
+  [_options accounts]
+  accounts)
 
 (defn- sum-fields
   [target fields coll]
@@ -1070,10 +1051,12 @@
 
   (->> (models/select {:account/entity entity
                        :account/type :asset
-                       #_:account/system-tags #_[:&& #{:tradable}]})
-       (filter (system-tagged? :tradable)) ; TODO: Make the system tag query above work
+                       #_:account/system-tags #_[:&& #{:trading :tradable}]})
+       (filter (some-fn (system-tagged? :tradable)
+                        (system-tagged? :trading))) ; TODO: Make the system tag query above work
        (valuate-accounts options)
-       (util/pp->> ::accounts))
+       (nest)
+       (aggregate-portfolio-values options))
   #_(-> (merge {:as-of (t/local-date)
               :aggregate :by-commodity}
              options)
