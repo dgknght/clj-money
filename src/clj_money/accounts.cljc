@@ -45,17 +45,35 @@
 #?(:cljs (defn abs [n] (decimal/abs n))
    :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))
 
+(defn- aggr
+  [attr {:keys [oper initial allow-nil?] :or {oper + initial 0M allow-nil? false}} coll]
+  (let [f (if allow-nil? identity (constantly true))]
+    (->> coll
+       (map attr)
+       (filter f)
+       (reduce oper initial))))
+
+(defn- sum
+  ([attr coll]
+   (sum attr {} coll))
+  ([attr opts coll]
+   (aggr attr opts coll)))
+
 (defn- eval-children
-  [{:account/keys [children] :as account}]
+  [{:account/keys [children value] :as account}]
   (let [children-value (->> children
                             (mapcat (juxt :account/value :account/children-value))
                             (filter identity)
-                            (reduce + 0M))]
-    (assoc account
-           :account/children-value children-value
-           :account/total-value (+ children-value
-                                   (or (:account/value account) 0M))
-           :account/has-children? true)))
+                            (reduce + 0M))
+        gain (sum :account/gain {:allow-nil? true} children)
+        cost-basis (sum :account/cost-basis {:allow-nil? true} children)]
+    (merge account
+           (cond-> {:account/children-value children-value
+                    :account/total-value (+ children-value
+                                            (or value 0M))
+                    :account/has-children? true}
+             (not (zero? cost-basis)) (assoc :account/cost-basis cost-basis)
+             (not (zero? gain)) (assoc :account/gain gain)))))
 
 (defn nest
   ([accounts] (nest {} accounts))
@@ -244,46 +262,40 @@
   (map #(assoc % :account/value (fetch-balance %))
          accounts))
 
-(defn- aggr
-  ([attr oper coll]
-   (aggr attr oper 0M coll))
-  ([attr oper initial coll]
-   (->> coll
-        (map attr)
-        (reduce oper initial))))
-
-(defn- sum
-  [attr coll]
-  (aggr attr + 0M coll))
-
 (defn- valuate-commodity-account
   [{:as account :account/keys [commodity]} {:keys [fetch-lots fetch-lot-items fetch-price]}]
   (let [price (fetch-price commodity)
-        lots (map (fn [lot]
-                    (let [[purchase & sales] (fetch-lot-items lot)
-                          shares-owned (- (:lot-item/shares purchase)
-                                          (sum :lot-item/shares sales))
-                          cost-basis (* (:lot-item/price purchase)
-                                        shares-owned)
-                          current-value (* price shares-owned)]
-                      (assoc lot
-                             :lot/shares-owned shares-owned
-                             :lot/current-price price
-                             :lot/value current-value
-                             :lot/gain (- current-value cost-basis))))
-                  (fetch-lots account))]
-    (assoc account
-           :account/lots lots
-           :account/cost-basis (sum :lot/cost-basis lots)
-           :account/value (sum :lot/value lots)
-           :account/current-price price)))
+        lots (mapv (fn [lot]
+                     (let [[purchase & sales :as items] (fetch-lot-items lot)
+                           shares-owned (- (:lot-item/shares purchase)
+                                           (sum :lot-item/shares sales))
+                           cost-basis (* (:lot-item/price purchase)
+                                         shares-owned)
+                           current-value (* price shares-owned)]
+                       (assoc lot
+                              :lot/items items
+                              :lot/cost-basis cost-basis
+                              :lot/shares-owned shares-owned
+                              :lot/current-price price
+                              :lot/value current-value
+                              :lot/gain (- current-value cost-basis))))
+                   (fetch-lots account))]
+    (if (seq lots)
+      (assoc account
+             :account/lots lots
+             :account/shares-owned (sum :lot/shares-owned lots)
+             :account/cost-basis (sum :lot/cost-basis lots)
+             :account/value (sum :lot/value lots)
+             :account/gain (sum :lot/gain lots)
+             :account/current-price price)
+      account)))
 
 (defn- valuate-commodity-accounts
   [opts accounts]
   (map #(valuate-commodity-account % opts)
        accounts))
 
-(defn valuate-accounts
+(defn valuate
   "Given a sequence of accounts, assess their value based on the given date or
   range of dates."
   [{:keys [default-commodity?] :as opts} accounts]

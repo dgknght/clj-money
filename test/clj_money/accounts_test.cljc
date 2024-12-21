@@ -305,7 +305,7 @@
 
 (deftest valuate-some-accounts
   (testing "Simple accounts (with the default commodity)"
-    #_(is (seq-of-maps-like? [{:account/name "Checking"
+    (is (seq-of-maps-like? [{:account/name "Checking"
                              :account/value 1000M
                              :account/total-value 1000M}
                             {:account/name "Savings"
@@ -318,7 +318,7 @@
                             {:account/name "Car"
                              :account/value 5000M
                              :account/total-value 5000M}]
-                           (accounts/valuate-accounts
+                           (accounts/valuate
                              {:fetch-balance (comp {100 1000M
                                                     110 0M
                                                     111 10000M
@@ -342,6 +342,7 @@
   (testing "Simple and commodity accounts"
     (is (seq-of-maps-like? [{:account/name "IRA"
                              :account/value 1000M
+                             :account/cost-basis 1500M
                              :account/total-value 2900M ; 1500M of AAPL + 500M of MSFT + 1000M in cash
                              :account/gain 400M}
                             {:account/name "AAPL"
@@ -357,8 +358,9 @@
                              :account/total-value 400M
                              :account/gain -100M}
                             {:account/name "401k"
+                             :account/value 2000M
                              :account/cost-basis 3200M
-                             :account/total-value 3800M
+                             :account/total-value 5800M
                              :account/gain 600M}
                             {:account/name "AAPL"
                              :account/shares-owned 200M
@@ -372,7 +374,7 @@
                              :account/current-price 8M
                              :account/total-value 800M
                              :account/gain -200M}]
-                           (accounts/valuate-accounts
+                           (accounts/valuate
                              {:default-commodity? #(= :usd (:id (:account/commodity %)))
                               :fetch-balance (comp {:ira 1000M
                                                     :four-o-one-k 2000M}
@@ -414,7 +416,7 @@
                                                  :id)}
                              [{:id :ira
                                :account/name "IRA"
-                               :acocunt/type :asset
+                               :account/type :asset
                                :account/system-tags #{:trading}
                                :account/commodity {:id :usd}}
                               {:id :ira-aapl
@@ -431,7 +433,7 @@
                                :account/commodity {:id :msft}}
                               {:id :four-o-one-k
                                :account/name "401k"
-                               :acocunt/type :asset
+                               :account/type :asset
                                :account/system-tags #{:trading}
                                :account/commodity {:id :usd}}
                               {:id :four-o-one-k-aapl
