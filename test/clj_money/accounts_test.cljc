@@ -379,11 +379,16 @@
                               :fetch-balance (comp {:ira 1000M
                                                     :four-o-one-k 2000M}
                                                    :id)
-                              :fetch-lots (comp {[:ira :aapl] [{:id 300}]
-                                                 [:ira :msft] [{:id 301}]
-                                                 [:four-o-one-k :aapl] [{:id 302}
-                                                                        {:id 304}]
-                                                 [:four-o-one-k :msft] [{:id 303}]}
+                              :fetch-lots (comp {[:ira :aapl] [{:id 300
+                                                                :lot/purchase-date (t/local-date 2020 1 1)}]
+                                                 [:ira :msft] [{:id 301
+                                                                :lot/purchase-date (t/local-date 2020 1 1)}]
+                                                 [:four-o-one-k :aapl] [{:id 302
+                                                                         :lot/purchase-date (t/local-date 2020 1 1)}
+                                                                        {:id 304
+                                                                         :lot/purchase-date (t/local-date 2020 2 1)}]
+                                                 [:four-o-one-k :msft] [{:id 303
+                                                                         :lot/purchase-date (t/local-date 2020 1 1)}]}
                                                 (juxt (comp :id :account/parent)
                                                       (comp :id :account/commodity)))
                               :fetch-lot-items (comp {300 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA

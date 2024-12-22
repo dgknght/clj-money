@@ -270,21 +270,22 @@
          (:fetch-lot-items opts)
          (:fetch-price opts)]}
   (let [price (fetch-price commodity)
-        lots (mapv (fn [lot]
-                     (let [[purchase & sales :as items] (fetch-lot-items lot)
-                           shares-owned (- (:lot-item/shares purchase)
-                                           (sum :lot-item/shares sales))
-                           cost-basis (* (:lot-item/price purchase)
-                                         shares-owned)
-                           current-value (* price shares-owned)]
-                       (assoc lot
-                              :lot/items items
-                              :lot/cost-basis cost-basis
-                              :lot/shares-owned shares-owned
-                              :lot/current-price price
-                              :lot/value current-value
-                              :lot/gain (- current-value cost-basis))))
-                   (fetch-lots account))]
+        lots (->> (fetch-lots account)
+                  (sort-by :lot/purchase-date t/after?)
+                  (mapv (fn [lot]
+                          (let [[purchase & sales :as items] (fetch-lot-items lot)
+                                shares-owned (- (:lot-item/shares purchase)
+                                                (sum :lot-item/shares sales))
+                                cost-basis (* (:lot-item/price purchase)
+                                              shares-owned)
+                                current-value (* price shares-owned)]
+                            (assoc lot
+                                   :lot/items items
+                                   :lot/cost-basis cost-basis
+                                   :lot/shares-owned shares-owned
+                                   :lot/current-price price
+                                   :lot/value current-value
+                                   :lot/gain (- current-value cost-basis))))))]
     (if (seq lots)
       (assoc account
              :account/lots lots
