@@ -805,29 +805,42 @@
 
 (defmethod aggregate-portfolio-children :lot
   [{:account/keys [lots]} depth]
-  (map (fn [lot]
-         {:report/caption (dates/format-local-date (:lot/purchase-date lot))
+  (map (fn [{:lot/keys [purchase-date shares-owned value cost-basis gain]}]
+         {:report/caption (dates/format-local-date purchase-date)
           :report/depth depth
           :report/style :data
-          :report/current-value (:lot/value lot)
-          :report/cost-basis (:lot/cost-basis lot)
-          :report/gain-loss (:lot/gain lot)})
+          :report/shares-owned shares-owned
+          :report/current-value value
+          :report/cost-basis cost-basis
+          :report/gain-loss gain
+          :report/gain-loss-percent (with-precision 3
+                                      (/ gain cost-basis))})
        lots))
 
 (defn- aggregate-portfolio-account
-  [account & {:keys [depth] :or {depth 0}}]
-  (let [shared {:report/caption (:account/name account)
+  [{:account/keys [name
+                   shares-owned
+                   total-value
+                   cost-basis
+                   value
+                   gain]
+    :as account}
+   & {:keys [depth] :or {depth 0}}]
+  (let [shared {:report/caption name
                 :report/depth depth
-                :report/current-value (:account/total-value account)
-                :report/cost-basis (:account/cost-basis account)
-                :report/gain-loss (:account/gain account)}]
+                :report/shares-owned shares-owned
+                :report/current-value total-value
+                :report/cost-basis cost-basis
+                :report/gain-loss gain
+                :report/gain-loss-percent (with-precision 3
+                                            (/ gain cost-basis))}]
     (if (system-tagged? account :trading)
       (cons (merge shared
                    {:report/style :header})
             (cons {:report/caption "Cash"
                    :report/style :header
-                   :report/current-value (:account/value account)
-                   :report/cost-basis (:account/value account)
+                   :report/current-value value
+                   :report/cost-basis value
                    :report/gain-loss 0M}
                   (aggregate-portfolio-children account depth)))
       (cons (merge shared
