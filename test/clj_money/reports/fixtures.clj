@@ -1241,7 +1241,6 @@
                                        :gain-loss-percent -0.32M}
                               #:report{:caption "4/1/2015"
                                        :style :data
-                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 300M
                                        :current-value 300M
@@ -1249,7 +1248,6 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "3/1/2015"
                                        :style :data
-                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 600M
@@ -1257,7 +1255,6 @@
                                        :gain-loss-percent -0.25M}
                               #:report{:caption "2/1/2015"
                                        :style :data
-                                       :shares-purchased 400M
                                        :shares-owned 400M
                                        :cost-basis 2000M
                                        :current-value 1200M
@@ -1283,7 +1280,6 @@
                                        :gain-loss-percent 0.14M}
                               #:report{:caption "3/1/2015"
                                        :style :data
-                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 1100M
                                        :current-value 1200M
@@ -1291,7 +1287,6 @@
                                        :gain-loss-percent 0.091M}
                               #:report{:caption "2/1/2015"
                                        :style :data
-                                       :shares-purchased 200M
                                        :shares-owned 100M
                                        :cost-basis 1000M
                                        :current-value 1200M
