@@ -1021,14 +1021,14 @@
 (def expected-portfolio-report
   {:by-commodity
    {(t/local-date 2015 3 31) [#:report{:caption "Cash"
-                                       :style :subheader
+                                       :style :header
                                        :shares-owned 14100M ; IRA 6,900 + 401k 7,200
                                        :cost-basis 14100M
                                        :current-value 14100M
                                        :gain-loss 0M
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "Apple, Inc. (AAPL)"
-                                       :style :subheader
+                                       :style :header
                                        :shares-owned 300M
                                        :cost-basis 3100M
                                        :current-value 3300M
@@ -1051,7 +1051,7 @@
                                        :gain-loss 200M
                                        :gain-loss-percent 0.1M}
                               #:report{:caption "Microsoft, Inc. (MSFT)"
-                                       :style :subheader
+                                       :style :header
                                        :shares-owned 600M
                                        :cost-basis 2800M
                                        :current-value 2400M
