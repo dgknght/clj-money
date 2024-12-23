@@ -772,8 +772,6 @@
                    #(update-in % [0] (fn [id] (models/find id :commodity)))))
         (sort-by :commodity/name))))
 
-(defmulti ^:private aggregate-portfolio-values (fn [opts _] (:aggregate opts)))
-
 (declare aggregate-portfolio-account)
 
 (defmulti ^:private aggregate-portfolio-children
@@ -840,15 +838,15 @@
                                             name)})
             (aggregate-portfolio-children account depth)))))
 
-(defmethod aggregate-portfolio-values :by-account
-  [_options nested-accounts]
+(defn- aggregate-portfolio-by-account
+  [nested-accounts]
   (->> nested-accounts
        (mapcat :accounts)
        (mapcat aggregate-portfolio-account)))
 
-(defmethod aggregate-portfolio-values :by-commodity
-  [_options accounts]
-  accounts)
+(defn- aggregate-portfolio-by-commodity
+  [nested-accounts]
+  nested-accounts)
 
 (defn- sum-fields
   [target fields coll]
@@ -1014,7 +1012,11 @@
                                                               (filter (system-tagged? :tradable))
                                                               (map (comp :id :account/commodity))
                                                               set)]}
-                                               :commodity)))]
+                                               :commodity)))
+        aggregate (case (:aggregate options)
+                    :by-account aggregate-portfolio-by-account
+                    :by-commodity aggregate-portfolio-by-commodity
+                    (throw (IllegalArgumentException. (str "Unknown aggregate type: " (:aggregate options)))))]
     (->> accounts
          (filter (some-fn (system-tagged? :tradable)
                           (system-tagged? :trading))) ; TODO: Make the system tag query above work
@@ -1024,5 +1026,5 @@
                   a)))
          (valuate-accounts options)
          (nest)
-         (aggregate-portfolio-values (assoc options :fetch-commodity (comp commodities :id)))
+         (aggregate)
          (append-portfolio-total))))
