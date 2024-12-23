@@ -408,7 +408,25 @@
    :budget-item/account])
 
 (defn simplify
-  [x & {:keys [include]}]
-  (if (map? x)
-    (select-keys x (concat simple-keys include))
-    (map #(simplify % :include include) x)))
+  "Return the given model maps with non-essentail attributes removed
+
+  (simplify account) -> {:account/name \"Checking\"}
+  (simplify account :include [:account/value]) -> {:account/name \"Checking\" :account/value 100M}
+  (simplify [a1 a2]) -> [{:account/name \"Checking\"} {:account/name \"Savings\"}]
+  (simplify [a1 a2] :include [:account/value]) -> [{:account/name \"Checking\" :account/value 100M} {:account/name \"Savings\" :account/value 1000M}]
+  (simplify :include [:account/value]) -> fn that can be applied to a model or sequence of models"
+  [& [a1 & args]]
+  (cond
+    ; the args are the options, return a function with the specified options
+    (keyword? a1)
+    #(apply simplify % args)
+
+    ; iterate over the sequence and apply any options
+    (sequential? a1)
+    (map #(apply simplify % args)
+         a1)
+
+    ; apply to a model map
+    :else
+    (let [{:keys [include]} (apply hash-map args)]
+      (select-keys a1 (concat simple-keys include)))))
