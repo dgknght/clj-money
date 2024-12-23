@@ -844,9 +844,17 @@
        (mapcat :accounts)
        (mapcat aggregate-portfolio-account)))
 
+(defn- aggregate-portfolio-commodity
+  [[commodity-id accounts]]
+  [{:report/caption "Commodity"
+    :report/style :header}])
+
 (defn- aggregate-portfolio-by-commodity
   [nested-accounts]
-  nested-accounts)
+  (->> nested-accounts
+       (mapcat :accounts)
+       (group-by (comp :id :account/commodity))
+       (mapcat aggregate-portfolio-commodity)))
 
 (defn- sum-fields
   [target fields coll]
@@ -1007,12 +1015,7 @@
                                  :account/type :asset
                                  #_:account/system-tags #_[:&& #{:trading :tradable}]})
         commodities (index-by :id
-                              (models/select (db/model-type
-                                               {:id [:in (->> accounts
-                                                              (filter (system-tagged? :tradable))
-                                                              (map (comp :id :account/commodity))
-                                                              set)]}
-                                               :commodity)))
+                              (models/select {:commodity/entity entity}))
         aggregate (case (:aggregate options)
                     :by-account aggregate-portfolio-by-account
                     :by-commodity aggregate-portfolio-by-commodity
@@ -1020,10 +1023,7 @@
     (->> accounts
          (filter (some-fn (system-tagged? :tradable)
                           (system-tagged? :trading))) ; TODO: Make the system tag query above work
-         (map (fn [a]
-                (if (system-tagged? a :tradable)
-                  (update-in a [:account/commodity] (comp commodities :id))
-                  a)))
+         (map #(update-in % [:account/commodity] (comp commodities :id)))
          (valuate-accounts options)
          (nest)
          (aggregate)
