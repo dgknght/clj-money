@@ -814,20 +814,18 @@
   {:pre [(:account/total-value account)
          (:account/value account)
          (:account/cost-basis account)]}
-  (let [total-cost-basis (+ cost-basis value)
-        gain-loss (- total-value cost-basis)
-        shared {:report/caption name
+  (let [shared {:report/caption name
                 :report/depth depth
+                :report/cost-basis cost-basis
+                :report/gain-loss gain
+                :report/gain-loss-percent (with-precision 3
+                                            (/ gain cost-basis))
                 :report/shares-owned shares-owned
                 :report/current-value total-value}]
     (if (system-tagged? account :trading)
       (cons (merge shared
                    {:report/style :header
-                    :report/caption name
-                    :report/cost-basis total-cost-basis
-                    :report/gain-loss gain-loss
-                    :report/gain-loss-percent (with-precision 3
-                                                (/ gain-loss total-cost-basis))})
+                    :report/caption name})
             (cons {:report/caption "Cash"
                    :report/style :subheader
                    :report/current-value value
@@ -838,11 +836,7 @@
                    {:report/style :subheader
                     :report/caption (format "%s (%s)"
                                             (:commodity/name commodity)
-                                            name)
-                    :report/cost-basis cost-basis
-                    :report/gain-loss gain
-                    :report/gain-loss-percent (with-precision 3
-                                                (/ gain cost-basis))})
+                                            name)})
             (aggregate-portfolio-children account depth)))))
 
 (defmethod aggregate-portfolio-values :by-account
@@ -864,7 +858,7 @@
 (defn- calc-gain-loss-percent
   [{:lot/keys [cost-basis gain-loss] :as target}]
   (assoc target :gain-loss-percent (when-not (zero? cost-basis)
-                                     (with-precision 2
+                                     (with-precision 3
                                        (/ gain-loss cost-basis)))))
 
 (defn- summarize-gains

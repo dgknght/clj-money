@@ -1234,7 +1234,7 @@
                                        :cost-basis 1100M
                                        :current-value 900M
                                        :gain-loss -200M
-                                       :gain-loss-percent -0.18M}
+                                       :gain-loss-percent -0.182M}
                               #:report{:caption "4/1/2015"
                                        :style :data
                                        :shares-owned 100M
@@ -1254,7 +1254,7 @@
                                        :cost-basis 10200M
                                        :current-value 10500M
                                        :gain-loss 300M
-                                       :gain-loss-percent 0.029M}
+                                       :gain-loss-percent 0.0294M}
                               #:report{:caption "Cash"
                                        :style :subheader
                                        :current-value 8100M
@@ -1266,14 +1266,14 @@
                                        :cost-basis 2100M
                                        :current-value 2400M
                                        :gain-loss 300M
-                                       :gain-loss-percent 0.14M}
+                                       :gain-loss-percent 0.143M}
                               #:report{:caption "3/1/2015"
                                        :style :data
                                        :shares-owned 100M
                                        :cost-basis 1100M
                                        :current-value 1200M
                                        :gain-loss 100M
-                                       :gain-loss-percent 0.091M}
+                                       :gain-loss-percent 0.0909M}
                               #:report{:caption "2/1/2015"
                                        :style :data
                                        :shares-owned 100M
