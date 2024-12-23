@@ -1150,23 +1150,16 @@
    {(t/local-date 2015 3 31) [#:report{:caption "401k"
                                        :style :header
                                        :cost-basis 10000M
-                                       :current-value 9600M
-                                       :gain-loss -400M
-                                       :gain-loss-percent -0.04M}
+                                       :current-value 10000M
+                                       :gain-loss 0M
+                                       :gain-loss-percent 0.0M}
                               #:report{:caption "Cash"
                                        :style :subheader
-                                       :current-value 7200M
-                                       :cost-basis 7200M
+                                       :current-value 9200M
+                                       :cost-basis 9200M
                                        :gain-loss 0M}
                               #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :subheader
-                                       :shares-owned 600M
-                                       :cost-basis 2800M
-                                       :current-value 2400M
-                                       :gain-loss -400M
-                                       :gain-loss-percent -0.14M}
-                              #:report{:caption "3/1/2015"
-                                       :style :data
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 800M
@@ -1174,11 +1167,11 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
-                                       :shares-owned 400M
-                                       :cost-basis 2000M
-                                       :current-value 1600M
-                                       :gain-loss -400M
-                                       :gain-loss-percent -0.2M}
+                                       :shares-owned 200M
+                                       :cost-basis 800M
+                                       :current-value 800M
+                                       :gain-loss 0M
+                                       :gain-loss-percent 0.0M}
                               #:report{:caption "IRA"
                                        :style :header
                                        :cost-basis 10000M
@@ -1196,7 +1189,7 @@
                                        :cost-basis 3100M
                                        :current-value 3300M
                                        :gain-loss 200M
-                                       :gain-loss-percent 0.065M}
+                                       :gain-loss-percent 0.0645M}
                               #:report{:caption "3/1/2015"
                                        :style :data
                                        :shares-owned 100M
@@ -1214,9 +1207,9 @@
                               #:report{:caption "Total"
                                        :style :summary
                                        :cost-basis 20000M
-                                       :current-value 19800M
-                                       :gain-loss -200M
-                                       :gain-loss-percent -0.01M}]
+                                       :current-value 20200M
+                                       :gain-loss 200M
+                                       :gain-loss-percent 0.01M}]
     (t/local-date 2015 4 30) [#:report{:caption "401k"
                                        :style :header
                                        :cost-basis 10000M

@@ -117,7 +117,8 @@
                     (group-by (comp :id :lot-item/lot)
                               (models/select {:lot-item/lot [:in (->> (vals lots)
                                                                       (mapcat identity)
-                                                                      (mapv :id))]})))
+                                                                      (mapv :id))]
+                                              :lot-item/transaction-date [:<= as-of]})))
         prices (atom {})]
     (reify accounts/ValuationData
       (fetch-entity [& _] entity)
