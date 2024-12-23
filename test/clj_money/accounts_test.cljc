@@ -448,7 +448,7 @@
   (testing "Simple and commodity accounts"
     (is (seq-of-maps-like? [{:account/name "IRA"
                              :account/value 1000M
-                             :account/cost-basis 1500M
+                             :account/cost-basis 2500M ; 1000M cash + sum of children
                              :account/total-value 2900M ; 1500M of AAPL + 500M of MSFT + 1000M in cash
                              :account/gain 400M}
                             {:account/name "AAPL"
@@ -465,7 +465,7 @@
                              :account/gain -100M}
                             {:account/name "401k"
                              :account/value 2000M
-                             :account/cost-basis 3200M
+                             :account/cost-basis 5200M ; 2000M cash + sum of children
                              :account/total-value 5800M
                              :account/gain 600M}
                             {:account/name "AAPL"

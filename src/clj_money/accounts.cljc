@@ -81,20 +81,23 @@
    (aggr attr opts coll)))
 
 (defn- eval-children
-  [{:account/keys [children value] :as account}]
+  [{:account/keys [children] :as account}]
   (let [children-value (->> children
                             (mapcat (juxt :account/value :account/children-value))
                             (filter identity)
                             (reduce + 0M))
-        gain (sum :account/gain {:allow-nil? true} children)
-        cost-basis (sum :account/cost-basis {:allow-nil? true} children)]
+        children-cost-basis (sum :account/cost-basis {:allow-nil? true} children)
+        value (:account/value account 0M)
+        cost-basis (+ children-cost-basis value)
+        total-value (+ children-value value)]
     (merge account
            (cond-> {:account/children-value children-value
-                    :account/total-value (+ children-value
-                                            (or value 0M))
+                    :account/total-value total-value
                     :account/has-children? true}
-             (not (zero? cost-basis)) (assoc :account/cost-basis cost-basis)
-             (not (zero? gain)) (assoc :account/gain gain)))))
+
+             (not (zero? children-cost-basis))
+             (assoc :account/cost-basis cost-basis
+                    :account/gain (- total-value cost-basis))))))
 
 (defn nest
   ([accounts] (nest {} accounts))
