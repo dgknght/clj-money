@@ -12,11 +12,11 @@
             [clj-money.util :as util :refer [earliest
                                              model=]]
             [clj-money.dates :as dates]
-            [clj-money.accounts :refer [nest
-                                        unnest
-                                        left-side?
-                                        system-tagged?
-                                        valuate]]
+            [clj-money.accounts :as accounts :refer [nest
+                                                     unnest
+                                                     left-side?
+                                                     system-tagged?
+                                                     valuate]]
             [clj-money.db :as db]
             [clj-money.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
@@ -80,13 +80,7 @@
                opts))
     {}))
 
-(defn- default-commodity?
-  [{:entity/keys [settings]}]
-  (let [default (:settings/default-commodity settings)]
-    (fn [{:account/keys [commodity]}]
-      (model= default commodity))))
-
-(defn- fetch-balance
+(defn- balance-data
   [{:keys [accounts since as-of entity]}]
   (let [earliest-date (get-in entity [:entity/settings :settings/earliest-transaction-date])
         account-ids (->> accounts
@@ -101,49 +95,45 @@
         end-balances (fetch-trx-items
                        account-ids
                        as-of
-                       :earliest-date earliest-date)
-        mapped (->> account-ids
-                    (map (fn [id]
-                           [id (- (get-in end-balances [id :transaction-item/balance] 0M)
-                                  (get-in start-balances [id :transaction-item/balance] 0M))]))
-                    (into {}))]
-    (fn [account]
-      (mapped (:id account)))))
+                       :earliest-date earliest-date)]
+    (->> account-ids
+         (map (fn [id]
+                [id (- (get-in end-balances [id :transaction-item/balance] 0M)
+                       (get-in start-balances [id :transaction-item/balance] 0M))]))
+         (into {}))))
 
-(defn- fetch-lots-and-items
-  "Returns a tuple containing two functions. The first fetches lots for a given account,
-  and the second fetches lot transactions for a given lot"
-  [{:keys [accounts as-of]}]
-  (let [trading-account-ids (->> accounts
+(defn- valuation-data
+  [{:keys [entity accounts as-of] :as options}]
+  (let [balances (balance-data options)
+        trading-account-ids (->> accounts
                                  (filter (system-tagged? :trading))
                                  (map :id))
         lots (when (seq trading-account-ids)
-               (models/select {:lot/account [:in trading-account-ids]
-                               :lot/purchase-date [:<= as-of]}))
-        mapped-lots (group-by (juxt (comp :id :lot/account)
-                                    (comp :id :lot/commodity))
-                              lots)
+               (group-by (juxt (comp :id :lot/account)
+                               (comp :id :lot/commodity))
+                         (models/select {:lot/account [:in trading-account-ids]
+                                         :lot/purchase-date [:<= as-of]})))
         lot-items (when (seq lots)
                     (group-by (comp :id :lot-item/lot)
-                              (models/select {:lot-item/lot [:in (map :id lots)]})))]
-    [(fn [{:account/keys [parent commodity]}]
-       (mapped-lots (mapv :id [parent commodity])))
-     (fn [{:keys [id]}]
-       (lot-items id))]))
-
-(defn- fetch-price
-  "Return a function that fetches a price for a given commodity as of the :as-of
-  attribute in the options"
-  [{:keys [as-of]}]
-  (let [cache (atom {})]
-    (fn [{:keys [id] :as commodity}]
-      (if-let [cached (get-in @cache [id])]
-        cached
-        (let [price (:price/price (prices/most-recent commodity as-of))]
-          (when-not price
-            (throw (ex-info "No price found for commodity" {:commodity commodity})))
-          (swap! cache assoc id price)
-          price)))))
+                              (models/select {:lot-item/lot [:in (->> (vals lots)
+                                                                      (mapcat identity)
+                                                                      (mapv :id))]})))
+        prices (atom {})]
+    (reify accounts/ValuationData
+      (fetch-entity [& _] entity)
+      (fetch-balance [_ {:keys [id]}] (balances id))
+      (fetch-lots [_ {:account/keys [parent commodity]}]
+        (lots (mapv :id [parent commodity])))
+      (fetch-lot-items [_ {:keys [id]}]
+        (lot-items id))
+      (fetch-price [_ {:keys [id] :as commodity}]
+        (if-let [cached (get-in @prices [id])]
+          cached
+          (let [price (:price/price (prices/most-recent commodity as-of))]
+            (when-not price
+              (throw (ex-info "No price found for commodity" {:commodity commodity})))
+            (swap! prices assoc id price)
+            price))))))
 
 (defn- valuate-accounts
   "Given a sequence of accounts, assess their value based on the given date or
@@ -155,16 +145,9 @@
   For accounts that track other commodities, the value comes from the quantity
   of that commodity held in the account and the most recent price based on the
   specified date."
-  [{:as opts :keys [entity]} accounts]
-  (let [options (assoc opts :accounts accounts)
-        [fetch-lots fetch-lot-items] (fetch-lots-and-items options)]
-    (valuate
-      {:default-commodity? (default-commodity? entity)
-       :fetch-balance (fetch-balance options)
-       :fetch-lots  fetch-lots
-       :fetch-lot-items fetch-lot-items
-       :fetch-price (fetch-price options)}
-      accounts)))
+  [opts accounts]
+  (let [data (valuation-data (assoc opts :accounts accounts))]
+    (valuate data accounts)))
 
 (defn- apply-account-valuations
   [ctx]
@@ -828,6 +811,9 @@
                    gain]
     :as account}
    & {:keys [depth] :or {depth 0}}]
+  {:pre [(:account/total-value account)
+         (:account/value account)
+         (:account/cost-basis account)]}
   (let [total-cost-basis (+ cost-basis value)
         gain-loss (- total-value cost-basis)
         shared {:report/caption name

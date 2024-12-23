@@ -303,6 +303,130 @@
   (is (= :credit (accounts/derive-action  1 {:account/type :liability})))
   (is (= :debit  (accounts/derive-action -1 {:account/type :liability}))))
 
+(def ^:private standard-accounts
+  [{:id :checking
+    :account/name "Checking"
+    :account/commodity {:id :usd}
+    :account/type :asset}
+   {:id :savings
+    :account/name "Savings"
+    :account/commodity {:id :usd}
+    :account/type :asset}
+   {:id :reserve
+    :account/parent {:id :savings}
+    :account/name "Reserve"
+    :account/commodity {:id :usd}
+    :account/type :asset}
+   {:id :car
+    :account/parent {:id :savings}
+    :account/name "Car"
+    :account/commodity {:id :usd}
+    :account/type :asset}])
+
+(def ^:private standard-supplemental-data
+  {:balances {:checking 1000M
+              :savings 0M
+              :reserve 10000M
+              :car 5000M}})
+
+(def ^:private commodity-accounts
+  [{:id :ira
+    :account/name "IRA"
+    :account/type :asset
+    :account/system-tags #{:trading}
+    :account/commodity {:id :usd}}
+   {:id :ira-aapl
+    :account/parent {:id :ira}
+    :account/name "AAPL"
+    :account/type :asset
+    :account/system-tags #{:tradable}
+    :account/commodity {:id :aapl}}
+   {:id :ira-msft
+    :account/parent {:id :ira}
+    :account/name "MSFT"
+    :account/type :asset
+    :account/system-tags #{:tradable}
+    :account/commodity {:id :msft}}
+   {:id :four-o-one-k
+    :account/name "401k"
+    :account/type :asset
+    :account/system-tags #{:trading}
+    :account/commodity {:id :usd}}
+   {:id :four-o-one-k-aapl
+    :account/parent {:id :four-o-one-k}
+    :account/name "AAPL"
+    :account/type :asset
+    :account/system-tags #{:tradable}
+    :account/commodity {:id :aapl}}
+   {:id :four-o-one-k-msft
+    :account/parent {:id :four-o-one-k}
+    :account/name "MSFT"
+    :account/type :asset
+    :account/system-tags #{:tradable}
+    :account/commodity {:id :msft}}])
+
+(def ^:private commodity-supplemental-data
+  {:balances {:ira 1000M
+              :four-o-one-k 2000M}
+   :lots {[:ira :aapl] [{:id 300
+                         :lot/purchase-date (t/local-date 2020 1 1)}]
+          [:ira :msft] [{:id 301
+                         :lot/purchase-date (t/local-date 2020 1 1)}]
+          [:four-o-one-k :aapl] [{:id 302
+                                  :lot/purchase-date (t/local-date 2020 1 1)}
+                                 {:id 304
+                                  :lot/purchase-date (t/local-date 2020 2 1)}]
+          [:four-o-one-k :msft] [{:id 303
+                                  :lot/purchase-date (t/local-date 2020 1 1)}]}
+   :lot-items {300 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
+                     :lot-item/action :buy
+                     :lot-item/shares 100M
+                     :lot-item/price 10M}]
+               301 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
+                     :lot-item/action :buy
+                     :lot-item/shares 100M
+                     :lot-item/price 10M}
+                    {:lot-item/transaction-date (t/local-date 2020 2 1)
+                     :lot-item/action :sell
+                     :lot-item/shares 50M
+                     :lot-item/price 9M}]
+               302 [{:lot-item/transaction-date (t/local-date 2020 1 1); AAPL in 401k
+                     :lot-item/action :buy
+                     :lot-item/shares 100M
+                     :lot-item/price 10M}]
+               303 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
+                     :lot-item/action :buy
+                     :lot-item/shares 100M
+                     :lot-item/price 10M}]
+               304 [{:lot-item/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
+                     :lot-item/action :buy
+                     :lot-item/shares 100M
+                     :lot-item/price 12M}]}
+   :prices {:aapl 15M
+            :msft 8M}})
+
+(def ^:private lot-key
+  (juxt (comp :id :account/parent)
+        (comp :id :account/commodity)))
+
+(defn- valuation-data
+  [data]
+  (reify accounts/ValuationData
+    (fetch-entity [_ _]
+      {:entity/settings {:settings/default-commodity {:id :usd}}})
+    (fetch-balance
+      [_ account]
+      (get-in data [:balances (:id account)]))
+    (fetch-lots
+      [_ account]
+      (get-in data [:lots (lot-key account)]))
+    (fetch-lot-items
+      [_ lot]
+      (get-in data [:lot-items (:id lot)]))
+    (fetch-price
+      [_ commodity]
+      (get-in data [:prices (:id commodity)]))))
+
 (deftest valuate-some-accounts
   (testing "Simple accounts (with the default commodity)"
     (is (seq-of-maps-like? [{:account/name "Checking"
@@ -319,26 +443,8 @@
                              :account/value 5000M
                              :account/total-value 5000M}]
                            (accounts/valuate
-                             {:fetch-balance (comp {100 1000M
-                                                    110 0M
-                                                    111 10000M
-                                                    112 5000M}
-                                                   :id)
-                              :default-commodity? (constantly true)}
-                             [{:id 100
-                               :account/name "Checking"
-                               :account/type :asset}
-                              {:id 110
-                               :account/name "Savings"
-                               :account/type :asset}
-                              {:id 111
-                               :account/parent {:id 110}
-                               :account/name "Reserve"
-                               :account/type :asset}
-                              {:id 112
-                               :account/parent {:id 110}
-                               :account/name "Car"
-                               :account/type :asset}]))))
+                             (valuation-data standard-supplemental-data)
+                             standard-accounts))))
   (testing "Simple and commodity accounts"
     (is (seq-of-maps-like? [{:account/name "IRA"
                              :account/value 1000M
@@ -375,81 +481,5 @@
                              :account/total-value 800M
                              :account/gain -200M}]
                            (accounts/valuate
-                             {:default-commodity? #(= :usd (:id (:account/commodity %)))
-                              :fetch-balance (comp {:ira 1000M
-                                                    :four-o-one-k 2000M}
-                                                   :id)
-                              :fetch-lots (comp {[:ira :aapl] [{:id 300
-                                                                :lot/purchase-date (t/local-date 2020 1 1)}]
-                                                 [:ira :msft] [{:id 301
-                                                                :lot/purchase-date (t/local-date 2020 1 1)}]
-                                                 [:four-o-one-k :aapl] [{:id 302
-                                                                         :lot/purchase-date (t/local-date 2020 1 1)}
-                                                                        {:id 304
-                                                                         :lot/purchase-date (t/local-date 2020 2 1)}]
-                                                 [:four-o-one-k :msft] [{:id 303
-                                                                         :lot/purchase-date (t/local-date 2020 1 1)}]}
-                                                (juxt (comp :id :account/parent)
-                                                      (comp :id :account/commodity)))
-                              :fetch-lot-items (comp {300 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
-                                                            :lot-item/action :buy
-                                                            :lot-item/shares 100M
-                                                            :lot-item/price 10M}]
-                                                      301 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
-                                                            :lot-item/action :buy
-                                                            :lot-item/shares 100M
-                                                            :lot-item/price 10M}
-                                                           {:lot-item/transaction-date (t/local-date 2020 2 1)
-                                                            :lot-item/action :sell
-                                                            :lot-item/shares 50M
-                                                            :lot-item/price 9M}]
-                                                      302 [{:lot-item/transaction-date (t/local-date 2020 1 1); AAPL in 401k
-                                                            :lot-item/action :buy
-                                                            :lot-item/shares 100M
-                                                            :lot-item/price 10M}]
-                                                      303 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
-                                                            :lot-item/action :buy
-                                                            :lot-item/shares 100M
-                                                            :lot-item/price 10M}]
-                                                      304 [{:lot-item/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
-                                                            :lot-item/action :buy
-                                                            :lot-item/shares 100M
-                                                            :lot-item/price 12M}]}
-                                                     :id)
-                              :fetch-price (comp {:aapl 15M
-                                                  :msft 8M}
-                                                 :id)}
-                             [{:id :ira
-                               :account/name "IRA"
-                               :account/type :asset
-                               :account/system-tags #{:trading}
-                               :account/commodity {:id :usd}}
-                              {:id :ira-aapl
-                               :account/parent {:id :ira}
-                               :account/name "AAPL"
-                               :account/type :asset
-                               :account/system-tags #{:tradable}
-                               :account/commodity {:id :aapl}}
-                              {:id :ira-msft
-                               :account/parent {:id :ira}
-                               :account/name "MSFT"
-                               :account/type :asset
-                               :account/system-tags #{:tradable}
-                               :account/commodity {:id :msft}}
-                              {:id :four-o-one-k
-                               :account/name "401k"
-                               :account/type :asset
-                               :account/system-tags #{:trading}
-                               :account/commodity {:id :usd}}
-                              {:id :four-o-one-k-aapl
-                               :account/parent {:id :four-o-one-k}
-                               :account/name "AAPL"
-                               :account/type :asset
-                               :account/system-tags #{:tradable}
-                               :account/commodity {:id :aapl}}
-                              {:id :four-o-one-k-msft
-                               :account/parent {:id :four-o-one-k}
-                               :account/name "MSFT"
-                               :account/type :asset
-                               :account/system-tags #{:tradable}
-                               :account/commodity {:id :msft}}])))))
+                             (valuation-data commodity-supplemental-data)
+                             commodity-accounts)))))

@@ -8,7 +8,28 @@
             #?(:cljs [dgknght.app-lib.decimal :as decimal])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [clj-money.util :as util]))
+            [clj-money.util :as util :refer [model=]]))
+
+(defprotocol ValuationData
+  "Provides data need by the valuate function.
+
+  The implementation is responsible for applying date boundaries to the
+  data and making access to the data efficient"
+  (fetch-entity
+    [this account]
+    "Fetches the entity for the given account")
+  (fetch-balance
+    [this account]
+    "Fetches the raw balance (not price adjusted) for an account")
+  (fetch-lots
+    [this account]
+    "Fetches the lots for a given trading account")
+  (fetch-lot-items
+    [this lot]
+    "Fetches the lot items for a given lot")
+  (fetch-price
+    [this commodity]
+    "Fetches the current price for the given commodity"))
 
 (def account-types
   "The list of valid account types in standard presentation order"
@@ -257,23 +278,19 @@
 
 (defn- valuate-simple-accounts
   "Perform valuation of accounts that use the default entity commodity."
-  [{:keys [fetch-balance] :as opts} accounts]
-  {:pre [(seq accounts)
-         (:fetch-balance opts)]}
-  (map #(assoc % :account/value (fetch-balance %))
+  [data accounts]
+  {:pre [(seq accounts)]}
+  (map #(assoc % :account/value (fetch-balance data %))
          accounts))
 
 (defn- valuate-commodity-account
-  [{:as account :account/keys [commodity]}
-   {:keys [fetch-lots fetch-lot-items fetch-price] :as opts}]
-  {:pre [(:fetch-lots opts)
-         (:fetch-lot-items opts)
-         (:fetch-price opts)]}
-  (let [price (fetch-price commodity)
-        lots (->> (fetch-lots account)
+  [{:as account :account/keys [commodity]} data]
+  (let [price (fetch-price data commodity)
+        lots (->> (fetch-lots data account)
                   (sort-by :lot/purchase-date t/after?)
                   (mapv (fn [lot]
-                          (let [[purchase & sales :as items] (fetch-lot-items lot)
+                          (let [[purchase & sales :as items] (fetch-lot-items data lot)
+                                _ (assert (seq items) (format "No lot items found for %s" lot))
                                 shares-owned (- (:lot-item/shares purchase)
                                                 (sum :lot-item/shares sales))
                                 cost-basis (* (:lot-item/price purchase)
@@ -302,22 +319,19 @@
        accounts))
 
 (defn valuate
-  "Given a sequence of accounts, assess their value based on the given date or
-  range of dates.
-
-  In the options, specify the following:
-    :default-commodity? - a function that determines if an account uses the entity default commodity
-    :fetch-balance   - a function that fetches the balance of an account
-    :fetch-lots      - a function that fetches lots for a commodity account
-    :fetch-lot-items - a function that fetches lot items for a lot
-    :fetch-price     - a function that fetch the price of a commodity"
-  [{:keys [default-commodity?] :as opts} accounts]
-  {:pre [(:default-commodity? opts)]}
-  (let [{simple true commodity false} (group-by default-commodity?
+  "Given a sequence of accounts, assess their value based on the given implementation
+  of the ValuationData protocol."
+  [data accounts]
+  (let [default-commodity? (fn [{:account/keys [commodity] :as a}]
+                             (model= commodity
+                                     (get-in (fetch-entity data a)
+                                             [:entity/settings
+                                              :settings/default-commodity])))
+        {simple true commodity false} (group-by default-commodity?
                                                 accounts)]
     (->> (when (seq simple)
-           (valuate-simple-accounts opts simple))
+           (valuate-simple-accounts data simple))
          (concat (when (seq commodity)
-                   (valuate-commodity-accounts opts commodity)))
+                   (valuate-commodity-accounts data commodity)))
          nest
          unnest)))
