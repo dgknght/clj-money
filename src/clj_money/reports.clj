@@ -973,6 +973,30 @@
                                           :id
                                           :parents]))))))
 
+(defn- add-seqs
+  [s1 s2]
+  (->> s1
+       (interleave s2)
+       (partition 2)
+       (map (partial apply +))))
+
+(defn- append-portfolio-total
+  [records]
+  (let [[cost-basis current-value] (->> records
+                                        (filter #(= :header (:report/style %)))
+                                        (map (juxt :report/cost-basis
+                                                   :report/current-value))
+                                        (reduce add-seqs [0M 0M]))
+        gain-loss (- current-value cost-basis)]
+    (conj (vec records)
+          {:report/style :summary
+           :report/caption "Total"
+           :report/current-value current-value
+           :report/cost-basis cost-basis
+           :report/gain-loss gain-loss
+           :report/gain-loss-percent (with-precision 3
+                                       (/ gain-loss cost-basis))})))
+
 (defn portfolio
   "Returns a portfolio report based on the options:
     entity    - The entity for which a report is to be generated (required)
@@ -999,4 +1023,5 @@
                   a)))
          (valuate-accounts options)
          (nest)
-         (aggregate-portfolio-values (assoc options :fetch-commodity (comp commodities :id))))))
+         (aggregate-portfolio-values (assoc options :fetch-commodity (comp commodities :id)))
+         (append-portfolio-total))))

@@ -1284,6 +1284,6 @@
                               #:report{:caption "Total"
                                        :style :summary
                                        :cost-basis 20200M
-                                       :current-value 19500M
-                                       :gain-loss -700M
-                                       :gain-loss-percent -0.035M}]}})
+                                       :current-value 20300M
+                                       :gain-loss 100M
+                                       :gain-loss-percent 0.00495M}]}})
