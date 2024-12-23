@@ -282,7 +282,7 @@
 
 (def commodities-context
   (conj report-context
-        #:commodity{:name "Apple, Inc."
+        #:commodity{:name "Apple, Inc. (AAPL)"
                     :entity "Personal"
                     :symbol "AAPL"
                     :type :stock
@@ -883,7 +883,7 @@
                 :st-capital-loss-account "ST Losses"}))
 
 (def expected-lot-report
-  [#:commodity{:name "Apple, Inc."
+  [#:commodity{:name "Apple, Inc. (AAPL)"
                :symbol "AAPL"
                :current-price 20M
                :cost-basis 575M
@@ -1027,7 +1027,7 @@
                                        :current-value 14100M
                                        :gain-loss 0M
                                        :gain-loss-percent 0.0M}
-                              #:report{:caption "Apple, Inc."
+                              #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :subheader
                                        :shares-owned 300M
                                        :cost-basis 3100M
@@ -1050,7 +1050,7 @@
                                        :current-value 2200M
                                        :gain-loss 200M
                                        :gain-loss-percent 0.1M}
-                              #:report{:caption "Microsoft, Inc."
+                              #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :subheader
                                        :shares-owned 600M
                                        :cost-basis 2800M
@@ -1086,7 +1086,7 @@
                                        :current-value 15000M
                                        :gain-loss 0M
                                        :gain-loss-percent 0.0M}
-                              #:report{:caption "Apple, Inc."
+                              #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :subheader
                                        :shares-owned 200M
                                        :cost-basis 2100M
@@ -1109,7 +1109,7 @@
                                        :current-value 1200M
                                        :gain-loss 200M
                                        :gain-loss-percent 0.2M}
-                              #:report{:caption "Microsoft, Inc."
+                              #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :subheader
                                        :shares-owned 700M
                                        :cost-basis 3100M
@@ -1158,7 +1158,7 @@
                                        :current-value 7200M
                                        :cost-basis 7200M
                                        :gain-loss 0M}
-                              #:report{:caption "Microsoft, Inc."
+                              #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :subheader
                                        :shares-owned 600M
                                        :cost-basis 2800M
@@ -1167,7 +1167,6 @@
                                        :gain-loss-percent -0.14M}
                               #:report{:caption "3/1/2015"
                                        :style :data
-                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 800M
@@ -1175,7 +1174,6 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
-                                       :shares-purchased 400M
                                        :shares-owned 400M
                                        :cost-basis 2000M
                                        :current-value 1600M
@@ -1192,7 +1190,7 @@
                                        :current-value 6900M
                                        :cost-basis 6900M
                                        :gain-loss 0M}
-                              #:report{:caption "Apple, Inc."
+                              #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :subheader
                                        :shares-owned 300M
                                        :cost-basis 3100M
@@ -1201,7 +1199,6 @@
                                        :gain-loss-percent 0.065M}
                               #:report{:caption "3/1/2015"
                                        :style :data
-                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 1100M
                                        :current-value 1100M
@@ -1209,7 +1206,6 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
-                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 2000M
                                        :current-value 2200M
@@ -1224,21 +1220,21 @@
     (t/local-date 2015 4 30) [#:report{:caption "401k"
                                        :style :header
                                        :cost-basis 10000M
-                                       :current-value 9000M
-                                       :gain-loss -1000M
-                                       :gain-loss-percent -0.1M}
+                                       :current-value 9800M
+                                       :gain-loss -200M
+                                       :gain-loss-percent -0.02M}
                               #:report{:caption "Cash"
                                        :style :subheader
-                                       :current-value 6900M
-                                       :cost-basis 6900M
+                                       :current-value 8900M
+                                       :cost-basis 8900M
                                        :gain-loss 0M}
-                              #:report{:caption "Microsoft, Inc."
+                              #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :subheader
-                                       :shares-owned 700M
-                                       :cost-basis 3100M
-                                       :current-value 2100M
-                                       :gain-loss -1000M
-                                       :gain-loss-percent -0.32M}
+                                       :shares-owned 300M
+                                       :cost-basis 1100M
+                                       :current-value 900M
+                                       :gain-loss -200M
+                                       :gain-loss-percent -0.18M}
                               #:report{:caption "4/1/2015"
                                        :style :data
                                        :shares-owned 100M
@@ -1246,20 +1242,13 @@
                                        :current-value 300M
                                        :gain-loss 0M
                                        :gain-loss-percent 0.0M}
-                              #:report{:caption "3/1/2015"
+                              #:report{:caption "2/1/2015"
                                        :style :data
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 600M
                                        :gain-loss -200M
                                        :gain-loss-percent -0.25M}
-                              #:report{:caption "2/1/2015"
-                                       :style :data
-                                       :shares-owned 400M
-                                       :cost-basis 2000M
-                                       :current-value 1200M
-                                       :gain-loss -800M
-                                       :gain-loss-percent -0.4M}
                               #:report{:caption "IRA"
                                        :style :header
                                        :cost-basis 10200M
@@ -1271,7 +1260,7 @@
                                        :current-value 8100M
                                        :cost-basis 8100M
                                        :gain-loss 0M}
-                              #:report{:caption "Apple, Inc."
+                              #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :subheader
                                        :shares-owned 200M
                                        :cost-basis 2100M

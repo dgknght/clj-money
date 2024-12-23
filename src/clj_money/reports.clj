@@ -5,6 +5,7 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [java-time.api :as t]
+            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
@@ -823,28 +824,39 @@
                    total-value
                    cost-basis
                    value
+                   commodity
                    gain]
     :as account}
    & {:keys [depth] :or {depth 0}}]
-  (let [shared {:report/caption name
+  (let [total-cost-basis (+ cost-basis value)
+        gain-loss (- total-value cost-basis)
+        shared {:report/caption name
                 :report/depth depth
                 :report/shares-owned shares-owned
-                :report/current-value total-value
-                :report/cost-basis cost-basis
-                :report/gain-loss gain
-                :report/gain-loss-percent (with-precision 3
-                                            (/ gain cost-basis))}]
+                :report/current-value total-value}]
     (if (system-tagged? account :trading)
       (cons (merge shared
-                   {:report/style :header})
+                   {:report/style :header
+                    :report/caption name
+                    :report/cost-basis total-cost-basis
+                    :report/gain-loss gain-loss
+                    :report/gain-loss-percent (with-precision 3
+                                                (/ gain-loss total-cost-basis))})
             (cons {:report/caption "Cash"
-                   :report/style :header
+                   :report/style :subheader
                    :report/current-value value
                    :report/cost-basis value
                    :report/gain-loss 0M}
                   (aggregate-portfolio-children account depth)))
       (cons (merge shared
-                   {:report/style :subheader})
+                   {:report/style :subheader
+                    :report/caption (format "%s (%s)"
+                                            (:commodity/name commodity)
+                                            name)
+                    :report/cost-basis cost-basis
+                    :report/gain-loss gain
+                    :report/gain-loss-percent (with-precision 3
+                                                (/ gain cost-basis))})
             (aggregate-portfolio-children account depth)))))
 
 (defmethod aggregate-portfolio-values :by-account
@@ -988,12 +1000,23 @@
     aggregate - The method, :by-commodity or :by-account, defaults to :by-commodity"
   [{:keys [entity] :as options}]
   {:pre [(:entity options)]}
-
-  (->> (models/select {:account/entity entity
-                       :account/type :asset
-                       #_:account/system-tags #_[:&& #{:trading :tradable}]})
-       (filter (some-fn (system-tagged? :tradable)
-                        (system-tagged? :trading))) ; TODO: Make the system tag query above work
-       (valuate-accounts options)
-       (nest)
-       (aggregate-portfolio-values options)))
+  (let [accounts (models/select {:account/entity entity
+                                 :account/type :asset
+                                 #_:account/system-tags #_[:&& #{:trading :tradable}]})
+        commodities (index-by :id
+                              (models/select (db/model-type
+                                               {:id [:in (->> accounts
+                                                              (filter (system-tagged? :tradable))
+                                                              (map (comp :id :account/commodity))
+                                                              set)]}
+                                               :commodity)))]
+    (->> accounts
+         (filter (some-fn (system-tagged? :tradable)
+                          (system-tagged? :trading))) ; TODO: Make the system tag query above work
+         (map (fn [a]
+                (if (system-tagged? a :tradable)
+                  (update-in a [:account/commodity] (comp commodities :id))
+                  a)))
+         (valuate-accounts options)
+         (nest)
+         (aggregate-portfolio-values (assoc options :fetch-commodity (comp commodities :id))))))
