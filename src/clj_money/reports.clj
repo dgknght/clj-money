@@ -850,35 +850,41 @@
 (defn- aggregate-portfolio-commodity
   [[_commodity-id accounts]]
   (let [commodity (:account/commodity (first accounts))
-        shares-owned (sum (some-fn :account/shares-owned
-                                   :account/quantity)
-                          accounts)
-        value (sum :account/value accounts)
-        cost-basis (sum #(if (system-tagged? % :trading)
-                           (:account/quantity %)
-                           (:account/cost-basis %))
-                        accounts)
-        gain (- value cost-basis)]
-    (cons {:report/caption (format-commodity commodity)
-           :report/style :header
-           :report/shares-owned shares-owned
-           :report/cost-basis cost-basis
-           :report/current-value value
-           :report/gain-loss gain
-           :report/gain-loss-percent (with-precision 3
-                                       (/ gain cost-basis))}
-          (->> accounts
-               (mapcat :account/lots)
-               (sort-by :lot/purchase-date t/after?)
-               (map (fn [{:lot/keys [shares-owned cost-basis gain purchase-date value]}]
-                      {:report/caption (dates/format-local-date purchase-date)
-                       :report/style :data
-                       :report/shares-owned shares-owned
-                       :report/cost-basis cost-basis
-                       :report/current-value value
-                       :report/gain-loss gain
-                       :report/gain-loss-percent (with-precision 3
-                                                   (/ gain cost-basis))}))))))
+        current-value (sum :account/value accounts)]
+    (if (:commodity/default? commodity)
+      (cons {:report/caption (format-commodity commodity)
+             :report/style :header
+             :report/current-value current-value
+             :report/cost-basis current-value
+             :report/gain-loss 0M
+             :report/gain-loss-percent 0.0M}
+            (map (fn [account]
+                   {:report/caption (:account/name account)
+                    :report/style :data
+                    :report/current-value (:account/value account)})
+                 accounts))
+      (let [cost-basis (sum :account/cost-basis accounts)
+            gain (- current-value cost-basis)]
+        (cons {:report/caption (format-commodity commodity)
+               :report/style :header
+               :report/shares-owned (sum :account/shares-owned accounts)
+               :report/current-value current-value
+               :report/cost-basis cost-basis
+               :report/gain-loss gain
+               :report/gain-loss-percent (with-precision 3
+                                           (/ gain cost-basis))}
+              (->> accounts
+                   (mapcat :account/lots)
+                   (sort-by :lot/purchase-date t/after?)
+                   (map (fn [{:lot/keys [shares-owned cost-basis gain purchase-date value]}]
+                          {:report/caption (dates/format-local-date purchase-date)
+                           :report/style :data
+                           :report/shares-owned shares-owned
+                           :report/cost-basis cost-basis
+                           :report/current-value value
+                           :report/gain-loss gain
+                           :report/gain-loss-percent (with-precision 3
+                                                       (/ gain cost-basis))}))))))))
 
 (defn- commodity->sortable
   [{:commodity/keys [name]}]
@@ -1054,7 +1060,9 @@
                                 (if (model= c
                                             (get-in entity [:entity/settings
                                                             :settings/default-commodity]))
-                                  (assoc c :commodity/name "Cash")
+                                  (assoc c
+                                         :commodity/name "Cash"
+                                         :commodity/default? true)
                                   c)))
                          (index-by :id))
         aggregate (case (:aggregate options)

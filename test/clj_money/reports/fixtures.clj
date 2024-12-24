@@ -1020,13 +1020,15 @@
 
 (def expected-portfolio-report
   {:by-commodity
-   {(t/local-date 2015 3 31) [#:report{:caption "Cash"
+   {(t/local-date 2015 3 31) [#:report{:caption "Cash (USD)"
                                        :style :header
-                                       :shares-owned 15100M ; IRA 6,900 + 401k 8,200
-                                       :cost-basis 15100M
-                                       :current-value 15100M
-                                       :gain-loss 0M
-                                       :gain-loss-percent 0.0M}
+                                       :current-value 16100M}
+                              #:report{:caption "401k"
+                                       :style :data
+                                       :current-value 9200M}
+                              #:report{:caption "IRA"
+                                       :style :data
+                                       :current-value 6900M}
                               #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :header
                                        :shares-owned 300M
@@ -1070,11 +1072,16 @@
                                        :gain-loss-percent 0.01M}]
     (t/local-date 2015 4 30) [#:report{:caption "Cash (USD)"
                                        :style :header
-                                       :shares-owned 17000M ; IRA 8,100 + 401k 8,900
                                        :cost-basis 17000M
                                        :current-value 17000M
                                        :gain-loss 0M
                                        :gain-loss-percent 0.0M}
+                              #:report{:caption "401k"
+                                       :style :data
+                                       :current-value 8900M}
+                              #:report{:caption "IRA"
+                                       :style :data
+                                       :current-value 8100M}
                               #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :header
                                        :shares-owned 200M
