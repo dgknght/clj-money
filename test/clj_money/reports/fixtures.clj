@@ -282,7 +282,7 @@
 
 (def commodities-context
   (conj report-context
-        #:commodity{:name "Apple, Inc. (AAPL)"
+        #:commodity{:name "Apple, Inc."
                     :entity "Personal"
                     :symbol "AAPL"
                     :type :stock
@@ -883,7 +883,7 @@
                 :st-capital-loss-account "ST Losses"}))
 
 (def expected-lot-report
-  [#:commodity{:name "Apple, Inc. (AAPL)"
+  [#:commodity{:name "Apple, Inc."
                :symbol "AAPL"
                :current-price 20M
                :cost-basis 575M
