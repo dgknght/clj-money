@@ -800,6 +800,10 @@
                                       (/ gain cost-basis))})
        lots))
 
+(defn- format-commodity
+  [{:commodity/keys [name symbol]}]
+  (format "%s (%s)" name symbol))
+
 (defn- aggregate-portfolio-account
   [{:account/keys [name
                    shares-owned
@@ -833,27 +837,58 @@
                   (aggregate-portfolio-children account depth)))
       (cons (merge shared
                    {:report/style :subheader
-                    :report/caption (format "%s (%s)"
-                                            (:commodity/name commodity)
-                                            name)})
+                    :report/caption (format-commodity commodity)})
             (aggregate-portfolio-children account depth)))))
 
 (defn- aggregate-portfolio-by-account
-  [nested-accounts]
-  (->> nested-accounts
+  [accounts]
+  (->> accounts
+       nest
        (mapcat :accounts)
        (mapcat aggregate-portfolio-account)))
 
 (defn- aggregate-portfolio-commodity
-  [[commodity-id accounts]]
-  [{:report/caption "Commodity"
-    :report/style :header}])
+  [[_commodity-id accounts]]
+  (let [commodity (:account/commodity (first accounts))
+        shares-owned (sum (some-fn :account/shares-owned
+                                   :account/quantity)
+                          accounts)
+        value (sum :account/value accounts)
+        cost-basis (sum #(if (system-tagged? % :trading)
+                           (:account/quantity %)
+                           (:account/cost-basis %))
+                        accounts)
+        gain (- value cost-basis)]
+    (cons {:report/caption (format-commodity commodity)
+           :report/style :header
+           :report/shares-owned shares-owned
+           :report/cost-basis cost-basis
+           :report/current-value value
+           :report/gain-loss gain
+           :report/gain-loss-percent (with-precision 3
+                                       (/ gain cost-basis))}
+          (->> accounts
+               (mapcat :account/lots)
+               (sort-by :lot/purchase-date t/after?)
+               (map (fn [{:lot/keys [shares-owned cost-basis gain purchase-date value]}]
+                      {:report/caption (dates/format-local-date purchase-date)
+                       :report/style :data
+                       :report/shares-owned shares-owned
+                       :report/cost-basis cost-basis
+                       :report/current-value value
+                       :report/gain-loss gain
+                       :report/gain-loss-percent (with-precision 3
+                                                   (/ gain cost-basis))}))))))
+
+(defn- commodity->sortable
+  [{:commodity/keys [name]}]
+  ({"Cash" "*"} name name))
 
 (defn- aggregate-portfolio-by-commodity
-  [nested-accounts]
-  (->> nested-accounts
-       (mapcat :accounts)
-       (group-by (comp :id :account/commodity))
+  [accounts]
+  (->> accounts
+       (group-by :account/commodity)
+       (sort-by (comp commodity->sortable first))
        (mapcat aggregate-portfolio-commodity)))
 
 (defn- sum-fields
@@ -1014,8 +1049,14 @@
   (let [accounts (models/select {:account/entity entity
                                  :account/type :asset
                                  #_:account/system-tags #_[:&& #{:trading :tradable}]})
-        commodities (index-by :id
-                              (models/select {:commodity/entity entity}))
+        commodities (->> (models/select {:commodity/entity entity})
+                         (map (fn [c]
+                                (if (model= c
+                                            (get-in entity [:entity/settings
+                                                            :settings/default-commodity]))
+                                  (assoc c :commodity/name "Cash")
+                                  c)))
+                         (index-by :id))
         aggregate (case (:aggregate options)
                     :by-account aggregate-portfolio-by-account
                     :by-commodity aggregate-portfolio-by-commodity
@@ -1025,6 +1066,5 @@
                           (system-tagged? :trading))) ; TODO: Make the system tag query above work
          (map #(update-in % [:account/commodity] (comp commodities :id)))
          (valuate-accounts options)
-         (nest)
          (aggregate)
          (append-portfolio-total))))

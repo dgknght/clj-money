@@ -1079,73 +1079,61 @@
                                        :current-value 19800M
                                        :gain-loss -200M
                                        :gain-loss-percent -0.01M}]
-    (t/local-date 2015 4 30) [#:report{:caption "Cash"
-                                       :style :subheader
-                                       :shares-owned 15000M ; IRA 8,100 + 401k 6,900
-                                       :cost-basis 15000M
-                                       :current-value 15000M
+    (t/local-date 2015 4 30) [#:report{:caption "Cash (USD)"
+                                       :style :header
+                                       :shares-owned 17000M ; IRA 8,100 + 401k 8,900
+                                       :cost-basis 17000M
+                                       :current-value 17000M
                                        :gain-loss 0M
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "Apple, Inc. (AAPL)"
-                                       :style :subheader
+                                       :style :header
                                        :shares-owned 200M
                                        :cost-basis 2100M
                                        :current-value 2400M
                                        :gain-loss 300M
-                                       :gain-loss-percent 0.14M}
+                                       :gain-loss-percent 0.143M}
                               #:report{:caption "3/1/2015"
                                        :style :data
-                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 1100M
                                        :current-value 1200M
                                        :gain-loss 100M
-                                       :gain-loss-percent 0.091M}
+                                       :gain-loss-percent 0.0909M}
                               #:report{:caption "2/1/2015"
                                        :style :data
-                                       :shares-purchased 200M
                                        :shares-owned 100M
                                        :cost-basis 1000M
                                        :current-value 1200M
                                        :gain-loss 200M
                                        :gain-loss-percent 0.2M}
                               #:report{:caption "Microsoft, Inc. (MSFT)"
-                                       :style :subheader
-                                       :shares-owned 700M
-                                       :cost-basis 3100M
-                                       :current-value 2100M
-                                       :gain-loss -1000M
-                                       :gain-loss-percent -0.32M}
+                                       :style :header
+                                       :shares-owned 300M
+                                       :cost-basis 1100M
+                                       :current-value 900M
+                                       :gain-loss -200M
+                                       :gain-loss-percent -0.182M}
                               #:report{:caption "4/1/2015"
                                        :style :data
-                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 300M
                                        :current-value 300M
                                        :gain-loss 0M
                                        :gain-loss-percent 0.0M}
-                              #:report{:caption "3/1/2015"
+                              #:report{:caption "2/1/2015"
                                        :style :data
-                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 600M
                                        :gain-loss -200M
                                        :gain-loss-percent -0.25M}
-                              #:report{:caption "2/1/2015"
-                                       :style :data
-                                       :shares-purchased 400M
-                                       :shares-owned 400M
-                                       :cost-basis 2000M
-                                       :current-value 1200M
-                                       :gain-loss -800M
-                                       :gain-loss-percent -0.4M}
                               #:report{:caption "Total"
                                        :style :summary
                                        :cost-basis 20200M
-                                       :current-value 19500M
-                                       :gain-loss -700M
-                                       :gain-loss-percent -0.035M}]}
+                                       :current-value 20300M
+                                       :gain-loss 100M
+                                       :gain-loss-percent 0.00495M}]}
    :by-account
    {(t/local-date 2015 3 31) [#:report{:caption "401k"
                                        :style :header
