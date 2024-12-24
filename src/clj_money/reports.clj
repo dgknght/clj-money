@@ -264,7 +264,8 @@
 (defn- calc-unrealized-gains
   [{:keys [accounts]}]
   (->> accounts
-       (map :account/gains)
+       (filter (system-tagged? :tradable))
+       (map :account/gain)
        (filter identity)
        (reduce + 0M)))
 
