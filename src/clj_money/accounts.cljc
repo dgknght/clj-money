@@ -7,7 +7,29 @@
             [dgknght.app-lib.web :refer [format-decimal]]
             #?(:cljs [dgknght.app-lib.decimal :as decimal])
             #?(:clj [java-time.api :as t]
-               :cljs [cljs-time.core :as t])))
+               :cljs [cljs-time.core :as t])
+            [clj-money.util :as util :refer [model=]]))
+
+(defprotocol ValuationData
+  "Provides data need by the valuate function.
+
+  The implementation is responsible for applying date boundaries to the
+  data and making access to the data efficient"
+  (fetch-entity
+    [this account]
+    "Fetches the entity for the given account")
+  (fetch-balance
+    [this account]
+    "Fetches the raw balance (not price adjusted) for an account")
+  (fetch-lots
+    [this account]
+    "Fetches the lots for a given trading account")
+  (fetch-lot-items
+    [this lot]
+    "Fetches the lot items for a given lot")
+  (fetch-price
+    [this commodity]
+    "Fetches the current price for the given commodity"))
 
 (def account-types
   "The list of valid account types in standard presentation order"
@@ -44,17 +66,38 @@
 #?(:cljs (defn abs [n] (decimal/abs n))
    :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))
 
+(defn- aggr
+  [attr {:keys [oper initial allow-nil?] :or {oper + initial 0M allow-nil? false}} coll]
+  (let [f (if allow-nil? identity (constantly true))]
+    (->> coll
+       (map attr)
+       (filter f)
+       (reduce oper initial))))
+
+(defn- sum
+  ([attr coll]
+   (sum attr {} coll))
+  ([attr opts coll]
+   (aggr attr opts coll)))
+
 (defn- eval-children
-  [{:keys [children] :as account}]
+  [{:account/keys [children] :as account}]
   (let [children-value (->> children
-                            (mapcat (juxt :value :children-value))
+                            (mapcat (juxt :account/value :account/children-value))
                             (filter identity)
-                            (reduce + 0M))]
-    (assoc account
-           :children-value children-value
-           :total-value (+ children-value
-                           (or (:value account) 0M))
-           :has-children? true)))
+                            (reduce + 0M))
+        children-cost-basis (sum :account/cost-basis {:allow-nil? true} children)
+        value (:account/value account 0M)
+        cost-basis (+ children-cost-basis value)
+        total-value (+ children-value value)]
+    (merge account
+           (cond-> {:account/children-value children-value
+                    :account/total-value total-value
+                    :account/has-children? true}
+
+             (not (zero? children-cost-basis))
+             (assoc :account/cost-basis cost-basis
+                    :account/gain (- total-value cost-basis))))))
 
 (defn nest
   ([accounts] (nest {} accounts))
@@ -62,11 +105,14 @@
      :or {types account-types}}
     accounts]
    (let [by-type (->> accounts
-                      (map #(assoc % :total-value (:value %)))
-                      (group-by :type))]
+                      (map #(assoc % :account/total-value (:account/value %)))
+                      (group-by :account/type))]
      (mapv #(hash-map :type %
                       :accounts (models/nest
-                                  {:decorate-parent-fn eval-children}
+                                  {:decorate-parent-fn eval-children
+                                   :children-key :account/children
+                                   :parent-fn (comp :id
+                                                    :account/parent)}
                                   (get-in by-type [%])))
            types))))
 
@@ -74,26 +120,30 @@
   [types]
   (->> types
        (mapcat :accounts)
-       models/unnest))
+       (models/unnest {:children-key :account/children
+                       :path-key :account/path
+                       :path-segment-fn :account/name
+                       :parent-ids-key :account/parent-ids})))
 
 (defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
-  [account]
-  {:pre [(:type account)]}
+  [{:account/keys [type] :as account}]
+  {:pre [account (:account/type account)]}
 
-  (#{:asset :expense} (:type account)))
+  (#{:asset :expense} type))
 
 (defn- polarizer
-  [transaction-item account]
+  [action account]
   (* (if (left-side? account) 1 -1)
-     (if (= :debit (:action transaction-item)) 1 -1)))
+     (if (= :debit action) 1 -1)))
 
 (defn polarize-quantity
-  "Adjusts the polarity of a quantity as appropriate given
-  a transaction item action and the type of the associated account"
-  [transaction-item account]
-  (* (:quantity transaction-item account)
-     (polarizer transaction-item account)))
+  "Given a transaction item and an account, returns the quantity of the
+  transaction item vis a vis the account (i.e., positive or negative)."
+  [quantity action account]
+  {:pre [quantity action account (:account/type account)]}
+  (* quantity
+     (polarizer action account)))
 
 (defn derive-action
   "Given a quantity (either positve or negative) and an
@@ -107,37 +157,55 @@
       :debit
       :credit)))
 
-(defn derive-item
+(defn ->transaction-item
   "Given a quantity and an account, returns a transaction item
   with appropriate attributes"
   [quantity account]
-  {:quantity (abs quantity)
-   :account-id (:id account)
-   :action (derive-action quantity account)})
+  #:transaction-item{:quantity (abs quantity)
+                     :account (util/->model-ref account)
+                     :action (derive-action quantity account)})
+
+(defn- singularize
+  "Accepts a sequence of values. If the sequence contains one member,
+  returns that member. Otherwise returns the sequence as-is."
+  [vs]
+  (if (= 1 (count vs))
+    (first vs)
+    vs))
+
+(defn ->>criteria
+  ([accounts] (->>criteria {} accounts))
+  ([{:keys [account-attribute
+            date-attribute
+            earliest-date
+            latest-date
+            model-type]
+     :or {account-attribute :transaction-item/account
+          date-attribute :transaction/transaction-date
+          model-type :transaction-item}}
+    accounts]
+   ^{:clj-money.db/type model-type}
+   {account-attribute (->> accounts
+                           (map util/->model-ref)
+                           set
+                           singularize)
+    date-attribute [:between
+                    (or (->> accounts
+                             (map :account/earliest-transaction-date)
+                             (filter identity)
+                             (sort t/before?)
+                             first)
+                        earliest-date)
+                    (or (->> accounts
+                             (map :account/latest-transaction-date)
+                             (filter identity)
+                             (sort t/after?)
+                             first)
+                        latest-date)]}))
 
 (defn ->criteria
-  ([account] (->criteria account {}))
-  ([account {:keys [date-field earliest-date latest-date]
-             :or {date-field :transaction-date}}]
-   (if (sequential? account)
-     {:account-id (set (map :id account))
-      :transaction-date [:between
-                         (or (->> account
-                                  (map :earliest-transaction-date)
-                                  (filter identity)
-                                  (sort t/before?)
-                                  first)
-                             earliest-date)
-                         (or (->> account
-                                  (map :latest-transaction-date)
-                                  (filter identity)
-                                  (sort t/after?)
-                                  first)
-                             latest-date)]}
-     {:account-id (:id account)
-      date-field [:between
-                  (:earliest-transaction-date account)
-                  (:latest-transaction-date account)]})))
+  [account & [opts]]
+  (->>criteria opts [account]))
 
 (defn- match-path?
   [path terms]
@@ -151,13 +219,21 @@
 
 (defn find-by-path
   [term accounts]
-  (filter #(match-path? (map string/lower-case (:path %))
+  (filter #(match-path? (map string/lower-case (:account/path %))
                         (map string/lower-case (string/split term #"/|:")))
           accounts))
 
 (defn user-tagged?
-  [{:keys [user-tags]} tag]
-  (contains? user-tags tag))
+  ([tag]
+   #(user-tagged? % tag))
+  ([{:account/keys [user-tags]} tag]
+   (contains? user-tags tag)))
+
+(defn system-tagged?
+  ([tag]
+   #(system-tagged? % tag))
+  ([{:account/keys [system-tags]} tag]
+   (contains? system-tags tag)))
 
 (defn format-quantity
   [quantity {:keys [commodity]}]
@@ -171,7 +247,7 @@
   (let [percentage (/ target-percentage 100M)
         target-value (* working-total
                         percentage)
-        current-value (:value account)
+        current-value (:account/value account)
         current-percentage (/ current-value working-total)
         raw-adj-value (- target-value
                          current-value)
@@ -187,22 +263,78 @@
            :adj-value adj-value)))
 
 (defn allocate
-  ([account find-account-fn]
-   (allocate account find-account-fn {}))
-  ([{:keys [allocations total-value value]} find-account-fn {:keys [cash withdrawal]}]
-   (let [cash-withheld (or cash value)
-         withdrawal (or withdrawal 0M)
-         working-total (- total-value (+ cash-withheld withdrawal))
-         result (->> allocations
-                     (map (comp #(->allocation-rec % working-total)
-                                (fn [[id target-percentage]]
-                                  {:account (find-account-fn id)
-                                   :target-percentage target-percentage})))
-                     (sort-by (comp abs :adj-value) >)
-                     (into []))
-         net (->> result
-                  (map :adj-value)
-                  (reduce + withdrawal))]
-     (if (zero? net)
-       result
-       (update-in result [0 :adj-value] - net)))))
+  [{:account/keys [allocations total-value value]} find-account-fn & {:keys [cash withdrawal]}]
+  (let [cash-withheld (or cash value)
+        withdrawal (or withdrawal 0M)
+        working-total (- total-value (+ cash-withheld withdrawal))
+        result (mapv (comp #(->allocation-rec % working-total)
+                           (fn [[id target-percentage]]
+                             {:account (find-account-fn id)
+                              :target-percentage target-percentage}))
+                     allocations)
+        net (->> result
+                 (map :adj-value)
+                 (reduce + withdrawal))]
+    (if (zero? net)
+      result
+      (update-in result [0 :adj-value] - net))))
+
+(defn- valuate-simple-accounts
+  "Perform valuation of accounts that use the default entity commodity."
+  [data accounts]
+  {:pre [(seq accounts)]}
+  (map #(assoc % :account/value (fetch-balance data %))
+         accounts))
+
+(defn- valuate-commodity-account
+  [{:as account :account/keys [commodity]} data]
+  (let [price (fetch-price data commodity)
+        lots (->> (fetch-lots data account)
+                  (sort-by :lot/purchase-date t/after?)
+                  (mapv (fn [lot]
+                          (let [[purchase & sales :as items] (fetch-lot-items data lot)
+                                _ (assert (seq items) (format "No lot items found for %s" lot))
+                                shares-owned (- (:lot-item/shares purchase)
+                                                (sum :lot-item/shares sales))
+                                cost-basis (* (:lot-item/price purchase)
+                                              shares-owned)
+                                current-value (* price shares-owned)]
+                            (assoc lot
+                                   :lot/items items
+                                   :lot/cost-basis cost-basis
+                                   :lot/shares-owned shares-owned
+                                   :lot/current-price price
+                                   :lot/value current-value
+                                   :lot/gain (- current-value cost-basis))))))]
+    (if (seq lots)
+      (assoc account
+             :account/lots lots
+             :account/shares-owned (sum :lot/shares-owned lots)
+             :account/cost-basis (sum :lot/cost-basis lots)
+             :account/value (sum :lot/value lots)
+             :account/gain (sum :lot/gain lots)
+             :account/current-price price)
+      account)))
+
+(defn- valuate-commodity-accounts
+  [opts accounts]
+  (map #(valuate-commodity-account % opts)
+       accounts))
+
+(defn valuate
+  "Given a sequence of accounts, assess their value based on the given implementation
+  of the ValuationData protocol."
+  [data accounts]
+  (let [default-commodity? (fn [{:account/keys [commodity] :as a}]
+                             (model= commodity
+                                     (get-in (fetch-entity data a)
+                                             [:entity/settings
+                                              :settings/default-commodity])))
+        {simple true commodity false} (group-by default-commodity?
+                                                accounts)]
+    (->> (when (seq simple)
+           (valuate-simple-accounts data simple))
+         (concat (when (seq commodity)
+                   (valuate-commodity-accounts data commodity)))
+         nest
+         unnest)))

@@ -4,6 +4,9 @@
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.inflection :refer [title-case]]
+            [clj-money.util :as util]
+            [clj-money.dates :as dates]
+            [clj-money.models :as models]
             [clj-money.accounts :as acts]
             [clj-money.transactions :as txns]
             #?(:clj [java-time.api :as t]
@@ -140,21 +143,116 @@
       (render-tagged items tags)
       (render-untagged items))))
 
-(defn- ->budget-item
-  [[account-id tran-items]
-   {:keys [period]}
+(defn- fetch-account
+  [account-or-ref accounts]
+  (if (util/model-ref? account-or-ref)
+    (if-let [account (accounts (:id account-or-ref))]
+      [account accounts]
+      (let [account (models/find account-or-ref :account)]
+        [account (assoc accounts (:id account) account)]))
+    [account-or-ref accounts]))
+
+(defn- realize-accounts
+  [trx-items]
+  (loop [input trx-items output [] accounts {}]
+    (if-let [item (first input)]
+      (let [[account accounts] (fetch-account (:transaction-item/account item)
+                                              accounts)]
+        (recur (rest input)
+               (conj output
+                     (assoc item
+                            :transaction-item/account
+                            account))
+               accounts))
+      output)))
+
+(defn- trx-items->budget-item
+  [{:budget/keys [period]}
    start-date
    end-date]
-  {:account-id account-id
-   :periods (->> tran-items
-                 (txns/summarize-items {:interval-type period
-                                        :interval-count 1
-                                        :start-date start-date
-                                        :end-date end-date})
-                 (map :quantity))})
+  (fn [[account trx-items]]
+    #:budget-item{:account account
+                  :periods (->> trx-items
+                                realize-accounts
+                                (txns/summarize-items {:interval-type period
+                                                       :interval-count 1
+                                                       :start-date start-date
+                                                       :end-date end-date})
+                                (map :quantity))}))
 
 (defn create-items-from-history
   [budget start-date end-date trx-items]
   (->> trx-items
-       (group-by :account-id)
-       (map #(->budget-item % budget start-date (t/minus end-date (t/days 1))))))
+       (group-by (comp util/->model-ref
+                       :transaction-item/account))
+       (map (trx-items->budget-item budget
+                                    start-date
+                                    (t/minus end-date (t/days 1))))))
+
+(def ^:private period-map
+  {:month (t/months 1)
+   :week (t/weeks 1)
+   :quarter (t/months 3)})
+
+(defn- period-seq
+  "Returns a sequence of the java.time.Period instances in the budget based on
+  :start-date, :period, :period-count"
+  [{:as budget :budget/keys [start-date period-count period]}]
+  {:pre [(:budget/start-date budget)
+         (:budget/period-count budget)
+         (:budget/period budget)]}
+
+  (when budget
+    (->> (dates/periodic-seq start-date
+                             (get-in period-map
+                                     [period]
+                                     (t/months 1)))
+         (partition 2 1)
+         (map-indexed (fn [index [start next-start]]
+                        {:start start
+                         :end (t/minus next-start (t/days 1))
+                         :index index
+                         :interval (t/period start next-start)}))
+         (take period-count))))
+
+(defn end-date
+  [budget]
+  (-> budget
+      period-seq
+      last
+      :end))
+
+(defn- within-period?
+  "Returns a boolean value indicating whether or not
+  the specified date is in the specified period"
+  [period date]
+  (dates/within?
+    date
+    [(:start period)
+     (:end period)]))
+
+(defn period-containing
+  "Returns the budget period containing the specified date
+
+  This is a map containing :start-date, :end-date, :index, etc."
+  [budget date]
+  (->> (period-seq budget)
+       (map-indexed #(assoc %2 :index %1))
+       (filter #(within-period? % date))
+       first))
+
+(defn percent-of-period
+  [budget as-of]
+  (let [period (period-containing budget as-of)
+        days-in-period (inc (dates/days-between (:start period) (:end period)))
+        days (inc (dates/days-between (:start period)
+                                      as-of))]
+    (with-precision 5 (/ days days-in-period))))
+
+(defn find-item-by-account
+  "Finds the item in the specified budget associated with the specified account"
+  [{:budget/keys [items]} {:keys [id]}]
+  (->> items
+       (filter #(= id
+                   (get-in % [:budget-item/account :id])))
+       first))

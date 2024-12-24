@@ -31,7 +31,7 @@
             [clj-money.accounts :refer [polarize-quantity
                                         find-by-path
                                         format-quantity]]
-            [clj-money.transactions :refer [simplify
+            [clj-money.transactions :refer [accountify
                                             fullify
                                             can-simplify?
                                             entryfy
@@ -64,7 +64,7 @@
   [transaction account]
   (if (can-simplify? transaction)
     (-> transaction
-        (simplify account)
+        (accountify account)
         (mode ::simple))
     (-> transaction
         entryfy
@@ -506,11 +506,11 @@
 
 (defn transformations
   [account commodities]
-  {::simple #(simplify % account)
+  {::simple #(accountify % account)
    ::full entryfy
    ::trade #(tradify % {:find-account @accounts-by-id
                         :find-commodity commodities})
-   ::dividend #(simplify % account)})
+   ::dividend #(accountify % account)})
 
 (defn untransformations []
   {::simple fullify-trx
