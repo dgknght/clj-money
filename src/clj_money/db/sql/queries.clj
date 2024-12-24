@@ -12,6 +12,7 @@
                     [:entities :transactions]
                     [:entities :budgets]
                     [:accounts :transaction_items]
+                    [:accounts :reconciliations]
                     [:transactions :transaction_items]
                     [:transactions :attachments]
                     [:transactions :lot_items]
