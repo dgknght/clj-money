@@ -205,7 +205,9 @@
       [:span.d-md-none (format-date (:transaction-date item) "M/d")]
       [:span.d-none.d-md-inline (format-date (:transaction-date item))]]
      [:td {:style (get-in @styles [(:id item)])} (:description item)]
-     [:td.text-end (format-quantity (polarize-quantity item @account)
+     [:td.text-end (format-quantity (polarize-quantity (:transaction-item/quantity item)
+                                                       (:transaction-item/action item)
+                                                       @account)
                                     @account)]
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
@@ -295,7 +297,10 @@
                  [:tr
                   [:td.text-end (format-date (:transaction-date item))]
                   [:td (:description item)]
-                  [:td.text-end (format-decimal (polarize-quantity item @account) 4)]
+                  [:td.text-end (format-decimal (polarize-quantity (:transaction-item/quantity item)
+                                                                   (:transaction-item/action item)
+                                                                   @account)
+                                                4)]
                   [:td.text-end (format-decimal (:balance item), 4)]
                   [:td.text-end (currency-format (:value item))]]))]])))
 

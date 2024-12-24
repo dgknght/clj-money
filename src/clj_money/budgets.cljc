@@ -247,7 +247,8 @@
         days-in-period (inc (dates/days-between (:start period) (:end period)))
         days (inc (dates/days-between (:start period)
                                       as-of))]
-    (with-precision 5 (/ days days-in-period))))
+    #?(:clj (with-precision 5 (/ days days-in-period))
+       :cljs (/ days days-in-period))))
 
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"

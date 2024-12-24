@@ -8,7 +8,7 @@
             #?(:cljs [dgknght.app-lib.decimal :as decimal])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [clj-money.util :as util :refer [model=]]))
+            [clj-money.util :as util :refer [model= format]]))
 
 (defprotocol ValuationData
   "Provides data need by the valuate function.
