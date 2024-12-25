@@ -158,10 +158,10 @@
                       (dissoc model :id)
                       {:id (:id model)}
                       jdbc/snake-kebab-opts)
-        result (jdbc/execute-one! db s {:return-keys [:id]})]
 
-    ; TODO: scrub sensitive data
-    (log/debugf "database update %s -> %s" model s)
+        ; TODO: scrub sensitive data
+        _ (log/debugf "database update %s -> %s" model s)
+        result (jdbc/execute-one! db s {:return-keys [:id]})]
 
     (get-in result [(keyword (name table) "id")])))
 

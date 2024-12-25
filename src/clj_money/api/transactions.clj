@@ -70,6 +70,7 @@
 (defn- parse-item
   [item]
   (-> item
+      (update-in-if [:id] uuid)
       (update-in-if [:transaction-item/quantity] bigdec)
       (update-in-if [:transaction-item/value] bigdec)
       (update-in-if [:transaction-item/action] keyword)))
@@ -77,6 +78,7 @@
 (defn- extract-transaction
   [{:keys [body]}]
   (-> body
+      (dissoc :id)
       expand
       (update-in-if [:transaction/transaction-date] unserialize-local-date)
       (update-in-if [:transaction/items] #(map parse-item %))
@@ -102,34 +104,32 @@
 
 (defn- apply-item-updates
   [items updates]
-  (map #(apply-to-existing % items) updates))
+  (mapv #(apply-to-existing % items) updates))
 
 (defn- apply-update
-  [transaction body]
-  (-> transaction
-      (merge (-> body
-                 (update-in-if [:transaction-date] unserialize-local-date)
-                 (update-in-if [:original-transaction-date] unserialize-local-date)
-                 (update-in-if [:id] uuid)))
-      (select-keys attribute-keys)
-      (update-in [:items] apply-item-updates (:items body))))
+  [transaction req]
+  (let [updated (extract-transaction req)]
+    (-> transaction
+        (merge (dissoc updated :transaction/items))
+        (select-keys attribute-keys)
+        (update-in [:transaction/items]
+                   apply-item-updates
+                   (:transaction/items updated)))))
 
 (defn- update
-  [{:keys [body] :as req}]
-  (if-let [transaction (find-and-auth req ::authorization/update)]
-    (-> transaction
-        (apply-update body)
-        models/put
-        api/update-response)
-    api/not-found))
+  [req]
+  (or (some-> (find-and-auth req ::authorization/update)
+              (apply-update req)
+              models/put
+              api/update-response)
+      api/not-found))
 
 (defn- delete
   [req]
-  (if-let [transaction (find-and-auth req ::authorization/destroy)]
-    (do
-      (models/delete transaction)
-      (api/response))
-    api/not-found))
+  (or (some-> (find-and-auth req ::authorization/destroy)
+              models/delete
+              api/response)
+      api/not-found))
 
 (def routes
   [["entities/:entity-id"

@@ -205,87 +205,90 @@
 (deftest a-user-cannot-create-a-simple-transaction-in-aothers-entity
   (assert-blocked-create (create-a-simple-transaction "jane@doe.com")))
 
-; (defn- update-items
-;   [items]
-;   (->> items
-;        (map #(select-keys % [:quantity :account-id :action :memo]))))
-; 
-; (defn- update-a-transaction
-;   [email]
-;   (let [ctx (realize context)
-;         user (find-user ctx email)
-;         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
-;         response (-> (req/request :patch (path :api
-;                                                :transactions
-;                                                (serialize-local-date (:transaction-date transaction))
-;                                                (:id transaction)))
-;                      (req/json-body (-> transaction
-;                                         (assoc :description "Just got paid today")
-;                                         (update-in [:transaction-date] serialize-local-date)
-;                                         (update-in [:items] update-items)))
-;                      (add-auth user)
-;                      app)
-;         body (json/parse-string (:body response) true)
-;         retrieved (trans/find (:id transaction) (:transaction-date transaction))]
-;     [response body retrieved]))
-; 
-; (defn- assert-successful-update
-;   [[response body retrieved]]
-;   (is (http-success? response))
-;   (is (comparable? {:description "Just got paid today"
-;                     :transaction-date "2016-02-01"
-;                     :memo "Pre-existing transaction"}
-;                    body)
-;       "The updated transaction is returned in the response")
-;   (is (comparable? {:description "Just got paid today"
-;                     :transaction-date (t/local-date 2016 2 1)
-;                     :memo "Pre-existing transaction"}
-;                    retrieved)
-;       "The transaction is updated in the database"))
-; 
-; (defn- assert-blocked-update
-;   [[response _ retrieved]]
-;   (is (http-not-found? response))
-;   (is (comparable? {:description "Paycheck"
-;                     :transaction-date (t/local-date 2016 2 1)
-;                     :memo "Pre-existing transaction"}
-;                    retrieved)
-;       "The transaction is not updated"))
-; 
-; (deftest a-user-can-update-a-transaction-in-his-entity
-;   (assert-successful-update (update-a-transaction "john@doe.com")))
-; 
-; (deftest a-user-cannot-update-a-transaction-in-anothers-entity
-;   (assert-blocked-update (update-a-transaction "jane@doe.com")))
-; 
-; (defn- delete-a-transaction
-;   [email]
-;   (let [ctx (realize context)
-;         user (find-user ctx email)
-;         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
-;         response (-> (req/request :delete (path :api
-;                                                 :transactions
-;                                                 "2016-02-01"
-;                                                 (:id transaction)))
-;                      (add-auth user)
-;                      app)
-;         retrieved (trans/find transaction)]
-;     [response retrieved]))
-; 
-; (defn- assert-successful-delete
-;   [[response retrieved]]
-;   (is (http-success? response))
-;   (is (nil? retrieved)
-;       "The record cannot be retrieved after delete"))
-; 
-; (defn- assert-blocked-delete
-;   [[response retrieved]]
-;   (is (http-not-found? response))
-;   (is retrieved
-;       "The record can be retrieved after a blocked delete"))
-; 
-; (deftest a-user-can-delete-a-transaction-in-his-entity
-;   (assert-successful-delete (delete-a-transaction "john@doe.com")))
-; 
-; (deftest a-user-cannot-delete-a-transaction-in-anothers-entity
-;   (assert-blocked-delete (delete-a-transaction "jane@doe.com")))
+(defn- update-items
+  [items]
+  (->> items
+       (map #(select-keys % [:id
+                             :transaction-item/quantity
+                             :transaction-item/account
+                             :transaction-item/action
+                             :transaction-item/memo]))))
+
+(defn- update-a-transaction
+  [email]
+  (with-context context
+    (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
+          response (-> (req/request :patch (path :api
+                                                 :transactions
+                                                 (serialize-local-date (:transaction/transaction-date transaction))
+                                                 (:id transaction)))
+                       (req/json-body (-> transaction
+                                          (assoc :transaction/description "Just got paid today")
+                                          (update-in [:transaction/transaction-date] serialize-local-date)
+                                          (update-in [:transaction/items] update-items)))
+                       (add-auth (find-user email))
+                       app
+                       parse-json-body)]
+      [response (models/find-by
+                  (select-keys transaction
+                               [:id
+                                :transaction/transaction-date]))])))
+
+(defn- assert-successful-update
+  [[{:as response :keys [json-body]} retrieved]]
+  (is (http-success? response))
+  (is (comparable? #:transaction{:description "Just got paid today"
+                                 :transaction-date "2016-02-01"
+                                 :memo "Pre-existing transaction"}
+                   json-body)
+      "The updated transaction is returned in the response")
+  (is (comparable? #:transaction{:description "Just got paid today"
+                                 :transaction-date (t/local-date 2016 2 1)
+                                 :memo "Pre-existing transaction"}
+                   retrieved)
+      "The transaction is updated in the database"))
+
+(defn- assert-blocked-update
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is (comparable? #:transaction{:description "Paycheck"
+                                 :transaction-date (t/local-date 2016 2 1)
+                                 :memo "Pre-existing transaction"}
+                   retrieved)
+      "The transaction is not updated"))
+
+(deftest a-user-can-update-a-transaction-in-his-entity
+  (assert-successful-update (update-a-transaction "john@doe.com")))
+
+(deftest a-user-cannot-update-a-transaction-in-anothers-entity
+  (assert-blocked-update (update-a-transaction "jane@doe.com")))
+
+(defn- delete-a-transaction
+  [email]
+  (with-context context
+    (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
+          response (-> (req/request :delete (path :api
+                                                  :transactions
+                                                  "2016-02-01"
+                                                  (:id transaction)))
+                       (add-auth (find-user email))
+                       app)]
+      [response (models/find transaction)])))
+
+(defn- assert-successful-delete
+  [[response retrieved]]
+  (is (http-success? response))
+  (is (nil? retrieved)
+      "The record cannot be retrieved after delete"))
+
+(defn- assert-blocked-delete
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is retrieved
+      "The record can be retrieved after a blocked delete"))
+
+(deftest a-user-can-delete-a-transaction-in-his-entity
+  (assert-successful-delete (delete-a-transaction "john@doe.com")))
+
+(deftest a-user-cannot-delete-a-transaction-in-anothers-entity
+  (assert-blocked-delete (delete-a-transaction "jane@doe.com")))
