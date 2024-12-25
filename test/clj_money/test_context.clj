@@ -414,14 +414,15 @@
   [entity]
   (if (get-in entity [:entity/settings :settings/default-commodity])
     entity
-    (-> entity
-        models/find
-        (assoc-in [:entity/settings
-                   :settings/default-commodity]
-                  (util/->model-ref
-                    (models/find-by {:commodity/entity entity
-                                     :commodity/type :currency})))
-        models/put)))
+    (if-let [commodity (models/find-by {:commodity/entity entity
+                                        :commodity/type :currency})]
+      (-> entity
+          models/find
+          (assoc-in [:entity/settings
+                     :settings/default-commodity]
+                    (util/->model-ref commodity))
+          models/put)
+      entity)))
 
 (defn realize
   "Realizes a test context"

@@ -2,27 +2,27 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [uuid
                                      update-in-if]]
             [dgknght.app-lib.api :as api]
-            [dgknght.app-lib.authorization :refer [authorize
+            [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
+            [clj-money.util :as util]
             [clj-money.dates :refer [unserialize-local-date]]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as trans]
             [clj-money.authorization.transactions]
             [clj-money.transactions :refer [expand]]))
 
 (defn- ->criteria
   [{:keys [params authenticated]}]
   (-> params
-      (assoc :transaction-date [:between
-                                (unserialize-local-date (:start params))
-                                (unserialize-local-date (:end params))])
-      (select-keys [:entity-id :transaction-date])
-      (+scope ::models/transaction authenticated)))
+      (assoc :transaction/transaction-date [:between
+                                            (unserialize-local-date (:start params))
+                                            (unserialize-local-date (:end params))])
+      (select-keys [:transaction/entity
+                    :transaction/transaction-date])
+      (+scope :transaction authenticated)))
 
 (defn- ->options
   [{:keys [params]}]
@@ -33,7 +33,7 @@
 (defn- index
   [req]
   (api/response
-   (trans/search (->criteria req) (->options req))))
+   (models/select (->criteria req) (->options req))))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
@@ -44,10 +44,9 @@
     (some-> params
             (select-keys [:id])
             (update-in [:id] uuid)
-            (assoc :transaction-date trans-date)
-            (storage/tag ::models/transaction)
+            (assoc :transaction/transaction-date trans-date)
             (+scope authenticated)
-            trans/find-by
+            models/find-by
             (authorize action authenticated))))
 
 (defn- show
@@ -58,35 +57,39 @@
 
 (def ^:private attribute-keys
   [:id
-   :description
-   :entity-id
-   :transaction-date
-   :original-transaction-date
-   :memo
-   :items
-   :debit-account-id
-   :credit-account-id
-   :quantity])
+   :transaction/description
+   :transaction/entity
+   :transaction/transaction-date
+   :transaction/original-transaction-date
+   :transaction/memo
+   :transaction/items
+   :transaction/debit-account
+   :transaction/credit-account
+   :transaction/quantity])
 
 (defn- parse-item
   [item]
   (-> item
-      (update-in-if [:quantity] bigdec)
-      (update-in-if [:value] bigdec)
-      (update-in-if [:action] keyword)))
+      (update-in-if [:transaction-item/quantity] bigdec)
+      (update-in-if [:transaction-item/value] bigdec)
+      (update-in-if [:transaction-item/action] keyword)))
+
+(defn- extract-transaction
+  [{:keys [body]}]
+  (-> body
+      expand
+      (update-in-if [:transaction/transaction-date] unserialize-local-date)
+      (update-in-if [:transaction/items] #(map parse-item %))
+      (select-keys attribute-keys)))
 
 (defn- create
-  [{:keys [params body authenticated]}]
+  [{:keys [authenticated params] :as req}]
   (api/creation-response
-    (-> body
-        expand
-        (update-in-if [:transaction-date] unserialize-local-date)
-        (update-in-if [:items] #(map parse-item %))
-        (select-keys attribute-keys)
-        (assoc :entity-id (:entity-id params))
-        (storage/tag ::models/transaction)
+    (-> req
+        extract-transaction
+        (assoc :transaction/entity {:id (:entity-id params)})
         (authorize ::authorization/create authenticated)
-        trans/create)))
+        models/put)))
 
 (defn- apply-to-existing
   [updated-item items]
@@ -116,7 +119,7 @@
   (if-let [transaction (find-and-auth req ::authorization/update)]
     (-> transaction
         (apply-update body)
-        trans/update
+        models/put
         api/update-response)
     api/not-found))
 
@@ -124,7 +127,7 @@
   [req]
   (if-let [transaction (find-and-auth req ::authorization/destroy)]
     (do
-      (trans/delete transaction)
+      (models/delete transaction)
       (api/response))
     api/not-found))
 
