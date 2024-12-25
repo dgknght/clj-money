@@ -34,31 +34,3 @@
         (map (comp (partial vector ::db/delete)
                    (db/model-type :image))
              images)))
-
-(defn ^:deprecated create
-  [_impt]
-  (throw (UnsupportedOperationException. "create is deprecated")))
-
-(defn ^:deprecated search
-  ([criteria]
-   (search criteria {}))
-  ([_criteria _options]
-   (throw (UnsupportedOperationException. "search is deprecated"))))
-
-(defn ^:deprecated find-by
-  ([criteria]
-   (find-by criteria {}))
-  ([_criteria _options]
-   (throw (UnsupportedOperationException. "find-by is deprecated"))))
-
-(defn ^:deprecated find
-  [_import-or-id]
-  (throw (UnsupportedOperationException. "find is deprecated")))
-
-(defn ^:deprecated update
-  [_impt]
-  (throw (UnsupportedOperationException. "update is deprecated")))
-
-(defn ^:deprecated delete
-  [_imp]
-  (throw (UnsupportedOperationException. "delete is deprecated")))
