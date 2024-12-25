@@ -1,11 +1,13 @@
 (ns clj-money.api.reconciliations-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.web :refer [path]]
             [clj-money.models.ref]
+            [clj-money.db :as db]
             [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -57,15 +59,13 @@
 (defn- get-reconciliations
   [email]
   (with-context recon-context
-    (let [user (find-user email)
-          account (find-account "Checking")]
-      (-> (req/request :get (path :api
-                                  :accounts
-                                  (:id account)
-                                  :reconciliations))
-          (add-auth user)
-          app
-          parse-json-body))))
+    (-> (req/request :get (path :api
+                                :accounts
+                                (:id (find-account "Checking"))
+                                :reconciliations))
+        (add-auth (find-user email))
+        app
+        parse-json-body)))
 
 (defn- assert-successful-get
   [{:as response :keys [json-body]}]
@@ -146,50 +146,53 @@
 (deftest a-user-cannot-create-an-incomplete-reconciliation-in-anothers-entity
   (assert-blocked-create (create-reconciliation "jane@doe.com" false)))
 
-; (def ^:private update-context
-;   (update-in recon-context
-;              [:reconciliations]
-;              conj
-;              {:end-of-period (t/local-date 2015 2 4)
-;               :account-id "Checking"
-;               :balance 299M
-;               :status :new
-;               :item-refs [{:transaction-date (t/local-date 2015 1 10)
-;                            :quantity 101M}]}))
-; 
-; (defn- update-reconciliation
-;   [email]
-;   (let [ctx (realize update-context)
-;         recon (find-reconciliation ctx "Checking" (t/local-date 2015 2 4))
-;         user (find-user ctx email)
-;         response (-> (req/request :patch (path :api
-;                                                :reconciliations
-;                                                (:id recon)))
-;                      (req/json-body (-> recon
-;                                         (dissoc :id)
-;                                         (assoc :status :completed)))
-;                      (add-auth user)
-;                      app)
-;         body (json/parse-string (:body response) true)
-;         retrieved (recs/find recon)]
-;     [response body retrieved]))
-; 
-; (defn- assert-successful-update
-;   [[response body retrieved]]
-;   (is (http-success? response))
-;   (is (= "completed" (:status body))
-;       "The response includes the updated reconciliation")
-;   (is (= :completed (:status retrieved))
-;       "The reconciliation is updated in the database"))
-; 
-; (defn- assert-blocked-update
-;   [[response _ retrieved]]
-;   (is (http-not-found? response))
-;   (is (= :new (:status retrieved))
-;       "The reconciliation is not updated in the database"))
-; 
-; (deftest a-user-can-update-a-reconciliation-in-his-entity
-;   (assert-successful-update (update-reconciliation "john@doe.com")))
-; 
-; (deftest a-user-cannot-update-a-reconciliation-in-anothers-entity
-;   (assert-blocked-update (update-reconciliation "jane@doe.com")))
+(def ^:private update-context
+  (conj recon-context
+        #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                         :account "Checking"
+                         :balance 299M
+                         :status :new
+                         :item-refs [[(t/local-date 2015 1 10) 101M]]}))
+
+(defn- update-reconciliation
+  [email]
+  (with-context update-context
+    (let [recon (find-reconciliation ["Checking" (t/local-date 2015 2 4)])
+          response (-> (req/request :patch (path :api
+                                                 :reconciliations
+                                                 (:id recon)))
+                       (req/json-body (-> recon
+                                          (dissoc :id :reconciliation/item-refs)
+                                          (assoc :reconciliation/status :completed)))
+                       (add-auth (find-user email))
+                       app
+                       parse-json-body)]
+      [response (models/find-by
+                  (db/model-type
+                    (select-keys recon
+                                 [:id
+                                  :reconciliation/end-of-period])
+                    :reconciliation))])))
+
+(defn- assert-successful-update
+  [[{:as response :keys [json-body]} retrieved]]
+  (is (http-success? response))
+  (is (comparable? {:reconciliation/status "completed"}
+                   json-body)
+      "The response includes the updated reconciliation")
+  (is (comparable? {:reconciliation/status :completed}
+                   retrieved)
+      "The reconciliation is updated in the database"))
+
+(defn- assert-blocked-update
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is (comparable? {:reconciliation/status :new}
+                   retrieved)
+      "The reconciliation is not updated in the database"))
+
+(deftest a-user-can-update-a-reconciliation-in-his-entity
+  (assert-successful-update (update-reconciliation "john@doe.com")))
+
+(deftest a-user-cannot-update-a-reconciliation-in-anothers-entity
+  (assert-blocked-update (update-reconciliation "jane@doe.com")))

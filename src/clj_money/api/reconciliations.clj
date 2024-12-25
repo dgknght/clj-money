@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [stowaway.core :as stow]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-int
                                           uuid]]
@@ -56,30 +55,22 @@
 (defn- extract-recon
   [{:keys [body]}]
   (-> body
-      (dissoc :id)
-      (update-in-if [:status] keyword)
-      (update-in-if [:balance] bigdec)
-      (update-in-if [:end-of-period] dates/unserialize-local-date)
-      (update-in-if [:item-refs] (fn [item-refs]
-                                   (map #(-> %
-                                             (update-in [0] uuid)
-                                             (update-in [1] dates/unserialize-local-date))
-                                        item-refs)))))
+      (select-keys [:reconciliation/end-of-period
+                    :reconciliation/balance
+                    :reconciliation/status
+                    :reconciliation/item-refs])
+      (update-in-if [:reconciliation/status] keyword)
+      (update-in-if [:reconciliation/balance] bigdec)
+      (update-in-if [:reconciliation/end-of-period] dates/unserialize-local-date)
+      (update-in-if [:reconciliation/item-refs] #(map unserialize-item-ref %))))
 
 (defn- create
-  [{:keys [params body authenticated]}]
+  [{:keys [params authenticated] :as req}]
   (-> params
       (select-keys [:account-id])
       (update-in [:account-id] #(hash-map :id %))
       (rename-keys {:account-id :reconciliation/account})
-      (merge (select-keys body [:reconciliation/end-of-period
-                                :reconciliation/balance
-                                :reconciliation/status
-                                :reconciliation/item-refs]))
-      (update-in [:reconciliation/status] keyword)
-      (update-in [:reconciliation/balance] bigdec)
-      (update-in [:reconciliation/end-of-period] dates/unserialize-local-date)
-      (update-in [:reconciliation/item-refs] #(map unserialize-item-ref %))
+      (merge (extract-recon req))
       (authorize ::auth/create authenticated)
       models/put
       api/creation-response))
@@ -89,7 +80,7 @@
   (some-> params
           (select-keys [:id])
           (update-in [:id] uuid)
-          (+scope ::models/reconciliation authenticated)
+          (+scope :reconciliation authenticated)
           models/find-by
           (authorize action authenticated)))
 
