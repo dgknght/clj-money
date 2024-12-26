@@ -16,6 +16,7 @@
                     [:transactions :transaction_items]
                     [:transactions :attachments]
                     [:transactions :lot_items]
+                    [:entities :scheduled_transactions]
                     [:commodities :lots]
                     [:commodities :prices]
                     [:accounts :lots]}})

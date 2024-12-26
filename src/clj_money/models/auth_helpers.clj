@@ -29,6 +29,10 @@
   [{:transaction/keys [entity]}]
   (fetch-entity* entity))
 
+(defmethod fetch-entity :scheduled-transaction
+  [{:scheduled-transaction/keys [entity]}]
+  (fetch-entity* entity))
+
 (defmethod fetch-entity :attachment
   [{:attachment/keys [transaction transaction-date]}]
   (models/find-by
