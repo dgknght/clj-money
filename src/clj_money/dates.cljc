@@ -302,6 +302,7 @@
 
 (defn serialize-local-date
   [local-date]
+  {:pre [local-date]}
   #?(:clj (t/format (t/formatter :iso-date) local-date)
      :cljs (tf/unparse-local-date (tf/formatters :date) local-date)))
 

@@ -167,22 +167,19 @@
   ([context symbol]
    (find context :commodity/symbol symbol)))
 
-(defn find-commodities
-  [& args]
-  (let [[context & symbols] (context+ args)]
-    (map #(find-commodity context %) symbols)))
-
 (defn find-budget
   ([budget-name] (find-budget *context* budget-name))
   ([context budget-name]
    (find context :budget/name budget-name)))
 
 (defn find-price
-  ([sym trade-date] (find-price *context* sym trade-date))
-  ([context sym trade-date]
+  ([identifier] (find-price *context* identifier))
+  ([context [sym trade-date]]
    (let [commodity (find-commodity context sym)]
-     (find context #(and (= (:id commodity) (get-in % [:price/commodity :id]))
-                         (= trade-date (:price/trade-date %)))))))
+     (find context #(and (= (:id commodity)
+                            (get-in % [:price/commodity :id]))
+                         (= trade-date
+                            (:price/trade-date %)))))))
 
 (defn find-transaction
   ([identifier] (find-transaction *context* identifier))
