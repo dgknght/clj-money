@@ -81,7 +81,7 @@
     {}))
 
 (defn- balance-data
-  [{:keys [accounts since as-of entity]}]
+  [{:keys [accounts since as-of entity] :as opts}]
   (let [earliest-date (get-in entity [:entity/settings :settings/earliest-transaction-date])
         account-ids (->> accounts
                          (map :id)
@@ -147,8 +147,12 @@
   of that commodity held in the account and the most recent price based on the
   specified date."
   [opts accounts]
-  (let [data (valuation-data (assoc opts :accounts accounts))]
-    (valuate data accounts)))
+  (if (-> opts :entity :entity/settings :settings/earliest-transaction-date)
+    (let [data (valuation-data (-> opts
+                                   (assoc :accounts accounts)
+                                   (update-in [:as-of] (fnil identity (t/local-date)))))]
+      (valuate data accounts))
+    accounts))
 
 (defn- apply-account-valuations
   [ctx]
@@ -529,7 +533,7 @@
       dates/last-day-of-the-month))
 
 (defn- default-budget-end-date
-  [{:keys [start-date end-date]}]
+  [{:budget/keys [start-date end-date]}]
   (->> [(end-of-last-month)
         (dates/last-day-of-the-month (t/local-date))
         end-date]
@@ -567,18 +571,19 @@
   "Returns a budget report"
   ([bdg]
    (budget bdg {}))
-  ([budget {:keys [as-of] :as opts}]
-   {:items (-> opts
-               (merge {:budget budget
-                       :as-of (or as-of
-                                  (default-budget-end-date budget))})
-               append-entity
-               append-period-count
-               calc-budget-records)
-    :title (format "%s: %s to %s"
-                   (:budget/name budget)
-                   (t/format (t/formatter "MMMM") (:budget/start-date budget))
-                   (t/format (t/formatter "MMMM") as-of))}))
+  ([budget opts]
+   (let [as-of (or (:as-of opts)
+                   (default-budget-end-date budget))]
+     {:items (-> opts
+                 (merge {:budget budget
+                         :as-of as-of})
+                 append-entity
+                 append-period-count
+                 calc-budget-records)
+      :title (format "%s: %s to %s"
+                     (:budget/name budget)
+                     (t/format (t/formatter "MMMM") (:budget/start-date budget))
+                     (t/format (t/formatter "MMMM") as-of))})))
 
 (defn- monitor-item
   [budget actual percentage]
@@ -624,7 +629,7 @@
                                 (apply /)))]
     (with-precision 5
       #:report{:caption (:account/name account)
-               :account account
+               :account (util/->model-ref account)
                :period (monitor-item period-budget period-actual percent-of-period)
                :budget (monitor-item total-budget total-actual percent-of-total)})))
 

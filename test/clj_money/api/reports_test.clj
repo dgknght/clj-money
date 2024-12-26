@@ -1,15 +1,18 @@
 (ns clj-money.api.reports-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test :refer [parse-json-body]]
+            [dgknght.app-lib.test-assertions]
+            [clj-money.models :as models]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             basic-context
+                                            find-account
                                             find-user
                                             find-entity
                                             find-budget]]
@@ -18,36 +21,41 @@
 (use-fixtures :each reset-db)
 
 (def ^:private report-context
-  basic-context)
+  (conj basic-context
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :description "Paycheck"
+                      :entity "Personal"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}))
 
 (defn- get-income-statement
   [email]
-  (let [ctx (realize report-context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (path :api
-                                             :entities
-                                             (:id entity)
-                                             :reports
-                                             :income-statement
-                                             "2016-01-01"
-                                             "2016-01-31"))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context report-context
+    (let [entity (find-entity "Personal")]
+      (-> (req/request :get (path :api
+                                  :entities
+                                  (:id entity)
+                                  :reports
+                                  :income-statement
+                                  "2016-01-01"
+                                  "2016-01-31"))
+          (add-auth (find-user email))
+          app
+          parse-json-body))))
 
 (defn- assert-successful-income-statement
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
   (is (= ["Income" "Expense" "Net"]
-         (->> body
-              (filter #(#{"header" "summary"} (:style %)))
-              (map :caption)))
-      "The body contains the correct captions"))
+         (->> json-body
+              (filter #(#{"header" "summary"}
+                         (:report/style %)))
+              (map :report/caption)))
+      "The body contains the income statement report for the specified entity"))
 
 (defn- assert-blocked-income-statement
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-income-statement-for-his-entity
@@ -58,32 +66,30 @@
 
 (defn- get-balance-sheet
   [email]
-  (let [ctx (realize report-context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (with-fixed-time "2016-02-02T00:00:00Z"
-                   (-> (req/request :get (path :api
-                                               :entities
-                                               (:id entity)
-                                               :reports
-                                               :balance-sheet
-                                               "2016-01-31"))
-                       (add-auth user)
-                       app))
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context report-context
+    (let [entity (find-entity "Personal")]
+      (with-fixed-time "2016-02-02T00:00:00Z"
+        (-> (req/request :get (path :api
+                                    :entities
+                                    (:id entity)
+                                    :reports
+                                    :balance-sheet
+                                    "2016-01-31"))
+            (add-auth (find-user email))
+            app
+            parse-json-body)))))
 
 (defn- assert-successful-balance-sheet
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
   (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
-         (->> body
-              (filter #(#{"summary" "header"} (:style %)))
-              (map :caption)))
-      "The body contains the correct captions"))
+         (->> json-body
+              (filter #(#{"summary" "header"} (:report/style %)))
+              (map :report/caption)))
+      "The body contains the balance sheet report"))
 
 (defn- assert-blocked-balance-sheet
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-balance-sheet-for-his-entity
@@ -93,33 +99,39 @@
   (assert-blocked-balance-sheet (get-balance-sheet "jane@doe.com")))
 
 (def budget-context
-  (assoc report-context :budgets [{:name "2016"
-                                   :entity-id "Personal"
-                                   :start-date (t/local-date 2016 1 1)
-                                   :period :month
-                                   :period-count 12}]))
+  (conj report-context
+        #:budget{:name "2016"
+                 :entity "Personal"
+                 :start-date (t/local-date 2016 1 1)
+                 :period :month
+                 :period-count 12}))
 
 (defn- get-budget-report
   [email]
-  (let [ctx (realize budget-context)
-        user (find-user ctx email)
-        budget (find-budget ctx "2016")
-        response (-> (req/request :get (path :api
-                                             :reports
-                                             :budget
-                                             (:id budget)))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context budget-context
+    (let [budget (find-budget "2016")]
+      (-> (req/request :get (path :api
+                                  :reports
+                                  :budget
+                                  (:id budget)))
+          (add-auth (find-user email))
+          app
+          parse-json-body))))
 
 (defn- assert-successful-budget-report
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (coll? body)))
+  (is (= "2016: January to December"
+         (:title json-body))
+      "The response contains the report tital")
+  (is (= ["Income" "Expense" "Net"]
+         (->> (:items json-body)
+              (filter #(#{"header" "summary"} (:report/style %)))
+              (map :report/caption)))
+      "The reponse contains the budget report at the :items key"))
 
 (defn- assert-blocked-budget-report
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-budget-report-for-his-entity
@@ -129,52 +141,62 @@
   (assert-blocked-budget-report (get-budget-report "jane@doe.com")))
 
 (def ^:private monitor-context
-  (-> budget-context
-      (update-in [:budgets 0] assoc :items [{:account-id "Groceries"
-                                             :periods (repeat 12 200M)}])
-      (update-in [:entities 0] assoc-in [:settings :monitored-account-ids] #{"Groceries"})
-      (assoc :transactions [{:transaction-date (t/local-date 2016 1 1)
-                             :description "Kroger"
-                             :quantity 85M
-                             :debit-account-id "Groceries"
-                             :credit-account-id "Checking"}])))
+  (conj report-context
+        #:budget{:name "2016"
+                 :entity "Personal"
+                 :start-date (t/local-date 2016 1 1)
+                 :period :month
+                 :period-count 12
+                 :items [#:budget-item{:account "Groceries"
+                                       :periods (repeat 12 200M)}]}
+        #:transaction{:transaction-date (t/local-date 2016 1 1)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :quantity 85M
+                      :debit-account "Groceries"
+                      :credit-account "Checking"}))
 
 (defn- get-monitor-list
   [email]
-  (let [ctx (realize monitor-context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (with-fixed-time "2016-01-07T00:00:00Z"
-                   (-> (req/request :get (path :api
-                                               :entities
-                                               (:id entity)
-                                               :reports
-                                               :budget-monitors))
-                       (add-auth user)
-                       app))
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context monitor-context
+    (let [entity (find-entity "Personal")]
+
+      ; TODO: I'd like to move this into the context, but I've got to
+      ; solve the chicken and egg problem first
+      (models/put (update-in entity
+                             [:entity/settings
+                              :settings/monitored-account-ids]
+                             (fnil conj #{})
+                             (:id (find-account "Groceries"))))
+
+      (with-fixed-time "2016-01-07T00:00:00Z"
+        (-> (req/request :get (path :api
+                                    :entities
+                                    (:id entity)
+                                    :reports
+                                    :budget-monitors))
+            (add-auth (find-user email))
+            app
+            parse-json-body)))))
 
 (defn- assert-successful-monitor-list
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (let [expected [{:caption "Groceries"
-                   :period {:total-budget 200.0
-                            :actual 85.0
-                            :percentage 0.2258
-                            :prorated-budget 45.162
-                            :actual-percent 0.425}
-                   :budget {:total-budget 2400.0
-                            :actual 85.0
-                            :percentage 0.0191
-                            :prorated-budget 45.902
-                            :actual-percent 0.035417}}]
-        actual (when (sequential? body)
-                 (map #(dissoc % :account-id) body))]
-    (is (= expected actual))))
+  (is (seq-of-maps-like? [#:report{:caption "Groceries"
+                                   :period #:report{:total-budget 200.0
+                                                    :actual 85.0
+                                                    :percentage 0.2258
+                                                    :prorated-budget 45.162
+                                                    :actual-percent 0.425}
+                                   :budget #:report{:total-budget 2400.0
+                                                    :actual 85.0
+                                                    :percentage 0.0191
+                                                    :prorated-budget 45.902
+                                                    :actual-percent 0.035417}}]
+                         json-body)))
 
 (defn- assert-blocked-monitor-list
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-budget-monitors-for-his-entity
@@ -184,54 +206,55 @@
   (assert-blocked-monitor-list (get-monitor-list "jane@doe.com")))
 
 (def ^:private portfolio-context
-  (-> basic-context
-      (update-in [:accounts] concat [{:name "IRA"
-                                      :type :asset
-                                      :system-tags #{:trading}
-                                      :entity-id "Personal"}])
-      (update-in [:commodities] concat [{:name "Apple, Inc."
-                                         :symbol "AAPL"
-                                         :type :stock
-                                         :exchange :nasdaq}])
-      (assoc :transactions [{:transaction-date (t/local-date 2015 1 1)
-                             :description "Begining balance"
-                             :quantity 1000M
-                             :debit-account-id "IRA"
-                             :credit-account-id "Opening Balances"}]
-             :trades [{:trade-date (t/local-date 2015 2 1)
-                       :type :purchase
-                       :account-id "IRA"
-                       :commodity-id "AAPL"
-                       :shares 100M
-                       :value  1000M}])))
+  (conj basic-context
+        #:account{:name "IRA"
+                  :type :asset
+                  :system-tags #{:trading}
+                  :entity "Personal"}
+        #:commodity{:name "Apple, Inc."
+                    :entity "Personal"
+                    :symbol "AAPL"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Begining balance"
+                      :quantity 1000M
+                      :debit-account "IRA"
+                      :credit-account "Opening Balances"}
+        #:trade{:date (t/local-date 2015 2 1)
+                :entity "Personal"
+                :type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value  1000M}))
 
 (defn- get-portfolio-report
   [email]
-  (let [ctx (realize portfolio-context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (str (path :api
-                                                  :entities
-                                                  (:id entity)
-                                                  :reports
-                                                  :portfolio)
-                                            "?aggregate=by-account"))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context portfolio-context
+    (let [entity (find-entity "Personal")]
+      (-> (req/request :get (str (path :api
+                                       :entities
+                                       (:id entity)
+                                       :reports
+                                       :portfolio)
+                                 "?aggregate=by-account"))
+          (add-auth (find-user email))
+          app
+          parse-json-body))))
 
 (defn- assert-successful-portfolio-report
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
   (is (= ["IRA" "Total"]
-         (->> body
-              (filter #(#{"header" "summary"} (:style %)))
-              (map :caption)))
+         (->> json-body
+              (filter #(#{"header" "summary"} (:report/style %)))
+              (map :report/caption)))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-portfolio-report
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-portfolio-report-for-his-entity
