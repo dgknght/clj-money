@@ -37,6 +37,7 @@
 
 (def ^:private model-ref-keys
   [:image/user
+   :import/user
    :identity/user
    :entity/user
    :grant/entity
@@ -144,10 +145,10 @@
         s (for-insert table
                       model
                       jdbc/snake-kebab-opts)
-        result (jdbc/execute-one! db s {:return-keys [:id]})]
 
-    ; TODO: scrub for sensitive data
-    (log/debugf "database insert %s -> %s" model s)
+        ; TODO: scrub for sensitive data
+        _ (log/debugf "database insert %s -> %s" model s)
+        result (jdbc/execute-one! db s {:return-keys [:id]})]
     (get-in result [(keyword (name table) "id")])))
 
 (defn- update

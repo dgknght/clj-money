@@ -17,7 +17,6 @@
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash]
             [clj-money.import.edn]
-            [clj-money.models.imports :as imports]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.authorization.imports]))
 
@@ -26,7 +25,7 @@
   (let [progress-chan (chan)]
     (go-loop [progress (<! progress-chan)]
       (when progress
-        (log/debugf "import progress for %s: %s" (:entity-name imp) progress)
+        (log/debugf "import progress for %s: %s" (:import/entity-name imp) progress)
         (models/put (assoc imp :import/progress progress))
         (recur (<! progress-chan))))
     (import-data imp progress-chan)))
@@ -111,9 +110,9 @@
 
 (defn- show
   [req]
-  (if-let [imp (find-and-authorize req ::authorization/show)]
-    (api/response imp)
-    api/not-found))
+  (or (some-> (find-and-authorize req ::authorization/show)
+              api/response)
+      api/not-found))
 
 (defn- index
   [{:keys [authenticated params]}]
@@ -130,12 +129,11 @@
     api/not-found))
 
 (defn- start
-  [{:keys [authenticated] :as req}]
-  (let [imp (authorize (find-and-authorize req ::authorization/update)
-                       ::authorization/update
-                       authenticated)]
-    (launch-and-track-import imp)
-    (api/response imp)))
+  [req]
+  (or (some-> (find-and-authorize req ::authorization/update)
+              launch-and-track-import
+              api/response)
+      api/not-found))
 
 (def routes
   [["imports"

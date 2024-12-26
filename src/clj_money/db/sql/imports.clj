@@ -10,7 +10,7 @@
   (-> imp
       (rename-keys {:import/images :import/image-ids})
       (update-in-if [:import/image-ids] (comp #(into-array Long/TYPE %)
-                                           #(mapv :id %)))
+                                              #(mapv :id %)))
       (update-in-if [:import/options] ->json)
       (update-in-if [:import/progress] ->json)))
 
