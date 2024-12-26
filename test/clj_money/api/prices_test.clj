@@ -1,6 +1,5 @@
 (ns clj-money.api.prices-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
@@ -8,6 +7,7 @@
             [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [java-time.api :as t]
+            [clj-money.util :as util]
             [clj-money.factories.user-factory]
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -194,110 +194,109 @@
 (deftest a-user-cannot-delete-a-price-in-anothers-entity
   (assert-blocked-delete (delete-a-price "jane@doe.com")))
 
-; (def ^:private fetch-context
-;   {:users [{:first-name "John"
-;             :last-name "Doe"
-;             :email "john@doe.com"
-;             :password "please01"}]
-;    :entities [{:user-id "john@doe.com"
-;                :name "Personal"}]
-;    :commodities [{:entity-id "Personal"
-;                   :name "Apple, Inc."
-;                   :symbol "AAPL"
-;                   :exchange :nasdaq
-;                   :type :stock}
-;                  {:entity-id "Personal"
-;                   :name "Microsoft, Inc."
-;                   :symbol "MSFT"
-;                   :exchange :nasdaq
-;                   :type :stock}]})
-; 
-; (defn- fetch-some-prices
-;   [username]
-;   (let [user (find-user username)
-;         appl (find-commodity "AAPL")
-;         msft (find-commodity "MSFT")]
-;     (with-redefs [yahoo/get-quotes (fn [symbols]
-;                                      (map (fn [s]
-;                                             {:symbol s
-;                                              :fullExchangeName "NasdaqGS"
-;                                              :regularMarketPrice 10.01M
-;                                              :regularMarketTime (t/local-date 2015 3 2)})
-;                                           symbols))]
-;       (with-fixed-time "2015-03-02T12:00:00Z"
-;         (-> (req/request :get (str (path :api
-;                                          :prices
-;                                          :fetch)
-;                                    "?commodity-id="
-;                                    (:id appl)
-;                                    "&commodity-id="
-;                                    (:id msft)))
-;             (add-auth user)
-;             app
-;             parse-json-body)))))
-; 
-; (defn- assert-successful-fetch
-;   [response]
-;   (is (http-success? response))
-;   (is (= [{:trade-date "2015-03-02"
-;            :price 10.01
-;            :symbol "AAPL"
-;            :exchange "nasdaq"}
-;           {:trade-date "2015-03-02"
-;            :price 10.01
-;            :symbol "MSFT"
-;            :exchange "nasdaq"}]
-;          (:json-body response)))
-;   (is (seq-of-maps-like? [{:trade-date (t/local-date 2015 3 2)
-;                            :price 10.01M
-;                            :commodity-id (:id (find-commodity "AAPL"))}
-;                           {:trade-date (t/local-date 2015 3 2)
-;                            :price 10.01M
-;                            :commodity-id (:id (find-commodity "MSFT"))}]
-;                          (prices/search {:trade-date (t/local-date 2015 3 2)}))))
-; 
-; (deftest a-user-can-fetch-a-current-commodity-prices
-;   (with-context fetch-context
-;     (assert-successful-fetch (fetch-some-prices "john@doe.com"))))
-; 
-; (deftest an-unauthenticated-user-cannot-fetch-commodity-prices
-;   (with-context fetch-context
-;     (is (http-unauthorized? (fetch-some-prices nil)))))
-; 
-; (deftest prices-are-only-fetched-once-per-day
-;   (with-context fetch-context
-;     (let [user (find-user "john@doe.com")
-;           appl (find-commodity "AAPL")
-;           msft (find-commodity "MSFT")
-;           calls (atom [])]
-;       (with-redefs [yahoo/get-quotes (fn [symbols]
-;                                        (swap! calls conj symbols)
-;                                        (map (fn [s]
-;                                               {:symbol s
-;                                                :regularMarketPrice 10.01M
-;                                                :regularMarketTime (t/local-date 2015 3 2)
-;                                                :fullExchangeName "NasdaqGS"})
-;                                             symbols))]
-;         (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
-;           (-> (req/request :get (str (path :api
-;                                            :prices
-;                                            :fetch)
-;                                      "?commodity-id="
-;                                      (:id appl)
-;                                      "&commodity-id="
-;                                      (:id msft)))
-;               (add-auth user)
-;               app
-;               parse-json-body)
-;           (-> (req/request :get (str (path :api
-;                                            :prices
-;                                            :fetch)
-;                                      "?commodity-id="
-;                                      (:id appl)
-;                                      "&commodity-id="
-;                                      (:id msft)))
-;               (add-auth user)
-;               app
-;               parse-json-body))
-;         (is (= 1 (count @calls))
-;             "The external service is only called once")))))
+(def ^:private fetch-context
+  [#:user{:first-name "John"
+          :last-name "Doe"
+          :email "john@doe.com"
+          :password "please01"}
+   #:entity{:user "john@doe.com"
+            :name "Personal"}
+   #:commodity{:entity "Personal"
+               :name "Apple, Inc."
+               :symbol "AAPL"
+               :exchange :nasdaq
+               :type :stock}
+   #:commodity{:entity "Personal"
+               :name "Microsoft, Inc."
+               :symbol "MSFT"
+               :exchange :nasdaq
+               :type :stock}])
+
+(defn- fetch-some-prices
+  [username]
+  (let [appl (find-commodity "AAPL")
+        msft (find-commodity "MSFT")]
+    (with-redefs [yahoo/get-quotes (fn [symbols]
+                                     (map (fn [s]
+                                            {:symbol s
+                                             :fullExchangeName "NasdaqGS"
+                                             :regularMarketPrice ({"AAPL" 10.01M
+                                                                   "MSFT" 5.01M}
+                                                                  s)
+                                             :regularMarketTime (t/local-date 2015 3 2)})
+                                          symbols))]
+      (with-fixed-time "2015-03-02T12:00:00Z"
+        (-> (req/request :get (str (path :api
+                                         :prices
+                                         :fetch)
+                                   "?commodity-id="
+                                   (:id appl)
+                                   "&commodity-id="
+                                   (:id msft)))
+            (add-auth
+              (when username
+                (find-user username)))
+            app
+            parse-json-body)))))
+
+(defn- assert-successful-fetch
+  [response]
+  (is (http-success? response))
+  (is (seq-of-maps-like? [#:price{:trade-date "2015-03-02"
+                                  :price 10.01
+                                  :commodity (util/->model-ref (find-commodity "AAPL")) }
+                          #:price{:trade-date "2015-03-02"
+                                  :price 5.01
+                                  :commodity (util/->model-ref (find-commodity "MSFT"))}]
+                         (:json-body response))
+      "The prices are returned in the response")
+  (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 3 2)
+                                  :price 10.01M
+                                  :commodity (util/->model-ref (find-commodity "AAPL"))}
+                          #:price{:trade-date (t/local-date 2015 3 2)
+                                  :price 5.01M
+                                  :commodity (util/->model-ref (find-commodity "MSFT"))}]
+                         (models/select #:price{:trade-date (t/local-date 2015 3 2)}))
+      "The prices are written to the database"))
+
+(deftest a-user-can-fetch-a-current-commodity-prices
+  (with-context fetch-context
+    (assert-successful-fetch (fetch-some-prices "john@doe.com"))))
+
+(deftest an-unauthenticated-user-cannot-fetch-commodity-prices
+  (with-context fetch-context
+    (is (http-unauthorized? (fetch-some-prices nil)))))
+
+(deftest prices-are-only-fetched-once-per-day
+  (with-context fetch-context
+    (let [user (find-user "john@doe.com")
+          appl (find-commodity "AAPL")
+          msft (find-commodity "MSFT")
+          calls (atom [])
+          make-req #(-> (req/request :get (str (path :api
+                                                     :prices
+                                                     :fetch)
+                                               "?commodity-id="
+                                               (:id appl)
+                                               "&commodity-id="
+                                               (:id msft)))
+                        (add-auth user)
+                        app
+                        parse-json-body)]
+      (with-redefs [yahoo/get-quotes (fn [symbols]
+                                       (swap! calls conj symbols)
+                                       (map (fn [s]
+                                              {:symbol s
+                                               :regularMarketPrice 10.01M
+                                               :regularMarketTime (t/local-date 2015 3 2)
+                                               :fullExchangeName "NasdaqGS"})
+                                            symbols))]
+        (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
+          (make-req)
+          (make-req))
+        (let [[c :as cs ] @calls]
+          (is (= 1 (count cs))
+            "The external service is called exactly one time")
+          (is (= ["AAPL" "MSFT"]
+                 c)
+              "The external service is called with the specified commodity symbols"))))))
