@@ -369,7 +369,7 @@
       (update-in [:lot/account] (find-account ctx))
       (update-in [:lot/commodity] (find-commodity ctx))))
 
-(defmethod prepare :trade
+(defn- resolve-trade-accounts
   [attr ctx]
   (let [find-act (find-account ctx)]
     (reduce (fn [m k]
@@ -381,6 +381,12 @@
              :trade/lt-capital-loss-account
              :trade/st-capital-gains-account
              :trade/st-capital-loss-account])))
+
+(defmethod prepare :trade
+  [attr ctx]
+  (-> attr
+      (update-in [:trade/entity] (find-entity ctx))
+      (resolve-trade-accounts ctx)))
 
 (def ^:private extract-purchase-models
   (juxt :trade/transaction
