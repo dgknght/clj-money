@@ -121,17 +121,3 @@
   "Removes the scheduled transaction from the system"
   [_sched-tran]
   (throw (UnsupportedOperationException. "delete is deprecated")))
-
-(defn realize
-  "Creates new transactions based on the scheduled transaction,
-  if the date of the new transactions would be within one week
-  of the current date"
-  [sched-trx]
-  (let [transactions (->> (st/next-transaction-dates sched-trx)
-                          (mapv #(-> sched-trx
-                                     (st/->transaction %)
-                                     models/put)))]
-    ; TODO: This should be a propagation
-    (when-let [transaction-date (:transaction/transaction-date (last transactions))]
-      (models/put (assoc sched-trx :scheduled-transaction/last-occurrence transaction-date)))
-    transactions))

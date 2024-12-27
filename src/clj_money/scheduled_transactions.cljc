@@ -5,6 +5,7 @@
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.predicates :as tp])
             [clojure.set :refer [rename-keys]]
+            [clj-money.util :as util]
             [clj-money.dates :as dates]))
 
 (defmulti ^:private period :scheduled-transaction/interval-type)
@@ -109,37 +110,38 @@
   (first (next-transaction-dates sched-trx 365)))
 
 (defn- ->transaction-item
-  [item]
-  (-> item
-      (rename-keys {:scheduled-transaction-item/account  :transaction-item/account
-                    :scheduled-transaction-item/action   :transaction-item/action
-                    :scheduled-transaction-item/quantity :transaction-item/quantity
-                    :scheduled-transaction-item/memo     :transaction-item/memo})
-      (select-keys [:transaction-item/account
-                    :transaction-item/action
-                    :transaction-item/quantity
-                    :transaction-item/memo])))
-
-(defn- ->transaction-items
-  [items]
-  (map ->transaction-item items))
+  [{:scheduled-transaction-item/keys [account
+                                      action
+                                      quantity
+                                      memo]}]
+  #:transaction-item{:account account
+                     :action action
+                     :quantity quantity
+                     :memo memo})
 
 (defn ->transaction
-  [sched-trx transaction-date]
-  (-> sched-trx
-      (rename-keys {:id :transaction/scheduled-transaction
-                    :scheduled-transaction/description :transaction/description
-                    :scheduled-transaction/memo :transaction/memo
-                    :scheduled-transaction/entity :transaction/entity
-                    :scheduled-transaction/items :transaction/items})
-      (update-in [:scheduled-transaction] #(hash-map :id %))
-      (select-keys [:transaction/description
-                    :transaction/memo
-                    :transaction/entity
-                    :transaction/items
-                    :transaction/scheduled-transaction])
-      (assoc :transaction/transaction-date transaction-date)
-      (update-in [:transaction/items] ->transaction-items)))
+  ([sched-trx]
+   (partial ->transaction sched-trx))
+  ([{:as sched-trx
+     :scheduled-transaction/keys [description
+                                  memo
+                                  entity
+                                  items]}
+    transaction-date]
+   #:transaction{:transaction-date transaction-date
+                 :description description
+                 :memo memo
+                 :entity entity
+                 :items (map ->transaction-item items)
+                 :scheduled-transaction sched-trx}))
+
+(defn realize
+  "Creates new transactions based on the scheduled transaction,
+  if the date of the new transactions would be within one week
+  of the current date"
+  [sched-trx]
+  (mapv (->transaction sched-trx)
+        (next-transaction-dates sched-trx)))
 
 (defn pending?
   [{:scheduled-transaction/keys [enabled start-date end-date next-occurrence]}]

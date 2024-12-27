@@ -255,39 +255,3 @@
 (deftest delete-a-scheduled-transaction
   (with-context update-context
     (assert-deleted (find-scheduled-transaction "Paycheck"))))
-
-(defn- assert-successful-realization
-  [[result transactions sched-tran]]
-  (is (every? :id result)
-      "The returned values contain an :id")
-  (is (valid? result))
-  (is (= (:transaction-date (last transactions))
-         (:last-occurrence sched-tran))
-      "The scheduled transaction last occurrence is updated")
-  (is (= (:id sched-tran)
-         (-> result first :scheduled-transaction-id))
-      "The new transaction has the :scheduled-transaction-id")
-  (let [expected {:transaction-date (t/local-date 2016 2 1)
-                  :description "Paycheck"}]
-    #_{:clj-kondo/ignore [:unused-value]}
-    (= expected
-       (select-keys result (keys expected))
-       "The created transaction is returned")
-    (= expected
-       (select-keys (first transactions) (keys expected))
-       "The transaction can be retrieved")))
-
-(deftest realize-a-scheduled-transaction-after-the-date
-  (with-context update-context
-    (with-fixed-time "2016-02-02T00:00:00Z"
-      (sched-trans/realize (find-scheduled-transaction "Paycheck"))
-      (let [trx (models/find-by {:transaction/entity (find-entity "Personal")})]
-        (is (comparable? #:transaction{:description "Paycheck"
-                                       :items [
-                                               #:transaction-item{:action :debit
-                                                                  :quantity 900M}
-                                               #:transaction-item{:action :debit
-                                                                  :quantity 100M}
-                                               #:transaction-item{:action :credit
-                                                                  :quantity 1000M}]}
-                         trx))))))
