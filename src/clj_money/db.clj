@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [union]]
-            [config.core :refer [env]]))
+            [config.core :refer [env]]
+            [clj-money.util :as util]))
 
 (def ^:dynamic *storage* nil)
 
@@ -94,6 +95,25 @@
     (when (= 1 (count namespaces))
       (first namespaces))))
 
+(defmulti ^:private model-type* type)
+
+; We expect this to be a criteria with a conjunction
+(defmethod model-type* ::util/vector
+  [[_conj & cs :as x]]
+  (or (-> x meta ::type)
+      (let [ts (set (map model-type cs))]
+        (when (= 1 (count ts))
+          (first ts)))))
+
+(defmethod model-type* ::util/map
+  [x]
+  (or (-> x meta ::type)
+      (single-ns (dissoc x :id))))
+
+(defmethod model-type* ::util/keyword
+  [x]
+  #(model-type % x))
+
 (defn model-type
   "The 1 arity, when given a model, retrieves the type for the given model.
   When given a keyword, returns a function that sets the model type when given
@@ -101,13 +121,8 @@
   The 2 arity sets the type for the given model in the meta data. The 2nd argument is either a
   key identyfying the model type, or another model from which the type is to be
   extracted"
-  ([arg]
-   (cond
-     (vector? arg)  (-> arg meta ::type)
-     (map? arg)     (or (-> arg meta ::type)
-                        (single-ns (dissoc arg :id)))
-     (keyword? arg) #(model-type % arg)
-     :else (throw (IllegalArgumentException. "Argument must be a map, vector, or keyword"))))
+  ([x]
+   (model-type* x))
   ([m model-or-type]
    {:pre [(map? m)
           (or (map? model-or-type)
