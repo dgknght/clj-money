@@ -494,6 +494,14 @@
 
 (def ^:dynamic *delayed* nil)
 
+(defn- propagate-scheduled-transaction
+  [{:transaction/keys [transaction-date]
+    {:scheduled-transaction/keys [last-occurrence]
+     :as sched-trx} :transaction/scheduled-transaction}]
+  (when (and last-occurrence
+             (t/before? last-occurrence transaction-date))
+    (assoc sched-trx :scheduled-transaction/last-occurrence transaction-date)))
+
 (defn- propagate-transaction
   [{:as trx :transaction/keys [transaction-date]}]
   (let [{transaction-items true
@@ -505,12 +513,15 @@
                                          [:entity/settings
                                           :settings/earliest-transaction-date]
                                          [:entity/settings
-                                          :settings/latest-transaction-date]))]
+                                          :settings/latest-transaction-date]))
+        updated-sched (propagate-scheduled-transaction trx)]
     (cons (cond-> trx
             (seq transaction-items)
             (assoc :transaction/items transaction-items))
-          (cons entity
-                others))))
+          (concat (filter identity
+                          [entity
+                           updated-sched])
+                  others))))
 
 (defn- append-delay-details
   [m {:transaction/keys [items transaction-date]}]
@@ -580,3 +591,16 @@
            result# (f#)]
        (process-delayed-balances* @*delayed* ~(first bindings))
        result#)))
+
+(defn append-items
+  "Given a list of transactions, return the same with the items appended.
+
+  If any of the transactions already has items, the sequence is returned as-is."
+  [transactions]
+  (let [trxs (seq transactions)]
+    (when trxs
+      (if (some (comp seq :transaction/items) trxs)
+        trxs
+        (let [items (group-by :transaction-item/transaction
+                              (models/select #:transaction-item{:transaction [:in (map :id trxs)]}))]
+          (map #(assoc % :transaction/items (items (:id %)))))))))

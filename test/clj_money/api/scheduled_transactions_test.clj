@@ -17,9 +17,8 @@
                                             find-entity
                                             find-account
                                             find-scheduled-transaction]]
+            [clj-money.models.transactions :as trxs]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.models.transactions :as trans]
-            [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -138,7 +137,7 @@
       "The return value contains the created schedule transaction")
   (is (comparable? #:scheduled-transaction{:description "Paycheck"
                                            :start-date (t/local-date 2021 1 1)
-                                           :date-spec {:days ["friday"]}
+                                           :date-spec {:days [:friday]}
                                            :interval-type :week
                                            :interval-count 2
                                            :memo "biweekly"
@@ -221,178 +220,185 @@
 (deftest a-user-cannot-edit-a-scheduled-transaction-in-anothers-entity
   (assert-blocked-update (update-sched-tran "jane@doe.com")))
 
-; (defn- delete-sched-tran
-;   [user-email]
-;   (let [ctx (realize update-context)
-;         user (find-user ctx user-email)
-;         tran (find-scheduled-transaction ctx "Paycheck")
-;         res (-> (req/request :delete (path :api
-;                                            :scheduled-transactions
-;                                            (:id tran)))
-;                 (add-auth user)
-;                 app
-;                 parse-json-body)
-;         retrieved (sched-trans/find tran)]
-;     [res retrieved]))
-; 
-; (defn- assert-successful-delete
-;   [[response retrieved]]
-;   (is (http-no-content? response))
-;   (is (nil? retrieved) "The record cannot be retrieved after delete"))
-; 
-; (defn- assert-blocked-delete
-;   [[response retrieved]]
-;   (is (http-not-found? response))
-;   (is retrieved "The record can still be retrieved after blocked delete"))
-; 
-; (deftest a-user-can-delete-a-scheduled-transaction-in-his-entity
-;   (assert-successful-delete (delete-sched-tran "john@doe.com")))
-; 
-; (deftest a-user-cannot-delete-a-scheduled-transaction-in-anothers-entity
-;   (assert-blocked-delete (delete-sched-tran "jane@doe.com")))
-; 
-; (defn- realize-trans
-;   [user-email]
-;   (let [ctx (realize update-context)
-;         user (find-user ctx user-email)
-;         sched-tran (find-scheduled-transaction ctx "Paycheck")
-;         res (with-fixed-time "2016-02-02T00:00:00Z"
-;                      (-> (req/request :post (path :api
-;                                                   :scheduled-transactions
-;                                                   (:id sched-tran)
-;                                                   :realize))
-;                          (add-auth user)
-;                          app
-;                          parse-json-body))
-;         retrieved (trans/search {:transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
-;                                  :entity-id (:entity-id sched-tran)
-;                                  :description "Paycheck"}
-;                                 {:include-items? true})]
-;     [res retrieved]))
-; 
-; (defn- assert-successful-realization
-;   [[response retrieved]]
-;   (is (http-created? response))
-;   (is (= 1 (count retrieved))
-;       "One transaction is created.")
-;   (is (= {:description "Paycheck"
-;           :transaction-date (t/local-date 2016 2 1)}
-;          (select-keys (first retrieved) [:description :transaction-date]))
-;       "The transaction is created with the correct attributes.")
-;   (is (= #{{:action :debit
-;             :quantity 1000M}
-;            {:action :credit
-;             :quantity 1000M}}
-;          (->> (:items (first retrieved) retrieved)
-;               (map #(select-keys % [:action :quantity]))
-;               (into #{})))
-;       "The transaction is created with the correct line items."))
-; 
-; (defn- assert-blocked-realization
-;   [[response retrieved]]
-;   (is (http-not-found? response))
-;   (is (empty? retrieved) "The transaction is not created."))
-; 
-; (deftest a-user-can-realize-a-scheduled-transaction-in-his-entity
-;   (assert-successful-realization (realize-trans "john@doe.com")))
-; 
-; (deftest a-user-cannot-realize-a-scheduled-transaction-in-anothers-entity
-;   (assert-blocked-realization (realize-trans "jane@doe.com")))
-; 
-; (def ^:private mass-realize-context
-;   (update-in update-context
-;              [:scheduled-transactions]
-;              concat
-;              [{:entity-id "Personal"
-;                :description "Groceries"
-;                :interval-type :week
-;                :interval-count 1
-;                :last-occurrence (t/local-date 2016 1 24)
-;                :start-date (t/local-date 2015 1 1)
-;                :enabled true
-;                :date-spec {:days #{:sunday} }
-;                :items [{:action :debit
-;                         :account-id "Groceries"
-;                         :quantity 100M}
-;                        {:action :credit
-;                         :account-id "Checking"
-;                         :quantity 100M}]}
-;               {:entity-id "Personal"
-;                :description "Groceries disabled"
-;                :interval-type :week
-;                :interval-count 1
-;                :last-occurrence (t/local-date 2016 1 24)
-;                :start-date (t/local-date 2015 1 1)
-;                :enabled false
-;                :date-spec {:days #{:sunday} }
-;                :items [{:action :debit
-;                         :account-id "Groceries"
-;                         :quantity 100M}
-;                        {:action :credit
-;                         :account-id "Checking"
-;                         :quantity 100M}]}
-;               {:entity-id "Personal"
-;                :description "Groceries after end date"
-;                :interval-type :week
-;                :interval-count 1
-;                :last-occurrence (t/local-date 2016 1 24)
-;                :start-date (t/local-date 2015 1 1)
-;                :end-date (t/local-date 2015 12 31)
-;                :enabled true
-;                :date-spec {:days #{:sunday} }
-;                :items [{:action :debit
-;                         :account-id "Groceries"
-;                         :quantity 100M}
-;                        {:action :credit
-;                         :account-id "Checking"
-;                         :quantity 100M}]}]))
-; 
-; (defn- realize-all-trans
-;   [user-email]
-;   (let [ctx (realize mass-realize-context)
-;         user (find-user ctx user-email)
-;         entity (find-entity ctx "Personal")
-;         res (with-fixed-time "2016-02-02T00:00:00Z"
-;                      (-> (req/request :post (path :api
-;                                                   :entities
-;                                                   (:id entity)
-;                                                   :scheduled-transactions
-;                                                   :realize))
-;                          (add-auth user)
-;                          app
-;                          parse-json-body))
-;         retrieved (trans/search {:transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
-;                                  :entity-id (:id entity)}
-;                                 {:include-items? true
-;                                  :sort [:transaction-date]})]
-;     [res retrieved]))
-; 
-; (defn- comparable-trans
-;   [trans from-json?]
-;   (cond-> (select-keys trans [:transaction-date :description])
-;     from-json? (update-in [:transaction-date] dates/unserialize-local-date)))
-; 
-; (defn- assert-successful-mass-realization
-;   [[response retrieved]]
-;   (is (http-created? response))
-;   (let [expected [{:description "Groceries"
-;                    :transaction-date (t/local-date 2016 1 31)}
-;                   {:description "Paycheck"
-;                    :transaction-date (t/local-date 2016 2 1)}
-;                   {:description "Groceries"
-;                    :transaction-date (t/local-date 2016 2 7)}]]
-;     (is (= expected (map #(comparable-trans % true) (:json-body response)))
-;         "The created transactions are returned.")
-;     (is (= expected (map #(comparable-trans % false) retrieved))
-;         "The transactions can be retrieved.")))
-; 
-; (defn- assert-blocked-mass-realization
-;   [[response retrieved]]
-;   (is (http-not-found? response))
-;   (is (empty? retrieved) "No transactions are created."))
-; 
-; (deftest a-user-can-realize-all-scheduled-transactions-in-his-entity
-;   (assert-successful-mass-realization (realize-all-trans "john@doe.com")))
-; 
-; (deftest a-user-cannot-realize-all-transactions-in-anothers-entity
-;   (assert-blocked-mass-realization (realize-all-trans "jane@doe.com")))
+(defn- delete-sched-tran
+  [user-email]
+  (with-context update-context
+    (let [tran (find-scheduled-transaction "Paycheck")]
+      [(-> (req/request :delete (path :api
+                                      :scheduled-transactions
+                                      (:id tran)))
+           (add-auth (find-user user-email))
+           app
+           parse-json-body)
+       (models/find tran)])))
+
+(defn- assert-successful-delete
+  [[response retrieved]]
+  (is (http-no-content? response))
+  (is (nil? retrieved) "The record cannot be retrieved after delete"))
+
+(defn- assert-blocked-delete
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is retrieved "The record can still be retrieved after blocked delete"))
+
+(deftest a-user-can-delete-a-scheduled-transaction-in-his-entity
+  (assert-successful-delete (delete-sched-tran "john@doe.com")))
+
+(deftest a-user-cannot-delete-a-scheduled-transaction-in-anothers-entity
+  (assert-blocked-delete (delete-sched-tran "jane@doe.com")))
+
+(defn- realize-trans
+  [user-email]
+  (with-context update-context
+    (let [sched-tran (find-scheduled-transaction "Paycheck")]
+      [(with-fixed-time "2016-02-02T00:00:00Z"
+         (-> (req/request :post (path :api
+                                      :scheduled-transactions
+                                      (:id sched-tran)
+                                      :realize))
+             (add-auth (find-user user-email))
+             app
+             parse-json-body))
+       (trxs/append-items
+         (models/select
+           #:transaction{:transaction-date [:between>
+                                            (t/local-date 2016 1 1)
+                                            (t/local-date 2017 1 1)]
+                         :entity (:scheduled-transaction/entity sched-tran)
+                         :description "Paycheck"}))
+       (models/find sched-tran)])))
+
+(defn- assert-successful-realization
+  [[response trxs retrieved]]
+  (is (http-created? response))
+  (is (= 1 (count trxs))
+      "One transaction is created.")
+  (is (seq-of-maps-like?
+        [#:transaction{:description "Paycheck"
+                       :transaction-date (t/local-date 2016 2 1)}]
+        trxs)
+      "The transaction is created with the correct attributes.")
+  (is (= #{#:transaction-item{:action :debit
+                              :quantity 1000M}
+           #:transaction-item{:action :credit
+                              :quantity 1000M}}
+         (->> (:transaction/items (first trxs))
+              (map #(select-keys % [:transaction-item/action
+                                    :transaction-item/quantity]))
+              (into #{})))
+      "The transaction is created with the correct line items.")
+  (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 2 1)}
+                   retrieved)
+      "The scheduled trx record is updated with the last occurrence"))
+
+(defn- assert-blocked-realization
+  [[response trxs retrieved]]
+  (is (http-not-found? response))
+  (is (empty? trxs) "The transaction is not created.")
+  (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 1 1)}
+                   retrieved)
+      "The scheduled trx record is not updated with the last occurrence"))
+
+(deftest a-user-can-realize-a-scheduled-transaction-in-his-entity
+  (assert-successful-realization (realize-trans "john@doe.com")))
+
+(deftest a-user-cannot-realize-a-scheduled-transaction-in-anothers-entity
+  (assert-blocked-realization (realize-trans "jane@doe.com")))
+
+(def ^:private mass-realize-context
+  (conj update-context
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Groceries"
+                                :interval-type :week
+                                :interval-count 1
+                                :last-occurrence (t/local-date 2016 1 24)
+                                :start-date (t/local-date 2015 1 1)
+                                :enabled true
+                                :date-spec {:days #{:sunday} }
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Groceries"
+                                                                     :quantity 100M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Checking"
+                                                                     :quantity 100M}]}
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Groceries disabled"
+                                :interval-type :week
+                                :interval-count 1
+                                :last-occurrence (t/local-date 2016 1 24)
+                                :start-date (t/local-date 2015 1 1)
+                                :enabled false
+                                :date-spec {:days #{:sunday} }
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Groceries"
+                                                                     :quantity 100M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Checking"
+                                                                     :quantity 100M}]}
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Groceries after end date"
+                                :interval-type :week
+                                :interval-count 1
+                                :last-occurrence (t/local-date 2016 1 24)
+                                :start-date (t/local-date 2015 1 1)
+                                :end-date (t/local-date 2015 12 31)
+                                :enabled true
+                                :date-spec {:days #{:sunday} }
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Groceries"
+                                                                     :quantity 100M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Checking"
+                                                                     :quantity 100M}]}))
+
+(defn- realize-all-trans
+  [user-email]
+  (with-context mass-realize-context
+    (let [entity (find-entity "Personal")]
+      [(with-fixed-time "2016-02-02T00:00:00Z"
+         (-> (req/request :post (path :api
+                                      :entities
+                                      (:id entity)
+                                      :scheduled-transactions
+                                      :realize))
+             (add-auth (find-user user-email))
+             app
+             parse-json-body))
+       (trxs/append-items
+         (models/select #:transaction{:transaction-date [:between>
+                                                         (t/local-date 2016 1 1)
+                                                         (t/local-date 2017 1 1)]
+                                      :entity entity}
+                        {:sort [:transaction/transaction-date]}))])))
+
+(defn- assert-successful-mass-realization
+  [[response retrieved]]
+  (is (http-created? response))
+  (is (seq-of-maps-like? [#:transaction{:description "Groceries"
+                                        :transaction-date "2016-01-31"}
+                          #:transaction{:description "Paycheck"
+                                        :transaction-date "2016-02-01"}
+                          #:transaction{:description "Groceries"
+                                        :transaction-date "2016-02-07"}]
+                         (:json-body response))
+      "The created transactions are returned.")
+  (is (seq-of-maps-like? [#:transaction{:description "Groceries"
+                                        :transaction-date (t/local-date 2016 1 31)}
+                          #:transaction{:description "Paycheck"
+                                        :transaction-date (t/local-date 2016 2 1)}
+                          #:transaction{:description "Groceries"
+                                        :transaction-date (t/local-date 2016 2 7)}]
+                         retrieved)
+      "The transactions can be retrieved."))
+
+(defn- assert-blocked-mass-realization
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is (empty? retrieved) "No transactions are created."))
+
+(deftest a-user-can-realize-all-scheduled-transactions-in-his-entity
+  (assert-successful-mass-realization (realize-all-trans "john@doe.com")))
+
+(deftest a-user-cannot-realize-all-transactions-in-anothers-entity
+  (assert-blocked-mass-realization (realize-all-trans "jane@doe.com")))

@@ -1,17 +1,18 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
-  (:require [java-time.api :as t]
+  (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
-            [clj-money.util :as util]
             [clj-money.authorization :refer [authorize
                                              allowed?
                                              +scope]
              :as authorization]
+            [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
-            [clj-money.models.scheduled-transactions :as sched-trans]
+            [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
 
 (defn- ->criteria
@@ -60,13 +61,12 @@
              authenticated))
 
 (defn- update
-  [{:keys [body] :as req}]
-  (if-let [sched-tran (find-and-authorize req ::authorization/update)]
-    (-> sched-tran
-        (merge (extract-sched-tran body))
-        models/put
-        api/response)
-    api/not-found))
+  [req]
+  (or (some-> (find-and-authorize req ::authorization/update)
+              (merge (extract-sched-tran req))
+              models/put
+              api/response)
+      api/not-found))
 
 (defn- delete
   [req]
@@ -78,24 +78,29 @@
 
 (defn- realize
   [req]
-  (if-let [sched-tran (find-and-authorize req ::sched-trans-auth/realize)]
-    (-> sched-tran
-        sched-trans/realize
-        api/creation-response)
-    api/not-found))
+  (or (some-> (find-and-authorize req ::sched-trans-auth/realize)
+              sched-trans/realize
+              models/put-many
+              api/creation-response)
+      api/not-found))
 
 (defn- mass-realize
   [{:keys [params authenticated]}]
   (if-let [entity (models/find-by (+scope {:id (:entity-id params)}
-                                            :entity
-                                            authenticated))]
-    (->> (models/select :#scheduled-transaction{:entity entity
-                                                :enabled true})
-         (filter #(and (or (nil? (:scheduled-transaction/end-date %))
-                           (t/before? (t/local-date) (:scheduled-transaction/end-date %)))
-                       (allowed? % ::sched-trans-auth/realize authenticated)))
+                                          :entity
+                                          authenticated))]
+    (->> (models/select
+           [:and
+            #:scheduled-transaction{:entity entity
+                                    :enabled true}
+            [:or
+             {:scheduled-transaction/end-date nil}
+             {:scheduled-transaction/end-date [:< (t/local-date)]}]])
+         (filter #(allowed? % ::sched-trans-auth/realize authenticated))
          (mapcat sched-trans/realize)
          (sort-by :transaction/transaction-date t/before?)
+         models/put-many
+         (filter (db/model-type? :transaction))
          api/creation-response)
     api/not-found))
 
