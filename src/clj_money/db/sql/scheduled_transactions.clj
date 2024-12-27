@@ -17,6 +17,12 @@
         (map #(assoc % :scheduled-transaction-item/scheduled-transaction-id id)
              items)))
 
+(defn- ->keyword
+  [x]
+  (if (string? x)
+    (keyword x)
+    x))
+
 (defmethod sql/after-read :scheduled-transaction
   [trx]
   (-> trx
@@ -24,9 +30,8 @@
       (update-in [:scheduled-transaction/date-spec] json->map)
       (update-in-if [:scheduled-transaction/start-date] t/local-date)
       (update-in-if [:scheduled-transaction/end-date] t/local-date)
-      (update-in-if [:scheduled-transaction/date-spec :day] #(if (string? %)
-                                                               (keyword %)
-                                                               %))))
+      (update-in-if [:scheduled-transaction/date-spec :day] ->keyword)
+      (update-in-if [:scheduled-transaction/date-spec :days] #(mapv ->keyword %))))
 
 (defmethod sql/post-select :scheduled-transaction
   [storage trxs]
