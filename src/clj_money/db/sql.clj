@@ -48,6 +48,7 @@
    :account/commodity
    :account/parent
    :transaction/entity
+   :transaction/scheduled-transaction
    :transaction-item/account
    :transaction-item/reconciliation
    :transaction-item/transaction
