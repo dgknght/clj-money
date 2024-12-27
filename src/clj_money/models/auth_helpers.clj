@@ -66,6 +66,10 @@
       {:account/id (:id account)}
       :entity)))
 
+(defmethod fetch-entity :trade
+  [{:trade/keys [entity]}]
+  (fetch-entity* entity))
+
 (defn user-granted-access?
   [resource entity user action]
   (when-let [g (models/find-by #:grant{:user user
