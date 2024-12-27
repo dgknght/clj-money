@@ -136,13 +136,13 @@
     (ensure-tag result :tradable)))
 
 (defn- create-commodity-account
-  [parent commodity]
+  [parent {:as commodity :commodity/keys [entity]}]
   {:id (util/temp-id)
    :account/name (:commodity/symbol commodity)
    :account/type :asset
    :account/commodity commodity
    :account/parent parent
-   :account/entity (:account/entity parent)
+   :account/entity entity
    :account/system-tags #{:tradable}})
 
 (defn- find-or-create-commodity-account
