@@ -96,6 +96,17 @@
             rules)
     models))
 
+; post-read coercions
+(def ^:private coercions
+  {:transaction-item/action keyword})
+
+(defn- apply-coercions
+  [x]
+  (reduce (fn [m [k f]]
+            (update-in-if m [k] f))
+          x
+          coercions))
+
 (def ^:private sql-ref-keys
   (mapv #(keyword (namespace %)
                   (str (name %) "-id"))
@@ -322,6 +333,7 @@
       (post-select
         (:storage options)
         (map (comp after-read
+                   apply-coercions
                    ->model-refs
                    refine-qualifiers)
              (jdbc/execute! ds
