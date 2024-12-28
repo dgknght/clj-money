@@ -141,7 +141,11 @@
   "Given a transaction item and an account, returns the quantity of the
   transaction item vis a vis the account (i.e., positive or negative)."
   [quantity action account]
-  {:pre [quantity action account (:account/type account)]}
+  {:pre [quantity
+         action
+         (#{:debit :credit} action)
+         account
+         (:account/type account)]}
   (* quantity
      (polarizer action account)))
 
