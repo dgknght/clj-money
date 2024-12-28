@@ -1,19 +1,21 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-int
                                           parse-bool
-                                          uuid]]
-            [dgknght.app-lib.authorization :refer [+scope]]
+                                          uuid
+                                          index-by]]
             [dgknght.app-lib.api :as api]
+            [clj-money.db :as db]
             [clj-money.dates :as dates]
-            [clj-money.util :refer [presence]]
-            [clj-money.transactions :refer [summarize-items]]
+            [clj-money.util :as util]
+            [clj-money.transactions :refer [summarize-items
+                                            polarize-item-quantity]]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.accounts :as acts]
             [clj-money.accounts :refer [->criteria]]
+            [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.transactions]))
 
 (defn- translate-dates
@@ -30,8 +32,9 @@
 (defn- apply-child-inclusion
   [{:keys [account-id] :as criteria} include-children?]
   (if include-children?
-    (merge criteria (->criteria (acts/search
-                                 {:id account-id}
+    (merge criteria (->criteria (models/select
+                                 (db/model-type {:id account-id}
+                                                :account)
                                  {:include-children? true})))
     criteria))
 
@@ -39,16 +42,29 @@
   [{:keys [account-id] :as criteria}]
   (if (:transaction-date criteria)
     criteria
-    (merge criteria (->criteria (acts/find account-id)))))
+    (merge criteria (->criteria (models/find account-id :account)))))
 
-(defn- apply-unreconciled
-  [{:keys [unreconciled] :as criteria}]
+; This could be done at the database layer with more sophisticated
+; logic for specifying joins
+(defn- filter-reconciled
+  [{{:keys [unreconciled]} :params} items]
   (if (parse-bool unreconciled)
-    [:and (dissoc criteria :unreconciled)
-     [:or
-      {:reconciliation-id nil}
-      {[:reconciliation :status] "new"}]]
-    criteria))
+    (if-let [recon-ids (->> items
+                            (map (comp :id :transaction-item/reconciliation))
+                            set
+                            seq)]
+      (let [unreconciled? (complement
+                            (->> (models/select
+                                   {:id [:in recon-ids]
+                                    :reconciliation/status :completed})
+                                 (map :id)
+                                 set))]
+        (filter (comp unreconciled?
+                      :id
+                      :transaction-item/reconciliation)
+                items))
+      items)
+    items))
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
@@ -60,28 +76,74 @@
       translate-dates
       (apply-child-inclusion (parse-bool (:include-children params)))
       ensure-dates
-      (update-in-if [:reconciliation-id] (comp uuid presence))
+      (update-in-if [:reconciliation-id] (comp uuid util/presence))
       (select-keys [:transaction-date
                     :account-id
                     :entity-id
                     :unreconciled
                     :reconciliation-id])
-      apply-unreconciled
-      (+scope ::models/transaction-item authenticated)))
+      (rename-keys {:transaction-date :transaction-item/transaction-date
+                    :account-id :transaction-item/account
+                    :entity-id :transaction/entity
+                    :reconciliation-id :transaction-item/reconciliation})
+      (update-in-if [:transaction-item/account] util/->model-ref)
+      (update-in-if [:transaction-item/reconciliation] util/->model-ref)
+      (update-in-if [:transaction/entity] util/->model-ref)
+      (select-keys [:transaction-item/transaction-date
+                    :transaction-item/account
+                    :transaction-item/reconciliation
+                    :transaction/entity])
+      (+scope :transaction-item authenticated)))
 
 (defn- extract-options
   [{:keys [params]}]
   (-> params
-      (update-in-if [:limit] parse-int)
+      #_(update-in-if [:limit] parse-int)
       (update-in-if [:skip] parse-int)
-      (assoc :sort [[:index :desc]])))
+      (select-keys [#_:limit :skip])))
+
+; TODO: fix the join problem with the query and move the limit back to the SQL query
+(defn- apply-limit
+  [{{:keys [limit]} :params} items]
+  (if limit
+    (take (parse-int limit) items)
+    items))
+
+(defn- polarize-quantities
+  [items]
+  (if (seq items)
+    (let [accounts (index-by :id
+                             (models/select
+                               (db/model-type
+                                 {:id [:in (set (map (comp :id :transaction-item/account)
+                                                     items))]}
+                                 :account)))]
+      (map (comp polarize-item-quantity
+                 #(update-in %
+                             [:transaction-item/account]
+                             (comp accounts :id)))
+           items))
+    items))
+
+(defn- ->model-refs
+  [items]
+  (map #(update-in %
+                   [:transaction-item/account]
+                   util/->model-ref)
+       items))
 
 (defn- index
   [req]
-  (-> req
-      extract-criteria
-      (transactions/search-items (extract-options req))
-      api/response))
+  (->> (-> req
+           extract-criteria
+           (models/select (assoc (extract-options req)
+                                 :sort [[:transaction-item/index :desc]]
+                                 :select-also [:transaction/description])))
+       (filter-reconciled req)
+       (apply-limit req)
+       polarize-quantities
+       ->model-refs
+       api/response))
 
 (defn- extract-summary-criteria
   [{:keys [params]}]
@@ -95,11 +157,11 @@
   [{:keys [authenticated] :as req}]
   (let [{[start-date end-date] :transaction-date
          :as criteria} (extract-summary-criteria req)
-        items (transactions/search-items (-> criteria
-                                             (update-in [:transaction-date] #(vec (cons :between> %)))
-                                             (select-keys [:transaction-date
-                                                           :account-id])
-                                             (+scope ::models/transaction-item authenticated)))]
+        items (models/select (-> criteria
+                                 (update-in [:transaction-item/transaction-date] #(apply vector :between> %))
+                                 (select-keys [:transaction-date/transaction-date
+                                               :transaction-date/account])
+                                 (+scope :transaction-item authenticated)))]
     (api/response
       (summarize-items (-> criteria
                            (select-keys [:interval-type :interval-count])

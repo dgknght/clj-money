@@ -314,7 +314,7 @@
         (update-in [:reconciliation/item-refs]
                    (fn [i]
                      (mapv (comp (juxt :id :transaction-item/transaction-date)
-                                 (find-transaction-item ctx)
+                                 #(find-transaction-item ctx %)
                                  #(conj % account))
                            i))))))
 

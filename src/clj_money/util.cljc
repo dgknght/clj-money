@@ -260,9 +260,10 @@
   v)
 
 (defn pp->>
-  [m v]
-  (pprint {m v})
-  v)
+  ([m v] (pp->> m {} v))
+  ([m {:keys [transform] :or {transform identity}} v]
+   (pprint {m (transform v)})
+   v))
 
 (defn qualifier
   "Given a map, returns the namespace from the keys. If there is more than one

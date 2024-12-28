@@ -155,7 +155,7 @@
         (assoc :transaction/items items)
         (dissoc :trade/account :trade/shares :trade/action :trade/commodity))))
 
-(defn- polarize-item-quantity
+(defn polarize-item-quantity
   [{:transaction-item/keys [account quantity action] :as item}]
   (assoc item
          :transaction-item/polarized-quantity
