@@ -156,10 +156,12 @@
         (dissoc :trade/account :trade/shares :trade/action :trade/commodity))))
 
 (defn polarize-item-quantity
-  [{:transaction-item/keys [account quantity action] :as item}]
-  (assoc item
+  [{:transaction-item/keys [account quantity action polarized-quantity] :as item}]
+  (if polarized-quantity
+    item
+    (assoc item
          :transaction-item/polarized-quantity
-         (polarize-quantity quantity action account)))
+         (polarize-quantity quantity action account))))
 
 (defn- summarize-period
   [[start-date end-date] items]
@@ -172,13 +174,13 @@
                   (reduce + 0M))})
 
 (defn summarize-items
-  [{:keys [interval-type interval-count start-date end-date]
+  [{:keys [interval-type interval-count since as-of]
     :or {interval-count 1}}
    items]
-  (->> (dates/ranges start-date
+  (->> (dates/ranges since
                      (dates/period interval-type interval-count)
                      :inclusive true)
-       (take-while #(apply dates/overlaps? start-date end-date %))
+       (take-while #(apply dates/overlaps? since as-of %))
        (map #(summarize-period % items))))
 
 (defn expand

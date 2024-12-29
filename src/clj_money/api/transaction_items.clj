@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.spec.alpha :as s]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-int
                                           parse-bool
@@ -29,13 +30,17 @@
                      (dates/unserialize-local-date (second v))]
                     (dates/unserialize-local-date v)))))
 
-(defn- apply-child-inclusion
-  [{:keys [account-id] :as criteria} include-children?]
-  (if include-children?
-    (merge criteria (->criteria (models/select
-                                 (db/model-type {:id account-id}
-                                                :account)
-                                 {:include-children? true})))
+(defn- apply-account-recursion
+  [{:keys [include-children] :as criteria}]
+  (if (parse-bool include-children)
+    (update-in criteria
+               [:transaction-item/account]
+               (fn [id]
+                 [:in (mapv :id (models/select
+                                  (db/model-type {:id id} :account)
+                                  {:include-children? true
+                                   :select :account/id}))]))
+
     criteria))
 
 (defn- ensure-dates
@@ -74,20 +79,15 @@
              (:account-id params))]}
   (-> params
       translate-dates
-      (apply-child-inclusion (parse-bool (:include-children params)))
       ensure-dates
-      (update-in-if [:reconciliation-id] (comp uuid util/presence))
-      (select-keys [:transaction-date
-                    :account-id
-                    :entity-id
-                    :unreconciled
-                    :reconciliation-id])
       (rename-keys {:transaction-date :transaction-item/transaction-date
                     :account-id :transaction-item/account
                     :entity-id :transaction/entity
                     :reconciliation-id :transaction-item/reconciliation})
+      apply-account-recursion
       (update-in-if [:transaction-item/account] util/->model-ref)
-      (update-in-if [:transaction-item/reconciliation] util/->model-ref)
+      (update-in-if [:transaction-item/reconciliation] (comp util/->model-ref
+                                                             uuid))
       (update-in-if [:transaction/entity] util/->model-ref)
       (select-keys [:transaction-item/transaction-date
                     :transaction-item/account
@@ -137,7 +137,8 @@
   (->> (-> req
            extract-criteria
            (models/select (assoc (extract-options req)
-                                 :sort [[:transaction-item/index :desc]]
+                                 :sort [[:transaction-item/transaction-date :desc]
+                                        [:transaction-item/index :desc]]
                                  :select-also [:transaction/description])))
        (filter-reconciled req)
        (apply-limit req)
@@ -145,30 +146,57 @@
        ->model-refs
        api/response))
 
+(s/def ::serialized-date (partial re-matches #"^\d{4}-\d{2}-\d{2}$"))
+(s/def ::transaction-date (s/coll-of ::serialized-date :count 2))
+(s/def ::account-id int?)
+(s/def ::entity-id int?)
+(s/def ::raw-summary-criteria (s/keys :req-un [::transaction-date]
+                                      :opt-un [::account-id
+                                               ::entity-id]))
+
 (defn- extract-summary-criteria
-  [{:keys [params]}]
+  [{:keys [params] :as req}]
+  {:pre [(s/valid? ::raw-summary-criteria (:params req))]}
   (-> params
-      (update-in-if [:interval-type] keyword)
-      (update-in-if [:interval-count] parse-int)
-      (update-in-if [:transaction-date 0] dates/unserialize-local-date)
-      (update-in-if [:transaction-date 1] dates/unserialize-local-date))) ; TODO: Ensure start and end date
+      (rename-keys {:transaction-date :transaction/transaction-date
+                    :account-id :transaction-item/account
+                    :entity-id :transaction/entity})
+      (update-in [:transaction/transaction-date]
+                 (fn [dates]
+                   (apply vector
+                          :between>
+                          (map dates/unserialize-local-date dates))))
+      (update-in-if [:transaction-item/account] util/->model-ref)
+      (update-in-if [:transaction/entity] util/->model-ref)
+      (select-keys [:transaction-item/account
+                    :transaction/transaction-date
+                    :transaction/entity])))
+
+(s/def ::interval-type #{"day" "week" "month" "year"})
+(s/def ::interval-count (partial re-matches #"^\d+$"))
+(s/def ::raw-summary-options (s/keys :req-un [::interval-type
+                                              ::interval-count]))
+
+(defn- extract-summary-options
+  [{:keys [params]}]
+  {:pre [(s/valid? ::raw-summary-options params)]}
+  (-> params
+      (update-in [:interval-type] keyword)
+      (update-in [:interval-count] parse-int)
+      (select-keys [:interval-type :interval-count])))
 
 (defn- summarize
   [{:keys [authenticated] :as req}]
-  (let [{[start-date end-date] :transaction-date
-         :as criteria} (extract-summary-criteria req)
-        items (models/select (-> criteria
-                                 (update-in [:transaction-item/transaction-date] #(apply vector :between> %))
-                                 (select-keys [:transaction-date/transaction-date
-                                               :transaction-date/account])
-                                 (+scope :transaction-item authenticated)))]
-    (api/response
-      (summarize-items (-> criteria
-                           (select-keys [:interval-type :interval-count])
-                           (update-in [:interval-type] keyword)
-                           (assoc :start-date start-date
-                                  :end-date end-date))
-                       items))))
+  (let [{[_ since as-of] :transaction/transaction-date
+         :as criteria} (extract-summary-criteria req)]
+    (->> (models/select (+scope criteria
+                                :transaction-item
+                                authenticated))
+         polarize-quantities
+         (summarize-items (assoc (extract-summary-options req)
+                                 :since since
+                                 :as-of as-of))
+         api/response)))
 
 (def routes
   [["accounts/:account-id/transaction-items" {:get {:handler index}}]
