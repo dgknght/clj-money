@@ -14,6 +14,14 @@
 (derive #?(:clj clojure.lang.PersistentVector
            :cljs cljs.core/PersistentVector)
         ::vector)
+(derive #?(:clj clojure.lang.PersistentList
+           :cljs cljs.core/List)
+        ::list)
+(derive #?(:clj clojure.lang.PersistentList$EmptyList
+           :cljs cljs.core/EmptyList)
+        ::list)
+(derive ::vector ::collection)
+(derive ::list ::collection)
 (derive #?(:clj clojure.lang.PersistentArrayMap
            :cljs cljs.core/PersistentArrayMap)
         ::map)
@@ -36,29 +44,30 @@
   #?(:clj (.abs value) ; we're assuming BigDecimal here
      :cljs (Math/abs value)))
 
-(defmulti present?
-  #(cond
-     (string? %) :string
-     (coll? %) :collection))
+(defmulti present? type)
 
-(defmethod present? :string
+(defmethod present? :default
+  [x]
+  (not (not x)))
+
+(defmethod present? ::string
   [value]
   (and value (seq value)))
 
-(defmulti presence
-  #(cond
-     (string? %) :string
-     (coll? %) :collection))
+(defmethod present? ::collection
+  [col]
+  (some present? col))
 
-(defmethod presence :string
-  [value]
-  (when-not (empty? value)
-    value))
+(def blank?
+  (complement present?))
 
-(defmethod presence :collection
-  [values]
-  (when-not (empty? values)
-    values))
+(defn presence
+  [x]
+  (when (present? x) x))
+
+(defn presence-or
+  [value default]
+  (or (presence value) default))
 
 (defmulti update-in-criteria
   (fn [criteria attr _f]

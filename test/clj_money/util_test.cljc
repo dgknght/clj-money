@@ -1,6 +1,6 @@
 (ns clj-money.util-test
-  (:require #?(:clj [clojure.test :refer [deftest is are]]
-               :cljs [cljs.test :refer [deftest is are]])
+  (:require #?(:clj [clojure.test :refer [deftest is are testing]]
+               :cljs [cljs.test :refer [deftest is are testing]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             [clj-money.util :as util]))
@@ -198,3 +198,47 @@
   (is (not (util/temp-id? "101"))
       "A string is not a temp id")
   (is (not (util/temp-id? (random-uuid)))))
+
+(deftest detect-the-presence-of-a-value
+  (testing "strings"
+    (is (util/present? "A")
+        "A string that is not empty is present")
+    (is (not (util/blank? "A"))
+        "A string that is not empty is not blank")
+    (is (not (util/present? ""))
+        "An empty string is not present")
+    (is (util/blank? "")
+        "An empty string is blank")
+    (is (nil? (util/presence ""))
+        "The presence of an empty string is nil"))
+  (testing "nil"
+    (is (not (util/present? nil))
+        "Nil is not present")
+    (is (nil? (util/presence nil))
+        "The presence of nil is nil")
+    (is (util/blank? nil)
+        "Nil is blank"))
+  (testing "vectors"
+    (is (not (util/present? []))
+        "An empty vector is not present")
+    (is (util/blank? [])
+        "An empty vector is blank")
+    (is (util/present? ["A"])
+        "An vector with a non-blank value is present")
+    (is (not (util/blank? ["A"]))
+        "An vector with a non-blank value is not blank"))
+  (testing "lists"
+    (is (not (util/present? '()))
+        "An empty vector is not present")
+    (is (util/blank? '())
+        "An empty vector is blank")
+    (is (util/present? '("A"))
+        "An vector with a non-blank value is present")
+    (is (not (util/blank? '("A")))
+        "An vector with a non-blank value is not blank")))
+
+(deftest use-a-present-value-or-default
+  (is (= "A" (util/presence-or "" "A"))
+      "A blank value is replaced with the default")
+  (is (= "A" (util/presence-or "A" "B"))
+      "A present value is returned"))
