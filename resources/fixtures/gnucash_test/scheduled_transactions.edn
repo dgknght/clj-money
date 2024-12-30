@@ -1,47 +1,60 @@
 {:input "resources/fixtures/scheduled_transactions.gnucash"
- :expectations {:declaration [{:record-type :commodity
-                               :record-count 2}
-                              {:record-type :account
-                               :record-count 9}
-                              {:record-type :transaction
-                               :record-count 1}
-                              {:record-type :scheduled-transaction
-                               :record-count 1}]
-                :account [{:name "Checking"
-                           :id "3f83204db3ed4cb8998cee6de8edbf01"
-                           :parent-id "b0cd96369bed4cc98c45525e246f0ffa"
-                           :type :asset
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Salary"
-                           :id "070eeff91b85426b9428d9a024f710f8"
-                           :parent-id "fb2e12ffa74240cab076f01ffaa60d86"
-                           :type :income
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Opening Balances"
-                           :id "8e435482121749dc9338d9636fb0dbfc"
-                           :parent-id "8af2e30cfbb1431d902dd606201b2633"
-                           :type :equity
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
+ :expectations {:declaration [{:declaration/record-type :commodity
+                               :declaration/record-count 2
+                               :import/record-type :declaration}
+                              {:declaration/record-type :account
+                               :declaration/record-count 9
+                               :import/record-type :declaration}
+                              {:declaration/record-type :transaction
+                               :declaration/record-count 1
+                               :import/record-type :declaration}
+                              {:declaration/record-type :scheduled-transaction
+                               :declaration/record-count 1
+                               :import/record-type :declaration}]
+                :account [{:account/name "Checking"
+                           :account/type :asset
+                           :import/id "3f83204db3ed4cb8998cee6de8edbf01"
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/parent-id "b0cd96369bed4cc98c45525e246f0ffa"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Salary"
+                           :account/type :income
+                           :import/id "070eeff91b85426b9428d9a024f710f8"
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/parent-id "fb2e12ffa74240cab076f01ffaa60d86"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Opening Balances"
+                           :account/type :equity
+                           :import/id "8e435482121749dc9338d9636fb0dbfc"
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/parent-id "8af2e30cfbb1431d902dd606201b2633"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
 
-                          {:name "Imbalance-USD"
-                           :id "0d210f7e5d8445cd8ae4aa32ddc268c7"
-                           :parent-id "bb169de428da4462b2b598590e565ee1"
-                           :type :asset
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}]
-                :scheduled-transaction [{:description "Paycheck"
-                                         :start-date #local-date "2016-01-15"
-                                         :end-date #local-date "2018-12-31"
-                                         :enabled true
-                                         :last-occurrence nil
-                                         :interval-type :week
-                                         :interval-count 2
-                                         :items [{:action :debit
-                                                  :account-id "3f83204db3ed4cb8998cee6de8edbf01"
-                                                  :quantity 1000M}
-                                                 {:action :credit
-                                                  :account-id "070eeff91b85426b9428d9a024f710f8"
-                                                  :quantity 1000M}]}]}}
+                          {:account/name "Imbalance-USD"
+                           :account/type :asset
+                           :import/id "0d210f7e5d8445cd8ae4aa32ddc268c7"
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/parent-id "bb169de428da4462b2b598590e565ee1"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}]
+                :scheduled-transaction [{:scheduled-transaction/description "Paycheck"
+                                         :scheduled-transaction/start-date #local-date "2016-01-15"
+                                         :scheduled-transaction/end-date #local-date "2018-12-31"
+                                         :scheduled-transaction/enabled true
+                                         :scheduled-transaction/last-occurrence nil
+                                         :scheduled-transaction/interval-type :week
+                                         :scheduled-transaction/interval-count 2
+                                         :scheduled-transaction/items [{:scheduled-transaction-item/action :debit
+                                                                        :scheduled-transaction-item/quantity 1000M
+                                                                        :import/account-id "3f83204db3ed4cb8998cee6de8edbf01"}
+                                                                       {:scheduled-transaction-item/action :credit
+                                                                        :scheduled-transaction-item/quantity 1000M
+                                                                        :import/account-id "070eeff91b85426b9428d9a024f710f8"}]
+                                         :import/record-type :scheduled-transaction}]}}

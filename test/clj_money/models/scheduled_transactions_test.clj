@@ -4,7 +4,6 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
-            [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models :as models]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
@@ -13,9 +12,7 @@
                                             find-entity
                                             find-account
                                             find-scheduled-transaction
-                                            basic-context]]
-            [clj-money.models.scheduled-transactions :as sched-trans]
-            [clj-money.models.transactions :as trans]))
+                                            basic-context]]))
 
 (use-fixtures :each reset-db)
 

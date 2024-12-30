@@ -198,23 +198,23 @@
   (let [raw-type (keyword (::cd/type attrs))
         record-type (get-in record-type-subs [raw-type] raw-type)
         record-count (parse-int (agg-text-content (peek content)))
-        record (with-meta {:record-type record-type
-                           :record-count (+ record-count
-                                            (if (= :commodity record-type) 1 0))}
-                          {:record-type :declaration})]
+        record {:import/record-type :declaration
+                :declaration/record-type record-type
+                :declaration/record-count (+ record-count
+                                             (if (= :commodity record-type) 1 0))}]
     (>!! out-chan record))
   (pop-elem state))
 
 (defmethod ^:private process-elem ::gnc/commodity
   [{:keys [out-chan child-content] :as state} _]
-  (>!! out-chan (with-meta (into {} (peek child-content))
-                  {:record-type :commodity}))
+  (>!! out-chan (into {:import/record-type :commodity}
+                      (peek child-content)))
   (pop-elem state))
 
 (defmethod ^:private process-elem :price
   [{:keys [out-chan child-content] :as state} _]
-  (>!! out-chan (with-meta (into {} (peek child-content))
-                  {:record-type :price}))
+  (>!! out-chan (into {:import/record-type :price}
+                      (peek child-content)))
   (pop-elem state))
 
 (defn- template?
@@ -240,12 +240,12 @@
                                           "tax-related"
                                           "payer-name-source"} (:key %))) ; TODO: probably should catch this earlier in the process
                               first)]
-      (>!! out-chan (with-meta account
-                               {:record-type :account}))
+      (>!! out-chan (assoc account
+                           :import/record-type :account))
       (when reconciliation
-        (>!! out-chan (-> reconciliation
-                          (assoc :account-id (:id account))
-                          (with-meta {:record-type :reconciliation}))))))
+        (>!! out-chan (assoc reconciliation
+                             :account-id (:id account)
+                             :import/record-type :reconciliation)))))
   (pop-elem state))
 
 (defmethod ^:private process-elem ::act/slots
@@ -259,15 +259,15 @@
 
 (defmethod ^:private process-elem ::gnc/budget
   [{:keys [out-chan child-content] :as state} _]
-  (>!! out-chan (with-meta (reduce (fn [r [k v]]
-                                     (if (= :item k)
-                                       (update-in r [:items] conj v)
-                                       (if (blank-string? v)
-                                         r
-                                         (assoc r k v))))
-                                   {:items []}
-                                   (peek child-content))
-                  {:record-type :budget}))
+  (>!! out-chan (reduce (fn [r [k v]]
+                          (if (= :item k)
+                            (update-in r [:budget/items] conj v)
+                            (if (blank-string? v)
+                              r
+                              (assoc r k v))))
+                        {:budget/items []
+                         :import/record-type :budget}
+                        (peek child-content)))
   (pop-elem state))
 
 (defmethod ^:private process-elem ::bgt/slots
@@ -455,11 +455,10 @@
 (defn- process-transaction-elem
   [{:keys [out-chan child-content] :as state}]
   (>!! out-chan
-       (with-meta
-         (reduce aggregate-child-attr
-                 {:splits []}
-                 (peek child-content))
-         {:record-type :transaction}))
+       (reduce aggregate-child-attr
+               {:splits []
+                :import/record-type :transaction}
+               (peek child-content)))
   (pop-elem state))
 
 (defmethod ^:private process-elem ::gnc/transaction
@@ -482,12 +481,11 @@
                     flatten
                     (partition 2)
                     (map vec)
-                    (into {}))
+                    (into {:import/record-type :scheduled-transaction}))
         template (get-in templates [(:templ-acct record)])
         sched-tran (-> record
                        (dissoc :templ-acct)
-                       (assoc :items (:items template))
-                       (with-meta {:record-type :scheduled-transaction}))]
+                       (assoc :items (:items template)))]
     (>!! out-chan sched-tran))
   (pop-elem state))
 
@@ -517,11 +515,7 @@
   [{:keys [elems] :as state} _]
   (process-elem state (peek elems)))
 
-(defn- dispatch-record-type
-  [record & _]
-  (-> record meta :record-type))
-
-(defmulti ^:private emit-record? dispatch-record-type)
+(defmulti ^:private emit-record? :import/record-type)
 
 (defmethod ^:private emit-record? :default
   [& _]
@@ -529,32 +523,29 @@
 
 (defmethod ^:private emit-record? :declaration
   [record]
-  (not= :book (:record-type record)))
+  (not= :book (:declaration/record-type record)))
 
-(def ^:private filter-records
-  (filter emit-record?))
-
-(defmulti ^:private process-record dispatch-record-type)
+(defmulti ^:private process-record (fn [r & _]
+                                     (:import/record-type r)))
 
 (defmethod ^:private process-record :default
   [record _]
   record)
 
 (defmethod ^:private process-record :commodity
-  [{:keys [id name space quote_source] :as commodity} _]
-  (let [result (-> commodity
-                   (assoc :name (or name id)
-                          :type (if (= "currency" quote_source)
-                                  :currency
-                                  (or (#{:fund :currency} (-> space s/lower-case keyword))
-                                      :stock))
-                          :symbol id)
-                   (select-keys [:name :symbol :type :exchange])
-                   (vary-meta assoc :ignore? (= "template" id)))
-        exchange (#{:nasdaq :nyse :amex} (-> space s/lower-case keyword))]
-    (if exchange
-      (assoc result :exchange exchange)
-      result)))
+  [{:keys [id name quote_source] :as record} _]
+  (let [space (-> record :space s/lower-case keyword)
+        exchange (#{:nasdaq :nyse :amex} space)
+        type (if (= "currency" quote_source)
+               :currency
+               (or (#{:fund :currency} space)
+                 :stock))]
+    (cond-> {:import/record-type :commodity
+             :import/ignore? (= "template" id)
+             :commodity/name (or name id)
+             :commodity/symbol id
+             :commodity/type type}
+      exchange (assoc :commodity/exchange exchange))))
 
 (defmethod ^:private process-record :price
   [price state]
@@ -563,49 +554,62 @@
         symbol (-> price :commodity :id)
         k [:prices exchange symbol]]
     (swap! state assoc-in [k] trade-date)
-    (-> price
-        (assoc :trade-date trade-date
-               :price (-> price :value parse-decimal)
-               :exchange exchange
-               :symbol symbol)
-        (dissoc :time :value :commodity :currency))))
+    {:import/record-type :price
+     :import/ignore? false
+     :price/trade-date trade-date
+     :price/price (-> price :value parse-decimal)
+     :commodity/symbol symbol
+     :commodity/exchange exchange}))
+
+(def ^:private currency?
+  #{:iso4217 :currency})
+
+(defn- account-commodity-type
+  [{:keys [commodity]}]
+  (let [space (some-> (:space commodity)
+                      s/lower-case
+                      keyword)]
+    {:type (if (currency? space)
+             :currency
+             :stock) ; TODO: Can we distinguish a stock from a fund here?
+     :exchange (when (not (currency? space))
+                 space)}))
 
 (defmethod ^:private process-record :account
-  [account _]
-  (let [account-type (account-types-map (:type account))]
-    (when-not account-type
-      (throw (ex-info (format "Unrecognized account type \"%s\"" (:type account))
-                      {:account account})))
-    (-> account
-        (rename-keys {:parent :parent-id})
-        (update-in [:type] account-types-map)
-        (update-in [:commodity] #(-> %
-                                     (rename-keys {:space :exchange
-                                                   :id :symbol})
-                                     (update-in [:exchange] (fn [e]
-                                                              (when e
-                                                                (if (= e "ISO4217")
-                                                                  :currency
-                                                                  (-> e
-                                                                      s/lower-case
-                                                                      keyword)))))))
-        (vary-meta assoc :ignore? (contains? ignored-accounts (:name account))))))
+  [{:as record :keys [commodity]} _]
+  (if-let [account-type (account-types-map (:type record))]
+    (cond-> {:import/record-type :account
+             :import/id (:id record)
+             :import/parent-id (:parent record)
+             :import/ignore? (contains? ignored-accounts (:name record))
+             :account/type account-type
+             :account/name (:name record)}
+      commodity (assoc :import/commodity
+                       (let [{:keys [type exchange]} (account-commodity-type record)]
+                         (cond-> {:commodity/symbol (-> record :commodity :id)
+                                  :commodity/type type}
+                           exchange
+                           (assoc :commodity/exchange exchange)))))
+    (throw (ex-info (format "Unrecognized account type \"%s\"" (:type record))
+                    {:account record}))))
+
+(defn- parse-reconciliation-date
+  [d]
+  (t/local-date (.atZone (Instant/ofEpochSecond (parse-int d))
+                         (ZoneId/of "America/Chicago"))))
 
 (defmethod ^:private process-record :reconciliation
-  [reconciliation _]
-  (-> reconciliation
-      (rename-keys {:last-date :end-of-period})
-      (assoc :id (s/replace (str (uuid)) #"-" ""))
-      (update-in-if [:include-children] parse-bool)
-      (update-in-if [:end-of-period] (comp t/local-date
-                                           #(.atZone % (ZoneId/of "America/Chicago"))
-                                           #(Instant/ofEpochSecond %)
-                                           parse-int))))
+  [record _]
+  {:import/record-type :reconciliation
+   :import/id (s/replace (str (uuid)) #"-" "")
+   :import/include-children? (parse-bool (:include-children record))
+   :import/account-id (:account-id record)
+   :reconciliation/end-of-period (parse-reconciliation-date (:last-date record))})
 
 (defmulti ^:private refine-trading-transaction
   (fn [transaction]
-    (let [actions (->> (:items transaction)
-                       (map :action)
+    (let [actions (->> (:transaction/items transaction)
+                       (map :transaction-item/action)
                        set)]
       (cond
         (empty? actions)              :none
@@ -624,19 +628,13 @@
    (abs-items transaction (constantly true)))
   ([transaction pred]
    (update-in transaction
-              [:items]
+              [:transaction/items]
               (fn [items]
-                (map (comp #(if (pred %)
-                              (-> %
-                                  (update-in [:quantity] abs)
-                                  (update-in [:value] (fnil abs 0M)))
-                              %)
-                           #(select-keys % [:value ; TODO: This probably belongs somewhere more general
-                                            :quantity
-                                            :account-id
-                                            :action
-                                            :reconciled
-                                            :memo]))
+                (map #(if (pred %)
+                        (-> %
+                            (update-in [:transaction-item/quantity] abs)
+                            (update-in [:transaction-item/value] (fnil abs 0M)))
+                        %)
                      items)))))
 
 (defmethod ^:private refine-trading-transaction :default
@@ -651,101 +649,99 @@
 (defn- adjust-trade-actions
   [items]
   (map (fn [item]
-         (update-in item [:action] #(get-in trade-actions-map [%] %)))
+         (update-in item [:transaction-item/action] #(get-in trade-actions-map [%] %)))
        items))
+
+(defn- trx-item-by-action
+  [{:transaction/keys [items]} action]
+  (->> items
+       (filter #(= action (:transaction-item/action %)))
+       first))
 
 (defmethod ^:private refine-trading-transaction :purchase
   [transaction]
-  (let [commodity-item (->> (:items transaction)
-                            (filter #(= :buy (:action %)))
-                            first)]
+  (let [commodity-item (trx-item-by-action transaction :buy)]
     (-> transaction
         abs-items
         (assoc
-         :action :buy
-         :shares (:quantity commodity-item)
-         :value (:value commodity-item)
-         :commodity-account-id (:account-id commodity-item))
-        (update-in [:items] adjust-trade-actions))))
+         :trade/action :buy
+         :trade/shares (:transaction-item/quantity commodity-item)
+         :trade/value (:transaction-item/value commodity-item)
+         :import/commodity-account-id (:import/account-id commodity-item))
+        (update-in [:transaction/items] adjust-trade-actions))))
 
 (defmethod ^:private refine-trading-transaction :sell
   [transaction]
-  (let [commodity-item (->> (:items transaction)
-                            (filter #(= :sell (:action %)))
-                            first)]
+  (let [commodity-item (trx-item-by-action transaction :sell)]
     (-> transaction
         abs-items
         (assoc
-         :trade-date (:transaction-date transaction)
-         :action :sell
-         :shares (.abs (:quantity commodity-item))
-         :commodity-account-id (:account-id commodity-item))
-        (update-in [:items] adjust-trade-actions))))
+          :trade/date (:transaction/transaction-date transaction)
+          :trade/action :sell
+          :trade/shares (.abs (:transaction-item/quantity commodity-item))
+          :import/commodity-account-id (:import/account-id commodity-item))
+        (update-in [:transaction/items] adjust-trade-actions))))
 
 (defmethod ^:private refine-trading-transaction :transfer
   [transaction]
-  (let [from (->> (:items transaction)
-                  (filter #(= :sell (:action %)))
-                  first)
-        to (->> (:items transaction)
-                (filter #(= :buy (:action %)))
-                first)]
+  (let [from (trx-item-by-action transaction :sell)
+        to (trx-item-by-action transaction :buy)]
     (-> transaction
         abs-items
-        (assoc :action :transfer
-               :shares (:quantity to)
-               :value (:value to)
-               :to-account-id (:account-id to)
-               :from-account-id (:account-id from))
-        (update-in [:items] adjust-trade-actions))))
+        (assoc :trade/action :transfer
+               :transfer/shares (:transaction-item/quantity to)
+               :transfer/value (:transaction-item/value to)
+               :import/to-account-id (:import/account-id to)
+               :import/from-account-id (:import/account-id from))
+        (update-in [:transaction/items] adjust-trade-actions))))
 
 (defmethod ^:private refine-trading-transaction :split
   [transaction]
-  (let [split-item (->> (:items transaction)
-                        (filter #(= :split (:action %)))
-                        first)]
+  (let [split-item (trx-item-by-action transaction :split)]
     (-> transaction
-        (assoc :action :split
-               :split-date (:transaction-date transaction)
-               :shares-gained (:quantity split-item)
-               :commodity-account-id (:account-id split-item))
-        (update-in [:items] adjust-trade-actions)
+        (assoc :trade/action :split
+               :split/date (:transaction/transaction-date transaction)
+               :split/shares-gained (:transaction-item/quantity split-item)
+               :import/commodity-account-id (:import/account-id split-item))
+        (update-in [:transaction/items] adjust-trade-actions)
         (abs-items #(not= :split (:action %))))))
+
+(defn- translate-action
+  [{:keys [action quantity]}]
+  (if (and action
+           (#{"Debit" "Credit" "Buy" "Sell" "Split"} action))
+    (-> action s/lower-case keyword)
+    (if (= \- (first quantity))
+      :credit
+      :debit)))
 
 (defn- process-transaction-item
   [item]
-  (-> item
-      (rename-keys {:account :account-id
-                    :reconciled-state :reconciled})
-      (update-in [:action] #(if (and %
-                                     (#{"Debit" "Credit" "Buy" "Sell" "Split"} %))
-                              (-> % s/lower-case keyword)
-                              (if (= \- (first (:quantity item)))
-                                :credit
-                                :debit)))
-      (update-in [:quantity] parse-decimal)
-      (update-in [:value] parse-decimal)
-      (update-in [:reconciled] #(= "y" %))))
+  (cond-> {:transaction-item/quantity (-> item :quantity parse-decimal)
+           :transaction-item/value (-> item :value parse-decimal)
+           :transaction-item/action (translate-action item)
+           :import/account-id (:account item)
+           :import/reconciled? (= "y" (:reconciled-state item))}
+    (:memo item) (assoc :transaction-item/memo (:memo item))))
 
 (def ^:private ignore-transaction-patterns
   [#"(?i)^closing( year)? \d{4}"]) ; TODO: Maybe this should be entered in the UI?
 
 (defmethod ^:private process-record :transaction
-  [transaction _]
-  (-> transaction
-      (rename-keys {:splits :items
-                    :date-posted :transaction-date})
-      (update-in [:description] #(if ((some-fn nil? empty?) %)
-                                   "*unspecified*"
-                                   %))
-      (update-in [:transaction-date] #(-> % :date parse-date))
-      (update-in [:items] #(map process-transaction-item %))
-      (vary-meta assoc
-                 :ignore?
-                 (boolean
-                  (some #(re-find % (get-in transaction [:description] ""))
-                        ignore-transaction-patterns)))
-      refine-trading-transaction))
+  [record _]
+  (refine-trading-transaction
+    {:import/record-type :transaction
+     :import/ignore? (boolean
+                       (some #(re-find % (get-in record [:description] ""))
+                             ignore-transaction-patterns))
+     :transaction/description (util/presence-or (:description record)
+                                                "*unspecified*")
+     :transaction/items (map process-transaction-item
+                             (:splits record))
+     :transaction/transaction-date (-> record
+                                       :date-posted
+                                       :date
+                                       parse-date)}))
 
 (defn- process-budget-item
   [item period-count]
@@ -754,22 +750,21 @@
                                 #(update-in % [0] parse-int)
                                 (juxt :key :value)))
                      (into {}))]
-    (-> item
-        (rename-keys {:key :account-id})
-        (assoc :periods (map #(get-in periods [%] 0M)
-                             (range period-count))))))
+    {:budget-item/periods (map #(get-in periods [%] 0M)
+                             (range period-count))
+     :import/account-id (:key item)}))
 
 (defmethod ^:private process-record :budget
   [{:keys [num-periods] :as record} _]
   (let [period-count (parse-int num-periods)]
-    (-> record
-        (assoc :period (-> record :recurrence :period_type keyword)
-               :start-date (-> record :recurrence :start :gdate parse-date)
-               :period-count period-count)
-        (update-in [:items] (fn [items]
-                              (map #(process-budget-item % period-count)
-                                   items)))
-        (select-keys [:period :period-count :start-date :items :id :name]))))
+    {:import/id (:id record)
+     :import/record-type :budget
+     :budget/name (:name record)
+     :budget/period (-> record :recurrence :period_type keyword)
+     :budget/start-date (-> record :recurrence :start :gdate parse-date)
+     :budget/period-count period-count
+     :budget/items (map #(process-budget-item % period-count)
+                        (:budget/items record))}))
 
 (defn- parse-readable-number
   [value]
@@ -780,27 +775,22 @@
 
 (defmethod ^:private process-record :scheduled-transaction
   [{:keys [schedule] :as record} _]
-  (-> record
-      (dissoc :schedule)
-      (update-in [:start] parse-date)
-      (update-in [:end] #(when % (parse-date %)))
-      (update-in [:last] #(when % (parse-date %)))
-      (update-in [:enabled] parse-bool)
-      (update-in [:items]
-                 (fn [items]
-                   (map (fn [item]
-                          (update-in-if item [:quantity] parse-readable-number))
-                        items)))
-      (rename-keys {:start :start-date
-                    :end :end-date
-                    :last :last-occurrence
-                    :name :description})
-      (assoc :interval-type (-> schedule
-                                (get-in [:recurrence :period_type])
-                                keyword)
-             :interval-count (-> schedule
-                                 (get-in [:recurrence :mult])
-                                 parse-int))))
+  {:scheduled-transaction/start-date (parse-date (:start record))
+   :scheduled-transaction/end-date (when-let [d (:end record)]
+                                     (parse-date d))
+   :scheduled-transaction/enabled (parse-bool (:enabled record))
+   :scheduled-transaction/last-occurrence (when-let [d (:last record)]
+                                            (parse-date d))
+   :scheduled-transaction/description (:name record)
+   :scheduled-transaction/items (map #(update-in-if % [:quantity] parse-readable-number)
+                                     (:items record))
+   :scheduled-transaction/interval-type (-> schedule
+                                            (get-in [:recurrence :period_type])
+                                            keyword)
+   :scheduled-transaction/interval-count (-> schedule
+                                             (get-in [:recurrence :mult])
+                                             parse-int)
+   :import/record-type :scheduled-transaction})
 
 (defn- process-records
   [xf]
@@ -827,7 +817,7 @@
 
 (defmethod read-source :gnucash
   [_ inputs out-chan]
-  (let [records-chan (chan 100 (comp filter-records
+  (let [records-chan (chan 100 (comp (filter emit-record?)
                                      process-records
                                      log-records))
         _ (pipe records-chan out-chan)]

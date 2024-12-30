@@ -16,27 +16,9 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as transactions]
             [clj-money.trading :as trading]))
 
 (use-fixtures :each reset-db)
-
-(defn- items-by-account
-  [account-id]
-  (map #(dissoc %
-                :id
-                :transaction-item/polarized-amount
-                :transaction-item/entity-id
-                :transaction-item/transaction-id
-                :transaction-item/reconciled?
-                :transaction-item/reconciliation-id
-                :transaction-item/created-at
-                :transaction-item/updated-at
-                :transaction-item/reconciliation-status)
-       (transactions/items-by-account
-        account-id
-        [(t/local-date 2015 1 1)
-         (t/local-date 2017 12 31)])))
 
 (defn- item-by-account
   [acc transaction]

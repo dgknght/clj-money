@@ -3,29 +3,18 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [clojure.string :as string]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<! >! chan go pipe sliding-buffer] :as async]
-            [config.core :refer [env]]
             [java-time.api :as t]
-            [stowaway.core :refer [tagged?]]
-            [stowaway.implicit :refer [with-storage
-                                       with-transacted-storage]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.db :as db]
+            [clj-money.util :as util]
+            [clj-money.models :as models]
             [clj-money.dates :as dates]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->criteria]]
-            [clj-money.models.settings :as settings]
-            [clj-money.models.users :as users]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.reconciliations :as recs]
-            [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.scheduled-transactions :as sched-trans]
-            [clj-money.models.images :as images]
-            [clj-money.models.commodities :as commodities]
-            [clj-money.models.prices :as prices]))
+            [clj-money.models.settings :as settings]))
 
 (defn- ignore?
   [record]
@@ -37,12 +26,12 @@
 
 (defn- import-price
   [{:keys [entity] :as context} price]
-  (let [commodity (commodities/find-by {:exchange (name (:exchange price))
-                                        :symbol (:symbol price)
-                                        :entity-id (:id entity)})]
-    (prices/create (-> price
-                       (assoc :commodity-id (:id commodity))
-                       (dissoc :exchange :symbol))))
+  (let [commodity (models/find-by #:commodity{:exchange (name (:exchange price))
+                                              :symbol (:symbol price)
+                                              :entity entity})]
+    (models/put (-> price
+                    (assoc :price/commodity commodity)
+                    (dissoc :exchange :symbol))))
   context)
 
 (defn- find-commodity
@@ -53,11 +42,11 @@
       (get commodities-by-symbol symbol)))
 
 (defn- update-account-relationships
-  [context {:keys [parent-id id]}]
-  (if parent-id
+  [context {:keys [id] :account/keys [parent]}]
+  (if parent
     (-> context
-        (update-in [:account-children parent-id] (fnil conj #{}) id)
-        (assoc-in [:account-parents id] parent-id))
+        (update-in [:account-children (:id parent)] (fnil conj #{}) id)
+        (assoc-in [:account-parents id] (:id parent)))
     context))
 
 (defn- build-path
@@ -65,7 +54,7 @@
   (loop [a account
          path (:name account)]
     (if-let [parent (when (:parent-id a)
-                      (accounts/find (:parent-id a)))]
+                      (models/find (:account/parent a) :account))]
       (recur parent (str (:name parent) "/" path))
       path)))
 
@@ -75,24 +64,11 @@
     (if-let [setting (->> (get-in context [:import :options])
                           (filter #(= path (second %)))
                           ffirst)]
-      (update-in context [:entity] #(entities/update
+      (update-in context [:entity] #(models/put
                                      (assoc-in %
-                                               [:settings setting]
-                                               (:id account))))
+                                               [:entity/settings setting]
+                                               (util/->model-ref account))))
       context)))
-
-(defn import-reconciliation
-  [{:keys [accounts] :as context} reconciliation]
-  (let [created (-> reconciliation
-                    (update-in [:account-id] accounts)
-                    (dissoc :id)
-                    (assoc :balance 0M)
-                    recs/create)]
-    (when (v/has-error? created)
-      (throw (ex-info (format "Unable to create reconciliation: %s" (v/error-messages created)) created)))
-    (update-in context [:account-recons]
-               (fnil assoc {})
-               (:account-id created) (:id created))))
 
 (defn- prepare-budget-item
   [item {:keys [accounts]}]
@@ -120,7 +96,7 @@
   (let [to-create (prepare-budget budget context)]
     (try
       (log/infof "imported budget %s"
-                 (:name (budgets/create to-create)))
+                 (:budget/name (models/put to-create)))
       (catch Exception e
         (log/errorf "error importing budget %s - %s: %s"
                     (.getClass e)
@@ -130,18 +106,15 @@
 
 (defn- import-commodity
   [{:keys [entity] :as context} commodity]
-  (let [{:keys [exchange symbol] :as created} (-> commodity
-                                                  (update-in [:exchange] (fnil identity :nyse))
-                                                  (assoc :entity-id (:id entity)
-                                                         :price-config {:enabled true}) ; TODO: read this from import source
-                                                  commodities/create)]
-    (if (v/has-error? created)
-      (throw (ex-info (format "Unable to create commodity %s (%s): %s"
-                              (:name created)
-                              (:symbol created)
-                              (string/join "; " (v/flat-error-messages created)))
-                      {:failures (v/flat-error-messages created)}))
-      (log/infof "imported commodity %s (%s)" (:name created) (:symbol created)))
+  (let [{:commodity/keys [exchange symbol]
+         :as created} (-> commodity
+                          (update-in [:commodity/exchange] (fnil identity :nyse))
+                          (assoc :commodity/entity entity
+                                 :commodity/price-config {:enabled true}) ; TODO: read this from import source
+                          models/put)]
+    (log/infof "imported commodity %s (%s)"
+               (:commodity/name created)
+               symbol)
     (-> context
         (update-in [:commodities] #((fnil conj []) % created))
         (update-in [:commodities-by-symbol] #((fnil assoc {}) % symbol created))
@@ -177,7 +150,7 @@
 (defmethod ^:private import-transaction :default
   [context transaction]
   (let [to-create (prepare-transaction transaction context)
-        created (transactions/create to-create)]
+        created (models/put to-create)]
     (log-transaction created "standard"))
   context)
 
@@ -191,7 +164,10 @@
                                       (:items transaction))
           account-ids (map #(get-in accounts [(:account-id %)])
                            non-commodity-items)
-          accounts-map (->> (accounts/search {:id account-ids})
+          accounts-map (->> (models/select
+                              (db/model-type
+                                {:id [:in account-ids]}
+                                :account))
                             (map (juxt :id identity))
                             (into {}))
           fee-items (filter #(= :expense (get-in accounts-map [(accounts (:account-id %)) :type]))
@@ -252,9 +228,10 @@
 (defmethod ^:private import-transaction :transfer
   [{:keys [accounts] :as context}
    {:keys [from-account-id to-account-id] :as transaction}]
-  (let [from-commodity-account (accounts/find (accounts from-account-id))
-        from-account (accounts/find (:parent-id from-commodity-account))
-        to-commodity-account (accounts/find (accounts to-account-id))
+  (let [find-account (models/find :account)
+        from-commodity-account (find-account (accounts from-account-id))
+        from-account (find-account (:parent-id from-commodity-account))
+        to-commodity-account (find-account (accounts to-account-id))
         {result :transaction} (trading/transfer (assoc transaction
                                                        :transfer-date (:transaction-date transaction)
                                                        :commodity-id (:commodity-id from-commodity-account)
@@ -270,7 +247,8 @@
    {:keys [accounts]}]
   (if (and account-id commodity-id)
     transaction
-    (let  [commodity-account (accounts/find (accounts commodity-account-id))]
+    (let  [commodity-account (models/find (accounts commodity-account-id)
+                                          :account)]
       (assoc transaction :commodity-id (:commodity-id commodity-account)
              :account-id (:parent-id commodity-account)))))
 
@@ -294,7 +272,8 @@
   "Returns the input data and source type based
   on the specified image"
   [image-ids]
-  (let [images (map #(images/find-by {:id %} {:include-body? true})
+  ; TODO: Make sure the image body is included here, but not included when not wanted elsewhere
+  (let [images (map #(models/find-by (db/model-type {:id %} :image))
                     image-ids)
         source-type (-> images first get-source-type)]
     [(map #(io/input-stream (byte-array (:body %)))
@@ -311,28 +290,32 @@
 
 (defmethod import-record* :account
   [{:keys [accounts] :as context}
-   {:keys [parent-id commodity] :as account}]
-  (let [result (accounts/create (-> account
-                                    (assoc :entity-id (-> context :entity :id)
-                                           :commodity-id (:id (find-commodity
-                                                               context
-                                                               commodity))
-                                           :parent-id (accounts parent-id))
-                                    (dissoc :id :commodity)))]
-    (when-not (:id result)
-      (throw (ex-info (str
-                       "Unable to create the account: "
-                       (v/error-messages result))
-                      {:result result})))
-    (log/info (format "imported account \"%s\"" (:name result)))
+   {:import/keys [parent-id commodity] :as account}]
+  (let [result (models/put (-> account
+                               (assoc :account/entity (:entity context)
+                                      :account/commodity (find-commodity
+                                                           context
+                                                           commodity)
+                                      :account/parent (accounts parent-id))
+                               (dissoc :import/id
+                                       :import/commodity
+                                       :import/parent-id)))]
+    (log/info (format "imported account \"%s\"" (:account/name result)))
     (-> context
         (assoc-in [:accounts (:id account)] (:id result))
         (update-account-relationships result)
         (update-entity-settings result))))
 
 (defmethod import-record* :reconciliation
-  [context reconciliation]
-  (import-reconciliation context reconciliation))
+  [{:keys [accounts] :as context} reconciliation]
+  (let [created (-> reconciliation
+                    (update-in [:reconciliation/account] (comp accounts :id))
+                    (dissoc :id)
+                    (assoc :reconciliation/balance 0M)
+                    models/put)]
+    (update-in context [:account-recons]
+               (fnil assoc {})
+               (:account-id created) (:id created))))
 
 (defn- find-reconciliation-id
   [old-account-id {:keys [accounts account-recons account-parents]}]
@@ -346,9 +329,9 @@
   [{:keys [account-recons] :as ctx} items]
   (if account-recons
     (map #(-> %
-              (assoc :reconciliation-id
-                     (if (:reconciled %)
-                       (find-reconciliation-id (:account-id %) ctx)
+              (assoc :transaction-item/reconciliation
+                     (if (:transaction-item/reconciled %)
+                       (find-reconciliation-id (:transaction-item/account-id %) ctx)
                        nil))
               (dissoc :reconciled))
          items)
@@ -387,19 +370,20 @@
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity accounts] :as context} sched-tran]
-  (let [result (sched-trans/create
-                 (-> sched-tran
-                     (assoc :entity-id (:id entity)
-                            :date-spec (infer-date-spec sched-tran))
-                     (update-in [:items]
-                                (fn [items]
-                                  (map #(update-in % [:account-id] accounts)
-                                       items)))))]
-    (when (v/has-error? result)
-      (throw (ex-info (format "Unable to create the scheduled transaction: %s"
-                              (v/error-messages result))
-                      {:result result}))))
-
+  (let [created (models/put
+                  (-> sched-tran
+                      (assoc :scheduled-transaction/entity entity
+                             :scheduled-transaction/date-spec (infer-date-spec sched-tran))
+                      (update-in [:scheduled-transaction/items]
+                                 (fn [items]
+                                   (map (fn [{:import/keys [account-id] :as i}]
+                                          (-> i
+                                              (assoc :scheduled-transaction-item/account
+                                                     (accounts account-id))
+                                              (dissoc :import/account-id)))
+                                        items)))))]
+    (log/infof "Imported scheduled transaction %s"
+               (:scheduled-transaction/description created)))
   context)
 
 (defmethod import-record* :budget
@@ -444,35 +428,34 @@
 
 (defn- fetch-reconciled-items
   [{:keys [account-id id]} {:keys [account-children earliest-date latest-date]}]
-  (let [accounts (accounts/search {:id (if account-children
-                                         (append-child-ids
-                                          account-id
-                                          account-children)
-                                         account-id)})]
-    (transactions/search-items (assoc (->criteria accounts
-                                                  {:earliest-date earliest-date
-                                                   :latest-date latest-date})
-                                      :reconciliation-id id))))
+  (let [accounts (models/select
+                   (db/model-type
+                     {:id (if account-children
+                            [:in (append-child-ids
+                                   account-id
+                                   account-children)]
+                            account-id)}
+                     :account))]
+    (models/select (assoc (->criteria accounts
+                                      {:earliest-date earliest-date
+                                       :latest-date latest-date})
+                          :transaction-tiem/reconciliationd (util/->model-ref id)))))
 
 (defn- process-reconciliation
   [recon ctx]
-  (let [result (recs/update (assoc recon
-                                   :balance (->> (fetch-reconciled-items recon ctx)
-                                                 (map :polarized-quantity)
-                                                 (reduce + 0M))
-                                   :status :completed))]
-    (when (v/has-error? result)
-      (log/errorf "Unable to finalize reconciliation: %s"
-                  (prn-str (select-keys result
-                                        [:id
-                                         :account-id
-                                         :balance
-                                         :end-of-period
-                                         ::v/errors]))))))
+  (models/put
+    (assoc recon
+           :reconciliation/balance (->> (fetch-reconciled-items recon ctx)
+                                        (map :transaction-item/polarized-quantity)
+                                        (reduce + 0M))
+           :reconciliation/status :completed)))
 
 (defn- process-reconciliations
   [{:keys [entity] :as ctx} out-chan]
-  (let [reconciliations (recs/search {[:account :entity-id] (:id entity)})
+  (let [reconciliations (models/select
+                          (db/model-type
+                            {:account/entity entity}
+                            :reconciliation))
         progress {:total (count reconciliations)}
         done (promise)]
     (go
@@ -602,10 +585,11 @@
 
 (defn- import-data*
   [import-spec progress-chan]
-  (let [user (users/find (:user-id import-spec))
+  (let [user (models/find (:user-id import-spec) :user)
         [inputs source-type] (prepare-input (:image-ids import-spec))
-        entity (entities/find-or-create user
-                                        (:entity-name import-spec))
+        entity ((some-fn models/find-by models/put)
+                {:entity/user user
+                 :entity/name (:entity-name import-spec)})
         wait-promise (promise)
         source-chan (chan)
         rebalance-chan (chan 1 (classify-progress :account-balance))
@@ -618,7 +602,7 @@
                                   (fn
                                     ([ctx] ctx)
                                     ([ctx record]
-                                     (if (tagged? record :account)
+                                     (if (db/model-type? record :account)
                                        (assoc-in ctx [:accounts (:id record)] record)
                                        ctx)))
                                   {:import import-spec
@@ -653,9 +637,5 @@
    (import-data import-spec progress-chan {}))
   ([import-spec progress-chan options]
    (if (:atomic? options)
-     (with-transacted-storage (env :db)
-       (let [result (import-data* import-spec progress-chan)]
-         (-> result :wait deref)
-         result))
-     (with-storage (env :db)
-       (import-data* import-spec progress-chan)))))
+     (throw (UnsupportedOperationException. "Atomic imports are not supported"))
+     (import-data* import-spec progress-chan))))
