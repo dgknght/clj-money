@@ -773,6 +773,12 @@
         (s/replace "," "")
         bigdec)))
 
+(defn- ->scheduled-transaction-item
+  [{:keys [quantity action account-id]}]
+  {:scheduled-transaction-item/quantity (parse-readable-number quantity)
+   :scheduled-transaction-item/action action
+   :import/account-id account-id})
+
 (defmethod ^:private process-record :scheduled-transaction
   [{:keys [schedule] :as record} _]
   {:scheduled-transaction/start-date (parse-date (:start record))
@@ -782,7 +788,7 @@
    :scheduled-transaction/last-occurrence (when-let [d (:last record)]
                                             (parse-date d))
    :scheduled-transaction/description (:name record)
-   :scheduled-transaction/items (map #(update-in-if % [:quantity] parse-readable-number)
+   :scheduled-transaction/items (map ->scheduled-transaction-item
                                      (:items record))
    :scheduled-transaction/interval-type (-> schedule
                                             (get-in [:recurrence :period_type])
