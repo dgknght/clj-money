@@ -585,6 +585,10 @@
   (a/close! progress-chan))
 
 (defmacro with-delayed-balancing
+  "Any transactions saved in this body of this macro will not propagate
+  changes to other models until the form is completed.
+
+  The first binding argument is a channel to which updates will be sent."
   [bindings & body]
   `(binding [*delayed* (atom {:accounts #{}})]
      (let [f# (fn* [] ~@body)
