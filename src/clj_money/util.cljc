@@ -415,7 +415,9 @@
    :lot-item/lot-action
    :lot-item/quantity
    :budget/name
-   :budget-item/account])
+   :budget-item/account
+   :import/entity-name
+   :image/original-filename])
 
 (defn simplify
   "Return the given model maps with non-essentail attributes removed
