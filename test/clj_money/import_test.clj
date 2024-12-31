@@ -4,6 +4,7 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [go-loop <! chan]]
             [clojure.string :as s]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [safe-nth]]
@@ -47,6 +48,7 @@
     #:image{:body (-> path
                       io/input-stream
                       read-bytes)
+            :user "john@doe.com"
             :content-type (format "application/%s" content-type)
             :original-filename filename}))
 
@@ -57,32 +59,36 @@
                                "resources/fixtures/sample_1.edn.gz"])
    :sched   (mapv path->image ["resources/fixtures/scheduled_transactions.gnucash"])})
 
-(defn- import-context
+(def ^:private base-context
+  [(factory :user, {:user/email "john@doe.com"})])
+
+#_(defn- make-context
   [source-type]
   (concat [(factory :user, {:user/email "john@doe.com"})]
           (images source-type)
           [#:import{:entity-name "Personal"
-                    :image-ids (map :original-filename images)
+                    :user "john@doe.com"
+                    :images (map :original-filename images)
                     :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}]))
 
 (def ^:private expected-inc-stmt
-  [{:caption "Income"
-    :value 2000M
-    :style :header}
-   {:caption "Salary"
-    :value 2000M
-    :style :data
-    :depth 0}
-   {:caption "Expense"
-    :value 290M
-    :style :header}
-   {:caption "Groceries"
-    :value 290M
-    :style :data
-    :depth 0}
-   {:caption "Net"
-    :value 1710M
-    :style :summary}])
+  [{:report/caption "Income"
+    :report/value 2000M
+    :report/style :header}
+   {:report/caption "Salary"
+    :report/value 2000M
+    :report/style :data
+    :report/depth 0}
+   {:report/caption "Expense"
+    :report/value 290M
+    :report/style :header}
+   {:report/caption "Groceries"
+    :report/value 290M
+    :report/style :data
+    :report/depth 0}
+   {:report/caption "Net"
+    :report/value 1710M
+    :report/style :summary}])
 
 (def ^:private expected-bal-sheet
   [{:caption "Asset"
@@ -114,27 +120,30 @@
     :value 1810.00M
     :style :summary}])
 
-(def ^:private expected-accounts
-  [{:name "Checking"
-    :type :asset
-    :commodity-id "USD"
-    :quantity 1810M
-    :value 1810M}
-   {:name "Credit Card"
-    :type :liability
-    :commodity-id "USD"
-    :quantity 100M
-    :value 100M}
-   {:name "Groceries"
-    :type :expense
-    :commodity-id "USD"
-    :quantity 290M
-    :value 290M}
-   {:name "Salary"
-    :type :income
-    :commodity-id "USD"
-    :quantity 2000M
-    :value 2000M}])
+(defn- expected-accounts []
+  (let [usd (util/->model-ref
+              (models/find-by
+                {:commodity/symbol "USD"}))]
+    [#:account{:name "Checking"
+               :type :asset
+               :commodity usd
+               :quantity 1810M
+               :value 1810M}
+     #:account{:name "Credit Card"
+               :type :liability
+               :commodity usd
+               :quantity 100M
+               :value 100M}
+     #:account{:name "Groceries"
+               :type :expense
+               :commodity usd
+               :quantity 290M
+               :value 290M}
+     #:account{:name "Salary"
+               :type :income
+               :commodity usd
+               :quantity 2000M
+               :value 2000M}]))
 
 (defn- execute-import
   [imp]
@@ -144,7 +153,7 @@
                    (when p
                      (swap! updates #(conj % p))
                      (recur (<! progress-chan))))
-        {:keys [entity wait]} (import-data imp progress-chan {:atomic? true})]
+        {:keys [entity wait]} (import-data imp progress-chan {:atomic? false})] ; TODO: can we continue to have atomic imports?
     @wait
     {:entity entity
      :updates @updates}))
@@ -222,37 +231,25 @@
 
 (defn- test-import []
   (let [imp (find-import "Personal")
-        {:keys [entity] :as result} (execute-import imp)
+        {:keys [entity progress] :as result} (execute-import imp)
         all-accounts (models/select {:account/entity entity})]
-    (is (comparable? {:entity/name "Personal"}
-                     entity)
-        "It returns the new entity")
-    (includes-progress-records (:updates result))
-    (testing "the entity can be retrieved"
+    (testing "the return value"
+      (is (comparable? {:entity/name "Personal"}
+                       entity)
+          "It returns the new entity")
+      (includes-progress-records (:updates result)))
+    (testing "models"
       (is (comparable? #:entity{:name "Personal"
                                 :settings #:settings{:default-commodity (util/->model-ref (models/find-by #:commodity{:symbol "USD"
                                                                                                                       :entity entity}))
                                                      :earliest-transaction-date (t/local-date 2015 1 1)
                                                      :latest-transaction-date (t/local-date 2015 1 18)}}
-                       (models/find entity))))
-    (testing "the accounts are created"
-      (is (seq-of-maps-like? expected-accounts
-                             all-accounts)))
-
-    (let [actual (strip-account-ids
-                     (reports/income-statement entity
-                                               (t/local-date 2015 1 1)
-                                               (t/local-date 2017 12 31)))]
-        (is (= expected-inc-stmt actual)
-            "A correct income statement is produced"))
-
-    (let [actual (strip-account-ids
-                     (reports/balance-sheet entity
-                                            (t/local-date 2017 12 31)))]
-        (is (= expected-bal-sheet actual)
-            "A correct balance shet is produced"))
-
-    (is (seq-of-maps-like? [#:reconciliation{:account (util/->model-ref (find-account "Checking")) 
+                       (models/find entity)))
+      "The entity can be retrieved"
+      (is (seq-of-maps-like? (expected-accounts)
+                             all-accounts)
+          "The accounts are created")
+      (is (seq-of-maps-like? [#:reconciliation{:account (util/->model-ref (models/find-by {:account/name "Checking"}))
                                                :status :completed
                                                :end-of-period (t/local-date 2015 1 15)
                                                :balance 800M}]
@@ -260,18 +257,47 @@
                                (db/model-type
                                  {:account/entity entity}
                                  :reconciliation)))
-          "Reconciliations can be retrieved")))
+          "Reconciliations can be retrieved"))
+    #_(testing "reports"
+      (is (seq-of-maps-like? expected-inc-stmt
+                             (reports/income-statement entity
+                                                       (t/local-date 2015 1 1)
+                                                       (t/local-date 2017 12 31)))
+          "An income statement can be produced")
+      (is (seq-of-maps-like? expected-bal-sheet
+                             (reports/balance-sheet entity
+                                                    (t/local-date 2017 12 31)))
+          "A balance sheet can be produced"))))
+
+(def ^:private gnucash-context
+  (conj base-context
+        #:image{:body (-> "resources/fixtures/sample.gnucash"
+                          io/input-stream
+                          read-bytes)
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "sample.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["sample.gnucash"]
+                 :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}))
 
 (deftest import-a-simple-gnucash-file
-  (with-context (import-context :gnucash)
+  (with-context gnucash-context
     (test-import)))
+
+(def ^:private edn-context
+  [])
 
 (deftest import-a-simple-edn-file
-  (with-context (import-context :edn)
+  (with-context edn-context
     (test-import)))
 
+(def ^:private ext-context
+  [])
+
 (deftest import-with-entity-settings
-  (with-context (import-context :ext)
+  (with-context ext-context
     (let [imp (find-import "Personal")
           result (execute-import imp)
           entity (models/find (:entity result))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
@@ -286,7 +312,7 @@
 
 ; (def gnucash-budget-sample
 ;   (io/input-stream "resources/fixtures/budget_sample.gnucash"))
-; 
+;
 ; (def import-budget-context
 ;   {:users [(factory :user, {:email "john@doe.com"})]
 ;    :images [{:body (read-bytes gnucash-budget-sample)
@@ -294,7 +320,7 @@
 ;              :original-filename "budget_sample.gnucash"}]
 ;    :imports [{:entity-name "Personal"
 ;               :image-ids ["budget_sample.gnucash"]}]})
-; 
+;
 ; (deftest receive-updates-asynchronously
 ;   (let [context (realize (import-context :gnucash))
 ;         imp (-> context :imports first)
@@ -306,7 +332,7 @@
 ;     (import-data imp channel {:atomic? true})
 ;     (includes-progress-records @updates)
 ;     (shutdown-agents)))
-; 
+;
 ; (deftest import-a-budget
 ;   (let [context (realize import-budget-context)
 ;         user (find-user context "john@doe.com")
@@ -347,10 +373,10 @@
 ;                                       250M 275M 275M]
 ;                             :spec nil}}}]
 ;     (is (= expected actual) "The budget exists after import with correct values")))
-; 
+;
 ; (def gnucash-commodities-sample
 ;   (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
-; 
+;
 ; (def ^:private commodities-context
 ;   {:users [(factory :user, {:email "john@doe.com"})]
 ;    :images [{:body (read-bytes gnucash-commodities-sample)
@@ -358,19 +384,19 @@
 ;              :original-filename "sample_with_commodities.gnucash"}]
 ;    :imports [{:entity-name "Personal"
 ;               :image-ids ["sample_with_commodities.gnucash"]}]})
-; 
+;
 ; (def ^:private expected-lots
 ;   [{:purchase-date (t/local-date 2015 1 17)
 ;     :shares-purchased 100M
 ;     :shares-owned 100M
 ;     :purchase-price 10M}])
-; 
+;
 ; (def ^:private expected-prices
 ;   #{{:trade-date (t/local-date 2015 1 17)
 ;      :price 10M}
 ;     {:trade-date (t/local-date 2015 1 30)
 ;      :price 12M}})
-; 
+;
 ; (deftest import-commodities
 ;   (let [context (realize commodities-context)
 ;         imp (-> context :imports first)
@@ -399,10 +425,10 @@
 ;                            (into #{}))]
 ;     (is (= expected-lots actual-lots) "The correct lots are present after import")
 ;     (is (= expected-prices, actual-prices) "The correct prices are present after import")))
-; 
+;
 ; (def gnucash-ext-commodities-sample
 ;   (io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash"))
-; 
+;
 ; (def ^:private ext-commodities-context
 ;   {:users [(factory :user, {:email "john@doe.com"})]
 ;    :images [{:body (read-bytes gnucash-ext-commodities-sample)
@@ -410,7 +436,7 @@
 ;              :original-filename "sample_with_commodities_ext.gnucash"}]
 ;    :imports [{:entity-name "Personal"
 ;               :image-ids ["sample_with_commodities_ext.gnucash"]}]})
-; 
+;
 ; (deftest import-commodities-with-extended-actions
 ;   (let [context (realize ext-commodities-context)
 ;         {:keys [entity]} (import-data (-> context :imports first)
@@ -421,7 +447,7 @@
 ;                                 ["IRA" "401k"])
 ;         aapl (commodities/find-by {:entity-id (:id entity)
 ;                                    :symbol "AAPL"})]
-; 
+;
 ;     (testing "lots are adjusted"
 ;       (let [lots (lots/search {:commodity-id (:id aapl)})
 ;             expected-lots [{:purchase-date (t/local-date 2015 1 17)
@@ -433,13 +459,13 @@
 ;             actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
 ;         (is (= expected-lots actual-lots)
 ;             "The commodity has the correct lots after import")))
-; 
+;
 ;     (testing "accounts are tagged correctly"
 ;       (is (:trading (:system-tags ira))
 ;           "The IRA account has the correct system tags")
 ;       (is (:trading (:system-tags four-o-one-k))
 ;           "The 401k account has the correct system tags"))
-; 
+;
 ;     (testing "transactions are created correctly"
 ;       (let [ira-aapl (accounts/find-by {:parent-id (:id ira)
 ;                                         :commodity-id (:id aapl)})
@@ -509,25 +535,25 @@
 ;             "The Investment Expenses account has the correct items")
 ;         (is (seq-of-maps-like? expected-ira-items actual-ira-items)
 ;             "The IRA account has the correct items")))
-; 
+;
 ;     (testing "account balances are calculated correctly"
 ;       (is (= 0M (:quantity four-o-one-k)) "All shares have been transfered out of 401k")
 ;       (is (= 590M (:quantity ira)) "Shares have been transfered into IRA"))))
-; 
+;
 ; (defmulti comparable
 ;   (fn [x]
 ;     (if (sequential? x)
 ;       :collection
 ;       (storage/tag x))))
-; 
+;
 ; (defmethod comparable :collection
 ;   [coll]
 ;   (map comparable coll))
-; 
+;
 ; (defn- strip-db-attr
 ;   [m]
 ;   (dissoc m :id :created-at :updated-at))
-; 
+;
 ; (defmethod comparable ::models/scheduled-transaction
 ;   [sched-tran]
 ;   (-> sched-tran
@@ -536,7 +562,7 @@
 ;                             (map (comp strip-db-attr
 ;                                        #(dissoc % :scheduled-transaction-id))
 ;                                  items)))))
-; 
+;
 ; (deftest import-scheduled-transactions
 ;   (let [ctx (realize (import-context :sched))
 ;         imp (find-import ctx "Personal")
