@@ -3,7 +3,6 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
-            [clojure.set :refer [rename-keys]]
             [clojure.string :as s]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.core.async
@@ -17,7 +16,6 @@
             [config.core :refer [env]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid
-                                          update-in-if
                                           parse-int
                                           parse-bool]]
             [clj-money.util :as util :refer [presence]]
@@ -25,7 +23,9 @@
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream
             GZIPOutputStream]
-           [java.io File FileInputStream
+           [java.io
+            File
+            FileInputStream
             FileOutputStream]
            [java.time Instant ZoneId]
            [clojure.data.xml.event StartElementEvent
