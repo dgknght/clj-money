@@ -1,5 +1,5 @@
 (ns clj-money.accounts
-  (:refer-clojure :exclude [+ - * / abs])
+  (:refer-clojure :exclude [+ - * / abs format])
   (:require [clojure.string :as string]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
@@ -169,14 +169,6 @@
                      :account (util/->model-ref account)
                      :action (derive-action quantity account)})
 
-(defn- singularize
-  "Accepts a sequence of values. If the sequence contains one member,
-  returns that member. Otherwise returns the sequence as-is."
-  [vs]
-  (if (= 1 (count vs))
-    (first vs)
-    vs))
-
 (defn ->>criteria
   ([accounts] (->>criteria {} accounts))
   ([{:keys [account-attribute
@@ -189,10 +181,11 @@
           model-type :transaction-item}}
     accounts]
    ^{:clj-money.db/type model-type}
-   {account-attribute (->> accounts
-                           (map util/->model-ref)
-                           set
-                           singularize)
+   {account-attribute (if (= 1 (count accounts))
+                        (:id (first accounts))
+                        [:in (->> accounts
+                                  (map :id)
+                                  set)])
     date-attribute [:between
                     (or (->> accounts
                              (map :account/earliest-transaction-date)
