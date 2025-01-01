@@ -4,7 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
             [java-time.api :as t]
-            [dgknght.app-lib.core :refer [uuid]]
+            [dgknght.app-lib.core :refer [uuid
+                                          index-by]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
             [clj-money.util :as util]
@@ -416,6 +417,17 @@
                            (sort-by :transaction-item/transaction-date t/before?)
                            (map polarize)))))))
 
+(defn- account-model-ref-ids
+  "Extracts and returns the account ids from references from the transaction
+  items, omitting any complete account models."
+  [items]
+  (->> items
+       (filter #(util/model-ref? (:transaction-item/account %)))
+       (map (comp :id
+                  :transaction-item/account))
+       set
+       seq))
+
 ; TODO: Need to think some more about how to handle differences
 ; between the account in the item (when not a simple model-ref) and
 ; the account read from the database.
@@ -424,15 +436,19 @@
 ; was read from the database.
 (defn- realize-accounts
   "Given a list of items, lookup the associated account and assoc
-  it into the item"
+  it into the item, if the item has only a model reference."
   [items]
-  (let [cached-fn (util/cache-fn #(models/find % :account))
-        find-account (fn [act]
-                       (if (util/model-ref? act)
-                         (cached-fn (util/->model-ref act))
-                         act))]
-    (map #(update-in % [:transaction-item/account] find-account)
-         items)))
+  (if-let [account-ids (account-model-ref-ids items)]
+    (let [accounts (index-by :id
+                             (models/select
+                               (db/model-type
+                                 {:id [:in account-ids]}
+                                 :account)))]
+      (map #(update-in % [:transaction-item/account] (fn [act]
+                                                       (or (accounts (:id act))
+                                                           act)))
+           items))
+    items))
 
 (def ^:private transaction-item?
   (db/model-type? :transaction-item))
