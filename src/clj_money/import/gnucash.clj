@@ -408,11 +408,10 @@
 
                  (and (reconcile-info-stack? tag-stack)
                       (reconcile-info-content? child-content))
-                 [(with-meta (->> (peek child-content)
-                                  (filter map?)
-                                  (map (juxt (comp keyword :key) :value))
-                                  (into {}))
-                             {:record-type :reconciliation})]
+                 [(->> (peek child-content)
+                       (filter map?)
+                       (map (juxt (comp keyword :key) :value))
+                       (into {:import/record-type :reconciliation}))]
 
                  (template-details-stack? tag-stack)
                  (peek child-content)

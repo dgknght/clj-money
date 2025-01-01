@@ -13,6 +13,7 @@
             [clj-money.dates :as dates]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria]]
+            [clj-money.transactions :refer [polarize-item-quantity]]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.settings :as settings]))
 
@@ -361,27 +362,31 @@
                     purge-import-keys
                     (validate ::models/reconciliation)
                     models/put)]
+    ; We'll use this map later to assocate reconciled transactions
+    ; for this account with this reconciliation
     (update-in context [:account-recons]
                (fnil assoc {})
-               (:account-id created) (:id created))))
+               (-> created :reconciliation/account :id)
+               (:id created))))
 
 (defn- find-reconciliation-id
-  [old-account-id {:keys [accounts account-recons account-parents]}]
-  (loop [id (accounts old-account-id)]
+  [old-account-id {:keys [account-ids account-recons account-parents]}]
+  (loop [id (account-ids old-account-id)]
     (when id
       (if-let [recon-id (account-recons id)]
         recon-id
         (recur (account-parents id))))))
 
+; This is probably pretty specific to the gnucash format
 (defn- refine-recon-info
+  "Given an imported transaction item, if the import/reconciled? attribute is true,
+  add a transaction-item/reconciliation attribute."
   [{:keys [account-recons] :as ctx} items]
   (if account-recons
-    (map #(-> %
-              (assoc :transaction-item/reconciliation
-                     (if (:transaction-item/reconciled %)
-                       (find-reconciliation-id (:id (:transaction-item/account %)) ctx)
-                       nil))
-              (dissoc :reconciled))
+    (mapv (fn [{:as item :import/keys [reconciled? account-id]}]
+           (cond-> item
+             reconciled? (assoc :transaction-item/reconciliation
+                                (util/->model-ref (find-reconciliation-id account-id ctx)))))
          items)
     items))
 
@@ -475,7 +480,11 @@
                 (account-children account-id))))
 
 (defn- fetch-reconciled-items
-  [{:reconciliation/keys [account] :keys [id]} {:keys [account-children earliest-date latest-date]}]
+  [{:reconciliation/keys [account]
+    :keys [id]}
+   {:keys [account-children
+           earliest-date
+           latest-date]}]
   (let [accounts (models/select
                    (db/model-type
                      {:id (if account-children
@@ -484,19 +493,22 @@
                                    account-children)]
                             (:id account))}
                      :account))]
-    (models/select (assoc (->>criteria accounts
-                                       {:earliest-date earliest-date
-                                        :latest-date latest-date})
+    (models/select (assoc (->>criteria {:earliest-date earliest-date
+                                        :latest-date latest-date}
+                                       accounts)
                           :transaction-item/reconciliation (util/->model-ref id)))))
 
 (defn- process-reconciliation
-  [recon ctx]
-  (models/put
-    (assoc recon
-           :reconciliation/balance (->> (fetch-reconciled-items recon ctx)
-                                        (map :transaction-item/polarized-quantity)
-                                        (reduce + 0M))
-           :reconciliation/status :completed)))
+  [{:reconciliation/keys [account] :as recon} ctx]
+  (let [account (models/find account :account)
+        updated (assoc recon
+                       :reconciliation/balance (->> (fetch-reconciled-items recon ctx)
+                                                    (map (comp :transaction-item/polarized-quantity
+                                                               polarize-item-quantity
+                                                               #(assoc % :transaction-item/account account)))
+                                                    (reduce + 0M))
+                       :reconciliation/status :completed)]
+    (models/put updated)))
 
 (defn- process-reconciliations
   [{:keys [entity] :as ctx} out-chan]
