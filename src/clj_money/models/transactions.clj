@@ -492,7 +492,7 @@
   (concat (propagate-current-items trx :delete? delete?)
           (propagate-dereferenced-account-items trx)))
 
-(def ^:dynamic *delayed* nil)
+(def delayed (atom {}))
 
 (defn- propagate-scheduled-transaction
   [{:transaction/keys [transaction-date]
@@ -526,9 +526,11 @@
 (defn- append-delay-details
   [m {:transaction/keys [items transaction-date]}]
   (-> m
-      (update-in [:accounts] #(apply conj % (map (comp util/->model-ref
-                                                       :transaction-item/account)
-                                                 items)))
+      (update-in [:accounts] #(apply (fnil conj #{})
+                                     %
+                                     (map (comp util/->model-ref
+                                                :transaction-item/account)
+                                          items)))
       (update-in [:earliest-date] dates/earliest transaction-date)
       (update-in [:latest-date] dates/latest transaction-date)))
 
@@ -536,7 +538,11 @@
   "Given a transaction, appends dummy index and balance values
   and saves account and date information for later use"
   [trx]
-  (swap! *delayed* append-delay-details trx)
+  (swap! delayed
+         update-in
+         [(-> trx :transaction/entity :id)]
+         append-delay-details
+         trx)
   [(update-in trx
               [:transaction/items]
               #(map (fn [i]
@@ -546,14 +552,14 @@
                     %))])
 
 (defmethod models/propagate :transaction
-  [trx]
-  (if *delayed*
+  [{:as trx :transaction/keys [entity]}]
+  (if (@delayed (:id entity))
     (delay-propagation trx)
     (propagate-transaction trx)))
 
 (defmethod models/propagate-delete :transaction
-  [trx]
-  (if *delayed*
+  [{:as trx :transaction/keys [entity]}]
+  (if (@delayed (:id entity))
     (delay-propagation trx)
     (cons trx (propagate-current-items trx :delete? true))))
 
@@ -588,13 +594,17 @@
   "Any transactions saved in this body of this macro will not propagate
   changes to other models until the form is completed.
 
-  The first binding argument is a channel to which updates will be sent."
+  The first binding argument is the ID of the entity for which balancing is delayed.
+  The second binding argument is a channel to which updates will be sent."
   [bindings & body]
-  `(binding [*delayed* (atom {:accounts #{}})]
-     (let [f# (fn* [] ~@body)
-           result# (f#)]
-       (process-delayed-balances* @*delayed* ~(first bindings))
-       result#)))
+  `(let [f# (fn* [] ~@body)
+         entity-id# ~(first bindings)
+         prog-chan# ~(second bindings)
+         _# (swap! delayed assoc entity-id# {})
+         result# (f#)]
+     (process-delayed-balances* (@delayed entity-id#) prog-chan#)
+     (swap! delayed dissoc entity-id#)
+     result#))
 
 (defn append-items
   "Given a list of transactions, return the same with the items appended.

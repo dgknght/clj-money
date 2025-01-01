@@ -163,7 +163,7 @@
 (deftest items-are-required
   (with-context base-context
     (assert-invalid (assoc (attributes) :transaction/items [])
-                    {:transaction/items ["Items must contain at least 2 item(s)"]})))
+                    {:transaction/items ["Items must contain at least 1 item(s)"]})))
 
 (deftest item-account-is-required
   (with-context base-context
@@ -983,7 +983,7 @@
                (when p
                  (swap! progress conj p)
                  (recur (<! progress-chan))))
-      (transactions/with-delayed-balancing [progress-chan]
+      (transactions/with-delayed-balancing [(:id entity) progress-chan]
         (mapv (comp models/put
                     #(assoc % :transaction/entity entity))
               [#:transaction{:transaction-date (t/local-date 2017 1 1)
@@ -1039,7 +1039,8 @@
     (let [entity (find-entity "Personal")
           [checking
            salary
-           groceries] (find-accounts "Checking" "Salary" "Groceries")]
+           groceries] (map util/->model-ref
+                           (find-accounts "Checking" "Salary" "Groceries"))]
       (->> [#:transaction{:transaction-date (t/local-date 2017 2 27)
                           :description "Paycheck"
                           :quantity 1000M

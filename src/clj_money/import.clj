@@ -666,7 +666,7 @@
     (pipe prep-chan progress-chan false)
     (go
       (try
-        (let [result (transactions/with-delayed-balancing [rebalance-chan]
+        (let [result (transactions/with-delayed-balancing [(:id entity) rebalance-chan]
                        (read-source source-type inputs source-chan)
                        (<!! read-source-result-chan))]
           (deref
