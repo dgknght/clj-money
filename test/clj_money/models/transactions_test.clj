@@ -1005,14 +1005,10 @@
             "The account balance is not recalculated before the form exits"))
       (is (= 1900M (:account/quantity (reload-account "Checking")))
           "The account balance is recalculated after the form exits")
-      (is (= [{:total 3
-               :completed 0}
-              {:total 3
-               :completed 1}
-              {:total 3
-               :completed 2}
-              {:total 3
-               :completed 3}]
+      (is (= [{:total 3 :completed 0}
+              {:total 3 :completed 1}
+              {:total 3 :completed 2}
+              {:total 3 :completed 3}]
              @progress)
           "The progress is reported during the process"))))
  

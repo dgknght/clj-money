@@ -175,8 +175,7 @@
                             {:type :fail
                              :actual (->> ~coll
                                           (map #(get-in % [~k]))
-                                          (filter identity)
-                                          (into []))}))))))
+                                          (filter identity))}))))))
 
 (defn- includes-progress-records
   [updates]

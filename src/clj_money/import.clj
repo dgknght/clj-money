@@ -539,20 +539,12 @@
         (go (>! c v))
         (xf acc v)))))
 
-(defn- classify-progress
-  [progress-type]
-  (fn [xf]
-    (fn
-      ([acc] (xf acc))
-      ([acc record]
-       (xf acc (assoc record :import/record-type progress-type))))))
-
 (defmulti update-progress-state
   (fn [_state record]
     (if (= ::finished record)
       :finish
       (case (:import/record-type record)
-        nil :direct ; this comes from models/transactions or here and is basically ready to go
+        (:account-balance :process-reconciliation) :direct ; this comes from models/transactions or here and is basically ready to go
         :declaration :init ; this comes from a declaration in the import source indicating the number or records to expect
         :imported)))) ; this is an imported record
 
@@ -649,8 +641,8 @@
                  :entity/name (:import/entity-name import-spec)})
         wait-promise (promise)
         source-chan (chan)
-        rebalance-chan (chan 1 (classify-progress :account-balance))
-        reconciliations-chan (chan 1 (classify-progress :process-reconciliation))
+        rebalance-chan (chan 1 (map #(assoc % :import/record-type :account-balance)))
+        reconciliations-chan (chan 1 (map #(assoc % :import/record-type :process-reconciliation)))
         prep-chan (chan (sliding-buffer 1) (->progress))
         read-source-result-chan (async/transduce
                                   (comp (filter-import)
