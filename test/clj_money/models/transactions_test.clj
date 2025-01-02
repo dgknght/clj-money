@@ -1010,7 +1010,9 @@
               {:total 3 :completed 2}
               {:total 3 :completed 3}]
              @progress)
-          "The progress is reported during the process"))))
+          "The progress is reported during the process")
+      (is (comparable? {:settings/earliest-transaction-date (t/local-date 2017 1 1)
+                        :settings/latest-transaction-date (t/local-date 2017 2 1)})))))
  
 (deftest use-simplified-items
   (with-context base-context

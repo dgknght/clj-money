@@ -91,34 +91,30 @@
     :report/style :summary}])
 
 (def ^:private expected-bal-sheet
-  [{:caption "Asset"
-    :value 1810.00M
-    :style :header}
-   {:caption "Checking"
-    :value 1810.00M
-    :style :data
-    :depth 0}
-   {:caption "Liability"
-    :value 100.00M
-    :style :header}
-   {:caption "Credit Card"
-    :value 100.00M
-    :style :data
-    :depth 0}
-   {:caption "Equity"
-    :value 1710.00M
-    :style :header}
-   {:caption "Retained Earnings"
-    :value 1710.00M
-    :style :data
-    :depth 0}
-   #_{:caption "Unrealized Gains"
-      :value 0M
-      :style :data
-      :depth 0}
-   {:caption "Liabilities + Equity"
-    :value 1810.00M
-    :style :summary}])
+  [{:report/caption "Asset"
+    :report/value 1810.00M
+    :report/style :header}
+   {:report/caption "Checking"
+    :report/value 1810.00M
+    :report/style :data
+    :report/depth 0}
+   {:report/caption "Liability"
+    :report/value 100.00M
+    :report/style :header}
+   {:report/caption "Credit Card"
+    :report/value 100.00M
+    :report/style :data
+    :report/depth 0}
+   {:report/caption "Equity"
+    :report/value 1710.00M
+    :report/style :header}
+   {:report/caption "Retained Earnings"
+    :report/value 1710.00M
+    :report/style :data
+    :report/depth 0}
+   {:report/caption "Liabilities + Equity"
+    :report/value 1810.00M
+    :report/style :summary}])
 
 (defn- expected-accounts []
   (let [usd (util/->model-ref
@@ -230,7 +226,7 @@
 
 (defn- test-import []
   (let [imp (find-import "Personal")
-        {:keys [entity progress] :as result} (execute-import imp)
+        {:keys [entity] :as result} (execute-import imp)
         all-accounts (models/select {:account/entity entity})]
     (testing "the return value"
       (is (comparable? {:entity/name "Personal"}
@@ -257,7 +253,7 @@
                                  {:account/entity entity}
                                  :reconciliation)))
           "Reconciliations can be retrieved"))
-    #_(testing "reports"
+    (testing "reports"
       (is (seq-of-maps-like? expected-inc-stmt
                              (reports/income-statement entity
                                                        (t/local-date 2015 1 1)

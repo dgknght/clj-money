@@ -589,7 +589,15 @@
   trx)
 
 (defn process-delayed-balances*
-  [{:keys [accounts earliest-date]} progress-chan]
+  [entity-id {:keys [accounts earliest-date latest-date]} progress-chan]
+  (-> (models/find entity-id :entity)
+      (update-in [:entity/settings
+                  :settings/earliest-transaction-date]
+                 dates/earliest earliest-date)
+      (update-in [:entity/settings
+                  :settings/latest-transaction-date]
+                 dates/latest latest-date)
+      models/put)
   (a/>!! progress-chan
          (->> accounts
               (map (comp (fn [a]
@@ -618,7 +626,7 @@
          prog-chan# ~(second bindings)
          _# (swap! delayed assoc entity-id# {})
          result# (f#)]
-     (process-delayed-balances* (@delayed entity-id#) prog-chan#)
+     (process-delayed-balances* entity-id# (@delayed entity-id#) prog-chan#)
      (swap! delayed dissoc entity-id#)
      result#))
 
