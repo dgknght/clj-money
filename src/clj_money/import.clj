@@ -25,8 +25,7 @@
 (defn- validate
   [m spec]
   (when-let [errors (s/explain-data spec m)]
-    (pprint {::invalid m
-             ::errors errors}))
+    (pprint errors))
   m)
 
 (defn- remove-keys-by-ns
@@ -145,23 +144,6 @@
                     (.getMessage e)
                     (prn-str to-create)))))
   context)
-
-(defn- import-commodity
-  [{:keys [entity] :as context} commodity]
-  (let [{:commodity/keys [exchange symbol]
-         :as created} (-> commodity
-                          (assoc :commodity/entity entity
-                                 :commodity/price-config {:price-config/enabled true}) ; TODO: read this from import source
-                          purge-import-keys
-                          (validate ::models/commodity)
-                          models/put)]
-    (log/infof "imported commodity %s (%s)"
-               (:commodity/name created)
-               symbol)
-    (-> context
-        (update-in [:commodities] (fnil conj []) created)
-        (update-in [:commodities-by-symbol] (fnil assoc {}) symbol created)
-        (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) exchange symbol))))
 
 (defn- resolve-account-references
   [{:keys [account-ids]} items]
@@ -448,8 +430,21 @@
   (import-price context price))
 
 (defmethod import-record* :commodity
-  [context commodity]
-  (import-commodity context commodity))
+  [{:keys [entity] :as context} commodity]
+  (let [{:commodity/keys [exchange symbol]
+         :as created} (-> commodity
+                          (assoc :commodity/entity entity
+                                 :commodity/price-config {:price-config/enabled true}) ; TODO: read this from import source
+                          purge-import-keys
+                          (validate ::models/commodity)
+                          models/put)]
+    (log/infof "imported commodity %s (%s)"
+               (:commodity/name created)
+               symbol)
+    (-> context
+        (update-in [:commodities] (fnil conj []) created)
+        (update-in [:commodities-by-symbol] (fnil assoc {}) symbol created)
+        (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) exchange symbol))))
 
 (defn- assoc-error
   [ctx msg data]
