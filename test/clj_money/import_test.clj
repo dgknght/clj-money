@@ -226,8 +226,7 @@
 
 (defn- test-import []
   (let [imp (find-import "Personal")
-        {:keys [entity] :as result} (execute-import imp)
-        all-accounts (models/select {:account/entity entity})]
+        {:keys [entity] :as result} (execute-import imp)]
     (testing "the return value"
       (is (comparable? {:entity/name "Personal"}
                        entity)
@@ -242,7 +241,8 @@
                        (models/find entity)))
       "The entity can be retrieved"
       (is (seq-of-maps-like? (expected-accounts)
-                             all-accounts)
+                             (models/select {:account/entity entity}
+                                            {:sort [:account/name]}))
           "The accounts are created")
       (is (seq-of-maps-like? [#:reconciliation{:account (util/->model-ref (models/find-by {:account/name "Checking"}))
                                                :status :completed
@@ -282,7 +282,23 @@
     (test-import)))
 
 (def ^:private edn-context
-  [])
+  (conj base-context
+        #:image{:body (-> "resources/fixtures/sample_0.edn.gz"
+                          io/input-stream
+                          read-bytes)
+                :user "john@doe.com"
+                :content-type "application/edn"
+                :original-filename "sample_0.edn.gz"}
+        #:image{:body (-> "resources/fixtures/sample_1.edn.gz"
+                          io/input-stream
+                          read-bytes)
+                :user "john@doe.com"
+                :content-type "application/edn"
+                :original-filename "sample_1.edn.gz"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["sample_0.edn.gz" "sample_1.edn.gz"]
+                 :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}))
 
 (deftest import-a-simple-edn-file
   (with-context edn-context
