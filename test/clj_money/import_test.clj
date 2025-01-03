@@ -36,10 +36,6 @@
       (recur (<! c)))
     c))
 
-(defn- strip-account-ids
-  [items]
-  (map #(dissoc % :id) items))
-
 (defn- path->image
   [path]
   (let [ext (file-ext path)
@@ -321,70 +317,49 @@
       (is (util/model-ref? (get-in entity [:settings :lt-capital-loss-account]))
           "The short-term capital losses account id is set correctly"))))
 
-; (def gnucash-budget-sample
-;   (io/input-stream "resources/fixtures/budget_sample.gnucash"))
-;
-; (def import-budget-context
-;   {:users [(factory :user, {:email "john@doe.com"})]
-;    :images [{:body (read-bytes gnucash-budget-sample)
-;              :content-type "application/gnucash"
-;              :original-filename "budget_sample.gnucash"}]
-;    :imports [{:entity-name "Personal"
-;               :image-ids ["budget_sample.gnucash"]}]})
-;
-; (deftest receive-updates-asynchronously
-;   (let [context (realize (import-context :gnucash))
-;         imp (-> context :imports first)
-;         channel (chan)
-;         updates (atom [])]
-;     (go-loop [p (<! channel)]
-;       (swap! updates #(conj % p))
-;       (recur (<! channel)))
-;     (import-data imp channel {:atomic? true})
-;     (includes-progress-records @updates)
-;     (shutdown-agents)))
-;
-; (deftest import-a-budget
-;   (let [context (realize import-budget-context)
-;         user (find-user context "john@doe.com")
-;         imp (find-import context "Personal")
-;         _ (import-data imp (nil-chan) {:atomic? true})
-;         entity (entities/find-by {:user-id (:id user)})
-;         salary (accounts/find-by {:name "Salary"
-;                                   :entity_id (:id entity)})
-;         groceries (accounts/find-by {:name "Groceries"
-;                                      :entity_id (:id entity)})
-;         bonus (accounts/find-by {:name "Bonus"
-;                                  :entity_id (:id entity)})
-;         actual (-> (budgets/find-by {:entity-id (:id entity)})
-;                    (dissoc :id :updated-at :created-at)
-;                    (update-in [:items] (fn [items]
-;                                          (->> items
-;                                               (map (fn [item]
-;                                                      (-> item
-;                                                          (dissoc :budget-id :id :created-at :updated-at)
-;                                                          (update-in [:periods] #(sort-by :index %)))))
-;                                               set))))
-;         expected {:name "2017"
-;                   :entity-id (:id entity)
-;                   :period :month
-;                   :period-count 12
-;                   :start-date (t/local-date 2017 1 1)
-;                   :end-date (t/local-date 2017 12 31)
-;                   :items #{{:account-id (:id salary)
-;                             :periods (repeat 12 1000M)
-;                             :spec nil}
-;                            {:account-id (:id bonus)
-;                             :periods  [0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 800M]
-;                             :spec nil}
-;                            {:account-id (:id groceries)
-;                             :periods [200M 200M 250M
-;                                       250M 275M 275M
-;                                       200M 200M 250M
-;                                       250M 275M 275M]
-;                             :spec nil}}}]
-;     (is (= expected actual) "The budget exists after import with correct values")))
-;
+(defn- gnucash-budget-sample []
+  (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
+    (read-bytes input)))
+
+(def import-budget-context
+  (conj base-context
+        #:image{:body (gnucash-budget-sample)
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "budget_sample.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["budget_sample.gnucash"]}))
+
+(defn- account-ref
+  [name]
+  (-> {:account/name name}
+      models/find-by
+      util/->model-ref))
+
+(deftest import-a-budget
+  (with-context import-budget-context
+    (let [imp (find-import "Personal")
+          {:keys [entity wait]} (import-data imp (nil-chan))]
+      @wait
+      (is (seq-of-maps-like? [#:budget{:name "2017"
+                                       :entity (util/->model-ref entity)
+                                       :period :month
+                                       :period-count 12
+                                       :start-date (t/local-date 2017 1 1)
+                                       :end-date (t/local-date 2017 12 31)
+                                       :items [#:budget-item{:account (account-ref "Salary")
+                                                             :periods (repeat 12 1000M)}
+                                               #:budget-item{:account (account-ref "Bonus")
+                                                             :periods  [0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 800M]}
+                                               #:budget-item{:account (account-ref "Groceries")
+                                                             :periods [200M 200M 250M
+                                                                       250M 275M 275M
+                                                                       200M 200M 250M
+                                                                       250M 275M 275M]}]}]
+                             (models/select {:budget/entity entity}))
+          "The budget can be retrieved"))))
+
 ; (def gnucash-commodities-sample
 ;   (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
 ;

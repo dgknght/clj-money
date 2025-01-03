@@ -111,40 +111,6 @@
           entity
           (models/put updated))))))
 
-(defn- prepare-budget-item
-  [item {:keys [accounts]}]
-  (if-let [account-id (accounts (:account-id item))]
-    (assoc item :account-id account-id)
-    (throw
-      (ex-info
-        (format "Unable to resolve account id %s for the budget item."
-                (:account-id item))
-        {:item item}))))
-
-(defn- prepare-budget
-  [budget {:keys [entity] :as context}]
-  (-> budget
-      (update-in [:items]
-                 (fn [items]
-                   (->> items
-                        (map #(prepare-budget-item % context))
-                        (filter identity)
-                        (remove #(= 0M (reduce + (:periods %)))))))
-      (assoc :entity-id (:id entity))))
-
-(defn- import-budget
-  [context budget]
-  (let [to-create (prepare-budget budget context)]
-    (try
-      (log/infof "imported budget %s"
-                 (:budget/name (models/put to-create)))
-      (catch Exception e
-        (log/errorf "error importing budget %s - %s: %s"
-                    (.getClass e)
-                    (.getMessage e)
-                    (prn-str to-create)))))
-  context)
-
 (defn- resolve-account-references
   [{:keys [account-ids]} items]
   (map (fn [{:import/keys [account-id] :as item}]
@@ -421,9 +387,41 @@
                (:scheduled-transaction/description created)))
   context)
 
+(defn- prepare-budget-item
+  [item {:keys [account-ids]}]
+  (if-let [account-id (account-ids (:import/account-id item))]
+    (-> item
+        (assoc :budget-item/account {:id account-id})
+        purge-import-keys)
+    (throw
+      (ex-info
+        (format "Unable to resolve account id %s for the budget item."
+                (:import/account-id item))
+        {:item item}))))
+
+(defn- prepare-budget
+  [budget {:keys [entity] :as context}]
+  (-> budget
+      (update-in [:budget/items]
+                 (fn [items]
+                   (->> items
+                        (map #(prepare-budget-item % context))
+                        (filter identity)
+                        (remove #(= 0M (reduce + (:budget-item/periods %)))))))
+      purge-import-keys
+      (assoc :budget/entity entity)))
+
 (defmethod import-record* :budget
   [context budget]
-  (import-budget context budget))
+  (let [to-create (prepare-budget budget context)]
+    (try
+      (let [imported (models/put to-create)]
+        (log/infof "imported budget %s" (:budget/name imported)))
+      (catch Exception e
+        (log/errorf "error importing budget %s - %s: %s"
+                    (.getClass e)
+                    (.getMessage e)
+                    (prn-str to-create))))))
 
 (defmethod import-record* :price
   [context price]
