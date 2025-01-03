@@ -14,14 +14,15 @@
                  [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.11" :exclusions [org.clojure/tools.reader]]
+                 [com.github.seancorfield/next.jdbc "1.3.939"]
                  [org.postgresql/postgresql "42.7.4" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [honeysql "0.9.10" :exclusions [org.clojure/spec.alpha
-                                                 org.clojure/clojure
-                                                 org.clojure/core.specs.alpha
-                                                 org.clojure/tools.reader]]
+                 [com.github.seancorfield/honeysql "2.6.1126" :exclusions [org.clojure/spec.alpha
+                                                                           org.clojure/clojure
+                                                                           org.clojure/core.specs.alpha
+                                                                           org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
                  [org.eclipse.jetty/jetty-util "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
@@ -88,9 +89,9 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
-                 [com.github.dgknght/app-lib "0.3.14" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server com.google.javascript/closure-compiler-externs com.cognitect/transit-cljs cljs-http camel-snake-kebab cheshire noencore commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core]]
+                 [com.github.dgknght/app-lib "0.3.18" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server com.google.javascript/closure-compiler-externs com.cognitect/transit-cljs cljs-http camel-snake-kebab cheshire noencore commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core lein-doo]]
                  [lambdaisland/uri "1.4.54"]
-                 [stowaway "0.1.20" :exclusions [org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
+                 [stowaway "0.1.29" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
@@ -100,11 +101,11 @@
   :aot [clj-money.web.server]
   :clean-targets ^{:protect false} [:target-path]
   :source-paths ["src"]
-  :aliases {"migrate"                       ["run" "-m" "clj-money.db/migrate"]
-            "rollback"                      ["run" "-m" "clj-money.db/rollback"]
-            "remigrate"                     ["run" "-m" "clj-money.db/remigrate"]
-            "partition"                     ["run" "-m" "clj-money.db/create-partitions"]
-            "check-trans"                   ["run" "-m" "clj-money.db/check-transaction-balances"]
+  :aliases {"migrate"                       ["run" "-m" "clj-money.db.sql.tasks/migrate"]
+            "rollback"                      ["run" "-m" "clj-money.db.sql.tasks/rollback"]
+            "remigrate"                     ["run" "-m" "clj-money.db.sql.tasks/remigrate"]
+            "partition"                     ["run" "-m" "clj-money.db.sql.tasks/create-partitions"]
+            "check-trans"                   ["run" "-m" "clj-money.db.sql.tasks/check-transaction-balances"]
             "chunk-file"                    ["run" "-m" "clj-money.import.gnucash/chunk-file"]
             "seed"                          ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions"         ["run" "-m" "clj-money.seed/generate-transactions"]

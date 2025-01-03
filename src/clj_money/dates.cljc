@@ -302,6 +302,7 @@
 
 (defn serialize-local-date
   [local-date]
+  {:pre [local-date]}
   #?(:clj (t/format (t/formatter :iso-date) local-date)
      :cljs (tf/unparse-local-date (tf/formatters :date) local-date)))
 
@@ -309,6 +310,16 @@
   [date-str]
   #?(:clj (t/local-date (t/formatter :iso-date) date-str)
      :cljs (tf/parse-local-date (tf/formatters :date) date-str)))
+
+(defn serialize-local-date-time
+  [local-date-time]
+  #?(:clj (t/format (t/formatter :iso-date-time) local-date-time)
+     :cljs (tf/unparse-local-date (tf/formatters :date-time) local-date-time)))
+
+(defn unserialize-local-date-time
+  [date-str]
+  #?(:clj (t/local-date-time (t/formatter :iso-date-time) date-str)
+     :cljs (tf/parse-local-date (tf/formatters :date-time) date-str)))
 
 (defn format-local-date
   [local-date]
@@ -331,3 +342,10 @@
   [time & body]
   #?(:clj `(t/with-clock (t/fixed-clock (->instant ~time)) ~@body)
      :cljs `(t/do-at (->instant ~time) ~@body)))
+
+(def ^:private first-and-last
+  (juxt first last))
+
+(defn range-boundaries
+  [ds]
+  (first-and-last (sort t/before? ds)))

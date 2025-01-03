@@ -5,11 +5,12 @@
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test :refer [parse-json-body]]
+            [dgknght.app-lib.test-assertions]
             [clj-money.factories.user-factory]
             [java-time.api :as t]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             find-user
                                             find-account
                                             find-commodity]]
@@ -19,94 +20,89 @@
 (use-fixtures :each reset-db)
 
 (def ^:private list-context
-  {:users [(factory :user {:email "john@doe.com"})
-           (factory :user {:email "jane@doe.com"})]
-   :entities [{:name "Personal"
-               :user-id "john@doe.com"}]
-   :commodities [{:name "US Dollar"
-                  :entity-id "Personal"
-                  :symbol "USD"
-                  :type :currency}
-                 {:name "Some Fund"
-                  :entity-id "Personal"
-                  :symbol "FND"
-                  :exchange :nasdaq
-                  :type :fund}]
-   :accounts [{:name "IRA"
-               :entity-id "Personal"
-               :commodity-id "USD"
-               :type :asset}
-              {:name "Opening Balances"
-               :entity-id "Personal"
-               :commodity-id "USD"
-               :type :equity}]
-   :transactions [{:transaction-date (t/local-date 2016 1 1)
-                   :entity-id "Personal"
-                   :description "Opening Balances"
-                   :debit-account-id "IRA"
-                   :credit-account-id "Opening Balances"
-                   :quantity 1000M}]
-   :trades [{:type :purchase
-             :entity-id "Personal"
-             :trade-date (t/local-date 2016 2 1)
-             :account-id "IRA"
-             :commodity-id "FND"
-             :shares 10M
-             :value 50M}
-            {:type :purchase
-             :entity-id "Personal"
-             :trade-date (t/local-date 2016 3 1)
-             :account-id "IRA"
-             :commodity-id "FND"
-             :shares 10M
-             :value 60M}
-            {:type :sale
-             :entity-id "Personal"
-             :trade-date (t/local-date 2016 3 15)
-             :account-id "IRA"
-             :commodity-id "FND"
-             :shares 5M
-             :value 35M}]})
+  [(factory :user {:user/email "john@doe.com"})
+   (factory :user {:user/email "jane@doe.com"})
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:commodity{:name "US Dollar"
+               :entity "Personal"
+               :symbol "USD"
+               :type :currency}
+   #:commodity{:name "Some Fund"
+               :entity "Personal"
+               :symbol "FND"
+               :exchange :nasdaq
+               :type :fund}
+   #:account{:name "IRA"
+             :entity "Personal"
+             :commodity "USD"
+             :type :asset}
+   #:account{:name "Opening Balances"
+             :entity "Personal"
+             :commodity "USD"
+             :type :equity}
+   #:transaction{:transaction-date (t/local-date 2016 1 1)
+                 :entity "Personal"
+                 :description "Opening Balances"
+                 :debit-account "IRA"
+                 :credit-account "Opening Balances"
+                 :quantity 1000M}
+   #:trade{:type :purchase
+           :entity "Personal"
+           :date (t/local-date 2016 2 1)
+           :account "IRA"
+           :commodity "FND"
+           :shares 10M
+           :value 50M}
+   #:trade{:type :purchase
+           :entity "Personal"
+           :date (t/local-date 2016 3 1)
+           :account "IRA"
+           :commodity "FND"
+           :shares 10M
+           :value 60M}
+   #:trade{:type :sale
+           :entity "Personal"
+           :date (t/local-date 2016 3 15)
+           :account "IRA"
+           :commodity "FND"
+           :shares 5M
+           :value 35M}])
 
 (defn- get-lots-for-an-account
   [email]
-  (let [ctx (realize list-context)
-        account (find-account ctx "IRA")
-        commodity (find-commodity ctx "FND")
-        user (find-user ctx email)
-        response (-> (req/request :get (str (path :api
-                                                  :accounts
-                                                  (:id account)
-                                                  :lots)
-                                            "?"
-                                            (map->query-string {:commodity-id (:id commodity)})))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context list-context
+    (let [account (find-account "IRA")
+          commodity (find-commodity "FND")]
+      (-> (req/request :get (str (path :api
+                                       :accounts
+                                       (:id account)
+                                       :lots)
+                                 "?"
+                                 (map->query-string
+                                   {:commodity-id (:id commodity)})))
+          (add-auth (find-user email))
+          app
+          parse-json-body))))
 
 (defn- assert-successful-get
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (let [expected [{:purchase-date "2016-02-01"
-                   :shares-purchased 10.0
-                   :purchase-price 5.0
-                   :shares-owned 5.0}
-                  {:purchase-date "2016-03-01"
-                   :shares-purchased 10.0
-                   :purchase-price 6.0
-                   :shares-owned 10.0}]
-        actual (mapv #(select-keys % [:purchase-date
-                                      :shares-purchased
-                                      :shares-owned
-                                      :purchase-price])
-                     body)]
-    (is (= expected actual))))
+  (is (seq-of-maps-like? [#:lot{:purchase-date "2016-02-01"
+                                :shares-purchased 10.0
+                                :purchase-price 5.0
+                                :shares-owned 5.0}
+                          #:lot{:purchase-date "2016-03-01"
+                                :shares-purchased 10.0
+                                :purchase-price 6.0
+                                :shares-owned 10.0}]
+                         json-body)
+      "The response body contains the lot data"))
 
 (defn- assert-blocked-get
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (empty? body) "The body is empty"))
+  (is (empty? json-body) "The body is empty"))
 
 (deftest a-user-can-get-lots-for-an-account-in-his-entity
   (assert-successful-get (get-lots-for-an-account "john@doe.com")))
@@ -116,18 +112,16 @@
 
 (defn- get-lots-for-multiple-accounts
   [email]
-  (let [ctx (realize list-context)
-        ira (find-account ctx "IRA")
-        opening (find-account ctx "Opening Balances")
-        user (find-user ctx email)
-        response (-> (req/request :get (str (path :api
-                                                  :lots)
-                                            "?"
-                                            (map->query-string {:account-id (map :id [ira opening])})))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context list-context
+    (let [ira (find-account "IRA")
+          opening (find-account "Opening Balances")]
+      (-> (req/request :get (str (path :api
+                                       :lots)
+                                 "?"
+                                 (map->query-string {:account-id (map :id [ira opening])})))
+          (add-auth (find-user email))
+          app
+          parse-json-body))))
 
 (deftest a-user-can-get-lots-for-multiple-accounts-in-his-entity
   (assert-successful-get (get-lots-for-multiple-accounts "john@doe.com")))

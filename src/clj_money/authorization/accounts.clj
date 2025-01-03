@@ -1,13 +1,14 @@
 (ns clj-money.authorization.accounts
   (:refer-clojure :exclude [update])
-  (:require [clj-money.models :as models]
-            [dgknght.app-lib.authorization :as authorization]
+  (:require [clj-money.db :as db]
+            [clj-money.authorization :as auth]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
-(defmethod authorization/allowed? [::models/account ::authorization/manage]
+(defmethod auth/allowed? [:account ::auth/manage]
   [account action user]
   (owner-or-granted? account user action))
 
-(defmethod authorization/scope ::models/account
+(defmethod auth/scope :account
   [_ user]
-  {[:entity :user-id] (:id user)})
+  (db/model-type {:entity/user user}
+                 :account))

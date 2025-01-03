@@ -1,15 +1,17 @@
 (ns clj-money.api.trading-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test :refer [parse-json-body]]
+            [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
+            [clj-money.models :as models]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-user
                                             find-account
@@ -21,76 +23,76 @@
 (use-fixtures :each reset-db)
 
 (def ^:private buy-context
-  {:users [(factory :user {:email "john@doe.com"})
-           (factory :user {:email "jane@doe.com"})]
-   :entities [{:name "Personal"
-               :user-id "john@doe.com"}]
-   :commodities [{:symbol "AAPL"
-                  :name "Apple, Inc."
-                  :type :stock
-                  :exchange :nasdaq}
-                 {:symbol "USD"
-                  :name "US Dollar"
-                  :type :currency}]
-   :accounts [{:name "IRA"
-               :type :asset
-               :entity-id "Personal"
-               :currency-id "USD"}
-              {:name "Opening Balances"
-               :type :equity
-               :entity-id "Personal"
-               :currency-id "USD"}]
-   :transactions [{:transaction-date (t/local-date 2016 1 1)
-                   :description "Opening balances"
-                   :debit-account-id "IRA"
-                   :credit-account-id "Opening Balances"
-                   :quantity 1000M}]})
+  [(factory :user {:user/email "john@doe.com"})
+   (factory :user {:user/email "jane@doe.com"})
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:commodity{:symbol "AAPL"
+               :entity "Personal"
+               :name "Apple, Inc."
+               :type :stock
+               :exchange :nasdaq}
+   #:commodity{:symbol "USD"
+               :entity "Personal"
+               :name "US Dollar"
+               :type :currency}
+   #:account{:name "IRA"
+             :type :asset
+             :entity "Personal"
+             :currency "USD"}
+   #:account{:name "Opening Balances"
+             :type :equity
+             :entity "Personal"
+             :currency "USD"}
+   #:transaction{:transaction-date (t/local-date 2016 1 1)
+                 :entity "Personal"
+                 :description "Opening balances"
+                 :debit-account "IRA"
+                 :credit-account "Opening Balances"
+                 :quantity 1000M}])
 
 (defn- buy-a-commodity
   [email]
-  (let [context (realize buy-context)
-        entity (find-entity context "Personal")
-        aapl (find-commodity context "AAPL")
-        ira (find-account context "IRA")
-        user (find-user context email)
-        attr {:trade-date "2016-03-02"
-              :action :buy
-              :entity-id (:id entity)
-              :shares 100.0
-              :value 1000.0
-              :commodity-id (:id aapl)
-              :account-id (:id ira)}
-        response (-> (req/request :post (path :api
-                                              :entities
-                                              (:id entity)
-                                              :trades))
-                     (req/json-body attr)
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        transactions (trans/search {:entity-id (:id entity)
-                                    :transaction-date (t/local-date 2016 3 2)})]
-    [response body transactions]))
+  (with-context buy-context
+    (let [entity (find-entity "Personal")
+          aapl (find-commodity "AAPL")
+          ira (find-account "IRA")
+          user (find-user email)
+          attr #:trade{:date "2016-03-02"
+                       :action :buy
+                       :entity (util/->model-ref entity)
+                       :shares 100.0
+                       :value 1000.0
+                       :commodity (util/->model-ref aapl)
+                       :account (util/->model-ref ira)}]
+      [(-> (req/request :post (path :api
+                                    :entities
+                                    (:id entity)
+                                    :trades))
+           (req/json-body attr)
+           (add-auth user)
+           app
+           parse-json-body)
+       (models/select #:transaction{:entity entity
+                                    :transaction-date (t/local-date 2016 3 2)})])))
 
 (defn- assert-successful-purchase
-  [[response body transactions]]
+  [[{:as response :keys [json-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? {:transaction-date "2016-03-02"
-                   :description "Purchase 100.0 shares of AAPL at 10.000"}
-                  (:transaction body))
+  (is (comparable? #:transaction{:transaction-date "2016-03-02"
+                                 :description "Purchase 100.0 shares of AAPL at 10.000"}
+                   (:trade/transaction json-body))
       "The creating transaction is returned in the response")
-  (is (seq-with-map-like? {:transaction-date (t/local-date 2016 3 2)
-                           :description "Purchase 100.0 shares of AAPL at 10.000"}
-                          transactions)
+  (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2016 3 2)
+                                        :description "Purchase 100.0 shares of AAPL at 10.000"}]
+                         retrieved)
       "The new transaction can be retrieved from the database"))
 
 (defn- assert-blocked-purchase
-  [[response _ transactions]]
+  [[response retrieved]]
   (is (http-not-found? response))
-  (is (seq-with-no-map-like? {:transaction-date (t/local-date 2016 3 2)
-                              :description "Purchase 100.0 shares of AAPL at 10.000"}
-                             transactions)
-      "The transaction is not created"))
+  (is (empty? retrieved)
+      "No transactions are not created"))
 
 (deftest a-user-can-purchase-a-commodity-in-his-entity
   (assert-successful-purchase (buy-a-commodity "john@doe.com")))
@@ -98,89 +100,65 @@
 (deftest a-user-cannot-purchase-a-commodity-in-anothers-entity
   (assert-blocked-purchase (buy-a-commodity "jane@doe.com")))
 
-{:users [(factory :user {:email "john@doe.com"})
-         (factory :user {:email "jane@doe.com"})]
- :entities [{:name "Personal"
-             :user-id "john@doe.com"}]
- :commodities [{:symbol "AAPL"
-                :name "Apple, Inc."
-                :type :stock
-                :exchange :nasdaq}
-               {:symbol "USD"
-                :name "US Dollar"
-                :type :currency}]
- :accounts [{:name "IRA"
-             :type :asset
-             :entity-id "Personal"
-             :currency-id "USD"}
-            {:name "Opening Balances"
-             :type :equity
-             :entity-id "Personal"
-             :currency-id "USD"}]
- :transactions [{:transaction-date (t/local-date 2016 1 1)
-                 :debit-account-id "IRA"
-                 :credit-account-id "Opening Balances"
-                 :quantity 1000M}]}
 (def ^:private sell-context
-  (assoc buy-context
-         :trades [{:entity-id "Personal"
-                   :trade-date (t/local-date 2016 2 27)
-                   :type :purchase
-                   :account-id "IRA"
-                   :commodity-id "AAPL"
-                   :shares 100M
-                   :value 1000M}]))
+  (conj buy-context
+        #:trade{:entity "Personal"
+                :date (t/local-date 2016 2 27)
+                :type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 1000M}))
 
 (defn- sell-a-commodity
   [email]
-  (let [ctx (realize sell-context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        aapl (find-commodity ctx "AAPL")
-        ira (find-account ctx "IRA")
-        attr {:trade-date "2016-03-02"
-              :action "sell"; TODO: make this match the serialization :type [:purchase :sale]
-              :entity-id (:id entity)
-              :shares 100M
-              :value 1100M
-              :commodity-id (:id aapl)
-              :account-id (:id ira)}
-        response (-> (req/request :post (path :api
-                                              :entities
-                                              (:id entity)
-                                              :trades))
-                     (req/json-body attr)
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        transactions (trans/search {:entity-id (:id entity)
+  (with-context sell-context
+    (let [user (find-user email)
+          entity (find-entity "Personal")
+          aapl (find-commodity "AAPL")
+          ira (find-account "IRA")
+          attr #:trade{:date "2016-03-02"
+                       :action "sell"; TODO: make this match the serialization :type [:purchase :sale]
+                       :entity (util/->model-ref entity)
+                       :shares 100M
+                       :value 1100M
+                       :commodity (util/->model-ref aapl)
+                       :account (util/->model-ref ira)}]
+      [(-> (req/request :post (path :api
+                                    :entities
+                                    (:id entity)
+                                    :trades))
+           (req/json-body attr)
+           (add-auth user)
+           app
+           parse-json-body)
+       (models/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)})
-        lots (lots/search  {:account-id (:id ira)
-                            :commodity-id (:id aapl)})]
-    [response body transactions lots]))
+       (models/find-by #:lot{:account ira
+                             :commodity aapl})])))
 
 (defn- assert-successful-sale
-  [[response body transactions lots]]
+  [[{:as response :keys [json-body]} transactions lot]]
   (is (http-success? response))
-  (is (comparable? {:transaction-date "2016-03-02"
-                    :description "Sell 100 shares of AAPL at 11.000"}
-                   (:transaction body))
+  (is (comparable? #:transaction{:transaction-date "2016-03-02"
+                                 :description "Sell 100 shares of AAPL at 11.000"}
+                   (:trade/transaction json-body))
       "The created transaction is included in the response")
-  (is (seq-with-map-like? {:transaction-date (t/local-date 2016 3 2)
-                          :description "Sell 100 shares of AAPL at 11.000"}
+  (is (seq-with-map-like? #:transaction{:transaction-date (t/local-date 2016 3 2)
+                                        :description "Sell 100 shares of AAPL at 11.000"}
                           transactions)
       "The created transaction can be retrieved")
-  (is  (= 0M (:shares-owned (first lots)))
-       "The shares are not longer owned"))
+  (is  (comparable? #:lot{:shares-owned 0M}
+                    lot)
+      "The shares are no longer owned"))
 
 (defn- assert-blocked-sale
-  [[response _ transactions lots]]
+  [[response transactions lot]]
   (is (http-not-found? response))
-  (is (seq-with-no-map-like? {:transaction-date (t/local-date 2016 3 2)
-                              :description "Sell 100.0 shares of AAPL at 11.000"}
-                             transactions)
-      "The no transaction is created")
-  (is  (= 100M (:shares-owned (first lots)))
+  (is (empty? transactions)
+      "The no transactions are created")
+  (is  (comparable? #:lot{:shares-owned 100M}
+                    lot)
       "The shares are still owned"))
 
 (deftest a-user-can-sell-a-commodity-in-his-entity

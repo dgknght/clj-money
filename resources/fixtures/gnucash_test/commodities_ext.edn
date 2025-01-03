@@ -1,296 +1,374 @@
 {:input "resources/fixtures/sample_with_commodities_ext.gnucash"
- :expectations {:declaration [{:record-type :commodity
-                               :record-count 3}
-                              {:record-type :account
-                               :record-count 21}
-                              {:record-type :transaction
-                               :record-count 11}
-                              {:record-type :price
-                               :record-count 5}]
-                :commodity [{:name "USD"
-                             :symbol "USD"
-                             :type :currency}
-                            {:name "Apple, Inc."
-                             :symbol "AAPL"
-                             :type :stock
-                             :exchange :nasdaq}]
-                :price [{:trade-date #local-date "2015-05-01"
-                         :price 6M
-                         :exchange :nasdaq
-                         :symbol "AAPL"}
-                        {:trade-date #local-date "2015-04-01"
-                         :price 5.5M
-                         :exchange :nasdaq
-                         :symbol "AAPL"}
-                        {:trade-date #local-date "2015-03-02"
-                         :price 10M
-                         :exchange :nasdaq
-                         :symbol "AAPL"}
-                        {:trade-date #local-date "2015-01-30"
-                         :price 12M
-                         :exchange :nasdaq
-                         :symbol "AAPL"}
-                        {:trade-date #local-date "2015-01-17"
-                         :price 10M
-                         :exchange :nasdaq
-                         :symbol "AAPL"}]
-                :account [{:name "Checking"
-                           :id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                           :parent-id "d005a139a1aaab6899867923509b96ca"
-                           :type :asset
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "401k"
-                           :id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
-                           :parent-id "d005a139a1aaab6899867923509b96ca"
-                           :type :asset
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Apple, Inc"
-                           :id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
-                           :parent-id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
-                           :type :asset
-                           :commodity {:exchange :nasdaq
-                                       :symbol "AAPL"}}
-                          {:name "IRA"
-                           :id "294fd407b010e07e8fb54a4cab3fbd8c" ; IRA
-                           :parent-id "d005a139a1aaab6899867923509b96ca"
-                           :type :asset
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Apple, Inc."
-                           :id "d65092fee5cfdacab77e7b37942675bb" ; apple IRA
-                           :parent-id "294fd407b010e07e8fb54a4cab3fbd8c" ; IRA
-                           :type :asset
-                           :commodity {:exchange :nasdaq
-                                       :symbol "AAPL"}}
-                          {:name "Salary"
-                           :id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
-                           :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
-                           :type :income
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Other"
-                           :id "8c62d43a4feee76da698912d7ff3a6ca" ; other
-                           :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
-                           :type :income
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Investment"
-                           :id "9f58204ecb4f4551b1800a64c77e63e5"
-                           :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
-                           :type :income
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Long-Term Gains"
-                           :id "bafc743f9d2a4560bef084e7c9689ca9"
-                           :type :income
-                           :parent-id "9f58204ecb4f4551b1800a64c77e63e5"
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Short-Term Gains"
-                           :id "67928c21142340cc88f67973ec4e0c8e"
-                           :type :income
-                           :parent-id "9f58204ecb4f4551b1800a64c77e63e5"
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Groceries"
-                           :id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                           :parent-id "abff103816fb2e5cb93778b1ea51ca45"
-                           :type :expense
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Investment Expenses"
-                           :id "2b8b986602a346dc833125c86ef89f72" ; investment expenses
-                           :parent-id "abff103816fb2e5cb93778b1ea51ca45"
-                           :type :expense
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Investment"
-                           :id "6acec629acc841bdb21f36911fc11286"
-                           :parent-id "abff103816fb2e5cb93778b1ea51ca45"
-                           :type :expense
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Long-Term Losses"
-                           :id "95354fe9dcba4bcd8b3fb46e123ab139"
-                           :parent-id "6acec629acc841bdb21f36911fc11286"
-                           :type :expense
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Short-Term Losses"
-                           :id "14768c5f0dd542018aed9c5d1e814037"
-                           :parent-id "6acec629acc841bdb21f36911fc11286"
-                           :type :expense
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Credit Card"
-                           :id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
-                           :parent-id "9ee0484c7788656a0800e28ec8cefaff"
-                           :type :liability
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}]
-                :transaction [{:transaction-date #local-date "2015-01-01"
-                               :description "Paycheck"
-                               :items [{:action :debit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false
-                                        :memo "important memo"}]}
-                              {:transaction-date #local-date "2015-01-04"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                        :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-11"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                        :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-12"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 10M
-                                        :value 10M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                        :quantity 10M
-                                        :value 10M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-15"
-                               :description "Paycheck"
-                               :items [{:action :debit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}]}
+ :expectations {:declaration [{:declaration/record-type :commodity
+                               :declaration/record-count 3
+                               :import/record-type :declaration}
+                              {:declaration/record-type :account
+                               :declaration/record-count 21
+                               :import/record-type :declaration}
+                              {:declaration/record-type :transaction
+                               :declaration/record-count 11
+                               :import/record-type :declaration}
+                              {:declaration/record-type :price
+                               :declaration/record-count 5
+                               :import/record-type :declaration}]
+                :commodity [{:commodity/name "USD"
+                             :commodity/symbol "USD"
+                             :commodity/type :currency
+                             :import/record-type :commodity
+                             :import/ignore? false}
+                            {:commodity/name "Apple, Inc."
+                             :commodity/symbol "AAPL"
+                             :commodity/type :stock
+                             :commodity/exchange :nasdaq
+                             :import/record-type :commodity
+                             :import/ignore? false}]
+                :price [{:price/trade-date #local-date "2015-05-01"
+                         :price/price 6M
+                         :commodity/exchange :nasdaq
+                         :commodity/symbol "AAPL"
+                         :import/record-type :price
+                         :import/ignore? false}
+                        {:price/trade-date #local-date "2015-04-01"
+                         :price/price 5.5M
+                         :commodity/exchange :nasdaq
+                         :commodity/symbol "AAPL"
+                         :import/record-type :price
+                         :import/ignore? false}
+                        {:price/trade-date #local-date "2015-03-02"
+                         :price/price 10M
+                         :commodity/exchange :nasdaq
+                         :commodity/symbol "AAPL"
+                         :import/record-type :price
+                         :import/ignore? false}
+                        {:price/trade-date #local-date "2015-01-30"
+                         :price/price 12M
+                         :commodity/exchange :nasdaq
+                         :commodity/symbol "AAPL"
+                         :import/record-type :price
+                         :import/ignore? false}
+                        {:price/trade-date #local-date "2015-01-17"
+                         :price/price 10M
+                         :commodity/exchange :nasdaq
+                         :commodity/symbol "AAPL"
+                         :import/record-type :price
+                         :import/ignore? false}]
+                :account [{:account/name "Checking"
+                           :account/type :asset
+                           :import/record-type :account
+                           :import/id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                           :import/ignore? false
+                           :import/parent-id "d005a139a1aaab6899867923509b96ca"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "401k"
+                           :account/type :asset
+                           :import/record-type :account
+                           :import/id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
+                           :import/ignore? false
+                           :import/parent-id "d005a139a1aaab6899867923509b96ca"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Apple, Inc"
+                           :account/type :asset
+                           :import/record-type :account
+                           :import/id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
+                           :import/ignore? false
+                           :import/parent-id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
+                           :import/commodity {:commodity/exchange :nasdaq
+                                              :commodity/type :stock
+                                              :commodity/symbol "AAPL"}}
+                          {:account/name "IRA"
+                           :account/type :asset
+                           :import/record-type :account
+                           :import/id "294fd407b010e07e8fb54a4cab3fbd8c" ; IRA
+                           :import/ignore? false
+                           :import/parent-id "d005a139a1aaab6899867923509b96ca"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Apple, Inc."
+                           :account/type :asset
+                           :import/record-type :account
+                           :import/id "d65092fee5cfdacab77e7b37942675bb" ; apple IRA
+                           :import/ignore? false
+                           :import/parent-id "294fd407b010e07e8fb54a4cab3fbd8c" ; IRA
+                           :import/commodity {:commodity/exchange :nasdaq
+                                              :commodity/type :stock
+                                              :commodity/symbol "AAPL"}}
+                          {:account/name "Salary"
+                           :account/type :income
+                           :import/record-type :account
+                           :import/id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
+                           :import/ignore? false
+                           :import/parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Other"
+                           :account/type :income
+                           :import/record-type :account
+                           :import/id "8c62d43a4feee76da698912d7ff3a6ca" ; other
+                           :import/ignore? false
+                           :import/parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Investment"
+                           :account/type :income
+                           :import/record-type :account
+                           :import/id "9f58204ecb4f4551b1800a64c77e63e5"
+                           :import/ignore? false
+                           :import/parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Long-Term Gains"
+                           :account/type :income
+                           :import/record-type :account
+                           :import/parent-id "9f58204ecb4f4551b1800a64c77e63e5"
+                           :import/id "bafc743f9d2a4560bef084e7c9689ca9"
+                           :import/ignore? false
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Short-Term Gains"
+                           :account/type :income
+                           :import/record-type :account
+                           :import/parent-id "9f58204ecb4f4551b1800a64c77e63e5"
+                           :import/id "67928c21142340cc88f67973ec4e0c8e"
+                           :import/ignore? false
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Groceries"
+                           :account/type :expense
+                           :import/record-type :account
+                           :import/id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                           :import/ignore? false
+                           :import/parent-id "abff103816fb2e5cb93778b1ea51ca45"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Investment Expenses"
+                           :account/type :expense
+                           :import/record-type :account
+                           :import/id "2b8b986602a346dc833125c86ef89f72" ; investment expenses
+                           :import/ignore? false
+                           :import/parent-id "abff103816fb2e5cb93778b1ea51ca45"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Investment"
+                           :account/type :expense
+                           :import/record-type :account
+                           :import/id "6acec629acc841bdb21f36911fc11286"
+                           :import/ignore? false
+                           :import/parent-id "abff103816fb2e5cb93778b1ea51ca45"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Long-Term Losses"
+                           :account/type :expense
+                           :import/record-type :account
+                           :import/id "95354fe9dcba4bcd8b3fb46e123ab139"
+                           :import/ignore? false
+                           :import/parent-id "6acec629acc841bdb21f36911fc11286"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Short-Term Losses"
+                           :account/type :expense
+                           :import/record-type :account
+                           :import/id "14768c5f0dd542018aed9c5d1e814037"
+                           :import/ignore? false
+                           :import/parent-id "6acec629acc841bdb21f36911fc11286"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Credit Card"
+                           :account/type :liability
+                           :import/record-type :account
+                           :import/id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
+                           :import/ignore? false
+                           :import/parent-id "9ee0484c7788656a0800e28ec8cefaff"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}]
+                :transaction [{:transaction/transaction-date #local-date "2015-01-01"
+                               :transaction/description "Paycheck"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :transaction-item/memo "important memo"
+                                                    :import/account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                              {:transaction/transaction-date #local-date "2015-01-04"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                              {:transaction/transaction-date #local-date "2015-01-11"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                              {:transaction/transaction-date #local-date "2015-01-12"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 10M
+                                                    :transaction-item/value 10M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 10M
+                                                    :transaction-item/value 10M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                              {:transaction/transaction-date #local-date "2015-01-15"
+                               :transaction/description "Paycheck"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}
 
-                              {:transaction-date #local-date "2015-01-16"
-                               :description "Retirement"
-                               :items [{:action :debit
-                                        :account-id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-17"
-                               :description "Purchase shares AAPL"
-                               :action :buy
-                               :shares 100M
-                               :value 1000M
-                               :commodity-account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
-                               :items [{:action :debit
-                                        :account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
-                                        :quantity 100M
-                                        :value 1000M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-03-02"
-                               :description "Transfer shares of AAPL"
-                               :action :transfer
-                               :shares 100M
-                               :value 1000M
-                               :from-account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
-                               :to-account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
-                               :items [{:action :debit
-                                        :account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
-                                        :quantity 100M
-                                        :value 1000M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
-                                        :quantity 100M
-                                        :value 1000M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-04-01"
-                               :description "Stock Split"
-                               :action :split
-                               :split-date #local-date "2015-04-01"
-                               :shares-gained 100M
-                               :commodity-account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
-                               :items [{:action :debit
-                                         :account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
-                                         ; TODO add some shares here
-                                         :value 0M
-                                         :quantity 100M
-                                         :reconciled false}
-                                       {:action :debit
-                                         :account-id "294fd407b010e07e8fb54a4cab3fbd8c" ; ira
-                                         :memo "Cash In Lieu"
-                                         :quantity 1M
-                                         :value 1M
-                                         :reconciled false}
-                                       {:action :credit
-                                         :account-id "8c62d43a4feee76da698912d7ff3a6ca" ; other income
-                                         :memo "Cash In Lieu"
-                                         :quantity 1M
-                                         :value 1M
-                                         :reconciled false}]}
-                              {:transaction-date #local-date "2015-05-01"
-                               :description "Sell shares of AAPL"
-                               :action :sell
-                               :trade-date #local-date "2015-05-01"
-                               :shares 100M
-                               :commodity-account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
-                               :items [{:action :debit
-                                         :account-id "294fd407b010e07e8fb54a4cab3fbd8c" ; ira
-                                         :quantity 590M
-                                         :value 590M
-                                         :reconciled false}
-                                       {:action :debit
-                                         :account-id "2b8b986602a346dc833125c86ef89f72" ; investment expenses
-                                         :quantity 10M
-                                         :value 10M
-                                         :reconciled false}
-                                       {:action :credit
-                                         :account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
-                                         :value 600M
-                                         :quantity 100M
-                                         :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-18"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                         :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                         :quantity 100M
-                                         :value 100M
-                                         :reconciled false}
-                                       {:action :credit
-                                         :account-id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
-                                         :quantity 100M
-                                         :value 100M
-                                         :reconciled false}]}]}}
+                              {:transaction/transaction-date #local-date "2015-01-16"
+                               :transaction/description "Retirement"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                              {:transaction/transaction-date #local-date "2015-01-17"
+                               :transaction/description "Purchase shares AAPL"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "fc053b4fc6b94898a5d6fa53ed203bd0" ; 401k
+                                                    :import/reconciled? false}]
+                               :trade/action :buy
+                               :trade/shares 100M
+                               :trade/value 1000M
+                               :import/commodity-account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                               
+                              {:transaction/transaction-date #local-date "2015-03-02"
+                               :transaction/description "Transfer shares of AAPL"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
+                                                    :import/reconciled? false}]
+                               :trade/action :transfer
+                               :transfer/shares 100M
+                               :transfer/value 1000M
+                               :import/from-account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
+                               :import/to-account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                               
+                              {:transaction/transaction-date #local-date "2015-04-01"
+                               :transaction/description "Stock Split"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    ; TODO add some shares here
+                                                    :transaction-item/value 0M
+                                                    :transaction-item/quantity 100M
+                                                    :import/account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :debit
+                                                    :transaction-item/quantity 1M
+                                                    :transaction-item/value 1M
+                                                    :transaction-item/memo "Cash In Lieu"
+                                                    :import/account-id "294fd407b010e07e8fb54a4cab3fbd8c" ; ira
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 1M
+                                                    :transaction-item/value 1M
+                                                    :transaction-item/memo "Cash In Lieu"
+                                                    :import/account-id "8c62d43a4feee76da698912d7ff3a6ca" ; other income
+                                                    :import/reconciled? false}]
+                               :trade/action :split
+                               :split/date #local-date "2015-04-01"
+                               :split/shares-gained 100M
+                               :import/commodity-account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                               
+                              {:transaction/transaction-date #local-date "2015-05-01"
+                               :transaction/description "Sell shares of AAPL"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 590M
+                                                    :transaction-item/value 590M
+                                                    :import/account-id "294fd407b010e07e8fb54a4cab3fbd8c" ; ira
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :debit
+                                                    :transaction-item/quantity 10M
+                                                    :transaction-item/value 10M
+                                                    :import/account-id "2b8b986602a346dc833125c86ef89f72" ; investment expenses
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/value 600M
+                                                    :transaction-item/quantity 100M
+                                                    :import/account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
+                                                    :import/reconciled? false}]
+                               :trade/action :sell
+                               :trade/date #local-date "2015-05-01"
+                               :trade/shares 100M
+                               :import/commodity-account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
+                               :import/record-type :transaction
+                               :import/ignore? false}
+                               
+                              {:transaction/transaction-date #local-date "2015-01-18"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}]}}
