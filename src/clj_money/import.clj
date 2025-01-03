@@ -128,7 +128,7 @@
 
 (defmulti ^:private import-transaction
   (fn [_ transaction]
-    (:action transaction)))
+    (:trade/action transaction)))
 
 (defn- log-transaction
   [transaction transaction-type]
@@ -147,54 +147,54 @@
   context)
 
 (defn- inv-transaction-fee-info
-  [{:keys [accounts]} transaction trans-type]
-  (when-not (= 2 (count (:items transaction)))
+  [{:keys [account-ids]} transaction trans-type]
+  (when-not (= 2 (count (:transaction/items transaction)))
     (let [non-commodity-items (filter #(= (if (= :buy trans-type)
                                             :credit
                                             :debit)
-                                          (:action %))
-                                      (:items transaction))
-          account-ids (map #(get-in accounts [(:account-id %)])
+                                          (:transaction-tiem/action %))
+                                      (:transaction/items transaction))
+          item-account-ids (map #(get-in account-ids [(:import/account-id %)])
                            non-commodity-items)
           accounts-map (->> (models/select
                               (db/model-type
-                                {:id [:in account-ids]}
+                                {:id [:in item-account-ids]}
                                 :account))
                             (map (juxt :id identity))
                             (into {}))
           fee-items (filter #(= :expense
                                 (get-in accounts-map
-                                        [(accounts (:account-id %))
-                                         :type]))
+                                        [(account-ids (:import/account-id %))
+                                         :account/type]))
                             non-commodity-items)]
       (when (seq fee-items)
-        [(transduce (map :quantity) + fee-items)
-         (accounts (:account-id (first fee-items)))]))))
+        [(transduce (map :item/quantity) + fee-items)
+         (account-ids (:import/account-id (first fee-items)))]))))
 
 (defmethod ^:private import-transaction :buy
-  [{:keys [accounts] :as context} transaction]
-  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
-        purchase {:commodity-id (->> context
-                                     :commodities
-                                     (filter #(and (= (:symbol %) (:symbol transaction))
-                                                   (= (:exchange %) (:exchange transaction))))
-                                     first
-                                     :id)
-                  :commodity-account-id (accounts (:commodity-account-id transaction))
-                  :account-id (accounts (:account-id transaction))
-                  :fee fee
-                  :fee-account-id fee-account-id
-                  :trade-date (:transaction-date transaction)
-                  :shares (:shares transaction)
-                  :value (:value (->> (:items transaction)
-                                      (filter #(= :debit (:action %)))
-                                      first))}
-        {result :transaction
-         errors ::v/errors} (trading/buy purchase)]
-    (when (seq errors)
-      (log/errorf "Unable to import purchase transaction %s: %s"
-                  (prn-str purchase)
-                  (prn-str errors)))
+  [{:keys [account-ids] :as context}
+   {:trade/keys [shares value]
+    :transaction/keys [transaction-date]
+    :import/keys [commodity-account-id account-id]
+    :as transaction}]
+  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :buy)
+        commodity-id (->> context
+                          :commodities
+                          (filter #(and (= (:commodity/symbol %)
+                                           (:commodity/symbol transaction))
+                                        (= (:commodity/exchange %)
+                                           (:commodity/exchange transaction))))
+                          first
+                          :id)
+        purchase (cond-> #:trade{:date transaction-date
+                                 :shares shares
+                                 :value value}
+                   commodity-id         (assoc :trade/commodity {:id commodity-id})
+                   commodity-account-id (assoc :trade/commodity-account {:id (account-ids commodity-account-id)})
+                   account-id           (assoc :trade/account {:id (account-ids account-id)})
+                   fee                  (assoc :trade/fee fee
+                                               :trade/fee-account {:id fee-account-id}))
+        {result :transaction} (trading/buy purchase)]
     (log-transaction result "commodity purchase"))
   context)
 

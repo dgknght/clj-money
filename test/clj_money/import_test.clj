@@ -360,58 +360,44 @@
                              (models/select {:budget/entity entity}))
           "The budget can be retrieved"))))
 
-; (def gnucash-commodities-sample
-;   (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
-;
-; (def ^:private commodities-context
-;   {:users [(factory :user, {:email "john@doe.com"})]
-;    :images [{:body (read-bytes gnucash-commodities-sample)
-;              :content-type "application/gnucash"
-;              :original-filename "sample_with_commodities.gnucash"}]
-;    :imports [{:entity-name "Personal"
-;               :image-ids ["sample_with_commodities.gnucash"]}]})
-;
-; (def ^:private expected-lots
-;   [{:purchase-date (t/local-date 2015 1 17)
-;     :shares-purchased 100M
-;     :shares-owned 100M
-;     :purchase-price 10M}])
-;
-; (def ^:private expected-prices
-;   #{{:trade-date (t/local-date 2015 1 17)
-;      :price 10M}
-;     {:trade-date (t/local-date 2015 1 30)
-;      :price 12M}})
-;
-; (deftest import-commodities
-;   (let [context (realize commodities-context)
-;         imp (-> context :imports first)
-;         {:keys [entity]} (import-data imp (nil-chan) {:atomic? true})
-;         account (accounts/find-by {:entity-id (:id entity)
-;                                    :name "401k"})
-;         lots (lots/search {:account-id (:id account)})
-;         actual-lots (map #(dissoc % :id
-;                                   :commodity-id
-;                                   :account-id
-;                                   :created-at
-;                                   :updated-at)
-;                          lots)
-;         aapl (commodities/find-by {:entity-id (:id entity)
-;                                    :symbol "AAPL"}
-;                                   {:limit 1})
-;         prices  (prices/search {:commodity-id (:id aapl)
-;                                 :trade-date [:between
-;                                              (t/local-date 2015 1 1)
-;                                              (t/local-date 2015 12 31)]})
-;         actual-prices (->> prices
-;                            (map #(dissoc % :id
-;                                          :commodity-id
-;                                          :created-at
-;                                          :updated-at))
-;                            (into #{}))]
-;     (is (= expected-lots actual-lots) "The correct lots are present after import")
-;     (is (= expected-prices, actual-prices) "The correct prices are present after import")))
-;
+(defn- gnucash-commodities-sample []
+  (with-open [input (io/input-stream "resources/fixtures/sample_with_commodities.gnucash")]
+    (read-bytes input)))
+
+(def ^:private commodities-context
+  (conj base-context
+        #:image{:body (gnucash-commodities-sample)
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "sample_with_commodities.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["sample_with_commodities.gnucash"]}))
+
+(deftest import-commodities
+  (with-context commodities-context
+    (let [imp (find-import "Personal")
+          {:keys [wait]} (import-data imp (nil-chan))]
+      @wait
+      (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 1 17)
+                                    :shares-purchased 100M
+                                    :shares-owned 100M
+                                    :purchase-price 10M}]
+                             (models/select #:lot{:account (account-ref "401k")}))
+          "The lots can be retrieved")
+      (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 1 17)
+                                      :price 10M}
+                              #:price{:trade-date (t/local-date 2015 1 30)
+                                      :price 12M}]
+                             (models/select
+                               (db/model-type
+                                 {:price/trade-date [:between>
+                                                     (t/local-date 2015 1 1)
+                                                     (t/local-date 2016 1 1)]
+                                  :commodity/symbol "AAPL"}
+                                 :price)))
+          "The prices can be retrieved"))))
+
 ; (def gnucash-ext-commodities-sample
 ;   (io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash"))
 ;
