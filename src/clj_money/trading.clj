@@ -347,7 +347,7 @@
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
-  ; Finall save the affected accounts
+  ; Finally save the affected accounts
   (let [result (group-by db/model-type
                          (models/put-many
                            (concat [commodity-account
