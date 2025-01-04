@@ -40,13 +40,6 @@
   [m]
   (remove-keys-by-ns m "import"))
 
-(defn- find-commodity
-  [{:keys [commodities-by-symbol
-           commodities-by-exchange-and-symbol]}
-   {:commodity/keys [exchange symbol]}]
-  (or (get commodities-by-exchange-and-symbol [exchange symbol])
-      (get commodities-by-symbol symbol)))
-
 (defn- update-account-relationships
   [context {:keys [id] :account/keys [parent]}]
   (if parent
@@ -273,16 +266,22 @@
   [context _]
   context)
 
+(defn- find-commodity
+  [{:keys [commodities-by-symbol
+           commodities-by-exchange-and-symbol]}
+   {:commodity/keys [exchange symbol] :as commodity}]
+  (or (get commodities-by-exchange-and-symbol [exchange symbol])
+      (get commodities-by-symbol symbol)
+      (throw (ex-info (format "Unable to find the commodity \"%s\"" symbol)
+                      commodity))))
+
 (defmethod import-record* :account
-  [{:keys [account-ids] :as context}
+  [{:keys [account-ids entity] :as context}
    {:import/keys [parent-id commodity id] :as account}]
   (let [result (-> account
-                   (assoc :account/entity (:entity context)
-                          :account/commodity (find-commodity
-                                               context
-                                               commodity)
-                          :account/parent (when-let [parent-id (account-ids parent-id)]
-                                            {:id parent-id}))
+                   (assoc :account/entity entity
+                          :account/commodity (find-commodity context commodity)
+                          :account/parent (when parent-id {:id (account-ids parent-id)}))
                    purge-import-keys
                    (validate ::models/account)
                    models/put)]
@@ -415,7 +414,7 @@
                     (prn-str to-create))))))
 
 (defmethod import-record* :price
-  [{:keys [entity]} price]
+  [{:keys [entity] :as ctx} price]
   (let [commodity (-> price
                       (select-keys [:commodity/symobl
                                     :commodity/exchange])
@@ -426,7 +425,8 @@
                       :price/price])
         (assoc :price/commodity commodity)
         (validate ::models/price)
-        models/put)))
+        models/put)
+    ctx))
 
 (defmethod import-record* :commodity
   [{:keys [entity] :as context} commodity]
@@ -443,7 +443,7 @@
     (-> context
         (update-in [:commodities] (fnil conj []) created)
         (update-in [:commodities-by-symbol] (fnil assoc {}) symbol created)
-        (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) exchange symbol))))
+        (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) [exchange symbol] created))))
 
 (defn- assoc-error
   [ctx msg data]
