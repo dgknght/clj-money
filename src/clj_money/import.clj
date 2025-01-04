@@ -40,16 +40,6 @@
   [m]
   (remove-keys-by-ns m "import"))
 
-(defn- import-price
-  [{:keys [entity] :as context} price]
-  (let [commodity (models/find-by #:commodity{:exchange (name (:exchange price))
-                                              :symbol (:symbol price)
-                                              :entity entity})]
-    (models/put (-> price
-                    (assoc :price/commodity commodity)
-                    (dissoc :exchange :symbol))))
-  context)
-
 (defn- find-commodity
   [{:keys [commodities-by-symbol
            commodities-by-exchange-and-symbol]}
@@ -286,15 +276,16 @@
 (defmethod import-record* :account
   [{:keys [account-ids] :as context}
    {:import/keys [parent-id commodity id] :as account}]
-  (let [result (models/put (-> account
-                               (assoc :account/entity (:entity context)
-                                      :account/commodity (find-commodity
-                                                           context
-                                                           commodity)
-                                      :account/parent (when-let [parent-id (account-ids parent-id)]
-                                                        {:id parent-id}))
-                               purge-import-keys
-                               (validate ::models/account)))]
+  (let [result (-> account
+                   (assoc :account/entity (:entity context)
+                          :account/commodity (find-commodity
+                                               context
+                                               commodity)
+                          :account/parent (when-let [parent-id (account-ids parent-id)]
+                                            {:id parent-id}))
+                   purge-import-keys
+                   (validate ::models/account)
+                   models/put)]
     (log/infof "imported account \"%s\"" (:account/name result))
     (-> context
         (assoc-in [:account-ids id] (:id result))
@@ -424,8 +415,18 @@
                     (prn-str to-create))))))
 
 (defmethod import-record* :price
-  [context price]
-  (import-price context price))
+  [{:keys [entity]} price]
+  (let [commodity (-> price
+                      (select-keys [:commodity/symobl
+                                    :commodity/exchange])
+                      (assoc :commodity/entity entity)
+                      models/find-by)]
+    (-> price
+        (select-keys [:price/trade-date
+                      :price/price])
+        (assoc :price/commodity commodity)
+        (validate ::models/price)
+        models/put)))
 
 (defmethod import-record* :commodity
   [{:keys [entity] :as context} commodity]
