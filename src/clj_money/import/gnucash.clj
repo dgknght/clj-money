@@ -79,6 +79,7 @@
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
 (xml/alias-uri :gnc          "http://www.gnucash.org/XML/gnc"
+               :book         "http://www.gnucash.org/XML/book"
                :slot         "http://www.gnucash.org/XML/slot"
                :cd           "http://www.gnucash.org/XML/cd"
                :act          "http://www.gnucash.org/XML/act"
@@ -165,9 +166,22 @@
       (compound-attribute-elements tag) :compound-attribute
       :else                             tag)))
 
+(def ^:private known-irrelevant-elements
+  #{::book/id
+    ::cmdty/scu
+    ::gnc/book
+    :gnc-v2
+    ::price/id
+    ::split/id
+    ::trn/id
+    ::trn/currency
+    ::trn/date-entered
+    ::trn/slots})
+
 (defmethod ^:private process-elem :default
   [state elem]
-  (when (env :detailed-import-logging?)
+  (when (and (env :detailed-import-logging?)
+             (not (known-irrelevant-elements (:tag elem))))
     (log/debug "Encountered unhandled element " (prn-str (:tag elem))))
   (pop-elem state))
 
