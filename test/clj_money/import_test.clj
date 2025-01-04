@@ -331,10 +331,17 @@
                  :user "john@doe.com"
                  :images ["budget_sample.gnucash"]}))
 
+(defn- throw-if-nil
+  [x msg]
+  (when (nil? x)
+    (throw (ex-info msg {})))
+  x)
+
 (defn- account-ref
   [name]
   (-> {:account/name name}
       models/find-by
+      (throw-if-nil (str "Account not found: " name))
       util/->model-ref))
 
 (deftest import-a-budget
