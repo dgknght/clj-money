@@ -29,9 +29,6 @@
 (s/def :trade/shares decimal?)
 (s/def :trade/value decimal?)
 
-(s/def ::split-date t/local-date?)
-(s/def ::shares-gained decimal?)
-
 (defmulti ^:private purchase-spec
   (fn [purchase]
     (if (:trade/commodity-account purchase)
@@ -95,13 +92,26 @@
 (defn- create-price
   "Given a trade map, calculates and appends the share price"
   [{:trade/keys [shares value commodity date] :as trade}]
-  (-> trade
-      (update-in [:trade/commodity-account :account/price-as-of]
-                 #(dates/latest % date))
-      (assoc :trade/price
-             #:price{:commodity commodity
-                     :trade-date date
-                     :price (with-precision 4 (/ value shares))})))
+  (let [existing (models/find-by {:price/commodity commodity
+                                  :price/trade-date date})
+        price-value (with-precision 4 (/ value shares))
+        price (if existing
+                (assoc existing :price/price price-value)
+                #:price{:commodity commodity
+                        :trade-date date
+                        :price price-value})]
+    ; TODO: We should probably report this back to the user
+    (when-not (= (:price/price price)
+                 (:price/price existing))
+      (log/debugf "Conflicting commodity price for %s on %s: %s vs %s"
+                  (:commodity/symbol commodity)
+                  date
+                  (:price/price existing)
+                  (:price/price price)))
+    (-> trade
+        (update-in [:trade/commodity-account :account/price-as-of]
+                   #(dates/latest % date))
+        (assoc :trade/price price))))
 
 (defn- ensure-tag
   "Appends the specified tag to the account if it isn't there already"
