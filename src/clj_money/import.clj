@@ -414,19 +414,14 @@
                     (prn-str to-create))))))
 
 (defmethod import-record* :price
-  [{:keys [entity] :as ctx} price]
-  (let [commodity (-> price
-                      (select-keys [:commodity/symobl
-                                    :commodity/exchange])
-                      (assoc :commodity/entity entity)
-                      models/find-by)]
-    (-> price
-        (select-keys [:price/trade-date
-                      :price/price])
-        (assoc :price/commodity commodity)
-        (validate ::models/price)
-        models/put)
-    ctx))
+  [ctx price]
+  (-> price
+      (select-keys [:price/trade-date
+                    :price/price])
+      (assoc :price/commodity (find-commodity ctx price))
+      (validate ::models/price)
+      models/put)
+  ctx)
 
 (defmethod import-record* :commodity
   [{:keys [entity] :as context} commodity]
