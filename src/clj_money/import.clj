@@ -275,13 +275,22 @@
       (throw (ex-info (format "Unable to find the commodity \"%s\"" symbol)
                       commodity))))
 
+(defn- account-parent
+  "Returns a model reference for the parent if the parent ID is found.
+
+  The ID may not be found because we ignore the parents for the basic account types."
+  [{:import/keys [parent-id]}
+   {:keys [account-ids]}]
+  (when-let [id (account-ids parent-id)]
+    {:id id}))
+
 (defmethod import-record* :account
-  [{:keys [account-ids entity] :as context}
-   {:import/keys [parent-id commodity id] :as account}]
+  [{:keys [entity] :as context}
+   {:import/keys [commodity id] :as account}]
   (let [result (-> account
                    (assoc :account/entity entity
                           :account/commodity (find-commodity context commodity)
-                          :account/parent (when parent-id {:id (account-ids parent-id)}))
+                          :account/parent (account-parent account context))
                    purge-import-keys
                    (validate ::models/account)
                    models/put)]
