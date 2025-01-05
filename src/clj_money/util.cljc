@@ -263,9 +263,10 @@
   (map #(merge template %) series))
 
 (defn pp->
-  [v m & {:keys [meta?]}]
+  [v m & {:keys [meta? transform]
+          :or {transform identity}}]
   (binding [*print-meta* meta?]
-    (pprint {m v}))
+    (pprint {m (transform v)}))
   v)
 
 (defn pp->>
