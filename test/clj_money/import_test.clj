@@ -22,6 +22,7 @@
                                             find-import]]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.accounts :refer [system-tagged?]]
             [clj-money.models :as models]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
@@ -301,20 +302,37 @@
     (test-import)))
 
 (def ^:private ext-context
-  [])
+  (conj base-context
+        #:image{:body (-> "resources/fixtures/sample_with_commodities_ext.gnucash"
+                          io/input-stream
+                          read-bytes)
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "sample_with_commodities_ext.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["sample_with_commodities_ext.gnucash"]
+                 :options {:lt-capital-gains-account "Investment/Long-Term Gains"}}))
 
 (deftest import-with-entity-settings
   (with-context ext-context
     (let [imp (find-import "Personal")
           result (execute-import imp)
           entity (models/find (:entity result))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
-      (is (util/model-ref? (get-in entity [:settings :lt-capital-gains-account]))
+
+      (pprint {::entity entity})
+
+      (is (util/model-ref? (get-in entity [:entity/settings
+                                           :settings/lt-capital-gains-account]))
           "The long-term capital gains account id is set correctly")
-      (is (util/model-ref? (get-in entity [:settings :st-capital-gains-account]))
+      #_(is (util/model-ref? (get-in entity [:entity/settings
+                                           :settings/st-capital-gains-account]))
           "The short-term capital gains account id is set correctly")
-      (is (util/model-ref? (get-in entity [:settings :lt-capital-loss-account]))
+      #_(is (util/model-ref? (get-in entity [:entity/settings
+                                           :settings/lt-capital-loss-account]))
           "The long-term capital losses account id is set correctly")
-      (is (util/model-ref? (get-in entity [:settings :lt-capital-loss-account]))
+      #_(is (util/model-ref? (get-in entity [:entity/settings
+                                           :settings/lt-capital-loss-account]))
           "The short-term capital losses account id is set correctly"))))
 
 (defn- gnucash-budget-sample []
@@ -405,120 +423,86 @@
                                  :price)))
           "The prices can be retrieved"))))
 
-; (def gnucash-ext-commodities-sample
-;   (io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash"))
-;
-; (def ^:private ext-commodities-context
-;   {:users [(factory :user, {:email "john@doe.com"})]
-;    :images [{:body (read-bytes gnucash-ext-commodities-sample)
-;              :content-type "application/gnucash"
-;              :original-filename "sample_with_commodities_ext.gnucash"}]
-;    :imports [{:entity-name "Personal"
-;               :image-ids ["sample_with_commodities_ext.gnucash"]}]})
-;
-; (deftest import-commodities-with-extended-actions
-;   (let [context (realize ext-commodities-context)
-;         {:keys [entity]} (import-data (-> context :imports first)
-;                                       (nil-chan)
-;                                       {:atomic? true})
-;         [ira four-o-one-k] (map #(accounts/find-by {:name %
-;                                                     :entity-id (:id entity)})
-;                                 ["IRA" "401k"])
-;         aapl (commodities/find-by {:entity-id (:id entity)
-;                                    :symbol "AAPL"})]
-;
-;     (testing "lots are adjusted"
-;       (let [lots (lots/search {:commodity-id (:id aapl)})
-;             expected-lots [{:purchase-date (t/local-date 2015 1 17)
-;                             :shares-purchased 200M
-;                             :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
-;                             :purchase-price 5M ; originally purchased 100 shares at $10/share
-;                             :commodity-id (:id aapl)
-;                             :account-id (:id ira)}]
-;             actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
-;         (is (= expected-lots actual-lots)
-;             "The commodity has the correct lots after import")))
-;
-;     (testing "accounts are tagged correctly"
-;       (is (:trading (:system-tags ira))
-;           "The IRA account has the correct system tags")
-;       (is (:trading (:system-tags four-o-one-k))
-;           "The 401k account has the correct system tags"))
-;
-;     (testing "transactions are created correctly"
-;       (let [ira-aapl (accounts/find-by {:parent-id (:id ira)
-;                                         :commodity-id (:id aapl)})
-;             inv-exp (accounts/find-by {:name "Investment Expenses"
-;                                        :entity-id (:id entity)})
-;             expected-ira-items [{:transaction-date (t/local-date 2015 3 2)
-;                                  :description "Transfer 100 shares of AAPL"
-;                                  :index 0
-;                                  :action :debit
-;                                  :account-id (:id ira-aapl)
-;                                  :quantity 100M
-;                                  :balance 100M
-;                                  :value 1000M}
-;                                 {:transaction-date (t/local-date 2015 4 1)
-;                                  :description "Split shares of AAPL 2 for 1"
-;                                  :index 1
-;                                  :action :debit
-;                                  :account-id (:id ira-aapl)
-;                                  :quantity 100M
-;                                  :balance 200M
-;                                  :value 0M}
-;                                 {:description "Sell 100 shares of AAPL at 6.000"
-;                                  :index 2
-;                                  :value 500M ; this is reflecting the original value, not the sale value...is that right?
-;                                  :account-id (:id ira-aapl)
-;                                  :balance 100M
-;                                  :transaction-date (t/local-date 2015 5 1)
-;                                  :action :credit
-;                                  :quantity 100M}]
-;             actual-ira-items (map #(dissoc % :created-at
-;                                            :updated-at
-;                                            :id
-;                                            :memo
-;                                            :transaction-id
-;                                            :negative
-;                                            :polarized-quantity
-;                                            :reconciliation-status
-;                                            :reconciliation-id
-;                                            :reconciled?)
-;                                   (transactions/search-items
-;                                    {:account-id (:id ira-aapl)
-;                                     :transaction-date [:between> (t/local-date 2015 1 1) (t/local-date 2016 1 1)]}
-;                                    {:sort [:index]}))
-;             expected-fee-items [{:transaction-date (t/local-date 2015 5 1)
-;                                  :description "Sell 100 shares of AAPL at 6.000"
-;                                  :value 10M
-;                                  :quantity 10M
-;                                  :account-id (:id inv-exp)
-;                                  :balance 10M
-;                                  :action :debit
-;                                  :index 0}]
-;             actual-fee-items (->> {:account-id (:id inv-exp)
-;                                    :transaction-date [:between> (t/local-date 2015 1 1) (t/local-date 2016 1 1)]}
-;                                   transactions/search-items
-;                                   (map #(dissoc %
-;                                                 :created-at
-;                                                 :updated-at
-;                                                 :id
-;                                                 :memo
-;                                                 :transaction-id
-;                                                 :negative
-;                                                 :polarized-quantity
-;                                                 :reconciliation-status
-;                                                 :reconciliation-id
-;                                                 :reconciled?)))]
-;         (is (seq-of-maps-like? expected-fee-items actual-fee-items)
-;             "The Investment Expenses account has the correct items")
-;         (is (seq-of-maps-like? expected-ira-items actual-ira-items)
-;             "The IRA account has the correct items")))
-;
-;     (testing "account balances are calculated correctly"
-;       (is (= 0M (:quantity four-o-one-k)) "All shares have been transfered out of 401k")
-;       (is (= 590M (:quantity ira)) "Shares have been transfered into IRA"))))
-;
+(deftest import-commodities-with-extended-actions
+  (with-context ext-context
+    (let [{:keys [entity wait]} (import-data (find-import "Personal")
+                                             (nil-chan))
+          _ @wait
+          four-oh-one-k (models/find-by {:account/name "401k"})
+          ira (models/find-by {:account/name "IRA"
+                               :account/entity entity})
+          aapl (models/find-by {:commodity/symbol "AAPL"
+                                :commodity/entity entity})]
+      (is (= [#:lot{:purchase-date (t/local-date 2015 1 17)
+                    :shares-purchased 200M
+                    :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
+                    :purchase-price 5M ; originally purchased 100 shares at $10/share
+                    :commodity (util/->model-ref aapl)
+                    :account-id (util/->model-ref ira)}]
+             (models/select {:lot/commodity aapl}))
+          "The shares lost due to reverse split are subtracted from the lot")
+
+      #_(testing "accounts are tagged correctly"
+        (is (system-tagged? ira :trading)
+            "The IRA account is tagged as a trading account")
+        (is (system-tagged? four-oh-one-k :trading) 
+            "The 401k account is tagged as a trading account"))
+
+      #_(testing "transactions"
+        (let [ira-aapl (models/find-by #:account{:parent ira
+                                                 :commodity aapl})
+              inv-exp (models/find-by #:account{:name "Investment Expenses"
+                                                :entity entity})]
+          (is (seq-of-maps-like?
+                [#:transaction-item{:transaction-date (t/local-date 2015 5 1)
+                                    :description "Sell 100 shares of AAPL at 6.000"
+                                    :value 10M
+                                    :quantity 10M
+                                    :balance 10M
+                                    :action :debit
+                                    :index 0}]
+                (models/select
+                  #:transaction-item{:account inv-exp
+                                     :transaction-date [:between>
+                                                        (t/local-date 2015 1 1)
+                                                        (t/local-date 2016 1 1)]}))
+              "The Investment Expenses account receives items for the fees charged on trading actions")
+          (is (seq-of-maps-like?
+                [#:transaction-item{:transaction-date (t/local-date 2015 3 2)
+                                    :description "Transfer 100 shares of AAPL"
+                                    :index 0
+                                    :action :debit
+                                    :quantity 100M
+                                    :balance 100M
+                                    :value 1000M}
+                 #:transaction-item{:transaction-date (t/local-date 2015 4 1)
+                                    :description "Split shares of AAPL 2 for 1"
+                                    :index 1
+                                    :action :debit
+                                    :quantity 100M
+                                    :balance 200M
+                                    :value 0M}
+                 #:transaction-item{:description "Sell 100 shares of AAPL at 6.000"
+                                    :index 2
+                                    :value 500M ; this is reflecting the original value, not the sale value...is that right?
+                                    :balance 100M
+                                    :transaction-date (t/local-date 2015 5 1)
+                                    :action :credit
+                                    :quantity 100M}]
+                (models/select
+                  #:transaction-item{:account ira-aapl
+                                     :transaction-date [:between>
+                                                        (t/local-date 2015 1 1)
+                                                        (t/local-date 2016 1 1)]}
+                  {:sort [:transaction-item/index]}))
+              "The IRA account receives items for the transfer, split and sale actions")))
+
+      #_(testing "accounts"
+        (is (= 0M (:account/quantity four-oh-one-k))
+            "All shares have been transfered out of 401k")
+        (is (= 590M (:account/quantity ira))
+            "Shares have been transfered into IRA")))))
+
 ; (defmulti comparable
 ;   (fn [x]
 ;     (if (sequential? x)

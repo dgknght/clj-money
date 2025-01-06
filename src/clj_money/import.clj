@@ -181,40 +181,51 @@
     (log-transaction result "commodity purchase"))
   context)
 
+(defn- find-commodity
+  [{:keys [commodities-by-symbol
+           commodities-by-exchange-and-symbol]}
+   {:commodity/keys [exchange symbol] :as commodity}]
+  (or (get commodities-by-exchange-and-symbol [exchange symbol])
+      (get commodities-by-symbol symbol)
+      (throw (ex-info (format "Unable to find the commodity \"%s\"" symbol)
+                      commodity))))
+
 (defmethod ^:private import-transaction :sell
-  [{:keys [accounts] :as context} transaction]
+  [{:keys [account-ids] :as context}
+   {:as transaction
+    :import/keys [account-id
+                  commodity-account-id]
+    :transaction/keys [transaction-date]
+    :trade/keys [shares value]}]
   (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
-        sale {:commodity-id (->> context
-                                 :commodities
-                                 (filter #(and (= (:symbol %) (:symbol transaction))
-                                               (= (:exchange %) (:exchange transaction))))
-                                 first
-                                 :id)
-              :fee fee
-              :fee-account-id fee-account-id
-              :commodity-account-id (accounts (:commodity-account-id transaction))
-              :account-id (accounts (:account-id transaction))
-              :trade-date (:transaction-date transaction)
-              :shares (:shares transaction)
-              :value (:value (->> (:items transaction)
-                                  (filter #(= :credit (:action %)))
-                                  first))}
+        sale (cond-> #:trade{:commodity (find-commodity context transaction)
+                             :commodity-account-id (account-ids commodity-account-id)
+                             :account {:id (account-ids account-id)}
+                             :date transaction-date
+                             :shares shares
+                             :value value}
+               fee (assoc :trade/fee fee
+                          :trade/fee-account {:id fee-account-id}))
         {result :transaction} (trading/sell sale)]
     (log-transaction result "commodity sale"))
   context)
 
 (defmethod ^:private import-transaction :transfer
-  [{:keys [accounts] :as context}
-   {:keys [from-account-id to-account-id] :as transaction}]
-  (let [find-account (models/find :account)
-        from-commodity-account (find-account (accounts from-account-id))
-        from-account (find-account (:parent-id from-commodity-account))
-        to-commodity-account (find-account (accounts to-account-id))
-        {result :transaction} (trading/transfer (assoc transaction
-                                                       :transfer-date (:transaction-date transaction)
-                                                       :commodity-id (:commodity-id from-commodity-account)
-                                                       :from-account from-account
-                                                       :to-account-id (:parent-id to-commodity-account)))]
+  [{:keys [account-ids account-parents] :as context}
+   {:import/keys [from-account-id to-account-id]
+    :transaction/keys [transaction-date]
+    :transfer/keys [shares]
+    }]
+  (let [from-commodity-account-id (account-ids from-account-id)
+        from-account {:id (account-parents from-commodity-account-id)}
+        to-commodity-account-id (account-ids to-account-id)
+        to-account {:id (account-parents to-commodity-account-id)}
+        commodity {}
+        {result :transaction} (trading/transfer #:transfer{:date transaction-date
+                                                           :from-account from-account
+                                                           :to-account to-account
+                                                           :commodity commodity
+                                                           :shares shares})]
     (log-transaction result "commodity transfer"))
   context)
 
@@ -265,15 +276,6 @@
 (defmethod import-record* :declaration
   [context _]
   context)
-
-(defn- find-commodity
-  [{:keys [commodities-by-symbol
-           commodities-by-exchange-and-symbol]}
-   {:commodity/keys [exchange symbol] :as commodity}]
-  (or (get commodities-by-exchange-and-symbol [exchange symbol])
-      (get commodities-by-symbol symbol)
-      (throw (ex-info (format "Unable to find the commodity \"%s\"" symbol)
-                      commodity))))
 
 (defn- account-parent
   "Returns a model reference for the parent if the parent ID is found.
