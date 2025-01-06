@@ -438,7 +438,7 @@
                     :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
                     :purchase-price 5M ; originally purchased 100 shares at $10/share
                     :commodity (util/->model-ref aapl)
-                    :account-id (util/->model-ref ira)}]
+                    :account (util/->model-ref ira)}]
              (models/select {:lot/commodity aapl}))
           "The shares lost due to reverse split are subtracted from the lot")
 

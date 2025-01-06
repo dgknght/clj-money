@@ -130,13 +130,13 @@
   context)
 
 (defn- inv-transaction-fee-info
-  [{:keys [account-ids]} transaction trans-type]
-  (when-not (= 2 (count (:transaction/items transaction)))
+  [{:keys [account-ids]} {:transaction/keys [items]} trans-type]
+  (when-not (= 2 (count items))
     (let [non-commodity-items (filter #(= (if (= :buy trans-type)
                                             :credit
                                             :debit)
-                                          (:transaction-tiem/action %))
-                                      (:transaction/items transaction))
+                                          (:transaction-item/action %))
+                                      items)
           item-account-ids (map #(get-in account-ids [(:import/account-id %)])
                            non-commodity-items)
           accounts-map (->> (models/select
@@ -151,7 +151,9 @@
                                          :account/type]))
                             non-commodity-items)]
       (when (seq fee-items)
-        [(transduce (map :item/quantity) + fee-items)
+        [(->> fee-items
+              (map :transaction-item/quantity)
+              (reduce + 0M))
          (account-ids (:import/account-id (first fee-items)))]))))
 
 (defmethod ^:private import-transaction :buy
@@ -193,14 +195,11 @@
 (defmethod ^:private import-transaction :sell
   [{:keys [account-ids] :as context}
    {:as transaction
-    :import/keys [account-id
-                  commodity-account-id]
+    :import/keys [commodity-account-id]
     :transaction/keys [transaction-date]
     :trade/keys [shares value]}]
   (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
-        sale (cond-> #:trade{:commodity (find-commodity context transaction)
-                             :commodity-account-id (account-ids commodity-account-id)
-                             :account {:id (account-ids account-id)}
+        sale (cond-> #:trade{:commodity-account {:id (account-ids commodity-account-id)}
                              :date transaction-date
                              :shares shares
                              :value value}
@@ -214,13 +213,12 @@
   [{:keys [account-ids account-parents] :as context}
    {:import/keys [from-account-id to-account-id]
     :transaction/keys [transaction-date]
-    :transfer/keys [shares]
-    }]
+    :transfer/keys [shares]}]
   (let [from-commodity-account-id (account-ids from-account-id)
         from-account {:id (account-parents from-commodity-account-id)}
         to-commodity-account-id (account-ids to-account-id)
         to-account {:id (account-parents to-commodity-account-id)}
-        commodity {}
+        commodity (:account/commodity (models/find from-commodity-account-id :account)) ; TODO: save this relationship in the context instead
         {result :transaction} (trading/transfer #:transfer{:date transaction-date
                                                            :from-account from-account
                                                            :to-account to-account

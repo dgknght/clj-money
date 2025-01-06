@@ -691,6 +691,7 @@
         (assoc
           :trade/date (:transaction/transaction-date transaction)
           :trade/action :sell
+          :trade/value (:transaction-item/value commodity-item)
           :trade/shares (.abs (:transaction-item/quantity commodity-item))
           :import/commodity-account-id (:import/account-id commodity-item))
         (update-in [:transaction/items] adjust-trade-actions))))
