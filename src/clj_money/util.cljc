@@ -441,6 +441,10 @@
     (map #(apply simplify % args)
          a1)
 
+    ; don't simplify model refs
+    (model-ref? a1)
+    a1
+
     ; apply to a model map
     :else
     (let [{:keys [include]} (apply hash-map args)]
