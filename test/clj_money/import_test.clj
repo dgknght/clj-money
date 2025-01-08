@@ -504,56 +504,43 @@
         (is (= 590M (:account/quantity ira))
             "Shares have been transfered into IRA")))))
 
-; (defmulti comparable
-;   (fn [x]
-;     (if (sequential? x)
-;       :collection
-;       (storage/tag x))))
-;
-; (defmethod comparable :collection
-;   [coll]
-;   (map comparable coll))
-;
-; (defn- strip-db-attr
-;   [m]
-;   (dissoc m :id :created-at :updated-at))
-;
-; (defmethod comparable ::models/scheduled-transaction
-;   [sched-tran]
-;   (-> sched-tran
-;       strip-db-attr
-;       (update-in [:items] (fn [items]
-;                             (map (comp strip-db-attr
-;                                        #(dissoc % :scheduled-transaction-id))
-;                                  items)))))
-;
-; (deftest import-scheduled-transactions
-;   (let [ctx (realize (import-context :sched))
-;         imp (find-import ctx "Personal")
-;         {:keys [entity updates]} (execute-import imp)
-;         checking (accounts/find-by {:entity-id (:id entity)
-;                                     :name "Checking"})
-;         salary (accounts/find-by {:entity-id (:id entity)
-;                                   :name "Salary"})]
-;     (is (= {:total 1 :completed 1}
-;            (:scheduled-transaction (last updates)))
-;         "The progress is updated for the scheduled transactions")
-;     (is (= [{:entity-id (:id entity)
-;              :description "Paycheck"
-;              :memo nil
-;              :start-date (t/local-date 2016 1 15)
-;              :end-date (t/local-date 2018 12 31)
-;              :enabled true
-;              :date-spec {:days [:friday]}
-;              :last-occurrence nil
-;              :interval-type :week
-;              :interval-count 2
-;              :items [{:action :debit
-;                       :account-id (:id checking)
-;                       :quantity 1000M
-;                       :memo nil}
-;                      {:action :credit
-;                       :account-id (:id salary)
-;                       :quantity 1000M
-;                       :memo nil}]}]
-;            (comparable (sched-trans/search {:entity-id (:id entity)}))))))
+(def ^:private sched-context
+  (conj base-context
+        #:image{:body (-> "resources/fixtures/scheduled_transactions.gnucash"
+                          io/input-stream
+                          read-bytes)
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "scheduled_transactions.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["scheduled_transactions.gnucash"]}))
+
+(deftest import-scheduled-transactions
+  (with-context sched-context
+    (let [imp (find-import "Personal")
+          {:keys [entity updates]} (execute-import imp)]
+      (is (= {:total 1 :completed 1}
+             (:scheduled-transaction (last updates)))
+          "The progress is updated for the scheduled transactions")
+      (is (seq-of-maps-like?
+            [#:transaction{:entity (util/->model-ref entity)
+                           :description "Paycheck"
+                           :memo nil
+                           :start-date (t/local-date 2016 1 15)
+                           :end-date (t/local-date 2018 12 31)
+                           :enabled true
+                           :date-spec {:days [:friday]}
+                           :last-occurrence nil
+                           :interval-type :week
+                           :interval-count 2
+                           :items [#:transaction-item{:action :debit
+                                                      :account (account-ref "Checking")
+                                                      :quantity 1000M
+                                                      :memo nil}
+                                   #:transaction-item{:action :credit
+                                                      :account-id (account-ref "Salary")
+                                                      :quantity 1000M
+                                                      :memo nil}]}]
+            (models/select #:scheduled-transaction{:entity entity}))
+          "The scheduled transactions are available after import."))))

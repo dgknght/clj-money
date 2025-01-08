@@ -372,7 +372,7 @@
     (t/day-of-month date)))
 
 (defn- infer-date-spec
-  [{:keys [start-date last-occurrence interval-type]}]
+  [{:scheduled-transaction/keys [start-date last-occurrence interval-type]}]
   (let [date (or last-occurrence start-date)]
     (case interval-type
       :year {:day (infer-date-spec-day date)
@@ -381,19 +381,22 @@
       :week {:days [(nth day-keys (dates/day-of-week date))]})))
 
 (defmethod import-record* :scheduled-transaction
-  [{:keys [entity accounts] :as context} sched-tran]
-  (let [created (models/put
-                  (-> sched-tran
-                      (assoc :scheduled-transaction/entity entity
-                             :scheduled-transaction/date-spec (infer-date-spec sched-tran))
-                      (update-in [:scheduled-transaction/items]
-                                 (fn [items]
-                                   (map (fn [{:import/keys [account-id] :as i}]
-                                          (-> i
-                                              (assoc :scheduled-transaction-item/account
-                                                     (accounts account-id))
-                                              (dissoc :import/account-id)))
-                                        items)))))]
+  [{:keys [entity account-ids]
+    :as context}
+   sched-tran]
+  (let [created (-> sched-tran
+                    (assoc :scheduled-transaction/entity entity
+                           :scheduled-transaction/date-spec (infer-date-spec sched-tran))
+                    (update-in [:scheduled-transaction/items]
+                               (fn [items]
+                                 (map (fn [{:import/keys [account-id] :as i}]
+                                        (-> i
+                                            (assoc :scheduled-transaction-item/account
+                                                   {:id (account-ids account-id)})
+                                            purge-import-keys))
+                                      items)))
+                    purge-import-keys
+                    models/put)]
     (log/infof "Imported scheduled transaction %s"
                (:scheduled-transaction/description created)))
   context)
