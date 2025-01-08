@@ -230,21 +230,33 @@
 ; This is maybe too specific to GnuCash. It would be better if the
 ; gnucash namespace did these lookups
 (defn- ensure-split-ids
-  [{:keys [commodity-account-id commodity-id account-id] :as transaction}
-   {:keys [accounts]}]
+  [{:import/keys [commodity-account-id
+                  commodity-id
+                  account-id]
+    :as transaction}
+   {:keys [account-ids account-parents]}]
   (if (and account-id commodity-id)
     transaction
-    (let  [commodity-account (models/find (accounts commodity-account-id)
-                                          :account)]
-      (assoc transaction :commodity-id (:commodity-id commodity-account)
-             :account-id (:parent-id commodity-account)))))
+    (assoc transaction
+           :trade/commodity-account {:id (account-ids commodity-account-id)}
+           :trade/account {:id (account-parents account-id)})))
 
 (defmethod ^:private import-transaction :split
-  [context transaction]
-  (let  [split (-> transaction
-                   (ensure-split-ids context)
-                   (dissoc :items))
-         {result :transaction} (trading/split split)]
+  [{:as context
+    :keys [account-parents
+           account-ids]}
+   {:as transaction
+    :import/keys [commodity-account-id]}]
+  (let  [{result :transaction} (-> transaction
+                                   (select-keys [:split/date :split/shares-gained])
+                                   (assoc :split/account {:id (-> commodity-account-id
+                                                                  account-ids
+                                                                  account-parents)}
+                                          :split/commodity (-> commodity-account-id
+                                                               account-ids
+                                                               (models/find :account)
+                                                               :account/commodity))
+                                   trading/split)]
     (log-transaction result "commodity split"))
   context)
 

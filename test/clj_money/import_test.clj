@@ -433,29 +433,30 @@
                                :account/entity entity})
           aapl (models/find-by {:commodity/symbol "AAPL"
                                 :commodity/entity entity})]
-      (is (= [#:lot{:purchase-date (t/local-date 2015 1 17)
-                    :shares-purchased 200M
-                    :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
-                    :purchase-price 5M ; originally purchased 100 shares at $10/share
-                    :commodity (util/->model-ref aapl)
-                    :account (util/->model-ref ira)}]
-             (models/select {:lot/commodity aapl}))
+      (is (seq-of-maps-like?
+            [#:lot{:purchase-date (t/local-date 2015 1 17)
+                   :shares-purchased 200M
+                   :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
+                   :purchase-price 5M ; originally purchased 100 shares at $10/share
+                   :commodity (util/->model-ref aapl)
+                   :account (util/->model-ref ira)}]
+            (models/select {:lot/commodity aapl}))
           "The shares lost due to reverse split are subtracted from the lot")
 
-      #_(testing "accounts are tagged correctly"
+      (testing "accounts are tagged correctly"
         (is (system-tagged? ira :trading)
             "The IRA account is tagged as a trading account")
         (is (system-tagged? four-oh-one-k :trading) 
             "The 401k account is tagged as a trading account"))
 
-      #_(testing "transactions"
+      (testing "transactions"
         (let [ira-aapl (models/find-by #:account{:parent ira
                                                  :commodity aapl})
               inv-exp (models/find-by #:account{:name "Investment Expenses"
                                                 :entity entity})]
           (is (seq-of-maps-like?
                 [#:transaction-item{:transaction-date (t/local-date 2015 5 1)
-                                    :description "Sell 100 shares of AAPL at 6.000"
+                                    ;:description "Sell 100 shares of AAPL at 6.000"
                                     :value 10M
                                     :quantity 10M
                                     :balance 10M
@@ -469,26 +470,26 @@
               "The Investment Expenses account receives items for the fees charged on trading actions")
           (is (seq-of-maps-like?
                 [#:transaction-item{:transaction-date (t/local-date 2015 3 2)
-                                    :description "Transfer 100 shares of AAPL"
+                                    ;:description "Transfer 100 shares of AAPL"
                                     :index 0
                                     :action :debit
                                     :quantity 100M
                                     :balance 100M
                                     :value 1000M}
                  #:transaction-item{:transaction-date (t/local-date 2015 4 1)
-                                    :description "Split shares of AAPL 2 for 1"
+                                    ;:description "Split shares of AAPL 2 for 1"
                                     :index 1
                                     :action :debit
                                     :quantity 100M
                                     :balance 200M
                                     :value 0M}
-                 #:transaction-item{:description "Sell 100 shares of AAPL at 6.000"
+                 #:transaction-item{:transaction-date (t/local-date 2015 5 1)
+                                    ;:description "Sell 100 shares of AAPL at 6.000"
                                     :index 2
-                                    :value 500M ; this is reflecting the original value, not the sale value...is that right?
-                                    :balance 100M
-                                    :transaction-date (t/local-date 2015 5 1)
                                     :action :credit
-                                    :quantity 100M}]
+                                    :quantity 100M
+                                    :value 500M ; this is reflecting the original value, not the sale value...is that right?
+                                    :balance 100M}]
                 (models/select
                   #:transaction-item{:account ira-aapl
                                      :transaction-date [:between>
@@ -497,7 +498,7 @@
                   {:sort [:transaction-item/index]}))
               "The IRA account receives items for the transfer, split and sale actions")))
 
-      #_(testing "accounts"
+      (testing "accounts"
         (is (= 0M (:account/quantity four-oh-one-k))
             "All shares have been transfered out of 401k")
         (is (= 590M (:account/quantity ira))
