@@ -691,7 +691,7 @@
         (assoc
           :trade/date (:transaction/transaction-date transaction)
           :trade/action :sell
-          :trade/value (:transaction-item/value commodity-item)
+          :trade/value (.abs (:transaction-item/value commodity-item))
           :trade/shares (.abs (:transaction-item/quantity commodity-item))
           :import/commodity-account-id (:import/account-id commodity-item))
         (update-in [:transaction/items] adjust-trade-actions))))
@@ -718,7 +718,7 @@
                :split/shares-gained (:transaction-item/quantity split-item)
                :import/commodity-account-id (:import/account-id split-item))
         (update-in [:transaction/items] adjust-trade-actions)
-        (abs-items #(not= :split (:action %))))))
+        (abs-items #(not= :split (:transaction-item/action %))))))
 
 (defn- translate-action
   [{:keys [action quantity]}]
