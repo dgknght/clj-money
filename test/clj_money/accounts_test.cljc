@@ -20,7 +20,7 @@
   (is (= {:transaction/transaction-date [:between
                                          (t/local-date 2020 1 1)
                                          (t/local-date 2020 2 29)]
-          :transaction-item/account #{{:id 101} {:id 102}}}
+          :transaction-item/account {:id [:in #{101 102}]}}
          (accounts/->>criteria [{:id 101
                                  :account/earliest-transaction-date (t/local-date 2020 2 1)
                                  :account/latest-transaction-date (t/local-date 2020 2 29)}

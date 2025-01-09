@@ -182,10 +182,10 @@
     accounts]
    ^{:clj-money.db/type model-type}
    {account-attribute (if (= 1 (count accounts))
-                        (:id (first accounts))
-                        [:in (->> accounts
-                                  (map :id)
-                                  set)])
+                        (util/->model-ref (first accounts))
+                        {:id [:in (->> accounts
+                                       (map :id)
+                                       set)]})
     date-attribute [:between
                     (or (->> accounts
                              (map :account/earliest-transaction-date)
