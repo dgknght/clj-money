@@ -6,7 +6,6 @@
             [clojure.core.async :refer [<!! >! chan go pipe sliding-buffer] :as async]
             [clojure.spec.alpha :as s]
             [java-time.api :as t]
-            [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models :as models]
@@ -227,26 +226,13 @@
     (log-transaction result "commodity transfer"))
   context)
 
-; This is maybe too specific to GnuCash. It would be better if the
-; gnucash namespace did these lookups
-(defn- ensure-split-ids
-  [{:import/keys [commodity-account-id
-                  commodity-id
-                  account-id]
-    :as transaction}
-   {:keys [account-ids account-parents]}]
-  (if (and account-id commodity-id)
-    transaction
-    (assoc transaction
-           :trade/commodity-account {:id (account-ids commodity-account-id)}
-           :trade/account {:id (account-parents account-id)})))
-
 (defmethod ^:private import-transaction :split
   [{:as context
     :keys [account-parents
            account-ids]}
    {:as transaction
     :import/keys [commodity-account-id]}]
+  ; this logic to adjust accounts may be specific to gnucash
   (let  [{result :transaction} (-> transaction
                                    (select-keys [:split/date :split/shares-gained])
                                    (assoc :split/account {:id (-> commodity-account-id

@@ -5,8 +5,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as trans]
-            [clj-money.scheduled-transactions :as st]))
+            [clj-money.models.transactions :as trans]))
 
 (defn- debit-credit-balanced?
   [items]
@@ -47,6 +46,7 @@
 (s/def :scheduled-transaction/start-date t/local-date?)
 (s/def :scheduled-transaction/end-date (s/nilable t/local-date?))
 (s/def :scheduled-transaction/date-spec map?)
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/scheduled-transaction (s/keys :req [:scheduled-transaction/entity
                                                     :scheduled-transaction/description
                                                     :scheduled-transaction/interval-type
@@ -55,69 +55,3 @@
                                                     :scheduled-transaction/date-spec
                                                     :scheduled-transaction/items]
                                               :opt [:scheduled-transaction/end-date]))
-
-#_(defn- after-read
-  [scheduled-transaction]
-  (-> scheduled-transaction
-      (update-in [:interval-type] keyword)
-      (update-in [:date-spec] rename-keys {"month" :month
-                                           "day" :day
-                                           "days" :days})
-      (update-in-if [:date-spec :day] #(if (string? %)
-                                         (keyword %)
-                                         %))
-      (update-in-if [:date-spec :days] #(map keyword %))
-      (assoc :items (search-items {:scheduled-transaction-id (:id scheduled-transaction)}))
-      (tag ::models/scheduled-transaction)))
-
-(defn ^:deprecated create
-  [_sched-tran]
-  (throw (UnsupportedOperationException. "create is deprecated"))
-  #_(with-transacted-storage (env :db)
-    (with-validation sched-tran ::scheduled-transaction
-      (let [created (-> sched-tran
-                        before-save
-                        storage/create
-                        after-read)]
-        (assoc created :items (mapv (comp create-item
-                                          #(assoc % :scheduled-transaction-id (:id created)))
-                                    (:items sched-tran)))))))
-
-(defn ^:deprecated search
-  ([criteria]
-   (search criteria {}))
-  ([_criteria _options]
-   (throw (UnsupportedOperationException. "search is deprecated"))))
-
-(defn ^:deprecated find
-  [_model-or-id]
-  (throw (UnsupportedOperationException. "find is deprecated")))
-
-#_(defn- update-items
-  [{:keys [items id]}]
-  (let [existing (find id)
-        existing-ids (->> (:items existing)
-                          (map :id)
-                          (into #{}))]
-    (doseq [item (remove :id items)]
-      (create-item (assoc item :scheduled-transaction-id id)))
-    (when-let [removed-ids (seq (difference existing-ids
-                                            (->> items
-                                                 (filter :id)
-                                                 (map :id)
-                                                 (into #{}))))]
-      (doseq [id removed-ids]
-        (storage/delete (tag {:id id} ::models/scheduled-transaction-item))))
-    (doseq [item (filter :id items)]
-      (-> item
-          before-item-save
-          storage/update))))
-
-(defn ^:deprecated update
-  [_sched-tran]
-  (throw (UnsupportedOperationException. "update is deprecated")))
-
-(defn ^:deprecated delete
-  "Removes the scheduled transaction from the system"
-  [_sched-tran]
-  (throw (UnsupportedOperationException. "delete is deprecated")))

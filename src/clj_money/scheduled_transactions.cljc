@@ -4,8 +4,6 @@
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.predicates :as tp])
-            [clojure.set :refer [rename-keys]]
-            [clj-money.util :as util]
             [clj-money.dates :as dates]))
 
 (defmulti ^:private period :scheduled-transaction/interval-type)

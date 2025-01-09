@@ -18,7 +18,6 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.models :as models]
-            [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)

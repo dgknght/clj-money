@@ -3,22 +3,16 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [config.core :refer [env]]
             [java-time.api :as t]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-transacted-storage]]
             [dgknght.app-lib.core :refer [assoc-if]]
-            [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.dates :as dates]
-            [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]))
 
 (def ^:dynamic *skip-account-updates* false)
-
-(declare find-by)
 
 (defn- trade-date-unique?
   [{:keys [id] :as price}]
@@ -41,19 +35,6 @@
                                            :price/price]
                                      :opt [::id])
                              trade-date-unique?))
-
-(defn ^:deprecated search [& _]
-  (throw (UnsupportedOperationException. "search is deprecated")))
-
-(defn ^:deprecated find-by [& _]
-  (throw (UnsupportedOperationException. "find-by is deprecated")))
-
-(defn ^:deprecated find [& _]
-  (throw (UnsupportedOperationException. "find is deprecated")))
-
-(defn- before-save
-  [price]
-  (tag price ::models/price))
 
 (defn- update-commodity
   [{:price/keys [commodity trade-date] :as price}]
@@ -106,52 +87,6 @@
       update-commodity
       update-accounts))
 
-(defn ^:deprecated create [& _]
- (throw (UnsupportedOperationException. "create is deprecated")))
-
-(defn- update-meta-for-change
-  [after before]
-  (when-not (t/= (:trade-date after)
-                 (:trade-date before))
-    (update-accounts after {:price-as-of (:price/trade-date before)})
-    (update-commodity after))
-  after)
-
-(def ^:private working-trade-date
-  (some-fn #(-> %
-                meta
-                :original-values
-                :trade-date)
-           :trade-date))
-
-(defn ^:deprecated update
-  [price]
-  (with-transacted-storage (env :db)
-    (with-validation price ::existing-price
-      (let [before (find-by {:id (:id price)
-                             :trade-date (working-trade-date price)})]
-        (-> price
-            before-save
-            (update-meta-for-change before)
-            storage/update)
-        (models/find price)))))
-
-(defn- update-meta-with-previous
-  [{:price/keys [commodity trade-date] :as price}]
-  (some-> (models/find-by #:price{:commodity commodity
-                                  :trade-date [:< trade-date]}
-                          {:sort [[:price/trade-date :desc]]})
-          (update-accounts {:price-as-of trade-date})
-          update-commodity)
-  price)
-
-(defn ^:deprecated delete
-  [price]
-  (with-transacted-storage (env :db)
-    (-> price
-        update-meta-with-previous
-        storage/delete)))
-
 (defn most-recent
   ([commodity]
    (most-recent commodity nil))
@@ -202,26 +137,3 @@
       (models/put (assoc commodity
                          :commodity/earliest-price (:trade-date earliest)
                          :commodity/latest-price (:trade-date latest))))))
-
-(defn batch-fetch
-  ([commodity-ids] (batch-fetch commodity-ids {}))
-  ([commodity-ids opts]
-   (let [as-of (or (:as-of opts) (t/local-date))]
-     (ch/find commodity-ids
-              (merge
-               {:start-date as-of
-                :time-step (t/years 1)
-                :fetch-fn #(models/select
-                             #:price{:commodity %1
-                                     :trade-date [:and
-                                                  [:> (t/minus %2 (t/years 1))]
-                                                  [:<= %2]]})
-                :transform-fn :price
-                :id-fn :commodity-id
-                :find-one-fn (fn [prices]
-                               (->> prices
-                                    (filter #(or (= (:trade-date %) as-of)
-                                                 (t/before? (:trade-date %) as-of)))
-                                    (sort-by t/after?)
-                                    first))}
-               opts)))))

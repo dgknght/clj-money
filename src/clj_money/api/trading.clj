@@ -1,6 +1,5 @@
 (ns clj-money.api.trading
   (:require [dgknght.app-lib.api :as api]
-            [clj-money.util :as util]
             [clj-money.authorization :refer [authorize] :as authorization]
             [clj-money.dates :as dates]
             [clj-money.authorization.trades]

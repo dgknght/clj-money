@@ -4,7 +4,6 @@
             [ring.util.response :as res]
             [dgknght.app-lib.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models :as models]
-            [clj-money.models.images :as images]
             [clj-money.authorization.images]))
 
 (defn- find-image
@@ -12,7 +11,7 @@
   (some-> params
           (select-keys [:id])
           (+scope ::models/image authenticated)
-          (images/find-by {:include-body? true})))
+          (models/find-by {:include-body? true})))
 
 (defn- ->response
   [image]

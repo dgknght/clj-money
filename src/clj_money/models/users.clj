@@ -9,12 +9,9 @@
             [dgknght.app-lib.core :refer [assoc-if
                                           present?
                                           update-in-if]]
-            [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
             [clj-money.models :as models])
   (:import java.util.UUID))
-
-(declare find-by)
 
 (defn- email-is-unique?
   [{:keys [id] :as user}]
@@ -34,6 +31,7 @@
 (s/def :user/email (s/and string?
                       present?
                       v/email?))
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/user (s/and (s/keys :req [:user/first-name :user/last-name :user/email]
                                     :opt [:user/password])
                             email-is-unique?))
@@ -52,20 +50,6 @@
   (let [ks (cond-> sensitive-keys
              include-password? (disj :user/password))]
     (apply dissoc user ks)))
-
-(defn ^:deprecated find-by
-  ([criteria]
-   (find-by criteria {}))
-  ([criteria options]
-   {:pre [(map? criteria) (map? options)]}
-   (first (models/select criteria
-                  (merge options {:limit 1})))))
-
-(defn ^:deprecated find
-  "Returns the user having the specified id"
-  [id-or-user]
-  {:pre [(or (:id id-or-user) id-or-user)]}
-  (models/find-by {:id (->id id-or-user)}))
 
 (defn find-by-email
   "Returns the user having the specified email"

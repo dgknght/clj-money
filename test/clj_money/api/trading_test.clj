@@ -16,8 +16,6 @@
                                             find-user
                                             find-account
                                             find-commodity]]
-            [clj-money.models.transactions :as trans]
-            [clj-money.models.lots :as lots]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)

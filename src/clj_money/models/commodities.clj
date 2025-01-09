@@ -3,12 +3,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [assoc-if]]
-            [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.db :as db]
             [clj-money.models :as models]))
-
-(declare find-by)
 
 (defn- name-is-unique?
   [{:keys [id] :as commodity}]
@@ -69,33 +65,3 @@
 (defmethod models/before-validation :commodity
   [comm]
   (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
-
-(defn ^:deprecated search
-  "Returns commodities matching the specified criteria"
-  ([criteria]
-   (search criteria {}))
-  ([criteria options]
-   (db/select (db/storage)
-              (db/model-type criteria :commodity)
-              options)))
-
-(defn ^:deprecated find-by
-  ([criteria]
-   (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (merge options {:limit 1})))))
-
-(defn ^:deprecated find
-  "Returns the commodity having the specified ID"
-  [id-or-commodity]
-  (models/find-by {:id (->id id-or-commodity)}))
-
-(defn ^:deprecated count
-  "Returns the number of commodities matching the specified criteria"
-  [criteria]
-  (:record-count (models/select criteria {:count true})))
-
-(defn ^:deprecated delete
-  "Removes a commodity from the system"
-  [commodity]
-  (db/delete (db/storage) [commodity]))

@@ -3,7 +3,6 @@
   (:require [clojure.test :refer [deftest is use-fixtures testing assert-expr do-report]]
             [clojure.java.io :as io]
             [clojure.core.async :refer [go-loop <! chan]]
-            [clojure.string :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
@@ -13,12 +12,8 @@
             [clj-money.db.sql.ref]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.io :refer [read-bytes
-                                  file-ext
-                                  file-name]]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.test-context :refer [with-context
-                                            find-user
-                                            find-account
                                             find-import]]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
@@ -37,36 +32,8 @@
       (recur (<! c)))
     c))
 
-(defn- path->image
-  [path]
-  (let [ext (file-ext path)
-        content-type (s/replace ext #"\.gz$" "")
-        filename (file-name path)]
-    #:image{:body (-> path
-                      io/input-stream
-                      read-bytes)
-            :user "john@doe.com"
-            :content-type (format "application/%s" content-type)
-            :original-filename filename}))
-
-(def images
-  {:gnucash (mapv path->image ["resources/fixtures/sample.gnucash"])
-   :ext     (mapv path->image ["resources/fixtures/sample_with_commodities_ext.gnucash"])
-   :edn     (mapv path->image ["resources/fixtures/sample_0.edn.gz"
-                               "resources/fixtures/sample_1.edn.gz"])
-   :sched   (mapv path->image ["resources/fixtures/scheduled_transactions.gnucash"])})
-
 (def ^:private base-context
   [(factory :user, {:user/email "john@doe.com"})])
-
-#_(defn- make-context
-  [source-type]
-  (concat [(factory :user, {:user/email "john@doe.com"})]
-          (images source-type)
-          [#:import{:entity-name "Personal"
-                    :user "john@doe.com"
-                    :images (map :original-filename images)
-                    :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}]))
 
 (def ^:private expected-inc-stmt
   [{:report/caption "Income"
@@ -524,23 +491,23 @@
              (:scheduled-transaction (last updates)))
           "The progress is updated for the scheduled transactions")
       (is (seq-of-maps-like?
-            [#:transaction{:entity (util/->model-ref entity)
-                           :description "Paycheck"
-                           :memo nil
-                           :start-date (t/local-date 2016 1 15)
-                           :end-date (t/local-date 2018 12 31)
-                           :enabled true
-                           :date-spec {:days [:friday]}
-                           :last-occurrence nil
-                           :interval-type :week
-                           :interval-count 2
-                           :items [#:transaction-item{:action :debit
-                                                      :account (account-ref "Checking")
-                                                      :quantity 1000M
-                                                      :memo nil}
-                                   #:transaction-item{:action :credit
-                                                      :account-id (account-ref "Salary")
-                                                      :quantity 1000M
-                                                      :memo nil}]}]
+            [#:scheduled-transaction{:entity (util/->model-ref entity)
+                                     :description "Paycheck"
+                                     :memo nil
+                                     :start-date (t/local-date 2016 1 15)
+                                     :end-date (t/local-date 2018 12 31)
+                                     :enabled true
+                                     :date-spec {:days [:friday]}
+                                     :last-occurrence nil
+                                     :interval-type :week
+                                     :interval-count 2
+                                     :items [#:scheduled-transaction-item{:action :debit
+                                                                          :account (account-ref "Checking")
+                                                                          :quantity 1000M
+                                                                          :memo nil}
+                                             #:scheduled-transaction-item{:action :credit
+                                                                          :account (account-ref "Salary")
+                                                                          :quantity 1000M
+                                                                          :memo nil}]}]
             (models/select #:scheduled-transaction{:entity entity}))
           "The scheduled transactions are available after import."))))

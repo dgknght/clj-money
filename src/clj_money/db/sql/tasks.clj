@@ -1,7 +1,6 @@
 (ns clj-money.db.sql.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.core.async :as a :refer [go chan go-loop >! <! <!! buffer]]
-            [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [java-time.api :as t]

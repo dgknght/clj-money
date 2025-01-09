@@ -81,7 +81,7 @@
     {}))
 
 (defn- balance-data
-  [{:keys [accounts since as-of entity] :as opts}]
+  [{:keys [accounts since as-of entity]}]
   (let [earliest-date (get-in entity [:entity/settings :settings/earliest-transaction-date])
         account-ids (->> accounts
                          (map :id)

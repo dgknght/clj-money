@@ -2,19 +2,11 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [config.core :refer [env]]
             [stowaway.core :as stow :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage]]
-            [dgknght.app-lib.core :refer [assoc-if
-                                          parse-int
-                                          update-in-if]]
-            [dgknght.app-lib.models :refer [->id
-                                            extract-nested]]
-            [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.core :refer [assoc-if]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.util :refer [live-id]]
             [clj-money.models :as models]))
-
-(declare find-by find)
 
 (defn- name-is-unique?
   [account]
@@ -83,25 +75,6 @@
         (update-in [:account/entity] (models/resolve-ref :entity))
         ensure-commodity)))
 
-(declare find)
-#_(defn- before-validation
-  "Adjust account data for validation"
-  [account]
-  (cond-> account
-    ; If no entity is specified, try to look it up
-    (and (:id account)
-         (nil? (:entity-id account)))
-    (assoc :entity-id (:entity-id (models/find (:id account) :account)))
-
-    ; strip out empty string for parent-id
-    (and (string? (:parent-id account))
-         (empty? (:parent-id account)))
-    (dissoc :parent-id)
-
-    ; if no commodity is specified, use the default
-    (nil? (:commodity-id account))
-    (assoc :commodity-id (default-commodity-id (:entity-id account)))))
-
 (defmethod models/before-save :account
   [account]
   (-> account
@@ -121,84 +94,3 @@
       (update-in [:system-tags] #(when (seq %)
                                    (into-array (map name %))))
       (dissoc :commodity)))
-
-(defn- dissoc-if-nil
-  "Removes the key from the map if the value is nil"
-  [m k]
-  (if (and (contains? m k)
-           (nil? (get-in m [k])))
-    (dissoc m k)
-    m))
-
-(defn- prepare-tags
-  [tags]
-  (->> tags
-       (map keyword)
-       set))
-
-(defn- deserialize-allocations
-  [allocations]
-  (->> allocations
-       (map #(-> %
-                 (update-in [0] parse-int)
-                 (update-in [1] bigdec)))
-       (into {})))
-
-(defn- after-read
-  [account]
-  (-> account
-      (update-in [:type] keyword)
-      (update-in [:system-tags] prepare-tags)
-      (update-in [:user-tags] prepare-tags)
-      (update-in-if [:allocations] deserialize-allocations)
-      (extract-nested :commodity)
-      (tag ::models/account)
-      (dissoc-if-nil :parent-id)))
-
-(defn ^:deprecated search
-  ([criteria]
-   (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map after-read
-          (storage/select (tag criteria ::models/account)
-                          options)))))
-
-(defn ^:deprecated find-by
-  "Returns the first account that matches the specified criteria"
-  [criteria]
-  (first (models/select criteria {:limit 1})))
-
-(defn ^:deprecated find
-  "Returns the account having the specified id"
-  [id-or-account]
-  (when id-or-account (models/find (->id id-or-account) :account)))
-
-(defn ^:deprecated create
-  [account]
-  (with-storage (env :db)
-    (with-validation account ::new-account
-      (-> account
-          before-save
-          storage/create
-          after-read))))
-
-(defn ^:deprecated reload
-  "Returns a fresh copy of the specified account from the data store"
-  [model-or-id]
-  (models/find (->id model-or-id) :account))
-
-(defn ^:deprecated update
-  [account]
-  (with-storage (env :db)
-    (with-validation account ::existing-account
-      (-> account
-          before-save
-          storage/update)
-      (models/find account))))
-
-(defn ^:deprecated delete
-  "Removes the account from the system"
-  [account]
-  (with-storage (env :db)
-    (storage/delete account)))

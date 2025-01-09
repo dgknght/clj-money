@@ -32,7 +32,7 @@
                                         find-by-path
                                         format-quantity]]
             [clj-money.transactions :refer [accountify
-                                            fullify
+                                            unaccountify
                                             can-simplify?
                                             entryfy
                                             unentryfy
@@ -47,7 +47,7 @@
 
 (defn- fullify-trx
   [trx]
-  (fullify trx @accounts-by-id))
+  (unaccountify trx @accounts-by-id))
 
 (defn mode
   ([transaction]

@@ -1,32 +1,16 @@
 (ns clj-money.models.identities
   (:refer-clojure :exclude [find])
   (:require [clojure.spec.alpha :as s]
-            [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
-            [config.core :refer [env]]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.models :as models]
-            [clj-money.models.users :as users]))
+            [clj-money.models :as models]))
 
 (s/def :identity/user ::models/model-ref)
 (s/def :identity/provider #{:google})
 (s/def :identity/provider-id string?)
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/identity (s/keys :req [:identity/user
                                        :identity/provider
                                        :identity/provider-id]))
-
-(defn ^:deprecated create
-  [_ident]
-  (throw (UnsupportedOperationException. "create is deprecated")))
-
-(defn ^:deprecated select
-  [_criteria _options]
-  (throw (UnsupportedOperationException. "select is deprecated")))
-
-(defn find-by
-  [_criteria]
-  (throw (UnsupportedOperationException. "find-by is deprecated")))
 
 (defn- find-by-identity
   [provider {:keys [id]}]

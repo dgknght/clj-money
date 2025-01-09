@@ -1,6 +1,5 @@
 (ns clj-money.api.lots-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
