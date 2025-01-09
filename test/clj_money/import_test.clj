@@ -286,9 +286,6 @@
     (let [imp (find-import "Personal")
           result (execute-import imp)
           entity (models/find (:entity result))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
-
-      (pprint {::entity entity})
-
       (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-gains-account]))
           "The long-term capital gains account id is set correctly")
@@ -387,7 +384,8 @@
                                                      (t/local-date 2015 1 1)
                                                      (t/local-date 2016 1 1)]
                                   :commodity/symbol "AAPL"}
-                                 :price)))
+                                 :price)
+                               {:sort [[:price/trade-date :asc]]}))
           "The prices can be retrieved"))))
 
 (deftest import-commodities-with-extended-actions
