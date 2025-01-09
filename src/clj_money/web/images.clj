@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [ring.util.response :as res]
-            [dgknght.app-lib.authorization :refer [authorize +scope] :as authorization]
+            [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models :as models]
             [clj-money.authorization.images]))
 
@@ -10,14 +10,14 @@
   [{:keys [params authenticated]}]
   (some-> params
           (select-keys [:id])
-          (+scope ::models/image authenticated)
+          (+scope :image authenticated)
           (models/find-by {:include-body? true})))
 
 (defn- ->response
-  [image]
-  (-> (io/input-stream (:body image))
+  [{:image/keys [body content-type]}]
+  (-> (io/input-stream body)
       res/response
-      (res/content-type (:content-type image))))
+      (res/content-type content-type)))
 
 (def ^:private not-found
   (-> "not found"
