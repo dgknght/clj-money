@@ -839,8 +839,8 @@
   [_ inputs out-chan]
   (let [records-chan (chan 100 (comp (filter emit-record?)
                                      process-records
-                                     log-records))
-        _ (pipe records-chan out-chan)]
+                                     log-records))]
+    (pipe records-chan out-chan)
     (->> inputs
          (map #(GZIPInputStream. %))
          (map io/reader)
