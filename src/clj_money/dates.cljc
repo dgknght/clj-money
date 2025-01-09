@@ -314,12 +314,12 @@
 (defn serialize-local-date-time
   [local-date-time]
   #?(:clj (t/format (t/formatter :iso-date-time) local-date-time)
-     :cljs (tf/unparse-local-date (tf/formatters :date-time) local-date-time)))
+     :cljs (tf/unparse-local (tf/formatters :date-hour-minute-second) local-date-time)))
 
 (defn unserialize-local-date-time
   [date-str]
   #?(:clj (t/local-date-time (t/formatter :iso-date-time) date-str)
-     :cljs (tf/parse-local-date (tf/formatters :date-time) date-str)))
+     :cljs (tf/parse-local (tf/formatters :date-hour-minute-second) date-str)))
 
 (defn format-local-date
   [local-date]

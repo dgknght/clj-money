@@ -291,9 +291,12 @@
                                (t/local-date 2000 1 4)))))
 
 (deftest get-range-boundaries
-  (is (= [(t/local-date 2000 1 1)
-          (t/local-date 2000 1 31)]
-         (dates/range-boundaries [(t/local-date 2000 1 15)
-                                  (t/local-date 2000 1 31)
-                                  (t/local-date 2000 1 1)]))
-      "The earliest and latest dates are returned"))
+  (let [[start end] (dates/range-boundaries [(t/local-date 2000 1 15)
+                                             (t/local-date 2000 1 31)
+                                             (t/local-date 2000 1 1)])]
+    (is (dates/equal? (t/local-date 2000 1 1)
+                      start)
+        "The range start date is in the first position of the return value.")
+    (is (dates/equal? (t/local-date 2000 1 31)
+                      end)
+        "The range end date is in the second position of the return value.")))
