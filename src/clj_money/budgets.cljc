@@ -168,26 +168,26 @@
 
 (defn- trx-items->budget-item
   [{:budget/keys [period]}
-   start-date
-   end-date]
+   since
+   as-of]
   (fn [[account trx-items]]
     #:budget-item{:account account
                   :periods (->> trx-items
                                 realize-accounts
                                 (txns/summarize-items {:interval-type period
                                                        :interval-count 1
-                                                       :start-date start-date
-                                                       :end-date end-date})
-                                (map :quantity))}))
+                                                       :since since
+                                                       :as-of as-of})
+                                (mapv :quantity))}))
 
 (defn create-items-from-history
-  [budget start-date end-date trx-items]
+  [budget since as-of trx-items]
   (->> trx-items
        (group-by (comp util/->model-ref
                        :transaction-item/account))
        (map (trx-items->budget-item budget
-                                    start-date
-                                    (t/minus end-date (t/days 1))))))
+                                    since
+                                    (t/minus as-of (t/days 1))))))
 
 (def ^:private period-map
   {:month (t/months 1)
