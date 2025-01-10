@@ -167,6 +167,7 @@
    (take-while #(not (t/after? % end))
                (periodic-seq start period)))
   ([start period]
+   {:pre [start period]}
    #?(:cljs (periodic/periodic-seq start period)
       :clj (lazy-seq (cons start
                            (periodic-seq (t/plus start period)
@@ -174,6 +175,7 @@
 
 (defn ranges
   [start interval & {:keys [inclusive]}]
+  {:pre [start interval]}
   (let [adj (if inclusive
               #(t/minus % (t/days 1))
               identity)]

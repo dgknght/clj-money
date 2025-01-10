@@ -175,8 +175,10 @@
 
 (defn summarize-items
   [{:keys [interval-type interval-count since as-of]
-    :or {interval-count 1}}
+    :or {interval-count 1}
+    :as opts}
    items]
+  {:pre [(:as-of opts)]}
   (->> (dates/ranges since
                      (dates/period interval-type interval-count)
                      :inclusive true)
