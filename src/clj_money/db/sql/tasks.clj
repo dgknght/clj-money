@@ -49,13 +49,13 @@
 
 (defn- put-earliest-partition-date
   [date]
-  (put-partition-date "earliest-partition-date"
+  (put-partition-date :earliest-partition-date
                       date
                       t/before?))
 
 (defn- put-latest-partition-date
   [date]
-  (put-partition-date "latest-partition-date"
+  (put-partition-date :latest-partition-date
                       date
                       t/after?))
 
