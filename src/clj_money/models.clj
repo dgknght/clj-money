@@ -38,10 +38,14 @@
 (defmulti propagate-delete db/type-dispatch)
 (defmethod propagate-delete :default [m & _] [m])
 
+(defn- validation-key
+  [m]
+  (keyword "clj-money.models"
+           (-> m db/model-type name)))
+
 (defn- validate
   [model]
-  (let [validated (v/validate model (keyword "clj-money.models"
-                                             (name (db/model-type model))))]
+  (let [validated (v/validate model (validation-key model))]
     (when (seq (::v/errors validated))
       (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
   model)
