@@ -4,7 +4,6 @@
             [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
-            [dgknght.app-lib.validation :as v]
             [clj-money.authorization
              :as auth
              :refer [+scope
@@ -69,20 +68,28 @@
                             :year t/years
                             :week t/weeks)
                           period-count))]
-    (create-items-from-history
-      budget
-      start-date
-      end-date
-      (historical-items budget start-date))))
+    (->> (historical-items budget start-date)
+         (create-items-from-history
+           budget
+           start-date
+           end-date))))
+
+(defn- assoc-auto-created-items
+  [budget start-date]
+  (if-let [items (seq
+                   (auto-create-items
+                     budget
+                     (dates/unserialize-local-date start-date)))]
+    (assoc budget
+           :budget/items
+           (vec items))
+    budget))
 
 (defn- append-items
   [budget start-date]
-  (if (and (not (v/has-error? budget))
-           start-date)
+  (if start-date
     (-> budget
-        (assoc :budget/items (auto-create-items
-                               budget
-                               (dates/unserialize-local-date start-date)))
+        (assoc-auto-created-items start-date)
         models/put)
     budget))
 
