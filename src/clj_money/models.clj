@@ -38,15 +38,7 @@
 (defmulti propagate-delete db/type-dispatch)
 (defmethod propagate-delete :default [m & _] [m])
 
-(defmulti validate type)
-
-(defmethod validate ::util/vector
-  [[oper model :as puttable]]
-  (if (= oper ::db/delete)
-    puttable
-    (validate model)))
-
-(defmethod validate ::util/map
+(defn- validate
   [model]
   (let [validated (v/validate model (keyword "clj-money.models"
                                              (name (db/model-type model))))]
@@ -119,24 +111,47 @@
         (recur (rest input) (conj output model)))
       output)))
 
+(defn- dispatch*
+  [f x]
+  (if (vector? x)
+    (let [[oper :as puttable] x]
+      (if (= ::db/delete oper)
+        puttable
+        (update-in puttable [1] f)))
+    (f x)))
+
+(defn- dispatch
+  "Returns a function that accepts either a naked model or a model wrapped in a
+  vector with a db operator in the first position, and applies the function to
+  the model, unless it's a delete operation."
+  [f]
+  (partial dispatch* f))
+
+(defn- dispatch-propagation
+  [x]
+  (if (vector? x)
+    (let [[oper m] x
+          f (if (= ::db/delete oper)
+              propagate-delete
+              propagate)
+          [r & rs] (f m)]
+      (cons [oper r]
+            rs))
+    (propagate x)))
+
 (defn put-many
   [models]
   (->> models
-       (map (comp validate
-                  before-validation))
-       (mapcat (fn [x]
-                 (if (and (vector? x)
-                          (= ::db/delete (first x)))
-                   (let [[m & ms] (propagate-delete (second x))]
-                     (cons [::db/delete m]
-                           ms))
-                   (propagate x))))
-       (map before-save)
+       (map (dispatch
+              (comp validate
+                    before-validation)))
+       (mapcat dispatch-propagation)
+       (map (dispatch before-save))
        (merge-dupes)
        (db/put (db/storage))
        (map (comp append-before
                   after-save
-                  #(after-read % {})))))
+                  #(after-read % {}))))) ; The empty hash here is for options
 
 (defn put
   [model]
