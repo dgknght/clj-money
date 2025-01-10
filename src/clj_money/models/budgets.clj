@@ -47,7 +47,7 @@
             {:message "All items must have a number of periods that matches the budget period count"
              :path [:budget/items]})
 
-(s/def :budget-item/periods (s/coll-of decimal? :min-count 1))
+(s/def :budget-item/periods (s/coll-of decimal? :min-count 1 :kind vector?))
 (s/def :budget-item/account ::models/model-ref)
 (s/def :budget-item/spec (s/nilable map?))
 (s/def ::models/budget-item (s/keys :req [:budget-item/account
