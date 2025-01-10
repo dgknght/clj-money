@@ -202,6 +202,7 @@
 (def ^:private sale-context
   (conj purchase-context
         #:trade{:type :purchase
+                :entity "Personal"
                 :account "IRA"
                 :commodity "AAPL"
                 :date (t/local-date 2016 3 2)
@@ -346,6 +347,7 @@
 (def ^:private auto-create-context
   (conj base-context
         #:trade{:type :purchase
+                :entity "Personal"
                 :account "IRA"
                 :commodity "AAPL"
                 :date (t/local-date 2016 3 2)
@@ -449,12 +451,14 @@
 (def ^:private multi-lot-context
   (conj purchase-context
         #:trade{:type :purchase
+                :entity "Personal"
                 :date (t/local-date 2015 3 2)
                 :account "IRA"
                 :commodity "AAPL"
                 :shares 100M
                 :value 1000M}
         #:trade{:type :purchase
+                :entity "Personal"
                 :date (t/local-date 2016 3 2)
                 :account "IRA"
                 :commodity "AAPL"
@@ -539,6 +543,7 @@
 (def ^:privat existing-sale-context
   (conj sale-context
         #:trade{:type :sale
+                :entity "Personal"
                 :commodity "AAPL"
                 :account "IRA"
                 :inventory-method :fifo
@@ -672,6 +677,7 @@
 (def ^:private rev-split-context
   (conj purchase-context
         #:trade{:type :purchase
+                :entity "Personal"
                 :date (t/local-date 2016 3 2)
                 :account "IRA"
                 :commodity "AAPL"
