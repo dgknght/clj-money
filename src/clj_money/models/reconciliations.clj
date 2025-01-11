@@ -9,10 +9,6 @@
             [clj-money.models :as models]
             [clj-money.accounts :as acts]))
 
-(declare find
-         find-by
-         find-last-completed)
-
 (defn- get-meta
   [recon & ks]
   (get-in (meta recon) ks))
@@ -160,15 +156,6 @@
       (models/select criteria))
     []))
 
-(defn- find-last-completed
-  "Returns the last completed reconciliation for an account"
-  [{:reconciliation/keys [account] :as recon}]
-  (when account
-    (models/find-by (cond-> {:reconciliation/account account
-                             :reconciliation/status :completed}
-                      (:id recon) (assoc :id [:!= (:id recon)]))
-                    {:sort [[:reconciliation/end-of-period :desc]]})))
-
 (defn- polarize-item
   [{:as item :transaction-item/keys [quantity action account]}]
   (assoc item
@@ -185,6 +172,15 @@
 (def ^:private prepare-item
   (comp polarize-item
         resolve-account))
+
+(defn- find-last-completed
+  "Returns the last completed reconciliation for an account"
+  [{:reconciliation/keys [account] :as recon}]
+  (when account
+    (models/find-by (cond-> {:reconciliation/account account
+                             :reconciliation/status :completed}
+                      (:id recon) (assoc :id [:!= (:id recon)]))
+                    {:sort [[:reconciliation/end-of-period :desc]]})))
 
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [item-refs] :as reconciliation}]
