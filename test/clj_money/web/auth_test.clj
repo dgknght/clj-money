@@ -53,7 +53,7 @@
             "The site redirects back to the root page")
         (is (http-response-with-cookie? "auth-token" "abc123" res)
             "The redirect contains the auth token")
-        (is (comparable? {:email "john@doe.com"
-                          :first-name "John"
-                          :last-name "Doe"}
+        (is (comparable? #:user{:email "john@doe.com"
+                                :first-name "John"
+                                :last-name "Doe"}
                          (usrs/find-by-email "john@doe.com")))))))

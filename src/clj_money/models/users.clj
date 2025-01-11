@@ -54,7 +54,7 @@
 (defn find-by-email
   "Returns the user having the specified email"
   [email]
-  (models/find-by {:email email}))
+  (models/find-by {:user/email email}))
 
 (defn find-by-token
   "Returns the user having the specified, unexpired password reset token"
