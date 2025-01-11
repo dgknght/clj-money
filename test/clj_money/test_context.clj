@@ -404,9 +404,11 @@
 (defn- process
   [m]
   (case (db/model-type m)
-    :trade (if (= :purchase (:trade/type m))
-             (buy m)
-             (sell m))
+    :trade (do
+             (assert (#{:sale :purchase} (:trade/type m)))
+             (if (= :purchase (:trade/type m))
+               (buy m)
+               (sell m)))
     [(models/put m)]))
 
 (defmulti post-process db/model-type)
