@@ -16,7 +16,8 @@
             [clj-money.test-context :refer [with-context
                                             find-import]]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            account-ref]]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.models :as models]
             [clj-money.reports :as reports]
@@ -312,19 +313,6 @@
         #:import{:entity-name "Personal"
                  :user "john@doe.com"
                  :images ["budget_sample.gnucash"]}))
-
-(defn- throw-if-nil
-  [x msg]
-  (when (nil? x)
-    (throw (ex-info msg {})))
-  x)
-
-(defn- account-ref
-  [name]
-  (-> {:account/name name}
-      models/find-by
-      (throw-if-nil (str "Account not found: " name))
-      util/->model-ref))
 
 (deftest import-a-budget
   (with-context import-budget-context
