@@ -307,8 +307,8 @@
                    :end-date (t/local-date 2016 4 30)
                    :quantity 0M}]]
     (is (= expected
-           (trx/summarize-items {:start-date (t/local-date 2016 1 1)
-                                 :end-date (t/local-date 2016 4 30)
+           (trx/summarize-items {:since (t/local-date 2016 1 1)
+                                 :as-of (t/local-date 2016 4 30)
                                  :interval-type :month
                                  :interval-count 1}
                                 items)))))
