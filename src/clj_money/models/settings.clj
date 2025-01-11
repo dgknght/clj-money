@@ -52,18 +52,19 @@
     (put* (name setting-name)
           (pr-str value))))
 
-(defn- encache
-  [v k]
-  (swap! settings-cache assoc k v)
-  v)
+(defmacro with-caching
+  [k & body]
+  `(let [f# (fn* [] (do ~@body))]
+     (or (@settings-cache ~k)
+         (when-let [v# (f#)]
+           (swap! settings-cache assoc ~k v#)
+           v#))))
 
 (defn get
   [setting-name]
   {:pre [(keyword? setting-name)]}
 
-  (if-let [value (get-in @settings-cache [setting-name])]
-    value
+  (with-caching setting-name
     (some-> (get* (name setting-name))
             :value
-            read-string
-            (encache setting-name))))
+            read-string)))
