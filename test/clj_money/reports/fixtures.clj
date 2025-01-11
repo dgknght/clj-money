@@ -325,6 +325,7 @@
                       :credit-account "Checking"
                       :quantity 1000M}
         #:trade{:type :purchase
+                :entity "Personal"
                 :account "IRA"
                 :commodity "AAPL"
                 :shares 100M
@@ -372,12 +373,14 @@
 (def commodities-account-summary-context
   (conj commodities-context
         #:trade{:type :purchase
+                :entity "Personal"
                 :account "IRA"
                 :commodity "GE"
                 :shares 100M
                 :value 1000M
                 :date (t/local-date 2015 1 1)}
         #:trade{:type :sell
+                :entity "Personal"
                 :account "IRA"
                 :commodity "GE"
                 :shares 100M
@@ -388,12 +391,14 @@
                 :lt-capital-loss-account  "LT Losses"
                 :st-capital-loss-account "ST Losses"}
         #:trade{:type :purchase
+                :entity "Personal"
                 :account "IRA"
                 :commodity "AAPL"
                 :shares 50M
                 :value 500M
                 :date (t/local-date 2016 3 3)}
         #:trade{:type :purchase
+                :entity "Personal"
                 :account "IRA"
                 :commodity "MSFT"
                 :shares 50M
@@ -854,24 +859,28 @@
 (def lot-report-context
   (conj commodities-context
         #:trade{:type :purchase
+                :entity "Personal"
                 :date (t/local-date 2017 1 15)
                 :commodity "AAPL"
                 :account "IRA"
                 :shares 10M
                 :value 100M}
         #:trade{:type :purchase
+                :entity "Personal"
                 :date (t/local-date 2017 1 15)
                 :commodity "MSFT"
                 :account "IRA"
                 :shares 10M
                 :value 100M}
         #:trade{:type :purchase
+                :entity "Personal"
                 :date (t/local-date 2017 1 15)
                 :commodity "GE"
                 :account "IRA"
                 :shares 10M
                 :value 100M}
         #:trade{:type :sale
+                :entity "Personal"
                 :date (t/local-date 2017 1 31)
                 :commodity "AAPL"
                 :account "IRA"
@@ -988,30 +997,35 @@
                       :debit-account "IRA"
                       :credit-account "Opening Balances"}
         #:trade{:date (t/local-date 2015 2 1)
+                :entity "Personal"
                 :type :purchase
                 :account "IRA"
                 :commodity "AAPL"
                 :shares 200M
                 :value 2000M} ; $10.00/share
         #:trade{:date (t/local-date 2015 3 1)
+                :entity "Personal"
                 :type :purchase
                 :account "IRA"
                 :commodity "AAPL"
                 :shares 100M
                 :value 1100M} ; $11.00/share
         #:trade{:date (t/local-date 2015 4 1)
+                :entity "Personal"
                 :type :sale
                 :account "IRA"
                 :commodity "AAPL"
                 :shares 100M
                 :value 1200M} ; $12.00/share
         #:trade{:date (t/local-date 2015 2 1)
+                :entity "Personal"
                 :type :purchase
                 :account "401k"
                 :commodity "MSFT"
                 :shares 200M
                 :value 800M} ; $4.00/share
         #:trade{:date (t/local-date 2015 4 1)
+                :entity "Personal"
                 :type :purchase
                 :account "401k"
                 :commodity "MSFT"
