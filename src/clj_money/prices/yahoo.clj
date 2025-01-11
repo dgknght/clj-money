@@ -1,5 +1,6 @@
 (ns clj-money.prices.yahoo
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clj-http.client :as http]
@@ -31,7 +32,9 @@
     (->> (get-in res [:body :quoteResponse :result])
          (map (fn [m]
                 (-> m ; There are like 1,000 other conversions we could do, but this is all we need right now
-                    (update-in [:regularMarketTime] (comp t/instant
+                    (update-in [:regularMarketTime] (comp t/local-date
+                                                          #(t/local-date-time % (t/zone-id "America/New_York"))
+                                                          t/instant
                                                           #(.longValue %)
                                                           (partial * 1000)))
                     (update-in [:regularMarketPrice] bigdec)))))))
