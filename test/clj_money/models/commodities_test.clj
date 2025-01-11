@@ -180,7 +180,7 @@
                            :commodity/exchange :not-valid
                            :commodity/symbol "NUNYA"
                            :commodity/name "None of your business")
-                    {:commodity/exchange ["Exchange must be nasdaq, nyse, or otc"]})))
+                    {:commodity/exchange ["Exchange must be amex, nasdaq, nyse, or otc"]})))
 
 (deftest a-commodity-can-be-updated
   (with-context existing-context
