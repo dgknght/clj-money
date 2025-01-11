@@ -1012,7 +1012,9 @@
              @progress)
           "The progress is reported during the process")
       (is (comparable? {:settings/earliest-transaction-date (t/local-date 2017 1 1)
-                        :settings/latest-transaction-date (t/local-date 2017 2 1)})))))
+                        :settings/latest-transaction-date (t/local-date 2017 2 1)}
+                       (:entity/settings (models/find entity)))
+          "The entity transaction date boundaries are updated"))))
  
 (deftest use-simplified-items
   (with-context base-context
