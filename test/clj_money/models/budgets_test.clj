@@ -14,7 +14,8 @@
                                             find-entity
                                             find-account
                                             find-budget]]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db
+                                            account-ref]]))
 
 (use-fixtures :each reset-db)
 
@@ -139,7 +140,7 @@
                               [:budget/items]
                               conj
                               #:budget-item{:account fit
-                                            :periods (repeat 12 100M)}))]
+                                            :periods (vec (repeat 12 100M))}))]
       (is (= 4 (count (:budget/items result)))
           "The return value has the new item")
       (is (= 4 (count (:budget/items (models/find budget))))
@@ -148,7 +149,7 @@
 (deftest remove-an-item
   (with-context existing-context
     (let [budget (find-budget "2016")
-          groceries (select-keys (find-account "Groceries") [:id])]
+          groceries (account-ref "Groceries")]
       (-> budget
           (update-in [:budget/items]
                      (fn [items]
