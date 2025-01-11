@@ -12,6 +12,8 @@
             [clj-money.models.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
+                                            basic-context
+                                            find-account
                                             find-entity
                                             find-commodity
                                             find-price]]
@@ -145,59 +147,64 @@
       (is (empty? (models/select criteria))
           "The commodity prices are absent after delete"))))
 
-; (def ^:private account-meta-context
-;   (conj basic-context
-;         #:commodity{:name "Apple, Inc."
-;                     :type :stock
-;                     :symbol "AAPL"
-;                     :exchange :nasdaq
-;                     :entity "Personal"}
-;         #:account{:name "IRA"
-;                   :entity "Personal"
-;                   :type :asset}
-;         #:trade{:type :buy
-;                 :commodity "AAPL"
-;                 :account "IRA"
-;                 :trade-date (t/local-date 2015 1 1)
-;                 :shares 100M
-;                 :value 1000M}))
-; 
-; (deftest creating-a-price-updates-account-meta-data
-;   (with-context account-meta-context
-;     (assert-created #:price{:commodity (find-commodity "AAPL")
-;                             :trade-date (t/local-date 2015 1 2)
-;                             :price 12M})
-;     (is (comparable? #:account{:value 1200M}
-;                      (models/find (find-account "IRA")))
-;         "The account value reflects the new price after the price is created")))
-; 
-; (def ^:private account-meta-context-for-update
-;   (-> account-meta-context
-;       (assoc :prices [{:trade-date (t/local-date 2015 2 1)
-;                        :commodity-id "AAPL"
-;                        :price 12M}])))
-; 
-; (deftest updating-a-price-updates-account-meta-data
-;   (with-context account-meta-context-for-update
-;     (is (= 1200M (:value (accounts/find-by {:name "AAPL"})))
-;         "The account value reflects the price before update")
-;     (let [price (find-price "AAPL" (t/local-date 2015 2 1))]
-;       (models/put (assoc price :price 13M :trade-date (t/local-date 2016 1 1)))
-;       (is (= 1300M (:value (accounts/find-by {:name "AAPL"})))
-;         "The account value reflects the previous price after update")
-;       (is (seq-of-maps-like? [{:trade-date (t/local-date 2015 1 1)
-;                                :price 10M}
-;                               {:trade-date (t/local-date 2016 1 1)
-;                                :price 13M}]
-;                              (models/search {:trade-date [:between (t/local-date 2015 1 1) (t/local-date 2016 12 31)]}
-;                                             {:sort [:trade-date]}))
-;           "The price is moved to the new partition without duplication"))))
-; 
-; (deftest deleting-a-price-updates-account-meta-data
-;   (with-context account-meta-context-for-update
-;     (is (= 1200M (:value (accounts/find-by {:name "AAPL"})))
-;         "The account value reflects the price before delete")
-;     (let [price (find-price "AAPL" (t/local-date 2015 2 1))]
-;       (models/delete price)
-;       (is (= 1000M (:value (accounts/find-by {:name "AAPL"})))
-;         "The account value reflects the previous price after delete"))))
+(def ^:private account-meta-context
+  (conj basic-context
+        #:commodity{:name "Apple, Inc."
+                    :type :stock
+                    :symbol "AAPL"
+                    :exchange :nasdaq
+                    :entity "Personal"}
+        #:account{:name "IRA"
+                  :entity "Personal"
+                  :type :asset}
+        #:trade{:type :purchase
+                :entity "Personal"
+                :commodity "AAPL"
+                :account "IRA"
+                :date (t/local-date 2015 1 1)
+                :shares 100M
+                :value 1000M}))
+
+(deftest creating-a-price-updates-account-meta-data
+  (with-context account-meta-context
+    (assert-created #:price{:commodity (find-commodity "AAPL")
+                            :trade-date (t/local-date 2015 1 2)
+                            :price 12M})
+    (is (comparable? #:account{:value 1200M}
+                     (models/find (find-account "IRA")))
+        "The account value reflects the new price after the price is created")))
+
+(def ^:private account-meta-context-for-update
+  (conj account-meta-context
+        #:price{:trade-date (t/local-date 2015 2 1)
+                :commodity "AAPL"
+                :price 12M}))
+
+(deftest updating-a-price-updates-account-meta-data
+  (with-context account-meta-context-for-update
+    (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
+        "The account value reflects the price before update")
+    (-> (find-price ["AAPL" (t/local-date 2015 2 1)])
+        (assoc :price/price 13M
+               :price/trade-date (t/local-date 2016 1 1))
+        models/put)
+    (is (= 1300M (:account/value (models/find-by {:account/name "AAPL"})))
+        "The account value reflects the previous price after update")
+    (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 1 1)
+                                    :price 10M}
+                            #:price{:trade-date (t/local-date 2016 1 1)
+                                    :price 13M}]
+                           (models/select {:price/trade-date [:between
+                                                              (t/local-date 2015 1 1)
+                                                              (t/local-date 2016 12 31)]}
+                                          {:sort [:price/trade-date]}))
+        "The price is moved to the new partition without duplication")))
+
+(deftest deleting-a-price-updates-account-meta-data
+  (with-context account-meta-context-for-update
+    (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
+        "The account value reflects the price before delete")
+    (let [price (find-price ["AAPL" (t/local-date 2015 2 1)])]
+      (models/delete price)
+      (is (= 1000M (:account/value (models/find-by {:account/name "AAPL"})))
+        "The account value reflects the previous price after delete"))))
