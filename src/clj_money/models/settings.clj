@@ -63,7 +63,7 @@
 
   (if-let [value (get-in @settings-cache [setting-name])]
     value
-    (-> (get* (name setting-name))
-        :value
-        read-string
-        (encache setting-name))))
+    (some-> (get* (name setting-name))
+            :value
+            read-string
+            (encache setting-name))))

@@ -48,3 +48,6 @@
   (is (= (t/local-date 2020 2 27)
          (settings/get :my-info))
       "An existing setting can be updated"))
+
+(deftest request-a-settings-that-does-not-exist
+  (is (nil? (settings/get :does-not-exist))))
