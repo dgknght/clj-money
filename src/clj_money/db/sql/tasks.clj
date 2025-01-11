@@ -41,11 +41,14 @@
 
 (defn put-partition-date
   [setting-name date compare-fn]
-  (when (if-let [existing (settings/get setting-name)]
-          (when (compare-fn date existing)
+  (try
+    (when (if-let [existing (settings/get setting-name)]
+            (when (compare-fn date existing)
+              date)
             date)
-          date)
-    (settings/put setting-name date)))
+      (settings/put setting-name date))
+    (catch Exception e
+      (println "Unable to put partition date." e))))
 
 (defn- put-earliest-partition-date
   [date]
