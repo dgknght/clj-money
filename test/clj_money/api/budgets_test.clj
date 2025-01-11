@@ -145,17 +145,17 @@
                  :period :month
                  :period-count 12
                  :start-date (t/local-date 2015 1 1)
-                 :items [#:budget-item{:account "Salary"    :periods (repeat 12 1000M)}
-                         #:budget-item{:account "Rent"      :periods (repeat 12 500M)}
-                         #:budget-item{:account "Groceries" :periods (repeat 12 200M)}]}
+                 :items [#:budget-item{:account "Salary"    :periods (vec (repeat 12 1000M))}
+                         #:budget-item{:account "Rent"      :periods (vec (repeat 12 500M))}
+                         #:budget-item{:account "Groceries" :periods (vec (repeat 12 200M))}]}
         #:budget{:name "2016"
                  :entity "Personal"
                  :period :month
                  :period-count 12
                  :start-date (t/local-date 2016 1 1)
-                 :items [#:budget-item{:account "Salary"    :periods (repeat 12 1001M)}
-                         #:budget-item{:account "Rent"      :periods (repeat 12 501M)}
-                         #:budget-item{:account "Groceries" :periods (repeat 12 201M)}]}))
+                 :items [#:budget-item{:account "Salary"    :periods (vec (repeat 12 1001M))}
+                         #:budget-item{:account "Rent"      :periods (vec (repeat 12 501M))}
+                         #:budget-item{:account "Groceries" :periods (vec (repeat 12 201M))}]}))
 
 (defn- get-budgets
   [email]

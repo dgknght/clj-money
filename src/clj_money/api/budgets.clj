@@ -31,7 +31,7 @@
 (defn- prepare-item
   [item]
   (-> item
-      (update-in-if [:budget-item/periods] #(map bigdec %))
+      (update-in-if [:budget-item/periods] #(mapv bigdec %))
       (update-in-if [:budget-item/spec :start-date] dates/unserialize-local-date)))
 
 (defn- extract-budget
@@ -42,7 +42,7 @@
                     :budget/period
                     :budget/period-count
                     :budget/items])
-      (update-in-if [:budget/items] #(map prepare-item %))
+      (update-in-if [:budget/items] #(mapv prepare-item %))
       (update-in-if [:budget/period] keyword)
       (update-in-if [:budget/start-date] dates/unserialize-local-date)))
 
