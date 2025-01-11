@@ -326,7 +326,9 @@
 
 (defmethod prepare :budget-item
   [item ctx]
-  (update-in item [:budget-item/account] #(find-account ctx %)))
+  (-> item
+      (update-in-if [:budget-item/periods] vec)
+      (update-in [:budget-item/account] #(find-account ctx %))))
 
 (defmethod prepare :image
   [image ctx]
