@@ -8,9 +8,9 @@
 (derive #?(:clj java.lang.String
            :cljs js/String)
         ::string)
-(derive #?(:clj java.lang.String
-           :cljs js/String)
-        ::string)
+(derive #?(:clj clojure.lang.Keyword
+           :cljs js/Keyword)
+        ::keyword)
 (derive #?(:clj clojure.lang.PersistentVector
            :cljs cljs.core/PersistentVector)
         ::vector)
