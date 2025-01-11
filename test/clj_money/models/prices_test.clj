@@ -97,12 +97,12 @@
 
 (deftest update-a-price
   (with-context existing-price-context
-    (assert-updated (find-price "AAPL" (t/local-date 2017 3 2))
+    (assert-updated (find-price ["AAPL" (t/local-date 2017 3 2)])
                     {:price/price 10M})))
 
 (deftest delete-a-price
   (with-context existing-price-context
-    (let [price (find-price "AAPL" (t/local-date 2017 3 2))]
+    (let [price (find-price ["AAPL" (t/local-date 2017 3 2)])]
       (models/delete price)
       (is (nil? (models/find price))
           "The model is not retrieved after delete"))))
