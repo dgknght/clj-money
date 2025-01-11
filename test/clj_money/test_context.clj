@@ -312,11 +312,9 @@
     (-> recon
         (assoc :reconciliation/account account)
         (update-in [:reconciliation/item-refs]
-                   (fn [i]
-                     (mapv (comp (juxt :id :transaction-item/transaction-date)
-                                 #(find-transaction-item ctx %)
-                                 #(conj % account))
-                           i))))))
+                   (partial mapv (comp (juxt :id :transaction-item/transaction-date)
+                                       #(find-transaction-item ctx %)
+                                       #(conj % account)))))))
 
 (defmethod prepare :budget
   [budget ctx]

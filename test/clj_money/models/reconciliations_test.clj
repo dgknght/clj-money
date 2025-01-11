@@ -3,7 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
-            [clj-money.util :refer [model=
+            [clj-money.util :as util :refer [model=
                                     ->model-ref]]
             [clj-money.json]
             [clj-money.db :as db]
@@ -104,12 +104,15 @@
                              :reconciliation/item-refs (map ->item-ref checking-items)
                              :reconciliation/status :completed))
       (is (->> checking-items
-               (map models/find)
                (mapcat :transaction/items)
                (every? :transaction/recondiliation))
           "specified transaction items are marked as reconciled")
       (is (not-any? :transaction/reconciliation
-                    (models/select {:transaction-item/account [:!= checking]}))
+                    (remove #(util/model= checking (:transaction-item/account %))
+                            (models/select
+                              (db/model-type
+                                {:transaction/entity (find-entity "Personal")}
+                                :transaction-item))))
           "All other transaction items are not marked as reconcilied"))))
 
 (deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
@@ -256,6 +259,7 @@
                                             45M
                                             checking]))
           result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
+                     (util/pp-> ::before-update)
                      (assoc :reconciliation/status :completed)
                      (update-in [:reconciliation/item-refs] conj item-ref)
                      models/put)]
@@ -263,7 +267,7 @@
                        result)
           "The result reflects the updated attributes")
       (is (comparable? #:reconciliation{:status :completed}
-                       (models/find result))
+                       (models/find result :reconciliation))
           "The retrieved record reflects the updated attributes")
       (is (seq-of-maps-like? [#:transaction-item{:transaction-date (t/local-date 2017 1 1)
                                                  :quantity 1000M
@@ -293,12 +297,12 @@
     (let [item-ref (->item-ref (find-transaction-item [(t/local-date 2017 1 10)
                                                        53M
                                                        "Checking"]))]
-      (assert-invalid (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])
-                          (assoc :reconciliation/status :completed)
-                          (update-in [:reconciliation/item-refs]
-                                     conj
-                                     item-ref))
-                      {:reconciliation/balance ["Balance must match the calculated balance"]}))))
+      (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])
+          (assoc :reconciliation/status :completed)
+          (update-in [:reconciliation/item-refs]
+                     conj
+                     item-ref)
+          (assert-invalid {:reconciliation/balance ["Balance must match the calculated balance"]})))))
 
 (deftest a-completed-reconciliation-cannot-be-updated
   (with-context existing-reconciliation-context

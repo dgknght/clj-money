@@ -182,14 +182,34 @@
                       (:id recon) (assoc :id [:!= (:id recon)]))
                     {:sort [[:reconciliation/end-of-period :desc]]})))
 
+(def ^:private ->item-ref*
+  (juxt :id :transaction/transaction-date))
+
+(defn- ->item-ref
+  [item]
+  (if (vector? item)
+    item
+    (->item-ref* item)))
+
+(def ^:private reffable?
+  (every-pred :id :transaction-item/transaction-date))
+
+(defn- item-or-ref?
+  [item]
+  (if (vector? item)
+    (s/valid? :reconciliation/item-ref item)
+    (reffable? item)))
+
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [item-refs] :as reconciliation}]
+  {:pre [(every? item-or-ref? item-refs)]}
   (let [existing-items (map prepare-item
                             (fetch-items reconciliation))
         ignore? (->> existing-items
                      (map :id)
                      set)
         new-items (->> item-refs
+                       (map ->item-ref)
                        (remove #(ignore? (first %)))
                        resolve-item-refs
                        (mapv prepare-item))
@@ -214,14 +234,22 @@
        (filter #(util/model= account (:transaction-item/account %)))
        (map (juxt :id :transaction-item/transaction-date))))
 
+(defn- has-item-refs?
+  [{:reconciliation/keys [item-refs]}]
+  (and (seq item-refs)
+       (not-any? map? item-refs)))
+
 (defn- append-transaction-item-refs
   [recon]
-  (when recon
-    (if (:reconciliation/item-refs recon)
-      recon
-      (assoc recon
-             :reconciliation/item-refs
-             (fetch-transaction-item-refs recon)))))
+  ; we don't want to re-lookup item refs if the db implementation already
+  ; keeps them with the reconciliation.
+  ; we also don't want to allow any transaction-item maps in the list. They
+  ; should be replaced with item-refs.
+  (if (has-item-refs? recon)
+    recon
+    (assoc recon
+           :reconciliation/item-refs
+           (fetch-transaction-item-refs recon))))
 
 (defmethod models/after-read :reconciliation
   [recon _opts]

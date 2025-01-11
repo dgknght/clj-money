@@ -95,7 +95,8 @@
    (if (keyword? arg)
      #(find % arg)
      (do
-       (assert (s/valid? ::model-ref arg))
+       (assert (:id arg) "The argument must have an id")
+       (assert (db/model-type arg) "The argument must have a model type")
        (find (:id arg)
            (keyword (db/model-type arg)))))) ; TODO: can we remove the call to keyword?
   ([id-or-ref model-type]
