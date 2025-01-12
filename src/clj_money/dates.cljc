@@ -24,16 +24,29 @@
   #?(:clj t/local-date?
      :cljs (partial instance? Date)))
 
+(def local-date-time?
+  #?(:clj t/local-date-time?
+     :cljs (partial instance? DateTime)))
+
 (defmulti equal?
   (fn [d1 _d2]
-    (type d1)))
+    (cond
+      (sequential? d1) :sequence
+      (local-date? d1) :scalar
+      (local-date-time? d1) :scalar)))
 
 (defmethod equal? :default
+  [& args]
+  (pprint {::cannot-compare args
+           ::types (map type args)})
+  false)
+
+(defmethod equal? :scalar
   [d1 d2]
   #?(:clj (t/= d1 d2)
      :cljs (t/equal? d1 d2)))
 
-(defmethod equal? ::util/vector
+(defmethod equal? :sequence
   [l1 l2]
   (and (= (count l1)
           (count l2))
