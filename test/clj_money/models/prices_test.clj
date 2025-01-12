@@ -13,7 +13,6 @@
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             basic-context
-                                            find-account
                                             find-entity
                                             find-commodity
                                             find-price]]

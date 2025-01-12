@@ -7,7 +7,6 @@
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
             [clj-money.models.ref]
-            [clj-money.db :as db]
             [clj-money.db.sql.ref]
             [clj-money.test-context :refer [with-context
                                             find-entity
