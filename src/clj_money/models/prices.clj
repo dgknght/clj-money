@@ -10,6 +10,7 @@
             [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
+            [clj-money.models.accounts :as accounts]
             [clj-money.models.settings :as settings]))
 
 (def ^:dynamic *skip-account-updates* false)
@@ -137,3 +138,45 @@
       (models/put (assoc commodity
                          :commodity/earliest-price (:trade-date earliest)
                          :commodity/latest-price (:trade-date latest))))))
+
+(defn- apply-to-account-chain
+  [price]
+  (fn [[{:as account :account/keys [value quantity]} & ancestors]]
+    (let [new-value (* quantity price)
+          adjustment (- new-value value)]
+      (cons (assoc account :account/value new-value)
+            (map #(update-in % [:account/value] + adjustment)
+                 ancestors)))))
+
+(defn- apply-to-account-chains
+  [{:price/keys [commodity price]}]
+  (mapcat (apply-to-account-chain price)
+          (accounts/select-with-ancestors commodity)))
+
+(defn- latest-price?
+  [{:price/keys [commodity trade-date]}]
+  (= 0
+     (models/count #:price{:commodity commodity
+                           :trade-date [:> trade-date]})))
+
+(defmethod models/propagate :price
+  [price]
+  (cons price (when (latest-price? price)
+                (apply-to-account-chains price))))
+
+(defn- new-latest-price
+  [{:price/keys [commodity trade-date] :keys [id]}]
+  (let [price (models/find-by {:price/commodity commodity
+                                      :id [:!= id]}
+                                     {:sort [[:price/trade-date :desc]]})]
+    (when (and price
+               (t/before? (:price/trade-date price)
+                          trade-date))
+      price)))
+
+(defmethod models/propagate-delete :price
+  [price]
+  (let [latest-price (new-latest-price price)]
+    (cons price
+          (when latest-price
+            (apply-to-account-chains latest-price)))))
