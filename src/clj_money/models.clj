@@ -164,6 +164,7 @@
 
 (defn delete-many
   [models]
+  {:pre [(seq (filter identity models))]}
   (->> models
        (map before-delete)
        (mapcat (comp (fn [[m & ms]]
@@ -174,6 +175,7 @@
 
 (defn delete
   [model]
+  {:pre [model]}
   (delete-many [model]))
 
 (defn update
