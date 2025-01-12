@@ -147,7 +147,7 @@
       (is (empty? (models/select criteria))
           "The commodity prices are absent after delete"))))
 
-(def ^:private account-meta-context
+(def ^:private account-summary-context
   (conj basic-context
         #:commodity{:name "Apple, Inc."
                     :type :stock
@@ -165,8 +165,8 @@
                 :shares 100M
                 :value 1000M}))
 
-(deftest creating-a-price-updates-account-meta-data
-  (with-context account-meta-context
+(deftest creating-a-price-updates-account-summary-data
+  (with-context account-summary-context
     (assert-created #:price{:commodity (find-commodity "AAPL")
                             :trade-date (t/local-date 2015 1 2)
                             :price 12M})
@@ -174,14 +174,14 @@
                      (models/find (find-account "IRA")))
         "The account value reflects the new price after the price is created")))
 
-(def ^:private account-meta-context-for-update
-  (conj account-meta-context
+(def ^:private account-summary-context-for-update
+  (conj account-summary-context
         #:price{:trade-date (t/local-date 2015 2 1)
                 :commodity "AAPL"
                 :price 12M}))
 
-(deftest updating-a-price-updates-account-meta-data
-  (with-context account-meta-context-for-update
+(deftest updating-a-price-updates-account-summary-data
+  (with-context account-summary-context-for-update
     (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
         "The account value reflects the price before update")
     (-> (find-price ["AAPL" (t/local-date 2015 2 1)])
@@ -200,8 +200,8 @@
                                           {:sort [:price/trade-date]}))
         "The price is moved to the new partition without duplication")))
 
-(deftest deleting-a-price-updates-account-meta-data
-  (with-context account-meta-context-for-update
+(deftest deleting-a-price-updates-account-summary-data
+  (with-context account-summary-context-for-update
     (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
         "The account value reflects the price before delete")
     (let [price (find-price ["AAPL" (t/local-date 2015 2 1)])]
