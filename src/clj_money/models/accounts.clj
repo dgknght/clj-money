@@ -3,9 +3,11 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [stowaway.core :as stow :refer [tag]]
-            [dgknght.app-lib.core :refer [assoc-if]]
+            [dgknght.app-lib.core :refer [assoc-if
+                                          index-by]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.util :refer [live-id]]
+            [clj-money.util :refer [live-id
+                                    model=]]
             [clj-money.models :as models]))
 
 (defn- name-is-unique?
@@ -94,3 +96,28 @@
       (update-in [:system-tags] #(when (seq %)
                                    (into-array (map name %))))
       (dissoc :commodity)))
+
+(defn- extract-ancestors
+  [accounts]
+  (fn [account]
+    (loop [output [account]]
+      (if-let [parent (accounts (:id (:account/parent (last output))))]
+        (recur (conj output parent))
+        output))))
+
+; TODO: is there a way to make this more generic, instead of tying it to
+; the commodity?
+(defn select-with-ancestors
+  "Returns a list of account chains, each with a commodity that tracks
+  the specified commodity in the first position, followed by the chain
+  of ancestors."
+  [commodity]
+  (let [{ancestors false
+         accounts true} (group-by #(model= commodity (:account/commodity %))
+                                  (models/select {:account/commodity commodity}
+                                                 {:include-parents? true}))]
+
+    (if accounts
+      (map (extract-ancestors (index-by :id ancestors))
+           accounts)
+      [])))

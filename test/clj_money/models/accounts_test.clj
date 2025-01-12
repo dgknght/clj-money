@@ -7,6 +7,7 @@
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
             [clj-money.models.ref]
+            [clj-money.db :as db]
             [clj-money.db.sql.ref]
             [clj-money.test-context :refer [with-context
                                             find-entity
@@ -16,6 +17,7 @@
                                                          assert-updated
                                                          assert-deleted]]
             [clj-money.models :as models]
+            [clj-money.models.accounts :as accounts]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
@@ -112,6 +114,44 @@
                                {:include-parents? true})
                 (map :account/name)
                 set)))))
+
+(def ^:private inv-context
+  (conj account-context
+        #:commodity{:entity "Personal"
+                    :type :stock
+                    :exchange :nasdaq
+                    :symbol "AAPL"
+                    :name "Apple, Inc."}
+        #:account{:entity "Personal"
+                  :type :asset
+                  :commodity "USD"
+                  :name "IRA"}
+        #:account{:entity "Personal"
+                  :type :asset
+                  :parent "IRA"
+                  :commodity "AAPL"
+                  :name "AAPL"}
+        #:account{:entity "Personal"
+                  :type :asset
+                  :commodity "USD"
+                  :name "401k"}
+        #:account{:entity "Personal"
+                  :type :asset
+                  :parent "401k"
+                  :commodity "AAPL"
+                  :name "AAPL"}))
+
+(deftest select-accounts-with-ancestors
+  (with-context inv-context
+    (let [chains (accounts/select-with-ancestors
+                    (find-commodity "AAPL"))
+          simplified (->> chains
+                          (map #(mapv :account/name %))
+                          set)]
+      (is (= #{["AAPL" "IRA"]
+               ["AAPL" "401k"]}
+             simplified)
+          "The result contains lists of account-plus-ancestors"))))
 
 (defn- assert-created
   [attr]
