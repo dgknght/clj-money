@@ -302,26 +302,34 @@
       k (rename-keys {:id k}))))
 
 (defn- refine-qualifiers
-  "Singularize qualifiers based on plural table names and strip
-  the qualifier from the :id attribute"
-  [m]
-  (update-keys m #(let [q (namespace %)
-                        k (name %)]
-                    (if (= "id" k)
-                      :id
-                      (keyword (singular q) k)))))
+  "Returns a function that takes a map and singularizes qualifiers based on
+  plural table names and strips the qualifier from the :id attribute. If no
+  qualifier is present, use the specified model type"
+  [model-type]
+  (let [qual (name model-type)]
+    (fn [m]
+      (update-keys m #(let [q (namespace %)
+                            k (name %)]
+                        (if (= "id" k)
+                          :id
+                          (if q
+                            (keyword (singular q) k)
+                            (keyword qual k))))))))
 
 (def ^:private recursions
   {:account [:parent-id :id]})
 
 (defn- select*
-  [ds criteria {:as options :keys [include-children?]}]
+  [ds criteria {:as options
+                :keys [include-children?
+                       include-parents?]}]
   (let [model-type (db/model-type criteria)
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
                   (criteria->query (cond-> (assoc options :target model-type)
-                                     include-children? (assoc :recursion (recursions model-type)))))]
+                                     include-children? (assoc :recursion (recursions model-type))
+                                     include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
     ; TODO: scrub sensitive data
     (log/debugf "database select %s with options %s -> %s" criteria options query)
@@ -335,7 +343,7 @@
         (map (comp after-read
                    apply-coercions
                    ->model-refs
-                   refine-qualifiers)
+                   (refine-qualifiers model-type))
              (jdbc/execute! ds
                             query
                             jdbc/snake-kebab-opts))))))

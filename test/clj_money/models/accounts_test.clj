@@ -64,48 +64,54 @@
       (is (seq-of-maps-like? expected (models/select #:account{:entity entity}))
           "It returns the accounts for the entity"))))
 
-#_(def ^:private nested-context
-  (-> select-context
-      (update-in [:accounts] concat [#:account{:name "Savings"
-                                               :type :asset
-                                               :entity "Personal"}
-                                     #:account{:name "Reserve"
-                                               :type :asset
-                                               :parent "Savings"
-                                               :entity "Personal"}
-                                     #:account{:name "Car"
-                                               :type :asset
-                                               :parent "Savings"
-                                               :entity "Personal"}
-                                     #:account{:name "Doug"
-                                               :type :asset
-                                               :parent "Car"
-                                               :entity "Personal"}
-                                     #:account{:name "Eli"
-                                               :type :asset
-                                               :parent "Car"
-                                               :entity "Personal"}
-                                     #:account{:name "Taxes"
-                                               :type :expense
-                                               :entity "Personal"}
-                                     #:account{:name "Federal Income Tax"
-                                               :type :expense
-                                               :parent "Taxes"
-                                               :entity "Personal"}
-                                     #:account{:name "Social Security"
-                                               :type :expense
-                                               :parent "Taxes"
-                                               :entity "Personal"}])))
+(def ^:private nested-context
+  (conj select-context
+        #:account{:name "Savings"
+                  :type :asset
+                  :entity "Personal"}
+        #:account{:name "Reserve"
+                  :type :asset
+                  :parent "Savings"
+                  :entity "Personal"}
+        #:account{:name "Car"
+                  :type :asset
+                  :parent "Savings"
+                  :entity "Personal"}
+        #:account{:name "Doug"
+                  :type :asset
+                  :parent "Car"
+                  :entity "Personal"}
+        #:account{:name "Eli"
+                  :type :asset
+                  :parent "Car"
+                  :entity "Personal"}
+        #:account{:name "Taxes"
+                  :type :expense
+                  :entity "Personal"}
+        #:account{:name "Federal Income Tax"
+                  :type :expense
+                  :parent "Taxes"
+                  :entity "Personal"}
+        #:account{:name "Social Security"
+                  :type :expense
+                  :parent "Taxes"
+                  :entity "Personal"}))
 
-; I'm not sure we really need this, since we query all
-; accounts for an entity together
-#_(deftest select-account-with-children
+(deftest select-account-with-children
   (with-context nested-context
-    (let [parent (find-account "Savings")
-          result (models/select {:account/parent parent}
-                                {:include-children? true})]
-      (is (= #{"Savings" "Reserve" "Car" "Doug" "Eli"}
-             (set (map :account/name result)))))))
+    (is (= #{"Savings" "Reserve" "Car" "Doug" "Eli"}
+           (->> (models/select {:account/name "Savings"}
+                               {:include-children? true})
+                (map :account/name)
+                set)))))
+
+(deftest select-account-with-parents
+  (with-context nested-context
+    (is (= #{"Savings" "Car" "Eli"}
+           (->> (models/select {:account/name "Eli"}
+                               {:include-parents? true})
+                (map :account/name)
+                set)))))
 
 (defn- assert-created
   [attr]
