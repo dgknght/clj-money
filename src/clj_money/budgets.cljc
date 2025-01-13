@@ -19,16 +19,16 @@
 
 (defmulti period-description
   (fn [_ budget]
-    (:period budget)))
+    (:budget/period budget)))
 
 (defmethod period-description :month
-  [index {:keys [start-date]}]
+  [index {:budget/keys [start-date]}]
   #?(:clj (t/format (t/formatter "MMM YYYY") (t/plus start-date (t/months index)))
      :cljs (tf/unparse (tf/formatter "MMM YYYY")
               (tc/to-date-time (t/plus start-date (t/months index))))))
 
 (defmethod period-description :quarter
-  [index {:keys [start-date]}]
+  [index {:budget/keys [start-date]}]
   (str "Q" (inc index) " " (t/year start-date)))
 
 (defn- sum
@@ -36,40 +36,40 @@
   #?(:clj (reduce + coll)
      :cljs (decimal/sum coll)))
 
-(defn- render-items
+(defn- render-section
   [items caption filter-fn]
-  (let [rendered-items (->> items
-                            (filter filter-fn)
-                            (sort-by (comp :path :account))
-                            (map (fn [item]
-                                   {:item (dissoc item :account) ; TODO: should I remove this here? It simplifies testing, but is it better?
-                                    :caption (string/join "/" (-> item :account :path))
-                                    :total (sum (:periods item))})))]
-    {:caption caption
-     :items rendered-items
-     :total (->> rendered-items
-                 (map :total)
-                 sum)
-     :periods (->> rendered-items
-                   (map (comp :periods :item))
-                   (apply interleave)
-                   (partition (count rendered-items))
-                   (map #(sum %)))}))
+  (let [sections (->> items
+                      (filter filter-fn)
+                      (sort-by (comp :account/path :budget-item/account))
+                      (map (fn [item]
+                             #:budget-section{:item item
+                                              :caption (string/join "/" (-> item :budget-item/account :account/path))
+                                              :total (sum (:budget-item/periods item))})))]
+    #:budget-section{:caption caption
+                     :items sections
+                     :total (->> sections
+                                 (map :budget-section/total)
+                                 sum)
+                     :periods (->> sections
+                                   (map (comp :budget-item/periods :budget-section/item))
+                                   (apply interleave)
+                                   (partition (count sections))
+                                   (map #(sum %)))}))
 
 (defn- income?
-  [{:keys [account]}]
-  (= :income (:type account)))
+  [{:budget-item/keys [account]}]
+  (= :income (:account/type account)))
 
 ; For the purposes of a budget, anything that is not income is outflow
 (def expense? (complement income?))
 
 (defn- render-income
   [items]
-  (render-items items "Income" income?))
+  (render-section items "Income" income?))
 
 (defn- render-expense
   [items]
-  (render-items items "Expenses" expense?))
+  (render-section items "Expenses" expense?))
 
 (defn- item-tagged?
   [tag {:keys [account]}]
@@ -94,7 +94,7 @@
 
 (defn- process-tagged-items
   [items result {:keys [caption pred summary-caption]}]
-  (let [group (render-items items caption pred)
+  (let [group (render-section items caption pred)
         net-periods (subtract-periods (last result) group)]
     (if (seq (:items group))
       (concat result
@@ -134,10 +134,10 @@
 (defn render
   "Given a budget and a fn to look up accounts by id,
   returns a structure with summarized totals by inflow and outflow"
-  [{:keys [items]} {:keys [find-account tags] :as options}]
+  [{:budget/keys [items]} {:keys [find-account tags] :as options}]
   {:pre [(:find-account options)]}
 
-  (let [items (map #(assoc % :account (find-account (:account-id %)))
+  (let [items (map #(update-in % [:budget-item/account] (comp find-account :id))
                    items)]
     (if (seq tags)
       (render-tagged items tags)
