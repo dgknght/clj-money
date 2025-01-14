@@ -59,6 +59,7 @@
    :reconciliation/account
    :budget/entity
    :budget-item/account
+   :budget-item/budget
    :attachment/image
    :attachment/transaction
    :lot/account
