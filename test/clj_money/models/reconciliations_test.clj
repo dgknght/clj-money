@@ -4,7 +4,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.util :as util :refer [model=
-                                    ->model-ref]]
+                                             ->model-ref]]
             [clj-money.json]
             [clj-money.db :as db]
             [clj-money.db.sql.ref]
@@ -259,7 +259,6 @@
                                             45M
                                             checking]))
           result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
-                     (util/pp-> ::before-update)
                      (assoc :reconciliation/status :completed)
                      (update-in [:reconciliation/item-refs] conj item-ref)
                      models/put)]
