@@ -6,6 +6,7 @@
             [clj-money.db.sql.ref]
             [clj-money.models :as models]
             [clj-money.models.ref]
+            [clj-money.util :refer [model=]]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
             [clj-money.models.budgets :as budgets]
@@ -115,7 +116,7 @@
                    (-> budget
                        (assoc :budget/name "edited")
                        (assoc :budget/start-date (t/local-date 2015 1 1))
-                       (assoc-in [:budget/items 0 :budget-item/periods] (repeat 12 1100M))))
+                       (assoc-in [:budget/items 0 :budget-item/periods] (vec (repeat 12 1100M)))))
           expected #:budget{:name "edited"
                             :start-date (t/local-date 2015 1 1)
                             :end-date (t/local-date 2015 12 31)}
@@ -153,7 +154,7 @@
       (-> budget
           (update-in [:budget/items]
                      (fn [items]
-                       (remove #(= groceries
+                       (remove #(model= groceries
                                    (:budget-item/account %))
                                items)))
           budgets/update-items)
