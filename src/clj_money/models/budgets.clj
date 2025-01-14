@@ -2,13 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [clojure.walk :refer [keywordize-keys]]
             [java-time.api :as t]
-            [config.core :refer [env]]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage]]
-            [dgknght.app-lib.core :refer [update-in-if
-                                          assoc-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
             [clj-money.models :as models]
@@ -60,6 +54,7 @@
 (s/def :budget/period #{:week :month})
 (s/def :budget/period-count v/positive-integer?)
 (s/def :budget/entity ::models/model-ref)
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/budget (s/and (s/keys :req [:budget/name
                                             :budget/start-date
                                             :budget/period
@@ -69,59 +64,9 @@
                               all-accounts-belong-to-budget-entity?
                               period-counts-match?))
 
-(defn- after-item-read
-  [item]
-  (-> item
-      (update-in [:spec] #(when % (keywordize-keys %)))
-      (update-in-if [:spec :average] bigdec)
-      (tag ::models/budget-item)))
-
-(defn- select-items
-  ([criteria]
-   (select-items criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (mapv after-item-read
-           (storage/select (tag criteria ::models/budget-item)
-                           options)))))
-
-(defn- after-read
-  ([budget] (after-read budget {}))
-  ([budget {:keys [include-items?]}]
-   (when budget
-     (-> budget
-         (tag ::models/budget)
-         (assoc-if :items (when include-items? (select-items {:budget-id (:id budget)})))
-         (update-in [:start-date] t/local-date)
-         (update-in [:end-date] t/local-date)
-         (update-in [:period] keyword)))))
-
 (defmethod models/before-save :budget
   [budget]
   (assoc budget :budget/end-date (budgets/end-date budget)))
-
-(defn search
-  "Returns a list of budgets matching the specified criteria"
-  ([criteria]
-   (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map #(after-read % options)
-          (storage/select (tag criteria ::models/budget)
-                          options)))))
-
-(defn ^:deprecated find-by
-  ([criteria]
-   (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (merge {:include-items? true}
-                                  options
-                                  {:limit 1})))))
-
-(defn ^:deprecated find
-  "Returns the specified budget"
-  [_budget-or-id]
-  (throw (UnsupportedOperationException. "find is deprecated")))
 
 (defn find-by-date
   "Returns the budget containing the specified date"
@@ -137,18 +82,14 @@
 (defn update-items
   [{:budget/keys [items] :as budget}]
   (when (seq items)
-    (let [existing (models/select {:budget-item/budget (select-keys budget [:id])})
+    (let [existing (models/select {:budget-item/budget budget})
           current-ids (->> items
                            (map :id)
                            set)]
       (when-let [to-remove (seq (remove #(current-ids (:id %)) existing))]
         (models/delete-many to-remove))
-      (models/put-many (map #(assoc % :budget-item/budget (select-keys budget [:id]))
+      (models/put-many (map #(assoc % :budget-item/budget budget)
                             items)))))
-
-(defn ^:deprecated update
-  [_budget]
-  (throw (UnsupportedOperationException. "Use models/put instead")))
 
 (defn find-items-by-account
   "Finds items in the specified budget belonging to the specified account or its children."
@@ -163,13 +104,3 @@
                    (into #{})))]
     (filter #(ids (get-in % [:budget-item/account :id]))
             items)))
-
-(defn ^:deprecated create
-  [_budget]
-  (throw (UnsupportedOperationException. "Use models/put instead")))
-
-(defn delete
-  "Removes the specified budget from the system"
-  [budget]
-  (with-storage (env :db)
-    (storage/delete budget)))
