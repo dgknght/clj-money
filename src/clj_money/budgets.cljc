@@ -41,10 +41,10 @@
   (let [sections (->> items
                       (filter filter-fn)
                       (sort-by (comp :account/path :budget-item/account))
-                      (map (fn [item]
+                      (map (fn [{:as item :budget-item/keys [account periods]}]
                              #:budget-section{:item item
-                                              :caption (string/join "/" (-> item :budget-item/account :account/path))
-                                              :total (sum (:budget-item/periods item))})))]
+                                              :caption (string/join "/" (:account/path account))
+                                              :total (sum periods)})))]
     #:budget-section{:caption caption
                      :items sections
                      :total (->> sections
@@ -72,17 +72,19 @@
   (render-section items "Expenses" expense?))
 
 (defn- item-tagged?
-  [tag {:keys [account]}]
-  (acts/user-tagged? account tag))
+  [tag]
+  (fn [{:budget-item/keys [account]}]
+    (acts/user-tagged? account tag)))
 
 (defn- item-not-tagged?
-  [tags {:keys [account]}]
-  (empty? (intersection tags (:user-tags account))))
+  [tags]
+  (fn [{:budget-item/keys [account]}]
+    (empty? (intersection tags (:account/user-tags account)))))
 
 (defn- subtract-periods
-  [& groups]
-  (->> groups
-       (map :periods)
+  [& sections]
+  (->> sections
+       (map :budget-section/periods)
        (apply interleave)
        (partition 2)
        (map #(apply - %))))
@@ -93,30 +95,31 @@
           [item]))
 
 (defn- process-tagged-items
-  [items result {:keys [caption pred summary-caption]}]
-  (let [group (render-section items caption pred)
-        net-periods (subtract-periods (last result) group)]
-    (if (seq (:items group))
-      (concat result
-              [group
-               {:caption summary-caption
-                :periods net-periods
-                :total (sum net-periods)}])
-      result)))
+  [items]
+  (fn [acc {:budget-section/keys [caption pred summary-caption]}]
+    (let [section (render-section items caption pred)
+          net-periods (subtract-periods (last acc) section)]
+      (if (seq (:budget-section/items section))
+        (conj acc
+              section
+              #:budget-section{:caption summary-caption
+                               :periods net-periods
+                               :total (sum net-periods)})
+        acc))))
 
 (defn- render-tagged
   [items tags]
   (->> tags
        (map (fn [tag]
-              {:caption (str (title-case tag) " Expenses")
-               :pred (every-pred expense?
-                                 (partial item-tagged? tag))
-               :summary-caption (str "Available After " (title-case tag))}))
-       (append {:caption "Uncategorized"
-                :pred (every-pred expense?
-                                  (partial item-not-tagged? (set tags)))
-                :summary-caption "Net"})
-       (reduce (partial process-tagged-items items)
+              #:budget-section{:caption (str (title-case tag) " Expenses")
+                               :pred (every-pred expense?
+                                                 (item-tagged? tag))
+                               :summary-caption (str "Available After " (title-case tag))}))
+       (append #:budget-section{:caption "Uncategorized"
+                                :pred (every-pred expense?
+                                                  (item-not-tagged? (set tags)))
+                                :summary-caption "Net"})
+       (reduce (process-tagged-items items)
                [(render-income items)])))
 
 (defn- render-untagged
@@ -124,9 +127,9 @@
   (let [income (render-income items)
         expense (render-expense items)
         net-periods (subtract-periods income expense)
-        net {:caption "Net"
-             :periods net-periods
-             :total (sum net-periods)}]
+        net #:budget-section{:caption "Net"
+                             :periods net-periods
+                             :total (sum net-periods)}]
     [income
      expense
      net]))

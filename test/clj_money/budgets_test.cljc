@@ -3,6 +3,7 @@
                :cljs [cljs.test :refer [deftest is testing]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
@@ -24,21 +25,28 @@
       (is (= "Q4 2020" (budgets/period-description 3 budget))))))
 
 (def accounts
-  {:salary #:account{:path ["Salary"]
-                     :type :income}
-   :rent #:account{:path ["Rent"]
-                   :type :expense
-                   :user-tags #{:mandatory}}
-   :groceries #:account{:path ["Groceries"]
-                        :type :expense
-                        :user-tags #{:mandatory}}
-   :bonus #:account{:path ["Bonus"]
-                    :type :income}
-   :dining #:account{:path ["Dining"]
-                     :type :expense
-                     :user-tags #{:discretionary}}
-   :misc #:account{:path ["Misc"]
-                   :type :expense}})
+  (index-by :id
+            [{:id :salary
+              :account/path ["Salary"]
+              :account/type :income}
+             {:id :rent
+              :account/path ["Rent"]
+              :account/type :expense
+              :account/user-tags #{:mandatory}}
+             {:id :groceries
+              :account/path ["Groceries"]
+              :account/type :expense
+              :account/user-tags #{:mandatory}}
+             {:id :bonus
+              :account/path ["Bonus"]
+              :account/type :income}
+             {:id :dining
+              :account/path ["Dining"]
+              :account/type :expense
+              :account/user-tags #{:discretionary}}
+             {:id :misc
+              :account/path ["Misc"]
+              :account/type :expense}]))
 
 (def budget
   #:budget{:start-date (t/local-date 2020 1 1)
@@ -120,11 +128,11 @@
                     :periods (repeat 12 750M)
                     :items [#:budget-section{:caption "Groceries"
                                              :total 3000M
-                                             :item #:budget-item{:account-id 3
+                                             :item #:budget-item{:account {:id :groceries}
                                                                  :periods (repeat 12 250M)}}
                             #:budget-section{:caption "Rent"
                                              :total 6000M
-                                             :item #:budget-item{:account-id 2
+                                             :item #:budget-item{:account {:id :rent}
                                                                  :periods (repeat 12 500M)}}]}
    #:budget-section{:caption "Available After Mandatory"
                     :total 4000M
@@ -135,7 +143,7 @@
                     :periods (repeat 12 200M)
                     :items [#:budget-section{:caption "Dining"
                                              :total 2400M
-                                             :item #:budget-item{:account-id 5
+                                             :item #:budget-item{:account {:id :dining}
                                                                  :periods (repeat 12 200M)}}]}
    #:budget-section{:caption "Available After Discretionary"
                     :total 1600M
@@ -145,7 +153,7 @@
                     :periods (repeat 12 5M)
                     :items [#:budget-section{:caption "Misc"
                                              :total 60M
-                                             :item #:budget-item{:account-id 6
+                                             :item #:budget-item{:account {:id :misc}
                                                                  :periods (repeat 12 5M)}}]}
    #:budget-section{:caption "Net"
                     :total 1540M
@@ -153,9 +161,10 @@
                                      [1045M])}])
 
 (deftest categorize-a-rendering-with-tags
-  (is (= expected-categorized-rendering
-         (budgets/render budget {:find-account accounts
-                                 :tags [:mandatory :discretionary]}))))
+  (is (seq-of-maps-like?
+        expected-categorized-rendering
+        (budgets/render budget {:find-account accounts
+                                :tags [:mandatory :discretionary]}))))
 
 (deftest get-a-budget-end-date
   (testing "a monthly budget"
