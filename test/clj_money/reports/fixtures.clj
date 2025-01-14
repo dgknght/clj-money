@@ -379,7 +379,7 @@
                 :shares 100M
                 :value 1000M
                 :date (t/local-date 2015 1 1)}
-        #:trade{:type :sell
+        #:trade{:type :sale
                 :entity "Personal"
                 :account "IRA"
                 :commodity "GE"
