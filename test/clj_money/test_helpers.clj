@@ -1,11 +1,24 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.java.jdbc :as jdbc]
-            [config.core :refer [env]]))
+            [clj-money.db :as db]
+            [clj-money.util :as util]
+            [clj-money.models :as models]))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [f]
-  (jdbc/with-db-connection [db (env :db)]
-    (jdbc/execute! db "truncate table cached_prices; truncate table users cascade"))
+  (db/reset (db/storage))
   (f))
+
+(defn- throw-if-nil
+  [x msg]
+  (when (nil? x)
+    (throw (ex-info msg {})))
+  x)
+
+(defn account-ref
+  [name]
+  (-> {:account/name name}
+      models/find-by
+      (throw-if-nil (str "Account not found: " name))
+      util/->model-ref))

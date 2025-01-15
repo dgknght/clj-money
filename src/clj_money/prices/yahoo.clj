@@ -1,5 +1,6 @@
 (ns clj-money.prices.yahoo
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clj-http.client :as http]
@@ -8,8 +9,7 @@
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [lambdaisland.uri :refer [uri
                                       map->query-string]]
-            [clj-money.prices :as prices]
-            [clj-money.models.cached-prices :as cached-prices]))
+            [clj-money.prices :as prices]))
 
 (def service-uri (uri "https://yh-finance.p.rapidapi.com/market/v2/get-quotes"))
 (def rapidapi-host "yh-finance.p.rapidapi.com")
@@ -32,15 +32,12 @@
     (->> (get-in res [:body :quoteResponse :result])
          (map (fn [m]
                 (-> m ; There are like 1,000 other conversions we could do, but this is all we need right now
-                    (update-in [:regularMarketTime] (comp t/instant
+                    (update-in [:regularMarketTime] (comp t/local-date
+                                                          #(t/local-date-time % (t/zone-id "America/New_York"))
+                                                          t/instant
                                                           #(.longValue %)
                                                           (partial * 1000)))
                     (update-in [:regularMarketPrice] bigdec)))))))
-
-(defn cache
-  [price]
-  (cached-prices/create price)
-  price)
 
 (def ^:private exchange-names
   {"NasdaqGS" :nasdaq
@@ -57,12 +54,12 @@
     (->> symbols
          get-quotes
          (map #(-> %
-                   (rename-keys {:regularMarketPrice :price
-                                 :regularMarketTime :trade-date
-                                 :fullExchangeName :exchange})
-                   (update-in [:exchange] map-exchange-name)
-                   (select-keys [:price
-                                 :trade-date
-                                 :symbol
-                                 :exchange])
-                   cache)))))
+                   (rename-keys {:regularMarketPrice :price/price
+                                 :regularMarketTime :price/trade-date
+                                 :fullExchangeName :commodity/exchange
+                                 :symbol :commodity/symbol})
+                   (update-in [:commodity/exchange] map-exchange-name)
+                   (select-keys [:price/price
+                                 :price/trade-date
+                                 :commodity/symbol
+                                 :commodity/exchange]))))))

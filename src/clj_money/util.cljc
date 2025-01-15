@@ -1,46 +1,73 @@
 (ns clj-money.util
-  (:refer-clojure :exclude [abs])
+  (:refer-clojure :exclude [abs format])
   (:require [clojure.string :as string]
+            #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
-#?(:clj (derive clojure.lang.PersistentVector ::vector)
-   :cljs (derive cljs.core.PersistentVector ::vector))
-#?(:clj (derive clojure.lang.PersistentArrayMap ::map)
-   :cljs (derive cljs.core.PersistentArrayMap ::map))
-#?(:clj (derive clojure.lang.PersistentHashMap ::map)
-   :cljs (derive cljs.core.PersistentHashMap ::map))
-#?(:clj (derive java.lang.String ::string)
-   :cljs (derive js/String ::string))
+(derive #?(:clj java.lang.String
+           :cljs js/String)
+        ::string)
+(derive #?(:clj clojure.lang.Keyword
+           :cljs js/Keyword)
+        ::keyword)
+(derive #?(:clj clojure.lang.PersistentVector
+           :cljs cljs.core/PersistentVector)
+        ::vector)
+(derive #?(:clj clojure.lang.PersistentList
+           :cljs cljs.core/List)
+        ::list)
+(derive #?(:clj clojure.lang.PersistentList$EmptyList
+           :cljs cljs.core/EmptyList)
+        ::list)
+(derive ::vector ::collection)
+(derive ::list ::collection)
+(derive #?(:clj clojure.lang.PersistentArrayMap
+           :cljs cljs.core/PersistentArrayMap)
+        ::map)
+(derive #?(:clj clojure.lang.PersistentHashMap
+           :cljs cljs.core/PersistentHashMap)
+        ::map)
+(derive #?(:clj clojure.lang.MapEntry
+           :cljs cljs.core/MapEntry)
+        ::map-entry)
+
+(defn format
+  [msg & args]
+  #?(:clj (apply clojure.core/format msg args)
+     :cljs (goog.string/format msg args)))
+
+(defn type-dispatch [x & _] (type x))
 
 (defn abs
   [value]
   #?(:clj (.abs value) ; we're assuming BigDecimal here
      :cljs (Math/abs value)))
 
-(defmulti present?
-  #(cond
-     (string? %) :string
-     (coll? %) :collection))
+(defmulti present? type)
 
-(defmethod present? :string
+(defmethod present? :default
+  [x]
+  (not (not x)))
+
+(defmethod present? ::string
   [value]
   (and value (seq value)))
 
-(defmulti presence
-  #(cond
-     (string? %) :string
-     (coll? %) :collection))
+(defmethod present? ::collection
+  [col]
+  (some present? col))
 
-(defmethod presence :string
-  [value]
-  (when-not (empty? value)
-    value))
+(def blank?
+  (complement present?))
 
-(defmethod presence :collection
-  [values]
-  (when-not (empty? values)
-    values))
+(defn presence
+  [x]
+  (when (present? x) x))
+
+(defn presence-or
+  [value default]
+  (or (presence value) default))
 
 (defmulti update-in-criteria
   (fn [criteria attr _f]
@@ -236,11 +263,201 @@
   (map #(merge template %) series))
 
 (defn pp->
-  [v m]
-  (pprint {m v})
+  [v m & {:keys [meta? transform]
+          :or {transform identity}}]
+  (binding [*print-meta* meta?]
+    (pprint {m (transform v)}))
   v)
 
 (defn pp->>
-  [m v]
-  (pprint {m v})
-  v)
+  ([m v] (pp->> m {} v))
+  ([m {:keys [transform] :or {transform identity}} v]
+   (pprint {m (transform v)})
+   v))
+
+(defn qualifier
+  "Given a map, returns the namespace from the keys. If there is more than one
+  namespace, an exception is thrown. If none of the keys are qualified, nil is
+  returned."
+  [m]
+  {:pre [(map? m)]}
+  (let [n (->> (keys m)
+               (map namespace)
+               (filter identity)
+               (into #{}))]
+    (assert (= 1 (count n))
+            "The map contains more than one keyword namespace, so the qualifier cannot be inferred.")
+    (first n)))
+
+(defmulti qualify-key type-dispatch)
+
+(defmethod qualify-key :default
+  [x & _]
+  x)
+
+(defmethod qualify-key ::map-entry
+  [[k :as x] nspace {:keys [ignore?]}]
+  (if (ignore? k)
+    x
+    (update-in x [0] #(keyword nspace (name %)))))
+
+; TODO: delete this when we upgrade to clojurescript 1.11.5
+#?(:cljs
+   ^{:clj-kondo/ignore [:redefined-var]}
+   (defn update-keys
+     [m f]
+     (let [ret (persistent!
+                 (reduce-kv (fn [acc k v]
+                              (assoc! acc (f k) v))
+                            (transient {})
+                            m))]
+       (with-meta ret (meta m)))))
+
+(defn qualify-keys
+  "Creates fully-qualified entity attributes by applying
+  the :model-type from the meta data to the keys of the map."
+  [m ns-key & {:keys [ignore]}]
+  {:pre [(map? m)]}
+  (let [qualifier (if (keyword? ns-key)
+            (name ns-key)
+            ns-key)
+        ignore? (if ignore
+                  (some-fn ignore namespace)
+                  namespace)]
+    (update-keys m (fn [k]
+                     (if (ignore? k)
+                       k
+                       (keyword qualifier (name k)))))))
+
+(defn model=
+  [& models]
+  (->> models
+       (map :id)
+       (apply =)))
+
+(defn ->model-ref
+  [map-or-id]
+  (if (map? map-or-id)
+    (select-keys map-or-id [:id])
+    {:id map-or-id}))
+
+(defn model-ref?
+  [x]
+  (and (map? x)
+       (= #{:id} (set (keys x)))))
+
+(defn reconstruct
+  "Given a list of models and a few options, aggregates child models into their parents."
+  [{:keys [children-key parent? child?]} models]
+  {:pre [(seq models) children-key parent? child?]}
+  ; This logic assumes the order established in deconstruct is maintained
+  (loop [input models output [] current nil]
+    (if-let [mdl (first input)]
+      (cond
+        (child? mdl)
+        (recur (rest input)
+               output
+               (update-in current [children-key] (fnil conj []) mdl))
+
+        (parent? mdl)
+        (recur (rest input)
+               (if current
+                 (conj output current)
+                 output)
+               mdl)
+
+        :else
+        (recur (rest input)
+               (if current
+                 (conj output current mdl)
+                 (conj output mdl))
+               nil))
+      (if current
+        (conj output current)
+        output))))
+
+(defn cache-fn
+  "Given a function that takes a single argument and returns a resource,
+  return a function that caches the result of the given function and returns
+  the cached value for subsequent calls."
+  [f]
+  (let [cache (atom {})]
+    (fn [id]
+      (if-let [cached (@cache id)]
+        cached
+        (let [retrieved (f id)]
+          (swap! cache assoc id retrieved)
+          retrieved)))))
+
+(defn temp-id
+  "Generates a new temporary id"
+  []
+  (str "temp-" (random-uuid)))
+
+(def ^:private ->id (some-fn :id identity))
+
+(defn temp-id?
+  "Given a model or an id, returns true if the model has a temporary
+  id or if the specified id is a temporary id"
+  [id-or-model]
+  (when-let [id (->id id-or-model)]
+    (and (string? id)
+         (string/starts-with? id "temp-"))))
+
+(defn live-id
+  [{:keys [id]}]
+  (when-not (temp-id? id)
+    id))
+
+(def live-id? (complement temp-id?))
+
+(def simple-keys
+  [:user/email
+   :account/name
+   :entity/name
+   :commodity/symbol
+   :transaction/transaction-date
+   :transaction/description
+   :transaction-item/quantity
+   :transaction-item/action
+   :scheduled-transaction/description
+   :scheduled-transaction-item/quantity
+   :scheduled-transaction-item/action
+   :lot/purchase-date
+   :lot/shares-owned
+   :lot-item/lot-action
+   :lot-item/quantity
+   :price/price
+   :price/trade-date
+   :budget/name
+   :budget-item/account
+   :import/entity-name
+   :image/original-filename])
+
+(defn simplify
+  "Return the given model maps with non-essentail attributes removed
+
+  (simplify account) -> {:account/name \"Checking\"}
+  (simplify account :include [:account/value]) -> {:account/name \"Checking\" :account/value 100M}
+  (simplify [a1 a2]) -> [{:account/name \"Checking\"} {:account/name \"Savings\"}]
+  (simplify [a1 a2] :include [:account/value]) -> [{:account/name \"Checking\" :account/value 100M} {:account/name \"Savings\" :account/value 1000M}]
+  (simplify :include [:account/value]) -> fn that can be applied to a model or sequence of models"
+  [& [a1 & args]]
+  (cond
+    ; the args are the options, return a function with the specified options
+    (keyword? a1)
+    #(apply simplify % args)
+
+    ; iterate over the sequence and apply any options
+    (sequential? a1)
+    (map #(apply simplify % args)
+         a1)
+
+    ; don't simplify model refs
+    (model-ref? a1)
+    a1
+
+    ; apply to a model map
+    :else
+    (let [{:keys [include]} (apply hash-map args)]
+      (select-keys a1 (concat simple-keys include)))))
