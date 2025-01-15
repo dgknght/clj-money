@@ -354,6 +354,9 @@
                  commodity-account
                  affected-accounts
                  price] :as trade}]
+
+  (pprint {::put-purchase trade})
+
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
