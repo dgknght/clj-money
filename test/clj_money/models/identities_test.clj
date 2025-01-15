@@ -62,16 +62,16 @@
   (with-context find-context
     (is (comparable? #:user{:email "john@doe.com"}
                      (idents/find-or-create-from-profile
-                       :google
-                       profile))
+                       [:google
+                        profile]))
         "The user record associated with the identity is returned")))
 
 (deftest find-a-user-from-profile-and-create-identity
   (with-context create-context
     (is (comparable? #:user{:email "john@doe.com"}
                      (idents/find-or-create-from-profile
-                       :google
-                       profile))
+                       [:google
+                       profile]))
         "The user record having the profile email is returned")))
 
 (deftest create-a-user-from-a-profile
@@ -79,6 +79,6 @@
                           :first-name "John"
                           :last-name "Doe"}
                    (idents/find-or-create-from-profile
-                     :google
-                     profile))
+                     [:google
+                      profile]))
       "A new user record populated from the profile is returned"))
