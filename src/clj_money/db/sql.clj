@@ -166,7 +166,8 @@
 
 (defn- update
   [db model]
-  {:pre [(:id model)]}
+  {:pre [(:id model)
+         (db/model-type model)]}
   (let [table (infer-table-name model)
         s (for-update table
                       (dissoc model :id)
