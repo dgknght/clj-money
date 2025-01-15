@@ -780,19 +780,12 @@
 
 (declare aggregate-portfolio-account)
 
-(defmulti ^:private aggregate-portfolio-children
-  (fn [m _]
-    (cond
-      (:account/children m) :account
-      (:account/lots m)     :lot
-      (:lot/items m)        :lot-item)))
-
-(defmethod aggregate-portfolio-children :account
+(defn- aggregate-portfolio-commodity-accounts
   [{:account/keys [children]} depth]
   (mapcat #(aggregate-portfolio-account % :depth (inc depth))
           children))
 
-(defmethod aggregate-portfolio-children :lot
+(defn- aggregate-portfolio-lots
   [{:account/keys [lots]} depth]
   (map (fn [{:lot/keys [purchase-date shares-owned value cost-basis gain]}]
          {:report/caption (dates/format-local-date purchase-date)
@@ -840,11 +833,11 @@
                    :report/current-value value
                    :report/cost-basis value
                    :report/gain-loss 0M}
-                  (aggregate-portfolio-children account depth)))
+                  (aggregate-portfolio-commodity-accounts account depth)))
       (cons (merge shared
                    {:report/style :subheader
                     :report/caption (format-commodity commodity)})
-            (aggregate-portfolio-children account depth)))))
+            (aggregate-portfolio-lots account depth)))))
 
 (defn- aggregate-portfolio-by-account
   [accounts]
@@ -894,7 +887,9 @@
 
 (defn- commodity->sortable
   [{:commodity/keys [name]}]
-  ({"Cash" "*"} name name))
+  (if (= "Cash" name)
+    (str "* " name)
+    name))
 
 (defn- aggregate-portfolio-by-commodity
   [accounts]

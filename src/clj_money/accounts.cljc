@@ -110,6 +110,7 @@
      (mapv #(hash-map :type %
                       :accounts (models/nest
                                   {:decorate-parent-fn eval-children
+                                   :sort-key-fn :account/name
                                    :children-key :account/children
                                    :parent-fn (comp :id
                                                     :account/parent)}
