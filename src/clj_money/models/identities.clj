@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [find])
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [clj-money.models :as models]))
 
 (s/def :identity/user ::models/model-ref)
@@ -13,7 +14,7 @@
                                        :identity/provider-id]))
 
 (defn- find-by-identity
-  [provider {:keys [id]}]
+  [[provider {:keys [id]}]]
   (when-let [ident (models/find-by
                      #:identity{:provider provider
                                 :provider-id id})]
@@ -21,7 +22,7 @@
                  :user)))
 
 (defn- find-by-email
-  [provider {:keys [email id]}]
+  [[provider {:keys [email id]}]]
   (when-let [user (models/find-by {:user/email email})]
     (models/put #:identity{:provider provider
                            :provider-id id
@@ -29,7 +30,7 @@
     user))
 
 (defn- create-from-profile
-  [provider {:keys [email id given_name family_name]}]
+  [[provider {:keys [email id given_name family_name]}]]
   (let [user (models/put #:user{:email email
                                 :first-name given_name
                                 :last-name family_name
@@ -41,9 +42,7 @@
     (log/debugf "created identity from profile %s" (prn-str ident))
     user))
 
-(defn find-or-create-from-profile
-  [provider profile]
-  (some #(% provider profile)
-        [find-by-identity
-         find-by-email
-         create-from-profile]))
+(def find-or-create-from-profile
+  (some-fn find-by-identity
+           find-by-email
+           create-from-profile))

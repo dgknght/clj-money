@@ -68,7 +68,7 @@
   ; TODO: check the state to see if it matches
   (let [{access-token :access_token} (request-access-token code)
         user-info (request-user-info access-token)
-        user (idents/find-or-create-from-profile :google user-info)
+        user (idents/find-or-create-from-profile [:google user-info])
         auth-token (make-token user)]
     (-> "/"
         res/redirect

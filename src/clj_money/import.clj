@@ -407,7 +407,8 @@
                    (->> items
                         (map #(prepare-budget-item % context))
                         (filter identity)
-                        (remove #(= 0M (reduce + (:budget-item/periods %)))))))
+                        (remove #(= 0M (reduce + (:budget-item/periods %))))
+                        (map #(update-in % [:budget-item/periods] vec)))))
       purge-import-keys
       (assoc :budget/entity entity)))
 
