@@ -319,23 +319,29 @@
     (let [imp (find-import "Personal")
           {:keys [entity wait]} (import-data imp (nil-chan))]
       @wait
-      (is (seq-of-maps-like? [#:budget{:name "2017"
-                                       :entity (util/->model-ref entity)
-                                       :period :month
-                                       :period-count 12
-                                       :start-date (t/local-date 2017 1 1)
-                                       :end-date (t/local-date 2017 12 31)
-                                       :items [#:budget-item{:account (account-ref "Salary")
-                                                             :periods (repeat 12 1000M)}
-                                               #:budget-item{:account (account-ref "Bonus")
-                                                             :periods  [0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 800M]}
-                                               #:budget-item{:account (account-ref "Groceries")
-                                                             :periods [200M 200M 250M
-                                                                       250M 275M 275M
-                                                                       200M 200M 250M
-                                                                       250M 275M 275M]}]}]
-                             (models/select {:budget/entity entity}))
-          "The budget can be retrieved"))))
+      (let [retrieved (models/select {:budget/entity entity})]
+        (is (seq-of-maps-like? [#:budget{:name "2017"
+                                         :entity (util/->model-ref entity)
+                                         :period :month
+                                         :period-count 12
+                                         :start-date (t/local-date 2017 1 1)
+                                         :end-date (t/local-date 2017 12 31)}]
+                               retrieved)
+            "The budget can be retrieved")
+        (is (= #{#:budget-item{:account (account-ref "Salary")
+                               :periods (repeat 12 1000M)}
+                 #:budget-item{:account (account-ref "Bonus")
+                               :periods  [0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 800M]}
+                 #:budget-item{:account (account-ref "Groceries")
+                               :periods [200M 200M 250M
+                                         250M 275M 275M
+                                         200M 200M 250M
+                                         250M 275M 275M]}}
+               (->> (:budget/items (first retrieved))
+                    (map #(select-keys % [:budget-item/account
+                                          :budget-item/periods]))
+                    set))
+            "The retrieved budget has the same items as the imported file")))))
 
 (defn- gnucash-commodities-sample []
   (with-open [input (io/input-stream "resources/fixtures/sample_with_commodities.gnucash")]
