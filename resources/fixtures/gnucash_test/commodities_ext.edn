@@ -354,6 +354,7 @@
                                :trade/action :sell
                                :trade/date #local-date "2015-05-01"
                                :trade/shares 100M
+                               :trade/value 600M
                                :import/commodity-account-id "d65092fee5cfdacab77e7b37942675bb" ; apple ira
                                :import/record-type :transaction
                                :import/ignore? false}
