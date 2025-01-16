@@ -167,10 +167,6 @@
 (defn- update
   [db model]
   {:pre [(:id model)]}
-
-  (when (not (db/model-type model))
-    (throw (ex-info "Unable to identify the model type" {:model model})))
-
   (let [table (infer-table-name model)
         s (for-update table
                       (dissoc model :id)
@@ -256,6 +252,12 @@
                        :operation (s/tuple ::operation map?)))
 (s/def ::putables (s/coll-of ::putable))
 
+(defn- no-model-type
+  [x]
+  (if (vector? x)
+    (nil? (db/model-type (second x)))
+    (nil? (db/model-type x))))
+
 ; This is only exposed publicly to support tests that enforce
 ; short-circuting transaction propagation
 (defn put*
@@ -264,7 +266,7 @@
   [ds models]
   {:pre [(s/valid? ::putables models)]}
 
-  (when-let [m (some (complement db/model-type) models)]
+  (when-let [m (some no-model-type models)]
     (pprint {::put* m
              ::models models})
     (throw (ex-info "All models must have a type" {:model m})))
