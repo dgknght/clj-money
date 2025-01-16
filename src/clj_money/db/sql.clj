@@ -166,8 +166,11 @@
 
 (defn- update
   [db model]
-  {:pre [(:id model)
-         (db/model-type model)]}
+  {:pre [(:id model)]}
+
+  (when (not (db/model-type model))
+    (throw (ex-info "Unable to identify the model type" {:model model})))
+
   (let [table (infer-table-name model)
         s (for-update table
                       (dissoc model :id)
@@ -260,6 +263,11 @@
   to be used directly."
   [ds models]
   {:pre [(s/valid? ::putables models)]}
+
+  (when-not (every? db/model-type models)
+    (pprint {::put* models})
+    (throw (ex-info "All models must have a type" {:models models})))
+
   (jdbc/with-transaction [tx ds]
     (->> models
          (map ensure-id)
