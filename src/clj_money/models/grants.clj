@@ -28,15 +28,10 @@
                                     :grant/user
                                     :grant/permissions]))
 
-(defn ^:deprecated find-by
-  ([criteria] (find-by criteria {}))
-  ([_criteria _options]
-   (throw (UnsupportedOperationException. "find-by is deprecated"))))
-
 (defn has-permission?
   [grant resource-type action]
   (when grant ; TODO: change this not to tolerate nil values
     (action
      (->> grant
-          :permissions
+          :grant/permissions
           resource-type))))
