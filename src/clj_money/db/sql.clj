@@ -264,9 +264,10 @@
   [ds models]
   {:pre [(s/valid? ::putables models)]}
 
-  (when-not (every? db/model-type models)
-    (pprint {::put* models})
-    (throw (ex-info "All models must have a type" {:models models})))
+  (when-let [m (some (complement db/model-type) models)]
+    (pprint {::put* m
+             ::models models})
+    (throw (ex-info "All models must have a type" {:model m})))
 
   (jdbc/with-transaction [tx ds]
     (->> models
