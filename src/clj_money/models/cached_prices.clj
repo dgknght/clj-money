@@ -22,18 +22,9 @@
 (s/def :cached-price/trade-date t/local-date?)
 (s/def :cached-price/price decimal?)
 (s/def :cached-price/exchange models/exchanges)
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/cached-price (s/and (s/keys :req [:cached-price/trade-date
                                                   :cached-price/price
                                                   :cached-price/exchange
                                                   :cached-price/symbol])
                                     trade-date-unique?))
-
-(defn ^:deprecated search
-  ([criteria]
-   (search criteria {}))
-  ([_criteria _options]
-   (throw (UnsupportedOperationException. "search is deprecated"))))
-
-(defn create
-  [_cached-price]
-  (throw (UnsupportedOperationException. "create is deprecated")))
