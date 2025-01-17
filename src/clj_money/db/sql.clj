@@ -266,7 +266,7 @@
   [ds models]
   {:pre [(s/valid? ::putables models)]}
 
-  (when-let [m (some no-model-type models)]
+  (when-let [m (seq (filter no-model-type models))]
     (pprint {::put* m
              ::models models})
     (throw (ex-info "All models must have a type" {:model m})))
