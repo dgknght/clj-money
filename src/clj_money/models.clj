@@ -6,7 +6,7 @@
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.models :as models]
             [clj-money.json] ; to ensure encoders are registered
-            [clj-money.util :as util]
+            [clj-money.util :as util :refer [model=]]
             [clj-money.db :as db]))
 
 (def exchanges #{:nyse :nasdaq :amex :otc})
@@ -109,9 +109,12 @@
   [models]
   (loop [input models output []]
     (if-let [model (first input)]
-      (if-let [id (:id model)]
+      (if (:id model)
         (let [{dupes true
-               others false} (group-by #(= id (:id %)) (rest input))]
+               others false} (group-by #(and (model= model %)
+                                             (= (db/model-type model)
+                                                (db/model-type %)))
+                                       (rest input))]
           (recur others (conj output (apply merge model dupes))))
         (recur (rest input) (conj output model)))
       output)))
