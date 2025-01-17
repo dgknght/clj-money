@@ -9,7 +9,7 @@
            :cljs js/String)
         ::string)
 (derive #?(:clj clojure.lang.Keyword
-           :cljs js/Keyword)
+           :cljs cljs.core/Keyword)
         ::keyword)
 (derive #?(:clj clojure.lang.PersistentVector
            :cljs cljs.core/PersistentVector)
@@ -35,7 +35,7 @@
 (defn format
   [msg & args]
   #?(:clj (apply clojure.core/format msg args)
-     :cljs (goog.string/format msg args)))
+     :cljs (apply goog.string/format msg args)))
 
 (defn type-dispatch [x & _] (type x))
 

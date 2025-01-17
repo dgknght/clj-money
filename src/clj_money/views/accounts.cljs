@@ -2,6 +2,7 @@
   (:require [clojure.string :as string]
             [clojure.set :refer [union
                                  intersection]]
+            [cljs.pprint :refer [pprint]]
             [goog.string :as gstr]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -912,6 +913,7 @@
   (+busy)
   (commodities/select (map (fn [result]
                              (-busy)
+                             (pprint {::load-commodities result})
                              (swap! page-state assoc :commodities (->> result
                                                                        (map (juxt :id identity))
                                                                        (into {})))))))

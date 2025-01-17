@@ -104,10 +104,11 @@
                     :periods (concat (repeat 11 45M)
                                      [1045M])}])
 
-(deftest render-a-budget
-  (is (seq-of-maps-like?
-        expected-rendering
-        (budgets/render budget {:find-account accounts}))))
+
+#?(:clj (deftest render-a-budget
+          (is (seq-of-maps-like?
+                expected-rendering
+                (budgets/render budget {:find-account accounts})))))
 
 (def expected-categorized-rendering
   [#:budget-section{:caption "Income"
@@ -160,11 +161,11 @@
                     :periods (concat (repeat 11 45M)
                                      [1045M])}])
 
-(deftest categorize-a-rendering-with-tags
-  (is (seq-of-maps-like?
-        expected-categorized-rendering
-        (budgets/render budget {:find-account accounts
-                                :tags [:mandatory :discretionary]}))))
+#?(:clj (deftest categorize-a-rendering-with-tags
+          (is (seq-of-maps-like?
+                expected-categorized-rendering
+                (budgets/render budget {:find-account accounts
+                                        :tags [:mandatory :discretionary]})))))
 
 (deftest get-a-budget-end-date
   (testing "a monthly budget"
@@ -238,64 +239,82 @@
                                  :period-count 12
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 1)
-                :expected 1/31}
+                :expected #?(:clj 1/31
+                             :cljs 0.032)}
                {:description "the 15th day of a month"
                 :budget #:budget{:period :month
                                  :period-count 12
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 4 15)
-                :expected 1/2}
+                :expected #?(:clj 1/2
+                             :cljs 0.5)}
                {:description "the last day of a month"
                 :budget #:budget{:period :month
                                  :period-count 12
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 31)
-                :expected 1/1}
+                :expected #?(:clj 1/1
+                             :cljs 1.0)}
                {:description "the first day of a week"
                 :budget #:budget{:period :week
                                  :period-count 8
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 1)
-                :expected 1/7}
+                :expected #?(:clj 1/7
+                             :cljs 0.143)}
                {:description "the 4th day of a week"
                 :budget #:budget{:period :week
                                  :period-count 8
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 4)
-                :expected 4/7}
+                :expected #?(:clj 4/7
+                             :cljs 0.571)}
                {:description "the last day of a week"
                 :budget #:budget{:period :week
                                  :period-count 8
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 7)
-                :expected 1/1}
+                :expected #?(:clj 1/1
+                             :cljs 1.0)}
                {:description "the 1st day of a quarter"
                 :budget #:budget{:period :quarter
                                  :period-count 4
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 1)
-                :expected 1/91}
+                :expected #?(:clj 1/91
+                             :cljs 0.011)}
                {:description "the 1st day of the 2nd month of a quarter"
                 :budget #:budget{:period :quarter
                                  :period-count 4
                                  :start-date (t/local-date 2015 1 1)}
                 :date (t/local-date 2015 2 1)
-                :expected 16/45}
+                :expected #?(:clj 16/45
+                             :cljs 0.360)}
                {:description "the last day of a quarter"
                 :budget #:budget{:period :quarter
                                  :period-count 4
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 3 31)
-                :expected 1/1}]]
+                :expected #?(:clj 1/1
+                             :cljs 1.0)}]]
     (doseq [{:keys [description budget date expected]} tests]
       (testing description
         (is (= expected (budgets/percent-of-period budget date)))))))
 
 (deftest find-an-item-by-its-account
-  (is (comparable? #:budget-item{:account {:id :groceries}
-                                 :periods [100M 100M]}
-                   (budgets/find-item-by-account #:budget{:items [#:budget-item{:account {:id :salary}
-                                                                                :periods [1000M 1000M]}
-                                                                  #:budget-item{:account {:id :groceries}
-                                                                                :periods [100M 100M]}]}
-                                                 {:id :groceries}))))
+  #?(:clj (is (comparable?
+                #:budget-item{:account {:id :groceries}
+                              :periods [100M 100M]}
+                (budgets/find-item-by-account #:budget{:items [#:budget-item{:account {:id :salary}
+                                                                             :periods [1000M 1000M]}
+                                                               #:budget-item{:account {:id :groceries}
+                                                                             :periods [100M 100M]}]}
+                                              {:id :groceries})))
+     :cljs (is (dgknght.app-lib.test-assertions/comparable?
+                 #:budget-item{:account {:id :groceries}
+                               :periods [100M 100M]}
+                 (budgets/find-item-by-account #:budget{:items [#:budget-item{:account {:id :salary}
+                                                                              :periods [1000M 1000M]}
+                                                                #:budget-item{:account {:id :groceries}
+                                                                              :periods [100M 100M]}]}
+                                               {:id :groceries})))))

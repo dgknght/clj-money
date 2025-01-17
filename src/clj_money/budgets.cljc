@@ -219,6 +219,12 @@
        (filter #(within-period? % date))
        first))
 
+#?(:cljs (defn- round
+           [number places]
+           (let [factor (Math/pow 10 places)]
+             (/ (Math/round (* factor number))
+                factor))))
+
 (defn percent-of-period
   [budget as-of]
   (let [period (period-containing budget as-of)
@@ -226,7 +232,8 @@
         days (inc (dates/days-between (:start period)
                                       as-of))]
     #?(:clj (with-precision 5 (/ days days-in-period))
-       :cljs (/ days days-in-period))))
+       :cljs (round (/ days days-in-period)
+                    3))))
 
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"

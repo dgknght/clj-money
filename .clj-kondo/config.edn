@@ -16,22 +16,22 @@
                                                            seq-of-maps-like?
                                                            includes-progress-notification?])
                                          (cljs.test/is [http-success?
-                                                           http-created?
-                                                           http-no-content?
-                                                           http-bad-request?
-                                                           http-not-found?
-                                                           http-unauthorized?
-                                                           http-forbidden?
-                                                           http-redirect-to?
-                                                           http-response-with-cookie?
-                                                           thrown-with-ex-data?
-                                                           valid?
-                                                           invalid?
-                                                           comparable?
-                                                           seq-with-map-like?
-                                                           seq-with-no-map-like?
-                                                           seq-of-maps-like?
-                                                           includes-progress-notification?])
+                                                        http-created?
+                                                        http-no-content?
+                                                        http-bad-request?
+                                                        http-not-found?
+                                                        http-unauthorized?
+                                                        http-forbidden?
+                                                        http-redirect-to?
+                                                        http-response-with-cookie?
+                                                        thrown-with-ex-data?
+                                                        valid?
+                                                        invalid?
+                                                        dgknght.app-lib.test-assertions/comparable?
+                                                        seq-with-map-like?
+                                                        seq-with-no-map-like?
+                                                        dgknght.app-lib.test-assertions/seq-of-maps-like?
+                                                        includes-progress-notification?])
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
                                          (clj-money.tasks/with-options)]}
