@@ -13,6 +13,7 @@
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :refer [create-items-from-history]]
+            [clj-money.models.transaction-items :as trx-items]
             [clj-money.authorization.budgets]))
 
 (defn- extract-criteria
@@ -69,6 +70,7 @@
                             :week t/weeks)
                           period-count))]
     (->> (historical-items budget start-date)
+         (trx-items/realize-accounts)
          (create-items-from-history
            budget
            start-date

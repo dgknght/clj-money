@@ -6,7 +6,6 @@
             [dgknght.app-lib.inflection :refer [title-case]]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
-            [clj-money.models :as models]
             [clj-money.accounts :as acts]
             [clj-money.transactions :as txns]
             #?(:clj [java-time.api :as t]
@@ -146,29 +145,6 @@
       (render-tagged items tags)
       (render-untagged items))))
 
-(defn- fetch-account
-  [account-or-ref accounts]
-  (if (util/model-ref? account-or-ref)
-    (if-let [account (accounts (:id account-or-ref))]
-      [account accounts]
-      (let [account (models/find account-or-ref :account)]
-        [account (assoc accounts (:id account) account)]))
-    [account-or-ref accounts]))
-
-(defn- realize-accounts
-  [trx-items]
-  (loop [input trx-items output [] accounts {}]
-    (if-let [item (first input)]
-      (let [[account accounts] (fetch-account (:transaction-item/account item)
-                                              accounts)]
-        (recur (rest input)
-               (conj output
-                     (assoc item
-                            :transaction-item/account
-                            account))
-               accounts))
-      output)))
-
 (defn- trx-items->budget-item
   [{:budget/keys [period]}
    since
@@ -176,7 +152,6 @@
   (fn [[account trx-items]]
     #:budget-item{:account account
                   :periods (->> trx-items
-                                realize-accounts
                                 (txns/summarize-items {:interval-type period
                                                        :interval-count 1
                                                        :since since
