@@ -8,6 +8,7 @@
                  [org.clojure/core.async "1.6.681" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.cli "1.0.206" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.reader "1.3.4"]
+                 [org.clojure/data.json "2.5.1"]
                  [org.clojure/data.xml "0.2.0-alpha6"]
                  [clj-http "3.9.0" :exclusions [org.clojure/tools.reader]]
                  [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]
@@ -54,8 +55,8 @@
                                                org.clojure/tools.reader]]
                  [reagent-forms "0.5.41"]
                  [reagent-utils "0.3.1"]
-                 [org.clojure/clojurescript "1.11.4" :exclusions [org.clojure/tools.reader]]
-                 [com.google.guava/guava "22.0" :exclusions [com.google.code.findbugs/jsr305
+                 [org.clojure/clojurescript "1.11.51" :exclusions [org.clojure/tools.reader]]
+                 [com.google.guava/guava "31.0.1-jre" :exclusions [com.google.code.findbugs/jsr305
                                                              org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
