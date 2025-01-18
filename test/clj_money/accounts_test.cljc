@@ -429,57 +429,61 @@
 
 (deftest valuate-some-accounts
   (testing "Simple accounts (with the default commodity)"
-    (is (seq-of-maps-like? [{:account/name "Checking"
-                             :account/value 1000M
-                             :account/total-value 1000M}
-                            {:account/name "Savings"
-                             :account/value 0M
-                             :account/children-value 15000M
-                             :account/total-value 15000M}
-                            {:account/name "Reserve"
-                             :account/value 10000M
-                             :account/total-value 10000M}
-                            {:account/name "Car"
-                             :account/value 5000M
-                             :account/total-value 5000M}]
-                           (accounts/valuate
-                             (valuation-data standard-supplemental-data)
-                             standard-accounts))))
+    (let [expected [{:account/name "Checking"
+                     :account/value 1000M
+                     :account/total-value 1000M}
+                    {:account/name "Savings"
+                     :account/value 0M
+                     :account/children-value 15000M
+                     :account/total-value 15000M}
+                    {:account/name "Reserve"
+                     :account/value 10000M
+                     :account/total-value 10000M}
+                    {:account/name "Car"
+                     :account/value 5000M
+                     :account/total-value 5000M}]
+          actual (accounts/valuate
+              (valuation-data standard-supplemental-data)
+              standard-accounts)]
+      #?(:clj (is (seq-of-maps-like? expected actual))
+         :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual)))))
   (testing "Simple and commodity accounts"
-    (is (seq-of-maps-like? [{:account/name "IRA"
-                             :account/value 1000M
-                             :account/cost-basis 2500M ; 1000M cash + sum of children
-                             :account/total-value 2900M ; 1500M of AAPL + 500M of MSFT + 1000M in cash
-                             :account/gain 400M}
-                            {:account/name "AAPL"
-                             :account/shares-owned 100M
-                             :account/cost-basis 1000M
-                             :account/current-price 15M
-                             :account/total-value 1500M
-                             :account/gain 500M}
-                            {:account/name "MSFT"
-                             :account/shares-owned 50M
-                             :account/cost-basis 500M
-                             :account/current-price 8M
-                             :account/total-value 400M
-                             :account/gain -100M}
-                            {:account/name "401k"
-                             :account/value 2000M
-                             :account/cost-basis 5200M ; 2000M cash + sum of children
-                             :account/total-value 5800M
-                             :account/gain 600M}
-                            {:account/name "AAPL"
-                             :account/shares-owned 200M
-                             :account/cost-basis 2200M
-                             :account/current-price 15M
-                             :account/total-value 3000M
-                             :account/gain 800M}
-                            {:account/name "MSFT"
-                             :account/shares-owned 100M
-                             :account/cost-basis 1000M
-                             :account/current-price 8M
-                             :account/total-value 800M
-                             :account/gain -200M}]
-                           (accounts/valuate
-                             (valuation-data commodity-supplemental-data)
-                             commodity-accounts)))))
+    (let [expected [{:account/name "IRA"
+                     :account/value 1000M
+                     :account/cost-basis 2500M ; 1000M cash + sum of children
+                     :account/total-value 2900M ; 1500M of AAPL + 500M of MSFT + 1000M in cash
+                     :account/gain 400M}
+                    {:account/name "AAPL"
+                     :account/shares-owned 100M
+                     :account/cost-basis 1000M
+                     :account/current-price 15M
+                     :account/total-value 1500M
+                     :account/gain 500M}
+                    {:account/name "MSFT"
+                     :account/shares-owned 50M
+                     :account/cost-basis 500M
+                     :account/current-price 8M
+                     :account/total-value 400M
+                     :account/gain -100M}
+                    {:account/name "401k"
+                     :account/value 2000M
+                     :account/cost-basis 5200M ; 2000M cash + sum of children
+                     :account/total-value 5800M
+                     :account/gain 600M}
+                    {:account/name "AAPL"
+                     :account/shares-owned 200M
+                     :account/cost-basis 2200M
+                     :account/current-price 15M
+                     :account/total-value 3000M
+                     :account/gain 800M}
+                    {:account/name "MSFT"
+                     :account/shares-owned 100M
+                     :account/cost-basis 1000M
+                     :account/current-price 8M
+                     :account/total-value 800M
+                     :account/gain -200M}]
+          actual (accounts/valuate
+                   (valuation-data commodity-supplemental-data)
+                   commodity-accounts)]
+      #?(:clj (is (seq-of-maps-like? expected actual))
+         :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual))))))
