@@ -1,8 +1,6 @@
 (ns clj-money.scheduled-transactions-test
-  (:require #?(:clj [clojure.test :refer [deftest is testing]]
-               :cljs [cljs.test :refer [deftest is testing]])
-            #?(:clj [java-time.api :as t]
-               :cljs [cljs-time.core :as t])
+  (:require [clojure.test :refer [deftest is testing]]
+            [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.scheduled-transactions :as st]))
@@ -216,7 +214,4 @@
                                                   #:scheduled-transaction-item{:action :credit
                                                                                :account {:id :salary}
                                                                                :quantity 1000M}]})]
-      #?(:clj (is (seq-of-maps-like? expected actual))
-         :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like?
-                     expected
-                     actual))))))
+      (is (seq-of-maps-like? expected actual)))))
