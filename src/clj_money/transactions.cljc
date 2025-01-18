@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-money.util :as util :refer [->model-ref model=]]
             [clj-money.dates :as dates]
+            [clj-money.decimal :as d]
             [clj-money.accounts :refer [polarize-quantity
                                         ->transaction-item]]))
 
@@ -171,7 +172,7 @@
                   (filter #(dates/within? (:transaction-item/transaction-date %) start-date end-date))
                   (map (comp :transaction-item/polarized-quantity
                              polarize-item-quantity))
-                  (reduce + 0M))})
+                  (reduce d/+ 0M))})
 
 (defn summarize-items
   [{:keys [interval-type interval-count since as-of]

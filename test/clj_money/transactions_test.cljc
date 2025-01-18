@@ -5,6 +5,7 @@
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clj-money.decimal :refer [d]]
             [clj-money.util :as util]
             [clj-money.transactions :as trx]))
 
@@ -40,19 +41,19 @@
                                    :transaction-item/account (accounts :checking)
                                    :transaction-item/memo "checking memo" ; NOTE: these memos are lost
                                    :transaction-item/action :credit
-                                   :transaction-item/quantity 10M}
+                                   :transaction-item/quantity (d 10)}
                                   {:id 2
                                    :transaction-item/account (accounts :groceries)
                                    :transaction-item/memo "groceries memo"
                                    :transaction-item/action :debit
-                                   :transaction-item/quantity 10M}]}
+                                   :transaction-item/quantity (d 10)}]}
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
                                :item {:id 1 }
                                :account (accounts :checking)
                                :other-item {:id 2} :other-account (accounts :groceries)
-                               :quantity -10M}]
+                               :quantity (d -10)}]
     (is (= expected (trx/accountify trx (accounts :checking))))))
 
 (deftest unaccountify-a-transaction
@@ -62,11 +63,11 @@
                                :items [{:id 1
                                         :transaction-item/account {:id :checking}
                                         :transaction-item/action :credit
-                                        :transaction-item/quantity 10M}
+                                        :transaction-item/quantity (d 10)}
                                        {:id 2
                                         :transaction-item/account {:id :groceries}
                                         :transaction-item/action :debit
-                                        :transaction-item/quantity 10M}]}
+                                        :transaction-item/quantity (d 10)}]}
         simple #:transaction{:transaction-date "2020-01-01"
                              :description "ACME Store"
                              :memo "transaction memo"
@@ -74,7 +75,7 @@
                              :account {:id :checking}
                              :other-item {:id 2}
                              :other-account {:id :groceries}
-                             :quantity -10M}]
+                             :quantity (d -10)}]
     (is (= expected (trx/unaccountify simple (comp accounts :id))))
     (testing "two asset accounts"
       (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :savings})
@@ -92,22 +93,22 @@
                                   :items [#:transaction-item{:account {:id 1}
                                                              :memo "checking memo"
                                                              :action :credit
-                                                             :quantity 10M}
+                                                             :quantity (d 10)}
                                           #:transaction-item{:account {:id 2}
                                                              :memo "groceries memo"
                                                              :action :debit
-                                                             :quantity 10M}]}
+                                                             :quantity (d 10)}]}
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
                                :items [#:transaction-item{:account {:id 1}
                                                           :memo "checking memo"
-                                                          :credit-quantity 10M
+                                                          :credit-quantity (d 10)
                                                           :debit-quantity nil}
                                        #:transaction-item{:account {:id 2}
                                                           :memo "groceries memo"
                                                           :credit-quantity nil
-                                                          :debit-quantity 10M}
+                                                          :debit-quantity (d 10)}
                                        {}]}]
     (is (= expected (trx/entryfy transaction)))))
 
@@ -118,24 +119,24 @@
                                :items [#:transaction-item{:account {:id 1}
                                                           :memo "checking memo"
                                                           :action :credit
-                                                          :quantity 10M
-                                                          :value 10M}
+                                                          :quantity (d 10)
+                                                          :value (d 10)}
                                        #:transaction-item{:account {:id 2}
                                                           :memo "groceries memo"
                                                           :action :debit
-                                                          :quantity 10M
-                                                          :value 10M}]}
+                                                          :quantity (d 10)
+                                                          :value (d 10)}]}
         transaction #:transaction{:transaction-date "2020-01-01"
                                   :description "ACME Store"
                                   :memo "transaction memo"
                                   :items [#:transaction-item{:account {:id 1}
                                                              :memo "checking memo"
-                                                             :credit-quantity 10M
+                                                             :credit-quantity (d 10)
                                                              :debit-quantity nil}
                                           #:transaction-item{:account {:id 2}
                                                              :memo "groceries memo"
                                                              :credit-quantity nil
-                                                             :debit-quantity 10M}
+                                                             :debit-quantity (d 10)}
                                           {}]}]
     (is (= expected (trx/unentryfy transaction)))
     (testing "transaction contains 'deleted' items"
@@ -150,40 +151,40 @@
     (is (trx/can-simplify?
           {:transaction/items [#:transaction-item{:action :debit
                                                   :account {:id 1}
-                                                  :quantity 10M}
+                                                  :quantity (d 10)}
                                #:transaction-item{:action :credit
                                                   :account {:id 2}
-                                                  :quantity 10M}]})))
+                                                  :quantity (d 10)}]})))
   (testing "A transaction with more than two items cannot be simplified"
     (is (not (trx/can-simplify?
                {:transaction/items [#:transaction-item{:action :debit
                                                        :account {:id 1}
-                                                       :quantity 10M}
+                                                       :quantity (d 10)}
                                     #:transaction-item{:action :credit
                                                        :account {:id 2}
-                                                       :quantity 6M}
+                                                       :quantity (d 6)}
                                     #:transaction-item{:action :credit
                                                        :account {:id 3}
-                                                       :quantity 4M}]})))))
+                                                       :quantity (d 4)}]})))))
 
 (deftest ensure-an-empty-item
-  (let [expected {:transaction/items [#:transaction-item{:credit-quantity 10M}
-                                      #:transaction-item{:debit-quantity 10M}
+  (let [expected {:transaction/items [#:transaction-item{:credit-quantity (d 10)}
+                                      #:transaction-item{:debit-quantity (d 10)}
                                       {}]}]
     (testing "purely empty items"
       (is (= expected
-             (trx/ensure-empty-item {:transaction/items [#:transaction-item{:credit-quantity 10M}
-                                                         #:transaction-item{:debit-quantity 10M}]}))
+             (trx/ensure-empty-item {:transaction/items [#:transaction-item{:credit-quantity (d 10)}
+                                                         #:transaction-item{:debit-quantity (d 10)}]}))
           "An empty item is added when there are no empty items")
       (is (= expected
-             (trx/ensure-empty-item {:transaction/items [#:transaction-item{:credit-quantity 10M}
+             (trx/ensure-empty-item {:transaction/items [#:transaction-item{:credit-quantity (d 10)}
                                                          {}
-                                                         #:transaction-item{:debit-quantity 10M}
+                                                         #:transaction-item{:debit-quantity (d 10)}
                                                          {}]}))
           "An extra empty item is removed")
       (is (= expected
-             (trx/ensure-empty-item {:transaction/items [#:transaction-item{:credit-quantity 10M}
-                                                         #:transaction-item{:debit-quantity 10M}
+             (trx/ensure-empty-item {:transaction/items [#:transaction-item{:credit-quantity (d 10)}
+                                                         #:transaction-item{:debit-quantity (d 10)}
                                                          {}]}))
           "No action is taken if one empty item is present"))))
 
@@ -231,12 +232,12 @@
   (let [standard #:transaction{:transaction-date "2020-01-01"
                                :items [#:transaction-item{:account {:id :401k}
                                                           :action :credit
-                                                          :quantity 100M}
+                                                          :quantity (d 100)}
                                        #:transaction-item{:account {:id :aapl}
                                                           :action :debit
-                                                          :quantity 100M}]}
+                                                          :quantity (d 100)}]}
         tradified #:trade{:trade-date "2020-01-01"
-                          :shares 100M
+                          :shares (d 100)
                           :account {:id :401k}
                           :commodity {:id :aapl}
                           :action :buy}]
@@ -262,12 +263,12 @@
   (let [standard #:transaction{:transaction-date "2020-01-01"
                                :items [#:transaction-item{:account {:id :aapl}
                                                           :action :credit
-                                                          :quantity 100M}
+                                                          :quantity (d 100)}
                                        #:transaction-item{:account {:id :401k}
                                                           :action :debit
-                                                          :quantity 100M}]}
+                                                          :quantity (d 100)}]}
         tradified #:trade{:trade-date "2020-01-01"
-                          :shares 100M
+                          :shares (d 100)
                           :account {:id :401k}
                           :commodity {:id :aapl}
                           :action :sell}]
@@ -288,24 +289,24 @@
                                 items))))))))
 
 (deftest summarize-some-items
-  (let [items [#:transaction-item{:polarized-quantity 100M
+  (let [items [#:transaction-item{:polarized-quantity (d 100)
                                   :transaction-date (t/local-date 2016 1 2)}
-               #:transaction-item{:polarized-quantity 101M
+               #:transaction-item{:polarized-quantity (d 101)
                                   :transaction-date (t/local-date 2016 1 16)}
-               #:transaction-item{:polarized-quantity 102M
+               #:transaction-item{:polarized-quantity (d 102)
                                   :transaction-date (t/local-date 2016 3 1)}]
         expected [{:start-date (t/local-date 2016 1 1)
                    :end-date (t/local-date 2016 1 31)
-                   :quantity 201M}
+                   :quantity (d 201)}
                   {:start-date (t/local-date 2016 2 1)
                    :end-date (t/local-date 2016 2 29)
-                   :quantity 0M}
+                   :quantity (d 0)}
                   {:start-date (t/local-date 2016 3 1)
                    :end-date (t/local-date 2016 3 31)
-                   :quantity 102M}
+                   :quantity (d 102)}
                   {:start-date (t/local-date 2016 4 1)
                    :end-date (t/local-date 2016 4 30)
-                   :quantity 0M}]]
+                   :quantity (d 0)}]]
     (is (= expected
            (trx/summarize-items {:since (t/local-date 2016 1 1)
                                  :as-of (t/local-date 2016 4 30)
@@ -319,37 +320,37 @@
                                :memo "transaction memo"
                                :items [#:transaction-item{:account {:id :groceries}
                                                           :action :debit
-                                                          :quantity 10M}
+                                                          :quantity (d 10)}
                                        #:transaction-item{:account {:id :checking}
                                                           :action :credit
-                                                          :quantity 10M}]}
+                                                          :quantity (d 10)}]}
         simple #:transaction{:transaction-date "2020-01-01"
                              :description "ACME Store"
                              :memo "transaction memo"
                              :debit-account {:id :groceries}
                              :credit-account {:id :checking}
-                             :quantity 10M}]
+                             :quantity (d 10)}]
     (is (= expected (trx/expand simple))
         "A simple transaction is expanded")
     (is (= expected (trx/expand expected))
         "An expanded transaction is returned as-is")))
 
 (deftest calc-the-value-of-a-transaction
-  (is (= 100M (trx/value #:transaction{:items [#:transaction-item{:quantity 100M
-                                                                  :value 100M
+  (is (= (d 100) (trx/value #:transaction{:items [#:transaction-item{:quantity (d 100)
+                                                                  :value (d 100)
                                                                   :action :credit
                                                                   :account {:id :checking}}
-                                               #:transaction-item{:quantity 100M
-                                                                  :value 100M
+                                               #:transaction-item{:quantity (d 100)
+                                                                  :value (d 100)
                                                                   :action :debit
                                                                   :account {:id :groceries}}]}))
       "The value is the sum of credits (or debits)")
-  (is (nil? (trx/value #:transaction{:items [#:transaction-item{:quantity 101M
-                                                                :value 101M
+  (is (nil? (trx/value #:transaction{:items [#:transaction-item{:quantity (d 101)
+                                                                :value (d 101)
                                                                 :action :credit
                                                                 :account {:id :checking}}
-                                             #:transaction-item{:quantity 100M
-                                                                :value 100M
+                                             #:transaction-item{:quantity (d 100)
+                                                                :value (d 100)
                                                                 :action :debit
                                                                 :account {:id :groceries}}]}))
       "The value is nil (undeterminable) if the credits and debits do not match"))
