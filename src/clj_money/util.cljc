@@ -301,18 +301,6 @@
     x
     (update-in x [0] #(keyword nspace (name %)))))
 
-; TODO: delete this when we upgrade to clojurescript 1.11.5
-#?(:cljs
-   ^{:clj-kondo/ignore [:redefined-var]}
-   (defn update-keys
-     [m f]
-     (let [ret (persistent!
-                 (reduce-kv (fn [acc k v]
-                              (assoc! acc (f k) v))
-                            (transient {})
-                            m))]
-       (with-meta ret (meta m)))))
-
 (defn qualify-keys
   "Creates fully-qualified entity attributes by applying
   the :model-type from the meta data to the keys of the map."
