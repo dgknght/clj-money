@@ -1,5 +1,6 @@
 (ns clj-money.test-runner
   (:require [clj-money.dates-test]
+            [clj-money.accounts-test]
             [clj-money.budgets-test]
             [figwheel.main.testing :refer [run-tests-async]]))
 
