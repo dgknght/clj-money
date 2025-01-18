@@ -20,6 +20,12 @@
            (-pr-writer [date writer _]
              (write-all writer "#local-date-time \"" (tf/unparse (tf/formatters :date-time) date) "\""))))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn local-date
+  [x]
+  #?(:clj (t/local-date x)
+     :cljs (tf/parse-local-date (tf/formatters :date) x)))
+
 (def local-date?
   #?(:clj t/local-date?
      :cljs (partial instance? Date)))

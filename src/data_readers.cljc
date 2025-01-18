@@ -1,2 +1,2 @@
-{local-date java-time.api/local-date}
-{bigdec clojure.core/bigdec}
+{local-date clj-money.dates/local-date
+ bigdec clj-money.decimal/d}
