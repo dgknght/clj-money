@@ -175,45 +175,48 @@
 
 (deftest realize-a-scheduled-transaction-after-the-date
   (with-fixed-time "2016-02-02T00:00:00Z"
-    (is (seq-of-maps-like?
-          [#:transaction{:description "Paycheck"
-                         :transaction-date (t/local-date 2016 1 1)
-                         :scheduled-transaction {:id 101}
-                         :items [#:transaction-item{:action :debit
-                                                    :account {:id :checking}
-                                                    :quantity 900M}
-                                 #:transaction-item{:action :debit
-                                                    :account {:id :fit}
-                                                    :quantity 100M}
-                                 #:transaction-item{:action :credit
-                                                    :account {:id :salary}
-                                                    :quantity 1000M}]}
-           #:transaction{:description "Paycheck"
-                         :transaction-date (t/local-date 2016 2 1)
-                         :scheduled-transaction {:id 101}
-                         :items [#:transaction-item{:action :debit
-                                                    :account {:id :checking}
-                                                    :quantity 900M}
-                                 #:transaction-item{:action :debit
-                                                    :account {:id :fit}
-                                                    :quantity 100M}
-                                 #:transaction-item{:action :credit
-                                                    :account {:id :salary}
-                                                    :quantity 1000M}]}]
-          (st/realize
-            {:id 101
-             :scheduled-transaction/entity "Personal"
-             :scheduled-transaction/description "Paycheck"
-             :scheduled-transaction/start-date (t/local-date 2016 1 1)
-             :scheduled-transaction/date-spec {:day 1}
-             :scheduled-transaction/interval-type :month
-             :scheduled-transaction/interval-count 1
-             :scheduled-transaction/items [#:scheduled-transaction-item{:action :debit
-                                                                        :account {:id :checking}
-                                                                        :quantity 900M}
-                                           #:scheduled-transaction-item{:action :debit
-                                                                        :account {:id :fit}
-                                                                        :quantity 100M}
-                                           #:scheduled-transaction-item{:action :credit
-                                                                        :account {:id :salary}
-                                                                        :quantity 1000M}]})))))
+    (let [expected [#:transaction{:description "Paycheck"
+                                  :transaction-date (t/local-date 2016 1 1)
+                                  :scheduled-transaction {:id 101}
+                                  :items [#:transaction-item{:action :debit
+                                                             :account {:id :checking}
+                                                             :quantity 900M}
+                                          #:transaction-item{:action :debit
+                                                             :account {:id :fit}
+                                                             :quantity 100M}
+                                          #:transaction-item{:action :credit
+                                                             :account {:id :salary}
+                                                             :quantity 1000M}]}
+                    #:transaction{:description "Paycheck"
+                                  :transaction-date (t/local-date 2016 2 1)
+                                  :scheduled-transaction {:id 101}
+                                  :items [#:transaction-item{:action :debit
+                                                             :account {:id :checking}
+                                                             :quantity 900M}
+                                          #:transaction-item{:action :debit
+                                                             :account {:id :fit}
+                                                             :quantity 100M}
+                                          #:transaction-item{:action :credit
+                                                             :account {:id :salary}
+                                                             :quantity 1000M}]}]
+          actual (st/realize
+                   {:id 101
+                    :scheduled-transaction/entity "Personal"
+                    :scheduled-transaction/description "Paycheck"
+                    :scheduled-transaction/start-date (t/local-date 2016 1 1)
+                    :scheduled-transaction/date-spec {:day 1}
+                    :scheduled-transaction/interval-type :month
+                    :scheduled-transaction/interval-count 1
+                    :scheduled-transaction/items [#:scheduled-transaction-item{:action :debit
+                                                                               :account {:id :checking}
+                                                                               :quantity 900M}
+                                                  #:scheduled-transaction-item{:action :debit
+                                                                               :account {:id :fit}
+                                                                               :quantity 100M}
+                                                  #:scheduled-transaction-item{:action :credit
+                                                                               :account {:id :salary}
+                                                                               :quantity 1000M}]})]
+      #?(:clj (is (seq-of-maps-like? expected actual))
+         :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like?
+                     expected
+                     actual))))))
