@@ -302,19 +302,14 @@
         (is (= expected (budgets/percent-of-period budget date)))))))
 
 (deftest find-an-item-by-its-account
-  #?(:clj (is (comparable?
-                #:budget-item{:account {:id :groceries}
-                              :periods [100M 100M]}
-                (budgets/find-item-by-account #:budget{:items [#:budget-item{:account {:id :salary}
-                                                                             :periods [1000M 1000M]}
-                                                               #:budget-item{:account {:id :groceries}
-                                                                             :periods [100M 100M]}]}
-                                              {:id :groceries})))
-     :cljs (is (dgknght.app-lib.test-assertions/comparable?
-                 #:budget-item{:account {:id :groceries}
+  (let [expected #:budget-item{:account {:id :groceries}
                                :periods [100M 100M]}
-                 (budgets/find-item-by-account #:budget{:items [#:budget-item{:account {:id :salary}
-                                                                              :periods [1000M 1000M]}
-                                                                #:budget-item{:account {:id :groceries}
-                                                                              :periods [100M 100M]}]}
-                                               {:id :groceries})))))
+        actual (budgets/find-item-by-account #:budget{:items [#:budget-item{:account {:id :salary}
+                                                                            :periods [1000M 1000M]}
+                                                              #:budget-item{:account {:id :groceries}
+                                                                            :periods [100M 100M]}]}
+                                             {:id :groceries})]
+    #?(:clj (is (comparable? expected actual))
+       :cljs (is (dgknght.app-lib.test-assertions/comparable?
+                   expected
+                   actual)))))
