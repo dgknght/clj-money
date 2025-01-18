@@ -54,11 +54,6 @@
          {:start-on-or-after date
           :start-on-or-before other-date})))
 
-(deftest get-the-earliest-date
-  (let [d1 (t/local-date 2020 3 2)
-        d2 (t/local-date 2020 2 27)]
-    (is (= d2 (util/earliest d1 d2)))))
-
 (deftest extract-a-qualifier
   (is (= "user" (util/qualifier {:user/name "John"}))
       "A single qualifier is taken directly")

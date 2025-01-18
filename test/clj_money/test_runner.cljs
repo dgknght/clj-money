@@ -2,6 +2,7 @@
   (:require [clj-money.dates-test]
             [clj-money.accounts-test]
             [clj-money.budgets-test]
+            [clj-money.util-test]
             [figwheel.main.testing :refer [run-tests-async]]))
 
 (defn -main [& _args]
