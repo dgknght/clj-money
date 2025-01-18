@@ -12,6 +12,11 @@
                    [java.time.temporal ChronoUnit])
      :cljs (:import [goog.date Date DateTime])))
 
+#?(:cljs (extend-type Date
+           IEquiv
+           (-equiv [this other]
+             (t/equal? this other))))
+
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
            (-pr-writer [date writer _]

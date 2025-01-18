@@ -1,11 +1,11 @@
 (ns clj-money.accounts
-  (:refer-clojure :exclude [+ - * / abs format])
+  (:refer-clojure :exclude [+ - * / zero? abs format])
   (:require [clojure.string :as string]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.models :as models]
             [dgknght.app-lib.web :refer [format-decimal]]
-            #?(:cljs [dgknght.app-lib.decimal :as decimal])
+            [clj-money.decimal :as d]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             [clj-money.util :as util :refer [model= format]]))
@@ -35,39 +35,8 @@
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
-(defn +
-  [n1 n2]
-  #?(:cljs (decimal/+ n1 n2)
-     :clj (clojure.core/+ n1 n2)))
-
-(defn -
-  [n1 n2]
-  #?(:cljs (decimal/- n1 n2)
-     :clj (clojure.core/- n1 n2)))
-
-(defn *
-  [n1 n2]
-  #?(:cljs (decimal/* n1 n2)
-     :clj (clojure.core/* n1 n2)))
-
-(defn /
-  [n1 n2]
-  #?(:cljs (decimal// n1 n2)
-     :clj (if *math-context*
-            (clojure.core// n1 n2)
-            (with-precision 3
-              (clojure.core// n1 n2)))))
-
-(defn round
-  [n]
-  #?(:cljs (decimal/round n)
-     :clj (.setScale n 0 java.math.RoundingMode/HALF_UP)))
-
-#?(:cljs (defn abs [n] (decimal/abs n))
-   :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))
-
 (defn- aggr
-  [attr {:keys [oper initial allow-nil?] :or {oper + initial 0M allow-nil? false}} coll]
+  [attr {:keys [oper initial allow-nil?] :or {oper d/+ initial 0M allow-nil? false}} coll]
   (let [f (if allow-nil? identity (constantly true))]
     (->> coll
        (map attr)
@@ -85,19 +54,19 @@
   (let [children-value (->> children
                             (mapcat (juxt :account/value :account/children-value))
                             (filter identity)
-                            (reduce + 0M))
+                            (reduce d/+ 0M))
         children-cost-basis (sum :account/cost-basis {:allow-nil? true} children)
         value (:account/value account 0M)
-        cost-basis (+ children-cost-basis value)
-        total-value (+ children-value value)]
+        cost-basis (d/+ children-cost-basis value)
+        total-value (d/+ children-value value)]
     (merge account
            (cond-> {:account/children-value children-value
                     :account/total-value total-value
                     :account/has-children? true}
 
-             (not (zero? children-cost-basis))
+             (not (d/zero? children-cost-basis))
              (assoc :account/cost-basis cost-basis
-                    :account/gain (- total-value cost-basis))))))
+                    :account/gain (d/- total-value cost-basis))))))
 
 (defn nest
   ([accounts] (nest {} accounts))
@@ -135,8 +104,8 @@
 
 (defn- polarizer
   [action account]
-  (* (if (left-side? account) 1 -1)
-     (if (= :debit action) 1 -1)))
+  (d/* (if (left-side? account) 1 -1)
+       (if (= :debit action) 1 -1)))
 
 (defn polarize-quantity
   "Given a transaction item and an account, returns the quantity of the
@@ -147,8 +116,8 @@
          (#{:debit :credit} action)
          account
          (:account/type account)]}
-  (* quantity
-     (polarizer action account)))
+  (d/* quantity
+       (polarizer action account)))
 
 (defn derive-action
   "Given a quantity (either positve or negative) and an
@@ -166,7 +135,7 @@
   "Given a quantity and an account, returns a transaction item
   with appropriate attributes"
   [quantity account]
-  #:transaction-item{:quantity (abs quantity)
+  #:transaction-item{:quantity (d/abs quantity)
                      :account (util/->model-ref account)
                      :action (derive-action quantity account)})
 
@@ -242,18 +211,18 @@
 
 (defn- ->allocation-rec
   [{:keys [target-percentage account] :as m} working-total]
-  (let [percentage (/ target-percentage 100M)
-        target-value (* working-total
-                        percentage)
+  (let [percentage (d// target-percentage 100M)
+        target-value (d/* working-total
+                          percentage)
         current-value (:account/value account)
-        current-percentage (/ current-value working-total)
-        raw-adj-value (- target-value
-                         current-value)
-        adj-value (if (< (abs raw-adj-value) 100M)
+        current-percentage (d// current-value working-total)
+        raw-adj-value (d/- target-value
+                           current-value)
+        adj-value (if (< (d/abs raw-adj-value) 100M)
                     0M
-                    (* 100M
-                       (round (/ raw-adj-value
-                                 100M))))]
+                    (d/* 100M
+                         (d/round (d// raw-adj-value
+                                       100M))))]
     (assoc m
            :current-value current-value
            :current-percentage current-percentage
@@ -264,7 +233,7 @@
   [{:account/keys [allocations total-value value]} find-account-fn & {:keys [cash withdrawal]}]
   (let [cash-withheld (or cash value)
         withdrawal (or withdrawal 0M)
-        working-total (- total-value (+ cash-withheld withdrawal))
+        working-total (d/- total-value (d/+ cash-withheld withdrawal))
         result (mapv (comp #(->allocation-rec % working-total)
                            (fn [[id target-percentage]]
                              {:account (find-account-fn id)
@@ -272,10 +241,10 @@
                      allocations)
         net (->> result
                  (map :adj-value)
-                 (reduce + withdrawal))]
-    (if (zero? net)
+                 (reduce d/+ withdrawal))]
+    (if (d/zero? net)
       result
-      (update-in result [0 :adj-value] - net))))
+      (update-in result [0 :adj-value] d/- net))))
 
 (defn- valuate-simple-accounts
   "Perform valuation of accounts that use the default entity commodity."
@@ -292,18 +261,18 @@
                   (mapv (fn [lot]
                           (let [[purchase & sales :as items] (fetch-lot-items data lot)
                                 _ (assert (seq items) (format "No lot items found for %s" lot))
-                                shares-owned (- (:lot-item/shares purchase)
-                                                (sum :lot-item/shares sales))
-                                cost-basis (* (:lot-item/price purchase)
-                                              shares-owned)
-                                current-value (* price shares-owned)]
+                                shares-owned (d/- (:lot-item/shares purchase)
+                                                  (sum :lot-item/shares sales))
+                                cost-basis (d/* (:lot-item/price purchase)
+                                                shares-owned)
+                                current-value (d/* price shares-owned)]
                             (assoc lot
                                    :lot/items items
                                    :lot/cost-basis cost-basis
                                    :lot/shares-owned shares-owned
                                    :lot/current-price price
                                    :lot/value current-value
-                                   :lot/gain (- current-value cost-basis))))))]
+                                   :lot/gain (d/- current-value cost-basis))))))]
     (if (seq lots)
       (assoc account
              :account/lots lots

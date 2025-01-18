@@ -1,9 +1,12 @@
 (ns clj-money.accounts-test
   (:require #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer [deftest is testing]])
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             [dgknght.app-lib.test-assertions]
+            [clj-money.decimal :refer [d] :as dec]
             [clj-money.accounts :as accounts]))
 
 (deftest create-criteria-from-one-account
@@ -30,37 +33,37 @@
 
 (deftest derive-an-item
   (testing "from a positive quantity"
-    (let [quantity 10M]
-      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
+    (let [quantity (d 10)]
+      (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :asset}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :liability}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :equity}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :income}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :expense}))
           "The action is :debit")))
   (testing "from a negative quantity"
-    (let [quantity -10M]
-      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
+    (let [quantity (d -10)]
+      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :asset}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :liability}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :equity}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :income}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :expense}))
           "The action is :credit"))))
 
@@ -68,17 +71,17 @@
   [{:id :savings
     :account/type :asset
     :account/name "Savings"
-    :account/value 1M}
+    :account/value (d 1)}
    {:id :savings-car
     :account/parent {:id :savings}
     :account/type :asset
     :account/name "Car"
-    :account/value 1000M}
+    :account/value (d 1000)}
    {:id :savings-reserve
     :account/parent {:id :savings}
     :account/type :asset
     :account/name "Reserve"
-    :account/value  2000M}])
+    :account/value  (d 2000)}])
 
 (def ^:private nested-accounts
   [{:type :asset
@@ -87,21 +90,21 @@
       :account/type :asset
       :account/name "Savings"
       :account/has-children? true
-      :account/children-value 3000M
-      :account/total-value 3001M
-      :account/value 1M
+      :account/children-value (d 3000)
+      :account/total-value (d 3001)
+      :account/value (d 1)
       :account/children [{:id :savings-car
                           :account/parent {:id :savings}
                           :account/type :asset
                           :account/name "Car"
-                          :account/value 1000M
-                          :account/total-value 1000M}
+                          :account/value (d 1000)
+                          :account/total-value (d 1000)}
                          {:id :savings-reserve
                           :account/parent {:id :savings}
                           :account/type :asset
                           :account/name "Reserve"
-                          :account/value  2000M
-                          :account/total-value 2000M}]}]}
+                          :account/value  (d 2000)
+                          :account/total-value (d 2000)}]}]}
    {:type :liability :accounts []}
    {:type :equity :accounts []}
    {:type :income :accounts []}
@@ -118,129 +121,129 @@
 (deftest create-rebalancing-adjustments
   (let [accounts (->> [{:id :ira
                         :account/name "IRA"
-                        :account/quantity 468931.04M
-                        :account/total-value 468931.04M
-                        :account/value 778.29M
-                        :account/allocations {:gold 7.5M
-                                              :stocks 30M
-                                              :commodities 7.5M
-                                              :int-term-bonds 15M
-                                              :long-term-bonds 40M}}
+                        :account/quantity (d 468931.04)
+                        :account/total-value (d 468931.04)
+                        :account/value (d 778.29)
+                        :account/allocations {:gold (d 7.5)
+                                              :stocks (d 30)
+                                              :commodities (d 7.5)
+                                              :int-term-bonds (d 15)
+                                              :long-term-bonds (d 40)}}
                        {:id :gold
                         :account/name "Gold"
-                        :account/value 34309.80M}
+                        :account/value (d 34309.80)}
                        {:id :stocks
                         :account/name "Stocks"
-                        :account/value 139853.78M}
+                        :account/value (d 139853.78)}
                        {:id :commodities
                         :account/name "Commodities"
-                        :account/value 38316.93M}
+                        :account/value (d 38316.93)}
                        {:id :int-term-bonds
                         :account/name "Intermediate Term Bods"
-                        :account/value 69167.10M}
+                        :account/value (d 69167.10)}
                        {:id :long-term-bonds
                         :account/name "Long Term Bods"
-                        :account/value 186505.13M}]
+                        :account/value (d 186505.13)}]
                       (map (juxt :id identity))
                       (into {}))
         adjustments (accounts/allocate (accounts :ira)
                                             accounts)]
     (is (= [{:account (accounts :commodities)
-             :target-percentage 7.5M
-             :target-value 35111.45625M
-             :current-percentage 0.0818M
-             :current-value 38316.93M
-             :adj-value -3200M}
+             :target-percentage (d 7.5)
+             :target-value (d 35111.45625)
+             :current-percentage (d 0.0818)
+             :current-value (d 38316.93)
+             :adj-value (d -3200)}
             {:account (accounts :gold)
-             :target-percentage 7.5M
-             :target-value 35111.45625M
-             :current-percentage 0.0733M
-             :current-value 34309.80M
-             :adj-value 700M}
+             :target-percentage (d 7.5)
+             :target-value (d 35111.45625)
+             :current-percentage (d 0.0733)
+             :current-value (d 34309.80)
+             :adj-value (d 700)}
             {:account (accounts :int-term-bonds)
-             :target-percentage 15M
-             :target-value 70222.9125M
-             :current-percentage 0.148M
-             :current-value 69167.10M
-             :adj-value 1100M}
+             :target-percentage (d 15)
+             :target-value (d 70222.9125)
+             :current-percentage (d 0.148)
+             :current-value (d 69167.10)
+             :adj-value (d 1100)}
             {:account (accounts :long-term-bonds)
-             :target-percentage 40M
-             :target-value 187261.10M
-             :current-percentage 0.398M
-             :current-value 186505.13M
-             :adj-value 800M}
+             :target-percentage (d 40)
+             :target-value (d 187261.10)
+             :current-percentage (d 0.398)
+             :current-value (d 186505.13)
+             :adj-value (d 800)}
             {:account (accounts :stocks)
-             :target-percentage 30M
-             :target-value 140445.825M
-             :current-percentage 0.299M
-             :current-value 139853.78M
-             :adj-value 600M}]
+             :target-percentage (d 30)
+             :target-value (d 140445.825)
+             :current-percentage (d 0.299)
+             :current-value (d 139853.78)
+             :adj-value (d 600)}]
            (sort-by (comp :id :account) adjustments)))
-    (is (zero? (->> adjustments
+    (is (dec/zero? (->> adjustments
                     (map :adj-value)
-                    (reduce +)))
+                    (reduce dec/+ (d 0))))
         "The net change is zero")))
 
 (deftest reallocate-for-withdrawal
   (let [accounts (->> [{:id :ira
                         :account/name "IRA"
-                        :account/quantity 468931.04M
-                        :account/total-value 468931.04M
-                        :account/value 778.29M
-                        :account/allocations {:gold 7.5M
-                                              :stocks 30M
-                                              :commodities 7.5M
-                                              :int-term-bonds 15M
-                                              :long-term-bonds 40M}}
+                        :account/quantity (d 468931.04)
+                        :account/total-value (d 468931.04)
+                        :account/value (d 778.29)
+                        :account/allocations {:gold (d 7.5)
+                                              :stocks (d 30)
+                                              :commodities (d 7.5)
+                                              :int-term-bonds (d 15)
+                                              :long-term-bonds (d 40)}}
                        {:id :gold
                         :account/name "Gold"
-                        :account/value 34309.80M}
+                        :account/value (d 34309.80)}
                        {:id :stocks
                         :account/name "Stocks"
-                        :account/value 139853.78M}
+                        :account/value (d 139853.78)}
                        {:id :commodities
                         :account/name "Commodities"
-                        :account/value 38316.93M}
+                        :account/value (d 38316.93)}
                        {:id :int-term-bonds
                         :account/name "Intermediate Term Bods"
-                        :account/value 69167.10M}
+                        :account/value (d 69167.10)}
                        {:id :long-term-bonds
                         :account/name "Long Term Bods"
-                        :account/value 186505.13M}]
+                        :account/value (d 186505.13)}]
                       (map (juxt :id identity))
                       (into {}))
-        withdrawal 10000M
+        withdrawal (d 10000)
         adjustments (accounts/allocate (accounts :ira) accounts :withdrawal withdrawal)]
     (is (= [{:account (accounts :commodities)
-             :target-percentage 7.5M
-             :target-value 34361.45625M
-             :current-percentage 0.0836M
-             :current-value 38316.93M
-             :adj-value -4000M}
+             :target-percentage (d 7.5)
+             :target-value (d 34361.45625)
+             :current-percentage (d 0.0836)
+             :current-value (d 38316.93)
+             :adj-value (d -4000)}
             {:account (accounts :gold)
-             :target-percentage 7.5M
-             :target-value 34361.45625M
-             :current-percentage 0.0749M ; TODO: multiply this by 100 also?
-             :current-value 34309.80M
-             :adj-value 0M}
+             :target-percentage (d 7.5)
+             :target-value (d 34361.45625)
+             :current-percentage (d 0.0749) ; TODO: multiply this by 100 also?
+             :current-value (d 34309.80)
+             :adj-value (d 0)}
             {:account (accounts :int-term-bonds)
-             :target-percentage 15M
-             :target-value 68722.9125M
-             :current-percentage 0.151M
-             :current-value 69167.10M
-             :adj-value -400M}
+             :target-percentage (d 15)
+             :target-value (d 68722.9125)
+             :current-percentage (d 0.151)
+             :current-value (d 69167.10)
+             :adj-value (d -400)}
             {:account (accounts :long-term-bonds)
-             :target-percentage 40M
-             :target-value 183261.100M
-             :current-percentage 0.407M
-             :current-value 186505.13M
-             :adj-value -3200M}
+             :target-percentage (d 40)
+             :target-value (d 183261.100)
+             :current-percentage (d 0.407)
+             :current-value (d 186505.13)
+             :adj-value (d -3200)}
             {:account (accounts :stocks)
-             :target-percentage 30M
-             :target-value 137445.825M
-             :current-percentage 0.305M
-             :current-value 139853.78M
-             :adj-value -2400M}]
+             :target-percentage (d 30)
+             :target-value (d 137445.825)
+             :current-percentage (d 0.305)
+             :current-value (d 139853.78)
+             :adj-value (d -2400)}]
            (sort-by (comp :id :account) adjustments)))
     (is (= (- 0 withdrawal)
            (->> adjustments
@@ -278,18 +281,18 @@
 
 (deftest polarize-a-quantity
   ; Debits
-  (test-polarization :asset     :debit 100M  100M "A debit in an asset account increases the balance")
-  (test-polarization :expense   :debit 100M  100M "A debit in an expense account increases the balance")
-  (test-polarization :liability :debit 100M -100M "A debit in an liability account decreases the balance")
-  (test-polarization :equity    :debit 100M -100M "A debit in an equity account decreases the balance")
-  (test-polarization :income    :debit 100M -100M "A debit in an income account decreases the balance")
+  (test-polarization :asset     :debit (d 100)  (d 100) "A debit in an asset account increases the balance")
+  (test-polarization :expense   :debit (d 100)  (d 100) "A debit in an expense account increases the balance")
+  (test-polarization :liability :debit (d 100) (d -100) "A debit in an liability account decreases the balance")
+  (test-polarization :equity    :debit (d 100) (d -100) "A debit in an equity account decreases the balance")
+  (test-polarization :income    :debit (d 100) (d -100) "A debit in an income account decreases the balance")
 
   ;; Credits
-  (test-polarization :asset     :credit 100M -100M "A credit in an asset account decreases the balance")
-  (test-polarization :expense   :credit 100M -100M "A credit in an expense account dereases the balance")
-  (test-polarization :liability :credit 100M  100M "A credit in an liability account increases the balance")
-  (test-polarization :equity    :credit 100M  100M "A credit in an equity account increases the balance")
-  (test-polarization :income    :credit 100M  100M "A credit in an income account increases the balance"))
+  (test-polarization :asset     :credit (d 100) (d -100) "A credit in an asset account decreases the balance")
+  (test-polarization :expense   :credit (d 100) (d -100) "A credit in an expense account dereases the balance")
+  (test-polarization :liability :credit (d 100)  (d 100) "A credit in an liability account increases the balance")
+  (test-polarization :equity    :credit (d 100)  (d 100) "A credit in an equity account increases the balance")
+  (test-polarization :income    :credit (d 100)  (d 100) "A credit in an income account increases the balance"))
 
 (deftest derive-action-from-quantity-and-account
   (is (= :debit  (accounts/derive-action  1 {:account/type :asset})))
@@ -324,10 +327,10 @@
     :account/type :asset}])
 
 (def ^:private standard-supplemental-data
-  {:balances {:checking 1000M
-              :savings 0M
-              :reserve 10000M
-              :car 5000M}})
+  {:balances {:checking (d 1000)
+              :savings (d 0)
+              :reserve (d 10000)
+              :car (d 5000)}})
 
 (def ^:private commodity-accounts
   [{:id :ira
@@ -366,8 +369,8 @@
     :account/commodity {:id :msft}}])
 
 (def ^:private commodity-supplemental-data
-  {:balances {:ira 1000M
-              :four-o-one-k 2000M}
+  {:balances {:ira (d 1000)
+              :four-o-one-k (d 2000)}
    :lots {[:ira :aapl] [{:id 300
                          :lot/purchase-date (t/local-date 2020 1 1)}]
           [:ira :msft] [{:id 301
@@ -380,30 +383,30 @@
                                   :lot/purchase-date (t/local-date 2020 1 1)}]}
    :lot-items {300 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
                      :lot-item/action :buy
-                     :lot-item/shares 100M
-                     :lot-item/price 10M}]
+                     :lot-item/shares (d 100)
+                     :lot-item/price (d 10)}]
                301 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
                      :lot-item/action :buy
-                     :lot-item/shares 100M
-                     :lot-item/price 10M}
+                     :lot-item/shares (d 100)
+                     :lot-item/price (d 10)}
                     {:lot-item/transaction-date (t/local-date 2020 2 1)
                      :lot-item/action :sell
-                     :lot-item/shares 50M
-                     :lot-item/price 9M}]
+                     :lot-item/shares (d 50)
+                     :lot-item/price (d 9)}]
                302 [{:lot-item/transaction-date (t/local-date 2020 1 1); AAPL in 401k
                      :lot-item/action :buy
-                     :lot-item/shares 100M
-                     :lot-item/price 10M}]
+                     :lot-item/shares (d 100)
+                     :lot-item/price (d 10)}]
                303 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
                      :lot-item/action :buy
-                     :lot-item/shares 100M
-                     :lot-item/price 10M}]
+                     :lot-item/shares (d 100)
+                     :lot-item/price (d 10)}]
                304 [{:lot-item/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
                      :lot-item/action :buy
-                     :lot-item/shares 100M
-                     :lot-item/price 12M}]}
-   :prices {:aapl 15M
-            :msft 8M}})
+                     :lot-item/shares (d 100)
+                     :lot-item/price (d 12)}]}
+   :prices {:aapl (d 15)
+            :msft (d 8)}})
 
 (def ^:private lot-key
   (juxt (comp :id :account/parent)
@@ -430,18 +433,18 @@
 (deftest valuate-some-accounts
   (testing "Simple accounts (with the default commodity)"
     (let [expected [{:account/name "Checking"
-                     :account/value 1000M
-                     :account/total-value 1000M}
+                     :account/value (d 1000)
+                     :account/total-value (d 1000)}
                     {:account/name "Savings"
-                     :account/value 0M
-                     :account/children-value 15000M
-                     :account/total-value 15000M}
+                     :account/value (d 0)
+                     :account/children-value (d 15000)
+                     :account/total-value (d 15000)}
                     {:account/name "Reserve"
-                     :account/value 10000M
-                     :account/total-value 10000M}
+                     :account/value (d 10000)
+                     :account/total-value (d 10000)}
                     {:account/name "Car"
-                     :account/value 5000M
-                     :account/total-value 5000M}]
+                     :account/value (d 5000)
+                     :account/total-value (d 5000)}]
           actual (accounts/valuate
               (valuation-data standard-supplemental-data)
               standard-accounts)]
@@ -449,39 +452,39 @@
          :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual)))))
   (testing "Simple and commodity accounts"
     (let [expected [{:account/name "IRA"
-                     :account/value 1000M
-                     :account/cost-basis 2500M ; 1000M cash + sum of children
-                     :account/total-value 2900M ; 1500M of AAPL + 500M of MSFT + 1000M in cash
-                     :account/gain 400M}
+                     :account/value (d 1000)
+                     :account/cost-basis (d 2500) ; (d 1000) cash + sum of children
+                     :account/total-value (d 2900) ; (d 1500) of AAPL + (d 500) of MSFT + (d 1000) in cash
+                     :account/gain (d 400)}
                     {:account/name "AAPL"
-                     :account/shares-owned 100M
-                     :account/cost-basis 1000M
-                     :account/current-price 15M
-                     :account/total-value 1500M
-                     :account/gain 500M}
+                     :account/shares-owned (d 100)
+                     :account/cost-basis (d 1000)
+                     :account/current-price (d 15)
+                     :account/total-value (d 1500)
+                     :account/gain (d 500)}
                     {:account/name "MSFT"
-                     :account/shares-owned 50M
-                     :account/cost-basis 500M
-                     :account/current-price 8M
-                     :account/total-value 400M
-                     :account/gain -100M}
+                     :account/shares-owned (d 50)
+                     :account/cost-basis (d 500)
+                     :account/current-price (d 8)
+                     :account/total-value (d 400)
+                     :account/gain (d -100)}
                     {:account/name "401k"
-                     :account/value 2000M
-                     :account/cost-basis 5200M ; 2000M cash + sum of children
-                     :account/total-value 5800M
-                     :account/gain 600M}
+                     :account/value (d 2000)
+                     :account/cost-basis (d 5200) ; (d 2000) cash + sum of children
+                     :account/total-value (d 5800)
+                     :account/gain (d 600)}
                     {:account/name "AAPL"
-                     :account/shares-owned 200M
-                     :account/cost-basis 2200M
-                     :account/current-price 15M
-                     :account/total-value 3000M
-                     :account/gain 800M}
+                     :account/shares-owned (d 200)
+                     :account/cost-basis (d 2200)
+                     :account/current-price (d 15)
+                     :account/total-value (d 3000)
+                     :account/gain (d 800)}
                     {:account/name "MSFT"
-                     :account/shares-owned 100M
-                     :account/cost-basis 1000M
-                     :account/current-price 8M
-                     :account/total-value 800M
-                     :account/gain -200M}]
+                     :account/shares-owned (d 100)
+                     :account/cost-basis (d 1000)
+                     :account/current-price (d 8)
+                     :account/total-value (d 800)
+                     :account/gain (d -200)}]
           actual (accounts/valuate
                    (valuation-data commodity-supplemental-data)
                    commodity-accounts)]
