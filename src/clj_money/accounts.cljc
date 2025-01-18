@@ -104,8 +104,8 @@
 
 (defn- polarizer
   [action account]
-  (d/* (if (left-side? account) 1 -1)
-       (if (= :debit action) 1 -1)))
+  (d/* (if (left-side? account) (d/d 1) (d/d -1))
+       (if (= :debit action) (d/d 1) (d/d -1))))
 
 (defn polarize-quantity
   "Given a transaction item and an account, returns the quantity of the
@@ -234,7 +234,7 @@
 (defn allocate
   [{:account/keys [allocations total-value value]} find-account-fn & {:keys [cash withdrawal]}]
   (let [cash-withheld (or cash value)
-        withdrawal (or withdrawal 0M)
+        withdrawal (or withdrawal (d/d 0))
         working-total (d/- total-value (d/+ cash-withheld withdrawal))
         result (mapv (comp #(->allocation-rec % working-total)
                            (fn [[id target-percentage]]

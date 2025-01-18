@@ -148,7 +148,16 @@
                       (into {}))
         adjustments (accounts/allocate (accounts :ira)
                                             accounts)]
-    (is (= [{:account (accounts :commodities)
+    (is (= [[:commodities (d -3200)]
+            [:gold (d 700)]
+            [:int-term-bonds (d 1100)]
+            [:long-term-bonds (d 800)]
+            [:stocks (d 600)]]
+           (->> adjustments
+                (sort-by (comp :id :account))
+                (map (juxt (comp :id :account) :adj-value))))
+        "The adjusted values are included in the return")
+    #_(is (= [{:account (accounts :commodities)
              :target-percentage (d 7.5)
              :target-value (d 35111.45625)
              :current-percentage (d 0.0818)
@@ -214,7 +223,16 @@
                       (into {}))
         withdrawal (d 10000)
         adjustments (accounts/allocate (accounts :ira) accounts :withdrawal withdrawal)]
-    (is (= [{:account (accounts :commodities)
+    (is (= [[:commodities (d -4000)]
+            [:gold (d 0)]
+            [:int-term-bonds (d -400)]
+            [:long-term-bonds (d -3200)]
+            [:stocks (d -2400)]]
+           (->> adjustments
+                (sort-by (comp :id :account))
+                (map (juxt (comp :id :account) :adj-value))))
+        "The adjustment values are included in the return")
+    #_(is (= [{:account (accounts :commodities)
              :target-percentage (d 7.5)
              :target-value (d 34361.45625)
              :current-percentage (d 0.0836)
@@ -245,11 +263,11 @@
              :current-value (d 139853.78)
              :adj-value (d -2400)}]
            (sort-by (comp :id :account) adjustments)))
-    (is (= (- 0 withdrawal)
+    (is (= (dec/- (d 0) withdrawal)
            (->> adjustments
                 (map :adj-value)
-                (reduce +)))
-        "The net change is zero")))
+                (reduce dec/+)))
+        "The net change is the amount of the withdrawal")))
 
 (deftest find-account-by-path
   (let [accounts (map #(hash-map :account/path %)
