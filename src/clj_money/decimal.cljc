@@ -32,9 +32,13 @@
               (clojure.core// n1 n2)))))
 
 (defn round
-  [n]
-  #?(:cljs (decimal/round n)
-     :clj (.setScale n 0 java.math.RoundingMode/HALF_UP)))
+  ([n]
+   #?(:cljs (decimal/round n)
+      :clj (.setScale n 0 java.math.RoundingMode/HALF_UP)))
+  ([n places]
+   (let [factor (Math/pow 10 places)]
+     (/ (round (* factor n))
+        factor))))
 
 #?(:cljs (defn abs [n] (decimal/abs n))
    :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))

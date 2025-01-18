@@ -215,7 +215,9 @@
         target-value (d/* working-total
                           percentage)
         current-value (:account/value account)
-        current-percentage (d// current-value working-total)
+        current-percentage (d/round (d// current-value
+                                         working-total)
+                                    4)
         raw-adj-value (d/- target-value
                            current-value)
         adj-value (if (< (d/abs raw-adj-value) 100M)
