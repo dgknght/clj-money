@@ -41,14 +41,14 @@
 
 (defn create
   [commodity xf]
-  (api/post (api/path :entities (:entity-id commodity) :commodities)
+  (api/post (api/path :entities (:commodity/entity commodity) :commodities)
             commodity
             {:transform (transform xf)
              :handle-ex (handle-ex "Unable to create the commodity: %s)")}))
 
 (defn update
   [commodity xf]
-  (api/patch (api/path :commodities (:id commodity))
+  (api/patch (api/path :commodities commodity)
              commodity
              {:transform (transform xf)
               :handle-ex (handle-ex "Unable to update the commodity: %s")}))

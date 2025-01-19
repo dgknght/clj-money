@@ -1,5 +1,6 @@
 (ns clj-money.views.commodities
   (:require [cljs.core.async :refer [chan <! >! go go-loop]]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
@@ -64,10 +65,10 @@
          [:div#commodity-form.card {:class (when-not @commodity "d-none")}
           [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
           [:div.card-body
-           [forms/select-field commodity [:type] @types {:validations #{::v/required}}]
-           [forms/select-field commodity [:exchange] ["" "nyse" "nasdaq" "otc"]]
-           [forms/text-field commodity [:symbol] {:validations #{::v/required}}]
-           [forms/text-field commodity [:name] {:validations #{::v/required}}]
+           [forms/select-field commodity [:commodity/type] @types {:validations #{::v/required}}]
+           [forms/select-field commodity [:commodity/exchange] ["" "nyse" "nasdaq" "otc"]]
+           [forms/text-field commodity [:commodity/symbol] {:validations #{::v/required}}]
+           [forms/text-field commodity [:commodity/name] {:validations #{::v/required}}]
            [forms/checkbox-field commodity [:price-config :enabled] {:caption "Download prices"}]]
           [:div.card-footer
            [button {:html {:class "btn-primary"
