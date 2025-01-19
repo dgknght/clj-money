@@ -9,9 +9,8 @@
             [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
-            [clj-money.util :as util :refer [earliest
-                                             model=]]
-            [clj-money.dates :as dates]
+            [clj-money.util :as util :refer [model=]]
+            [clj-money.dates :as dates :refer [earliest]]
             [clj-money.accounts :as accounts :refer [nest
                                                      unnest
                                                      left-side?
