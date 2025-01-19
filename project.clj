@@ -55,7 +55,7 @@
                                                org.clojure/tools.reader]]
                  [reagent-forms "0.5.41"]
                  [reagent-utils "0.3.1"]
-                 [org.clojure/clojurescript "1.11.51" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/clojurescript "1.11.4" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "31.0.1-jre" :exclusions [com.google.code.findbugs/jsr305
                                                              org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
