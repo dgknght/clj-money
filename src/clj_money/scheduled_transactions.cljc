@@ -89,7 +89,7 @@
 (defn next-transaction-dates
   "Returns dates in the transaction date sequence for the next x number of days (default 7)"
   ([sched-trx]
-   (next-transaction-dates sched-trx #?(:clj 7 :cljs 8))) ; TODO: resolve descrepancy between clj and cljs
+   (next-transaction-dates sched-trx 7))
   ([{:scheduled-transaction/keys [last-occurrence end-date] :as sched-trx} days-out]
    (let [lower-bound (or last-occurrence
                          (t/local-date 1900 1 1))

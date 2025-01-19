@@ -98,7 +98,7 @@
           (testing "before the transaction date"
             (is (= expected
                    (t/do-at*
-                     (t/date-time 2021 03 24)
+                     (t/date-time 2021 03 24 12)
                      #(st/next-transaction-dates sched-trx)))
                 "One future transaction date is returned"))
           (testing "on the transaction date"
@@ -126,7 +126,7 @@
           (testing "before the transaction date"
             (is (= expected
                    (t/do-at*
-                     (t/date-time 2020 02 22)
+                     (t/date-time 2020 02 22 12)
                      #(st/next-transaction-dates sched-tran)))))
           (testing "on the transaction date"
             (is (= expected
