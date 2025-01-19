@@ -1005,7 +1005,7 @@
        [accounts-table page-state]
        [account-form page-state]
        [account-details page-state]
-       #_[asset-allocation page-state]])))
+       [asset-allocation page-state]])))
 
 (secretary/defroute "/accounts" []
   (swap! app-state assoc :page #'index))
