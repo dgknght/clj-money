@@ -233,9 +233,10 @@
                          (t/local-date 2017 1 25))))
           "It returns the index of the period containing the date"))))
 
-(defn- close-enough
-  [n1 n2 tolerance]
-  (<= (Math/abs (- n1 n2)) tolerance))
+#?(:cljs
+   (defn- close-enough
+     [n1 n2 tolerance]
+     (<= (Math/abs (- n1 n2)) tolerance)))
 
 (deftest calculate-a-percent-of-a-period
   (let [tests [{:description "the first day of a month"
