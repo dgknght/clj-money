@@ -47,7 +47,7 @@
     {:keys [day]} :scheduled-transaction/date-spec
     :as sched-trx}]
   (let [first-date (->> (dates/periodic-seq (seq-start sched-trx)
-                                      (t/days 1))
+                                            (t/days 1))
                         (take 31)
                         (filter #(if (or (= :last day)
                                          (< (dates/day-of-month (dates/last-day-of-the-month %))
@@ -89,7 +89,7 @@
 (defn next-transaction-dates
   "Returns dates in the transaction date sequence for the next x number of days (default 7)"
   ([sched-trx]
-   (next-transaction-dates sched-trx 7))
+   (next-transaction-dates sched-trx #?(:clj 7 :cljs 8))) ; TODO: resolve descrepancy between clj and cljs
   ([{:scheduled-transaction/keys [last-occurrence end-date] :as sched-trx} days-out]
    (let [lower-bound (or last-occurrence
                          (t/local-date 1900 1 1))

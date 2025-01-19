@@ -15,7 +15,9 @@
 #?(:cljs (extend-type Date
            IEquiv
            (-equiv [this other]
-             (t/equal? this other))))
+             (and (= (type this)
+                     (type other))
+                  (t/equal? this other)))))
 
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
