@@ -10,9 +10,8 @@
 (defn fetch-accounts
   ([] (fetch-accounts nil))
   ([xf]
-   (let [xform (if xf
-                 (comp (map reset-accounts) xf)
-                 (map reset-accounts))]
+   (let [xform (cond-> (map reset-accounts)
+                 xf (comp xf))]
      (accts/select xform))))
 
 (defn watch-entity

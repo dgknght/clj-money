@@ -1,11 +1,17 @@
 (ns clj-money.api
   (:refer-clojure :exclude [get])
-  (:require [dgknght.app-lib.notifications :as notify]
+  (:require [cljs.pprint :refer [pprint]]
+            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api-async :as api]
             [clj-money.state :refer [-busy busy? auth-token]]))
 
 (def apply-fn api/apply-fn)
-(def path api/path)
+
+(defn path
+  [& segments]
+  (->> segments
+       (map #(if (map? %) (:id %) %))
+       (apply api/path)))
 
 (defn handle-ex
   "Given a message format string and optional args, adds a notification

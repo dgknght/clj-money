@@ -93,26 +93,28 @@
       (:name account))))
 
 (defn- prepare-for-allocation
-  [{:keys [children-value] :as account}]
-  (if (:allocations account)
+  [{:accont/keys [children-value] :as account}]
+  (if (:account/allocations account)
     account
-    (assoc account :allocations (->> @accounts
-                                     (filter #(= (:id account)
-                                                 (:parent-id %)))
-                                     (reduce #(assoc %1
-                                                     (:id %2)
-                                                     (decimal/* 100M
-                                                                (decimal// (:total-value %2)
-                                                                           children-value)))
-                                             {})))))
+    (assoc account
+           :account/allocations
+           (->> @accounts
+                (filter #(= (:id account)
+                            (:id (:account/parent %))))
+                (reduce #(assoc %1
+                                (:id %2)
+                                (decimal/* 100M
+                                           (decimal// (:account/total-value %2)
+                                                      children-value)))
+                        {})))))
 
 (defn- account-row
-  [{:keys [id parent-ids system-tags] :as account} expanded page-state]
+  [{:keys [id] :account/keys [parent-ids system-tags] :as account} expanded page-state]
   ^{:key (str "account-" id)}
   [:tr
    [:td [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
          [:span.toggle-ctl {:on-click #(toggle-account (:id account) page-state)
-                            :class (when-not (:has-children? account)
+                            :class (when-not (:account/has-children? account)
                                      "invisible")}
           (icon (if (expanded id)
                      :arrows-collapse
@@ -136,9 +138,12 @@
                                                (set-focus "parent-id"))
                                    :title "Click here to edit this account."}
       (icon :pencil :size :small)]
-     [:button.btn.btn-light {:on-click #(swap! page-state assoc :allocation {:account (prepare-for-allocation account)
-                                                                             :cash (:value account)
-                                                                             :withdrawal 0M})
+     [:button.btn.btn-light {:on-click #(swap! page-state
+                                               assoc
+                                               :allocation
+                                               {:account (prepare-for-allocation account)
+                                                :cash (:account/value account)
+                                                :withdrawal 0M})
                              :disabled (not (system-tags :trading))
                              :title "Click here to manage asset allocation for this account."}
       (icon (if (system-tags :trading)
@@ -178,21 +183,21 @@
   [page-state]
   (let [filter-tags (r/cursor page-state [:filter-tags])
         filter-fn (make-reaction #(cond
-                                    (@filter-tags :_untagged) (fn [{:keys [user-tags]}]
+                                    (@filter-tags :_untagged) (fn [{:account/keys [user-tags]}]
                                                                 (empty? user-tags))
-                                    (seq @filter-tags) (fn [{:keys [user-tags]}]
+                                    (seq @filter-tags) (fn [{:account/keys [user-tags]}]
                                                          (seq (intersection @filter-tags user-tags)))
                                     :else identity))
         expanded (r/cursor page-state [:expanded])
         hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])]
     (fn []
 
-      (let [grouped (group-by :type @accounts)]
+      (let [grouped (group-by :account/type @accounts)]
         [:tbody
          (doall (mapcat (fn [[account-type group]]
                           (concat [(account-type-row account-type group @expanded page-state)]
                                   (->> group
-                                       (sort-by :path compare-vec)
+                                       (sort-by :account/path compare-vec)
                                        (filter (every-pred @filter-fn
                                                            #(not (account-hidden? % @expanded @hide-zero-balances?))))
                                        (map #(account-row %
@@ -351,8 +356,8 @@
                 [:span.visually-hidden "Loading"]]]]]])]
         [button {:html {:class "btn-primary"
                         :on-click (fn []
-                                    (swap! page-state assoc :selected {:entity-id (:id @current-entity)
-                                                                       :type :asset})
+                                    (swap! page-state assoc :selected {:account/entity @current-entity
+                                                                       :account/type :asset})
                                     (set-focus "parent-id"))
                         :disabled @busy?}
                  :caption "Add"
@@ -388,12 +393,12 @@
 (defn- account-form
   [page-state]
   (let [account (r/cursor page-state [:selected])
-        user-tags (r/cursor account [:user-tags])
+        user-tags (r/cursor account [:account/user-tags])
         all-user-tags (make-reaction #(->> @accounts
-                                           (mapcat :user-tags)
+                                           (mapcat :account/user-tags)
                                            set))
         commodities (r/cursor page-state [:commodities])
-        hide-type? (make-reaction #(:parent-id @account))]
+        hide-type? (make-reaction #(-> @account :account/parent :id))]
     (fn []
       (when @account
         [:div.row {:class (when-not @account "d-none")}
@@ -407,37 +412,35 @@
                                  (save-account page-state)))}
            [forms/typeahead-field
             account
-            [:parent-id]
+            [:account/parent]
             {:search-fn (fn [input callback]
                           (->> @accounts
                                (find-by-path input)
                                callback))
-             :caption-fn (comp (partial string/join "/") :path)
-             :value-fn :id
+             :caption-fn (comp (partial string/join "/") :account/path)
              :find-fn (fn [id callback]
                         (->> @accounts
                              (filter #(= id (:id %)))
                              first
                              callback))}]
            [forms/select-field account
-            [:type]
+            [:account/type]
             (map (juxt name humanize) account-types)
             {:hide? hide-type?}]
-           [forms/text-field account [:name] {:validations #{::v/required}}]
+           [forms/text-field account [:account/name] {:validations #{::v/required}}]
            [forms/typeahead-field
             account
-            [:commodity-id]
+            [:account/commodity]
             {:search-fn (fn [input callback]
                           (let [term (string/lower-case input)]
                             (->> @commodities
                                  vals
-                                 (filter #(or (string/includes? (string/lower-case (:name %))
+                                 (filter #(or (string/includes? (string/lower-case (:commodity/name %))
                                                                 term)
-                                              (string/includes? (string/lower-case (:symbol %))
+                                              (string/includes? (string/lower-case (:commodity/symbol %))
                                                                 term)))
                                  callback)))
-             :caption-fn :name
-             :value-fn :id
+             :caption-fn :commodity/name
              :find-fn (fn [id callback]
                         (callback (get-in @commodities [id])))
              :validations #{::v/required}}]
@@ -445,14 +448,14 @@
             account
             [:trading]
             {:caption "Check here if this account is used to trade commodities"
-             :form-group-attr {:class (when-not (= :asset (:type @account)) "d-none")}}]
+             :form-group-attr {:class (when-not (= :asset (:account/type @account)) "d-none")}}]
            [:fieldset
             [:legend "Tags"]
             [forms/typeahead-input
              account
              [:working-tag]
              {:search-fn (fn [term callback]
-                           (let [existing (:user-tags @account)]
+                           (let [existing (:account/user-tags @account)]
                              (->> @all-user-tags
                                   (remove existing)
                                   (map name)
@@ -464,11 +467,11 @@
               :create-fn keyword
               :on-change (fn [tag]
                            (swap! account #(-> %
-                                               (update-in [:user-tags] (fnil conj #{}) tag)
+                                               (update-in [:account/user-tags] (fnil conj #{}) tag)
                                                (dissoc :working-tag))))}]
             (tag-elems @user-tags {:remove-fn #(swap! account
                                                       update-in
-                                                      [:user-tags]
+                                                      [:account/user-tags]
                                                       disj
                                                       %)})]
            [:div
@@ -854,7 +857,7 @@
         account (r/cursor allocation [:account])
         cash (r/cursor allocation [:cash])
         withdrawal (r/cursor allocation [:withdrawal])
-        allocations (make-reaction #(sort-by (comp :name :account)
+        allocations (make-reaction #(sort-by (comp :account/name :account)
                                              (allocate @account @accounts-by-id {:cash @cash
                                                                                  :withdrawal @withdrawal})))
         total-percent (make-reaction #(decimal// (reduce decimal/+ 0M (vals (:allocations @account)))
@@ -913,7 +916,6 @@
   (+busy)
   (commodities/select (map (fn [result]
                              (-busy)
-                             (pprint {::load-commodities result})
                              (swap! page-state assoc :commodities (->> result
                                                                        (map (juxt :id identity))
                                                                        (into {})))))))
@@ -992,7 +994,7 @@
         [:div.col-lg-8
          [:div.d-flex
           [:h1.accounts-title.me-auto (str "Accounts" (when @view-account
-                                                        (str " - " (:name @view-account))))]
+                                                        (str " - " (:account/name @view-account))))]
           [:button.btn.btn-light {:type :button
                                   :class (when @hide-funnel? "d-none")
                                   :data-bs-toggle "offcanvas"
@@ -1003,7 +1005,7 @@
        [accounts-table page-state]
        [account-form page-state]
        [account-details page-state]
-       [asset-allocation page-state]])))
+       #_[asset-allocation page-state]])))
 
 (secretary/defroute "/accounts" []
   (swap! app-state assoc :page #'index))

@@ -5,6 +5,7 @@
             [dgknght.app-lib.core :refer [parse-int
                                           update-in-if]]
             [dgknght.app-lib.decimal :as decimal :refer [->decimal]]
+            [clj-money.util :as util]
             [clj-money.api :as api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]))
 
@@ -60,20 +61,25 @@
 
 (def ^:private attribute-keys
   [:id
-   :name
-   :entity-id
-   :type
-   :commodity-id
-   :parent-id
-   :allocations
-   :trading
-   :system-tags
-   :user-tags])
+   :account/name
+   :account/entity
+   :account/type
+   :account/commodity
+   :account/parent
+   :account/allocations
+   :account/trading
+   :account/system-tags
+   :account/user-tags])
 
 (defn create
   [account xf]
-  (api/post (api/path :entities (:entity-id account) :accounts)
-            (select-keys account attribute-keys)
+  (api/post (api/path :entities (:account/entity account) :accounts)
+            (-> account
+                (update-in-if [:account/parent] util/->model-ref)
+                (update-in [:account/commodity] util/->model-ref)
+                (update-in [:account/entity] util/->model-ref)
+                (select-keys attribute-keys)
+                (util/pp-> ::ready))
             {:transform (transform xf)
              :handle-ex (handle-ex "Unable to create the account: %s")}))
 
