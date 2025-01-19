@@ -294,10 +294,10 @@
                                    (swap! page-state
                                           assoc
                                           :selected
-                                          {:entity-id (:id @current-entity)
-                                           :type "stock"
-                                           :exchange "nyse"
-                                           :price-config {:enabled true}})
+                                          #:commodity{:entity @current-entity
+                                                      :type "stock"
+                                                      :exchange "nyse"
+                                                      :price-config {:enabled true}})
                                    (set-focus "type"))}
                 :icon :plus
                 :caption "Add"
