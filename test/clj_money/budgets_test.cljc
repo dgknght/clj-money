@@ -233,6 +233,10 @@
                          (t/local-date 2017 1 25))))
           "It returns the index of the period containing the date"))))
 
+(defn- close-enough
+  [n1 n2 tolerance]
+  (<= (Math/abs (- n1 n2)) tolerance))
+
 (deftest calculate-a-percent-of-a-period
   (let [tests [{:description "the first day of a month"
                 :budget #:budget{:period :month
@@ -289,7 +293,7 @@
                                  :start-date (t/local-date 2015 1 1)}
                 :date (t/local-date 2015 2 1)
                 :expected #?(:clj 16/45
-                             :cljs 0.360)}
+                             :cljs 0.356)}
                {:description "the last day of a quarter"
                 :budget #:budget{:period :quarter
                                  :period-count 4
@@ -299,7 +303,10 @@
                              :cljs 1.0)}]]
     (doseq [{:keys [description budget date expected]} tests]
       (testing description
-        (is (= expected (budgets/percent-of-period budget date)))))))
+        #?(:clj  (is (= expected (budgets/percent-of-period budget date)))
+           :cljs (is (close-enough expected
+                                   (budgets/percent-of-period budget date)
+                                   0.01)))))))
 
 (deftest find-an-item-by-its-account
   (let [expected #:budget-item{:account {:id :groceries}
