@@ -6,7 +6,7 @@
 (defn- after-read
   [entity]
   (update-in-if entity
-                [:settings :monitored-account-ids]
+                [:entity/settings :settings/monitored-account-ids]
                 set))
 
 (defn- transform
