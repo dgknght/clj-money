@@ -5,6 +5,9 @@
             [dgknght.app-lib.api-async :as api]
             [clj-money.state :refer [-busy busy? auth-token]]))
 
+(def default-options
+  {:encoding :edn})
+
 (def apply-fn api/apply-fn)
 
 (defn path
@@ -28,22 +31,30 @@
   ([url payload options]
    (api/get url
             payload
-            (assoc options :oauth-token @auth-token))))
+            (-> default-options
+                (merge options)
+                (assoc :oauth-token @auth-token)))))
 
 (defn post
   ([url options] (post url {} options))
   ([url payload options]
    (api/post url
              payload
-             (assoc options :oauth-token @auth-token))))
+             (-> default-options
+                 (merge options)
+                 (assoc :oauth-token @auth-token)))))
 
 (defn patch
   [url payload options]
   (api/patch url
              payload
-             (assoc options :oauth-token @auth-token)))
+             (-> default-options
+                 (merge options)
+                 (assoc :oauth-token @auth-token))))
 
 (defn delete
   [url options]
   (api/delete url
-              (assoc options :oauth-token @auth-token)))
+              (-> default-options
+                  (merge options)
+                  (assoc :oauth-token @auth-token))))
