@@ -3,6 +3,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [cheshire.generate]
+            [cheshire.core :as json]
             [reitit.core :as reitit]
             [reitit.ring :as ring]
             [reitit.exception :refer [format-exception]]
@@ -12,8 +13,8 @@
                                               api-defaults]]
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.json :refer [wrap-json-body
-                                          wrap-json-response]]
+            [ring.middleware.format-response :refer [make-encoder
+                                                     wrap-format-response]]
             [ring.middleware.session.cookie :refer [cookie-store]]
             [config.core :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
@@ -42,7 +43,8 @@
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
-            [clj-money.web.apps :as apps]))
+            [clj-money.web.apps :as apps]
+            [cljs.pprint :as pprint]))
 
 (defn- not-found []
   (-> (slurp "resources/404.html")
@@ -100,8 +102,21 @@
     (if query-string
       (log/infof "Request %s \"%s?%s\"" request-method uri query-string)
       (log/infof "Request %s \"%s\"" request-method uri))
+    (log/debugf "Request details %s \"%s\": %s"
+                request-method
+                uri
+                (with-out-str
+                  (pprint
+                    (dissoc req
+                            :reitit.core/match
+                            :reitit.core/router))))
     (let [res (handler req)]
       (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
+      (log/debugf "Response details %s \"%s\": %s"
+                  request-method
+                  uri
+                  (with-out-str
+                    (pprint res)))
       res)))
 
 (defn- wrap-merge-path-params
@@ -131,19 +146,17 @@
                                         :authentication]}
                    images/routes]
                   ["oapi/" {:middleware [:api
-                                         wrap-json-response
+                                         :wrap-format-response
                                          wrap-merge-path-params
                                          wrap-integer-id-params
-                                         wrap-exceptions
-                                         :json-body]}
+                                         wrap-exceptions]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
-                                        wrap-json-response
+                                        :wrap-format-response
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         :authentication
-                                        wrap-exceptions
-                                        :json-body]}
+                                        wrap-exceptions]}
                    users-api/routes
                    entities-api/routes
                    commodities-api/routes
@@ -165,7 +178,14 @@
                                          :api [wrap-defaults (-> api-defaults
                                                                  (assoc-in [:params :multipart] true)
                                                                  (assoc-in [:security :anti-forgery] false))]
-                                         :json-body [wrap-json-body {:keywords? true :bigdecimals? true}]
+                                         :wrap-format-response [wrap-format-response
+                                                                {:predicate (constantly true)
+                                                                 :encoders [(make-encoder pr-str "application/edn")
+                                                                            (make-encoder json/generate-string "application/json")]
+                                                                 :charset "UTF-8"
+                                                                 :handle-error (fn [ex _req res]
+                                                                                 (pprint {::error-formatting-the-response ex})
+                                                                                 res)}]
                                          :authentication [api/wrap-authentication
                                                           {:authenticate-fn find-user-by-auth-token}]}})
     (ring/routes

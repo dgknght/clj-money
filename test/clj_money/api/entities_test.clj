@@ -4,7 +4,8 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
+            [dgknght.app-lib.test :refer [parse-json-body
+                                          parse-edn-body]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.models.ref]
@@ -103,9 +104,11 @@
   [email]
   (with-context list-context
     (-> (req/request :get (path :api :entities))
+        (req/content-type "application/edn")
+        (req/header "Accept" "application/edn")
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-list
   [{:as response :keys [json-body]}]
