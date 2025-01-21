@@ -1,9 +1,14 @@
 (ns clj-money.api
   (:refer-clojure :exclude [get])
   (:require [cljs.pprint :refer [pprint]]
+            [cljs.reader :as reader :include-macros true]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api-async :as api]
+            [clj-money.dates :as dates]
             [clj-money.state :refer [-busy busy? auth-token]]))
+
+(reader/add-data-readers
+  {'local-date-time dates/local-date-time})
 
 (def default-options
   {:encoding :edn})
