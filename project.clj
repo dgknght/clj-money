@@ -46,7 +46,11 @@
                                                       com.cognitect/transit-clj
                                                       prismatic/schema
                                                       com.fasterxml.jackson.core/jackson-core]]
-                 [metosin/ring-middleware-format "0.6.0"]
+                 [metosin/ring-middleware-format "0.6.0" :exclusions [org.clojure/tools.reader
+                                                                      org.clojure/tools.analyzer.jvm
+                                                                      org.clojure/core.memoize
+                                                                      com.cognitect/transit-clj
+                                                                      ring]]
                  [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader]]
                  [selmer "1.11.7" :exclusions [joda-time
