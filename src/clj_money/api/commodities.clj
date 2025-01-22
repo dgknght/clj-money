@@ -38,8 +38,8 @@
 (defn- append-shares-owned
   [commodities]
   (if (seq commodities)
-    (let [lots (->> (models/select {:lot/commodity {:id [:in (map :id commodities)]}
-                                    :shares-owned [:> 0]})
+    (let [lots (->> (models/select #:lot{:commodity {:id [:in (map :id commodities)]}
+                                         :shares-owned [:> 0]})
                     (group-by (comp :lot/commodity :id))
                     (map #(update-in % [1] (fn [lots]
                                              (->> lots
