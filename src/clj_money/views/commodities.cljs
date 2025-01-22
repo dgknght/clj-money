@@ -147,29 +147,35 @@
     100))
 
 (defn- commodity-row
-  [{:keys [latest-price most-recent-price] :as commodity} page-state]
+  [{:commodity/keys [latest-price
+                     most-recent-price
+                     symbol
+                     exchange]
+    :as commodity}
+   page-state]
   (let  [default? (= (:id commodity)
-                     (get-in @current-entity [:settings :default-commodity-id]))]
+                     (get-in @current-entity [:entity/settings
+                                              :settings/default-commodity-id]))]
     ^{:key (:id commodity)}
     [:tr
-     [:td (truncate (:name commodity))]
-     [:td.d-lg-table-cell.d-none (:symbol commodity)]
-     [:td.d-lg-table-cell.d-none (:exchange commodity)]
+     [:td (truncate (:commodity/name commodity))]
+     [:td.d-lg-table-cell.d-none symbol]
+     [:td.d-lg-table-cell.d-none exchange]
      [:td.d-lg-table-cell.d-none.text-end (currency-format (:price most-recent-price))]
      [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
        [:button.btn.btn-light.btn-sm {:title "Click here to edit this commodity."
-                                     :on-click (fn []
-                                                 (swap! page-state #(-> %
-                                                                        (dissoc :prices-commodity)
-                                                                        (assoc :selected commodity)))
-                                                 (set-focus "type"))}
+                                      :on-click (fn []
+                                                  (swap! page-state #(-> %
+                                                                         (dissoc :prices-commodity)
+                                                                         (assoc :selected commodity)))
+                                                  (set-focus "type"))}
         (icon :pencil :size :small)]
        [:button.btn.btn-light.btn-sm {:title "Click here to view prices for this commodity."
-                                     :disabled default?
-                                     :on-click #(select-prices-commodity page-state
-                                                                         commodity)}
+                                      :disabled default?
+                                      :on-click #(select-prices-commodity page-state
+                                                                          commodity)}
         (icon :collection :size :small)]
        [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
                                        :disabled default?
@@ -241,7 +247,8 @@
   (let [commodities (r/cursor page-state [:commodities])
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
         filter-fn (make-reaction #(if @hide-zero-shares?
-                                    (fn [{:keys [shares-owned created-at]}]
+                                    (fn [{:commodity/keys [created-at]
+                                          :lot/keys [shares-owned]}]
                                       (or (t/after? created-at
                                                     (t/minus (t/now) (t/hours 1)))
                                           (not (zero? shares-owned))))
