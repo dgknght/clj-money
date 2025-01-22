@@ -19,13 +19,16 @@
                      (type other))
                   (t/equal? this other)))))
 
+(declare serialize-local-date)
+(declare serialize-local-date-time)
+
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
            (-pr-writer [date writer _]
-             (write-all writer "#local-date \"" (tf/unparse (tf/formatters :date) date) "\""))
+             (write-all writer "#local-date \"" (serialize-local-date date) "\""))
            DateTime
            (-pr-writer [date writer _]
-             (write-all writer "#local-date-time \"" (tf/unparse (tf/formatters :date-time) date) "\""))))
+             (write-all writer "#local-date-time \"" (serialize-local-date-time date) "\""))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn local-date
@@ -41,7 +44,7 @@
 (defn local-date-time
   [x]
   #?(:clj (t/local-date-time x)
-     :cljs (tf/parse (tf/formatters :date-time) x)))
+     :cljs (tf/parse (tf/formatters :date-hour-minute-second-fraction) x)))
 
 (def local-date-time?
   #?(:clj t/local-date-time?
@@ -347,7 +350,7 @@
 
 (defn serialize-local-date-time
   [local-date-time]
-  #?(:clj (t/format (t/formatter :iso-date-time) local-date-time)
+  #?(:clj (t/format (t/formatter "yyyy-MM-dd'T'hh:mm:ss.SSS") local-date-time)
      :cljs (tf/unparse-local (tf/formatters :date-hour-minute-second) local-date-time)))
 
 (defn unserialize-local-date-time
