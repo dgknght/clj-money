@@ -857,9 +857,10 @@
         account (r/cursor allocation [:account])
         cash (r/cursor allocation [:cash])
         withdrawal (r/cursor allocation [:withdrawal])
-        allocations (make-reaction #(sort-by (comp :account/name :account)
-                                             (allocate @account @accounts-by-id {:cash @cash
-                                                                                 :withdrawal @withdrawal})))
+        allocations (make-reaction #(when (and @cash @withdrawal)
+                                     (sort-by (comp :account/name :account)
+                                              (allocate @account @accounts-by-id {:cash @cash
+                                                                                  :withdrawal @withdrawal}))))
         total-percent (make-reaction #(decimal// (reduce decimal/+ 0M (vals (:allocations @account)))
                                                  100M))
         total-percent-class (make-reaction #(if (decimal/zero? (decimal/- 1M @total-percent))
