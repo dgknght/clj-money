@@ -5,10 +5,13 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api-async :as api]
             [clj-money.dates :as dates]
+            [clj-money.decimal :as decimal]
             [clj-money.state :refer [-busy busy? auth-token]]))
 
 (reader/add-data-readers
-  {'local-date-time dates/local-date-time})
+  {'local-date-time dates/local-date-time
+   'local-date dates/local-date
+   'bigdec decimal/d})
 
 (def default-options
   {:encoding :edn})
