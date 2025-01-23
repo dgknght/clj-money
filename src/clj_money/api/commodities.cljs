@@ -6,41 +6,36 @@
 (defn count
   [xf]
   (api/get (api/path :entities (:id @current-entity) :commodities :count)
-           {:transform xf
+           {:post-xf xf
             :handle-ex (handle-ex "Unable to get a count of commodities: %s")}))
 
 (defn select
-  ([xf]
-   (select {} xf))
-  ([criteria xf]
-   (api/get (api/path :entities (:id @current-entity) :commodities)
-            criteria
-            {:transform xf
-             :handle-ex (handle-ex "Unable to retrieve the commodities: %s")})))
+  [criteria & {:as opts}]
+  (api/get (api/path :entities (:id @current-entity) :commodities)
+           criteria
+           (assoc opts :on-error (handle-ex "Unable to retrieve the commodities: %s"))))
 
 (defn create
-  [commodity xf]
+  [commodity opts]
   (api/post (api/path :entities (:commodity/entity commodity) :commodities)
             commodity
-            {:transform xf
-             :handle-ex (handle-ex "Unable to create the commodity: %s)")}))
+            (assoc opts :on-error (handle-ex "Unable to create the commodity: %s"))))
 
 (defn update
-  [commodity xf]
+  [commodity opts]
   (api/patch (api/path :commodities commodity)
              commodity
-             {:transform xf
-              :handle-ex (handle-ex "Unable to update the commodity: %s")}))
+             (assoc opts :on-error (handle-ex "Unable to update the commodity: %s"))))
 
 (defn save
-  [commodity xf]
+  [commodity & {:as opts}]
   (let [f (if (:id commodity)
             update
             create)]
-    (f commodity xf)))
+    (f commodity opts)))
 
 (defn delete
   [commodity xf]
   (api/delete (api/path :commodities (:id commodity))
-              {:transform xf
+              {:post-xf xf
                :handle-ex (handle-ex "Unable to remove the commodity: %s")}))

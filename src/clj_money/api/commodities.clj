@@ -1,6 +1,7 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count])
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.pprint :refer [pprint]]
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
@@ -81,8 +82,8 @@
    :commodity/price-config])
 
 (defn- extract-commodity
-  [{:keys [body params]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (select-keys attribute-keys)
       (update-in [:commodity/entity] (fnil identity
                                            {:id (:entity-id params)}))

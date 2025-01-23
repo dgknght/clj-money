@@ -30,21 +30,21 @@
 (defn- load-commodities
   [page-state]
   (+busy)
-  (commodities/select
-    (map (fn [result]
-           (-busy)
-           (swap! page-state #(-> %
-                                  (dissoc :prices-commodity)
-                                  (assoc :commodities (sort-by :name result))))))))
+  (commodities/select {}
+    :callback -busy
+    :on-success (fn [result]
+                  (swap! page-state #(-> %
+                                         (dissoc :prices-commodity)
+                                         (assoc :commodities (sort-by :name result)))))))
 
 (defn- save-commodity
   [page-state]
   (+busy)
   (commodities/save (get-in @page-state [:selected])
-                    (map (fn [_]
-                           (-busy)
-                           (swap! page-state dissoc :selected)
-                           (load-commodities page-state)))))
+                    :callback -busy
+                    :on-success (fn []
+                                  (swap! page-state dissoc :selected)
+                                  (load-commodities page-state))))
 
 (defn- commodity-form
   [page-state]
@@ -69,7 +69,7 @@
            [forms/select-field commodity [:commodity/exchange] ["" "nyse" "nasdaq" "otc"]]
            [forms/text-field commodity [:commodity/symbol] {:validations #{::v/required}}]
            [forms/text-field commodity [:commodity/name] {:validations #{::v/required}}]
-           [forms/checkbox-field commodity [:price-config :enabled] {:caption "Download prices"}]]
+           [forms/checkbox-field commodity [:commodity/price-config :price-config/enabled] {:caption "Download prices"}]]
           [:div.card-footer
            [button {:html {:class "btn-primary"
                            :type :submit
@@ -226,8 +226,8 @@
   (not (decimal/zero? shares-owned)))
 
 (defn- price-download-enabled?
-  [{:keys [price-config]}]
-  (:enabled price-config))
+  [{:commodity/keys [price-config]}]
+  (:price-config/enabled price-config))
 
 (defn- download-prices
   [page-state]
@@ -251,8 +251,8 @@
                                                            type]
                                           :lot/keys [shares-owned]}]
                                       (or (= :currency type)
-                                          (t/after? created-at
-                                                    (t/minus (t/now) (t/hours 1)))
+                                          (t/before? created-at
+                                                     (t/minus (t/now) (t/hours 1)))
                                           (not (zero? shares-owned))))
                                     (constantly true)))
         filtered (make-reaction #(filter @filter-fn @commodities))
@@ -306,7 +306,7 @@
                                           #:commodity{:entity @current-entity
                                                       :type "stock"
                                                       :exchange "nyse"
-                                                      :price-config {:enabled true}})
+                                                      :price-config {:price-config/enabled true}})
                                    (set-focus "type"))}
                 :icon :plus
                 :caption "Add"
