@@ -11,7 +11,7 @@
   ([criteria xf]
    (api/get (api/path :entities (:id @current-entity) :accounts)
             criteria
-            {:transform xf
+            {:post-xf xf
              :handle-ex (handle-ex "Unable to get the list of acounts: %s")})))
 
 (def ^:private attribute-keys
@@ -35,7 +35,7 @@
                 (update-in [:account/entity] util/->model-ref)
                 (select-keys attribute-keys)
                 (util/pp-> ::ready))
-            {:transform xf
+            {:post-xf xf
              :handle-ex (handle-ex "Unable to create the account: %s")}))
 
 (defn update
@@ -44,7 +44,7 @@
   ([account xf ex-handler]
    (api/patch (api/path :accounts (:id account))
               (select-keys account attribute-keys)
-              {:transform xf
+              {:post-xf xf
                :handle-ex ex-handler})))
 
 (defn save
@@ -56,5 +56,5 @@
 (defn delete
   [account xf]
   (api/delete (api/path :accounts (:id account))
-              {:transform xf
+              {:post-xf xf
                :handle-ex (handle-ex "Unable to delete the account: %s")}))
