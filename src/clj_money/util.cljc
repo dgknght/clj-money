@@ -454,3 +454,24 @@
     :else
     (let [{:keys [include]} (apply hash-map args)]
       (select-keys a1 (concat simple-keys include)))))
+
+(def ^:private timestamp? #{"updated-at" "created-at"})
+(def ^:private non-timestamp? (complement timestamp?))
+
+(defn- keep?
+  [n]
+  (let [target (name n)]
+    (fn [[k]]
+      (or (= :id k)
+          (and (= target (namespace k))
+               (non-timestamp? (name k)))))))
+
+(defn prune-model
+  "Given a model m strips out all attributes that don't have the namespace n
+  or :id. Also, :create-at and :updated-at are removed."
+  [m n]
+  (with-meta
+    (->> m
+         (filter (keep? n))
+         (into {}))
+    (meta m)))

@@ -237,3 +237,13 @@
       "A blank value is replaced with the default")
   (is (= "A" (util/presence-or "A" "B"))
       "A present value is returned"))
+
+(deftest prune-a-model-for-submission
+    (is (= {:id 1
+            :user/name "John Doe"}
+           (util/prune-model {:id 1
+                              :user/name "John Doe"
+                              :user/updated-at "2020-01-01T00:00:00.000Z"
+                              :country/name "US"}
+                             :user))
+        "Intrinsic model attributes are returned, the rest are omitted."))
