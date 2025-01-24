@@ -81,28 +81,19 @@
    :commodity/type
    :commodity/price-config])
 
-(defn- extract-commodity
-  [{:keys [params]}]
+(defn- create
+  [{:keys [authenticated params]}]
   (-> params
       (select-keys attribute-keys)
-      (update-in [:commodity/entity] (fnil identity
-                                           {:id (:entity-id params)}))
-      (update-in-if [:commodity/exchange] keyword)
-      (update-in-if [:commodity/type] keyword)))
-
-(defn- create
-  [{:keys [authenticated] :as req}]
-  (-> req
-      extract-commodity
       (authorize ::authorization/create authenticated)
       models/put
       api/creation-response))
 
 (defn- update
-  [req]
+  [{:keys [params] :as req}]
   (if-let [commodity (find-and-authorize req ::authorization/update)]
     (-> commodity
-        (merge (extract-commodity req))
+        (merge (select-keys params attribute-keys))
         models/put
         api/update-response)
     api/not-found))
