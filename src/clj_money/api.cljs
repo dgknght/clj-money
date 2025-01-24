@@ -7,7 +7,7 @@
             [dgknght.app-lib.api-3 :as api]
             [clj-money.dates :as dates]
             [clj-money.decimal :as decimal]
-            [clj-money.state :refer [-busy busy? auth-token]]))
+            [clj-money.state :refer [auth-token]]))
 
 (reader/add-data-readers
   {'local-date-time dates/local-date-time
@@ -29,8 +29,8 @@
   argument to the format function."
   [msg & args]
   (fn [e]
-    (when @busy? (-busy))
-    (.dir js/console e)
+    (pprint {::error e
+             ::ex-data (ex-data e)})
     (apply notify/dangerf msg (.-message e) args)))
 
 (defn- append-query
