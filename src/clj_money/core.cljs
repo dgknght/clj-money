@@ -219,7 +219,13 @@
   (entities/select :on-success receive-entities))
 
 (defn- fetch-current-user []
-  (users/me :on-success #(swap! app-state assoc :current-user %)))
+  (users/me :on-success
+            #(swap! app-state
+                    assoc
+                    :current-user
+                    (dissoc %
+                            :user/created-at
+                            :user/updated-at))))
 
 (defn- sign-in-from-cookie []
   (if @current-user
