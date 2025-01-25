@@ -41,8 +41,8 @@
       api/response))
 
 (defn- extract-price
-  [{:keys [body]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (select-keys [:price/trade-date
                     :price/price])
       (update-in-if [:price/trade-date] dates/unserialize-local-date)
