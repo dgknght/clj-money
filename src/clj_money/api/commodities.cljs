@@ -6,17 +6,22 @@
             [clj-money.api :as api :refer [handle-ex]]))
 
 (defn count
-  [criteria & {:as opts}]
-  (api/get (api/path :entities @current-entity :commodities :count)
-           criteria
+  [{:as criteria :commodity/keys [entity]} & {:as opts}]
+  (api/get (api/path :entities
+                     (or entity @current-entity)
+                     :commodities
+                     :count)
+           (dissoc criteria :commodity/entity)
            (merge
              {:on-error (handle-ex "Unable to get a count of commodities: %s")}
              opts)))
 
 (defn select
-  [criteria & {:as opts}]
-  (api/get (api/path :entities @current-entity :commodities)
-           criteria
+  [{:as criteria :commodity/keys [entity]} & {:as opts}]
+  (api/get (api/path :entities
+                     (or entity @current-entity)
+                     :commodities)
+           (dissoc criteria :commodity/entity)
            (merge
                {:on-error (handle-ex "Unable to retrieve the commodities: %s")}
                opts)))
