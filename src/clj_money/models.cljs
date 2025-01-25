@@ -1,5 +1,6 @@
 (ns clj-money.models
-  (:require [clj-money.util :as util]))
+  (:require [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.util :as util]))
 
 (def models
   {:commodity {:keys #{:commodity/name
@@ -15,12 +16,13 @@
 (defn- apply-transformations
   [m model-type]
   (reduce (fn [model k]
-            (update-in model [k] util/->model-ref))
+            (update-in-if model [k] util/->model-ref))
           m
           (-> models model-type :references)))
 
 (defn prune
-  [m model-type]
+  [m model-type & {:keys [exclude]}]
   (-> m
       (select-keys (cons :id (-> models model-type :keys)))
+      (apply dissoc exclude)
       (apply-transformations model-type)))
