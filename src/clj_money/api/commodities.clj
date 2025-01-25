@@ -6,7 +6,6 @@
                                              +scope]
              :as authorization]
             [dgknght.app-lib.api :as api]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.models :as models]
             [clj-money.authorization.commodities]))
 

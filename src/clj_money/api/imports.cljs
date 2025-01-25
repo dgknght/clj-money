@@ -1,13 +1,10 @@
 (ns clj-money.api.imports
   (:refer-clojure :exclude [update get])
-  (:require [cljs-http.client :as http]
-            [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date-time]]
-            [dgknght.app-lib.api-async :as lib-api]
-            [clj-money.state :refer [app-state]]
+  (:require #_[cljs-http.client :as http]
+            #_[clj-money.state :refer [app-state]]
             [clj-money.api :as api :refer [handle-ex]]))
 
-(defn- ->multipart-params
+#_(defn- ->multipart-params
   [{:keys [files] :as import-data}]
   (->> files
        (map-indexed (fn [idx f] [idx f]))
@@ -17,57 +14,47 @@
                         file))
                (dissoc import-data :files))))
 
-(defn- after-read
-  [imp]
-  (-> imp
-      (update-in [:created-at] unserialize-date-time)
-      (update-in [:updated-at] unserialize-date-time)))
-
-(defn- after-create
-  [result]
-  (update-in result [:import] after-read))
-
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read)
-        xf))
-
 (defn create
-  [import-data xf]
-  (let [params (-> import-data
+  [_import-data & {:as _opts}]
+  (throw (js/Error. "Not implemented"))
+  #_(let [params (-> import-data
                    ->multipart-params
                    (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                   clj->js)))]
     (http/post (api/path :imports)
                (-> (lib-api/request {:transform (comp (api/apply-fn after-create)
-                                                  xf)
-                                 :handle-ex (handle-ex "Unable to create the import: %s")})
+                                                      xf)
+                                     :handle-ex (handle-ex "Unable to create the import: %s")})
                    (lib-api/multipart-params params)
                    (assoc :oauth-token (:auth-token @app-state))))))
 
 (defn get
-  [id xf]
+  [id & {:as opts}]
   (api/get (api/path :imports id)
            {}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the import: %s")}))
+           (merge
+             {:on-error (handle-ex "Unable to retrieve the import: %s")}
+             opts)))
 
 (defn select
-  [xf]
+  [& {:as opts}]
   (api/get (api/path :imports)
            {}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the imports: %s")}))
+           (merge
+             {:on-error (handle-ex "Unable to retrieve the imports: %s")}
+             opts)))
 
 (defn delete
-  [{id :id} xf]
+  [{:keys [id]} & {:as opts}]
   (api/delete (api/path :imports id)
-              {:transform xf
-               :handle-ex (handle-ex "Unable to delete the import: %s")}))
+              (merge
+                {:on-error (handle-ex "Unable to delete the import: %s")}
+                opts)))
 
 (defn start
-  [{id :id} xf]
-  (let [path (api/path :imports id)]
+  [{:keys [_id]} & {:as _opts}]
+  (throw (js/Error. "Not implemented"))
+  #_(let [path (api/path :imports id)]
     (http/patch path
                 (assoc (lib-api/request
                          {:transform (transform xf)
