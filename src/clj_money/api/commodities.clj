@@ -6,6 +6,7 @@
                                              +scope]
              :as authorization]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.authorization.commodities]))
 
@@ -84,6 +85,7 @@
   [{:keys [authenticated params]}]
   (-> params
       (select-keys attribute-keys)
+      (assoc :commodity/entity {:id (:entity-id params)})
       (authorize ::authorization/create authenticated)
       models/put
       api/creation-response))
