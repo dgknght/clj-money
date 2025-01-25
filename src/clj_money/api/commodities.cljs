@@ -7,7 +7,7 @@
 
 (defn count
   [criteria & {:as opts}]
-  (api/get (api/path :entities (:id @current-entity) :commodities :count)
+  (api/get (api/path :entities @current-entity :commodities :count)
            criteria
            (merge
              {:on-error (handle-ex "Unable to get a count of commodities: %s")}
@@ -15,7 +15,7 @@
 
 (defn select
   [criteria & {:as opts}]
-  (api/get (api/path :entities (:id @current-entity) :commodities)
+  (api/get (api/path :entities @current-entity :commodities)
            criteria
            (merge
                {:on-error (handle-ex "Unable to retrieve the commodities: %s")}
@@ -23,8 +23,8 @@
 
 (defn create
   [commodity opts]
-  (api/post (api/path :entities (:commodity/entity commodity) :commodities)
-            (models/prune commodity :commodity)
+  (api/post (api/path :entities @current-entity :commodities)
+            commodity
             (merge
                {:on-error (handle-ex "Unable to create the commodity: %s")}
                opts)))
@@ -32,7 +32,7 @@
 (defn update
   [commodity opts]
   (api/patch (api/path :commodities commodity)
-             (models/prune commodity :commodity)
+             commodity
              (merge
                {:on-error (handle-ex "Unable to update the commodity: %s")}
                opts)))
@@ -42,11 +42,14 @@
   (let [f (if (:id commodity)
             update
             create)]
-    (f commodity opts)))
+    (-> commodity
+        (models/prune :commodity
+                      :exclude [:commodity/entity])
+        (f opts))))
 
 (defn delete
   [commodity & {:as opts}]
-  (api/delete (api/path :commodities (:id commodity))
+  (api/delete (api/path :commodities commodity)
               (merge
                {:on-error (handle-ex "Unable to delete the commodity: %s")}
                opts)))
