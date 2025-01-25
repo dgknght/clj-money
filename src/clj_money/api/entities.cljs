@@ -20,7 +20,7 @@
 
 (defn update
   [entity opts]
-  (api/patch (api/path :entities (:id entity))
+  (api/patch (api/path :entities entity)
              entity
              (add-error-handler
                opts
@@ -35,7 +35,7 @@
 
 (defn delete
   [entity & {:as opts}]
-  (api/delete (api/path :entities (:id entity))
+  (api/delete (api/path :entities entity)
               (add-error-handler
                 opts
                 "Unable to delete the entity: %s")))
