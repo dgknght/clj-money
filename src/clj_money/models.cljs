@@ -24,5 +24,5 @@
   [m model-type & {:keys [exclude]}]
   (-> m
       (select-keys (cons :id (-> models model-type :keys)))
-      (apply dissoc exclude)
+      (dissoc exclude)
       (apply-transformations model-type)))
