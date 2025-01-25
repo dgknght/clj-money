@@ -18,6 +18,7 @@
 
 (defn path
   [& segments]
+  {:pre [(every? identity segments)]}
   (->> segments
        (map #(if (map? %) (:id %) %))
        (apply api/path)))
