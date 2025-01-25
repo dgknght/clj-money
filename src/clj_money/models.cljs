@@ -9,9 +9,9 @@
                        :commodity/type
                        :commodity/price-config}
                :references #{:commodity/entity}}
-   :prices {:keys #{:price/price
-                    :price/trade-date}
-            :references #{:price/commodity}}})
+   :price {:keys #{:price/price
+                   :price/trade-date}
+           :references #{:price/commodity}}})
 
 (defn- apply-transformations
   [m model-type]
@@ -20,9 +20,16 @@
           m
           (-> models model-type :references)))
 
+(defn- include
+  [model-type]
+  (cons :id
+        (concat (-> models model-type :keys)
+                (-> models model-type :references))))
+
 (defn prune
   [m model-type & {:keys [exclude]}]
+  (assert (models model-type) (str "Unrecognized model type: " model-type))
   (-> m
-      (select-keys (cons :id (-> models model-type :keys)))
+      (select-keys (include model-type))
       (dissoc exclude)
       (apply-transformations model-type)))

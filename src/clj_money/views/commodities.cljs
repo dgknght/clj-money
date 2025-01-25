@@ -152,8 +152,11 @@
               (assoc :prices-commodity commodity)))
   (js/setTimeout
     (fn []
-      (when (bounded? commodity)
-        (init-price-loading page-state))
+      (if (bounded? commodity)
+        (init-price-loading page-state)
+        (swap! page-state assoc
+               :prices []
+               :all-prices-fetched? true))
       (-busy))
     100))
 
@@ -366,49 +369,69 @@
                                      :on-click #(delete-price price page-state)}
       (icon :x-circle :size :small)]]]])
 
+(defn- prices-table
+  [page-state]
+  (let [prices (r/cursor page-state [:prices])]
+    (fn []
+      [:table.table.table-striped.table-hover
+       [:thead
+        [:tr
+         [:th.text-end "Trade Date"]
+         [:th.text-end "Price"]
+         [:th (html/space)]]]
+       [:tbody
+        (cond
+          (nil? @prices)
+          [:tr
+           [:td
+            {:col-span 3}
+            [:div.spinner-border.text-primary {:role :status} "Loading..."]]]
+
+          (empty? @prices)
+          [:tr
+           [:td
+            {:col-span 3}
+            [:span.inline-status "No prices found."]]]
+
+          :else
+          (doall (map #(price-row % page-state) @prices)))]])))
+
 (defn- price-list
   [page-state]
-  (let [prices (r/cursor page-state [:prices])
-        commodity (r/cursor page-state [:prices-commodity])
+  (let [commodity (r/cursor page-state [:prices-commodity])
+        price (r/cursor page-state [:selected-price])
         all-prices-fetched? (r/cursor page-state [:all-prices-fetched?])
         ctl-chan (r/cursor page-state [:prices-ctl-chan])]
     (fn []
-      [:div.card {:class (when-not @commodity "d-none")}
+      [:div.card {:class (cond
+                           (nil? @commodity) "d-none"
+                           @price "d-none d-lg-block")}
        [:div.card-header [:strong (str (:name @commodity) " Prices")]]
        [:div#prices-container {:style {:max-height "40em" :overflow "auto"}}
-        [:table.table.table-striped.table-hover
-         [:thead
-          [:tr
-           [:th.text-end "Trade Date"]
-           [:th.text-end "Price"]
-           [:th (html/space)]]]
-         [:tbody
-          (if @prices
-            (doall (map #(price-row % page-state) @prices))
-            [:tr
-             [:td
-              {:col-span 3}
-              [:span.inline-status "Loading..."]]])]]]
+        [prices-table page-state]]
        [:div.card-footer.d-flex.align-items-center
-        [button {:html {:class "btn-primary"
-                        :title "Click here to add a new price for this commodity."
-                        :on-click (fn []
-                                    (swap! page-state
-                                           assoc
-                                           :selected-price
-                                           {:commodity-id (:id @commodity)
-                                            :trade-date (t/today)})
-                                    (set-focus "trade-date"))}
-                 :icon :plus
-                 :caption "Add"}]
-        [button {:html {:class "btn-secondary ms-2"
-                        :on-click #(swap! page-state dissoc :prices-commodity)}
-                 :icon :x
-                 :caption "Close"}]
-        [:span.ms-auto
-         [load-on-scroll {:target "prices-container"
-                          :all-items-fetched? @all-prices-fetched?
-                          :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
+        [:div.row
+         [:div.col-auto
+          [button {:html {:class "btn-primary"
+                          :title "Click here to add a new price for this commodity."
+                          :on-click (fn []
+                                      (swap! page-state
+                                             assoc
+                                             :selected-price
+                                             #:price{:commodity @commodity
+                                                     :trade-date (t/today)})
+                                      (set-focus "trade-date"))}
+                   :icon :plus
+                   :caption "Add"}]
+          [button {:html {:class "btn-secondary ms-2"
+                          :on-click #(swap! page-state dissoc :prices-commodity)}
+                   :icon :x
+                   :caption "Close"}]]
+         [:div.col-auto
+          [:span.ms-auto
+           [load-on-scroll {:target "prices-container"
+                            :all-items-fetched? @all-prices-fetched?
+                            :load-fn #(go (>! @ctl-chan :fetch))}]]]]]])))
 
 (defn- comp-prices
   [{d1 :trade-date} {d2 :trade-date}]
@@ -422,27 +445,29 @@
   (comp-prices p2 p1))
 
 (defn- post-save-price
-  [page-state new? {:keys [id] :as price}]
-  (-busy)
-  (let [update-fn (if new?
-                    (fn [prices]
-                      (->> (conj prices price)
-                           (sort comp-prices-rev)
-                           vec))
-                    (fn [prices]
-                      (mapv #(if (= (:id %) id)
-                               price
-                               %)
-                            prices)))]
-    (swap! page-state #(-> %
-                           (dissoc :selected-price)
-                           (update-in [:prices] update-fn)))))
+  [page-state new?]
+  (fn [{:keys [id] :as price}]
+    (let [update-fn (if new?
+                      (fn [prices]
+                        (->> (conj prices price)
+                             (sort comp-prices-rev)
+                             vec))
+                      (fn [prices]
+                        (mapv #(if (= (:id %) id)
+                                 price
+                                 %)
+                              prices)))]
+      (swap! page-state #(-> %
+                             (dissoc :selected-price)
+                             (update-in [:prices] update-fn))))))
 (defn- save-price
   [page-state]
-  (let [price (get-in @page-state [:selected-price])]
+  (let [price (:selected-price @page-state)]
     (+busy)
     (prices/save price
-                 (map (partial post-save-price page-state (not (:id price)))))))
+                 :callback -busy
+                 :on-success (post-save-price page-state
+                                              (not (:id price))))))
 
 (defn- price-form
   [page-state]
@@ -458,8 +483,8 @@
          [:div.card.mt-2 {:class (when-not @price "d-none")}
           [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
           [:div.card-body
-           [forms/date-field price [:trade-date] {:validations #{::v/required}}]
-           [forms/decimal-field price [:price] {:validations #{::v/required}}]]
+           [forms/date-field price [:price/trade-date] {:validations #{::v/required}}]
+           [forms/decimal-field price [:price/price] {:validations #{::v/required}}]]
           [:div.card-footer
            [button {:html {:class "btn-primary"
                                    :title "Click here to save this price."
