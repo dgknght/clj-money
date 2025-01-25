@@ -1,6 +1,7 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count get])
   (:require [cljs.pprint :refer [pprint]]
+            [clj-money.models :as models]
             [clj-money.util :as util]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [handle-ex]]))
@@ -24,7 +25,7 @@
 (defn create
   [commodity opts]
   (api/post (api/path :entities (:commodity/entity commodity) :commodities)
-            commodity
+            (models/prune commodity :commodity)
             (merge
                {:on-error (handle-ex "Unable to create the commodity: %s")}
                opts)))
@@ -32,7 +33,7 @@
 (defn update
   [commodity opts]
   (api/patch (api/path :commodities commodity)
-             (util/prune-model commodity :commodity)
+             (models/prune commodity :commodity)
              (merge
                {:on-error (handle-ex "Unable to update the commodity: %s")}
                opts)))
