@@ -1,65 +1,53 @@
 (ns clj-money.api.prices
   (:refer-clojure :exclude [update])
   (:require [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.web :refer [unserialize-date
-                                         serialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [dgknght.app-lib.decimal :refer [->decimal]]
-            [clj-money.api :refer [handle-ex]]))
-
-(defn- after-read
-  [price]
-  (let [trade-date (unserialize-date (:trade-date price))]
-    (-> price
-        (update-in [:price] ->decimal)
-        (assoc
-          :trade-date trade-date
-          :original-trade-date trade-date))))
+            [dgknght.app-lib.web :refer [serialize-date]]
+            [clj-money.util :refer [update-keys]]
+            [clj-money.models :as models]
+            [clj-money.api :as api :refer [handle-ex]]))
 
 (defn- prepare-criteria
   [criteria]
-  (update-in criteria [:trade-date] #(map serialize-date %)))
+  (-> criteria
+      (update-in [:price/trade-date] #(map serialize-date %))
+      (update-keys (comp keyword name))))
 
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read)
-        xf))
-
-(defn search
-  [criteria xf]
-  {:pre [(some #(contains? criteria %) [:commodity-id :entity-id])
-         (contains? criteria :trade-date)]}
+(defn select
+  [criteria & {:as opts}]
+  {:pre [(some #(contains? criteria %) [:price/commodity
+                                        :commodity/entity])
+         (contains? criteria :price/trade-date)]}
   (api/get (api/path :prices)
            (prepare-criteria criteria)
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the prices: %s")}))
+           (merge
+             {:on-error (handle-ex "Unable to retrieve the prices: %s")}
+             opts)))
 
 (defn create
-  [price xf]
+  [price opts]
   (api/post (api/path :commodities
                       (:commodity-id price)
                       :prices)
-            (-> price
-                (select-keys [:price :trade-date])
-                (update-in [:trade-date] serialize-date))
-            {:transform (transform xf)
-             :handle-ex (handle-ex "Unable to create the price: %s")}))
+            price
+            (merge
+              {:on-error (handle-ex "Unable to create the price: %s")}
+              opts)))
 
 (defn update
-  [price xf]
+  [price opts]
   (api/patch (api/path :prices
                        (serialize-date (:original-trade-date price))
                        (:id price))
-             (-> price
-                 (select-keys [:price :commodity-id :trade-date])
-                 (update-in [:trade-date] serialize-date))
-             {:transform (transform xf)
-              :handle-ex (handle-ex "Unable to update the price: %s")}))
+             price
+             (merge
+               {:on-error (handle-ex "Unable to update the price: %s")}
+               opts)))
 
 (defn save
-  [price xf]
+  [price & {:as opts}]
   (let [f (if (:id price) update create)]
-    (f price xf)))
+    (f (models/prune price :price)
+       opts)))
 
 (defn delete
   [price xf]
@@ -71,8 +59,8 @@
 
 (defn fetch
   "Gets commodity prices from an external source"
-  [commodity-ids xf]
+  [commodity-ids & {:as opts}]
   (api/get (api/path :prices :fetch)
            {:commodity-id commodity-ids}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to fetch external price information: %s")}))
+           (merge {:on-error (handle-ex "Unable to fetch external price information: %s")}
+                  opts)))
