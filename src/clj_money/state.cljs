@@ -11,8 +11,7 @@
 (add-watch app-state
            ::init
            (fn [_ _ _ state]
-             (cookies/set! :state (select-keys state [:current-user
-                                                      :auth-token]))))
+             (cookies/set! :state (select-keys state [:auth-token]))))
 
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
