@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update count get])
   (:require [cljs.pprint :refer [pprint]]
             [clj-money.models :as models]
-            [clj-money.util :as util]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [handle-ex]]))
 

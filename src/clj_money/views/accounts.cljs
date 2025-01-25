@@ -763,7 +763,7 @@
                   :commodity-id commodity-id
                   :shares-owned [:!= 0]}
                  (map #(swap! page-state assoc :lots %)))
-    (prices/search {:commodity-id commodity-id
+    (prices/select {:commodity-id commodity-id
                     :trade-date [earliest-transaction-date
                                  latest-transaction-date]}
                    (map #(swap! page-state assoc :prices %)))
