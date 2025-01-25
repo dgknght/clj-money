@@ -117,13 +117,15 @@
 
 (defn- init-price-loading
   [page-state]
-  (let [commodity (:prices-commodity @page-state)
-        {:keys [items-ch ctl-ch]} (->> (dates/desc-ranges (:earliest-price commodity)
-                                                          (:latest-price commodity)
+  (let [{:as commodity
+         :commodity/keys [earliest-price
+                          latest-price]} (:prices-commodity @page-state)
+        {:keys [items-ch ctl-ch]} (->> (dates/desc-ranges earliest-price
+                                                          latest-price
                                                           (t/years 1))
                                        (map vec)
-                                       (load-in-chunks {:fetch-xf (comp (map #(hash-map :commodity-id (:id commodity)
-                                                                                        :trade-date %))
+                                       (load-in-chunks {:fetch-xf (comp (map #(hash-map :price/commodity commodity
+                                                                                        :price/trade-date %))
                                                                         fetch-prices)}))]
     (swap! page-state assoc :ctl-chan ctl-ch)
     (go-loop [prices (<! items-ch)]
@@ -136,18 +138,21 @@
                                       (assoc :all-prices-fetched? true)))))
     (go (>! ctl-ch :fetch))))
 
+(def ^:private bounded?
+  (every-pred :commodity/earliest-price :commodity/latest-price))
+
 (defn- select-prices-commodity
   [page-state commodity]
   (+busy)
-  (swap! page-state dissoc
-         :selected
-         :prices
-         :prices-commodity
-         :all-prices-fetched?)
+  (swap! page-state
+         #(-> %
+              (dissoc :selected
+                      :prices
+                      :all-prices-fetched?)
+              (assoc :prices-commodity commodity)))
   (js/setTimeout
     (fn []
-      (swap! page-state assoc :prices-commodity commodity)
-      (when (every? commodity [:earliest-price :latest-price])
+      (when (bounded? commodity)
         (init-price-loading page-state))
       (-busy))
     100))
@@ -171,21 +176,24 @@
      [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
-       [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this commodity."
-                                          :on-click (fn []
-                                                      (swap! page-state #(-> %
-                                                                             (dissoc :prices-commodity)
-                                                                             (assoc :selected commodity)))
-                                                      (set-focus "type"))}
+       [:button.btn.btn-secondary.btn-sm
+        {:title "Click here to edit this commodity."
+         :on-click (fn []
+                     (swap! page-state #(-> %
+                                            (dissoc :prices-commodity)
+                                            (assoc :selected commodity)))
+                     (set-focus "type"))}
         (icon :pencil :size :small)]
-       [:button.btn.btn-secondary.btn-sm {:title "Click here to view prices for this commodity."
-                                          :disabled default?
-                                          :on-click #(select-prices-commodity page-state
-                                                                              commodity)}
+       [:button.btn.btn-secondary.btn-sm
+        {:title "Click here to view prices for this commodity."
+         :disabled default?
+         :on-click #(select-prices-commodity page-state
+                                             commodity)}
         (icon :collection :size :small)]
-       [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
-                                       :disabled default?
-                                       :on-click #(delete commodity page-state)}
+       [:button.btn.btn-danger.btn-sm
+        {:title "Click here to delete this commodity."
+         :disabled default?
+         :on-click #(delete commodity page-state)}
         (icon :x-circle :size :small)]]]]))
 
 (defn- match-commodity
@@ -377,7 +385,10 @@
          [:tbody
           (if @prices
             (doall (map #(price-row % page-state) @prices))
-            [:tr [:td {:col-span 3} [:span.inline-status "Loading..."]]])]]]
+            [:tr
+             [:td
+              {:col-span 3}
+              [:span.inline-status "Loading..."]]])]]]
        [:div.card-footer.d-flex.align-items-center
         [button {:html {:class "btn-primary"
                         :title "Click here to add a new price for this commodity."
