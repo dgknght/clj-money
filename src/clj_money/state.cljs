@@ -1,5 +1,6 @@
 (ns clj-money.state
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
             [dgknght.app-lib.core :as lib]))
@@ -8,10 +9,25 @@
                                    :bg-proc-count 0}
                                   (cookies/get :state))))
 
+(defn- serialize
+  [state]
+  (-> state
+      (update-in [:current-user]
+                 dissoc
+                 :user/created-at
+                 :user/updated-at)
+      (update-in [:current-entity]
+                 dissoc
+                 :entity/created-at
+                 :entity/updated-at)
+      (select-keys [:auth-token
+                    :current-user
+                    :current-entity])))
+
 (add-watch app-state
            ::init
            (fn [_ _ _ state]
-             (cookies/set! :state (select-keys state [:auth-token]))))
+             (cookies/set! :state (serialize state))))
 
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
