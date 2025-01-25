@@ -147,7 +147,7 @@
 (defn- alerts []
   (fn []
     (when (seq @notify/notifications)
-      [:div#alerts
+      [:div#alerts.m-3
        (doall (for [n @notify/notifications]
                 (bs/alert n)))])))
 
