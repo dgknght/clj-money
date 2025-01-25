@@ -27,15 +27,20 @@
                                      +busy
                                      -busy]]))
 
+(defn- receive-commodities
+  [page-state]
+  (fn [commodities]
+    (swap! page-state
+           #(-> %
+                (dissoc :prices-commodity)
+                (assoc :commodities (sort-by :commodity/name commodities))))))
+
 (defn- load-commodities
   [page-state]
   (+busy)
   (commodities/select {}
     :callback -busy
-    :on-success (fn [result]
-                  (swap! page-state #(-> %
-                                         (dissoc :prices-commodity)
-                                         (assoc :commodities (sort-by :name result)))))))
+    :on-success (receive-commodities page-state)))
 
 (defn- save-commodity
   [page-state]
@@ -53,7 +58,7 @@
   (let [commodity (r/cursor page-state [:selected])
         types (make-reaction #(if (and (:id @commodity)
                                        (= (:id @commodity)
-                                          (get-in @current-entity [:settings :default-commodity-id])))
+                                          (get-in @current-entity [:entity/settings :settings/default-commodity-id])))
                                 ["currency"]
                                 ["currency" "stock" "fund"]))]
     (fn []
@@ -68,7 +73,7 @@
           [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
           [:div.card-body
            [forms/select-field commodity [:commodity/type] @types {:validations #{::v/required}}]
-           [forms/select-field commodity [:commodity/exchange] ["" "nyse" "nasdaq" "otc"]]
+           [forms/select-field commodity [:commodity/exchange] ["" "amex" "nasdaq" "nyse" "otc"]]
            [forms/text-field commodity [:commodity/symbol] {:validations #{::v/required}}]
            [forms/text-field commodity [:commodity/name] {:validations #{::v/required}}]
            [forms/checkbox-field commodity [:commodity/price-config :price-config/enabled] {:caption "Download prices"}]]
@@ -87,13 +92,12 @@
 
 (defn- delete
   [commodity page-state]
-  (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
+  (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:commodity/name commodity) "\"?"))
     (+busy)
     (commodities/delete
       commodity
-      (map (fn []
-             (-busy)
-             (load-commodities page-state))))))
+      :callback -busy
+      :on-success #(load-commodities page-state))))
 
 (defn- truncate
   ([value] (truncate value 20))
@@ -109,7 +113,7 @@
   [xf]
   (completing
     (fn [ch criteria]
-      (prices/search criteria (map #(xf ch %))))))
+      (prices/select criteria :channel (map #(xf ch %))))))
 
 (defn- init-price-loading
   [page-state]
@@ -167,17 +171,17 @@
      [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
-       [:button.btn.btn-light.btn-sm {:title "Click here to edit this commodity."
-                                      :on-click (fn []
-                                                  (swap! page-state #(-> %
-                                                                         (dissoc :prices-commodity)
-                                                                         (assoc :selected commodity)))
-                                                  (set-focus "type"))}
+       [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this commodity."
+                                          :on-click (fn []
+                                                      (swap! page-state #(-> %
+                                                                             (dissoc :prices-commodity)
+                                                                             (assoc :selected commodity)))
+                                                      (set-focus "type"))}
         (icon :pencil :size :small)]
-       [:button.btn.btn-light.btn-sm {:title "Click here to view prices for this commodity."
-                                      :disabled default?
-                                      :on-click #(select-prices-commodity page-state
-                                                                          commodity)}
+       [:button.btn.btn-secondary.btn-sm {:title "Click here to view prices for this commodity."
+                                          :disabled default?
+                                          :on-click #(select-prices-commodity page-state
+                                                                              commodity)}
         (icon :collection :size :small)]
        [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
                                        :disabled default?
@@ -313,7 +317,7 @@
                 :icon :plus
                 :caption "Add"
                 :disabled? selected}]
-       [button {:html {:class "btn-light ms-2"
+       [button {:html {:class "btn-secondary ms-2"
                        :title "Click here to download recent prices for each commodity."
                        :on-click #(download-prices page-state)}
                 :icon :download
@@ -345,10 +349,10 @@
    [:td.text-end (currency-format (:price price))]
    [:td
     [:div.btn-group
-     [:button.btn.btn-light.btn-sm {:title "Click here to edit this price."
-                                   :on-click (fn []
-                                               (swap! page-state assoc :selected-price price)
-                                               (set-focus "trade-date"))}
+     [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this price."
+                                        :on-click (fn []
+                                                    (swap! page-state assoc :selected-price price)
+                                                    (set-focus "trade-date"))}
       (icon :pencil :size :small)]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
                                      :on-click #(delete-price price page-state)}
