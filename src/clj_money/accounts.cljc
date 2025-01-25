@@ -305,5 +305,5 @@
            (valuate-simple-accounts data simple))
          (concat (when (seq commodity)
                    (valuate-commodity-accounts data commodity)))
-         nest
+         (nest {:sort-key-fn :account/name})
          unnest)))

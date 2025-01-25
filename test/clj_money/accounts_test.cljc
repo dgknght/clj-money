@@ -457,12 +457,12 @@
                      :account/value (d 0)
                      :account/children-value (d 15000)
                      :account/total-value (d 15000)}
-                    {:account/name "Reserve"
-                     :account/value (d 10000)
-                     :account/total-value (d 10000)}
                     {:account/name "Car"
                      :account/value (d 5000)
-                     :account/total-value (d 5000)}]
+                     :account/total-value (d 5000)}
+                    {:account/name "Reserve"
+                     :account/value (d 10000)
+                     :account/total-value (d 10000)}]
           actual (accounts/valuate
               (valuation-data standard-supplemental-data)
               standard-accounts)]
