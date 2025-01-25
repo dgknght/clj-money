@@ -25,6 +25,7 @@
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
+            [clj-money.api]
             [clj-money.api.entities :as entities]
             [clj-money.api.users :as users]))
 
@@ -215,11 +216,10 @@
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
-  (entities/select
-    (map receive-entities)))
+  (entities/select :on-success receive-entities))
 
 (defn- fetch-current-user []
-  (users/me (map #(swap! app-state assoc :current-user %))))
+  (users/me :on-success #(swap! app-state assoc :current-user %)))
 
 (defn- sign-in-from-cookie []
   (if @current-user

@@ -1,17 +1,19 @@
 (ns clj-money.api.users
   (:require [dgknght.app-lib.web :refer [path]]
-            [clj-money.api :as api :refer [handle-ex]]))
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn authenticate
-  [credentials xf]
+  [credentials & {:as opts}]
   (api/post (path :oapi :users :authenticate)
             credentials
-            {:transform xf
-             :handle-ex (handle-ex "Unable to authenticate the user: %s")}))
+            (add-error-handler
+              opts
+              "Unable to authenticate the user: %s")))
 
 (defn me
-  [xf]
+  [& {:as opts}]
   (api/get (api/path :users :me)
            {}
-           {:transform xf
-            :handle-ex (handle-ex "Unable to retrieve your user profile: %s")}))
+           (add-error-handler
+             opts
+             "Unable to retrieve your user profile: %s")))

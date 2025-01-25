@@ -32,6 +32,14 @@
              ::ex-data (ex-data e)})
     (apply notify/dangerf msg (.-message e) args)))
 
+(defn add-error-handler
+  "Given a map of API options, if no :on-error is provider, include
+  one that uses the specified message format."
+  [{:keys [on-error] :as opts} msg & args]
+  (if on-error
+    opts
+    (assoc opts :on-error (apply handle-ex msg args))))
+
 (defn- append-query
   [url query]
   (if (seq? query)
