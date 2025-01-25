@@ -40,11 +40,13 @@
 (defn- save-commodity
   [page-state]
   (+busy)
-  (commodities/save (get-in @page-state [:selected])
-                    :callback -busy
-                    :on-success (fn []
-                                  (swap! page-state dissoc :selected)
-                                  (load-commodities page-state))))
+  (-> (get-in @page-state [:selected])
+      (update-in [:commodity/type] keyword)
+      (update-in [:commodity/exchange] keyword)
+      (commodities/save :callback -busy
+                        :on-success (fn []
+                                      (swap! page-state dissoc :selected)
+                                      (load-commodities page-state)))))
 
 (defn- commodity-form
   [page-state]
