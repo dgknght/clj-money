@@ -14,7 +14,7 @@
   (-> state
       (update-in [:current-user]
                  dissoc
-                 :user/created-at
+                 :user/created-at ; I'm removing dates to fix a timing problem registering the tag readers
                  :user/updated-at)
       (update-in [:current-entity]
                  dissoc
