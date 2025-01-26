@@ -147,7 +147,8 @@
        api/response))
 
 (def routes
-  [["commodities/:commodity-id/prices" {:post {:handler create}}]
+  [["commodities/:commodity-id/prices" {:post {:handler create}
+                                        :get {:handler index}}]
    ["prices"
     ["" {:get {:handler index}}]
     ["/fetch" {:get {:handler fetch}}]
