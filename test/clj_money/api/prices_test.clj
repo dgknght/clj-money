@@ -1,10 +1,12 @@
 (ns clj-money.api.prices-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
+            [clojure.java.io :as io]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
-            [lambdaisland.uri :refer [map->query-string]]
+            [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
+            #_[dgknght.app-lib.test :refer [parse-edn-body]]
             [dgknght.app-lib.test-assertions]
             [java-time.api :as t]
             [clj-money.util :as util]
@@ -38,6 +40,13 @@
                :exchange :nasdaq
                :type :fund}])
 
+(defn- parse-edn-body
+  [{:as req :keys [body]}]
+  (assoc req :edn-body (-> body
+                           io/reader
+                           slurp
+                           read-string)))
+
 (defn- create-a-price
   [email]
   (with-context context
@@ -46,11 +55,11 @@
                                     :commodities
                                     (:id commodity)
                                     :prices))
-           (req/json-body #:price{:price 12.34
-                                  :trade-date "2016-03-02"})
+           (req/body (pr-str #:price{:price 12.34
+                                     :trade-date "2016-03-02"}))
            (add-auth (find-user email))
            app
-           parse-json-body)
+           parse-edn-body)
        (models/select #:price{:commodity commodity
                               :trade-date (t/local-date 2016 3 2)})])))
 
@@ -95,29 +104,33 @@
 (defn- get-a-list-by-commodity
   [email]
   (with-context list-context
-    (let [commodity (find-commodity "AAPL")]
-      (-> (req/request :get (str (path :api :prices)
-                                 "?"
-                                 (map->query-string
-                                   {:trade-date ["2016-01-01" "2016-12-31"]
-                                    :commodity-id (:id commodity)})))
+    (let [commodity (find-commodity "AAPL")
+          url (-> (uri (path :api
+                             :commodities
+                             (:id commodity)
+                             :prices))
+                  (assoc :query (map->query-string
+                                   {:trade-date ["2016-01-01" "2016-12-31"]}))
+                  str)]
+      (-> (req/request :get url)
+          (req/header "Accept" "application/edn")
           (add-auth (find-user email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [#:price{:trade-date "2016-03-02"
                                   :price 11.0}
                           #:price{:trade-date "2016-02-27"
                                   :price 10.0}]
-                         json-body)))
+                         edn-body)))
 
 (defn- assert-blocked-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-prices-from-his-entity
   (assert-successful-list (get-a-list-by-commodity "john@doe.com")))
@@ -136,7 +149,7 @@
            (req/json-body #:price{:price 9.99})
            (add-auth (find-user email))
            app
-           parse-json-body)
+           parse-edn-body)
        (models/find price)])))
 
 (defn- assert-successful-update
@@ -236,7 +249,7 @@
               (when username
                 (find-user username)))
             app
-            parse-json-body)))))
+            parse-edn-body)))))
 
 (defn- assert-successful-fetch
   [response]
@@ -281,7 +294,7 @@
                                                (:id msft)))
                         (add-auth user)
                         app
-                        parse-json-body)]
+                        parse-edn-body)]
       (with-redefs [yahoo/get-quotes (fn [symbols]
                                        (swap! calls conj symbols)
                                        (map (fn [s]
