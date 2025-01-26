@@ -13,6 +13,7 @@
             [honey.sql :as sql]
             [honey.sql.helpers :refer [select from where limit]]
             [clj-money.core]
+            [clj-money.dates :as dates]
             [clj-money.models.settings :as settings]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
@@ -69,9 +70,10 @@
 (defn create-partitions
   [& args]
   (let [{:keys [arguments options]} (parse-opts args create-partitions-options)
-        start-date (-> arguments first parse-date)
-        end-date (or (-> arguments second parse-date)
-                     start-date)]
+        start-date (or (some-> arguments first parse-date)
+                       (dates/first-day-of-the-year))
+        end-date (or (some-> arguments second parse-date)
+                     (dates/last-day-of-the-year start-date))]
     (create-partition-tables start-date end-date options)
     (put-earliest-partition-date start-date)
     (put-latest-partition-date end-date)))
