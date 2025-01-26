@@ -116,8 +116,8 @@
 (defmethod handle-exception :default
   [e]
   (if-let [details (ex-data e)]
-    (log/error e "Unexpected ExceptionInfo was while hanlding the web request: %s" (pr-str details))
-    (log/error e "Unexpected ExceptionInfo was while hanlding the web request."))
+    (log/errorf e "Unexpected ExceptionInfo was encountered while handling the web request: %s" (pr-str details))
+    (log/error e "Unexpected ExceptionInfo was encountered while handling the web request."))
   api/internal-server-error)
 
 ; TODO: Move this to the api namespace
