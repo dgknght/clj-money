@@ -31,7 +31,8 @@
   (fn [e]
     (pprint {::error e
              ::ex-data (ex-data e)})
-    (apply notify/dangerf msg (.-message e) args)))
+    (apply notify/dangerf msg (.-message e) args)
+    e))
 
 (defn add-error-handler
   "Given a map of API options, if no :on-error is provider, include
