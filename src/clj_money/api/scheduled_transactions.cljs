@@ -1,6 +1,7 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
+  (:require [cljs.pprint :refer [pprint]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date]]
             [clj-money.api :as api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]))
@@ -14,11 +15,11 @@
     (if sched-tran
       (apply api/path
              :scheduled-transactions
-             (:id sched-tran)
+             sched-tran
              extras)
       (apply api/path
              :entities
-             (:id @current-entity)
+             @current-entity
              :scheduled-transactions
              extras))))
 
