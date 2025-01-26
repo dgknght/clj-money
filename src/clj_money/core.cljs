@@ -14,6 +14,7 @@
                                                current-user
                                                current-entity]]
             [clj-money.html :refer [google-g]]
+            [clj-money.util :as util]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -231,7 +232,10 @@
 
 (defn- sign-in-from-cookie []
   (if @current-user
-    (fetch-entities)
+    (do
+      (when (util/model-ref? @current-user)
+        (users/me :on-success #(reset! current-user %)))
+      (fetch-entities))
     (when-let [auth-token (cookies/get :auth-token)]
       (swap! app-state assoc :auth-token auth-token)
       (fetch-current-user)
