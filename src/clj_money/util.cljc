@@ -454,3 +454,8 @@
     :else
     (let [{:keys [include]} (apply hash-map args)]
       (select-keys a1 (concat simple-keys include)))))
+
+(defn upsert-into
+  [m {:keys [sort-key]} coll]
+  (sort-by #(get-in % sort-key)
+           (cons m (remove #(model= m %) coll))))
