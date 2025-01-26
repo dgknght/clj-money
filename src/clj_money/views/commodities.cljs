@@ -15,6 +15,7 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.util :as util]
             [clj-money.icons :refer [icon]]
             [clj-money.dates :as dates]
             [clj-money.components :refer [button
@@ -113,10 +114,16 @@
   [xf]
   (completing
     (fn [ch criteria]
+
+      (pprint {::fetch-prices criteria})
+
       (prices/select criteria :channel (map #(xf ch %))))))
 
 (defn- init-price-loading
   [page-state]
+
+  (pprint ::init-price-loading )
+
   (let [{:as commodity
          :commodity/keys [earliest-price
                           latest-price]} (:prices-commodity @page-state)
@@ -353,20 +360,20 @@
                    (map (partial post-delete-price page-state price)))))
 
 (defn- price-row
-  [price page-state]
+  [{:as p :price/keys [trade-date price]} page-state]
   ^{:key (str "price-row-" (:id price))}
   [:tr
-   [:td.text-end (format-date (:trade-date price))]
-   [:td.text-end (currency-format (:price price))]
+   [:td.text-end (format-date trade-date)]
+   [:td.text-end (currency-format price)]
    [:td
     [:div.btn-group
      [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this price."
                                         :on-click (fn []
-                                                    (swap! page-state assoc :selected-price price)
+                                                    (swap! page-state assoc :selected-price p)
                                                     (set-focus "trade-date"))}
       (icon :pencil :size :small)]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
-                                     :on-click #(delete-price price page-state)}
+                                     :on-click #(delete-price p page-state)}
       (icon :x-circle :size :small)]]]])
 
 (defn- prices-table
@@ -383,9 +390,9 @@
         (cond
           (nil? @prices)
           [:tr
-           [:td
+           [:td.text-center
             {:col-span 3}
-            [:div.spinner-border.text-primary {:role :status} "Loading..."]]]
+            (bs/spinner {:size :small})]]
 
           (empty? @prices)
           [:tr
@@ -433,41 +440,24 @@
                             :all-items-fetched? @all-prices-fetched?
                             :load-fn #(go (>! @ctl-chan :fetch))}]]]]]])))
 
-(defn- comp-prices
-  [{d1 :trade-date} {d2 :trade-date}]
-  (cond
-    (= d1 d2) 0
-    (t/before? d1 d2) -1
-    :else 1))
-
-(defn- comp-prices-rev
-  [p1 p2]
-  (comp-prices p2 p1))
-
 (defn- post-save-price
-  [page-state new?]
-  (fn [{:keys [id] :as price}]
-    (let [update-fn (if new?
-                      (fn [prices]
-                        (->> (conj prices price)
-                             (sort comp-prices-rev)
-                             vec))
-                      (fn [prices]
-                        (mapv #(if (= (:id %) id)
-                                 price
-                                 %)
-                              prices)))]
-      (swap! page-state #(-> %
-                             (dissoc :selected-price)
-                             (update-in [:prices] update-fn))))))
+  [page-state]
+  (fn [price]
+    (swap! page-state
+           #(-> %
+                (dissoc :selected-price)
+                (update-in [:prices]
+                           (fn [prices]
+                             (util/upsert-into price
+                                               {:sort-key [:price/trade-date]}
+                                               prices)))))))
 (defn- save-price
   [page-state]
   (let [price (:selected-price @page-state)]
     (+busy)
     (prices/save price
                  :callback -busy
-                 :on-success (post-save-price page-state
-                                              (not (:id price))))))
+                 :on-success (post-save-price page-state))))
 
 (defn- price-form
   [page-state]

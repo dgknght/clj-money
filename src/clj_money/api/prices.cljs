@@ -2,24 +2,26 @@
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.web :refer [serialize-date]]
-            [clj-money.util :refer [update-keys]]
+            [clj-money.util :as util :refer [update-keys]]
             [clj-money.models :as models]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- prepare-criteria
   [criteria]
   (-> criteria
+      (dissoc :price/commodity)
       (update-in [:price/trade-date] #(map serialize-date %))
       (update-keys (comp keyword name))))
 
 (defn select
-  [criteria & {:as opts}]
-  {:pre [(some #(contains? criteria %) [:price/commodity
-                                        :commodity/entity])
-         (contains? criteria :price/trade-date)]}
-  (api/get (api/path :prices)
-           (prepare-criteria criteria)
-           (add-error-handler opts "Unable to retrieve the prices: %s")))
+  [{:as criteria :price/keys [commodity]} & {:as opts}]
+  {:pre [(contains? criteria :price/trade-date)]}
+  (let [p (if commodity
+            (api/path :commodities commodity :prices)
+            (api/path :prices))]
+    (api/get p
+             (prepare-criteria criteria)
+             (add-error-handler opts "Unable to retrieve the prices: %s"))))
 
 (defn create
   [price opts]
