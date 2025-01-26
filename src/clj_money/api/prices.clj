@@ -40,18 +40,11 @@
       (models/select {:sort [[:price/trade-date :desc]]})
       api/response))
 
-(defn- extract-price
-  [{:keys [params]}]
+(defn- create
+  [{:keys [authenticated params]}]
   (-> params
       (select-keys [:price/trade-date
                     :price/price])
-      (update-in-if [:price/trade-date] dates/unserialize-local-date)
-      (update-in-if [:price/price] bigdec)))
-
-(defn- create
-  [{:keys [authenticated params] :as req}]
-  (-> req
-      extract-price
       (assoc :price/commodity {:id (:commodity-id params)})
       (authorize ::authorization/create authenticated)
       models/put
@@ -65,9 +58,10 @@
              authenticated))
 
 (defn- update
-  [req]
+  [{:as req :keys [params]}]
   (or (some-> (find-and-authorize req ::authorization/update)
-              (merge (extract-price req))
+              (merge (select-keys params [:price/price
+                                          :price/trade-date]))
               models/put
               api/update-response)
       api/not-found))
