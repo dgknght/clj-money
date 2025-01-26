@@ -114,16 +114,10 @@
   [xf]
   (completing
     (fn [ch criteria]
-
-      (pprint {::fetch-prices criteria})
-
-      (prices/select criteria :channel (map #(xf ch %))))))
+      (prices/select criteria :post-xf (map #(xf ch %))))))
 
 (defn- init-price-loading
   [page-state]
-
-  (pprint ::init-price-loading )
-
   (let [{:as commodity
          :commodity/keys [earliest-price
                           latest-price]} (:prices-commodity @page-state)
