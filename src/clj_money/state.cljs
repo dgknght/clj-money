@@ -3,26 +3,24 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
-            [dgknght.app-lib.core :as lib]))
+            [dgknght.app-lib.core :as lib]
+            [clj-money.util :as util]))
+
+(defn- serialize
+  "Minimize the data in the state cookie and also avoid writing
+  anything that requires a custom tag reader (like dates) to avoid
+  race conditions with the tag reader registration"
+  [state]
+  (-> state
+      (lib/update-in-if [:current-user] util/->model-ref)
+      (lib/update-in-if [:current-entity] util/->model-ref)
+      (select-keys [:auth-token
+                    :current-user
+                    :current-entity])))
 
 (defonce app-state (r/atom (merge {:mounted? false
                                    :bg-proc-count 0}
                                   (cookies/get :state))))
-
-(defn- serialize
-  [state]
-  (-> state
-      (update-in [:current-user]
-                 dissoc
-                 :user/created-at ; I'm removing dates to fix a timing problem registering the tag readers
-                 :user/updated-at)
-      (update-in [:current-entity]
-                 dissoc
-                 :entity/created-at
-                 :entity/updated-at)
-      (select-keys [:auth-token
-                    :current-user
-                    :current-entity])))
 
 (add-watch app-state
            ::init
@@ -64,11 +62,14 @@
 
 (defn set-entities
   [[entity :as entities]]
-  (swap! app-state #(assoc (if entity
-                             (assoc % :current-entity entity)
-                             (dissoc % :current-entity))
-                           :entities
-                           entities)))
+  (let [current (if-let [c @current-entity]
+                  (->> entities
+                       (filter #(util/model= c %))
+                       first)
+                  entity)]
+    (swap! app-state assoc
+           :entities entities
+           :current-entity current)))
 
 (defn remove-entity
   [entity]
