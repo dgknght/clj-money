@@ -133,28 +133,32 @@
 
 (def app
   (ring/ring-handler
-    (ring/router ["/" {:middleware [wrap-request-logging]}
+    (ring/router ["/" #_{:middleware [wrap-request-logging]}
                   apps/routes
                   ["auth/" {:middleware [:site
-                                         wrap-merge-path-params]}
+                                         wrap-merge-path-params
+                                         wrap-request-logging]}
                    web-auth/routes]
                   ["app/" {:middleware [:site
                                         wrap-merge-path-params
                                         wrap-integer-id-params
-                                        :authentication]}
+                                        :authentication
+                                        wrap-request-logging]}
                    images/routes]
                   ["oapi/" {:middleware [:api
                                          :wrap-restful-format
                                          wrap-merge-path-params
                                          wrap-integer-id-params
-                                         wrap-exceptions]}
+                                         wrap-exceptions
+                                         wrap-request-logging]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
                                         :wrap-restful-format
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         :authentication
-                                        wrap-exceptions]}
+                                        wrap-exceptions
+                                        wrap-request-logging]}
                    users-api/routes
                    entities-api/routes
                    commodities-api/routes
