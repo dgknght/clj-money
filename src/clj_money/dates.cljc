@@ -17,7 +17,14 @@
            (-equiv [this other]
              (and (= (type this)
                      (type other))
-                  (t/equal? this other)))))
+                  (t/equal? this other)))
+
+           IComparable
+           (-compare [d1 d2]
+             (cond
+               (t/before? d1 d2) -1
+               (t/after? d1 d2)   1
+               :else 0))))
 
 (declare serialize-local-date)
 (declare serialize-local-date-time)

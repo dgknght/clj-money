@@ -456,6 +456,13 @@
       (select-keys a1 (concat simple-keys include)))))
 
 (defn upsert-into
-  [m {:keys [sort-key]} coll]
-  (sort-by #(get-in % sort-key)
+  "Given a collection and an item, either update the item in the collection,
+  or insert the item, depending on whether another item with the same :id attribute
+  already exists.
+
+  Options:
+    :sort-key - A function that extracts the value on which to sort the collection."
+  [m {:keys [sort-key comp] :or {sort-key identity comp compare}} coll]
+  (sort-by #(sort-key %)
+           comp
            (cons m (remove #(model= m %) coll))))

@@ -242,13 +242,13 @@
     (is (= [{:id 2 :user/name "Jane"}
             {:id 1 :user/name "John"}]
            (util/upsert-into {:id 2 :user/name "Jane"}
-                             {:sort-key [:user/name]}
+                             {:sort-key :user/name}
                              [{:id 1 :user/name "John"}]))
         "A new item is inserted")
     (is (= [{:id 2 :user/name "Jane"}
             {:id 1 :user/name "John"}]
            (util/upsert-into {:id 2 :user/name "Jane"}
-                             {:sort-key [:user/name]}
+                             {:sort-key :user/name}
                              [{:id 2 :user/name "Joan"}
                               {:id 1 :user/name "John"}]))
         "An existing item is replaed"))

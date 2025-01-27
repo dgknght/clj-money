@@ -355,7 +355,7 @@
 
 (defn- price-row
   [{:as p :price/keys [trade-date price]} page-state]
-  ^{:key (str "price-row-" (:id price))}
+  ^{:key (str "price-row-" (:id p))}
   [:tr
    [:td.text-end (format-date trade-date)]
    [:td.text-end (currency-format price)]
@@ -443,7 +443,8 @@
                 (update-in [:prices]
                            (fn [prices]
                              (util/upsert-into price
-                                               {:sort-key [:price/trade-date]}
+                                               {:sort-key :price/trade-date
+                                                :comp t/after?}
                                                prices)))))))
 (defn- save-price
   [page-state]
