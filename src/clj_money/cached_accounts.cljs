@@ -1,5 +1,6 @@
 (ns clj-money.cached-accounts
-  (:require [clj-money.state :refer [accounts]]
+  (:require [cljs.pprint :refer [pprint]]
+            [clj-money.state :refer [accounts]]
             [clj-money.accounts :refer [nest unnest]]
             [clj-money.api.accounts :as accts]))
 
@@ -8,11 +9,11 @@
   (reset! accounts (->> retrieved nest unnest (into []))))
 
 (defn fetch-accounts
-  ([] (fetch-accounts nil))
-  ([xf]
-   (let [xform (cond-> (map reset-accounts)
-                 xf (comp xf))]
-     (accts/select xform))))
+  [& {:keys [post-xf]}]
+  (accts/select
+    {}
+    :on-success reset-accounts
+    :post-xf post-xf))
 
 (defn watch-entity
   [_ _ _ current]

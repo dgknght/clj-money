@@ -51,9 +51,8 @@
   (when (js/confirm (str "Are you sure you want to delete the account " (:name account) "?"))
     (+busy)
     (accounts/delete account
-                     (map (fn []
-                            (-busy)
-                            (fetch-accounts))))))
+                     :callback -busy
+                     :on-success fetch-accounts)))
 
 (defn- toggle-account
   [id page-state]
@@ -241,8 +240,8 @@
                        (map apply-fn))]
     (doseq [account to-update]
       (accounts/update account
-                       (map success-fn)
-                       error-fn))))
+                       {:on-success success-fn
+                        :on-error error-fn}))))
 
 (defn- tag-elem
   [tag {:keys [remove-fn]}]
@@ -385,10 +384,10 @@
   (-> (some #(get-in @page-state %) [[:selected]
                                      [:allocation :account]])
       prepare-for-save
-      (accounts/save (map (fn [_saved]
-                            (fetch-accounts)
-                            (-busy)
-                            (swap! page-state dissoc :selected :allocation))))))
+      (accounts/save :on-success (fn [_]
+                                   (fetch-accounts)
+                                   (swap! page-state dissoc :selected :allocation))
+                     :callback -busy)))
 
 (defn- account-form
   [page-state]

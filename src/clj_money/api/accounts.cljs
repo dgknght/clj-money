@@ -1,18 +1,18 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update get])
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
+  (:require [cljs.pprint :refer [pprint]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util]
-            [clj-money.api :as api :refer [handle-ex]]
+            [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
 (defn select
-  ([xf]
-   (select {} xf))
-  ([criteria xf]
-   (api/get (api/path :entities (:id @current-entity) :accounts)
-            criteria
-            {:post-xf xf
-             :handle-ex (handle-ex "Unable to get the list of acounts: %s")})))
+  [criteria & {:as opts}]
+  (api/get (api/path :entities (:id @current-entity) :accounts)
+           criteria
+           (add-error-handler
+             opts
+             "Unable to get the list of acounts: %s")))
 
 (def ^:private attribute-keys
   [:id
@@ -27,7 +27,7 @@
    :account/user-tags])
 
 (defn create
-  [account xf]
+  [account {:as opts}]
   (api/post (api/path :entities (:account/entity account) :accounts)
             (-> account
                 (update-in-if [:account/parent] util/->model-ref)
@@ -35,26 +35,27 @@
                 (update-in [:account/entity] util/->model-ref)
                 (select-keys attribute-keys)
                 (util/pp-> ::ready))
-            {:post-xf xf
-             :handle-ex (handle-ex "Unable to create the account: %s")}))
+            (add-error-handler
+              opts
+              "Unable to create the account: %s")))
 
 (defn update
-  ([account xf]
-   (update account xf (handle-ex "Unable to update the account: %s")))
-  ([account xf ex-handler]
-   (api/patch (api/path :accounts (:id account))
-              (select-keys account attribute-keys)
-              {:post-xf xf
-               :handle-ex ex-handler})))
+  [account {:as opts}]
+  (api/patch (api/path :accounts (:id account))
+             (select-keys account attribute-keys)
+             (add-error-handler
+               opts
+               "Unable to update the account: %s")))
 
 (defn save
-  [account xf]
+  [account & {:as opts}]
   (if (:id account)
-    (update account xf)
-    (create account xf)))
+    (update account opts)
+    (create account opts)))
 
 (defn delete
-  [account xf]
+  [account & {:as opts}]
   (api/delete (api/path :accounts (:id account))
-              {:post-xf xf
-               :handle-ex (handle-ex "Unable to delete the account: %s")}))
+              (add-error-handler
+                opts
+                "Unable to delete the account: %s")))
