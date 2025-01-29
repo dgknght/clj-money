@@ -358,17 +358,18 @@
 
 (defn- prepare-for-save
   [{:keys [parent-id] :as account}]
+  ; TODO: Add logic to turn trading attribute into a system tag
   (let [parent (->> @accounts
                     (filter #(= (:id %) parent-id))
                     first)]
     (cond-> (update-in account
-                       [:allocations]
+                       [:account/allocations]
                        (fn [allocations]
                          (when allocations
                            (->> allocations
                                 (remove (fn [[_ v]] (decimal/zero? v)))
                                 (into {})))))
-      parent (merge (select-keys parent [:type])))))
+      parent (merge (select-keys parent [:account/type])))))
 
 (defn- save-account
   [page-state]

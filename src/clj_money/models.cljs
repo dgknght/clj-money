@@ -11,7 +11,17 @@
                :references #{:commodity/entity}}
    :price {:keys #{:price/price
                    :price/trade-date}
-           :references #{:price/commodity}}})
+           :references #{:price/commodity}}
+   :account {:keys #{:id
+                     :account/name
+                     :account/type
+                     :account/allocations
+                     :account/trading
+                     :account/system-tags
+                     :account/user-tags}
+             :references #{:account/commodity
+                           :account/entity
+                           :account/parent}}})
 
 (defn- apply-transformations
   [m model-type]

@@ -77,52 +77,20 @@
    :account/parent
    :account/allocations])
 
-(defn- prepare-tags
-  [tags]
-  (if tags
-    (->> tags
-         (map keyword)
-         set)
-    #{}))
-
-(defn- handle-trading-tag
-  [{:keys [trading] :as account}]
-  (if trading
-    (update-in account [:system-tags] (fnil conj #{}) :trading)
-    account))
-
-; JSON serialization/deserialization wants the keys to be keywords
-(defn- correct-allocations
-  [allocations]
-  (reduce (fn [r [k v]]
-            (assoc r (-> k name parse-int) (bigdec v)))
-          {}
-          allocations))
-
-(defn- before-save
-  [account]
-  (-> account
-      (update-in-if [:account/user-tags] prepare-tags)
-      (update-in-if [:account/system-tags] prepare-tags)
-      (update-in-if [:account/type] keyword)
-      (update-in-if [:account/allocations] correct-allocations)
-      handle-trading-tag
-      (select-keys attribute-keys)))
-
 (defn- create
-  [{:keys [params body authenticated]}]
-  (-> body
+  [{:keys [params authenticated]}]
+  (-> params
       (assoc :account/entity {:id (:entity-id params)})
-      before-save
+      (select-keys attribute-keys)
       (authorize ::auth/create authenticated)
       models/put
       api/creation-response))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [{:keys [params] :as req}]
   (if-let [account (find-and-auth req ::auth/update)]
     (-> account
-        (merge (before-save body))
+        (merge (select-keys params attribute-keys))
         models/put
         api/update-response)
     api/not-found))
