@@ -10,6 +10,7 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
+            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.web :refer [serialize-date
                                          format-percent
                                          format-date
@@ -528,16 +529,16 @@
   (fn [xf]
     (completing
       (fn [ch res]
-        (fetch-accounts (map (fn [accounts]
-                               ; The :view-account might now be stale, e.g., if the new transaction
-                               ; changes :latest-transaction-date
-                               (let [account (get-in @page-state [:view-account])
-                                     updated (->> accounts
-                                                  (filter #(= (:id account)
-                                                              (:id %)))
-                                                  first)]
-                                 (swap! page-state assoc :view-account updated))
-                               (xf ch res))))))))
+        (fetch-accounts :post-xf (map (fn [accounts]
+                                        ; The :view-account might now be stale, e.g., if the new transaction
+                                        ; changes :latest-transaction-date
+                                        (let [account (get-in @page-state [:view-account])
+                                              updated (->> accounts
+                                                           (filter #(= (:id account)
+                                                                       (:id %)))
+                                                           first)]
+                                          (swap! page-state assoc :view-account updated))
+                                        (xf ch res))))))))
 
 (defn- refresh-items
   [page-state]
@@ -914,11 +915,11 @@
 (defn- load-commodities
   [page-state]
   (+busy)
-  (commodities/select (map (fn [result]
-                             (-busy)
-                             (swap! page-state assoc :commodities (->> result
-                                                                       (map (juxt :id identity))
-                                                                       (into {})))))))
+  (commodities/select {}
+                      :on-success #(swap! page-state
+                                          assoc
+                                          :commodities (index-by :id %))
+                      :callback -busy))
 
 (defn- account-filter
   [page-state]
