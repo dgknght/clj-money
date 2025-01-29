@@ -63,34 +63,27 @@
                                               (conj expanded id)))))
 
 (defn- recently-created?
-  [{:keys [created-at]}]
+  [{:account/keys [created-at]}]
   (t/before?
    (t/minus (t/now) (-> 1 t/hours))
    created-at))
 
 (defn- account-hidden?
-  [{:keys [parent-ids] :as account} expanded hide-zero-balances?]
+  [{:account/keys [parent-ids] :as account} expanded hide-zero-balances?]
   (or (and hide-zero-balances?
-           (decimal/zero? (decimal/+ (:value account)
-                                     (:children-value account)))
+           (decimal/zero? (decimal/+ (:account/value account)
+                                     (:account/children-value account)))
            (not (recently-created? account)))
-      (not (expanded (:type account)))
+      (not (expanded (:account/type account)))
       (and (seq parent-ids)
            (not-every? expanded parent-ids))))
 
 (defn- abbr-acct-name
   [account]
-  (let [words (string/split (:name account) #"\s+")]
-    (if (< 3 (count words))
-      [:span {:title (:name account)
-              :data-bs-toggle :tooltip
-              :data-bs-placement :top}
-       (str
-         (->> words
-              (take 2)
-              (string/join " "))
-         "...")]
-      (:name account))))
+  [:span.text-truncate {:title (:account/name account)
+                        :data-bs-toggle :tooltip
+                        :data-bs-placement :top}
+   (:account/name account)])
 
 (defn- prepare-for-allocation
   [{:accont/keys [children-value] :as account}]
@@ -111,47 +104,51 @@
 (defn- account-row
   [{:keys [id] :account/keys [parent-ids system-tags] :as account} expanded page-state]
   ^{:key (str "account-" id)}
-  [:tr
+  [:tr.align-middle
    [:td [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
-         [:span.toggle-ctl {:on-click #(toggle-account (:id account) page-state)
+         [:span.toggle-ctl {:on-click #(toggle-account id page-state)
                             :class (when-not (:account/has-children? account)
                                      "invisible")}
           (icon (if (expanded id)
-                     :arrows-collapse
-                     :arrows-expand)
-                   :size :small)]
+                  :arrows-collapse
+                  :arrows-expand)
+                :size :small)]
          (abbr-acct-name account)]]
    [:td.text-end.d-none.d-sm-table-cell.value-depth
     [:span {:class (str "value-depth-" (count parent-ids))}
-     (currency-format (:total-value account))]]
+     (currency-format (:account/total-value account))]]
    [:td.text-center.d-none.d-md-table-cell
     [forms/checkbox-input page-state [:bulk-edit :account-ids] {:no-bootstrap? true
                                                                 :html {:name "bulk-edit-id"}
                                                                 :value id}]]
    [:td.text-center
     [:div.btn-group
-     [:button.btn.btn-light.btn-sm {:on-click #(swap! page-state assoc :view-account account)
-                                    :title "Click here to view transactions for this account."}
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click #(swap! page-state assoc :view-account account)
+       :title "Click here to view transactions for this account."}
       (icon :collection :size :small)]
-     [:button.btn.btn-light.btn-sm {:on-click (fn []
-                                               (swap! page-state assoc :selected account)
-                                               (set-focus "parent-id"))
-                                   :title "Click here to edit this account."}
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click (fn []
+                   (swap! page-state assoc :selected account)
+                   (set-focus "parent-id"))
+       :title "Click here to edit this account."}
       (icon :pencil :size :small)]
-     [:button.btn.btn-light {:on-click #(swap! page-state
-                                               assoc
-                                               :allocation
-                                               {:account (prepare-for-allocation account)
-                                                :cash (:account/value account)
-                                                :withdrawal 0M})
-                             :disabled (not (system-tags :trading))
-                             :title "Click here to manage asset allocation for this account."}
-      (icon (if (system-tags :trading)
-                 :pie-chart-fill
-                 :pie-chart)
-               :size :small)]
-     [:button.btn.btn-danger.btn-sm {:on-click #(delete account)
-                                     :title "Click here to remove this account."}
+     [:button.btn.btn-secondary
+      {:on-click #(swap! page-state
+                         assoc
+                         :allocation
+                         {:account (prepare-for-allocation account)
+                          :cash (:account/value account)
+                          :withdrawal 0M})
+       :disabled (not (:trading system-tags))
+       :title "Click here to manage asset allocation for this account."}
+      (icon (if (:trading system-tags)
+              :pie-chart-fill
+              :pie-chart)
+            :size :small)]
+     [:button.btn.btn-danger.btn-sm
+      {:on-click #(delete account)
+       :title "Click here to remove this account."}
       (icon :x-circle :size :small)]]]])
 
 (defn- account-type-row
@@ -179,6 +176,16 @@
       (compare-vec (rest v1) (rest v2))
       r)))
 
+(defn- account-rows
+  [accounts filter-fn expanded? hide-zero-balances? page-state]
+  (->> accounts
+       (sort-by :account/path compare-vec)
+       (filter (every-pred filter-fn
+                           #(not (account-hidden? % expanded? hide-zero-balances?))))
+       (map #(account-row %
+                          expanded?
+                          page-state))))
+
 (defn- account-and-type-rows
   [page-state]
   (let [filter-tags (r/cursor page-state [:filter-tags])
@@ -191,19 +198,20 @@
         expanded (r/cursor page-state [:expanded])
         hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])]
     (fn []
-
       (let [grouped (group-by :account/type @accounts)]
         [:tbody
-         (doall (mapcat (fn [[account-type group]]
-                          (concat [(account-type-row account-type group @expanded page-state)]
-                                  (->> group
-                                       (sort-by :account/path compare-vec)
-                                       (filter (every-pred @filter-fn
-                                                           #(not (account-hidden? % @expanded @hide-zero-balances?))))
-                                       (map #(account-row %
-                                                          @expanded
-                                                          page-state)))))
-                        grouped))]))))
+         (->> grouped
+              (mapcat (fn [[account-type group]]
+                        (cons (account-type-row account-type
+                                                group
+                                                @expanded
+                                                page-state)
+                              (account-rows group
+                                            @filter-fn
+                                            @expanded
+                                            @hide-zero-balances?
+                                            page-state))))
+              doall)]))))
 
 (defn- bulk-save
   [page-state]
