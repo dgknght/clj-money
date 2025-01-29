@@ -3,7 +3,6 @@
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if
-                                          parse-int
                                           parse-bool]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
