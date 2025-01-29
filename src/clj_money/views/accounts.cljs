@@ -50,11 +50,12 @@
 
 (defn- delete
   [account]
-  (when (js/confirm (str "Are you sure you want to delete the account " (:name account) "?"))
+  (when (js/confirm (str "Are you sure you want to delete the account " (:account/name account) "?"))
     (+busy)
     (accounts/delete account
                      :callback -busy
-                     :on-success fetch-accounts)))
+                     :on-success (fn [_]
+                                   (fetch-accounts)))))
 
 (defn- toggle-account
   [id page-state]
@@ -820,9 +821,10 @@
 
 (defn- account-details
   [page-state]
-  (let [system-tags (r/cursor page-state [:view-account :system-tags])]
+  (let [account (r/cursor page-state [:view-account])
+        system-tags (r/cursor account [:account/system-tags])]
     (fn []
-      (when @system-tags
+      (when @account
         (cond
           (:tradable @system-tags) [tradable-account-details page-state]
           :else [currency-account-details page-state])))))
@@ -917,12 +919,11 @@
 (defn- account-filter
   [page-state]
   (let [all-tags (make-reaction #(->> @accounts
-                                      (mapcat :user-tags)
+                                      (mapcat :account/user-tags)
                                       set))
-        tag-items (make-reaction #(concat [[:_untagged "untagged"]]
-                                          (map (fn [v]
-                                                 [v (name v)])
-                                               @all-tags)))
+        tag-items (make-reaction #(cons [:_untagged "untagged"]
+                                        (map name
+                                             @all-tags)))
         selected (r/cursor page-state [:selected])
         view-account (r/cursor page-state [:view-account])
         hide? (make-reaction #(or @selected @view-account))]
@@ -933,7 +934,7 @@
          page-state
          [:hide-zero-balances?]
          {:caption "Hide Zero-Balance Accounts"}]
-        [:label.form-check-label {:for "hide-zero-balances?"}
+        [:label.form-check-label {:for "hide-zero-balances"}
          "Hide zero balances"]]
        [forms/checkbox-inputs
         page-state
@@ -948,15 +949,6 @@
                          :data-bs-target "#account-filter"
                          :aria-controls "account-filter"}
    (icon :funnel :size :small)])
-
-(defn- account-filter-container
-  [page-state]
-  [:div#account-filter.offcanvas.offcanvas-end {:tab-index -1}
-   [:div.offcanvas-header
-    [:h3.off-canvas-title "Filter"]
-    [:button.btn-close.text-reset {:data-bs-dismiss "offcanvas"
-                                   :aria-label "Close"}]]
-   [:div.offcanvas-body [account-filter page-state]]])
 
 (defn- any-non-zero-balances?
   ([] (any-non-zero-balances? @accounts))
@@ -998,9 +990,16 @@
         [:div.col-lg-8
          [:div.d-flex.justify-content-between.align-items-center
           [:h1.mt-3.accounts-title.me-auto (str "Accounts" (when @view-account
-                                                        (str " - " (:account/name @view-account))))]
+                                                             (str " - " (:account/name @view-account))))]
           (when-not @hide-funnel? (account-filter-toggle))]]]
-       [account-filter-container page-state]
+
+       [:div#account-filter.offcanvas.offcanvas-end {:tab-index -1}
+        [:div.offcanvas-header
+         [:h3.off-canvas-title "Filter"]
+         [:button.btn-close.text-reset {:data-bs-dismiss "offcanvas"
+                                        :aria-label "Close"}]]
+        [:div.offcanvas-body [account-filter page-state]]]
+
        [:div.row {:class (when @hide-table? "d-none")}
         [:div.col-lg-8
          [accounts-table page-state]

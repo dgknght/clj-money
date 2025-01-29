@@ -37,7 +37,7 @@
 
 (defn delete
   [account & {:as opts}]
-  (api/delete (api/path :accounts (:id account))
+  (api/delete (api/path :accounts account)
               (add-error-handler
                 opts
                 "Unable to delete the account: %s")))
