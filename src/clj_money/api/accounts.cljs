@@ -24,7 +24,7 @@
 (defn update
   [account {:as opts}]
   (api/patch (api/path :accounts (:id account))
-             (prune account account)
+             (prune account :account)
              (add-error-handler
                opts
                "Unable to update the account: %s")))

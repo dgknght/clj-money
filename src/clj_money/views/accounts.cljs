@@ -23,6 +23,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs :refer [nav-tabs]]
+            [clj-money.util :refer [model=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.components :refer [load-on-scroll
@@ -406,10 +407,12 @@
                           (->> @accounts
                                (find-by-path input)
                                callback))
+             :on-change (fn [{:account/keys [commodity]}]
+                          (swap! account assoc :account/commodity commodity))
              :caption-fn (comp (partial string/join "/") :account/path)
-             :find-fn (fn [id callback]
+             :find-fn (fn [parent callback]
                         (->> @accounts
-                             (filter #(= id (:id %)))
+                             (filter #(model= parent %))
                              first
                              callback))}]
            [forms/select-field account
@@ -430,7 +433,7 @@
                                                                 term)))
                                  callback)))
              :caption-fn :commodity/name
-             :find-fn (fn [id callback]
+             :find-fn (fn [{:keys [id]} callback]
                         (callback (get-in @commodities [id])))
              :validations #{::v/required}}]
            [forms/checkbox-field
@@ -443,8 +446,9 @@
             [forms/typeahead-input
              account
              [:working-tag]
-             {:search-fn (fn [term callback]
-                           (let [existing (:account/user-tags @account)]
+             {:mode :direct
+              :search-fn (fn [term callback]
+                           (let [existing (or @user-tags #{})]
                              (->> @all-user-tags
                                   (remove existing)
                                   (map name)
@@ -456,7 +460,7 @@
               :create-fn keyword
               :on-change (fn [tag]
                            (swap! account #(-> %
-                                               (update-in [:account/user-tags] (fnil conj #{}) tag)
+                                               (update-in [:account/user-tags] (fnil conj #{}) (keyword tag))
                                                (dissoc :working-tag))))}]
             (tag-elems @user-tags {:remove-fn #(swap! account
                                                       update-in
