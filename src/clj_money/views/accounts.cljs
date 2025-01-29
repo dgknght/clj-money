@@ -323,47 +323,30 @@
 
 (defn- accounts-table
   [page-state]
-  (let [selected (r/cursor page-state [:selected])
-        view-account (r/cursor page-state [:view-account])
-        allocation-account (r/cursor page-state [:allocation :account])
-        hide? (make-reaction #(or @selected @view-account @allocation-account))
-        bulk-select (r/cursor page-state [:bulk-edit :account-ids])]
-    (fn []
-      [:div.row {:class (when @hide? "d-none")}
-       [:div.col-lg-8
-        [:table.table.table-hover
-         [:thead
-          [:tr
-           [:th.col-md-6 "Name"]
-           [:th.col-md-3.text-end.d-none.d-sm-table-cell "Value"]
-           [:th.col-md-1.d-none.d-md-table-cell (html/space)]
-           [:th.col-md-2 (html/space)]]]
-         (cond
-           (seq @accounts)
-           [account-and-type-rows page-state]
+  (fn []
+    [:table.table.table-hover
+     [:thead
+      [:tr
+       [:th.col-md-6 "Name"]
+       [:th.col-md-3.text-end.d-none.d-sm-table-cell "Value"]
+       [:th.col-md-1.d-none.d-md-table-cell (html/space)]
+       [:th.col-md-2 (html/space)]]]
+     (cond
+       (seq @accounts)
+       [account-and-type-rows page-state]
 
-           @accounts
-           [:tbody
-            [:tr
-             [:td {:col-span 4} "No accounts"]]]
+       @accounts
+       [:tbody
+        [:tr
+         [:td {:col-span 4} "No accounts"]]]
 
-           :else
-           [:tbody
-            [:tr
-             [:td {:col-span 4}
-              [:div.d-flex.justify-content-center.m2
-               [:div.spinner-border {:role :status}
-                [:span.visually-hidden "Loading"]]]]]])]
-        [button {:html {:class "btn-primary"
-                        :on-click (fn []
-                                    (swap! page-state assoc :selected {:account/entity @current-entity
-                                                                       :account/type :asset})
-                                    (set-focus "parent-id"))
-                        :disabled @busy?}
-                 :caption "Add"
-                 :icon :plus}]]
-       [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
-        [bulk-edit-form page-state]]])))
+       :else
+       [:tbody
+        [:tr
+         [:td {:col-span 4}
+          [:div.d-flex.justify-content-center.m2
+           [:div.spinner-border {:role :status}
+            [:span.visually-hidden "Loading"]]]]]])]))
 
 (defn- prepare-for-save
   [{:keys [parent-id] :as account}]
@@ -401,10 +384,7 @@
         hide-type? (make-reaction #(-> @account :account/parent :id))]
     (fn []
       (when @account
-        [:div.row {:class (when-not @account "d-none")}
-         [:div.col-md-6
-          [:h2 (if (:id @account) "Edit" "New")]
-          [:form {:no-validate true
+        [:form {:no-validate true
                   :on-submit (fn [e]
                                (.preventDefault e)
                                (v/validate account)
@@ -485,7 +465,7 @@
                             :type :button
                             :title "Click here to return to the list of accounts."}
                      :caption "Cancel"
-                     :icon :x}]]]]]))))
+                     :icon :x}]]]))))
 
 (defn- new-transaction
   [page-state]
@@ -949,6 +929,13 @@
         {:container-html {:class ["d-flex flex-column"]}
          :input-container-html {:class "mb-1"}}]])))
 
+(defn- account-filter-toggle []
+  [:button.btn.btn-dark {:type :button
+                         :data-bs-toggle "offcanvas"
+                         :data-bs-target "#account-filter"
+                         :aria-controls "account-filter"}
+   (icon :funnel :size :small)])
+
 (defn- account-filter-container
   [page-state]
   [:div#account-filter.offcanvas.offcanvas-end {:tab-index -1}
@@ -961,9 +948,9 @@
 (defn- any-non-zero-balances?
   ([] (any-non-zero-balances? @accounts))
   ([accounts]
-  (->> accounts
-       (map :value)
-       (not-every? #(= 0 %)))))
+   (->> accounts
+        (map :value)
+        (not-every? #(= 0 %)))))
 
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
@@ -972,6 +959,9 @@
                             :ctl-chan (chan)})
         view-account (r/cursor page-state [:view-account])
         selected (r/cursor page-state [:selected])
+        allocation-account (r/cursor page-state [:allocation :account])
+        bulk-select (r/cursor page-state [:bulk-edit :account-ids])
+        hide-table? (make-reaction #(or @selected @view-account @allocation-account))
         hide-funnel? (make-reaction #(or @selected @view-account))]
     (load-commodities page-state)
     (add-watch current-entity
@@ -990,21 +980,31 @@
                                :hide-zero-balances? (any-non-zero-balances? accts))))
                  (load-commodities page-state)))
     (fn []
-      [:div.mt-3.h-100
+      [:div.h-100
        [:div.row
         [:div.col-lg-8
-         [:div.d-flex
-          [:h1.accounts-title.me-auto (str "Accounts" (when @view-account
+         [:div.d-flex.justify-content-between.align-items-center
+          [:h1.mt-3.accounts-title.me-auto (str "Accounts" (when @view-account
                                                         (str " - " (:account/name @view-account))))]
-          [:button.btn.btn-light {:type :button
-                                  :class (when @hide-funnel? "d-none")
-                                  :data-bs-toggle "offcanvas"
-                                  :data-bs-target "#account-filter"
-                                  :aria-controls "account-filter"}
-           (icon :funnel :size :small)]]]]
+          (when-not @hide-funnel? (account-filter-toggle))]]]
        [account-filter-container page-state]
-       [accounts-table page-state]
-       [account-form page-state]
+       [:div.row {:class (when @hide-table? "d-none")}
+        [:div.col-lg-8
+         [accounts-table page-state]
+         [button {:html {:class "btn-primary"
+                         :on-click (fn []
+                                     (swap! page-state assoc :selected {:account/entity @current-entity
+                                                                        :account/type :asset})
+                                     (set-focus "parent-id"))
+                         :disabled @busy?}
+                  :caption "Add"
+                  :icon :plus}]]
+        [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
+         [bulk-edit-form page-state]]]
+       [:div.row {:class (when-not @selected "d-none")}
+        [:div.col-md-6
+         [:h2 (if (:id @selected) "Edit" "New")]
+         [account-form page-state]]]
        [account-details page-state]
        [asset-allocation page-state]])))
 
