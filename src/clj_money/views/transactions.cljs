@@ -1,5 +1,6 @@
 (ns clj-money.views.transactions
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
             [clojure.zip :as zip]
             [goog.string :as gstr]
@@ -20,14 +21,16 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [accounts
                                      accounts-by-id
                                      +busy
                                      -busy]]
             [clj-money.dnd :as dnd]
-            [clj-money.util :as util :refer [debounce]]
+            [clj-money.util :as util :refer [debounce model=]]
             [clj-money.dates :as dates]
+            [clj-money.commodities :as cmdts]
             [clj-money.accounts :refer [polarize-quantity
                                         find-by-path
                                         format-quantity]]
@@ -121,25 +124,26 @@
 (defn init-item-loading
   [page-state]
   (let [account (get-in @page-state [:view-account])
-        start (:earliest-transaction-date account)
-        end (:latest-transaction-date account)]
-    (when (and start end)
-      (swap! page-state dissoc :items :all-items-fetched?)
-      (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges start end (t/months 6))
-                                           (map vec)
-                                           (load-in-chunks {:fetch-xf (comp (map #(hash-map :account-id (:id account)
-                                                                                            :transaction-date %))
-                                                                            fetch-items)
-                                                            :chunk-size 100}))]
-        (go-loop [items (<! items-ch)]
-                 (if items
-                   (do
-                     (swap! page-state update-in [:items] (fnil concat []) items)
-                     (recur (<! items-ch)))
-                   (swap! page-state assoc :all-items-fetched? true)))
+        start (:account/earliest-transaction-date account)
+        end (:account/latest-transaction-date account)]
+    (if (and start end)
+      (do (swap! page-state dissoc :items :all-items-fetched?)
+          (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges start end (t/months 6))
+                                               (map vec)
+                                               (load-in-chunks {:fetch-xf (comp (map #(hash-map :account-id (:id account)
+                                                                                                :transaction-date %))
+                                                                                fetch-items)
+                                                                :chunk-size 100}))]
+            (go-loop [items (<! items-ch)]
+                     (if items
+                       (do
+                         (swap! page-state update-in [:items] (fnil concat []) items)
+                         (recur (<! items-ch)))
+                       (swap! page-state assoc :all-items-fetched? true)))
 
-        (swap! page-state assoc :ctl-chan ctl-ch)
-        (go (>! ctl-ch :fetch))))))
+            (swap! page-state assoc :ctl-chan ctl-ch)
+            (go (>! ctl-ch :fetch))))
+      (swap! page-state assoc :items []))))
 
 (defn stop-item-loading
   [page-state]
@@ -251,8 +255,8 @@
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
-                                     #(= (:id @account)
-                                         (:account-id %)))))]
+                                     #(model= @account
+                                              (:transaction-item/account %)))))]
     (fn []
       [:table.table.table-striped.table-hover
        [:thead
@@ -266,12 +270,18 @@
          (when-not @reconciliation
            [:th (space)])]]
        [:tbody
-        (if @items
+        (cond
+          (seq @items)
           (->> @items
                (filter @filter-fn)
                (map #(item-row % page-state))
                doall)
-          [:tr [:td {:col-span 6} [:span.inline-status "Loading..."]]])]])))
+
+          @items
+          [:tr [:td.text-center {:col-span 6} "No transactions"]]
+
+          :else
+          [:tr [:td.text-center {:col-span 6} (bs/spinner {:size :small})]])]])))
 
 (defn fund-transactions-table
   [page-state]
@@ -379,10 +389,10 @@
 (defn full-transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
-        total-credits (make-reaction #(->> (:items @transaction)
+        total-credits (make-reaction #(->> (:transaction/items @transaction)
                                            (map :credit-quantity)
                                            (reduce decimal/+ 0M)))
-        total-debits (make-reaction #(->> (:items @transaction)
+        total-debits (make-reaction #(->> (:transaction/items @transaction)
                                           (map :debit-quantity)
                                           (reduce decimal/+ 0M)))
         correction (make-reaction #(decimal/abs (- @total-debits @total-credits)))
@@ -391,8 +401,8 @@
       [:div {:class (when-not (mode? @transaction ::full) "d-none")}
        [:div.alert.alert-warning.d-md-none "Please use a larger screen to edit the transaction in this mode."]
        [:form.d-none.d-md-block
-        [forms/date-field transaction [:transaction-date] {:validate [:required]}]
-        [forms/text-field transaction [:description] {:validate [:required]}]
+        [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
+        [forms/text-field transaction [:transaction/description] {:validations #{:v/required}}]
         [:table.table
          [:thead
           [:tr
@@ -402,7 +412,7 @@
            [:td "Debit Amount"]]]
          [:tbody
           (doall (for [index (range @item-count)]
-                   (item-input-row (r/cursor page-state [:transaction :items index])
+                   (item-input-row (r/cursor page-state [:transaction :transaction/items index])
                                    index
                                    @item-count
                                    page-state)))]
@@ -422,91 +432,77 @@
   (let [transaction (r/cursor page-state [:transaction])]
     (fn []
       [:form {:class (when-not (mode? @transaction ::simple) "d-none")}
-       [forms/date-field transaction [:transaction-date] {:validate [:required]}]
-       [forms/text-field transaction [:description] {:validate [:required]}]
-       [forms/decimal-field transaction [:quantity] {:validate [:required]}]
+       [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
+       [forms/text-field transaction [:transaction/description] {:validations #{:v/required}}]
+       [forms/decimal-field transaction [:transaction/quantity] {:validations #{:v/required}}]
        [forms/typeahead-field
         transaction
-        [:other-account-id]
+        [:transaction/other-account]
         {:search-fn (fn [input callback]
                       (callback (find-by-path input @accounts)))
-         :caption-fn #(string/join "/" (:path %))
-         :value-fn :id
-         :find-fn (fn [id callback]
-                    (callback (@accounts-by-id id)))}]])))
+         :caption-fn #(string/join "/" (:account/path %))
+         :find-fn (fn [model-ref callback]
+                    (callback (@accounts-by-id (:id model-ref))))}]])))
 
 (defn dividend-transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
-        shares (r/cursor transaction [:shares])
-        quantity (r/cursor transaction [:quantity])
+        shares (r/cursor transaction [:trade/shares])
+        quantity (r/cursor transaction [:transaction/quantity])
         price (make-reaction #(when (and @shares @quantity)
                                 (decimal// @quantity @shares)))
-        commodities (r/cursor page-state [:commodities])]
+        commodities (r/cursor page-state [:commodities])
+        find-cmdt (make-reaction #(cmdts/search (vals @commodities)))]
     (fn []
       [:form {:class (when-not (mode? @transaction ::dividend) "d-none")}
-       [forms/date-field transaction [:transaction-date] {:validate [:required]}]
+       [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
        [:div.row
         [:div.col-md-4
-       [forms/decimal-field transaction [:quantity] {:validate [:required]
-                                                     :caption "Dividend"}]]
+         [forms/decimal-field transaction [:transaction/quantity] {:validations #{:v/required}
+                                                                   :caption "Dividend"}]]
         [:div.col-md-4
-       [forms/decimal-field transaction [:shares] {:validate [:required]}]]
+         [forms/decimal-field transaction [:trade/shares] {:validations #{:v/required}}]]
         [:div.col-md-4.d-flex.flex-column
          [:span.mb-2 "Est. Price"]
          [:span.mb-3.ms-2 (when @price (format-decimal @price))]]]
        [forms/typeahead-field
         transaction
-        [:commodity-id]
+        [:trade/commodity]
         {:search-fn (fn [input callback]
-                      (let [term (string/lower-case input)]
-                        (->> @commodities
-                             vals
-                             (filter #(or (string/includes? (string/lower-case (:name %))
-                                                            term)
-                                          (string/includes? (string/lower-case (:symbol %))
-                                                            term)))
-                             callback)))
-         :caption-fn #(str (:name %) " (" (:symbol %) ")")
-         :value-fn :id
-         :find-fn (fn [id callback]
+                      (callback (find-cmdt input)))
+         :caption-fn #(str (:commodity/name %) " (" (:commodity/symbol %) ")")
+         :find-fn (fn [{:keys [id]} callback]
                     (callback (get-in @commodities [id])))}]])))
 
 (defn trade-transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
-        price (make-reaction #(when (and (:shares @transaction)
-                                         (:value @transaction))
-                                (decimal// (:value @transaction)
-                                           (:shares @transaction))))
-        commodities (r/cursor page-state [:commodities])]
+        price (make-reaction #(when (and (:trade/shares @transaction)
+                                         (:trade/value @transaction))
+                                (decimal// (:trade/value @transaction)
+                                           (:trade/shares @transaction))))
+        commodities (r/cursor page-state [:commodities])
+        find-cmdt (make-reaction #(cmdts/search (vals @commodities)))]
     (fn []
       [:form {:class (when-not (mode? @transaction ::trade) "d-none")}
-       [forms/date-field transaction [:trade-date] {:validate [:required]}]
-       [forms/select-field transaction [:action] (map (juxt name humanize) [:buy :sell]) {}]
+       [forms/date-field transaction [:trade/date] {:validations #{:v/required}}]
+       [forms/select-field transaction [:trade/action] (map (juxt name humanize) [:buy :sell]) {}]
        [:div.row
         [:div.col-md-4
-         [forms/decimal-field transaction [:shares] {:validate [:required]}]]
+         [forms/decimal-field transaction [:trade/shares] {:validations #{:v/required}}]]
         [:div.col-md-4
-         [forms/decimal-field transaction [:value] {:validate [:required]}]]
+         [forms/decimal-field transaction [:trade/value] {:validations #{:v/required}}]]
         [:div.col-md-4.d-flex.flex-column
          [:span.mb-2 "Est. Price"]
          [:span.mb-3.ms-3 (when @price (format-decimal @price))]]]
        [forms/typeahead-field
         transaction
-        [:commodity-id]
+        [:commodity]
         {:search-fn (fn [input callback]
-                      (let [term (string/lower-case input)]
-                        (->> @commodities
-                             vals
-                             (filter #(or (string/includes? (string/lower-case (:name %))
-                                                            term)
-                                          (string/includes? (string/lower-case (:symbol %))
-                                                            term)))
-                             callback)))
+                      (callback (find-cmdt input)))
          :caption-fn #(str (:name %) " (" (:symbol %) ")")
          :value-fn :id
-         :find-fn (fn [id callback]
+         :find-fn (fn [{:keys [id]} callback]
                     (callback (get-in @commodities [id])))}]])))
 
 (defn transformations
@@ -521,7 +517,9 @@
   {::simple fullify-trx
    ::full unentryfy
    ::trade #(untradify % {:find-account-by-commodity-id (->> @accounts
-                                                             (map (juxt :commodity-id identity)) ; TODO: This will cause errors unless we lookup by parent also
+                                                             (map (juxt (comp :id
+                                                                              :account/commodity)
+                                                                        identity)) ; TODO: This will cause errors unless we lookup by parent also
                                                              (into {}))})
    ::dividend fullify-trx})
 
