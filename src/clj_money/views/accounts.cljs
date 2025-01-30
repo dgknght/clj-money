@@ -483,13 +483,12 @@
 
 (defn- new-transaction
   [page-state]
-  (let [account-id (get-in @page-state [:view-account :id])]
-    (swap! page-state assoc
-           :transaction (trns/mode
-                         {:entity-id (:id @current-entity)
-                          :transaction-date (t/today)
-                          :account-id account-id}
-                         ::trns/simple)))
+  (swap! page-state assoc
+         :transaction (trns/mode
+                        #:transaction{:entity @current-entity
+                                      :transaction-date (t/today)
+                                      :account (:view-account @page-state)}
+                        ::trns/simple))
   (set-focus "transaction-date"))
 
 (defn- account-buttons
@@ -508,7 +507,7 @@
                      (trns/load-unreconciled-items page-state)
                      (set-focus "end-of-period"))
          :title "Click here to reconcile this account"}
-        (icon-with-text :check-box "Reconcile")]
+        (icon-with-text :list-check "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
                                                     (trns/stop-item-loading page-state)
                                                     (swap! page-state dissoc
@@ -583,7 +582,7 @@
   (let [transaction (r/cursor page-state [:transaction])
         mode (make-reaction #(trns/mode @transaction))
         neutralized (make-reaction #(neutralize @transaction @mode))
-        system-tags (r/cursor page-state [:view-account :system-tags])
+        system-tags (r/cursor page-state [:view-account :account/system-tags])
         disable-trade? (make-reaction #(or (:id @transaction)
                                            (not (:trading @system-tags))))]
     (fn []
@@ -607,11 +606,13 @@
         [trns/trade-transaction-form page-state]
         [trns/dividend-transaction-form page-state]]
        [:div
-        [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
-                                  :title "Click here to save the transaction"}
+        [:button.btn.btn-primary
+         {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
+          :title "Click here to save the transaction"}
          (icon-with-text :check "Save")]
-        [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :transaction)
-                                         :title "Click here to cancel this transaction"}
+        [:button.btn.btn-secondary.ms-2
+         {:on-click #(swap! page-state dissoc :transaction)
+          :title "Click here to cancel this transaction"}
          (icon-with-text :x "Cancel")]]])))
 
 (defn- check-all-items
@@ -954,7 +955,7 @@
   ([] (any-non-zero-balances? @accounts))
   ([accounts]
    (->> accounts
-        (map :value)
+        (map :account/value)
         (not-every? #(= 0 %)))))
 
 (defn- index []
