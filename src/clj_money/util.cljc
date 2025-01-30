@@ -466,3 +466,15 @@
   (sort-by #(sort-key %)
            comp
            (cons m (remove #(model= m %) coll))))
+
+(defn match?
+  "Given a search term and a list of keys, returns a predicate function that
+  indicates whether or not a given model map matches the search term."
+  [term & ks]
+  (let [t (string/lower-case term)
+        fns (map (fn [k]
+                   (comp #(string/includes? % t)
+                         string/lower-case
+                         k))
+                 ks)]
+    (apply some-fn fns)))
