@@ -78,7 +78,6 @@
 (defn- default-nav-item
   [{:keys [id]} active-nav]
   {:label (humanize id)
-   :toggle "#primary-nav"
    :path (str "/" (name id))
    :active? (= id active-nav)
    :tool-tip (str "Click here to manage "
