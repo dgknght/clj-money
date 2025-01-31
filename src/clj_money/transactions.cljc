@@ -47,7 +47,7 @@
                         {:quantity quantity
                          :account (find-account account)}))
         item-2 (when other-account
-                 #:transaction-item{:quantity (util/abs quantity)
+                 #:transaction-item{:quantity (d/abs quantity)
                                     :action (if (= :credit (:transaction-item/action item-1))
                                               :debit
                                               :credit)
