@@ -497,6 +497,7 @@
     (fn []
       [:div.d-flex.justify-content-between
        [:button.btn.btn-primary {:on-click #(new-transaction page-state)
+                                 :title "Click here to enter a transaction."
                                  :disabled (not (nil? @transaction))}
         (icon-with-text :plus "Add")]
        [:button.btn.btn-secondary.ms-2.d-none.d-md-block
