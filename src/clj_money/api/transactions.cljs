@@ -1,27 +1,12 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update get])
-  (:require [cljs-time.core :as t]
-            [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [serialize-date
-                                         unserialize-date
-                                         unserialize-date-time]]
-            [dgknght.app-lib.api-async :as api]
+  (:require [cljs.pprint :refer [pprint]]
+            [cljs-time.core :as t]
             [clj-money.state :refer [current-entity]]
-            [clj-money.api.transaction-items :as items]
-            [clj-money.api :refer [handle-ex]]))
+            [clj-money.dates :refer [serialize-local-date]]
+            [clj-money.models :refer [prune]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
-(defn after-read
-  [transaction]
-  (-> transaction
-      (update-in [:transaction-date] unserialize-date)
-      (update-in [:original-transaction-date] unserialize-date)
-      (update-in [:created-at] unserialize-date-time)
-      (update-in [:items] #(map items/after-read %))))
-
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read)
-        xf))
 
 (def ^:private working-date
   (some-fn :original-transaction-date
@@ -30,60 +15,50 @@
 (defn- transaction-path
   [{:keys [id] :as transaction}]
   (api/path :transactions
-            (serialize-date (working-date transaction))
+            (serialize-local-date (working-date transaction))
             id))
 
 (defn search
-  [criteria xf]
+  [criteria & {:as opts}]
   (let [end-date (get-in criteria [:end-date] (t/today))
         start-date (get-in criteria [:start-date] (t/minus end-date (t/months 6)))]
     (api/get
       (api/path :entities
                 (:id @current-entity)
-                (serialize-date start-date)
-                (serialize-date end-date)
+                (serialize-local-date start-date)
+                (serialize-local-date end-date)
                 :transactions)
       (dissoc criteria :start-date :end-date)
-      {:transform (transform xf)
-       :handle-ex (handle-ex "Unable to retrieve the transactions: %s")})))
-
-(defn- serialize
-  [transaction]
-  (-> transaction
-      (update-in-if [:original-transaction-date] serialize-date)
-      (update-in [:transaction-date] serialize-date)))
+      (add-error-handler opts "Unable to retrieve the transactions: %s"))))
 
 (defn create
-  [transaction xf]
+  [transaction opts]
   (api/post (api/path :entities
-                      (:entity-id transaction)
+                      (:transaction/entity transaction)
                       :transactions)
-            (serialize transaction)
-            {:transform (transform xf)
-             :handle-ex (handle-ex "Unable to create the transaction: %s")}))
+            (dissoc transaction :transaction/entity)
+            (add-error-handler opts "Unable to create the transaction: %s")))
 
 (defn update
-  [transaction xf]
+  [transaction opts]
   (api/patch (transaction-path transaction)
-             (serialize transaction)
-             {:transform (transform xf)
-              :handle-ex (handle-ex "Unable to update the transaction: %s")}))
+             (dissoc transaction :transaction/entity)
+             (add-error-handler opts "Unable to update the transaction: %s")))
 
 (defn save
-  [transaction xf]
-  (if (:id transaction)
-    (update transaction xf)
-    (create transaction xf)))
+  [transaction & {:as opts}]
+  (let [f (if (:id transaction) update create)]
+    (-> transaction
+        (prune :transaction)
+        (f opts))))
 
 (defn get
-  [tkey xf]
+  [tkey & {:as opts}]
   (api/get (transaction-path tkey)
            {}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the transaction: %s")}))
+           (add-error-handler opts "Unable to retrieve the transaction: %s")))
 
 (defn delete
-  [transaction xf]
+  [transaction & {:as opts}]
   (api/delete (transaction-path transaction)
-              {:transform xf
-               :handle-ex (handle-ex "Unable to remove the transaction: %s")}))
+              (add-error-handler opts "Unable to remove the transaction: %s")))
