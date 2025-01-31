@@ -75,12 +75,10 @@
       (update-in-if [:transaction-item/action] keyword)))
 
 (defn- extract-transaction
-  [{:keys [body]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (dissoc :id)
       expand
-      (update-in-if [:transaction/transaction-date] unserialize-local-date)
-      (update-in-if [:transaction/items] #(map parse-item %))
       (select-keys attribute-keys)))
 
 (defn- create
