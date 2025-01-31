@@ -359,19 +359,16 @@
             [:span.visually-hidden "Loading"]]]]]])]))
 
 (defn- prepare-for-save
-  [{:keys [parent-id] :as account}]
+  [account]
   ; TODO: Add logic to turn trading attribute into a system tag
-  (let [parent (->> @accounts
-                    (filter #(= (:id %) parent-id))
-                    first)]
-    (cond-> (update-in account
-                       [:account/allocations]
-                       (fn [allocations]
-                         (when allocations
-                           (->> allocations
-                                (remove (fn [[_ v]] (decimal/zero? v)))
-                                (into {})))))
-      parent (merge (select-keys parent [:account/type])))))
+  (-> account
+      (update-in [:account/type] keyword)
+      (update-in [:account/allocations]
+                 (fn [allocations]
+                   (when allocations
+                     (->> allocations
+                          (remove (fn [[_ v]] (decimal/zero? v)))
+                          (into {})))))))
 
 (defn- save-account
   [page-state]
@@ -566,7 +563,8 @@
 (defn- transaction-form-nav-tab
   [{:keys [mode disabled?]} page-state]
   (let [current-mode (trns/mode (:transaction @page-state))]
-    {:caption (humanize (name mode))
+    {:id (str "transaction-" (name mode))
+     :caption (humanize (name mode))
      :disabled? disabled?
      :elem-key (str "entry-mode-" (name mode))
      :active? (= current-mode mode)
