@@ -41,27 +41,25 @@
   account, and one credit account) and returns a standard
   transaction (with line items)"
   [{:transaction/keys [quantity account other-account item other-item] :as trx} find-account]
-  {:pre [(:transaction/account trx)
-         (:transaction/other-account trx)
-         (:transaction/item trx)
-         (:transaction/other-item trx)]}
-  (let [item-1 (merge item (->transaction-item quantity
-                                               (find-account account)))]
-    (-> trx
-        (assoc :transaction/items
-               [item-1
-                (merge other-item
-                       #:transaction-item{:quantity (util/abs quantity)
-                                          :action (if (= :credit
-                                                         (:transaction-item/action item-1))
-                                                    :debit
-                                                    :credit)
-                                          :account other-account})])
-        (dissoc :transaction/quantity
-                :transaction/account
-                :transaction/other-account
-                :transaction/item
-                :transaction/other-item))))
+  {:pre [(:transaction/account trx)]}
+  (let [item-1 (merge item
+                      (->transaction-item
+                        {:quantity quantity
+                         :account (find-account account)}))
+        item-2 (when other-account
+                 #:transaction-item{:quantity (util/abs quantity)
+                                    :action (if (= :credit (:transaction-item/action item-1))
+                                              :debit
+                                              :credit)
+                                    :account other-account})]
+    (cond-> (-> trx
+                (dissoc :transaction/quantity
+                        :transaction/account
+                        :transaction/other-account
+                        :transaction/item
+                        :transaction/other-item)
+                (assoc :transaction/items [item-1]))
+      item-2 (update-in [:transaction/items] conj (merge other-item item-2)))))
 
 (defn- entryfy-item
   [{:transaction-item/keys [quantity action] :as item}]

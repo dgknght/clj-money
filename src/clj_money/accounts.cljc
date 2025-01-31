@@ -134,10 +134,13 @@
 (defn ->transaction-item
   "Given a quantity and an account, returns a transaction item
   with appropriate attributes"
-  [quantity account]
-  #:transaction-item{:quantity (d/abs quantity)
-                     :account (util/->model-ref account)
-                     :action (derive-action quantity account)})
+  [{:keys [quantity account]}]
+  (cond-> {:transaction-item/action :credit}
+    quantity      (assoc :transaction-item/quantity (d/abs quantity))
+    account       (assoc :transaction-item/account (util/->model-ref account))
+    (and quantity
+         account) (assoc :transaction-item/action
+                                  (derive-action quantity account))))
 
 (defn ->>criteria
   ([accounts] (->>criteria {} accounts))

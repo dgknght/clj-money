@@ -57,34 +57,42 @@
     (is (= expected (trx/accountify trx (accounts :checking))))))
 
 (deftest unaccountify-a-transaction
-  (let [expected #:transaction{:transaction-date "2020-01-01"
+  (testing "A whole transaction"
+    (let [expected #:transaction{:transaction-date "2020-01-01"
+                                 :description "ACME Store"
+                                 :memo "transaction memo"
+                                 :items [{:id 1
+                                          :transaction-item/account {:id :checking}
+                                          :transaction-item/action :credit
+                                          :transaction-item/quantity (d 10)}
+                                         {:id 2
+                                          :transaction-item/account {:id :groceries}
+                                          :transaction-item/action :debit
+                                          :transaction-item/quantity (d 10)}]}
+          simple #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :items [{:id 1
-                                        :transaction-item/account {:id :checking}
-                                        :transaction-item/action :credit
-                                        :transaction-item/quantity (d 10)}
-                                       {:id 2
-                                        :transaction-item/account {:id :groceries}
-                                        :transaction-item/action :debit
-                                        :transaction-item/quantity (d 10)}]}
-        simple #:transaction{:transaction-date "2020-01-01"
-                             :description "ACME Store"
-                             :memo "transaction memo"
-                             :item {:id 1}
-                             :account {:id :checking}
-                             :other-item {:id 2}
-                             :other-account {:id :groceries}
-                             :quantity (d -10)}]
-    (is (= expected (trx/unaccountify simple (comp accounts :id))))
-    (testing "two asset accounts"
-      (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :savings})
-             (trx/unaccountify (assoc simple :transaction/other-account {:id :savings})
-                               (comp accounts :id)))))
-    (testing "one asset, one liability"
-      (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :credit-card})
-             (trx/unaccountify (assoc simple :transaction/other-account {:id :credit-card})
-                               (comp accounts :id)))))))
+                               :item {:id 1}
+                               :account {:id :checking}
+                               :other-item {:id 2}
+                               :other-account {:id :groceries}
+                               :quantity (d -10)}]
+      (is (= expected (trx/unaccountify simple (comp accounts :id))))
+      (testing "two asset accounts"
+        (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :savings})
+               (trx/unaccountify (assoc simple :transaction/other-account {:id :savings})
+                                 (comp accounts :id)))))
+      (testing "one asset, one liability"
+        (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :credit-card})
+               (trx/unaccountify (assoc simple :transaction/other-account {:id :credit-card})
+                                 (comp accounts :id)))))))
+  (testing "A partial transaction (for editing)"
+    (is (= #:transaction{:transaction-date "2020-01-01"
+                         :items [#:transaction-item{:account {:id :checking}
+                                                    :action :credit}]}
+           (trx/unaccountify #:transaction{:transaction-date "2020-01-01"
+                                           :account {:id :checking}}
+                             (comp accounts :id))))))
 
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"
