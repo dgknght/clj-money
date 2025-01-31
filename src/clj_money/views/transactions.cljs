@@ -22,6 +22,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [accounts
                                      accounts-by-id
@@ -38,19 +39,17 @@
                                             unaccountify
                                             can-simplify?
                                             entryfy
-                                            unentryfy
-                                            ensure-empty-item
-                                            tradify
-                                            untradify]]
+                                            ensure-empty-item]]
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as att]
-            [clj-money.api.trading :as trading]))
+            #_[clj-money.api.trading :as trading]))
 
 (defn- fullify-trx
   [trx]
-  (unaccountify trx @accounts-by-id))
+  (unaccountify trx (comp @accounts-by-id
+                          :id)))
 
 (defn mode
   ([transaction]
@@ -387,7 +386,7 @@
                                                             :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]])
 
 (defn full-transaction-form
-  [page-state]
+  [page-state & {:keys [on-save]}]
   (let [transaction (r/cursor page-state [:transaction])
         total-credits (make-reaction #(->> (:transaction/items @transaction)
                                            (map :credit-quantity)
@@ -398,9 +397,15 @@
         correction (make-reaction #(decimal/abs (- @total-debits @total-credits)))
         item-count (make-reaction #(count (:items @transaction)))]
     (fn []
-      [:div {:class (when-not (mode? @transaction ::full) "d-none")}
-       [:div.alert.alert-warning.d-md-none "Please use a larger screen to edit the transaction in this mode."]
+      [:div
+       [:div.alert.alert-warning.d-md-none "Please use a larger screen to use full transaction mode."]
        [:form.d-none.d-md-block
+        {:no-validate true
+         :on-submit (fn [e]
+                      (.preventDefault e)
+                      (v/validate transaction)
+                      (when (v/valid? transaction)
+                        (on-save)))}
         [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
         [forms/text-field transaction [:transaction/description] {:validations #{:v/required}}]
         [:table.table
@@ -428,24 +433,31 @@
                (format-decimal @correction)])]]]]]])))
 
 (defn simple-transaction-form
-  [page-state]
+  [page-state & {:keys [on-save]}]
   (let [transaction (r/cursor page-state [:transaction])]
     (fn []
-      [:form {:class (when-not (mode? @transaction ::simple) "d-none")}
-       [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
-       [forms/text-field transaction [:transaction/description] {:validations #{:v/required}}]
-       [forms/decimal-field transaction [:transaction/quantity] {:validations #{:v/required}}]
+      [:form#transaction-form
+       {:no-validate true
+        :on-submit (fn [e]
+                     (.preventDefault e)
+                     (v/validate transaction)
+                     (when (v/valid? transaction)
+                       (transactions/save (fullify-trx @transaction)
+                                          :on-success on-save)))}
+       [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]
+       [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
+       [forms/decimal-field transaction [:transaction/quantity] {:validations #{::v/required}}]
        [forms/typeahead-field
         transaction
         [:transaction/other-account]
         {:search-fn (fn [input callback]
                       (callback (find-by-path input @accounts)))
          :caption-fn #(string/join "/" (:account/path %))
-         :find-fn (fn [model-ref callback]
-                    (callback (@accounts-by-id (:id model-ref))))}]])))
+         :find-fn (fn [{:keys [id]} callback]
+                    (callback (@accounts-by-id id)))}]])))
 
 (defn dividend-transaction-form
-  [page-state]
+  [page-state & {:keys [on-save]}]
   (let [transaction (r/cursor page-state [:transaction])
         shares (r/cursor transaction [:trade/shares])
         quantity (r/cursor transaction [:transaction/quantity])
@@ -454,7 +466,12 @@
         commodities (r/cursor page-state [:commodities])
         find-cmdt (make-reaction #(cmdts/search (vals @commodities)))]
     (fn []
-      [:form {:class (when-not (mode? @transaction ::dividend) "d-none")}
+      [:form#transaction-form {:no-validate true
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           (v/validate transaction)
+                           (when (v/valid? transaction)
+                             (on-save)))}
        [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
        [:div.row
         [:div.col-md-4
@@ -475,7 +492,7 @@
                     (callback (get-in @commodities [id])))}]])))
 
 (defn trade-transaction-form
-  [page-state]
+  [page-state & {:keys [on-save]}]
   (let [transaction (r/cursor page-state [:transaction])
         price (make-reaction #(when (and (:trade/shares @transaction)
                                          (:trade/value @transaction))
@@ -484,7 +501,12 @@
         commodities (r/cursor page-state [:commodities])
         find-cmdt (make-reaction #(cmdts/search (vals @commodities)))]
     (fn []
-      [:form {:class (when-not (mode? @transaction ::trade) "d-none")}
+      [:form {:no-validate true
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           (v/validate transaction)
+                           (when (v/valid? transaction)
+                             (on-save)))}
        [forms/date-field transaction [:trade/date] {:validations #{:v/required}}]
        [forms/select-field transaction [:trade/action] (map (juxt name humanize) [:buy :sell]) {}]
        [:div.row
@@ -504,82 +526,3 @@
          :value-fn :id
          :find-fn (fn [{:keys [id]} callback]
                     (callback (get-in @commodities [id])))}]])))
-
-(defn transformations
-  [account commodities]
-  {::simple #(accountify % account)
-   ::full entryfy
-   ::trade #(tradify % {:find-account @accounts-by-id
-                        :find-commodity commodities})
-   ::dividend #(accountify % account)})
-
-(defn untransformations []
-  {::simple fullify-trx
-   ::full unentryfy
-   ::trade #(untradify % {:find-account-by-commodity-id (->> @accounts
-                                                             (map (juxt (comp :id
-                                                                              :account/commodity)
-                                                                        identity)) ; TODO: This will cause errors unless we lookup by parent also
-                                                             (into {}))})
-   ::dividend fullify-trx})
-
-(defmulti save-transaction
-  (fn [page-state _xf]
-    (-> @page-state :transaction mode)))
-
-(defmethod save-transaction :default
-  [page-state xf]
-  (let [{:keys [transaction]} @page-state
-        mode (mode transaction)
-        prepare ((untransformations) mode)]
-    (-> transaction
-        prepare
-        (transactions/save xf))))
-
-(defmethod save-transaction ::trade
-  [page-state xf]
-  (trading/create (:transaction @page-state)
-                  (map xf)))
-
-(defn- assoc-reinvest-desc
-  [transaction commodity]
-  (assoc transaction
-         :description
-         (gstr/format "Reinvest %.2f into %.3f shares of %s (%s)"
-                      (:value transaction)
-                      (:shares transaction)
-                      (:name commodity)
-                      (:symbol commodity))))
-
-(defn- reinvest-dividend
-  [page-state]
-  (fn [xf]
-    (completing
-      (fn [ch created]
-        (let [{:keys [transaction commodities]} @page-state
-              commodity (get-in commodities [(:commodity-id transaction)])]
-          (-> transaction
-              (rename-keys {:quantity :value
-                            :transaction-date :trade-date})
-              (assoc-reinvest-desc commodity)
-              (assoc :action :buy)
-              (trading/create #(map (xf ch {:transaction created
-                                            :trade %})))))))))
-
-(defmethod save-transaction ::dividend
-  [page-state xf]
-  (let [{:keys [transaction commodities]} @page-state
-        commodity (get-in commodities [(:commodity-id transaction)])
-        dividends-account (->> @accounts ; TODO: Need a better way to make sure we have this value
-                               (filter #(= :income (:type %)))
-                               (filter #(re-find #"(?i)dividend" (:name %)))
-                               first)]
-    (-> transaction
-        (dissoc :commodity-id :shares)
-        (assoc :description (gstr/format "%s (%s)"
-                                         (:name commodity)
-                                         (:symbol commodity))
-               :other-account-id (:id dividends-account))
-        fullify-trx
-        (transactions/save (comp (reinvest-dividend page-state)
-                                 xf)))))

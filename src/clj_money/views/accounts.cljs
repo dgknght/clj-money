@@ -23,7 +23,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs :refer [nav-tabs]]
-            [clj-money.util :refer [model=]]
+            [clj-money.util :as util :refer [model=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.components :refer [load-on-scroll
@@ -32,6 +32,7 @@
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
             [clj-money.api.prices :as prices]
+            [clj-money.api.transactions :as trx]
             [clj-money.transactions :refer [can-simplify?]]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.accounts :refer [account-types
@@ -393,90 +394,90 @@
     (fn []
       (when @account
         [:form {:no-validate true
-                  :on-submit (fn [e]
-                               (.preventDefault e)
-                               (v/validate account)
-                               (when (v/valid? account)
-                                 (save-account page-state)))}
-           [forms/typeahead-field
-            account
-            [:account/parent]
-            {:search-fn (fn [input callback]
-                          (->> @accounts
-                               (find-by-path input)
-                               callback))
-             :on-change (fn [{:account/keys [commodity]}]
-                          (swap! account assoc :account/commodity commodity))
-             :caption-fn (comp (partial string/join "/") :account/path)
-             :find-fn (fn [parent callback]
+                :on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate account)
+                             (when (v/valid? account)
+                               (save-account page-state)))}
+         [forms/typeahead-field
+          account
+          [:account/parent]
+          {:search-fn (fn [input callback]
                         (->> @accounts
-                             (filter #(model= parent %))
-                             first
-                             callback))}]
-           [forms/select-field account
-            [:account/type]
-            (map (juxt name humanize) account-types)
-            {:hide? hide-type?}]
-           [forms/text-field account [:account/name] {:validations #{::v/required}}]
-           [forms/typeahead-field
-            account
-            [:account/commodity]
-            {:search-fn (fn [input callback]
-                          (let [term (string/lower-case input)]
-                            (->> @commodities
-                                 vals
-                                 (filter #(or (string/includes? (string/lower-case (:commodity/name %))
-                                                                term)
-                                              (string/includes? (string/lower-case (:commodity/symbol %))
-                                                                term)))
-                                 callback)))
-             :caption-fn :commodity/name
-             :find-fn (fn [{:keys [id]} callback]
-                        (callback (get-in @commodities [id])))
-             :validations #{::v/required}}]
-           [forms/checkbox-field
-            account
-            [:trading]
-            {:caption "Check here if this account is used to trade commodities"
-             :form-group-attr {:class (when-not (= :asset (:account/type @account)) "d-none")}}]
-           [:fieldset
-            [:legend "Tags"]
-            [forms/typeahead-input
-             account
-             [:working-tag]
-             {:mode :direct
-              :search-fn (fn [term callback]
-                           (let [existing (or @user-tags #{})]
-                             (->> @all-user-tags
-                                  (remove existing)
-                                  (map name)
-                                  (filter #(string/includes? % term))
-                                  callback)))
-              :caption-fn name
-              :value-fn name
-              :find-fn keyword
-              :create-fn keyword
-              :on-change (fn [tag]
-                           (swap! account #(-> %
-                                               (update-in [:account/user-tags] (fnil conj #{}) (keyword tag))
-                                               (dissoc :working-tag))))}]
-            (tag-elems @user-tags {:remove-fn #(swap! account
-                                                      update-in
-                                                      [:account/user-tags]
-                                                      disj
-                                                      %)})]
-           [:div
-            [button {:html {:type :submit
-                            :class "btn-primary"
-                            :title "Click here to save the account."}
-                     :caption "Save"
-                     :icon :check}]
-            [button {:html {:on-click #(swap! page-state dissoc :selected)
-                            :class "btn-secondary ms-2"
-                            :type :button
-                            :title "Click here to return to the list of accounts."}
-                     :caption "Cancel"
-                     :icon :x}]]]))))
+                             (find-by-path input)
+                             callback))
+           :on-change (fn [{:account/keys [commodity]}]
+                        (swap! account assoc :account/commodity commodity))
+           :caption-fn (comp (partial string/join "/") :account/path)
+           :find-fn (fn [parent callback]
+                      (->> @accounts
+                           (filter #(model= parent %))
+                           first
+                           callback))}]
+         [forms/select-field account
+          [:account/type]
+          (map (juxt name humanize) account-types)
+          {:hide? hide-type?}]
+         [forms/text-field account [:account/name] {:validations #{::v/required}}]
+         [forms/typeahead-field
+          account
+          [:account/commodity]
+          {:search-fn (fn [input callback]
+                        (let [term (string/lower-case input)]
+                          (->> @commodities
+                               vals
+                               (filter #(or (string/includes? (string/lower-case (:commodity/name %))
+                                                              term)
+                                            (string/includes? (string/lower-case (:commodity/symbol %))
+                                                              term)))
+                               callback)))
+           :caption-fn :commodity/name
+           :find-fn (fn [{:keys [id]} callback]
+                      (callback (get-in @commodities [id])))
+           :validations #{::v/required}}]
+         [forms/checkbox-field
+          account
+          [:trading]
+          {:caption "Check here if this account is used to trade commodities"
+           :form-group-attr {:class (when-not (= :asset (:account/type @account)) "d-none")}}]
+         [:fieldset
+          [:legend "Tags"]
+          [forms/typeahead-input
+           account
+           [:working-tag]
+           {:mode :direct
+            :search-fn (fn [term callback]
+                         (let [existing (or @user-tags #{})]
+                           (->> @all-user-tags
+                                (remove existing)
+                                (map name)
+                                (filter #(string/includes? % term))
+                                callback)))
+            :caption-fn name
+            :value-fn name
+            :find-fn keyword
+            :create-fn keyword
+            :on-change (fn [tag]
+                         (swap! account #(-> %
+                                             (update-in [:account/user-tags] (fnil conj #{}) (keyword tag))
+                                             (dissoc :working-tag))))}]
+          (tag-elems @user-tags {:remove-fn #(swap! account
+                                                    update-in
+                                                    [:account/user-tags]
+                                                    disj
+                                                    %)})]
+         [:div
+          [button {:html {:type :submit
+                          :class "btn-primary"
+                          :title "Click here to save the account."}
+                   :caption "Save"
+                   :icon :check}]
+          [button {:html {:on-click #(swap! page-state dissoc :selected)
+                          :class "btn-secondary ms-2"
+                          :type :button
+                          :title "Click here to return to the list of accounts."}
+                   :caption "Cancel"
+                   :icon :x}]]]))))
 
 (defn- new-transaction
   [page-state]
@@ -517,96 +518,39 @@
 
 (defn- refresh-accounts
   [page-state]
-  (fn [xf]
-    (completing
-      (fn [ch res]
-        (fetch-accounts :post-xf (map (fn [accounts]
-                                        ; The :view-account might now be stale, e.g., if the new transaction
-                                        ; changes :latest-transaction-date
-                                        (let [account (get-in @page-state [:view-account])
-                                              updated (->> accounts
-                                                           (filter #(= (:id account)
-                                                                       (:id %)))
-                                                           first)]
-                                          (swap! page-state assoc :view-account updated))
-                                        (xf ch res))))))))
-
-(defn- refresh-items
-  [page-state]
-  (fn [xf]
-    (completing
-      (fn [ch res]
-        (trns/reset-item-loading page-state)
-        (xf ch res)))))
+  (fetch-accounts
+    :post-xf (map (fn [accounts]
+                    ; The :view-account might now be stale, e.g., if the new transaction
+                    ; changes :latest-transaction-date
+                    (let [account (get-in @page-state [:view-account])
+                          updated (->> accounts
+                                       (filter #(model= account %))
+                                       first)]
+                      (swap! page-state assoc :view-account updated))))))
 
 (defn- post-transaction-save
   [page-state]
-  (comp (refresh-accounts page-state)
-        (refresh-items page-state)))
-
-(defn- do-tab-nav
-  [mode page-state]
-  (let [{:keys [view-account commodities transaction]} @page-state
-        unprep-fn (get-in (trns/untransformations)
-                          [(trns/mode transaction)])
-        prep-fn (get-in (trns/transformations view-account
-                                              commodities)
-                        [mode])]
-    (swap! page-state
-           (fn [state]
-             (update-in state
-                        [:transaction]
-                        (comp #(trns/mode % mode)
-                              prep-fn
-                              unprep-fn))))))
-
-(defn- transaction-form-nav-tab
-  [{:keys [mode disabled?]} page-state]
-  (let [current-mode (trns/mode (:transaction @page-state))]
-    {:id (str "transaction-" (name mode))
-     :caption (humanize (name mode))
-     :disabled? disabled?
-     :elem-key (str "entry-mode-" (name mode))
-     :active? (= current-mode mode)
-     :on-click #(do-tab-nav mode page-state)}))
-
-(defn- neutralize
-  [transaction mode]
-  (let [f (get-in (trns/untransformations)
-                  [mode])]
-    (f transaction)))
+  (fn []
+    (trns/reset-item-loading page-state)
+    (refresh-accounts page-state)))
 
 (defn- transaction-form
   [page-state]
-  (let [transaction (r/cursor page-state [:transaction])
-        mode (make-reaction #(trns/mode @transaction))
-        neutralized (make-reaction #(neutralize @transaction @mode))
-        system-tags (r/cursor page-state [:view-account :account/system-tags])
-        disable-trade? (make-reaction #(or (:id @transaction)
-                                           (not (:trading @system-tags))))]
+  (let [transaction (r/cursor page-state [:transaction])]
     (fn []
       [:<>
        [:h3 (if (:id @transaction)
               "Edit Transaction"
               "New Transaction")]
        [:div.mt-3
-        (nav-tabs {:class "mb-3"}
-                  (map #(transaction-form-nav-tab % page-state)
-                       [{:mode ::trns/simple
-                         :disabled? (not (can-simplify? @neutralized))}
-                        {:mode ::trns/full
-                         :disabled? false}
-                        {:mode ::trns/trade
-                         :disabled? @disable-trade?}
-                        {:mode ::trns/dividend
-                         :disabled? @disable-trade?}]))
-        [trns/full-transaction-form page-state]
-        [trns/simple-transaction-form page-state]
-        [trns/trade-transaction-form page-state]
-        [trns/dividend-transaction-form page-state]]
+        [trns/simple-transaction-form page-state :on-save #(post-transaction-save page-state)]
+        #_[trns/full-transaction-form page-state]
+        #_[trns/trade-transaction-form page-state]
+        #_[trns/dividend-transaction-form page-state]]
        [:div
         [:button.btn.btn-primary
-         {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
+         {:type :submit
+          :form "transaction-form"
           :title "Click here to save the transaction"}
          (icon-with-text :check "Save")]
         [:button.btn.btn-secondary.ms-2
@@ -810,7 +754,8 @@
             [:div.card-body
              [trns/trade-transaction-form page-state]]
             [:div.card-footer
-             [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
+             [:button.btn.btn-primary {:type :submit
+                                       :form "transaction-form"
                                        :title "Click here to save the transaction"}
               (icon-with-text :check "Save")]
              (html/space)
@@ -962,6 +907,13 @@
                             :hide-zero-balances? (any-non-zero-balances?)
                             :filter-tags #{}
                             :ctl-chan (chan)})
+        commodities (r/cursor page-state [:commodities])
+        default-commodity (make-reaction
+                            #(when (seq @commodities)
+                               (when-let [id (get-in @current-entity
+                                                     [:entity/settings
+                                                      :settings/default-commodity-id])]
+                                 (get-in @commodities [id]))))
         view-account (r/cursor page-state [:view-account])
         selected (r/cursor page-state [:selected])
         allocation-account (r/cursor page-state [:allocation :account])
@@ -1005,8 +957,11 @@
          [accounts-table page-state]
          [button {:html {:class "btn-primary"
                          :on-click (fn []
-                                     (swap! page-state assoc :selected {:account/entity @current-entity
-                                                                        :account/type :asset})
+                                     (swap! page-state
+                                            assoc :selected
+                                            {:account/entity @current-entity
+                                             :account/type "asset"
+                                             :account/commodity @default-commodity})
                                      (set-focus "parent-id"))
                          :disabled @busy?}
                   :caption "Add"
