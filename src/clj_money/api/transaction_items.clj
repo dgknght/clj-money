@@ -139,7 +139,8 @@
            (models/select (assoc (extract-options req)
                                  :sort [[:transaction-item/transaction-date :desc]
                                         [:transaction-item/index :desc]]
-                                 :select-also [:transaction/description])))
+                                 :select-also [:transaction/description
+                                               :transaction/attachment-count])))
        (filter-reconciled req)
        (apply-limit req)
        polarize-quantities
