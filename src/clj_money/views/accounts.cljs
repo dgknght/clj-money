@@ -543,6 +543,7 @@
 (defn- expand-trx []
   (fn [trx]
     (-> trx
+        v/reset
         (unaccountify (comp @accounts-by-id :id))
         entryfy)))
 
@@ -551,6 +552,7 @@
   (let [account (:view-account @page-state)]
     (fn [trx]
       (-> trx
+          v/reset
           unentryfy
           (accountify account)))))
 

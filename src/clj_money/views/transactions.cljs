@@ -414,7 +414,7 @@
     (fn []
       [:div
        [:div.alert.alert-warning.d-md-none "Please use a larger screen to use full transaction mode."]
-       [:form.d-none.d-md-block
+       [:form#transaction-form.d-none.d-md-block
         {:no-validate true
          :on-submit (fn [e]
                       (.preventDefault e)
