@@ -544,8 +544,7 @@
   (fn [trx]
     (-> trx
         (unaccountify (comp @accounts-by-id :id))
-        entryfy
-        (util/pp-> ::expanded))))
+        entryfy)))
 
 (defn- collapse-trx
   [page-state]
