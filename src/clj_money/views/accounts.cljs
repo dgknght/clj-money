@@ -482,11 +482,9 @@
 (defn- new-transaction
   [page-state]
   (swap! page-state assoc
-         :transaction (trns/mode
-                        #:transaction{:entity @current-entity
-                                      :transaction-date (t/today)
-                                      :account (:view-account @page-state)}
-                        ::trns/simple))
+         :transaction #:transaction{:entity @current-entity
+                                    :transaction-date (t/today)
+                                    :account (:view-account @page-state)})
   (set-focus "transaction-date"))
 
 (defn- account-buttons
