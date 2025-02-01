@@ -117,8 +117,8 @@
                             :class (when-not (:account/has-children? account)
                                      "invisible")}
           (icon (if (expanded id)
-                  :arrows-collapse
-                  :arrows-expand)
+                  :chevron-down
+                  :chevron-right)
                 :size :small)]
          (abbr-acct-name account)]]
    [:td.text-end.d-none.d-sm-table-cell.value-depth
@@ -166,8 +166,8 @@
     [:span.toggle-ctl {:aria-hidden true
                        :on-click #(toggle-account account-type page-state)}
      (icon (if (expanded account-type)
-                :arrows-collapse
-                :arrows-expand)
+                :chevron-down
+                :chevron-right)
               :size :small)]
     (name account-type)]
    [:td.text-end.d-none.d-sm-table-cell
