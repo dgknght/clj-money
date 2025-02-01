@@ -249,8 +249,8 @@
         success-fn #(receive-fn (fn [state] (update-in state [:succeeded] inc)))
         error-fn #(receive-fn (fn [state] (update-in state [:errors] conj %)))
         apply-fn (if merge-user-tags?
-                   #(update-in % [:user-tags] union user-tags)
-                   #(assoc % :user-tags user-tags))
+                   #(update-in % [:account/user-tags] union user-tags)
+                   #(assoc % :account/user-tags user-tags))
         to-update (->> account-ids
                        (map @accounts-by-id)
                        (map apply-fn))]
