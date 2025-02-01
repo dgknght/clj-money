@@ -410,8 +410,10 @@
                         (->> @accounts
                              (find-by-path input)
                              callback))
-           :on-change (fn [{:account/keys [commodity]}]
-                        (swap! account assoc :account/commodity commodity))
+           :on-change (fn [{:account/keys [commodity type]}]
+                        (swap! account assoc
+                               :account/commodity commodity
+                               :account/type type))
            :caption-fn (comp (partial string/join "/") :account/path)
            :find-fn (fn [parent callback]
                       (->> @accounts
