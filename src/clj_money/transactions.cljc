@@ -9,8 +9,8 @@
 
 (defn accountified?
   "Returns true if the accountify fn has been applied to the transaction."
-  [{:transaction/keys [account other-account]}]
-  (and account other-account))
+  [{:transaction/keys [account]}]
+  (not (not account)))
 
 (defn can-accountify?
   "Returns true if the transaction can be simplified (which
