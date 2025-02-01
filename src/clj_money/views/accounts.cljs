@@ -522,11 +522,12 @@
                           updated (->> accounts
                                        (filter #(model= account %))
                                        first)]
-                      (swap! page-state assoc :view-account updated))))))
+                      (swap! page-state assoc :view-account updated))
+                    accounts))))
 
 (defn- post-transaction-save
   [page-state]
-  (fn []
+  (fn [_]
     (swap! page-state dissoc :transaction)
     (trns/reset-item-loading page-state)
     (refresh-accounts page-state)))
@@ -540,7 +541,7 @@
               "Edit Transaction"
               "New Transaction")]
        [:div.mt-3
-        [trns/simple-transaction-form page-state :on-save #(post-transaction-save page-state)]
+        [trns/simple-transaction-form page-state :on-save (post-transaction-save page-state)]
         #_[trns/full-transaction-form page-state]
         #_[trns/trade-transaction-form page-state]
         #_[trns/dividend-transaction-form page-state]]
