@@ -22,7 +22,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
-            [dgknght.app-lib.bootstrap-5 :as bs :refer [nav-tabs]]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.util :as util :refer [model=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -32,8 +32,6 @@
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
             [clj-money.api.prices :as prices]
-            [clj-money.api.transactions :as trx]
-            [clj-money.transactions :refer [can-simplify?]]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.accounts :refer [account-types
                                         allocate
@@ -529,6 +527,7 @@
 (defn- post-transaction-save
   [page-state]
   (fn []
+    (swap! page-state dissoc :transaction)
     (trns/reset-item-loading page-state)
     (refresh-accounts page-state)))
 
