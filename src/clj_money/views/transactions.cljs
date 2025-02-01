@@ -35,7 +35,7 @@
                                         format-quantity]]
             [clj-money.transactions :refer [accountify
                                             unaccountify
-                                            can-simplify?
+                                            can-accountify?
                                             entryfy
                                             ensure-empty-item]]
             [clj-money.components :refer [load-in-chunks]]
@@ -51,7 +51,7 @@
 
 (defn- prepare-transaction-for-edit
   [transaction account]
-  (if (can-simplify? transaction)
+  (if (can-accountify? transaction)
     (accountify transaction account)
     (entryfy transaction)))
 

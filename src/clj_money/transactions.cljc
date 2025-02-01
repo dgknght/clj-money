@@ -7,7 +7,7 @@
             [clj-money.accounts :refer [polarize-quantity
                                         ->transaction-item]]))
 
-(defn can-simplify?
+(defn can-accountify?
   "Returns true if the transaction can be simplified (which
   means it has two items) or false if not (which means it
   has more). It assumes a valid transaction."
@@ -22,7 +22,7 @@
   If the transaction contains more or less than two items, an
   exception is thrown."
   [{:transaction/keys [items] :as trx} ref-account]
-  {:pre [(can-simplify? trx)
+  {:pre [(can-accountify? trx)
          ref-account]}
   (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
          [other-item] false} (group-by #(model= ref-account

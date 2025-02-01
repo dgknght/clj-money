@@ -156,7 +156,7 @@
 
 (deftest simplifiability
   (testing "A two-item transaction can be simplified"
-    (is (trx/can-simplify?
+    (is (trx/can-accountify?
           {:transaction/items [#:transaction-item{:action :debit
                                                   :account {:id 1}
                                                   :quantity (d 10)}
@@ -164,7 +164,7 @@
                                                   :account {:id 2}
                                                   :quantity (d 10)}]})))
   (testing "A transaction with more than two items cannot be simplified"
-    (is (not (trx/can-simplify?
+    (is (not (trx/can-accountify?
                {:transaction/items [#:transaction-item{:action :debit
                                                        :account {:id 1}
                                                        :quantity (d 10)}
