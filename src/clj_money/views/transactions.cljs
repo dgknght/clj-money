@@ -3,7 +3,6 @@
             [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
             [clojure.zip :as zip]
-            [goog.string :as gstr]
             [cljs.core.async :as a :refer [<! >! go go-loop]]
             [cljs-time.core :as t]
             [reagent.core :as r]
@@ -51,26 +50,11 @@
   (unaccountify trx (comp @accounts-by-id
                           :id)))
 
-(defn mode
-  ([transaction]
-   (-> transaction meta ::mode))
-  ([transaction mode]
-   (vary-meta transaction assoc ::mode mode)))
-
-(defn- mode?
-  [transaction mode]
-  (= mode
-     (-> transaction meta ::mode)))
-
 (defn- prepare-transaction-for-edit
   [transaction account]
   (if (can-simplify? transaction)
-    (-> transaction
-        (accountify account)
-        (mode ::simple))
-    (-> transaction
-        entryfy
-        (mode ::full))))
+    (accountify transaction account)
+    (entryfy transaction)))
 
 (defn- item->tkey
   [item]
@@ -99,11 +83,10 @@
                                      (:latest-transaction-date account)]
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
-    (transaction-items/search
+    (transaction-items/select
       criteria
-      (map (fn [items]
-             (-busy)
-             (swap! page-state assoc :items items))))))
+      :callback -busy
+      :on-success #(swap! page-state assoc :items %))))
 
 (defn- load-attachments
   [page-state]
@@ -117,8 +100,8 @@
   [xf]
   (completing
     (fn [ch criteria]
-      (transaction-items/search criteria
-                                (map #(xf ch %))))))
+      (transaction-items/select criteria
+                                :post-xf (map #(xf ch %))))))
 
 (defn init-item-loading
   [page-state]
@@ -129,8 +112,8 @@
       (do (swap! page-state dissoc :items :all-items-fetched?)
           (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges start end (t/months 6))
                                                (map vec)
-                                               (load-in-chunks {:fetch-xf (comp (map #(hash-map :account-id (:id account)
-                                                                                                :transaction-date %))
+                                               (load-in-chunks {:fetch-xf (comp (map #(hash-map :transaction-item/account account
+                                                                                                :transaction-item/transaction-date %))
                                                                                 fetch-items)
                                                                 :chunk-size 100}))]
             (go-loop [items (<! items-ch)]
@@ -189,48 +172,65 @@
               (map (partial post-item-row-drop page-state item))))
 
 (defn- item-row
-  [{:keys [attachment-count] :as item} page-state]
-  (let [account (r/cursor page-state [:view-account])
+  [{:transaction-item/keys [attachment-count
+                            transaction-date
+                            quantity
+                            balance
+                            action
+                            reconciliation-status]
+    :transaction/keys [description]
+    :as item}
+   page-state]
+  (let [account* (r/cursor page-state [:view-account])
+        commodities (r/cursor page-state [:commodities])
+        account (make-reaction #(update-in @account*
+                                           [:account/commodity]
+                                           (comp @commodities :id)))
         reconciliation (r/cursor page-state [:reconciliation])
         styles (r/cursor page-state [:item-row-styles])]
     ^{:key (str "item-row-" (:id item))}
-    [:tr {:on-drag-enter #(swap! page-state
-                                 assoc-in
-                                 [:item-row-styles (:id item)]
-                                 {:background-color "var(--primary)"
-                                  :color "var(--white)"
-                                  :cursor :copy})
-          :on-drag-leave (debounce 100 #(swap! page-state update-in [:item-row-styles] dissoc (:id item)))
-          :on-drag-over #(.preventDefault %)
-          :on-drop #(handle-item-row-drop item % page-state)
-          :style (get-in @styles [(:id item)])}
+    [:tr.align-middle
+     {:on-drag-enter #(swap! page-state
+                             assoc-in
+                             [:item-row-styles (:id item)]
+                             {:background-color "var(--primary)"
+                              :color "var(--white)"
+                              :cursor :copy})
+      :on-drag-leave (debounce 100 #(swap! page-state update-in [:item-row-styles] dissoc (:id item)))
+      :on-drag-over #(.preventDefault %)
+      :on-drop #(handle-item-row-drop item % page-state)
+      :style (get-in @styles [(:id item)])}
      [:td.text-end
-      [:span.d-md-none (format-date (:transaction-date item) "M/d")]
-      [:span.d-none.d-md-inline (format-date (:transaction-date item))]]
-     [:td {:style (get-in @styles [(:id item)])} (:description item)]
-     [:td.text-end (format-quantity (polarize-quantity (:transaction-item/quantity item)
-                                                       (:transaction-item/action item)
+      [:span.d-md-none (format-date transaction-date "M/d")]
+      [:span.d-none.d-md-inline (format-date transaction-date)]]
+     [:td {:style (get-in @styles [(:id item)])} description]
+     [:td.text-end (format-quantity (polarize-quantity quantity
+                                                       action
                                                        @account)
                                     @account)]
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
-        [forms/checkbox-input reconciliation [:item-refs (:id item)] {::forms/decoration ::forms/none}]
+        [forms/checkbox-input
+         reconciliation
+         [:transaction-item/item-refs (:id item)]
+         {::forms/decoration ::forms/none}]
         (icon
-         (case (:reconciliation-status item)
-           :completed :check-box
-           :new       :dot
-           :unchecked-box)
-         {:size :small}))]
+          (case reconciliation-status
+            :completed :check-box
+            :new       :dot
+            :unchecked-box)
+          :size :small))]
      (when-not @reconciliation
-       [:td.text-end.d-none.d-md-table-cell (format-quantity (:balance item)
+       [:td.text-end.d-none.d-md-table-cell (format-quantity balance
                                                              @account)])
      (when-not @reconciliation
        [:td
         [:div.btn-group
-         [:button.btn.btn-light.btn-sm {:on-click #(edit-transaction item page-state)
-                                       :title "Click here to edit this transaction."}
-          (icon :pencil {:size :small})]
-         [:button.btn.btn-light.btn-sm.d-none.d-md-block
+         [:button.btn.btn-secondary.btn-sm
+          {:on-click #(edit-transaction item page-state)
+           :title "Click here to edit this transaction."}
+          (icon :pencil :size :small)]
+         [:button.btn.btn-secondary.btn-sm.d-none.d-md-block
           {:on-click (fn []
                        (swap! page-state
                               assoc
@@ -238,12 +238,13 @@
                               item)
                        (load-attachments page-state))
            :title "Click here to view attachments for this transaction"}
-          (if (zero? attachment-count)
-            (icon :paperclip {:size :small})
+          (if ((some-fn nil? zero?) attachment-count)
+            (icon :paperclip :size :small)
             [:span.badge.bg-secondary attachment-count])]
-         [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
-                                         :title "Click here to remove this transaction."}
-          (icon :x-circle {:size :small})]]])]))
+         [:button.btn.btn-danger.btn-sm
+          {:on-click #(delete-transaction item page-state)
+           :title "Click here to remove this transaction."}
+          (icon :x-circle :size :small)]]])]))
 
 (defn items-table
   [page-state]
@@ -287,10 +288,10 @@
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
-    (transaction-items/search {:account-id (:id @account)
+    (transaction-items/select {:account-id (:id @account)
                                :transaction-date [(:earliest-transaction-date @account)
                                                   (:latest-transaction-date @account)]}
-                              (map #(swap! page-state assoc :items %)))
+                              :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless
        [:thead
@@ -442,9 +443,14 @@
                      (.preventDefault e)
                      (v/validate transaction)
                      (when (v/valid? transaction)
+                       (+busy)
                        (transactions/save (fullify-trx @transaction)
+                                          :callback -busy
                                           :on-success on-save)))}
-       [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]
+       [forms/date-field
+        transaction
+        [:transaction/transaction-date]
+        {:validations #{::v/required}}]
        [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
        [forms/decimal-field transaction [:transaction/quantity] {:validations #{::v/required}}]
        [forms/typeahead-field
