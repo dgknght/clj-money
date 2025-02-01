@@ -552,8 +552,7 @@
     (fn [trx]
       (-> trx
           unentryfy
-          (accountify account)
-          (util/pp-> ::collapsed)))))
+          (accountify account)))))
 
 (defn- transaction-form
   [page-state]
