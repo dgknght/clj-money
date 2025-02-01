@@ -37,6 +37,7 @@
                                             unaccountify
                                             can-accountify?
                                             entryfy
+                                            unentryfy
                                             ensure-empty-item]]
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.transaction-items :as transaction-items]
@@ -369,39 +370,47 @@
   [:tr
    [:td [forms/typeahead-input
          item
-         [:account-id]
+         [:transaction-item/account]
          {:search-fn (fn [input callback]
                        (callback (find-by-path input @accounts)))
           :on-change #(ensure-entry-state page-state)
-          :caption-fn #(string/join "/" (:path %))
-          :value-fn :id
-          :find-fn (fn [id callback]
+          :caption-fn #(string/join "/" (:account/path %))
+          :find-fn (fn [{:keys [id]} callback]
                      (callback (@accounts-by-id id)))
           :html {:id (str "account-id-" index)
                  :on-key-up #(item-navigate % item-count)}}]]
-   [:td [forms/text-input item [:memo] {:on-change #(ensure-entry-state page-state)
-                                        :html {:on-key-up #(item-navigate % item-count)
-                                               :id (str "memo-" index)}}]]
-   [:td [forms/decimal-input item [:credit-quantity] {:on-accept #(ensure-entry-state page-state)
-                                                      :html {:on-key-up #(item-navigate % item-count)
-                                                             :on-key-down #(when (arrow-key? %) (.preventDefault %))
-                                                             :id (str "credit-quantity-" index)}}]]
-   [:td [forms/decimal-input item [:debit-quantity] {:on-accept #(ensure-entry-state page-state)
-                                                     :html {:id (str "debit-quantity-" index)
-                                                            :on-key-up #(item-navigate % item-count)
-                                                            :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]])
+   [:td [forms/text-input
+         item
+         [:transaction-item/memo]
+         {:on-change #(ensure-entry-state page-state)
+          :html {:on-key-up #(item-navigate % item-count)
+                 :id (str "memo-" index)}}]]
+   [:td [forms/decimal-input
+         item
+         [:transaction-item/credit-quantity]
+         {:on-accept #(ensure-entry-state page-state)
+          :html {:on-key-up #(item-navigate % item-count)
+                 :on-key-down #(when (arrow-key? %) (.preventDefault %))
+                 :id (str "credit-quantity-" index)}}]]
+   [:td [forms/decimal-input
+         item
+         [:transaction-item/debit-quantity]
+         {:on-accept #(ensure-entry-state page-state)
+          :html {:id (str "debit-quantity-" index)
+                 :on-key-up #(item-navigate % item-count)
+                 :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]])
 
 (defn full-transaction-form
   [page-state & {:keys [on-save]}]
   (let [transaction (r/cursor page-state [:transaction])
         total-credits (make-reaction #(->> (:transaction/items @transaction)
-                                           (map :credit-quantity)
+                                           (map :transaction-item/credit-quantity)
                                            (reduce decimal/+ 0M)))
         total-debits (make-reaction #(->> (:transaction/items @transaction)
-                                          (map :debit-quantity)
+                                          (map :transaction-item/debit-quantity)
                                           (reduce decimal/+ 0M)))
         correction (make-reaction #(decimal/abs (- @total-debits @total-credits)))
-        item-count (make-reaction #(count (:items @transaction)))]
+        item-count (make-reaction #(count (:transaction/items @transaction)))]
     (fn []
       [:div
        [:div.alert.alert-warning.d-md-none "Please use a larger screen to use full transaction mode."]
@@ -411,7 +420,10 @@
                       (.preventDefault e)
                       (v/validate transaction)
                       (when (v/valid? transaction)
-                        (on-save)))}
+                       (+busy)
+                       (transactions/save (unentryfy @transaction)
+                                          :callback -busy
+                                          :on-success on-save)))}
         [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
         [forms/text-field transaction [:transaction/description] {:validations #{:v/required}}]
         [:table.table

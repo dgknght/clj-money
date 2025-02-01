@@ -7,12 +7,18 @@
             [clj-money.accounts :refer [polarize-quantity
                                         ->transaction-item]]))
 
+(defn accountified?
+  "Returns true if the accountify fn has been applied to the transaction."
+  [{:transaction/keys [account other-account]}]
+  (and account other-account))
+
 (defn can-accountify?
   "Returns true if the transaction can be simplified (which
   means it has two items) or false if not (which means it
   has more). It assumes a valid transaction."
   [{:transaction/keys [items]}]
-  (= 2 (count items)))
+  (= 2
+     (count (remove empty? items))))
 
 (defn accountify
   "Accepts a standard transaction with two line items and

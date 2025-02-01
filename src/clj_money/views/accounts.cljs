@@ -43,6 +43,12 @@
                                      +busy
                                      -busy
                                      busy?]]
+            [clj-money.transactions :refer [accountify
+                                            unaccountify
+                                            accountified?
+                                            can-accountify?
+                                            entryfy
+                                            unentryfy]]
             [clj-money.views.transactions :as trns]
             [clj-money.views.reconciliations :as recs]
             [clj-money.views.attachments :as atts]))
@@ -532,17 +538,48 @@
     (trns/reset-item-loading page-state)
     (refresh-accounts page-state)))
 
+(defn- expand-trx []
+  (fn [trx]
+    (-> trx
+        (unaccountify (comp @accounts-by-id :id))
+        entryfy
+        (util/pp-> ::expanded))))
+
+(defn- collapse-trx
+  [page-state]
+  (let [account (:view-account @page-state)]
+    (fn [trx]
+      (-> trx
+          unentryfy
+          (accountify account)
+          (util/pp-> ::collapsed)))))
+
 (defn- transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])]
     (fn []
       [:<>
-       [:h3 (if (:id @transaction)
-              "Edit Transaction"
-              "New Transaction")]
+       [:div.d-flex.justify-content-between
+        [:h3 (if (:id @transaction)
+               "Edit Transaction"
+               "New Transaction")]
+        (cond
+          (accountified? @transaction)
+          [:button.btn.btn-dark {:title "Click here to show full transaction details."
+                                 :on-click (fn [_]
+                                             (swap! transaction (expand-trx)))}
+           (icon :arrows-expand)]
+
+          (can-accountify? @transaction)
+          [:button.btn.btn-dark {:title "Click here to simplify transaction entry."
+                                 :on-click (fn [_]
+                                             (swap! transaction (collapse-trx page-state)))}
+           (icon :arrows-collapse)])]
        [:div.mt-3
-        [trns/simple-transaction-form page-state :on-save (post-transaction-save page-state)]
-        #_[trns/full-transaction-form page-state]
+        (let [f (if (accountified? @transaction)
+                  trns/simple-transaction-form
+                  trns/full-transaction-form)]
+          [f page-state :on-save (post-transaction-save page-state)])
         #_[trns/trade-transaction-form page-state]
         #_[trns/dividend-transaction-form page-state]]
        [:div

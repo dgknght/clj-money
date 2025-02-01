@@ -9,6 +9,14 @@
             [clj-money.util :as util]
             [clj-money.transactions :as trx]))
 
+(deftest identify-an-accountified-transaction
+  (is (trx/accountified? {:transaction/quantity (d -10)
+                          :transaction/account {:id :checking}
+                          :transaction/other-account {:id :groceries}})
+      "A transaction with :account and :other-account attributes is accountified")
+  (is (not (trx/accountified? {:transaction/items []}))
+      "A transaction with :items is not accountified"))
+
 (defn- index
   [& inputs]
   (let [[->key & models] (if (map? (first inputs))
@@ -155,25 +163,34 @@
                                        {:transaction-item/account {:id 3}})))))))
 
 (deftest simplifiability
-  (testing "A two-item transaction can be simplified"
-    (is (trx/can-accountify?
-          {:transaction/items [#:transaction-item{:action :debit
-                                                  :account {:id 1}
-                                                  :quantity (d 10)}
-                               #:transaction-item{:action :credit
-                                                  :account {:id 2}
-                                                  :quantity (d 10)}]})))
-  (testing "A transaction with more than two items cannot be simplified"
-    (is (not (trx/can-accountify?
-               {:transaction/items [#:transaction-item{:action :debit
-                                                       :account {:id 1}
-                                                       :quantity (d 10)}
-                                    #:transaction-item{:action :credit
-                                                       :account {:id 2}
-                                                       :quantity (d 6)}
-                                    #:transaction-item{:action :credit
-                                                       :account {:id 3}
-                                                       :quantity (d 4)}]})))))
+  (is (trx/can-accountify?
+        {:transaction/items [#:transaction-item{:action :debit
+                                                :account {:id 1}
+                                                :quantity (d 10)}
+                             #:transaction-item{:action :credit
+                                                :account {:id 2}
+                                                :quantity (d 10)}]})
+      "A two-item transaction can be simplified")
+  (is (trx/can-accountify?
+        {:transaction/items [#:transaction-item{:action :debit
+                                                :account {:id 1}
+                                                :quantity (d 10)}
+                             #:transaction-item{:action :credit
+                                                :account {:id 2}
+                                                :quantity (d 10)}
+                             {}]})
+      "A transaction with two full items and one emtpy item can be simplified")
+  (is (not (trx/can-accountify?
+             {:transaction/items [#:transaction-item{:action :debit
+                                                     :account {:id 1}
+                                                     :quantity (d 10)}
+                                  #:transaction-item{:action :credit
+                                                     :account {:id 2}
+                                                     :quantity (d 6)}
+                                  #:transaction-item{:action :credit
+                                                     :account {:id 3}
+                                                     :quantity (d 4)}]}))
+      "A transaction with more than two non-empty items cannot be simplified"))
 
 (deftest ensure-an-empty-item
   (let [expected {:transaction/items [#:transaction-item{:credit-quantity (d 10)}
