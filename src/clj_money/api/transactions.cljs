@@ -9,8 +9,8 @@
 
 
 (def ^:private working-date
-  (some-fn :original-transaction-date
-           :transaction-date))
+  (some-fn :transaction/original-transaction-date
+           :transaction/transaction-date))
 
 (defn- transaction-path
   [{:keys [id] :as transaction}]
@@ -24,7 +24,7 @@
         start-date (get-in criteria [:start-date] (t/minus end-date (t/months 6)))]
     (api/get
       (api/path :entities
-                (:id @current-entity)
+                @current-entity
                 (serialize-local-date start-date)
                 (serialize-local-date end-date)
                 :transactions)

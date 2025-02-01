@@ -1,6 +1,5 @@
 (ns clj-money.views.transactions
-  (:require [clojure.set :refer [rename-keys]]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
             [clojure.zip :as zip]
             [cljs.core.async :as a :refer [<! >! go go-loop]]
@@ -57,22 +56,22 @@
     (entryfy transaction)))
 
 (defn- item->tkey
-  [item]
-  (-> item
-      (select-keys [:transaction-id :transaction-date])
-      (rename-keys {:transaction-id :id})))
+  [{:transaction-item/keys [transaction-date transaction]}]
+  {:transaction/transaction-date transaction-date
+   :id (:id transaction)})
 
 (defn- edit-transaction
   [item page-state]
   (+busy)
-  (transactions/get (item->tkey item)
-                    (map (fn [result]
-                           (-busy)
-                           (let [prepared (prepare-transaction-for-edit
-                                            result
-                                            (:view-account @page-state))]
-                             (swap! page-state assoc :transaction prepared))
-                           (set-focus "transaction-date")))))
+  (transactions/get
+    (item->tkey item)
+    :callback -busy
+    :on-success (fn [result]
+                  (let [prepared (prepare-transaction-for-edit
+                                   result
+                                   (:view-account @page-state))]
+                    (swap! page-state assoc :transaction prepared))
+                  (set-focus "transaction-date"))))
 
 (defn load-unreconciled-items
   [page-state]
@@ -144,7 +143,7 @@
   [item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (transactions/delete (item->tkey item)
-                         (map (fn [_] (reset-item-loading page-state))))))
+                         :on-success #(reset-item-loading page-state))))
 
 (defn- post-item-row-drop
   [page-state item {:keys [body]}]
@@ -196,7 +195,13 @@
                              {:background-color "var(--primary)"
                               :color "var(--white)"
                               :cursor :copy})
-      :on-drag-leave (debounce 100 #(swap! page-state update-in [:item-row-styles] dissoc (:id item)))
+      :on-drag-leave (debounce
+                       100
+                       #(swap! page-state
+                               update-in
+                               [:item-row-styles]
+                               dissoc
+                               (:id item)))
       :on-drag-over #(.preventDefault %)
       :on-drop #(handle-item-row-drop item % page-state)
       :style (get-in @styles [(:id item)])}
