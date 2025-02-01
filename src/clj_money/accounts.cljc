@@ -208,9 +208,9 @@
    (contains? system-tags tag)))
 
 (defn format-quantity
-  [quantity {:keys [commodity]}]
+  [quantity {:account/keys [commodity]}]
   (format-decimal quantity
-                  (if (= "USD" (:symbol commodity))
+                  (if (= "USD" (:commodity/symbol commodity))
                     {:fraction-digits 2}
                     {:fraction-digits 4})))
 
