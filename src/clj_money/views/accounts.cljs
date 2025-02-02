@@ -703,17 +703,17 @@
   (let [lots (r/cursor page-state [:lots])
         prices (r/cursor page-state [:prices])
         latest-price (make-reaction #(->> @prices
-                                          (sort-by (comp serialize-date :trade-date))
-                                          last))
+                                          (sort-by :price/trade-date t/after?)
+                                          first))
         total-shares (make-reaction #(->> @lots
-                                          (map :shares-owned)
+                                          (map :lot/shares-owned)
                                           (reduce decimal/+)))
         total-value (make-reaction #(decimal/* (or @total-shares
                                                    (decimal/zero))
-                                               (or (:price @latest-price)
+                                               (or (:price/price @latest-price)
                                                    (decimal/zero))))
         total-cost (make-reaction #(->> @lots
-                                        (map (fn [{:keys [purchase-price shares-owned]}]
+                                        (map (fn [{:lot/keys [purchase-price shares-owned]}]
                                                (* purchase-price shares-owned)))
                                         (reduce +)))
         gain-loss (make-reaction #(- @total-value @total-cost))]
@@ -728,17 +728,17 @@
          [:th.text-end "Gn/Ls"]
          [:th.text-end "Gn/Ls %"]]]
        [:tbody
-        (doall (for [lot (sort-by (comp serialize-date :purchase-date) @lots)]
-                 (let [g-l (- (* (:price @latest-price)
-                                 (:shares-owned lot))
-                              (* (:purchase-price lot)
-                                 (:shares-owned lot)))]
+        (doall (for [lot (sort-by (comp serialize-date :lot/purchase-date) @lots)]
+                 (let [g-l (- (* (:price/price @latest-price)
+                                 (:lot/shares-owned lot))
+                              (* (:lot/purchase-price lot)
+                                 (:lot/shares-owned lot)))]
                    ^{:key (str "lot-" (:id lot))}
                    [:tr
-                    [:td.text-end (format-date (:purchase-date lot))]
-                    [:td.text-end (format-decimal (:shares-purchased lot) 4)]
-                    [:td.text-end (format-decimal (:shares-owned lot) 4)]
-                    [:td.text-end (format-decimal (:purchase-price lot) 2)]
+                    [:td.text-end (format-date (:lot/purchase-date lot))]
+                    [:td.text-end (format-decimal (:lot/shares-purchased lot) 4)]
+                    [:td.text-end (format-decimal (:lot/shares-owned lot) 4)]
+                    [:td.text-end (format-decimal (:lot/purchase-price lot) 2)]
                     [:td.text-end
                      {:class (if (>= g-l 0M)
                                "text-success"
@@ -749,16 +749,16 @@
                                "text-success"
                                "text-danger")}
                      (format-percent (/ g-l
-                                        (* (:shares-purchased lot)
-                                           (:purchase-price lot)))
+                                        (* (:lot/shares-purchased lot)
+                                           (:lot/purchase-price lot)))
                                      3)]])))]
        [:tfoot
         [:tr
          [:td.text-end {:col-span 2}
           (when @latest-price
             (gstr/format "(%s as of %s)"
-                         (currency-format (:price @latest-price))
-                         (format-date (:trade-date @latest-price))))]
+                         (currency-format (:price/price @latest-price))
+                         (format-date (:price/trade-date @latest-price))))]
          [:td.text-end (format-decimal @total-shares 4)]
          [:td.text-end (currency-format @total-value)]
          [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
@@ -772,77 +772,59 @@
   [page-state]
   (let [current-nav (r/atom :lots)
         account (r/cursor page-state [:view-account])
-        {:keys [parent-id
-                entity-id
-                commodity-id
-                earliest-transaction-date
-                latest-transaction-date]} @account]
-    (lots/search {:account-id parent-id
-                  :commodity-id commodity-id
-                  :shares-owned [:!= 0]}
-                 (map #(swap! page-state assoc :lots %)))
-    (prices/select {:commodity-id commodity-id
-                    :trade-date [earliest-transaction-date
-                                 latest-transaction-date]}
-                   (map #(swap! page-state assoc :prices %)))
+        {:account/keys [parent
+                        entity
+                        commodity
+                        earliest-transaction-date
+                        latest-transaction-date]} @account]
+    (lots/select #:lot{:account parent
+                       :commodity commodity
+                       :shares-owned [:!= 0]}
+                 :on-success #(swap! page-state assoc :lots %))
+    (prices/select #:price{:commodity commodity
+                           :trade-date [earliest-transaction-date
+                                        latest-transaction-date]}
+                   :on-success #(swap! page-state assoc :prices %))
     (fn []
       [:section
-       (bs/nav-tabs [{:caption "Lots"
+       (bs/nav-tabs [{:id :lots-nav
+                      :label "Lots"
                       :elem-key :lots
                       :active? (= :lots @current-nav)
-                      :on-click #(reset! current-nav :lots)}
-                     {:caption "Transactions"
+                      :nav-fn #(reset! current-nav :lots)}
+                     {:id :transactions-nav
+                      :label "Transactions"
                       :elem-key :transactions
                       :active? (= :transactions @current-nav)
-                      :on-click #(reset! current-nav :transactions)}])
+                      :nav-fn #(reset! current-nav :transactions)}])
        (case @current-nav
          :lots         [lots-table page-state]
          :transactions [trns/fund-transactions-table page-state])
        [:div.row
         [:div.col-md-6
-         [:button.btn.btn-primary {:title "Click here to buy or sell this commodity."
-                                   :on-click (fn []
-                                               (swap! page-state
-                                                      assoc
-                                                      :transaction
-                                                      ^{::trns/mode ::trns/trade}
-                                                      {:trade-date (t/today)
-                                                       :entity-id entity-id
-                                                       :account-id parent-id
-                                                       :commodity-id commodity-id
-                                                       :commodity-account-id (:id @account)})
-                                               (set-focus "trade-date"))}
+         [:button.btn.btn-primary
+          {:title "Click here to buy or sell this commodity."
+           :on-click (fn []
+                       (swap! page-state
+                              assoc
+                              :trade
+                              #:trade{:date (t/today)
+                                      :action :buy
+                                      :entity entity
+                                      :account parent
+                                      :commodity commodity
+                                      :commodity-account @account})
+                       (set-focus "trade-date"))}
           (icon-with-text :plus "Buy/Sell")]
-         (html/space)
-         [:button.btn.btn-light {:title "Click here to return the the account list."
-                                :on-click #(swap! page-state dissoc :view-account)}
+         [:button.btn.btn-secondary.ms-2
+          {:title "Click here to return the the account list."
+           :on-click #(swap! page-state dissoc :view-account)}
           (icon-with-text :arrow-left-short "Back")]]]])))
 
 (defn- tradable-account-details
   [page-state]
-  (let [transaction (r/cursor page-state [:transaction])]
-    (fn []
-      (if @transaction
-        [:div.mt-3
-         [:div.row
-          [:div.col-md-4
-           [:div.card
-            [:div.card-header
-             [:strong (if (:id @transaction)
-                        "Edit Transaction"
-                        "New Transaction")]]
-            [:div.card-body
-             [trns/trade-transaction-form page-state]]
-            [:div.card-footer
-             [:button.btn.btn-primary {:type :submit
-                                       :form "transaction-form"
-                                       :title "Click here to save the transaction"}
-              (icon-with-text :check "Save")]
-             (html/space)
-             [:button.btn.btn-secondary {:on-click #(swap! page-state dissoc :transaction)
-                                         :title "Click here to cancel this transaction"}
-              (icon-with-text :x "Cancel")]]]]]]
-        [tradable-account-items page-state]))))
+  (fn []
+    [tradable-account-items page-state]))
 
 (defn- account-details
   [page-state]
