@@ -19,12 +19,21 @@
              :as authorization]
             [clj-money.authorization.prices]))
 
+(defn- parse-trade-date
+  [v]
+  (if (vector? v)
+    (let [[d1 d2] (map dates/unserialize-local-date v)]
+      (if (= d1 d2)
+        d1
+        [:between> d1 d2]))
+    (dates/unserialize-local-date v)))
+
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   {:pre [(:trade-date params)]}
 
   (->  params
-      (update-in [:trade-date] #(apply vector :between> (map dates/unserialize-local-date %)))
+      (update-in [:trade-date] parse-trade-date)
       (select-keys [:commodity-id :entity-id :trade-date])
       (rename-keys {:commodity-id :price/commodity
                     :entity-id :commodity/entity

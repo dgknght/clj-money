@@ -783,7 +783,8 @@
                  :on-success #(swap! page-state assoc :lots %))
     (prices/select #:price{:commodity commodity
                            :trade-date [earliest-transaction-date
-                                        latest-transaction-date]}
+                                        (t/plus latest-transaction-date
+                                                (t/days 1))]}
                    :on-success #(swap! page-state assoc :prices %))
     (fn []
       [:section
