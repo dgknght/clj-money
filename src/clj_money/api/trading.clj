@@ -1,7 +1,6 @@
 (ns clj-money.api.trading
   (:require [dgknght.app-lib.api :as api]
             [clj-money.authorization :refer [authorize] :as authorization]
-            [clj-money.dates :as dates]
             [clj-money.authorization.trades]
             [clj-money.trading :as trading]))
 
@@ -14,8 +13,8 @@
    :trade/account])
 
 (def ^:private trade-fn-map
-  {"buy" trading/buy
-   "sell" trading/sell})
+  {:buy trading/buy
+   :sell trading/sell})
 
 (defn- trade-fn
   [{:trade/keys [action]}]
@@ -23,12 +22,9 @@
       (throw (ex-info "Invalid trade action" {:action action}))))
 
 (defn create
-  [{:keys [params body authenticated]}]
-  (let [f (trade-fn body)]
-    (-> body
-        (update-in [:trade/value] bigdec)
-        (update-in [:trade/shares] bigdec)
-        (update-in [:trade/date] dates/unserialize-local-date)
+  [{:keys [params authenticated]}]
+  (let [f (trade-fn params)]
+    (-> params
         (assoc :trade/entity {:id (:entity-id params)})
         (select-keys create-attributes)
         (authorize ::authorization/create authenticated)
