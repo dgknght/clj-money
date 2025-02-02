@@ -39,7 +39,13 @@
                               :transaction-item/negative}
                       :references #{:transaction-item/account
                                     :transaction-item/transaction
-                                    :transaction-item/reconciliation}}})
+                                    :transaction-item/reconciliation}}
+   :trade {:keys #{:trade/date
+                   :trade/action
+                   :trade/shares
+                   :trade/value}
+           :references #{:trade/account
+                         :trade/commodity}}})
 
 (declare prune)
 
