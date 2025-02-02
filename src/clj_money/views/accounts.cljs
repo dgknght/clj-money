@@ -493,15 +493,43 @@
                                     :account (:view-account @page-state)})
   (set-focus "transaction-date"))
 
+(defn- new-trade-transaction
+  [page-state]
+  (swap! page-state assoc
+         :transaction #:trade{:entity @current-entity
+                              :date (t/today)
+                              :account (:view-account @page-state)})
+  (set-focus "transaction-date"))
+
 (defn- account-buttons
   [page-state]
   (let  [transaction (r/cursor page-state [:transaction])]
     (fn []
       [:div.d-flex.justify-content-between
-       [:button.btn.btn-primary {:on-click #(new-transaction page-state)
-                                 :title "Click here to enter a transaction."
-                                 :disabled (not (nil? @transaction))}
-        (icon-with-text :plus "Add")]
+       [:div {:class "btn-group"}
+        [:button.btn.btn-primary
+         {:title "Click here to enter a transaction."
+          :type :button
+          :disabled (not (nil? @transaction))
+          :data-bs-toggle :dropdown
+          :aria-expanded :false}
+         (icon-with-text :plus "Add")]
+        [:button.btn.btn-primary.dropdown-toggle.dropdown-toggle-split
+         {:type :button
+          :data-bs-toggle :dropdown
+          :aria-expanded :false}
+         [:span.visually-hidden "Toggle Dropdown"]]
+        [:ul.dropdown-menu
+         [:li
+          [:a.dropdown-item
+           {:href "#"
+            :on-click #(new-transaction page-state)}
+           "Regular"]]
+         [:li
+          [:a.dropdown-item
+           {:href "#"
+            :on-click #(new-trade-transaction page-state)}
+           "Trade"]]]]
        [:button.btn.btn-secondary.ms-2.d-none.d-md-block
         {:on-click (fn []
                      (trns/stop-item-loading page-state)
@@ -1003,8 +1031,9 @@
                          :disabled @busy?}
                   :caption "Add"
                   :icon :plus}]]
-        [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
-         [bulk-edit-form page-state]]]
+        (when (seq @bulk-select)
+          [:div.col-lg-4
+           [bulk-edit-form page-state]])]
        [:div.row {:class (when-not @selected "d-none")}
         [:div.col-md-6
          [:h2 (if (:id @selected) "Edit" "New")]
