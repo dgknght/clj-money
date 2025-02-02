@@ -8,3 +8,7 @@
   ([term commodities]
    (filter (util/match? term :commodity/name :commodity/symbol)
            commodities)))
+
+(defn description
+  [{:commodity/keys [name symbol]}]
+  (str name " (" symbol ")"))
