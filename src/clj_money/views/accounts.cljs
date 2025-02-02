@@ -33,6 +33,7 @@
             [clj-money.api.lots :as lots]
             [clj-money.api.prices :as prices]
             [clj-money.cached-accounts :refer [fetch-accounts]]
+            [clj-money.commodities :as cmdts]
             [clj-money.accounts :refer [account-types
                                         allocate
                                         find-by-path]]
@@ -73,7 +74,7 @@
   [{:account/keys [created-at]}]
   (t/before?
    (t/now)
-   (t/plus created-at (t/hours 1))))
+   (t/plus created-at (t/days 1))))
 
 (defn- account-hidden?
   [{:account/keys [parent-ids] :as account} expanded hide-zero-balances?]
@@ -429,15 +430,8 @@
           account
           [:account/commodity]
           {:search-fn (fn [input callback]
-                        (let [term (string/lower-case input)]
-                          (->> @commodities
-                               vals
-                               (filter #(or (string/includes? (string/lower-case (:commodity/name %))
-                                                              term)
-                                            (string/includes? (string/lower-case (:commodity/symbol %))
-                                                              term)))
-                               callback)))
-           :caption-fn :commodity/name
+                        (callback (cmdts/search input @commodities)))
+           :caption-fn cmdts/description
            :find-fn (fn [{:keys [id]} callback]
                       (callback (get-in @commodities [id])))
            :validations #{::v/required}}]
@@ -493,12 +487,13 @@
                                     :account (:view-account @page-state)})
   (set-focus "transaction-date"))
 
-(defn- new-trade-transaction
+(defn- new-trade
   [page-state]
   (swap! page-state assoc
-         :transaction #:trade{:entity @current-entity
-                              :date (t/today)
-                              :account (:view-account @page-state)})
+         :trade #:trade{:entity @current-entity
+                        :action :buy
+                        :date (t/today)
+                        :account (:view-account @page-state)})
   (set-focus "transaction-date"))
 
 (defn- account-buttons
@@ -528,7 +523,7 @@
          [:li
           [:a.dropdown-item
            {:href "#"
-            :on-click #(new-trade-transaction page-state)}
+            :on-click #(new-trade page-state)}
            "Trade"]]]]
        [:button.btn.btn-secondary.ms-2.d-none.d-md-block
         {:on-click (fn []
@@ -623,6 +618,24 @@
           :title "Click here to cancel this transaction"}
          (icon-with-text :x "Cancel")]]])))
 
+(defn- trade-form
+  [page-state]
+  (fn []
+    [:<>
+     [:h3 "New Trade"]
+     [:div.mt-3
+      [trns/trade-transaction-form page-state]]
+     [:div
+      [:button.btn.btn-primary
+       {:type :submit
+        :form "trade-form"
+        :title "Click here to record this trade"}
+       (icon-with-text :check "Save")]
+      [:button.btn.btn-secondary.ms-2
+       {:on-click #(swap! page-state dissoc :trade)
+        :title "Click here to cancel this trade"}
+       (icon-with-text :x "Cancel")]]]))
+
 (defn- check-all-items
   ([page-state]  (check-all-items page-state true))
   ([page-state checked?]
@@ -667,6 +680,7 @@
 (defn- currency-account-details
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
+        trade (r/cursor page-state [:trade])
         reconciliation (r/cursor page-state [:reconciliation])
         attachments-item (r/cursor page-state [:attachments-item])
         selected-attachment (r/cursor page-state [:selected-attachment])]
@@ -674,6 +688,7 @@
     (fn []
       (cond
         @transaction         [transaction-form page-state]
+        @trade               [trade-form page-state]
         @reconciliation      [:div.row
                               [:div.col
                                [transaction-item-list page-state]]

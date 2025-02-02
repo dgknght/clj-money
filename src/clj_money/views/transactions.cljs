@@ -43,7 +43,7 @@
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as att]
-            #_[clj-money.api.trading :as trading]))
+            [clj-money.api.trading :as trading]))
 
 (defn- fullify-trx
   [trx]
@@ -516,36 +516,41 @@
 
 (defn trade-transaction-form
   [page-state & {:keys [on-save]}]
-  (let [transaction (r/cursor page-state [:transaction])
-        price (make-reaction #(when (and (:trade/shares @transaction)
-                                         (:trade/value @transaction))
-                                (decimal// (:trade/value @transaction)
-                                           (:trade/shares @transaction))))
-        commodities (r/cursor page-state [:commodities])
-        find-cmdt (make-reaction #(cmdts/search (vals @commodities)))]
+  (let [trade (r/cursor page-state [:trade])
+        price (make-reaction #(when (and (:trade/shares @trade)
+                                         (:trade/value @trade))
+                                (decimal// (:trade/value @trade)
+                                           (:trade/shares @trade))))
+        commodities (r/cursor page-state [:commodities])]
     (fn []
-      [:form {:no-validate true
-              :on-submit (fn [e]
-                           (.preventDefault e)
-                           (v/validate transaction)
-                           (when (v/valid? transaction)
-                             (on-save)))}
-       [forms/date-field transaction [:trade/date] {:validations #{:v/required}}]
-       [forms/select-field transaction [:trade/action] (map (juxt name humanize) [:buy :sell]) {}]
+      [:form#trade-form
+       {:no-validate true
+        :on-submit (fn [e]
+                     (.preventDefault e)
+                     (v/validate trade)
+                     (when (v/valid? trade)
+                       (+busy)
+                       (-> @trade
+                           (update-in [:trade/action] keyword)
+                           (trading/create :callback -busy
+                                           :on-success on-save))))}
+       [forms/date-field trade [:trade/date] {:validations #{:v/required}}]
+       [forms/select-field trade [:trade/action] (map (juxt name humanize) [:buy :sell]) {}]
        [:div.row
         [:div.col-md-4
-         [forms/decimal-field transaction [:trade/shares] {:validations #{:v/required}}]]
+         [forms/decimal-field trade [:trade/shares] {:validations #{:v/required}}]]
         [:div.col-md-4
-         [forms/decimal-field transaction [:trade/value] {:validations #{:v/required}}]]
+         [forms/decimal-field trade [:trade/value] {:validations #{:v/required}}]]
         [:div.col-md-4.d-flex.flex-column
          [:span.mb-2 "Est. Price"]
          [:span.mb-3.ms-3 (when @price (format-decimal @price))]]]
        [forms/typeahead-field
-        transaction
-        [:commodity]
+        trade
+        [:trade/commodity]
         {:search-fn (fn [input callback]
-                      (callback (find-cmdt input)))
-         :caption-fn #(str (:name %) " (" (:symbol %) ")")
+                      (callback (cmdts/search input (vals @commodities))))
+         :caption-fn cmdts/description 
          :value-fn :id
          :find-fn (fn [{:keys [id]} callback]
-                    (callback (get-in @commodities [id])))}]])))
+                    (callback (@commodities id)))
+         :validations #{::v/required}}]])))
