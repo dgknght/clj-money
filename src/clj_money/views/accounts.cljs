@@ -94,14 +94,14 @@
    (:account/name account)])
 
 (defn- prepare-for-allocation
-  [{:accont/keys [children-value] :as account}]
-  (if (:account/allocations account)
+  [{:account/keys [children-value allocations] :as account}]
+  (if allocations
     account
     (assoc account
            :account/allocations
            (->> @accounts
-                (filter #(= (:id account)
-                            (:id (:account/parent %))))
+                (filter #(model= account
+                                 (:account/parent %)))
                 (reduce #(assoc %1
                                 (:id %2)
                                 (decimal/* 100M
@@ -505,6 +505,7 @@
         [:button.btn.btn-primary
          {:title "Click here to enter a transaction."
           :type :button
+          :on-click #(new-transaction page-state)
           :disabled (not (nil? @transaction))
           :data-bs-toggle :dropdown
           :aria-expanded :false}
@@ -605,7 +606,6 @@
                   trns/simple-transaction-form
                   trns/full-transaction-form)]
           [f page-state :on-save (post-transaction-save page-state)])
-        #_[trns/trade-transaction-form page-state]
         #_[trns/dividend-transaction-form page-state]]
        [:div
         [:button.btn.btn-primary
@@ -624,7 +624,7 @@
     [:<>
      [:h3 "New Trade"]
      [:div.mt-3
-      [trns/trade-transaction-form page-state]]
+      [trns/trade-transaction-form page-state :on-save (post-transaction-save page-state)]]
      [:div
       [:button.btn.btn-primary
        {:type :submit
@@ -838,17 +838,19 @@
           :else [currency-account-details page-state])))))
 
 (defn- asset-allocation-row
-  [{:keys [account adj-value target-value current-value current-percentage]} parent hide-zero-balances?]
+  [{:keys [account
+           adj-value
+           target-value
+           current-value
+           current-percentage]}
+   parent
+   hide-zero-balances?]
   ^{:key (str "asset-allocation-row-" (:id account))}
   [:tr {:class (when (and (decimal/zero? (:quantity account))
                           hide-zero-balances?)
                  "d-none")}
-   [:td
-    [:div.d-none.d-lg-block
-     (:name account)]
-    [:div.text-truncate.d-lg-none {:style {:max-width "5em"}}
-     (get-in account [:commodity :symbol])]]
-   [:td.text-end [forms/decimal-input parent [:allocations (:id account)]]]
+   [:td (:account/name account)]
+   [:td.text-end [forms/decimal-input parent [:account/allocations (:id account)]]]
    [:td.text-end.d-none.d-lg-table-cell (currency-format target-value)]
    [:td.text-end.d-none.d-lg-table-cell (format-percent current-percentage)]
    [:td.text-end.d-none.d-lg-table-cell (currency-format current-value)]
@@ -861,59 +863,75 @@
         cash (r/cursor allocation [:cash])
         withdrawal (r/cursor allocation [:withdrawal])
         allocations (make-reaction #(when (and @cash @withdrawal)
-                                     (sort-by (comp :account/name :account)
-                                              (allocate @account @accounts-by-id {:cash @cash
-                                                                                  :withdrawal @withdrawal}))))
-        total-percent (make-reaction #(decimal// (reduce decimal/+ 0M (vals (:allocations @account)))
+                                      (sort-by (comp :account/name :account)
+                                               (allocate @account
+                                                         @accounts-by-id
+                                                         :cash @cash
+                                                         :withdrawal @withdrawal))))
+        total-percent (make-reaction #(decimal// (reduce decimal/+ 0M (vals (:account/allocations @account)))
                                                  100M))
-        total-percent-class (make-reaction #(if (decimal/zero? (decimal/- 1M @total-percent))
+        unallocated (make-reaction #(decimal/- 1M @total-percent))
+        total-percent-class (make-reaction #(if (decimal/zero? @unallocated)
                                               "text-success"
                                               "text-danger"))
         hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])]
     (fn []
-      [:div {:class (when-not @account "d-none")}
-       [:h2 "Asset Allocation for " (:name @account) " " (currency-format (:total-value @account))]
-       [:div.row
-        [:div.col-md-6
-         [:table.table.table-borderless
-          [:tbody
-           [:tr
-            [:th {:scope :row} "Cash"]
-            [:td (currency-format (:quantity @account))]]
-           [:tr
-            [:th {:scope :row} "Cash to reserve"]
-            [:td
-             [forms/decimal-input allocation [:cash]]]]
-           [:tr
-            [:th {:scope :row} "Cash to withdraw"]
-            [:td
-             [forms/decimal-input allocation [:withdrawal]]]]]]]]
-       [:table.table
-        [:thead
-         [:tr
-          [:th "Account"]
-          [:th.text-end "Target %"]
-          [:th.text-end.d-none.d-lg-table-cell "Target $"]
-          [:th.text-end.d-none.d-lg-table-cell  "Current %"]
-          [:th.text-end.d-none.d-lg-table-cell  "Current $"]
-          [:th.text-end.text-nowrap "Adj. $"]]]
-        [:tbody
-         (if (seq @allocations)
-           (->> @allocations
-                (map #(asset-allocation-row % account @hide-zero-balances?))
-                doall)
-           [:tr [:td {:col-span 6} "This account has no child accounts."]])]
-        [:tfoot
-         [:tr
-          [:td (html/space)]
-          [:td {:col-span 5 :class @total-percent-class} (format-percent @total-percent)]]]]
+      [:form#allocation-form
+       {:no-validate true
+        :on-submit (fn [e]
+                     (println "on-submit")
+                     (.preventDefault e)
+                     (save-account page-state))}
        [:div
-        [:button.btn.btn-primary {:title "Click here to save these allocations."
-                                  :on-click #(save-account page-state)}
-         (icon-with-text :check "Save")]
-        [:button.btn.btn-secondary.ms-2 {:title "Click here to to cancel and return to the account list."
-                                         :on-click #(swap! page-state dissoc :allocation)}
-         (icon-with-text :x-circle "Cancel")]]])))
+        [:h2 "Asset Allocation for " (:name @account) " " (currency-format (:total-value @account))]
+        [:div.row
+         [:div.col-md-6
+          [:table.table.table-borderless
+           [:tbody
+            [:tr
+             [:th {:scope :row} "Cash"]
+             [:td (currency-format (:quantity @account))]]
+            [:tr
+             [:th {:scope :row} "Cash to reserve"]
+             [:td
+              [forms/decimal-input allocation [:cash]]]]
+            [:tr
+             [:th {:scope :row} "Cash to withdraw"]
+             [:td
+              [forms/decimal-input allocation [:withdrawal]]]]]]]]
+        [:table.table
+         [:thead
+          [:tr
+           [:th "Account"]
+           [:th.text-end "Target %"]
+           [:th.text-end.d-none.d-lg-table-cell "Target $"]
+           [:th.text-end.d-none.d-lg-table-cell  "Current %"]
+           [:th.text-end.d-none.d-lg-table-cell  "Current $"]
+           [:th.text-end.text-nowrap "Adj. $"]]]
+         [:tbody
+          (if (seq @allocations)
+            (->> @allocations
+                 (map #(asset-allocation-row % account @hide-zero-balances?))
+                 doall)
+            [:tr [:td {:col-span 6} "This account has no child accounts."]])]
+         [:tfoot
+          [:tr
+           [:td (html/space)]
+           [:td {:col-span 5 :class @total-percent-class} (format-percent @total-percent)]]]]
+        [:div
+         [button
+          {:html {:title "Click here to save these allocations."
+                  :type :submit
+                  :class "btn btn-primary"}
+           :icon :check
+           :caption "Save"}]
+         [button
+          {:html {:title "Click here to to cancel and return to the account list."
+                  :type :button
+                  :class "btn btn-secondary ms-2"
+                  :on-click #(swap! page-state dissoc :allocation)}
+           :icon :x-circle
+           :caption "Cancel"}]]]])))
 
 (defn- load-commodities
   [page-state]
@@ -1037,7 +1055,8 @@
          [:h2 (if (:id @selected) "Edit" "New")]
          [account-form page-state]]]
        [account-details page-state]
-       [asset-allocation page-state]])))
+       (when @allocation-account
+         [asset-allocation page-state])])))
 
 (secretary/defroute "/accounts" []
   (swap! app-state assoc :page #'index))
