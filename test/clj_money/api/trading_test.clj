@@ -4,13 +4,14 @@
             [clj-factory.core :refer [factory]]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
+            [dgknght.app-lib.test :refer [parse-edn-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body]]
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-user
@@ -56,30 +57,30 @@
           aapl (find-commodity "AAPL")
           ira (find-account "IRA")
           user (find-user email)
-          attr #:trade{:date "2016-03-02"
+          attr #:trade{:date (t/local-date 2016 3 2)
                        :action :buy
                        :entity (util/->model-ref entity)
-                       :shares 100.0
-                       :value 1000.0
+                       :shares 100.0M
+                       :value 1000.0M
                        :commodity (util/->model-ref aapl)
                        :account (util/->model-ref ira)}]
       [(-> (req/request :post (path :api
                                     :entities
                                     (:id entity)
                                     :trades))
-           (req/json-body attr)
+           (edn-body attr)
            (add-auth user)
            app
-           parse-json-body)
+           parse-edn-body)
        (models/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)})])))
 
 (defn- assert-successful-purchase
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (is (comparable? #:transaction{:transaction-date "2016-03-02"
                                  :description "Purchase 100.0 shares of AAPL at 10.000"}
-                   (:trade/transaction json-body))
+                   (:trade/transaction edn-body))
       "The creating transaction is returned in the response")
   (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2016 3 2)
                                         :description "Purchase 100.0 shares of AAPL at 10.000"}]
@@ -115,8 +116,8 @@
           entity (find-entity "Personal")
           aapl (find-commodity "AAPL")
           ira (find-account "IRA")
-          attr #:trade{:date "2016-03-02"
-                       :action "sell"; TODO: make this match the serialization :type [:purchase :sale]
+          attr #:trade{:date (t/local-date 2016 3 2)
+                       :action :sell
                        :entity (util/->model-ref entity)
                        :shares 100M
                        :value 1100M
@@ -126,21 +127,21 @@
                                     :entities
                                     (:id entity)
                                     :trades))
-           (req/json-body attr)
+           (req/body (pr-str attr))
            (add-auth user)
            app
-           parse-json-body)
+           parse-edn-body)
        (models/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)})
        (models/find-by #:lot{:account ira
                              :commodity aapl})])))
 
 (defn- assert-successful-sale
-  [[{:as response :keys [json-body]} transactions lot]]
+  [[{:as response :keys [edn-body]} transactions lot]]
   (is (http-success? response))
   (is (comparable? #:transaction{:transaction-date "2016-03-02"
                                  :description "Sell 100 shares of AAPL at 11.000"}
-                   (:trade/transaction json-body))
+                   (:trade/transaction edn-body))
       "The created transaction is included in the response")
   (is (seq-with-map-like? #:transaction{:transaction-date (t/local-date 2016 3 2)
                                         :description "Sell 100 shares of AAPL at 11.000"}

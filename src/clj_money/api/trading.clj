@@ -1,5 +1,6 @@
 (ns clj-money.api.trading
-  (:require [dgknght.app-lib.api :as api]
+  (:require [clojure.pprint :refer [pprint]]
+            [dgknght.app-lib.api :as api]
             [clj-money.authorization :refer [authorize] :as authorization]
             [clj-money.authorization.trades]
             [clj-money.trading :as trading]))
