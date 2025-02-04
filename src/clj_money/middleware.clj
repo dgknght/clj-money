@@ -127,6 +127,7 @@
     (try
      (handler request)
      (catch clojure.lang.ExceptionInfo e
+       (log-error e "unexpected clojure error")
        (handle-exception e))
      (catch Exception e
        (log-error e "unexpected error")
