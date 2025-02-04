@@ -237,7 +237,9 @@
            :adj-value adj-value)))
 
 (defn allocate
-  [{:account/keys [allocations total-value value]} find-account-fn & {:keys [cash withdrawal]}]
+  [{:account/keys [allocations total-value value]}
+   find-account-fn
+   & {:keys [cash withdrawal]}]
   (let [cash-withheld (or cash value)
         withdrawal (or withdrawal (d/d 0))
         working-total (d/- total-value (d/+ cash-withheld withdrawal))
