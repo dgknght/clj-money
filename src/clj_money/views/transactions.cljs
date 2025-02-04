@@ -495,11 +495,11 @@
                            (v/validate transaction)
                            (when (v/valid? transaction)
                              (on-save)))}
-       [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
+       [forms/date-field transaction [:trade/date] {:validations #{::v/required}}]
        [:div.row
         [:div.col-md-4
-         [forms/decimal-field transaction [:transaction/quantity] {:validations #{:v/required}
-                                                                   :caption "Dividend"}]]
+         [forms/decimal-field transaction [:trade/value] {:validations #{::v/required}
+                                                          :caption "Dividend"}]]
         [:div.col-md-4
          [forms/decimal-field transaction [:trade/shares] {:validations #{:v/required}}]]
         [:div.col-md-4.d-flex.flex-column
@@ -510,7 +510,7 @@
         [:trade/commodity]
         {:search-fn (fn [input callback]
                       (callback (find-cmdt input)))
-         :caption-fn #(str (:commodity/name %) " (" (:commodity/symbol %) ")")
+         :caption-fn cmdts/description
          :find-fn (fn [{:keys [id]} callback]
                     (callback (get-in @commodities [id])))}]])))
 

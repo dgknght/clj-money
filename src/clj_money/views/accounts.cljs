@@ -496,6 +496,15 @@
                         :account (:view-account @page-state)})
   (set-focus "transaction-date"))
 
+(defn- new-dividend
+  [page-state]
+  (swap! page-state assoc
+         :trade #:trade{:entity @current-entity
+                        :action :buy
+                        :date (t/today)
+                        :account (:view-account @page-state)})
+  (set-focus "transaction-date"))
+
 (defn- account-buttons
   [page-state]
   (let  [transaction (r/cursor page-state [:transaction])]
@@ -525,7 +534,12 @@
           [:a.dropdown-item
            {:href "#"
             :on-click #(new-trade page-state)}
-           "Trade"]]]]
+           "Trade"]]
+         [:li
+          [:a.dropdown-item
+           {:href "#"
+            :on-click #(new-dividend page-state)}
+           "Dividend"]]]]
        [:button.btn.btn-secondary.ms-2.d-none.d-md-block
         {:on-click (fn []
                      (trns/stop-item-loading page-state)
