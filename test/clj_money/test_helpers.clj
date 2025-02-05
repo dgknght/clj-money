@@ -1,6 +1,8 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [ring.mock.request :as req]
+            [dgknght.app-lib.test :as test]
             [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models :as models]))
@@ -29,3 +31,7 @@
   (-> req
       (req/content-type "application/edn")
       (req/body (pr-str payload))))
+
+(defn parse-edn-body
+  [res]
+  (test/parse-edn-body res :readers {'local-date t/local-date}))

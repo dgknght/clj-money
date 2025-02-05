@@ -1,16 +1,17 @@
 (ns clj-money.api.trading-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-edn-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body
                                             edn-body]]
             [clj-money.test-context :refer [with-context
                                             find-entity
@@ -78,7 +79,7 @@
 (defn- assert-successful-purchase
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:transaction{:transaction-date "2016-03-02"
+  (is (comparable? #:transaction{:transaction-date (t/local-date 2016 3 2)
                                  :description "Purchase 100.0 shares of AAPL at 10.000"}
                    (:trade/transaction edn-body))
       "The creating transaction is returned in the response")
@@ -127,7 +128,7 @@
                                     :entities
                                     (:id entity)
                                     :trades))
-           (req/body (pr-str attr))
+           (edn-body attr)
            (add-auth user)
            app
            parse-edn-body)
@@ -139,7 +140,7 @@
 (defn- assert-successful-sale
   [[{:as response :keys [edn-body]} transactions lot]]
   (is (http-success? response))
-  (is (comparable? #:transaction{:transaction-date "2016-03-02"
+  (is (comparable? #:transaction{:transaction-date (t/local-date 2016 3 2)
                                  :description "Sell 100 shares of AAPL at 11.000"}
                    (:trade/transaction edn-body))
       "The created transaction is included in the response")
