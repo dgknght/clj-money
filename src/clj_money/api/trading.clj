@@ -1,6 +1,7 @@
 (ns clj-money.api.trading
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
             [clj-money.authorization :refer [authorize] :as authorization]
             [clj-money.authorization.trades]
             [clj-money.trading :as trading]))
@@ -33,6 +34,8 @@
         (select-keys [:trade/transaction
                       :trade/lot
                       :trade/lots])
+        (update-in [:trade/lot :lot/account] util/->model-ref)
+        (update-in [:trade/lot :lot/commodity] util/->model-ref)
         api/creation-response)))
 
 (def routes
