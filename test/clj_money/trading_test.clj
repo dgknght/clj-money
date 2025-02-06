@@ -53,6 +53,9 @@
    #:account{:name "Checking"
              :entity "Personal"
              :type :asset}
+   #:account {:name "Dividends"
+              :entity "Personal"
+              :type :income}
    #:transaction{:transaction-date (t/local-date 2016 1 1)
                  :entity "Personal"
                  :description "Opening balance"
@@ -154,6 +157,20 @@
           "The investment account balance reflects the fee")
       (is (= 5M (:account/quantity (models/find inv-exp)))
           "The investment expense account reflects the fee"))))
+
+(deftest reinvest-a-dividend
+  (with-context purchase-context
+    (let [dividends (find-account "Dividends")
+          ira (models/find (find-account "IRA"))]
+      (-> (purchase-attributes)
+          (assoc :trade/dividend? true
+                 :trade/dividend-account dividends)
+          trading/buy)
+      (is (= 1000M (:account/quantity (models/find dividends)))
+          "The dividend account is debited for the amount of the purchase")
+      (is (= (:account/quantity ira)
+             (:account/quantity (models/find ira)))
+          "The trading account balance is unchanged."))))
 
 (defn- assert-invalid-purchase
   [attr errors]

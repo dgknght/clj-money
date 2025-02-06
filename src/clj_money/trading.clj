@@ -28,6 +28,8 @@
 (s/def :trade/fee-account ::models/model-ref)
 (s/def :trade/shares decimal?)
 (s/def :trade/value decimal?)
+(s/def :trade/dividend? boolean?)
+(s/def :trade/dividend-account ::models/model-ref)
 
 (defmulti ^:private purchase-spec
   (fn [purchase]
@@ -41,7 +43,9 @@
                 :trade/value
                 :trade/commodity-account]
           :opt [:trade/fee
-                :trade/fee-account]))
+                :trade/fee-account
+                :trade/dividend?
+                :trade/dividend-account]))
 
 (defmethod purchase-spec :separate [_]
   (s/keys :req [:trade/date
@@ -50,7 +54,9 @@
                 :trade/commodity
                 :trade/account]
           :opt [:trade/fee
-                :trade/fee-account]))
+                :trade/fee-account
+                :trade/dividend?
+                :trade/dividend-account]))
 
 (s/def ::models/purchase (s/multi-spec purchase-spec :trade/commodity-account))
 
@@ -208,6 +214,38 @@
           symbol
           (format-decimal price {:fraction-digits 3})))
 
+(defn- dividend-transaction-description
+  [{:trade/keys [shares value]
+    {:commodity/keys [symbol]} :trade/commodity
+    {:price/keys [price]} :trade/price}]
+  (format "Reinvest dividend of %s: purchase %s shares of %s at %s"
+          value
+          shares
+          symbol
+          (format-decimal price {:fraction-digits 3})))
+
+(defn- create-dividend-transaction
+  "When :dividend? is true, creates the transaction for
+  the receipt of the dividend"
+  [{:trade/keys [dividend? dividend-account account value entity date] :as trade}]
+  (if dividend?
+    (if dividend-account
+      (update-in trade
+                 [:trade/transactions]
+                 (fnil conj [])
+                 #:transaction{:entity entity
+                               :transaction-date date
+                               :description (dividend-transaction-description trade)
+                               :items [#:transaction-item{:action :credit
+                                                          :account dividend-account
+                                                          :quantity value}
+                                       #:transaction-item{:action :debit
+                                                          :account account
+                                                          :quantity value}]})
+      (throw (ex-info "Unable to apply the dividend because a dividend account was not specified"
+                      trade)))
+    trade))
+
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
   transaction"
@@ -235,16 +273,17 @@
                                                        :account fee-account
                                                        :quantity fee
                                                        :value fee}))]
-    (assoc trade
-           :trade/transaction
-           #:transaction{:entity entity
-                         :transaction-date date
-                         :description (purchase-transaction-description trade)
-                         :items items
-                         :lot-items [#:lot-item{:lot lot
-                                                :lot-action :buy
-                                                :price (with-precision 4 (/ value shares))
-                                                :shares shares}]})))
+    (update-in trade
+               [:trade/transactions]
+               (fnil conj [])
+               #:transaction{:entity entity
+                             :transaction-date date
+                             :description (purchase-transaction-description trade)
+                             :items items
+                             :lot-items [#:lot-item{:lot lot
+                                                    :lot-action :buy
+                                                    :price (with-precision 4 (/ value shares))
+                                                    :shares shares}]})))
 
 (defn- create-capital-gains-item
   [{:keys [quantity description long-term?]} trade]
@@ -347,7 +386,7 @@
                                              (* price quantity))))))))
 
 (defn- put-purchase
-  [{:trade/keys [transaction
+  [{:trade/keys [transactions
                  lot
                  commodity
                  account
@@ -364,11 +403,11 @@
                                     lot
                                     commodity
                                     price
-                                    account
-                                    transaction]
+                                    account]
+                                   transactions
                                    affected-accounts)))]
     (assoc trade
-           :trade/transaction (first (:transaction result))
+           :trade/transactions (:transaction result) ; TODO: Prune out the propagated transactions
            :trade/fee-account (->> (:account result)
                                    (filter #(= :expense (:account/type %)))
                                    first)
@@ -400,6 +439,7 @@
         create-price
         update-accounts
         create-lot
+        create-dividend-transaction
         create-purchase-transaction
         propagate-price-to-accounts
         put-purchase)))
