@@ -382,13 +382,15 @@
 
 (defn- integrate-from-bag
   [{:keys [account bag as-of]} items]
-  (->> (get-in @bag [:transactions :new-items])
-       (filter #(<= as-of
-                    (:transaction-item/transaction-date %)))
-       (mapcat :transaction/items)
-       (filter #(model= account
-                        (:transaction-item/account %)))
-       (concat items)))
+  (if bag
+    (->> (get-in @bag [:transactions :new-items])
+         (filter #(<= as-of
+                      (:transaction-item/transaction-date %)))
+         (mapcat :transaction/items)
+         (filter #(model= account
+                          (:transaction-item/account %)))
+         (concat items))
+    items))
 
 (defn- propagate-account-items
   "Returns a function that takes a list of transaction items and returns the
