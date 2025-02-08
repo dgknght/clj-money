@@ -92,23 +92,25 @@
           commodity (find-commodity "AAPL")
           result (trading/buy (purchase-attributes))]
       (testing "The transaction"
-        (is (comparable? #:transaction{:entity (util/->model-ref personal)
-                                       :transaction-date (t/local-date 2016 1 2)
-                                       :description "Purchase 100 shares of AAPL at 10.000"
-                                       :value 1000M
-                                       :lot-items [#:lot-item{:lot-action :buy
-                                                              :transaction-date (t/local-date 2016 1 2)
-                                                              :shares 100M
-                                                              :price 10M}]
-                                       :items [#:transaction-item{:action :credit
-                                                                  :quantity 1000M
-                                                                  :value 1000M
-                                                                  :account (util/->model-ref ira)}
-                                               #:transaction-item{:action :debit
-                                                                  :quantity 100M
-                                                                  :value 1000M
-                                                                  :account (util/->model-ref (:trade/commodity-account result))}]}
-                         (:trade/transaction result))
+        (is (seq-of-maps-like?
+              [#:transaction{:entity (util/->model-ref personal)
+                             :transaction-date (t/local-date 2016 1 2)
+                             :description "Purchase 100 shares of AAPL at 10.000"
+                             :value 1000M
+                             :lot-items [#:lot-item{:lot-action :buy
+                                                    :transaction-date (t/local-date 2016 1 2)
+                                                    :shares 100M
+                                                    :price 10M}]
+                             :items [#:transaction-item{:action :credit
+                                                        :quantity 1000M
+                                                        :value 1000M
+                                                        :account (util/->model-ref ira)}
+                                     #:transaction-item{:action :debit
+                                                        :quantity 100M
+                                                        :value 1000M
+                                                        :account (util/->model-ref (:trade/commodity-account result))}]}]
+
+              (:trade/transactions result))
             "A transaction is created and returned"))
       (testing "The commodity account"
         (is (comparable? #:account{:name "AAPL"
@@ -243,20 +245,22 @@
                                (:trade/updated-lots result))
             "The affected lots are returned"))
       (testing "The transaction"
-        (is (comparable? #:transaction{:transaction-date (t/local-date 2017 3 2)
-                                       :description "Sell 25 shares of AAPL at 15.000"}
-                         (:trade/transaction result))
+        (is (seq-of-maps-like?
+              [#:transaction{:transaction-date (t/local-date 2017 3 2)
+                             :description "Sell 25 shares of AAPL at 15.000"}]
+              (:trade/transactions result))
             "The transaction is created and returned")
-        (is (comparable? #:transaction-item{:action :debit
+        (is (comparable?
+              #:transaction-item{:action :debit
                                             :value 375M
                                             :quantity 375M}
                          (item-by-account (find-account "IRA")
-                                          (:trade/transaction result)))
+                                          (first (:trade/transactions result))))
             "The trading account is debited the total proceeds from the purchase")
         (is (comparable? #:transaction-item{:action :credit
                                             :value 250M
                                             :quantity 25M}
-                         (item-by-account aapl-acc (:trade/transaction result)))
+                         (item-by-account aapl-acc (first (:trade/transactions result))))
             "The commodity account is credited the number of shares and purchase value of the shares."))
       (testing "The commodity account"
         (is (comparable? #:account{:name "AAPL"
@@ -275,7 +279,7 @@
         (is (comparable? #:transaction-item{:action :credit
                                             :value 125M
                                             :quantity 125M}
-                         (item-by-account ltcg (:trade/transaction result)))
+                         (item-by-account ltcg (first (:trade/transactions result))))
             "The capital gains account is credited the amount received above the original cost of the shares."))
       (testing "The entity"
         (let [entity (models/find-by {:entity/name "Personal"})]
@@ -302,7 +306,7 @@
                                             :value 125M
                                             :quantity 125M}
                          (item-by-account (find-account "Short-term Capital Gains")
-                                          (:trade/transaction result)))
+                                          (first (:trade/transactions result))))
             "The capital gains account is credited the amount received above the original cost of the shares.")))))
 
 ; sell 25 shares at $8.00 per share and $50 loss
@@ -324,28 +328,29 @@
             "The result contains the updated lots"))
 
       (testing "The transaction"
-        (is (comparable? #:transaction{:transaction-date (t/local-date 2017 3 2)
-                                       :description "Sell 25 shares of AAPL at 8.000"}
-                         (:trade/transaction result))
+        (is (seq-of-maps-like?
+              [#:transaction{:transaction-date (t/local-date 2017 3 2)
+                             :description "Sell 25 shares of AAPL at 8.000"}]
+              (:trade/transactions result))
             "The result contains the transaction")
         (is (comparable? #:transaction-item{:action :debit
                                             :value 200M
                                             :quantity 200M}
                          (item-by-account (find-account "IRA")
-                                          (:trade/transaction result)))
+                                          (first (:trade/transactions result))))
             "The trading account is debited the total proceeds from the purchase")
         (is (comparable? #:transaction-item{:action :debit
                                             :value 50M
                                             :quantity 50M}
                          (item-by-account (find-account "Long-term Capital Losses")
-                                          (:trade/transaction result)))
+                                          (first (:trade/transactions result))))
             "The capital loss account is debited the cost the shares less the sale proceeds")
         (is (comparable? #:transaction-item{:action :credit
                                             :value 250M
                                             :quantity 25M}
                          (item-by-account (models/find-by #:account{:entity (find-entity "Personal")
                                                                     :commodity (find-commodity "AAPL")})
-                                          (:trade/transaction result)))
+                                          (first (:trade/transactions result))))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
 (deftest sell-a-commodity-for-a-loss-before-1-year
@@ -358,7 +363,7 @@
                                           :value 50M
                                           :quantity 50M}
                        (item-by-account (find-account "Short-term Capital Losses")
-                                        (:trade/transaction result)))
+                                        (first (:trade/transactions result))))
           "The capital loss account is debited the cost the shares less the sale proceeds"))))
 
 (def ^:private auto-create-context

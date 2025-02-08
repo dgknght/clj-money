@@ -386,16 +386,17 @@
       (resolve-trade-accounts ctx)))
 
 (def ^:private extract-purchase-models
-  (juxt :trade/transaction
-        :trade/commodity-account
-        :trade/lot))
+  (comp flatten
+        (juxt :trade/transactions
+              :trade/commodity-account
+              :trade/lot)))
 
 (defn- buy
   [trade]
   (extract-purchase-models (trading/buy trade)))
 
 (def ^:private extract-sale-models
-  (juxt :trade/transaction))
+  (comp flatten (juxt :trade/transactions)))
 
 (defn- sell
   [trade]

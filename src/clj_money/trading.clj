@@ -347,7 +347,7 @@
       (do
         (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
         (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
-      (assoc trade :trade/transaction transaction))))
+      (update-in trade [:trade/transactions] (fnil conj []) transaction))))
 
 (defn- create-lot
   "Given a trade map, creates and appends the commodity lot"
@@ -603,7 +603,7 @@
        (reduce ensure-gains-account trade)))
 
 (defn- put-sale
-  [{:trade/keys [transaction
+  [{:trade/keys [transactions
                  updated-lots
                  commodity
                  account
@@ -619,14 +619,14 @@
                          (models/put-many
                            (concat updated-lots
                                    affected-accounts
+                                   transactions
                                    [commodity-account
                                     commodity
                                     price
                                     account
-                                    transaction
                                     entity])))]
     (assoc trade
-           :trade/transaction (first (:transaction result))
+           :trade/transactions (:transaction result)
            :trade/fee-account (->> (:account result)
                                    (filter #(= :expense (:account/type %)))
                                    first)

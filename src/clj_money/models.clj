@@ -150,6 +150,8 @@
 
 (defn put-many
   [models]
+  {:pre [(not-any? nil? models)]}
+
   (let [bag (atom {})]
     (->> models
          (map (dispatch
