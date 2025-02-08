@@ -416,11 +416,8 @@
                                :account/commodity commodity
                                :account/type type))
            :caption-fn (comp (partial string/join "/") :account/path)
-           :find-fn (fn [parent callback]
-                      (->> @accounts
-                           (filter #(model= parent %))
-                           first
-                           callback))}]
+           :find-fn (fn [{:keys [id]} callback]
+                      (callback (@accounts-by-id id)))}]
          [forms/select-field account
           [:account/type]
           (map (juxt name humanize) account-types)
@@ -500,6 +497,7 @@
   [page-state]
   (swap! page-state assoc
          :trade #:trade{:entity @current-entity
+                        :dividend? true
                         :action :buy
                         :date (t/today)
                         :account (:view-account @page-state)})
@@ -619,8 +617,7 @@
         (let [f (if (accountified? @transaction)
                   trns/simple-transaction-form
                   trns/full-transaction-form)]
-          [f page-state :on-save (post-transaction-save page-state)])
-        #_[trns/dividend-transaction-form page-state]]
+          [f page-state :on-save (post-transaction-save page-state)])]
        [:div
         [:button.btn.btn-primary
          {:type :submit
@@ -634,21 +631,22 @@
 
 (defn- trade-form
   [page-state]
-  (fn []
-    [:<>
-     [:h3 "New Trade"]
-     [:div.mt-3
-      [trns/trade-transaction-form page-state :on-save (post-transaction-save page-state)]]
-     [:div
-      [:button.btn.btn-primary
-       {:type :submit
-        :form "trade-form"
-        :title "Click here to record this trade"}
-       (icon-with-text :check "Save")]
-      [:button.btn.btn-secondary.ms-2
-       {:on-click #(swap! page-state dissoc :trade)
-        :title "Click here to cancel this trade"}
-       (icon-with-text :x "Cancel")]]]))
+  (let [dividend? (r/cursor page-state [:trade :trade/dividend?])]
+    (fn []
+      [:<>
+       [:h3 (if @dividend? "Reinvest Dividend" "New Trade")]
+       [:div.mt-3
+        [trns/trade-transaction-form page-state :on-save (post-transaction-save page-state)]]
+       [:div
+        [:button.btn.btn-primary
+         {:type :submit
+          :form "trade-form"
+          :title "Click here to record this trade"}
+         (icon-with-text :check "Save")]
+        [:button.btn.btn-secondary.ms-2
+         {:on-click #(swap! page-state dissoc :trade)
+          :title "Click here to cancel this trade"}
+         (icon-with-text :x "Cancel")]]])))
 
 (defn- check-all-items
   ([page-state]  (check-all-items page-state true))

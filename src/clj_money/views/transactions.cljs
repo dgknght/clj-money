@@ -424,8 +424,8 @@
                        (transactions/save (unentryfy @transaction)
                                           :callback -busy
                                           :on-success on-save)))}
-        [forms/date-field transaction [:transaction/transaction-date] {:validations #{:v/required}}]
-        [forms/text-field transaction [:transaction/description] {:validations #{:v/required}}]
+        [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]
+        [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
         [:table.table
          [:thead
           [:tr
@@ -479,44 +479,10 @@
          :find-fn (fn [{:keys [id]} callback]
                     (callback (@accounts-by-id id)))}]])))
 
-(defn dividend-transaction-form
-  [page-state & {:keys [on-save]}]
-  (let [transaction (r/cursor page-state [:transaction])
-        shares (r/cursor transaction [:trade/shares])
-        quantity (r/cursor transaction [:transaction/quantity])
-        price (make-reaction #(when (and @shares @quantity)
-                                (decimal// @quantity @shares)))
-        commodities (r/cursor page-state [:commodities])
-        find-cmdt (make-reaction #(cmdts/search (vals @commodities)))]
-    (fn []
-      [:form#transaction-form {:no-validate true
-              :on-submit (fn [e]
-                           (.preventDefault e)
-                           (v/validate transaction)
-                           (when (v/valid? transaction)
-                             (on-save)))}
-       [forms/date-field transaction [:trade/date] {:validations #{::v/required}}]
-       [:div.row
-        [:div.col-md-4
-         [forms/decimal-field transaction [:trade/value] {:validations #{::v/required}
-                                                          :caption "Dividend"}]]
-        [:div.col-md-4
-         [forms/decimal-field transaction [:trade/shares] {:validations #{:v/required}}]]
-        [:div.col-md-4.d-flex.flex-column
-         [:span.mb-2 "Est. Price"]
-         [:span.mb-3.ms-2 (when @price (format-decimal @price))]]]
-       [forms/typeahead-field
-        transaction
-        [:trade/commodity]
-        {:search-fn (fn [input callback]
-                      (callback (find-cmdt input)))
-         :caption-fn cmdts/description
-         :find-fn (fn [{:keys [id]} callback]
-                    (callback (get-in @commodities [id])))}]])))
-
 (defn trade-transaction-form
   [page-state & {:keys [on-save]}]
   (let [trade (r/cursor page-state [:trade])
+        dividend? (r/cursor trade [:trade/dividend?])
         price (make-reaction #(when (and (:trade/shares @trade)
                                          (:trade/value @trade))
                                 (decimal// (:trade/value @trade)
@@ -530,17 +496,23 @@
                      (v/validate trade)
                      (when (v/valid? trade)
                        (+busy)
-                       (-> @trade
-                           (update-in [:trade/action] keyword)
-                           (trading/create :callback -busy
-                                           :on-success on-save))))}
-       [forms/date-field trade [:trade/date] {:validations #{:v/required}}]
-       [forms/select-field trade [:trade/action] (map (juxt name humanize) [:buy :sell]) {}]
+                       (trading/create @trade
+                                       :callback -busy
+                                       :on-success on-save)))}
+       [forms/date-field trade [:trade/date] {:validations #{::v/required}}]
+       (when-not @dividend?
+         [forms/select-field
+          trade
+          [:trade/action]
+          (map (juxt name humanize)
+               [:buy :sell])
+          {:transform-fn keyword
+           :validations #{::v/required}}])
        [:div.row
         [:div.col-md-4
-         [forms/decimal-field trade [:trade/shares] {:validations #{:v/required}}]]
+         [forms/decimal-field trade [:trade/shares] {:validations #{::v/required}}]]
         [:div.col-md-4
-         [forms/decimal-field trade [:trade/value] {:validations #{:v/required}}]]
+         [forms/decimal-field trade [:trade/value] {:validations #{::v/required}}]]
         [:div.col-md-4.d-flex.flex-column
          [:span.mb-2 "Est. Price"]
          [:span.mb-3.ms-3 (when @price (format-decimal @price))]]]
@@ -553,4 +525,16 @@
          :value-fn :id
          :find-fn (fn [{:keys [id]} callback]
                     (callback (@commodities id)))
-         :validations #{::v/required}}]])))
+         :validations #{::v/required}}]
+       (when @dividend?
+         [forms/typeahead-field
+          trade
+          [:trade/dividend-account]
+          {:search-fn (fn [input callback]
+                        (->> @accounts
+                             (find-by-path input)
+                             callback))
+           :caption-fn (comp (partial string/join "/") :account/path)
+           :find-fn (fn [{:keys [id]} callback]
+                      (callback (@accounts-by-id id)))
+           :validations #{::v/required}}])])))
