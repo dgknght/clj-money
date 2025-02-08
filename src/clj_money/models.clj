@@ -177,7 +177,7 @@
        (mapcat (comp (fn [[m & ms]]
                        (cons [::db/delete m]
                              ms))
-                     propagate-delete))
+                     #(propagate-delete % {})))
        (db/put (db/storage))))
 
 (defn delete
