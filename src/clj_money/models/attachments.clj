@@ -31,11 +31,11 @@
              (fnil f 0)))
 
 (defmethod models/propagate :attachment
-  [att]
+  [att & _]
   [att
    (adjust-trx att inc)])
 
 (defmethod models/propagate-delete :attachment
-  [att]
+  [att & _]
   [att
    (adjust-trx att dec)])

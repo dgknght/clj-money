@@ -21,7 +21,7 @@
 (defmethod before-validation :default [m & _] m)
 
 (defmulti propagate db/type-dispatch)
-(defmethod propagate :default [m] [m])
+(defmethod propagate :default [m & _] [m])
 
 (defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m & _] m)
@@ -136,30 +136,32 @@
   (partial dispatch* f))
 
 (defn- dispatch-propagation
-  [x]
-  (if (vector? x)
-    (let [[oper m] x
-          f (if (= ::db/delete oper)
-              propagate-delete
-              propagate)
-          [r & rs] (f m)]
-      (cons [oper r]
-            rs))
-    (propagate x)))
+  [opts]
+  (fn [x]
+    (if (vector? x)
+      (let [[oper m] x
+            f (if (= ::db/delete oper)
+                propagate-delete
+                propagate)
+            [r & rs] (f m opts)]
+        (cons [oper r]
+              rs))
+      (propagate x opts))))
 
 (defn put-many
   [models]
-  (->> models
-       (map (dispatch
-              (comp validate
-                    before-validation)))
-       (mapcat dispatch-propagation)
-       (map (dispatch before-save))
-       (merge-dupes)
-       (db/put (db/storage))
-       (map (comp append-before
-                  after-save
-                  #(after-read % {}))))) ; The empty hash here is for options
+  (let [bag (atom {})]
+    (->> models
+         (map (dispatch
+                (comp validate
+                      before-validation)))
+         (mapcat (dispatch-propagation {:bag bag}))
+         (map (dispatch before-save))
+         (merge-dupes)
+         (db/put (db/storage))
+         (map (comp append-before
+                    after-save
+                    #(after-read % {})))))) ; The empty hash here is for options
 
 (defn put
   [model]

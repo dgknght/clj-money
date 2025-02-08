@@ -160,7 +160,7 @@
                            :trade-date [:> trade-date]})))
 
 (defmethod models/propagate :price
-  [price]
+  [price & _]
   (cons price (when (latest-price? price)
                 (apply-to-account-chains price))))
 
@@ -175,7 +175,7 @@
       price)))
 
 (defmethod models/propagate-delete :price
-  [price]
+  [price & _]
   (let [latest-price (new-latest-price price)]
     (cons price
           (when latest-price
