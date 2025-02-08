@@ -43,9 +43,11 @@
    :trade {:keys #{:trade/date
                    :trade/action
                    :trade/shares
-                   :trade/value}
+                   :trade/value
+                   :trade/dividend?}
            :references #{:trade/account
-                         :trade/commodity}}})
+                         :trade/commodity
+                         :trade/dividend-account}}})
 
 (declare prune)
 
