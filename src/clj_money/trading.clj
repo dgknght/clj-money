@@ -228,23 +228,19 @@
   "When :dividend? is true, creates the transaction for
   the receipt of the dividend"
   [{:trade/keys [dividend? dividend-account account value entity date] :as trade}]
-  (if dividend?
+  (when dividend?
     (if dividend-account
-      (update-in trade
-                 [:trade/transactions]
-                 (fnil conj [])
-                 #:transaction{:entity entity
-                               :transaction-date date
-                               :description (dividend-transaction-description trade)
-                               :items [#:transaction-item{:action :credit
-                                                          :account dividend-account
-                                                          :quantity value}
-                                       #:transaction-item{:action :debit
-                                                          :account account
-                                                          :quantity value}]})
+      (models/put #:transaction{:entity entity
+                                :transaction-date date
+                                :description (dividend-transaction-description trade)
+                                :items [#:transaction-item{:action :credit
+                                                           :account dividend-account
+                                                           :quantity value}
+                                        #:transaction-item{:action :debit
+                                                           :account account
+                                                           :quantity value}]})
       (throw (ex-info "Unable to apply the dividend because a dividend account was not specified"
-                      trade)))
-    trade))
+                      trade)))))
 
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
@@ -431,18 +427,22 @@
 (defn buy
   [purchase]
   (with-ex-validation purchase ::models/purchase []
-    (-> purchase
-        append-commodity-account
-        append-commodity
-        append-accounts
-        append-entity
-        create-price
-        update-accounts
-        create-lot
-        create-dividend-transaction
-        create-purchase-transaction
-        propagate-price-to-accounts
-        put-purchase)))
+    (let [prepped (-> purchase
+                      append-commodity-account
+                      append-commodity
+                      append-accounts
+                      append-entity
+                      create-price
+                      update-accounts
+                      create-lot)
+          div-trans (create-dividend-transaction prepped)
+          res (-> prepped
+                  create-purchase-transaction
+                  propagate-price-to-accounts
+                  put-purchase)]
+      (if div-trans
+        (update-in res [:trade/transactions] #(cons div-trans %))
+        res))))
 
 (defn unbuy
   "Reverses a commodity purchase"
