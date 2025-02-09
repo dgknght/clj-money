@@ -443,14 +443,30 @@
            items))
     items))
 
+(def ^:private transaction-item?
+  (db/model-type? :transaction-item))
+
+(defn- belongs-to-trx?
+  [{:keys [id] :as trx}]
+  (fn [model]
+    (if (transaction-item? model)
+      (let [{:transaction-item/keys [transaction] :as item} model]
+        (when (and id
+                   (not (:id transaction)))
+          (pprint {::trx trx
+                   ::item item})
+          (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
+                                                                                :item item})))
+        (= id (:id transaction)))
+      false)))
+
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
   [{:transaction/keys [items transaction-date] :keys [id] :as trx} & {:keys [delete?]}]
   (->> items
        (map #(cond-> %
-               true (assoc :transaction-item/transaction-date transaction-date
-                           ::current true)
+               true (assoc :transaction-item/transaction-date transaction-date)
                id   (assoc :transaction-item/transaction {:id id})))
        realize-accounts
        (group-by (comp util/->model-ref
@@ -497,10 +513,9 @@
 
 (defn- propagate-transaction
   [{:as trx :transaction/keys [transaction-date]}]
-  (let [{current-items true
-         others false} (group-by ::current
+  (let [{transaction-items true
+         others false} (group-by (belongs-to-trx? trx)
                                  (propagate-items trx))
-        transaction-items (map #(dissoc % ::current) current-items)
         entity (-> (:transaction/entity trx)
                    (models/find :entity)
                    (push-date-boundaries transaction-date
