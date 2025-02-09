@@ -21,7 +21,7 @@
 (defmethod before-validation :default [m & _] m)
 
 (defmulti propagate db/type-dispatch)
-(defmethod propagate :default [m & _] [m])
+(defmethod propagate :default [m] [m])
 
 (defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m & _] m)
@@ -36,7 +36,7 @@
 (defmethod before-delete :default [m & _] m)
 
 (defmulti propagate-delete db/type-dispatch)
-(defmethod propagate-delete :default [m & _] [m])
+(defmethod propagate-delete :default [m] [m])
 
 (defn- validation-key
   [m]
@@ -136,34 +136,30 @@
   (partial dispatch* f))
 
 (defn- dispatch-propagation
-  [opts]
-  (fn [x]
-    (if (vector? x)
-      (let [[oper m] x
-            f (if (= ::db/delete oper)
-                propagate-delete
-                propagate)
-            [r & rs] (f m opts)]
-        (cons [oper r]
-              rs))
-      (propagate x opts))))
+  [x]
+  (if (vector? x)
+    (let [[oper m] x
+          f (if (= ::db/delete oper)
+              propagate-delete
+              propagate)
+          [r & rs] (f m)]
+      (cons [oper r]
+            rs))
+    (propagate x)))
 
 (defn put-many
   [models]
-  {:pre [(not-any? nil? models)]}
-
-  (let [bag (atom {})]
-    (->> models
-         (map (dispatch
-                (comp validate
-                      before-validation)))
-         (mapcat (dispatch-propagation {:bag bag}))
-         (map (dispatch before-save))
-         (merge-dupes)
-         (db/put (db/storage))
-         (map (comp append-before
-                    after-save
-                    #(after-read % {})))))) ; The empty hash here is for options
+  (->> models
+       (map (dispatch
+              (comp validate
+                    before-validation)))
+       (mapcat dispatch-propagation)
+       (map (dispatch before-save))
+       (merge-dupes)
+       (db/put (db/storage))
+       (map (comp append-before
+                  after-save
+                  #(after-read % {}))))) ; The empty hash here is for options
 
 (defn put
   [model]
@@ -177,7 +173,7 @@
        (mapcat (comp (fn [[m & ms]]
                        (cons [::db/delete m]
                              ms))
-                     #(propagate-delete % {})))
+                     propagate-delete))
        (db/put (db/storage))))
 
 (defn delete
