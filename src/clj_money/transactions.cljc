@@ -217,5 +217,6 @@
                               (map :transaction-item/value)
                               (reduce + 0M))))
                   set)]
-    (when (= 1 (count sums))
-      (first sums))))
+    (if (= 1 (count sums))
+      (first sums)
+      (pprint {::unbalanced-trx items}))))

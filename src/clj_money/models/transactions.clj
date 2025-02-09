@@ -382,15 +382,12 @@
 
 (defn- integrate-from-bag
   [{:keys [account bag as-of]} items]
-  (if bag
-    (->> (get-in @bag [:transactions :new-items])
-         (filter #(<= as-of
-                      (:transaction-item/transaction-date %)))
-         (mapcat :transaction/items)
-         (filter #(model= account
-                          (:transaction-item/account %)))
-         (concat items))
-    items))
+  (->> (when bag (get-in @bag [:transactions :new-items]))
+       (filter #(model= account
+                        (:transaction-item/account %)))
+       (remove #(t/before? as-of
+                           (:transaction-item/transaction-date %)))
+       (concat items)))
 
 (defn- propagate-account-items
   "Returns a function that takes a list of transaction items and returns the
@@ -458,30 +455,14 @@
            items))
     items))
 
-(def ^:private transaction-item?
-  (db/model-type? :transaction-item))
-
-(defn- belongs-to-trx?
-  [{:keys [id] :as trx}]
-  (fn [model]
-    (if (transaction-item? model)
-      (let [{:transaction-item/keys [transaction] :as item} model]
-        (when (and id
-                   (not (:id transaction)))
-          (pprint {::trx trx
-                   ::item item})
-          (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
-                                                                                :item item})))
-        (= id (:id transaction)))
-      false)))
-
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
   [{:transaction/keys [items transaction-date] :keys [id] :as trx} opts]
   (->> items
        (map #(cond-> %
-               true (assoc :transaction-item/transaction-date transaction-date)
+               true (assoc :transaction-item/transaction-date transaction-date
+                           ::current true)
                id   (assoc :transaction-item/transaction {:id id})))
        realize-accounts
        (group-by (comp util/->model-ref
@@ -527,10 +508,18 @@
              (t/before? last-occurrence transaction-date))
     (assoc sched-trx :scheduled-transaction/last-occurrence transaction-date)))
 
+(defn- bag-new-items
+  [bag items]
+  (swap! bag
+         update-in
+         [:transactions :new-items]
+         (fnil concat [])
+         (remove :id items)))
+
 (defn- propagate-transaction
   [{:as trx :transaction/keys [transaction-date]} {:as opts :keys [bag]}]
-  (let [{transaction-items true
-         others false} (group-by (belongs-to-trx? trx)
+  (let [{current-items true
+         others false} (group-by ::current
                                  (propagate-items trx opts))
         entity (-> (:transaction/entity trx)
                    (models/find :entity)
@@ -539,14 +528,9 @@
                                           :settings/earliest-transaction-date]
                                          [:entity/settings
                                           :settings/latest-transaction-date]))
-        updated-sched (propagate-scheduled-transaction trx)]
-
-    (swap! bag
-           update-in
-           [:transactions :new-items]
-           (fnil conj [])
-           (remove :id transaction-items))
-
+        updated-sched (propagate-scheduled-transaction trx)
+        transaction-items (map #(dissoc % ::current) current-items)]
+    (bag-new-items bag transaction-items)
     (cons (cond-> trx
             (seq transaction-items)
             (assoc :transaction/items transaction-items))
