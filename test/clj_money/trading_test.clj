@@ -439,6 +439,10 @@
     (trading/sell (assoc (sale-attributes)
                          :trade/fee 5M
                          :trade/fee-account (find-account "Investment Expenses")))
+    ; Opening balance             $2,000
+    ; Purchase AAPL     -1,000 -> $1,000
+    ; Sell AAPL          + 375 -> $1,375
+    ; less the fee        -  5 -> $1,370
     (is (comparable? {:account/quantity 1370M}
                      (models/find (find-account "IRA")))
         "The investment account balance reflects the fee")
