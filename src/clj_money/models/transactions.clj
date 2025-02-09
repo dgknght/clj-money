@@ -8,7 +8,7 @@
                                           index-by]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.transactions :as trxs]
             [clj-money.models :as models]
@@ -380,20 +380,11 @@
                    :transaction-item)
                  {:sort [[:transaction-item/index :asc]]}))
 
-(defn- integrate-from-bag
-  [{:keys [account bag as-of]} items]
-  (->> (when bag (get-in @bag [:transactions :new-items]))
-       (filter #(model= account
-                        (:transaction-item/account %)))
-       (remove #(t/before? as-of
-                           (:transaction-item/transaction-date %)))
-       (concat items)))
-
 (defn- propagate-account-items
   "Returns a function that takes a list of transaction items and returns the
   items along with any other items affected by the transaction, and the updated
   account, if the account is also updated"
-  [{:keys [as-of delete?] :as opts}]
+  [& {:keys [as-of delete?]}]
   (fn [[_ [{:transaction-item/keys [account]} :as items]]]
     (let [ids (->> items
                    (map :id)
@@ -401,10 +392,7 @@
           affected-items (if (util/temp-id? account)
                            []
                            (->> (account-items-on-or-after account as-of)
-                                (integrate-from-bag (assoc opts :account account))
                                 (remove #(ids (:id %)))
-                                (sort-by (juxt :transaction-item/transaction-date
-                                               :transaction-item/index))
                                 (map #(assoc % :transaction-item/account account))))]
       (re-index (if delete?
                   account
@@ -455,26 +443,42 @@
            items))
     items))
 
+(def ^:private transaction-item?
+  (db/model-type? :transaction-item))
+
+(defn- belongs-to-trx?
+  [{:keys [id] :as trx}]
+  (fn [model]
+    (if (transaction-item? model)
+      (let [{:transaction-item/keys [transaction] :as item} model]
+        (when (and id
+                   (not (:id transaction)))
+          (pprint {::trx trx
+                   ::item item})
+          (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
+                                                                                :item item})))
+        (= id (:id transaction)))
+      false)))
+
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [{:transaction/keys [items transaction-date] :keys [id] :as trx} opts]
+  [{:transaction/keys [items transaction-date] :keys [id] :as trx} & {:keys [delete?]}]
   (->> items
        (map #(cond-> %
-               true (assoc :transaction-item/transaction-date transaction-date
-                           ::current true)
+               true (assoc :transaction-item/transaction-date transaction-date)
                id   (assoc :transaction-item/transaction {:id id})))
        realize-accounts
        (group-by (comp util/->model-ref
                        :transaction-item/account))
        (mapcat (propagate-account-items
-                 (assoc opts
-                        :as-of (dates/earliest
-                                 transaction-date
-                                 (models/before trx :transaction/transaction-date)))))))
+                 :as-of (dates/earliest
+                          transaction-date
+                          (models/before trx :transaction/transaction-date))
+                 :delete? delete?))))
 
 (defn- propagate-dereferenced-account-items
-  [{:transaction/keys [items] :as trx} opts]
+  [{:transaction/keys [items] :as trx}]
   (let [act-ids (->> items
                      (map (comp :id
                                 :transaction-item/account))
@@ -487,16 +491,15 @@
          (group-by (comp util/->model-ref
                          :transaction-item/account))
          (mapcat (propagate-account-items
-                   (assoc opts
-                          :as-of (models/before trx :transaction/transaction-date)
-                          :delete? true))))))
+                   :as-of (models/before trx :transaction/transaction-date)
+                   :delete? true)))))
 
 (defn- propagate-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [trx opts]
-  (concat (propagate-current-items trx opts)
-          (propagate-dereferenced-account-items trx opts)))
+  [trx & {:keys [delete?]}]
+  (concat (propagate-current-items trx :delete? delete?)
+          (propagate-dereferenced-account-items trx)))
 
 (def delayed (atom {}))
 
@@ -508,19 +511,11 @@
              (t/before? last-occurrence transaction-date))
     (assoc sched-trx :scheduled-transaction/last-occurrence transaction-date)))
 
-(defn- bag-new-items
-  [bag items]
-  (swap! bag
-         update-in
-         [:transactions :new-items]
-         (fnil concat [])
-         (remove :id items)))
-
 (defn- propagate-transaction
-  [{:as trx :transaction/keys [transaction-date]} {:as opts :keys [bag]}]
-  (let [{current-items true
-         others false} (group-by ::current
-                                 (propagate-items trx opts))
+  [{:as trx :transaction/keys [transaction-date]}]
+  (let [{transaction-items true
+         others false} (group-by (belongs-to-trx? trx)
+                                 (propagate-items trx))
         entity (-> (:transaction/entity trx)
                    (models/find :entity)
                    (push-date-boundaries transaction-date
@@ -528,9 +523,7 @@
                                           :settings/earliest-transaction-date]
                                          [:entity/settings
                                           :settings/latest-transaction-date]))
-        updated-sched (propagate-scheduled-transaction trx)
-        transaction-items (map #(dissoc % ::current) current-items)]
-    (bag-new-items bag transaction-items)
+        updated-sched (propagate-scheduled-transaction trx)]
     (cons (cond-> trx
             (seq transaction-items)
             (assoc :transaction/items transaction-items))
@@ -553,7 +546,7 @@
 (defn- delay-propagation
   "Given a transaction, appends dummy index and balance values
   and saves account and date information for later use"
-  [trx _opts]
+  [trx]
   (swap! delayed
          update-in
          [(-> trx :transaction/entity :id)]
@@ -568,16 +561,16 @@
                     %))])
 
 (defmethod models/propagate :transaction
-  [{:as trx :transaction/keys [entity]} opts]
+  [{:as trx :transaction/keys [entity]}]
   (if (@delayed (:id entity))
-    (delay-propagation trx opts)
-    (propagate-transaction trx opts)))
+    (delay-propagation trx)
+    (propagate-transaction trx)))
 
 (defmethod models/propagate-delete :transaction
-  [{:as trx :transaction/keys [entity]} opts]
+  [{:as trx :transaction/keys [entity]}]
   (if (@delayed (:id entity))
-    (delay-propagation trx opts)
-    (cons trx (propagate-current-items trx (assoc opts :delete? true)))))
+    (delay-propagation trx)
+    (cons trx (propagate-current-items trx :delete? true))))
 
 (defmethod models/before-delete :transaction
   [trx]
