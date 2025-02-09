@@ -164,11 +164,15 @@
   (with-context purchase-context
     (let [dividends (find-account "Dividends")
           ira (models/find (find-account "IRA"))]
-      (-> (purchase-attributes)
+      (-> #:trade{:commodity (find-commodity "AAPL")
+                  :account (find-account "IRA")
+                  :date (t/local-date 2016 2 2)
+                  :shares 4.5M
+                  :value 50M}
           (assoc :trade/dividend? true
                  :trade/dividend-account dividends)
           trading/buy)
-      (is (= 1000M (:account/quantity (models/find dividends)))
+      (is (= 50M (:account/quantity (models/find dividends)))
           "The dividend account is debited for the amount of the purchase")
       (is (= (:account/quantity ira)
              (:account/quantity (models/find ira)))
