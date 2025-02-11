@@ -5,6 +5,32 @@
                :cljs [cljs-time.core :as t])
             [clj-money.util :as util]))
 
+(deftest model-typing
+  (testing "Retrieved the type of a model"
+    (is (= :user (util/model-type {:user/name "John"}))
+        "A model type is derived from the keyword namespace")
+    (is (= :user (util/model-type {:id 101
+                                 :user/name "John"}))
+        "A model type is derived from the keyword namespace if a non-namespace keyword is present")
+    (is (= :user (util/model-type ^{:clj-money/model-type :user} {:id 101}))
+        "A model type is read from meta data, if present"))
+  (testing "Setting the type of a model"
+    (is (= :account (util/model-type (util/model-type {} :account)))
+        "A model type can be set excplictly")
+    (let [f (util/model-type :account)]
+      (is (= :account (util/model-type (f {}))))
+      "A fn that sets the model type is returned when given a keyword")
+    (let [source-model (util/model-type {}  :account)
+          target-model (util/model-type {} source-model)]
+      (is (= :account (util/model-type target-model)))
+      "The model type can be set from another model"))
+  (testing "Testing the type of a model"
+    (is (util/model-type? {:entity/name "Personal"} :entity))
+    (is (not (util/model-type? {:entity/name "Personal"} :account)))
+    (let [is-entity? (util/model-type? :entity)]
+      (is (is-entity? {:entity/name "Personal"}))
+      (is (not (is-entity? {:account/name "Checking"}))))))
+
 (deftest convert-nominal-comparatives-to-symbolic
   (let [date (t/local-date 2015 1 1)
         other-date (t/local-date 2015 1 31)]
@@ -71,8 +97,8 @@
   (is (= {:entity/name "Personal"}
          (util/qualify-keys {:name "Personal"} :entity))
       "Unqualified keys are qualified with the model type")
-  (is (= {:db/id "x"}
-         (util/qualify-keys {:db/id "x"} :entity))
+  (is (= {:util/id "x"}
+         (util/qualify-keys {:util/id "x"} :entity))
       "Qualified keys are left as-is")
   (is (= {:id 101
           :user/name "John"}
@@ -81,7 +107,7 @@
                            :ignore #{:id}))
       "Keys can be explicitly ignored"))
 
-(deftest compare-two-models-for-equality
+(deftest compare-models-for-equality
   (is (util/model= {:id 101}
                    {:id 101})
       "Two maps with the same :id attribute are equal")
@@ -94,7 +120,28 @@
       "A full model map is equal to a simplified model ref if the :id attribute is the same")
   (is (not (util/model= {:id 101}
                         {:id 102}))
-      "Two maps with different :id attributes are not equal"))
+      "Two maps with different :id attributes are not equal")
+  (is (not (util/model= {:id 101 :account/name "Checking"}
+                        {:id 101 :entity/name "Personal"}))
+      "Two maps with different model types are not equal"))
+
+(deftest compare-maps-for-id-equality
+  (is (util/id= {:id 101}
+                {:id 101})
+      "Two maps with the same :id attribute are equal")
+  (is (util/id= {:id 101}
+                {:id 101}
+                {:id 101})
+      "Three maps with the same :id attribute are equal")
+  (is (util/id= {:id 101 :account/name "Checking"}
+                {:id 101})
+      "A full model map is equal to a simplified model ref if the :id attribute is the same")
+  (is (not (util/id= {:id 101}
+                     {:id 102}))
+      "Two maps with different :id attributes are not equal")
+  (is (util/id= {:id 101 :account/name "Checking"}
+                {:id 101 :entity/name "Personal"})
+      "Two maps with different model types but equal :id values are equal"))
 
 (deftest convert-something-into-a-model-ref
   (is (= {:id 101}

@@ -1,6 +1,7 @@
 (ns clj-money.util
   (:refer-clojure :exclude [abs format])
   (:require [clojure.string :as string]
+            [clojure.set :refer [union]]
             #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
@@ -31,6 +32,104 @@
 (derive #?(:clj clojure.lang.MapEntry
            :cljs cljs.core/MapEntry)
         ::map-entry)
+
+(defn- namespaces
+  "Given a criteria (map or vector containing an operator an maps) return
+   all of the namespaces from the map keys in a set."
+  [x]
+ (cond
+   (map? x) (->> (keys x)
+                 (map namespace)
+                 (filter identity)
+                 (map keyword)
+                 set)
+   (sequential? x) (->> x
+                        (map namespaces)
+                        (reduce union))) )
+
+(defn- single-ns
+  "Give a criteria (map or vector), return the single namespace if
+  only one namespace is present. Otherwise, return nil."
+  [x]
+  (let [namespaces (namespaces x)]
+    (when (= 1 (count namespaces))
+      (first namespaces))))
+
+(def model-types
+  #{:user
+    :identity
+    :import
+    :image
+    :entity
+    :commodity
+    :price
+    :cached-price
+    :account
+    :transaction
+    :transaction-item
+    :attachment
+    :budget
+    :budget-item
+    :grant
+    :scheduled-transaction
+    :reconciliation
+    :lot
+    :lot-item})
+
+(def valid-model-type? model-types)
+
+(declare model-type)
+
+(defn- extract-model-type
+  [m-or-t]
+  (if (keyword? m-or-t)
+    m-or-t
+    (model-type m-or-t)))
+
+(defmulti ^:private model-type* type)
+
+; We expect this to be a criteria with a conjunction
+(defmethod model-type* ::vector
+  [[_conj & cs :as x]]
+  (or (-> x meta :clj-money/model-type)
+      (let [ts (set (map model-type cs))]
+        (when (= 1 (count ts))
+          (first ts)))))
+
+(defmethod model-type* ::map
+  [x]
+  (or (-> x meta :clj-money/model-type)
+      (single-ns (dissoc x :id))))
+
+(defmethod model-type* ::keyword
+  [x]
+  #(model-type % x))
+
+(defn model-type
+  "The 1 arity, when given a model, retrieves the type for the given model.
+  When given a keyword, returns a function that sets the model type when given
+  a model.
+  The 2 arity sets the type for the given model in the meta data. The 2nd argument is either a
+  key identyfying the model type, or another model from which the type is to be
+  extracted"
+  ([x]
+   (model-type* x))
+  ([m model-or-type]
+   {:pre [(map? m)
+          (or (map? model-or-type)
+              (keyword? model-or-type))]}
+   (let [t (extract-model-type model-or-type)]
+     (assert (valid-model-type? t))
+     (vary-meta m assoc :clj-money/model-type t))))
+
+(defn model-type?
+  "The 2 arity checks if the model has the specified type. The 1 arity
+  returns a predicate function that returns true if given an argument
+  that has the specified model type."
+  ([m-type]
+   #(model-type? % m-type))
+  ([model m-type]
+   (= m-type (model-type model))))
 
 (defn format
   [msg & args]
@@ -322,11 +421,23 @@
                        k
                        (keyword qualifier (name k)))))))
 
-(defn model=
+(defn id=
+  "Given a list of maps, returns true if they all have the same :id attribute"
   [& models]
   (->> models
        (map :id)
        (apply =)))
+
+(defn model=
+  "Given a list of maps, returns true if they all have the same :id
+  attribute and do not have conflicting db/model-type values"
+  [& models]
+  (let [types (->> models
+                   (map model-type)
+                   (filter identity)
+                   set)]
+    (and (<= (count types) 1)
+         (apply id= models))))
 
 (defn ->model-ref
   [map-or-id]

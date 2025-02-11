@@ -7,29 +7,6 @@
 
 (def ^:dynamic *storage* nil)
 
-(def model-types
-  #{:user
-    :identity
-    :import
-    :image
-    :entity
-    :commodity
-    :price
-    :cached-price
-    :account
-    :transaction
-    :transaction-item
-    :attachment
-    :budget
-    :budget-item
-    :grant
-    :scheduled-transaction
-    :reconciliation
-    :lot
-    :lot-item})
-
-(def valid-model-type? model-types)
-
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
   (put [this models] "Saves the specified models to the data store")
@@ -63,15 +40,7 @@
 
 (declare model-type)
 
-(defn type-dispatch
-  [x & _]
-  (model-type x))
-
-(defn- extract-model-type
-  [m-or-t]
-  (if (keyword? m-or-t)
-    m-or-t
-    (model-type m-or-t)))
+(def type-dispatch util/type-dispatch)
 
 (defn- namespaces
   "Given a criteria (map or vector containing an operator an maps) return
@@ -114,28 +83,6 @@
   [x]
   #(model-type % x))
 
-(defn model-type
-  "The 1 arity, when given a model, retrieves the type for the given model.
-  When given a keyword, returns a function that sets the model type when given
-  a model.
-  The 2 arity sets the type for the given model in the meta data. The 2nd argument is either a
-  key identyfying the model type, or another model from which the type is to be
-  extracted"
-  ([x]
-   (model-type* x))
-  ([m model-or-type]
-   {:pre [(map? m)
-          (or (map? model-or-type)
-              (keyword? model-or-type))]}
-   (let [t (extract-model-type model-or-type)]
-     (assert (valid-model-type? t))
-     (vary-meta m assoc ::type t))))
+(def model-type util/model-type)
 
-(defn model-type?
-  "The 2 arity checks if the model has the specified type. The 1 arity
-  returns a predicate function that returns true if given an argument
-  that has the specified model type."
-  ([m-type]
-   #(model-type? % m-type))
-  ([model m-type]
-   (= m-type (model-type model))))
+(def model-type? util/model-type?)
