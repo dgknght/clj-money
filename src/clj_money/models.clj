@@ -111,9 +111,7 @@
     (if-let [model (first input)]
       (if (:id model)
         (let [{dupes true
-               others false} (group-by #(and (model= model %)
-                                             (= (db/model-type model)
-                                                (db/model-type %)))
+               others false} (group-by #(model= model %)
                                        (rest input))]
           (recur others (conj output (apply merge model dupes))))
         (recur (rest input) (conj output model)))
