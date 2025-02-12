@@ -1,5 +1,6 @@
 (ns clj-money.authorization
   (:require [clojure.pprint :refer [pprint]]
+            [clj-money.util :as util]
             [clj-money.db :as db]))
 
 (derive ::create ::manage)
@@ -12,7 +13,7 @@
   authenticated user is allowed to perform the specified
   action on the specified model"
   (fn [model action _user]
-    (let [model-type (db/model-type model)]
+    (let [model-type (util/model-type model)]
       (assert model-type (prn-str model))
       [model-type action])))
 
@@ -27,7 +28,7 @@
                          ["forbidden" ::forbidden])]
     (ex-info msg {:type err-type
                   :action action
-                  :model (db/model-type model)
+                  :model (util/model-type model)
                   ::opaque? opaque?})))
 
 (defn authorize
@@ -53,7 +54,7 @@
 
 (defn +scope
   ([criteria user]
-   (+scope criteria (db/model-type criteria) user))
+   (+scope criteria (util/model-type criteria) user))
   ([criteria model-type user]
    {:pre [model-type user]}
 

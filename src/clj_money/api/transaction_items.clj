@@ -9,7 +9,6 @@
                                           uuid
                                           index-by]]
             [dgknght.app-lib.api :as api]
-            [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.transactions :refer [summarize-items
@@ -37,7 +36,7 @@
                [:transaction-item/account]
                (fn [id]
                  [:in (mapv :id (models/select
-                                  (db/model-type {:id id} :account)
+                                  (util/model-type {:id id} :account)
                                   {:include-children? true
                                    :select :account/id}))]))
 
@@ -114,7 +113,7 @@
   (if (seq items)
     (let [accounts (index-by :id
                              (models/select
-                               (db/model-type
+                               (util/model-type
                                  {:id [:in (set (map (comp :id :transaction-item/account)
                                                      items))]}
                                  :account)))]

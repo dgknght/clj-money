@@ -10,7 +10,6 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
-            [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
             [clj-money.test-context :refer [with-context
@@ -214,7 +213,7 @@
                                                :end-of-period (t/local-date 2015 1 15)
                                                :balance 800M}]
                              (models/select
-                               (db/model-type
+                               (util/model-type
                                  {:account/entity entity}
                                  :reconciliation)))
           "Reconciliations can be retrieved"))
@@ -373,7 +372,7 @@
                               #:price{:trade-date (t/local-date 2015 1 30)
                                       :price 12M}]
                              (models/select
-                               (db/model-type
+                               (util/model-type
                                  {:price/trade-date [:between>
                                                      (t/local-date 2015 1 1)
                                                      (t/local-date 2016 1 1)]

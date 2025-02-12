@@ -7,7 +7,6 @@
             [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.json]
-            [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
@@ -69,7 +68,7 @@
   (assert-blocked-create (create-an-account "jane@doe.com")))
 
 (def list-context
-  (filter #(or (not= :account (db/model-type %))
+  (filter #(or (not= :account (util/model-type %))
                (= "Checking" (:account/name %)))
           basic-context))
 

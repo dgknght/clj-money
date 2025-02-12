@@ -5,7 +5,6 @@
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
-            [clj-money.db :as db]
             [clj-money.models :as models]
             [clj-money.accounts :as acts]))
 
@@ -63,7 +62,7 @@
   [{:reconciliation/keys [account] :as reconciliation}]
   (if-let [new-items (seq (get-meta reconciliation ::new-items))]
     (let [account-ids (->> (models/select
-                             (db/model-type
+                             (util/model-type
                                (util/->model-ref account)
                                :account)
                              {:include-children? true})
@@ -138,7 +137,7 @@
                            (map second)
                            (sort)
                            ((juxt first last)))]
-      (models/select (db/model-type
+      (models/select (util/model-type
                        {:id [:in ids]
                         :transaction/transaction-date [:between start end]}
                        :transaction-item)))
@@ -147,7 +146,7 @@
 (defn- fetch-items
   [{:keys [id] :reconciliation/keys [account] :as recon}]
   (if id
-    (let [accounts (models/select (db/model-type
+    (let [accounts (models/select (util/model-type
                                     (util/->model-ref account)
                                     :account)
                                   {:include-children? true})
@@ -225,7 +224,7 @@
 
 (defn- fetch-transaction-item-refs
   [{:as recon :reconciliation/keys [account]}]
-  (->> (models/select (db/model-type
+  (->> (models/select (util/model-type
                         {:transaction-item/reconciliation recon}
                         :transaction))
        (mapcat (fn [{:transaction/keys [items transaction-date]}]

@@ -16,7 +16,6 @@
                                                      left-side?
                                                      system-tagged?
                                                      valuate]]
-            [clj-money.db :as db]
             [clj-money.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.prices :as prices]
@@ -647,7 +646,7 @@
   [{:keys [account] :as ctx}]
   (let [children (remove
                   #(model= %  account)
-                  (models/select (db/model-type
+                  (models/select (util/model-type
                                    (util/->model-ref account)
                                    :account)
                                  {:include-children? true}))]

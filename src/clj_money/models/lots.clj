@@ -4,7 +4,7 @@
             [clojure.tools.logging :as log]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [clj-money.db :as db]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.prices :as prices]))
 
@@ -21,6 +21,7 @@
 (s/def :lot/purchase-price decimal?)
 (s/def :lot/shares-purchased decimal?)
 (s/def :lot/shares-owned decimal?)
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/lot (s/keys :req [:lot/account
                                   :lot/commodity
                                   :lot/purchase-date
@@ -41,16 +42,17 @@
       (log/errorf "Unable to find price for commodity %s to calculate unrealized gains" commodity))
     (- value cost)))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn unrealized-gains
   [entity as-of]
   (let [lots (models/select
-               (db/model-type
+               (util/model-type
                  {:commodity/entity entity
                   :lot/purchase-date [:<= as-of]}
                  :lot))
         commodity-prices (if (seq lots)
                            (->> (models/select
-                                  (db/model-type
+                                  (util/model-type
                                     {:id [:in (->> lots
                                                    (map (comp :id :lot/commodity))
                                                    set)]}

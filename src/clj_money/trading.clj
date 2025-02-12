@@ -393,7 +393,7 @@
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finally save the affected accounts
-  (let [result (group-by db/model-type
+  (let [result (group-by util/model-type
                          (models/put-many
                            (concat [commodity-account
                                     lot
@@ -615,7 +615,7 @@
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finally save the affected accounts
-  (let [result (group-by db/model-type
+  (let [result (group-by util/model-type
                          (models/put-many
                            (concat updated-lots
                                    affected-accounts
@@ -662,7 +662,7 @@
                     #:lot-item{:transaction trx
                                :transaction-date (:transaction/transaction-date trx)})
         lots (index-by :id
-                       (models/select (db/model-type
+                       (models/select (util/model-type
                                         {:id [:in (map (comp :id :lot-item/lot)
                                                        lot-items)]}
                                         :lot)))
@@ -748,7 +748,7 @@
                       (util/temp-id? to-commodity-account)
                       (cons to-commodity-account))
                     models/put-many
-                    (group-by db/model-type))]
+                    (group-by util/model-type))]
     {:transfer/transaction (first (:transaction result))
      :transfer/lots (:lot result)}))
 
@@ -878,7 +878,7 @@
                  ratio]}]
   (let [result (->> (cons transaction (concat lots lot-items))
                     models/put-many
-                    (group-by db/model-type))]
+                    (group-by util/model-type))]
     {:split/transaction (first (:transaction result))
      :split/lots (:lot result)
      :split/lot-items (:lot-item result)

@@ -5,7 +5,6 @@
             [clojure.java.io :as io]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.db :as db]
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
             [clj-money.transactions :refer [expand]]
@@ -404,7 +403,7 @@
 
 (defn- process
   [m]
-  (case (db/model-type m)
+  (case (util/model-type m)
     :trade (do
              (assert (#{:sale :purchase} (:trade/type m)))
              (if (= :purchase (:trade/type m))
@@ -412,7 +411,7 @@
                (sell m)))
     [(models/put m)]))
 
-(defmulti post-process db/model-type)
+(defmulti post-process util/model-type)
 
 (defmethod post-process :default [m] m)
 

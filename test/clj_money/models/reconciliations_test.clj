@@ -6,7 +6,6 @@
             [clj-money.util :as util :refer [model=
                                              ->model-ref]]
             [clj-money.json]
-            [clj-money.db :as db]
             [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.accounts :as acts]
@@ -110,7 +109,7 @@
       (is (not-any? :transaction/reconciliation
                     (remove #(util/model= checking (:transaction-item/account %))
                             (models/select
-                              (db/model-type
+                              (util/model-type
                                 {:transaction/entity (find-entity "Personal")}
                                 :transaction-item))))
           "All other transaction items are not marked as reconcilied"))))
@@ -198,7 +197,7 @@
                          :status :completed
                          :balance 300M
                          :item-refs (->> *context*
-                                         (filter (db/model-type? :transaction))
+                                         (filter (util/model-type? :transaction))
                                          (mapcat :transaction/items)
                                          (filter #(or (model= reserve
                                                               (:transaction-item/account %))
@@ -314,7 +313,7 @@
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (assert-deleted reconciliation)
       (is (empty? (models/select
-                    (db/model-type
+                    (util/model-type
                       {:transaction-item/reconciliation (->model-ref reconciliation)
                        :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
                       :transaction-item)))
@@ -325,7 +324,7 @@
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
       (assert-deleted reconciliation)
       (is (empty? (models/select
-                    (db/model-type
+                    (util/model-type
                       {:transaction-item/reconciliation (->model-ref reconciliation)
                        :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
                       :transaction-item)))
@@ -339,7 +338,7 @@
           "an exception is thrown")
       (is (models/find reconciliation) "The reconciliation can still be retrieved")
       (is (seq (models/select
-                 (db/model-type
+                 (util/model-type
                    {:transaction-item/reconciliation (->model-ref reconciliation)
                     :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
                    :transaction-item)))

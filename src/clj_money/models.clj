@@ -14,34 +14,34 @@
 (s/def ::id (some-fn uuid? int? util/temp-id?))
 (s/def ::model-ref (s/keys :req-un [::id]))
 
-(defmulti prepare-criteria db/type-dispatch)
+(defmulti prepare-criteria util/model-type-dispatch)
 (defmethod prepare-criteria :default [m] m)
 
-(defmulti before-validation db/type-dispatch)
+(defmulti before-validation util/model-type-dispatch)
 (defmethod before-validation :default [m & _] m)
 
-(defmulti propagate db/type-dispatch)
+(defmulti propagate util/model-type-dispatch)
 (defmethod propagate :default [m] [m])
 
-(defmulti before-save db/type-dispatch)
+(defmulti before-save util/model-type-dispatch)
 (defmethod before-save :default [m & _] m)
 
-(defmulti after-save db/type-dispatch)
+(defmulti after-save util/model-type-dispatch)
 (defmethod after-save :default [m & _] m)
 
-(defmulti after-read db/type-dispatch)
+(defmulti after-read util/model-type-dispatch)
 (defmethod after-read :default [m & _] m)
 
-(defmulti before-delete db/type-dispatch)
+(defmulti before-delete util/model-type-dispatch)
 (defmethod before-delete :default [m & _] m)
 
-(defmulti propagate-delete db/type-dispatch)
+(defmulti propagate-delete util/model-type-dispatch)
 (defmethod propagate-delete :default [m] [m])
 
 (defn- validation-key
   [m]
   (keyword "clj-money.models"
-           (-> m db/model-type name)))
+           (-> m util/model-type name)))
 
 (defn- validate
   [model]
@@ -81,7 +81,7 @@
 
 (defn find-many
   [m-or-ids model-type]
-  (select (db/model-type {:id [:in (mapv ->id m-or-ids)]}
+  (select (util/model-type {:id [:in (mapv ->id m-or-ids)]}
                          model-type)))
 
 (defn find
@@ -96,12 +96,12 @@
      #(find % arg)
      (do
        (assert (:id arg) "The argument must have an id")
-       (assert (db/model-type arg) "The argument must have a model type")
+       (assert (util/model-type arg) "The argument must have a model type")
        (find (:id arg)
-           (keyword (db/model-type arg)))))) ; TODO: can we remove the call to keyword?
+           (keyword (util/model-type arg)))))) ; TODO: can we remove the call to keyword?
   ([id-or-ref model-type]
    {:pre [id-or-ref (keyword? model-type)]}
-   (find-by (db/model-type (util/->model-ref id-or-ref)
+   (find-by (util/model-type (util/->model-ref id-or-ref)
                            model-type))))
 
 (defn- merge-dupes
@@ -168,11 +168,8 @@
   {:pre [(seq (filter identity models))]}
   (->> models
        (map before-delete)
-       (mapcat (comp (fn [[m & ms]]
-                       (cons [::db/delete m]
-                             ms))
-                     propagate-delete))
-       (db/put (db/storage))))
+       (mapcat propagate-delete)
+       (db/delete (db/storage))))
 
 (defn delete
   [model]

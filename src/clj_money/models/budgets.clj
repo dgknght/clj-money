@@ -4,7 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [clj-money.db :as db]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.budgets :as budgets]))
 
@@ -96,7 +96,7 @@
   [{:budget/keys [items]} {:account/keys [child-ids] account-id :id}]
   (let [ids (if (seq child-ids)
               (conj (into #{} child-ids) account-id)
-              (->> (models/select (db/model-type
+              (->> (models/select (util/model-type
                                     {:id account-id}
                                     :account)
                                   {:include-children? true})

@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [format])
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.sql-qualified :as sql]
-            [clj-money.db :as db]))
+            [clj-money.util :as util]))
 
 (def ^:private default-options
   {:relationships #{[:users :identities]
@@ -25,7 +25,7 @@
 (defn criteria->query
   [criteria & [options]]
   {:pre [criteria
-         (db/model-type criteria)]}
+         (util/model-type criteria)]}
   (sql/->query criteria (merge default-options options)))
 
 (defn ->update

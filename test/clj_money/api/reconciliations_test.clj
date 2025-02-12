@@ -7,7 +7,7 @@
             [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.web :refer [path]]
             [clj-money.models.ref]
-            [clj-money.db :as db]
+            [clj-money.util :as util]
             [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -168,7 +168,7 @@
                        app
                        parse-json-body)]
       [response (models/find-by
-                  (db/model-type
+                  (util/model-type
                     (select-keys recon
                                  [:id
                                   :reconciliation/end-of-period])

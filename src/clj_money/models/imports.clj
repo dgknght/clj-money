@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
             [clj-money.db :as db]
+            [clj-money.util :as util]
             [clj-money.models :as models]))
 
 (s/def :import/entity-name string?)
@@ -33,5 +34,5 @@
   [{:as imp :import/keys [images]}]
   (cons imp
         (map (comp (partial vector ::db/delete)
-                   (db/model-type :image))
+                   (util/model-type :image))
              images)))

@@ -9,7 +9,7 @@
                                              allowed?
                                              +scope]
              :as authorization]
-            [clj-money.db :as db]
+            [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.scheduled-transactions :as sched-trans]
@@ -100,7 +100,7 @@
          (mapcat sched-trans/realize)
          (sort-by :transaction/transaction-date t/before?)
          models/put-many
-         (filter (db/model-type? :transaction))
+         (filter (util/model-type? :transaction))
          api/creation-response)
     api/not-found))
 

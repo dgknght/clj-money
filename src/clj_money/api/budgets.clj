@@ -9,7 +9,7 @@
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
-            [clj-money.db :as db]
+            [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :refer [create-items-from-history]]
@@ -55,7 +55,7 @@
                             :year t/years
                             :week t/weeks)
                           period-count))]
-    (models/select (db/model-type
+    (models/select (util/model-type
                      #:transaction-item{:transaction/entity entity
                                         :transaction/transaction-date [:between> start-date end-date]
                                         :account/type [:in #{:income :expense}]}

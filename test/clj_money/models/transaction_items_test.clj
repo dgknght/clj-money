@@ -8,7 +8,7 @@
                                             basic-context]]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
-            [clj-money.db :as db]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.transaction-items :as trx-items]))
 
@@ -33,7 +33,7 @@
   (with-context context
     (is (= #{"Checking" "Salary" "Groceries"}
                            (->> (models/select
-                                  (db/model-type
+                                  (util/model-type
                                     {:transaction/entity (find-entity "Personal")}
                                     :transaction-item)
                                   {:sort [[:transaction-item/index :asc]]})

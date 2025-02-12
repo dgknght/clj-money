@@ -7,7 +7,6 @@
             [dgknght.app-lib.core :refer [uuid
                                           index-by]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.transactions :as trxs]
@@ -263,7 +262,7 @@
 (defn- last-account-item-before
   [account date]
   (models/find-by
-    (db/model-type
+    (util/model-type
       {:transaction-item/account account
        :transaction/transaction-date [:< date]}
       :transaction-item)
@@ -271,7 +270,7 @@
 
 (defn- last-account-item-on-or-before
   [{:as account :account/keys [earliest-transaction-date]} date]
-  (models/find-by (db/model-type
+  (models/find-by (util/model-type
                     {:transaction-item/account account
                      :transaction/transaction-date [:between
                                                     earliest-transaction-date
@@ -374,7 +373,7 @@
 
 (defn- account-items-on-or-after
   [account as-of]
-  (models/select (db/model-type
+  (models/select (util/model-type
                    {:transaction-item/account account
                     :transaction/transaction-date [:>= as-of]}
                    :transaction-item)
@@ -434,7 +433,7 @@
   (if-let [account-ids (account-model-ref-ids items)]
     (let [accounts (index-by :id
                              (models/select
-                               (db/model-type
+                               (util/model-type
                                  {:id [:in account-ids]}
                                  :account)))]
       (map #(update-in % [:transaction-item/account] (fn [act]
@@ -444,7 +443,7 @@
     items))
 
 (def ^:private transaction-item?
-  (db/model-type? :transaction-item))
+  (util/model-type? :transaction-item))
 
 (defn- belongs-to-trx?
   [{:keys [id] :as trx}]

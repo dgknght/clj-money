@@ -6,7 +6,6 @@
             [clojure.core.async :refer [<!! >! chan go pipe sliding-buffer] :as async]
             [clojure.spec.alpha :as s]
             [java-time.api :as t]
-            [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.dates :as dates]
@@ -139,7 +138,7 @@
           item-account-ids (map #(get-in account-ids [(:import/account-id %)])
                            non-commodity-items)
           accounts-map (->> (models/select
-                              (db/model-type
+                              (util/model-type
                                 {:id [:in item-account-ids]}
                                 :account))
                             (map (juxt :id identity))
@@ -486,7 +485,7 @@
            earliest-date
            latest-date]}]
   (let [accounts (models/select
-                   (db/model-type
+                   (util/model-type
                      {:id (if account-children
                             [:in (append-child-ids
                                    (:id account)
@@ -513,7 +512,7 @@
 (defn- process-reconciliations
   [{:keys [entity] :as ctx} out-chan]
   (let [reconciliations (models/select
-                          (db/model-type
+                          (util/model-type
                             {:account/entity entity}
                             :reconciliation))
         progress {:total (count reconciliations)}

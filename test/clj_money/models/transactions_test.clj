@@ -8,7 +8,6 @@
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
             [clj-money.util :as util]
-            [clj-money.db :as db]
             [clj-money.db.sql :as sql]
             [clj-money.accounts :as acts]
             [clj-money.model-helpers :as helpers :refer [assert-invalid]]
@@ -674,7 +673,7 @@
               "One call is made to write to storage")
           (is (seq-of-maps-like? [#:transaction{:description "Kroger"
                                                 :transaction-date (t/local-date 2016 3 8)}]
-                                 (filter (db/model-type? :transaction)
+                                 (filter (util/model-type? :transaction)
                                          c))
               "The updated transaction is written")
           (is (seq-of-maps-like? [#:transaction-item {:index 1
@@ -683,14 +682,14 @@
                                   #:transaction-item{:index 2
                                                      :quantity 101M
                                                      :balance 797M}]
-                                 (filter (db/model-type? :transaction-item)
+                                 (filter (util/model-type? :transaction-item)
                                          c))
               "The affected transaction items are written")
 
           (is (empty? (filter #(#{3 4} (:transaction-item/index %))
                               c))
               "The unaffected transaction items are not written")
-          (is (empty? (filter (db/model-type? :account)
+          (is (empty? (filter (util/model-type? :account)
                               c))
               "The account is not updated")
           (assert-account-quantities (find-account "Checking") 590M))))))

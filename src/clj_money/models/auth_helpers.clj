@@ -1,11 +1,10 @@
 (ns clj-money.models.auth-helpers
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.util :as util]
-            [clj-money.db :as db]
             [clj-money.models :as models]
             [clj-money.models.grants :as grants]))
 
-(defmulti ^:private fetch-entity db/type-dispatch)
+(defmulti ^:private fetch-entity util/model-type-dispatch)
 
 (defn- fetch-entity*
   [model-or-ref]
@@ -36,7 +35,7 @@
 (defmethod fetch-entity :attachment
   [{:attachment/keys [transaction transaction-date]}]
   (models/find-by
-    (db/model-type
+    (util/model-type
       {:transaction/id (:id transaction)
        :transaction/transaction-date transaction-date}
       :entity)))
@@ -48,21 +47,21 @@
 (defmethod fetch-entity :budget-item
   [{:budget-item/keys [budget]}]
   (models/find-by
-    (db/model-type
+    (util/model-type
       {:budget/id (:id budget)}
       :entity)))
 
 (defmethod fetch-entity :price
   [{:price/keys [commodity]}]
   (models/find-by
-    (db/model-type
+    (util/model-type
       {:commodity/id (:id commodity)}
       :entity)))
 
 (defmethod fetch-entity :reconciliation
   [{:reconciliation/keys [account]}]
   (models/find-by
-    (db/model-type
+    (util/model-type
       {:account/id (:id account)}
       :entity)))
 
@@ -75,7 +74,7 @@
   (when-let [g (models/find-by #:grant{:user user
                                        :entity entity})]
     (grants/has-permission? g
-                            (db/model-type resource)
+                            (util/model-type resource)
                             action)))
 
 (defn owner-or-granted?

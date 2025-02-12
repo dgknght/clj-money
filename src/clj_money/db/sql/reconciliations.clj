@@ -3,6 +3,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.models :as models]
+            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
@@ -40,7 +41,7 @@
 
 (defn- item-refs->query
   [item-refs]
-  (db/model-type
+  (util/model-type
     {:transaction/transaction-date (apply vector
                                           :between
                                           (->range (mapv second item-refs)

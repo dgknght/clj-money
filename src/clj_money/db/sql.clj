@@ -23,16 +23,16 @@
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
-                          (db/model-type x))))
+                          (util/model-type x))))
 (defmethod deconstruct :default [m] [m])
 
-(defmulti before-save db/type-dispatch)
+(defmulti before-save util/model-type-dispatch)
 (defmethod before-save :default [m] m)
 
-(defmulti after-read db/model-type)
+(defmulti after-read util/model-type-dispatch)
 (defmethod after-read :default [m] m)
 
-(defmulti model-keys db/model-type)
+(defmulti model-keys util/model-type-dispatch)
 (defmethod model-keys :default [_] [])
 
 (def ^:private model-ref-keys
@@ -86,7 +86,7 @@
 (defn- reconstruct
   [models]
   (if-let [rules (->> models
-                   (map db/model-type)
+                   (map util/model-type)
                    set
                    (mapcat reconstruction-rules)
                    (filter identity)
@@ -144,13 +144,13 @@
 (defmulti post-select
   (fn [_storage ms]
     (when-let [m1 (first ms)]
-      (db/model-type m1))))
+      (util/model-type m1))))
 (defmethod post-select :default [_ ms] ms)
 
 (def ^:private infer-table-name
   (comp ->snake_case_keyword
         plural
-        db/model-type))
+        util/model-type))
 
 (defn- insert
   [db model]
@@ -213,7 +213,7 @@
 
 (defmulti resolve-temp-ids
   "In a model-specific way, replace temporary ids with proper ids after a save."
-  db/type-dispatch)
+  util/model-type-dispatch)
 
 (defmethod resolve-temp-ids :default
   [model _id-map]
@@ -255,8 +255,8 @@
 (defn- no-model-type
   [x]
   (if (vector? x)
-    (nil? (db/model-type (second x)))
-    (nil? (db/model-type x))))
+    (nil? (util/model-type (second x)))
+    (nil? (util/model-type x))))
 
 ; This is only exposed publicly to support tests that enforce
 ; short-circuting transaction propagation
@@ -288,10 +288,10 @@
 
 (defn- update*
   [ds changes criteria]
-  (let [m-type (db/model-type changes)
+  (let [m-type (util/model-type changes)
         s (->update (before-save changes)
                     (-> criteria
-                        (db/model-type m-type)
+                        (util/model-type m-type)
                         prepare-criteria)
                     {:target m-type})
         result (jdbc/execute-one! ds s)]
@@ -303,7 +303,7 @@
 
 (defn- id-key
   [x]
-  (when-let [target (db/model-type x)]
+  (when-let [target (util/model-type x)]
     (keyword (name target) "id")))
 
 (defn- massage-ids
@@ -336,7 +336,7 @@
   [ds criteria {:as options
                 :keys [include-children?
                        include-parents?]}]
-  (let [model-type (db/model-type criteria)
+  (let [model-type (util/model-type criteria)
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
@@ -383,5 +383,4 @@
       (update [_ changes criteria] (update* ds changes criteria))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ models] (delete* ds models))
-      (close [_]) ; this is a no-op for next-jdbc
       (reset [_] (reset* ds)))))

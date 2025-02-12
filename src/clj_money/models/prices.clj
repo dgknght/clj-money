@@ -7,7 +7,6 @@
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
-            [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
@@ -22,7 +21,7 @@
         (select-keys [:price/commodity
                       :price/trade-date])
         (assoc-if :id (when id [:!= id]))
-        (db/model-type :price)
+        (util/model-type :price)
         models/count)))
 (v/reg-spec trade-date-unique? {:message "%s already exists"
                                 :path [:price/trade-date]})

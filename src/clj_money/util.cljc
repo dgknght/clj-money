@@ -80,6 +80,9 @@
 
 (declare model-type)
 
+(defn model-type-dispatch [x & _]
+  (model-type x))
+
 (defn- extract-model-type
   [m-or-t]
   (if (keyword? m-or-t)
