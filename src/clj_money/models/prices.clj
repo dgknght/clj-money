@@ -83,7 +83,7 @@
 (defmethod models/after-save :price
   [price]
   (-> price
-      (update-in [:price/commodity] #(models/find (:id %) :commodity))
+      (update-in [:price/commodity] (models/find :commodity))
       update-entity
       update-commodity
       update-accounts))
