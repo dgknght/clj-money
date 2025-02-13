@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [find count update])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
+            [clojure.core.async :as a]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.models :as models]
@@ -168,21 +169,36 @@
 
 (defn put-many
   "Save a sequence of models to the database.
-  
+
   Options:
-    :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw"
-  [models & {:as opts}]
-  (->> models
-       (map (dispatch
-              (comp validate
-                    before-validation)))
-       (mapcat dispatch-propagation)
-       (map (dispatch before-save))
-       (handle-dupes opts)
-       (db/put (db/storage))
-       (map (comp append-before
-                  after-save
-                  #(after-read % {}))))) ; The empty hash here is for options
+  :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
+  :prop-chan    - An async channel, that when passed, receives the result of
+  the propagation. When not passed, the propagation is done
+  synchronously and the result is included with the primary result."
+  ([models] (put-many {} models))
+  ([{:as opts :keys [prop-chan]} models]
+   (let [primary-result (->> models
+                             (map (dispatch
+                                    (comp validate
+                                          before-validation)))
+                             (map (dispatch before-save))
+                             (handle-dupes opts)
+                             (db/put (db/storage))
+                             (map (comp append-before
+                                        after-save
+                                        #(after-read % {}))))] ; The empty hash here is for options
+     (if prop-chan
+       (do
+         (->> primary-result
+              (map dispatch-propagation)
+              put-many
+              (concat primary-result)
+              (a/onto-chan! prop-chan))
+         primary-result)
+       (->> primary-result
+            (map dispatch-propagation)
+            put-many ; will this ever cause an endless recursion? propagate should not return the original model
+            (concat primary-result))))))
 
 (defn put
   [model]

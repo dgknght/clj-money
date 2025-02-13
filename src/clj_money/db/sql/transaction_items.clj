@@ -18,7 +18,9 @@
 
 (defmethod sql/before-save :transaction-item
   [item]
-  (update-in-if item [:transaction-item/action] name))
+  (-> item
+      (update-in-if [:transaction-item/action] name)
+      (update-in [:transaction-item/index] (fnil identity (rand-int 1000)))))
 
 (defmethod sql/after-read :transaction-item
   [item]
