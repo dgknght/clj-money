@@ -117,6 +117,27 @@
         (recur (rest input) (conj output model)))
       output)))
 
+(defn- duplicate-present?
+  [ms]
+  (->> ms
+       (map (juxt util/model-type :id))
+       (frequencies)
+       (remove (comp #{1} second))
+       seq))
+
+(defn- throw-on-duplicate
+  [ms]
+  (when (duplicate-present? ms)
+    (throw (ex-info "Duplicate model found" {:models ms})))
+  ms)
+
+(defn- handle-dupes
+  [{:keys [on-duplicate] :or {on-duplicate :throw}} ms]
+  (case on-duplicate
+    :merge-last-wins (merge-dupes ms)
+    :throw (throw-on-duplicate ms)
+    (throw (ex-info "Invalid on-duplicate value" {:on-duplicate on-duplicate}))))
+
 (defn- dispatch*
   [f x]
   (if (vector? x)
@@ -146,14 +167,18 @@
     (propagate x)))
 
 (defn put-many
-  [models]
+  "Save a sequence of models to the database.
+  
+  Options:
+    :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw"
+  [models & {:as opts}]
   (->> models
        (map (dispatch
               (comp validate
                     before-validation)))
        (mapcat dispatch-propagation)
        (map (dispatch before-save))
-       (merge-dupes)
+       (handle-dupes opts)
        (db/put (db/storage))
        (map (comp append-before
                   after-save
