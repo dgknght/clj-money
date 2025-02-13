@@ -176,12 +176,6 @@
   {:pre [model]}
   (delete-many [model]))
 
-(defn update
-  "Updates multiple records in the data store against criteria instead of a
-  single model or group of models"
-  [criteria changes]
-  (db/update (db/storage) criteria changes))
-
 (defn resolve-ref
   ([model-type]
    (fn [model-or-ref]
