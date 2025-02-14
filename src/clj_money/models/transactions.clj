@@ -549,13 +549,7 @@
          [(-> trx :transaction/entity :id)]
          append-delay-details
          trx)
-  [(update-in trx
-              [:transaction/items]
-              #(map (fn [i]
-                      (assoc i
-                             :transaction-item/index 0
-                             :transaction-item/balance 0M))
-                    %))])
+  [])
 
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [entity]}]
