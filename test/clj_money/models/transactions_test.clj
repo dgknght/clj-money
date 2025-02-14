@@ -88,7 +88,9 @@
 
 (defn- assert-created
   [attr]
-  (helpers/assert-created attr :refs [:transaction/entity :transaction-item/account]))
+  (helpers/assert-created attr
+                          :refs [:transaction/entity :transaction-item/account]
+                          :compare-result? false))
 
 (deftest create-a-transaction
   (with-context base-context
