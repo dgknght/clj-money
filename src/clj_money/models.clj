@@ -22,7 +22,7 @@
 (defmethod before-validation :default [m & _] m)
 
 (defmulti propagate util/model-type-dispatch)
-(defmethod propagate :default [m] [m])
+(defmethod propagate :default [_m] [])
 
 (defmulti before-save util/model-type-dispatch)
 (defmethod before-save :default [m & _] m)
@@ -173,10 +173,12 @@
   Options:
   :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
   :prop-chan    - An async channel, that when passed, receives the result of
-  the propagation. When not passed, the propagation is done
-  synchronously and the result is included with the primary result."
+                  the propagation. When not passed, the propagation is done
+                  synchronously and the result is included with the primary result."
   ([models] (put-many {} models))
   ([{:as opts :keys [prop-chan]} models]
+   {:pre [(s/valid? (s/coll-of map?) models)]}
+
    (let [primary-result (->> models
                              (map (dispatch
                                     (comp validate
@@ -186,19 +188,19 @@
                              (db/put (db/storage))
                              (map (comp append-before
                                         after-save
-                                        #(after-read % {}))))] ; The empty hash here is for options
+                                        #(after-read % {})))) ; The empty hash here is for options
+         propagation-to-save (->> primary-result
+                                  (mapcat dispatch-propagation)
+                                  seq)]
      (if prop-chan
        (do
-         (->> primary-result
-              (map dispatch-propagation)
-              put-many
-              (concat primary-result)
-              (a/onto-chan! prop-chan))
+         (when propagation-to-save
+           (a/onto-chan! prop-chan
+                         (put-many propagation-to-save)))
          primary-result)
-       (->> primary-result
-            (map dispatch-propagation)
-            put-many ; will this ever cause an endless recursion? propagate should not return the original model
-            (concat primary-result))))))
+       (concat primary-result
+               (when propagation-to-save
+                 (put-many propagation-to-save)))))))
 
 (defn put
   [model]

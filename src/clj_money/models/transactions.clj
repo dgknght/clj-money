@@ -523,13 +523,11 @@
                                          [:entity/settings
                                           :settings/latest-transaction-date]))
         updated-sched (propagate-scheduled-transaction trx)]
-    (cons (cond-> trx
-            (seq transaction-items)
-            (assoc :transaction/items transaction-items))
-          (concat (filter identity
-                          [entity
-                           updated-sched])
-                  others))))
+    (concat (filter identity
+                    [entity
+                     updated-sched])
+            transaction-items
+            others)))
 
 (defn- append-delay-details
   [m {:transaction/keys [items transaction-date]}]
