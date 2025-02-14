@@ -42,15 +42,16 @@
                 compare-result? true
                 ignore-attributes []}}]
   (let [result (models/put attr)
+        fetched (models/find result)
         expected  (apply dissoc
                          (simplify-refs attr refs)
                          ignore-attributes)]
     (when compare-result?
       (is (comparable? expected result)
           "The result matches the input"))
-    (is (comparable? expected (models/find result))
+    (is (comparable? expected fetched)
         "The retrieved matches the input")
-    result))
+    fetched))
 
 (defn assert-updated
   [model attr]
