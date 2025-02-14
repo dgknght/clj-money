@@ -153,25 +153,26 @@
           date-attribute :transaction/transaction-date
           model-type :transaction-item}}
     accounts]
-   ^{:clj-money.db/type model-type}
-   {account-attribute (if (= 1 (count accounts))
-                        (util/->model-ref (first accounts))
-                        {:id [:in (->> accounts
-                                       (map :id)
-                                       set)]})
-    date-attribute [:between
-                    (or (->> accounts
-                             (map :account/earliest-transaction-date)
-                             (filter identity)
-                             (sort t/before?)
-                             first)
-                        earliest-date)
-                    (or (->> accounts
-                             (map :account/latest-transaction-date)
-                             (filter identity)
-                             (sort t/after?)
-                             first)
-                        latest-date)]}))
+   (util/model-type
+     {account-attribute (if (= 1 (count accounts))
+                          (util/->model-ref (first accounts))
+                          {:id [:in (->> accounts
+                                         (map :id)
+                                         set)]})
+      date-attribute [:between
+                      (or (->> accounts
+                               (map :account/earliest-transaction-date)
+                               (filter identity)
+                               (sort t/before?)
+                               first)
+                          earliest-date)
+                      (or (->> accounts
+                               (map :account/latest-transaction-date)
+                               (filter identity)
+                               (sort t/after?)
+                               first)
+                          latest-date)]}
+     model-type)))
 
 (defn ->criteria
   [account & [opts]]
