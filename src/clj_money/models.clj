@@ -176,31 +176,36 @@
                   the propagation. When not passed, the propagation is done
                   synchronously and the result is included with the primary result."
   ([models] (put-many {} models))
-  ([{:as opts :keys [prop-chan]} models]
+  ([{:as opts
+     :keys [prop-chan depth]
+     :or {depth 0}}
+    models]
    {:pre [(s/valid? (s/coll-of map?) models)]}
 
-   (let [primary-result (->> models
-                             (map (dispatch
-                                    (comp validate
-                                          before-validation)))
-                             (map (dispatch before-save))
-                             (handle-dupes opts)
-                             (db/put (db/storage))
-                             (map (comp append-before
-                                        after-save
-                                        #(after-read % {})))) ; The empty hash here is for options
-         propagation-to-save (->> primary-result
-                                  (mapcat dispatch-propagation)
-                                  seq)]
-     (if prop-chan
-       (do
-         (when propagation-to-save
-           (a/onto-chan! prop-chan
-                         (put-many propagation-to-save)))
-         primary-result)
-       (concat primary-result
-               (when propagation-to-save
-                 (put-many propagation-to-save)))))))
+   (if (> depth 3)
+     (throw (ex-info "Excessive recursion" {:depth depth}))
+     (let [primary-result (->> models
+                               (map (dispatch
+                                      (comp validate
+                                            before-validation)))
+                               (map (dispatch before-save))
+                               (handle-dupes opts)
+                               (db/put (db/storage))
+                               (map (comp append-before
+                                          after-save
+                                          #(after-read % {})))) ; The empty hash here is for options
+           propagation-to-save (->> primary-result
+                                    (mapcat dispatch-propagation)
+                                    seq)]
+       (if prop-chan
+         (do
+           (when propagation-to-save
+             (a/onto-chan! prop-chan
+                           (put-many {:depth (inc depth)} propagation-to-save)))
+           primary-result)
+         (concat primary-result
+                 (when propagation-to-save
+                   (put-many {:depth (inc depth)} propagation-to-save))))))))
 
 (defn put
   [model]
