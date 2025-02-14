@@ -81,6 +81,7 @@
 (declare model-type)
 
 (defn model-type-dispatch [x & _]
+  {:pre [x]}
   (model-type x))
 
 (defn- extract-model-type
@@ -116,6 +117,7 @@
   key identyfying the model type, or another model from which the type is to be
   extracted"
   ([x]
+   {:pre [x]}
    (model-type* x))
   ([m model-or-type]
    {:pre [(map? m)
