@@ -219,14 +219,6 @@
   [model _id-map]
   model)
 
-(defn- ensure-id
-  "When saving a new record, make sure we have a temp id"
-  [m]
-  (if (map? m) ; this could also be a vector like [:delete {:id 123}]
-    (update-in m [:id] (fn [id]
-                         (or id (temp-id))))
-    m))
-
 (defn- strip-unrecognized-keys
   [m]
   (if-let [keys (seq (model-keys m))]
@@ -248,15 +240,14 @@
                   saved)))))
 
 (s/def ::operation #{::db/insert ::db/update ::db/delete})
-(s/def ::putable (s/or :map map?
-                       :operation (s/tuple ::operation map?)))
+(s/def ::id (some-fn string?
+                     integer?
+                     uuid?))
+(s/def ::model (s/and (s/keys :req-un [::id])
+                      util/model-type))
+(s/def ::putable (s/or :map ::model
+                       :operation (s/tuple ::operation ::model)))
 (s/def ::putables (s/coll-of ::putable))
-
-(defn- no-model-type
-  [x]
-  (if (vector? x)
-    (nil? (util/model-type (second x)))
-    (nil? (util/model-type x))))
 
 ; This is only exposed publicly to support tests that enforce
 ; short-circuting transaction propagation
@@ -265,15 +256,8 @@
   to be used directly."
   [ds models]
   {:pre [(s/valid? ::putables models)]}
-
-  (when-let [m (seq (filter no-model-type models))]
-    (pprint {::put* m
-             ::models models})
-    (throw (ex-info "All models must have a type" {:model m})))
-
   (jdbc/with-transaction [tx ds]
     (->> models
-         (map ensure-id)
          (mapcat deconstruct)
          (map (comp #(update-in % [1] (comp before-save
                                             ->sql-refs))

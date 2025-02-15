@@ -167,6 +167,14 @@
             rs))
     (propagate x)))
 
+(defn- ensure-id
+  "When saving a new record, make sure we have a temp id"
+  [m]
+  (if (map? m) ; this could also be a vector like [:delete {:id 123}]
+    (update-in m [:id] (fn [id]
+                         (or id (util/temp-id))))
+    m))
+
 (defn put-many
   "Save a sequence of models to the database.
 
@@ -186,7 +194,8 @@
      (throw (ex-info "Excessive recursion" {:depth depth}))
      (let [primary-result (->> models
                                (map (dispatch
-                                      (comp validate
+                                      (comp ensure-id
+                                            validate
                                             before-validation)))
                                (map (dispatch before-save))
                                (handle-dupes opts)
