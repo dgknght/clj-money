@@ -8,7 +8,6 @@
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
   (put [this models] "Saves the specified models to the data store")
-  (update [this changes criteria] "Updates records with partial data (instead of full models)")
   (select [this criteria options] "Retrieves models from the data store")
   (delete [this models] "Removes models from the data store")
   (reset [this] "Deletes all data in the data store")) ; This is only ever needed for testing. Maybe there's a better way than putting it here?

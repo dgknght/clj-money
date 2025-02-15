@@ -270,21 +270,6 @@
                                                 ->model-refs))
                                      (reconstruct)))))
 
-(defn- update*
-  [ds changes criteria]
-  (let [m-type (util/model-type changes)
-        s (->update (before-save changes)
-                    (-> criteria
-                        (util/model-type m-type)
-                        prepare-criteria)
-                    {:target m-type})
-        result (jdbc/execute-one! ds s)]
-
-    ; TODO: scrub sensitive data
-    (log/debugf "database update %s %s -> %s" criteria changes s)
-
-    (:next.jdbc/update-count result)))
-
 (defn- id-key
   [x]
   (when-let [target (util/model-type x)]
@@ -364,7 +349,6 @@
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
       (put [_ models] (put* ds models))
-      (update [_ changes criteria] (update* ds changes criteria))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ models] (delete* ds models))
       (reset [_] (reset* ds)))))
