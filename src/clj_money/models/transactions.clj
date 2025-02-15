@@ -462,7 +462,7 @@
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [{:transaction/keys [items transaction-date] :keys [id] :as trx} & {:keys [delete?]}]
+  [before {:transaction/keys [items transaction-date] :keys [id]} {:keys [delete?]}]
   (->> items
        (map #(cond-> %
                true (assoc :transaction-item/transaction-date transaction-date)
@@ -473,16 +473,16 @@
        (mapcat (propagate-account-items
                  :as-of (dates/earliest
                           transaction-date
-                          (models/before trx :transaction/transaction-date))
+                          (:transaction/transaction-date before))
                  :delete? delete?))))
 
 (defn- propagate-dereferenced-account-items
-  [{:transaction/keys [items] :as trx}]
+  [before {:transaction/keys [items] :as trx}]
   (let [act-ids (->> items
                      (map (comp :id
                                 :transaction-item/account))
                      set)]
-    (->> (models/before trx :transaction/items)
+    (->> (:transaction/items before)
          (remove (comp act-ids
                        :id
                        :transaction-item/account))
@@ -496,9 +496,9 @@
 (defn- propagate-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [trx & {:keys [delete?]}]
-  (concat (propagate-current-items trx :delete? delete?)
-          (propagate-dereferenced-account-items trx)))
+  [before trx & [opts]]
+  (concat (propagate-current-items before trx opts)
+          (propagate-dereferenced-account-items before trx)))
 
 (def delayed (atom {}))
 
@@ -511,10 +511,10 @@
     (assoc sched-trx :scheduled-transaction/last-occurrence transaction-date)))
 
 (defn- propagate-transaction
-  [{:as trx :transaction/keys [transaction-date]}]
+  [before {:as trx :transaction/keys [transaction-date]}]
   (let [{transaction-items true
          others false} (group-by (belongs-to-trx? trx)
-                                 (propagate-items trx))
+                                 (propagate-items before trx))
         entity (-> (:transaction/entity trx)
                    (models/find :entity)
                    (push-date-boundaries transaction-date
@@ -530,38 +530,41 @@
             others)))
 
 (defn- append-delay-details
-  [m {:transaction/keys [items transaction-date]}]
+  [m
+   {before :transaction/transaction-date}
+   {after :transaction/transaction-date :transaction/keys [items]}]
   (-> m
       (update-in [:accounts] #(apply (fnil conj #{})
                                      %
                                      (map (comp util/->model-ref
                                                 :transaction-item/account)
                                           items)))
-      (update-in [:earliest-date] dates/earliest transaction-date)
-      (update-in [:latest-date] dates/latest transaction-date)))
+      (update-in [:earliest-date] dates/earliest before after)
+      (update-in [:latest-date] dates/latest before after)))
 
 (defn- delay-propagation
   "Given a transaction, appends dummy index and balance values
   and saves account and date information for later use"
-  [trx]
+  [{:as before :transaction/keys [entity]} after]
   (swap! delayed
          update-in
-         [(-> trx :transaction/entity :id)]
+         [(:id entity)]
          append-delay-details
-         trx)
+         before
+         after)
   [])
 
 (defmethod models/propagate :transaction
-  [{:as trx :transaction/keys [entity]}]
+  [{:as before :transaction/keys [entity]} after]
   (if (@delayed (:id entity))
-    (delay-propagation trx)
-    (propagate-transaction trx)))
+    (delay-propagation before after)
+    (propagate-transaction before after)))
 
 (defmethod models/propagate-delete :transaction
   [{:as trx :transaction/keys [entity]}]
   (if (@delayed (:id entity))
-    (delay-propagation trx)
-    (cons trx (propagate-current-items trx :delete? true))))
+    (delay-propagation trx nil)
+    (cons trx (propagate-current-items trx nil {:delete? true}))))
 
 (defmethod models/before-delete :transaction
   [trx]

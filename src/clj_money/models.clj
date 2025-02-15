@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
+            [clojure.set :refer [map-invert]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.models :as models]
@@ -22,7 +23,7 @@
 (defmethod before-validation :default [m & _] m)
 
 (defmulti propagate util/model-type-dispatch)
-(defmethod propagate :default [_m] [])
+(defmethod propagate :default [_before _after] [])
 
 (defmulti before-save util/model-type-dispatch)
 (defmethod before-save :default [m & _] m)
@@ -156,16 +157,19 @@
   (partial dispatch* f))
 
 (defn- dispatch-propagation
-  [x]
-  (if (vector? x)
-    (let [[oper m] x
-          f (if (= ::db/delete oper)
-              propagate-delete
-              propagate)
-          [r & rs] (f m)]
-      (cons [oper r]
-            rs))
-    (propagate x)))
+  [before after]
+  ; before will be nil when inserting a new model
+  ; after will be nil when deleting a model
+  (let [x (or after before)]
+    (if (vector? x)
+      (let [[oper m] x
+            f (if (= ::db/delete oper)
+                propagate-delete
+                propagate)
+            [r & rs] (f m)]
+        (cons [oper r]
+              rs))
+      (propagate x))))
 
 (defn- ensure-id
   "When saving a new record, make sure we have a temp id"
@@ -192,19 +196,29 @@
 
    (if (> depth 3)
      (throw (ex-info "Excessive recursion" {:depth depth}))
-     (let [primary-result (->> models
-                               (map (dispatch
-                                      (comp ensure-id
-                                            validate
-                                            before-validation)))
-                               (map (dispatch before-save))
-                               (handle-dupes opts)
-                               (db/put (db/storage))
-                               (map (comp append-before
-                                          after-save
-                                          #(after-read % {})))) ; The empty hash here is for options
+     (let [with-id (->> models
+                        (handle-dupes opts)
+                        (map ensure-id))
+           before-map (->> with-id
+                           (map (juxt :id before))
+                           (into {}))
+           {:keys [saved id-map]} (->> with-id
+                                       (map (dispatch
+                                              (comp validate
+                                                    before-validation)))
+                                       (map (dispatch before-save))
+                                       (db/put (db/storage)))
+           primary-result (map (comp append-before
+                                     after-save
+                                     #(after-read % {}))
+                               saved)
+           inverted-id-map (map-invert id-map)
            propagation-to-save (->> primary-result
-                                    (mapcat dispatch-propagation)
+                                    (map (fn [{:keys [id] :as a}]
+                                           [(before-map (or (inverted-id-map id)
+                                                            id))
+                                            a]))
+                                    (mapcat #(apply dispatch-propagation %))
                                     seq)]
        (if prop-chan
          (do

@@ -256,19 +256,19 @@
   to be used directly."
   [ds models]
   {:pre [(s/valid? ::putables models)]}
-  (jdbc/with-transaction [tx ds]
-    (->> models
-         (mapcat deconstruct)
-         (map (comp #(update-in % [1] (comp before-save
-                                            ->sql-refs))
-                    wrap-oper))
-         (reduce (execute-and-aggregate tx)
-                 {:saved []
-                  :id-map {}})
-         :saved
-         (map (comp after-read
-                    ->model-refs))
-         (reconstruct))))
+  (let [result (jdbc/with-transaction [tx ds]
+                 (->> models
+                      (mapcat deconstruct)
+                      (map (comp #(update-in % [1] (comp before-save
+                                                         ->sql-refs))
+                                 wrap-oper))
+                      (reduce (execute-and-aggregate tx)
+                              {:saved []
+                               :id-map {}})))]
+    (update-in result [:saved] #(->> %
+                                     (map (comp after-read
+                                                ->model-refs))
+                                     (reconstruct)))))
 
 (defn- update*
   [ds changes criteria]
