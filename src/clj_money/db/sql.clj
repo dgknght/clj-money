@@ -15,7 +15,7 @@
             [dgknght.app-lib.inflection :refer [plural
                                                 singular]]
             [dgknght.app-lib.models :refer [->id]]
-            [clj-money.util :as util :refer [temp-id temp-id?]]
+            [clj-money.util :as util :refer [temp-id?]]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
                                               ->update]]
