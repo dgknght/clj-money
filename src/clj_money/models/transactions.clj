@@ -352,7 +352,7 @@
                        (drop 1)
                        (map #(dissoc % ::polarized-quantity)))
         final-qty (or (:transaction-item/balance (last updated-items))
-                       0M)
+                      0M)
         price (or (:account/commodity-price account)
                   (:price/price
                     (models/find-by
@@ -561,7 +561,7 @@
     (propagate-transaction before after)))
 
 (defmethod models/propagate-delete :transaction
-  [{:as trx :transaction/keys [entity]}]
+  [_before {:as trx :transaction/keys [entity]}]
   (if (@delayed (:id entity))
     (delay-propagation trx nil)
     (cons trx (propagate-current-items trx nil {:delete? true}))))

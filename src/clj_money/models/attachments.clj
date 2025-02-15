@@ -31,7 +31,7 @@
              (fnil f 0)))
 
 (defmethod models/propagate :attachment
-  [att]
+  [_before att]
   [att
    (adjust-trx att inc)])
 

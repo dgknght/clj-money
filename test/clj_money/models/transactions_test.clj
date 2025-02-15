@@ -660,6 +660,8 @@
 ; 2016-03-16     102  Groceries Checking move this to 3/8
 ; 2016-03-23     103  Groceries Checking
 ; 2016-03-30     104  Groceries Checking
+
+; TODO: Consider mocking Storage instead of put*
 (deftest update-a-transaction-short-circuit-updates
   (with-context short-circuit-context
     (let [calls (atom [])
@@ -670,14 +672,14 @@
         (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
             (assoc :transaction/transaction-date (t/local-date 2016 3 8))
             models/put)
-        (let [[c :as cs] @calls]
-          (is (= 1 (count cs))
-              "One call is made to write to storage")
+        (let [[c1 c2 :as cs] @calls]
+          (is (= 2 (count cs))
+              "Two calls are made to write to storage (the primary and the propagation)")
           (is (seq-of-maps-like? [#:transaction{:description "Kroger"
                                                 :transaction-date (t/local-date 2016 3 8)}]
                                  (filter (util/model-type? :transaction)
-                                         c))
-              "The updated transaction is written")
+                                         c1))
+              "The updated transaction is written in the 1st call")
           (is (seq-of-maps-like? [#:transaction-item {:index 1
                                                       :quantity 101M
                                                       :balance 203M}
@@ -685,14 +687,14 @@
                                                      :quantity 101M
                                                      :balance 797M}]
                                  (filter (util/model-type? :transaction-item)
-                                         c))
-              "The affected transaction items are written")
+                                         c2))
+              "The affected transaction items are written in the 2nd call")
 
           (is (empty? (filter #(#{3 4} (:transaction-item/index %))
-                              c))
+                              (flatten cs)))
               "The unaffected transaction items are not written")
           (is (empty? (filter (util/model-type? :account)
-                              c))
+                              (flatten cs)))
               "The account is not updated")
           (assert-account-quantities (find-account "Checking") 590M))))))
 

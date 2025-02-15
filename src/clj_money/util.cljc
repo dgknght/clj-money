@@ -568,8 +568,11 @@
 
     ; apply to a model map
     :else
-    (let [{:keys [include]} (apply hash-map args)]
-      (select-keys a1 (concat simple-keys include)))))
+    (let [{:keys [include]} (apply hash-map args)
+          selected (select-keys a1 (concat simple-keys include))]
+      (if (empty? selected)
+        a1
+        selected))))
 
 (defn upsert-into
   "Given a collection and an item, either update the item in the collection,

@@ -22,7 +22,8 @@
 (defmulti before-validation util/model-type-dispatch)
 (defmethod before-validation :default [m & _] m)
 
-(defmulti propagate util/model-type-dispatch)
+(defmulti propagate (fn [b a]
+                      (util/model-type (or b a))))
 (defmethod propagate :default [_before _after] [])
 
 (defmulti before-save util/model-type-dispatch)
@@ -53,11 +54,14 @@
   model)
 
 (defn before
-  [model k]
-  (-> model
-      meta
-      ::before
-      k))
+  ([model]
+   (-> model
+       meta
+       ::before))
+  ([model k]
+   (-> model
+       before
+       k)))
 
 (defn- append-before
   [model]
@@ -106,22 +110,26 @@
    (find-by (util/model-type (util/->model-ref id-or-ref)
                            model-type))))
 
+(def ^:private mergeable?
+  (every-pred map? :id))
+
 (defn- merge-dupes
   "Given a sequence of models, merge any that have the same id"
-  [models]
-  (loop [input models output []]
-    (if-let [model (first input)]
-      (if (:id model)
+  [puttables]
+  (loop [input puttables output []]
+    (if-let [puttable (first input)]
+      (if (mergeable? puttable)
         (let [{dupes true
-               others false} (group-by #(model= model %)
+               others false} (group-by #(model= puttable %)
                                        (rest input))]
-          (recur others (conj output (apply merge model dupes))))
-        (recur (rest input) (conj output model)))
+          (recur others (conj output (apply merge puttable dupes))))
+        (recur (rest input) (conj output puttable)))
       output)))
 
 (defn- duplicate-present?
   [ms]
   (->> ms
+       (remove vector?)
        (map (juxt util/model-type :id))
        (frequencies)
        (remove (comp #{1} second))
@@ -140,36 +148,34 @@
     :throw (throw-on-duplicate ms)
     (throw (ex-info "Invalid on-duplicate value" {:on-duplicate on-duplicate}))))
 
-(defn- dispatch*
-  [f x]
-  (if (vector? x)
-    (let [[oper :as puttable] x]
-      (if (= ::db/delete oper)
-        puttable
-        (update-in puttable [1] f)))
-    (f x)))
 
 (defn- dispatch
   "Returns a function that accepts either a naked model or a model wrapped in a
   vector with a db operator in the first position, and applies the function to
   the model, unless it's a delete operation."
-  [f]
-  (partial dispatch* f))
+  ([f]
+   #(dispatch f %))
+  ([f x]
+   (if (vector? x)
+     (let [[oper :as puttable] x]
+       (if (= ::db/delete oper)
+         puttable
+         (update-in puttable [1] f)))
+     (f x))))
 
 (defn- dispatch-propagation
   [before after]
   ; before will be nil when inserting a new model
   ; after will be nil when deleting a model
-  (let [x (or after before)]
-    (if (vector? x)
-      (let [[oper m] x
-            f (if (= ::db/delete oper)
-                propagate-delete
-                propagate)
-            [r & rs] (f m)]
-        (cons [oper r]
-              rs))
-      (propagate x))))
+  (if (vector? after)
+    (let [[oper m] after
+          f (if (= ::db/delete oper)
+              propagate-delete
+              propagate)
+          [r & rs] (f m)]
+      (cons [oper r]
+            rs))
+    (propagate before after)))
 
 (defn- ensure-id
   "When saving a new record, make sure we have a temp id"
@@ -180,7 +186,12 @@
     m))
 
 (defn put-many
-  "Save a sequence of models to the database.
+  "Save a sequence of models to the database, providing lifecycle hooks that
+  are dispatched by model type, including: before-validation, before-save,
+  after-save.
+
+  Additionally, propagates changes to related records, also dispatched by model
+  type.
 
   Options:
   :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
@@ -189,25 +200,28 @@
                   synchronously and the result is included with the primary result."
   ([models] (put-many {} models))
   ([{:as opts
-     :keys [prop-chan depth]
+     :keys [prop-chan
+            depth
+            storage]
      :or {depth 0}}
     models]
    {:pre [(s/valid? (s/coll-of map?) models)]}
 
    (if (> depth 3)
      (throw (ex-info "Excessive recursion" {:depth depth}))
-     (let [with-id (->> models
+     (let [to-save (->> models
                         (handle-dupes opts)
-                        (map ensure-id))
-           before-map (->> with-id
-                           (map (juxt :id before))
+                        (map (dispatch
+                               (comp ensure-id
+                                     before-save
+                                     validate
+                                     before-validation))))
+           before-map (->> to-save
+                           (map (juxt :id (dispatch before)))
                            (into {}))
-           {:keys [saved id-map]} (->> with-id
-                                       (map (dispatch
-                                              (comp validate
-                                                    before-validation)))
-                                       (map (dispatch before-save))
-                                       (db/put (db/storage)))
+           {:keys [saved id-map]} (db/put (or storage
+                                              (db/storage))
+                                          to-save)
            primary-result (map (comp append-before
                                      after-save
                                      #(after-read % {}))
@@ -231,8 +245,8 @@
                    (put-many {:depth (inc depth)} propagation-to-save))))))))
 
 (defn put
-  [model]
-  (first (put-many [model])))
+  [model & {:as opts}]
+  (first (put-many opts [model])))
 
 (defn delete-many
   [models]
