@@ -158,24 +158,20 @@
      (models/count #:price{:commodity commodity
                            :trade-date [:> trade-date]})))
 
-(defmethod models/propagate :price
-  [_before price]
-  (cons price (when (latest-price? price)
-                (apply-to-account-chains price))))
-
 (defn- new-latest-price
   [{:price/keys [commodity trade-date] :keys [id]}]
   (let [price (models/find-by {:price/commodity commodity
-                                      :id [:!= id]}
-                                     {:sort [[:price/trade-date :desc]]})]
+                               :id [:!= id]}
+                              {:sort [[:price/trade-date :desc]]})]
     (when (and price
                (t/before? (:price/trade-date price)
                           trade-date))
       price)))
 
-(defmethod models/propagate-delete :price
-  [price]
-  (let [latest-price (new-latest-price price)]
-    (cons price
-          (when latest-price
-            (apply-to-account-chains latest-price)))))
+(defmethod models/propagate :price
+  [before after]
+  (when-let [latest (if after
+                      (when (latest-price? after)
+                        after)
+                      (new-latest-price before))]
+    (apply-to-account-chains latest)))

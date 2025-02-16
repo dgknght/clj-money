@@ -262,9 +262,9 @@
     (throw (ex-info "Only the most recent reconciliation may be deleted" {:reconciliation recon})))
   recon)
 
-(defmethod models/propagate-delete :reconciliation
-  [_before {:as recon :reconciliation/keys [account]}]
-  (->> (models/select (assoc (acts/->criteria (models/find account :account))
-                             :transaction-item/reconciliation recon))
-       (map #(assoc % :transaction-item/reconciliation nil))
-       (cons recon)))
+(defmethod models/propagate :reconciliation
+  [{:as recon :reconciliation/keys [account]} after]
+  (when-not after
+    (map #(assoc % :transaction-item/reconciliation nil)
+         (models/select (assoc (acts/->criteria (models/find account :account))
+                               :transaction-item/reconciliation recon)))))

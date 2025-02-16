@@ -38,9 +38,6 @@
 (defmulti before-delete util/model-type-dispatch)
 (defmethod before-delete :default [m & _] m)
 
-(defmulti propagate-delete util/model-type-dispatch)
-(defmethod propagate-delete :default [m] [m])
-
 (defn- validation-key
   [m]
   (keyword "clj-money.models"
@@ -163,20 +160,6 @@
          (update-in puttable [1] f)))
      (f x))))
 
-(defn- dispatch-propagation
-  [before after]
-  ; before will be nil when inserting a new model
-  ; after will be nil when deleting a model
-  (if (vector? after)
-    (let [[oper m] after
-          f (if (= ::db/delete oper)
-              propagate-delete
-              propagate)
-          [r & rs] (f m)]
-      (cons [oper r]
-            rs))
-    (propagate before after)))
-
 (defn- ensure-id
   "When saving a new record, make sure we have a temp id"
   [m]
@@ -184,6 +167,12 @@
     (update-in m [:id] (fn [id]
                          (or id (util/temp-id))))
     m))
+
+(defn- deletions
+  [ms]
+  (filter (every-pred vector?
+                      #(= ::db/delete (first %)))
+          ms))
 
 (defn put-many
   "Save a sequence of models to the database, providing lifecycle hooks that
@@ -227,18 +216,20 @@
                                      #(after-read % {}))
                                saved)
            inverted-id-map (map-invert id-map)
-           propagation-to-save (->> primary-result
+           propagation-to-save (->> (deletions models)
+                                    (concat primary-result)
                                     (map (fn [{:keys [id] :as a}]
                                            [(before-map (or (inverted-id-map id)
                                                             id))
                                             a]))
-                                    (mapcat #(apply dispatch-propagation %))
+                                    (mapcat #(apply propagate %))
                                     seq)]
        (if prop-chan
          (do
            (when propagation-to-save
-             (a/onto-chan! prop-chan
-                           (put-many {:depth (inc depth)} propagation-to-save)))
+             (a/go
+               (a/onto-chan! prop-chan
+                             (put-many {:depth (inc depth)} propagation-to-save))))
            primary-result)
          (concat primary-result
                  (when propagation-to-save
@@ -249,17 +240,23 @@
   (first (put-many opts [model])))
 
 (defn delete-many
-  [models]
-  {:pre [(seq (filter identity models))]}
-  (->> models
-       (map before-delete)
-       (mapcat propagate-delete)
-       (db/delete (db/storage))))
+  ([models] (delete-many {} models))
+  ([{:keys [prop-chan]} models]
+   {:pre [(seq (filter identity models))]}
+   (let [propagation (mapcat #(propagate % nil)
+                             models)]
+     (db/delete (db/storage) models)
+     (when propagation
+       (if prop-chan
+         (a/go
+           (a/onto-chan! prop-chan
+                         (put-many {} propagation)))
+         (put-many {} propagation))))))
 
 (defn delete
-  [model]
+  [model & {:as opts}]
   {:pre [model]}
-  (delete-many [model]))
+  (delete-many opts [model]))
 
 (defn resolve-ref
   ([model-type]

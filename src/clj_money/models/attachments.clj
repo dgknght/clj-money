@@ -31,11 +31,7 @@
              (fnil f 0)))
 
 (defmethod models/propagate :attachment
-  [_before att]
-  [att
-   (adjust-trx att inc)])
-
-(defmethod models/propagate-delete :attachment
-  [att]
-  [att
-   (adjust-trx att dec)])
+  [before after]
+  (cond
+    (and after (not before) (adjust-trx after inc))
+    (and before (not after) (adjust-trx before dec))))
