@@ -672,7 +672,8 @@
         (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
             (assoc :transaction/transaction-date (t/local-date 2016 3 8))
             models/put)
-        (let [[c1 c2 :as cs] @calls]
+        (let [[c1 c2 :as cs] @calls
+              checking (find-account "Checking")]
           (is (= 2 (count cs))
               "Two calls are made to write to storage (the primary and the propagation)")
           (is (seq-of-maps-like? [#:transaction{:description "Kroger"
@@ -681,13 +682,15 @@
                                          c1))
               "The updated transaction is written in the 1st call")
           (is (seq-of-maps-like? [#:transaction-item {:index 1
-                                                      :quantity 101M
-                                                      :balance 203M}
+                                                      :quantity 102M
+                                                      :balance 898M}
                                   #:transaction-item{:index 2
                                                      :quantity 101M
                                                      :balance 797M}]
-                                 (filter (util/model-type? :transaction-item)
-                                         c2))
+                                 (filterv (every-pred (util/model-type? :transaction-item)
+                                                      #(util/model= (:transaction-item/account %)
+                                                                    checking))
+                                          c2))
               "The affected transaction items are written in the 2nd call")
 
           (is (empty? (filter #(#{3 4} (:transaction-item/index %))
