@@ -245,7 +245,9 @@
    {:pre [(seq (filter identity models))]}
    (let [propagation (mapcat #(propagate % nil)
                              models)]
-     (db/delete (db/storage) models)
+     (->> models
+          (map before-delete)
+          (db/delete (db/storage)))
      (when propagation
        (if prop-chan
          (a/go
