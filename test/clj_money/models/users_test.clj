@@ -1,102 +1,102 @@
 (ns clj-money.models.users-test
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
+            [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.model-helpers :refer [assert-invalid]]
+            [clj-money.models :as models]
+            [clj-money.db.sql.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
+            [clj-money.test-context :refer [with-context
+                                            find-user]]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
-(def attributes {:first-name "John"
-                 :last-name "Doe"
-                 :email "john@doe.com"
-                 :password "please01"})
+(def attributes #:user{:first-name "John"
+                       :last-name "Doe"
+                       :email "john@doe.com"
+                       :password "please01"})
 
 (deftest create-a-user
-  (let [user (users/create attributes)]
-    (testing "An created user can be retreived"
-      (let [users (->> (users/select)
-                       (map #(select-keys % [:first-name
-                                             :last-name
-                                             :email])))
-            expected [{:first-name "John"
-                       :last-name "Doe"
-                       :email "john@doe.com"}]]
-        (is (= expected users))))
-    (testing "It returns a user map"
-      (is (number? (:id user)) "The id should be a number")
-      (is (= {:first-name "John"
-              :last-name "Doe"
-              :email "john@doe.com"}
-             (select-keys user [:first-name :last-name :email]))
-          "The map should contain the user properties"))))
+  (let [user (models/put attributes)
+        expected (dissoc attributes :user/password)]
+    (is (:id user) "The result has an :id attributes")
+    (is (not (:user/password user))
+        "The password is not returned")
+    (is (not (:user/password-reset-token user))
+        "The password reset token is not returned")
+    (is (not (:user/token-expires-at user))
+        "The token expiration is not returned")
+    (is (comparable? expected user)
+        "The result contains the specified attribute values")
+    (is (comparable? expected (models/find user))
+        "The user can be retrieved from the data store.")))
 
 (deftest first-name-is-required
-  (is (invalid? (users/create (dissoc attributes :first-name))
-                [:first-name]
-                "First name is required")))
+  (assert-invalid (dissoc attributes :user/first-name)
+                  {:user/first-name ["First name is required"]}))
 
 (deftest first-name-cannot-be-empty
-  (is (invalid? (users/create (assoc attributes :first-name ""))
-                [:first-name]
-                "First name is required")))
+  (assert-invalid (assoc attributes :user/first-name "")
+                  {:user/first-name ["First name is required"]}))
 
 (deftest last-name-is-required
-  (is (invalid? (users/create (dissoc attributes :last-name))
-                [:last-name]
-                "Last name is required")))
+  (assert-invalid (dissoc attributes :user/last-name)
+                  {:user/last-name ["Last name is required"]}))
 
 (deftest last-name-cannot-be-empty
-  (is (invalid? (users/create (assoc attributes :last-name ""))
-                [:last-name]
-                "Last name is required")))
+  (assert-invalid (assoc attributes :user/last-name "")
+                  {:user/last-name ["Last name is required"]}))
 
 (deftest email-is-required
-  (is (invalid? (users/create (dissoc attributes :email))
-                [:email]
-                "Email is required")))
+  (assert-invalid (dissoc attributes :user/email)
+                  {:user/email ["Email is required"]}))
 
 (deftest email-cannot-be-empty
-  (is (invalid? (users/create (assoc attributes :email ""))
-                [:email]
-                "Email is required")))
+  (assert-invalid (assoc attributes :user/email "")
+                  {:user/email ["Email is required"]}))
+
+(def ^:private existing-user-ctx
+  [#:user{:first-name "John"
+          :last-name "Doe"
+          :email "john@doe.com"
+          :password "please01"}])
 
 (deftest email-is-unique
-  (users/create attributes)
-  (is (invalid? (users/create attributes)
-                [:email]
-                "Email is already in use")))
+  (with-context existing-user-ctx
+    (assert-invalid attributes
+                    {:user/email ["Email is already in use"]})))
 
 (deftest email-must-be-well-formed
-  (is (invalid? (users/create (assoc attributes :email "notvalid"))
-                [:email]
-                "Email must be a valid email address")))
+  (assert-invalid (assoc attributes :user/email "notvalid")
+                  {:user/email ["Email must be a valid email address"]}))
 
 (deftest authenticate-a-user
-  (let [user (users/create attributes)
-        expected {:identity (:id user)
-                  :id (:id user)
-                  :email "john@doe.com"
-                  :first-name "John"
-                  :last-name "Doe"
-                  :roles #{:user}}
-        actual (select-keys (users/authenticate {:username "john@doe.com"
-                                                 :password "please01"})
-
-                            (keys expected))]
-    (is (= expected actual) "The returned value should be the user information")))
+  (with-context existing-user-ctx
+    (let [user (find-user "john@doe.com")
+          expected {:identity (:id user)
+                    :roles #{:user}
+                    :user/email "john@doe.com"
+                    :user/first-name "John"
+                    :user/last-name "Doe"}]
+      (is (comparable? expected
+                       (users/authenticate {:username "john@doe.com"
+                                            :password "please01"}))
+          "The returned value should be the user information"))))
 
 (deftest set-a-password-reset-token
-  (let [user (users/create attributes)
-        token (users/create-password-reset-token user)
-        retrieved (users/find-by-token token)]
-    (is (re-matches #"^[a-z0-9]{32}$" token)
-        "A valid tokenis returned")
-    (is (= (:id user) (:id retrieved))
-        "The user can be retrieved using the token")))
+  (with-context existing-user-ctx
+    (let [user (find-user "john@doe.com")
+          token (users/create-password-reset-token user)
+          retrieved (users/find-by-token token)]
+      (is (re-matches #"^[a-z0-9]{32}$" token)
+          "A valid tokenis returned")
+      (is (= (:id user) (:id retrieved))
+          "The user can be retrieved using the token"))))
 
 (deftest cannot-retrieve-a-user-with-an-expired-token
-  (let [user (users/create attributes)
+  (let [user (models/put attributes)
         token (with-fixed-time "2017-03-02T12:00:00Z"
                        (users/create-password-reset-token user))
         retrieved (with-fixed-time "2017-03-03T12:00:00Z"
@@ -105,7 +105,7 @@
         "The user is not returned if the token has expired")))
 
 (deftest reset-a-password
-  (let [user (users/create  attributes)
+  (let [user (models/put  attributes)
         token (users/create-password-reset-token user)
         _ (users/reset-password token "newpassword")
         new-auth (users/authenticate {:username "john@doe.com"
@@ -126,7 +126,7 @@
 
 (deftest find-or-create-a-user-by-oauth-profile
   (testing "an existing user without identity"
-    (let [user (users/create attributes)
+    (let [user (models/put attributes)
           result (users/find-or-create-from-profile profile)]
       ; TODO: assert that the identity record is created
 

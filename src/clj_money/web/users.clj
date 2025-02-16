@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [config.core :refer [env]]
             [buddy.sign.jwt :as jwt]
-            [clj-money.models.users :as users]))
+            [clj-money.models :as models]))
 
 (defn- extract-header-auth-token
   [{:keys [headers]}]
@@ -21,5 +21,6 @@
 (defn find-user-by-auth-token
   [req]
   (when-let [token (extract-auth-token req)]
-    (users/find (:user-id (jwt/unsign token
-                                      (env :secret))))))
+    (models/find (:user-id (jwt/unsign token
+                                       (env :secret)))
+                 :user)))

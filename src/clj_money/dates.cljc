@@ -12,28 +12,70 @@
                    [java.time.temporal ChronoUnit])
      :cljs (:import [goog.date Date DateTime])))
 
+#?(:cljs (extend-type Date
+           IEquiv
+           (-equiv [this other]
+             (and (= (type this)
+                     (type other))
+                  (t/equal? this other)))
+
+           IComparable
+           (-compare [d1 d2]
+             (cond
+               (t/before? d1 d2) -1
+               (t/after? d1 d2)   1
+               :else 0))))
+
+(declare serialize-local-date)
+(declare serialize-local-date-time)
+
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
            (-pr-writer [date writer _]
-             (write-all writer "#local-date \"" (tf/unparse (tf/formatters :date) date) "\""))
+             (write-all writer "#local-date \"" (serialize-local-date date) "\""))
            DateTime
            (-pr-writer [date writer _]
-             (write-all writer "#local-date-time \"" (tf/unparse (tf/formatters :date-time) date) "\""))))
+             (write-all writer "#local-date-time \"" (serialize-local-date-time date) "\""))))
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn local-date
+  [x]
+  #?(:clj (t/local-date x)
+     :cljs (tf/parse-local-date (tf/formatters :date) x)))
 
 (def local-date?
   #?(:clj t/local-date?
      :cljs (partial instance? Date)))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn local-date-time
+  [x]
+  #?(:clj (t/local-date-time x)
+     :cljs (tf/parse (tf/formatters :date-hour-minute-second-fraction) x)))
+
+(def local-date-time?
+  #?(:clj t/local-date-time?
+     :cljs (partial instance? DateTime)))
+
 (defmulti equal?
   (fn [d1 _d2]
-    (type d1)))
+    (cond
+      (sequential? d1) :sequence
+      (local-date? d1) :scalar
+      (local-date-time? d1) :scalar)))
 
 (defmethod equal? :default
+  [& args]
+  (pprint {::cannot-compare args
+           ::types (map type args)})
+  false)
+
+(defmethod equal? :scalar
   [d1 d2]
   #?(:clj (t/= d1 d2)
      :cljs (t/equal? d1 d2)))
 
-(defmethod equal? ::util/vector
+(defmethod equal? :sequence
   [l1 l2]
   (and (= (count l1)
           (count l2))
@@ -91,6 +133,24 @@
 (defn today []
   #?(:clj (t/local-date)
      :cljs (t/today)))
+
+(defn first-day-of-the-year
+  ([] (first-day-of-the-year (today)))
+  ([date-or-year]
+   (let [year (if (local-date? date-or-year)
+                (t/year date-or-year)
+                date-or-year)]
+     (t/local-date year 1 1))))
+
+(defn last-day-of-the-year
+  ([] (last-day-of-the-year (today)))
+  ([date-or-year]
+   (let [year (if (local-date? date-or-year)
+                (t/year date-or-year)
+                date-or-year)]
+     (t/minus (t/plus (t/local-date year 1 1)
+                      (t/years 1))
+              (t/days 1)))))
 
 (defn first-day-of-the-month
   ([] (first-day-of-the-month (today)))
@@ -167,6 +227,7 @@
    (take-while #(not (t/after? % end))
                (periodic-seq start period)))
   ([start period]
+   {:pre [start period]}
    #?(:cljs (periodic/periodic-seq start period)
       :clj (lazy-seq (cons start
                            (periodic-seq (t/plus start period)
@@ -174,6 +235,7 @@
 
 (defn ranges
   [start interval & {:keys [inclusive]}]
+  {:pre [start interval]}
   (let [adj (if inclusive
               #(t/minus % (t/days 1))
               identity)]
@@ -302,6 +364,7 @@
 
 (defn serialize-local-date
   [local-date]
+  {:pre [local-date]}
   #?(:clj (t/format (t/formatter :iso-date) local-date)
      :cljs (tf/unparse-local-date (tf/formatters :date) local-date)))
 
@@ -309,6 +372,16 @@
   [date-str]
   #?(:clj (t/local-date (t/formatter :iso-date) date-str)
      :cljs (tf/parse-local-date (tf/formatters :date) date-str)))
+
+(defn serialize-local-date-time
+  [local-date-time]
+  #?(:clj (t/format (t/formatter "yyyy-MM-dd'T'hh:mm:ss.SSS") local-date-time)
+     :cljs (tf/unparse-local (tf/formatters :date-hour-minute-second) local-date-time)))
+
+(defn unserialize-local-date-time
+  [date-str]
+  #?(:clj (t/local-date-time (t/formatter :iso-date-time) date-str)
+     :cljs (tf/parse-local (tf/formatters :date-hour-minute-second) date-str)))
 
 (defn format-local-date
   [local-date]
@@ -331,3 +404,10 @@
   [time & body]
   #?(:clj `(t/with-clock (t/fixed-clock (->instant ~time)) ~@body)
      :cljs `(t/do-at (->instant ~time) ~@body)))
+
+(def ^:private first-and-last
+  (juxt first last))
+
+(defn range-boundaries
+  [ds]
+  (first-and-last (sort t/before? ds)))

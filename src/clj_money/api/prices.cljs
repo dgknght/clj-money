@@ -1,78 +1,60 @@
 (ns clj-money.api.prices
   (:refer-clojure :exclude [update])
-  (:require [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.web :refer [unserialize-date
-                                         serialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [dgknght.app-lib.decimal :refer [->decimal]]
-            [clj-money.api :refer [handle-ex]]))
-
-(defn- after-read
-  [price]
-  (let [trade-date (unserialize-date (:trade-date price))]
-    (-> price
-        (update-in [:price] ->decimal)
-        (assoc
-          :trade-date trade-date
-          :original-trade-date trade-date))))
+  (:require [cljs.pprint :refer [pprint]]
+            [dgknght.app-lib.web :refer [serialize-date]]
+            [clj-money.util :as util :refer [update-keys]]
+            [clj-money.models :as models]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- prepare-criteria
   [criteria]
-  (update-in criteria [:trade-date] #(map serialize-date %)))
+  (-> criteria
+      (dissoc :price/commodity)
+      (update-in [:price/trade-date] #(map serialize-date %))
+      (update-keys (comp keyword name))))
 
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read)
-        xf))
-
-(defn search
-  [criteria xf]
-  {:pre [(some #(contains? criteria %) [:commodity-id :entity-id])
-         (contains? criteria :trade-date)]}
-  (api/get (api/path :prices)
-           (prepare-criteria criteria)
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the prices: %s")}))
+(defn select
+  [{:as criteria :price/keys [commodity]} & {:as opts}]
+  {:pre [(contains? criteria :price/trade-date)]}
+  (let [p (if commodity
+            (api/path :commodities commodity :prices)
+            (api/path :prices))]
+    (api/get p
+             (prepare-criteria criteria)
+             (add-error-handler opts "Unable to retrieve the prices: %s"))))
 
 (defn create
-  [price xf]
+  [price opts]
   (api/post (api/path :commodities
-                      (:commodity-id price)
+                      (:price/commodity price)
                       :prices)
-            (-> price
-                (select-keys [:price :trade-date])
-                (update-in [:trade-date] serialize-date))
-            {:transform (transform xf)
-             :handle-ex (handle-ex "Unable to create the price: %s")}))
+            (dissoc price :price/commodity)
+            (add-error-handler opts "Unable to create the price: %s")))
 
 (defn update
-  [price xf]
+  [price opts]
   (api/patch (api/path :prices
-                       (serialize-date (:original-trade-date price))
-                       (:id price))
-             (-> price
-                 (select-keys [:price :commodity-id :trade-date])
-                 (update-in [:trade-date] serialize-date))
-             {:transform (transform xf)
-              :handle-ex (handle-ex "Unable to update the price: %s")}))
+                       (serialize-date (:price/original-trade-date price))
+                       price)
+             (dissoc price :price/commodity)
+             (add-error-handler opts "Unable to update the price: %s")))
 
 (defn save
-  [price xf]
+  [price & {:as opts}]
   (let [f (if (:id price) update create)]
-    (f price xf)))
+    (f (models/prune price :price)
+       opts)))
 
 (defn delete
-  [price xf]
+  [price & {:as opts}]
   (api/delete (api/path :prices
-                        (serialize-date (:trade-date price))
-                        (->id price))
-              {:transform xf
-               :handle-ex (handle-ex "Unable to remove the price: %s")}))
+                        (serialize-date (:price/trade-date price))
+                        price)
+              (add-error-handler opts "Unable to remove the price: %s")))
 
 (defn fetch
   "Gets commodity prices from an external source"
-  [commodity-ids xf]
+  [commodity-ids & {:as opts}]
   (api/get (api/path :prices :fetch)
            {:commodity-id commodity-ids}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to fetch external price information: %s")}))
+           (add-error-handler opts "Unable to fetch external price information: %s")))

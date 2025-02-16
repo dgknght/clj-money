@@ -1,18 +1,16 @@
 (ns clj-money.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.string :as string]
+            #_[clojure.string :as string]
             [clojure.edn :as edn]
             [clojure.java.shell :refer [sh]]
             [config.core :refer [env]]
-            [java-time.api :as t]
+            #_[java-time.api :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
-            [dgknght.app-lib.dates :as dates]
+            #_[dgknght.app-lib.dates :as dates]
+            [clj-money.models :as models]
             [clj-money.accounts :refer [nest unnest]]
             [clj-money.models.users :as users]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
-            [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]))
 
 (defn- usage?
@@ -48,7 +46,7 @@
    [nil "--usage" "Show usage instructions"
     :id :usage?]])
 
-(def ^:private recalc-options
+#_(def ^:private recalc-options
   {:usage "lein recalc <options>"
    :options (concat
               [["-a" "--account ACCOUNT_NAME" "The name of the account to be updated"
@@ -66,37 +64,38 @@
                 :default false]]
               default-opts)})
 
-(defn- assoc-parent
+#_(defn- assoc-parent
   [criteria account-path entity]
   (if account-path
     (let [parent (->> account-path
                       butlast
                       (reduce (fn [p n]
-                                (accounts/find-by {:entity-id (:id entity)
-                                                   :name n
-                                                   :parent-id (:id p)}))
+                                (models/find-by #:account{:entity entity
+                                                          :name n
+                                                          :parent p}))
                               nil))]
       (assoc criteria
-             :parent-id (:id parent)
-             :name (last account-path)))
+             :account/parent parent
+             :account/name (last account-path)))
     criteria))
 
-(defn- account-criteria
+#_(defn- account-criteria
   [account-path entity]
-  (cond-> {:entity-id (:id entity)}
+  (cond-> {:account/entity entity}
     (not= :all account-path)
     (assoc-parent account-path entity)))
 
 (defn recalc
-  [& args]
-  (with-options args recalc-options [opts]
+  [& _args]
+  (throw (java.lang.UnsupportedOperationException. "Need to rework after changes to transactions namespace."))
+  #_(with-options args recalc-options [opts]
     (with-transacted-storage (env :db)
       (let [user (users/find-by-email (:user-email opts))
             _ (assert user (format "Unable to find user with email address \"%s\"." (:user-email opts)))
-            entity (entities/find-by {:user-id (:id user)
-                                      :name (:entity-name opts)})
+            entity (models/find-by #:entity{:user user
+                                            :name (:entity-name opts)})
             _ (assert entity (format "Unable to find entity with name \"%s\"." (:entity-name opts)))
-            accounts (accounts/search (account-criteria (:account-name opts) entity))
+            accounts (models/select (account-criteria (:account-name opts) entity))
             reset (if (:force? opts)
                     #(dissoc % :earliest-transaction-date :latest-transaction-date)
                     identity)]
@@ -120,8 +119,8 @@
                                    {}))]
             (when (= :all (:account-path opts))
               (-> entity
-                  (update-in [:settings] merge dates)
-                  entities/update))
+                  (update-in [:entity/settings] merge dates)
+                  models/put))
             (println "Done."))
           (println "No accounts found."))))))
 
@@ -144,12 +143,12 @@
     (with-transacted-storage (env :db)
       (let [user (users/find-by-email (:user-email opts))
             _ (assert user (format "Unable to find user with email address \"%s\"." (:user-email opts)))
-            entity (entities/find-by {:user-id (:id user)
-                                      :name (:entity-name opts)})
+            entity (models/find-by #:entity{:user user
+                                            :name (:entity-name opts)})
             _ (assert entity (format "Unable to find entity named \"%s\"." (:entity-name opts)))
-            commodities (commodities/search (cond-> {:entity-id (:id entity)}
-                                              (not= :all (:commodity-symbol opts))
-                                              (assoc :symbol (:commodity-symbol opts))))]
+            commodities (models/select (cond-> {:commodity/entity entity}
+                                         (not= :all (:commodity-symbol opts))
+                                         (assoc :commodity/symbol (:commodity-symbol opts))))]
         (if (seq commodities)
           (do
             (doseq [commodity commodities]
@@ -178,16 +177,16 @@
 (defn migrate-account
   [& args]
   (with-options args migrate-account-cli-options [opts]
-    (let [user (users/find-by {:email (:user-email opts)})
+    (let [user (models/find-by {:user/email (:user-email opts)})
           _ (assert user (format "Unable to find user with email address \"%s\"." (:user-email opts)))
-          entity (entities/find-by {:user-id (:id user)
-                                    :name (:entity-name opts)})
+          entity (models/find-by {:entity/user user
+                                  :entity/name (:entity-name opts)})
           _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))
-          from-account (accounts/find-by {:entity-id (:id entity)
-                                          :name (:from-account opts)})
+          from-account (models/find-by #:account{:entity entity
+                                                 :name (:from-account opts)})
           _ (assert from-account (format "Unable to find an account named \"%s\"." (:from-account opts)))
-          to-account (accounts/find-by {:entity-id (:id entity)
-                                        :name (:to-account opts)})]
+          to-account (models/find-by #:account{:entity entity
+                                               :name (:to-account opts)})]
       (assert to-account (format "Unable to find an account named \"%s\"." (:to-account opts)))
       (transactions/migrate-account from-account to-account))))
 
@@ -207,13 +206,13 @@
 (defn export-user-tags
   [& args]
   (with-options args export-user-tags-cli-options [opts]
-    (let [user (users/find-by {:email (:user-email opts)})
+    (let [user (models/find-by {:user/email (:user-email opts)})
           _ (assert user (format "Unable to find a user with email address \"%s\"." (:user-email opts)))
-          entity (entities/find-by {:user-id (:id user)
-                                    :name (:entity-name opts)})
+          entity (models/find-by #:entity{:user user
+                                          :name (:entity-name opts)})
           _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))]
       (spit (:output-file opts)
-            (->> (accounts/search {:entity-id (:id entity)})
+            (->> (models/select {:account/entity entity})
                  nest
                  unnest
                  (filter #(seq (:user-tags %)))
@@ -236,13 +235,13 @@
 (defn import-user-tags
   [& args]
   (with-options args import-user-tags-cli-options [opts]
-    (let [user (users/find-by {:email (:user-email opts)})
+    (let [user (models/find-by {:user/email (:user-email opts)})
           _ (assert user (format "Unable to find a user with email address \"%s\"." (:user-email opts)))
-          entity (entities/find-by {:user-id (:id user)
-                                    :name (:entity-name opts)})
+          entity (models/find-by #:entity{:user user
+                                          :name (:entity-name opts)})
           _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))
-          accounts (->> (accounts/search {:entity-id (:id entity)
-                                                     :type "expense"})
+          accounts (->> (models/select #:account{:entity entity
+                                                 :type :expense})
                         nest
                         unnest
                         (group-by :path))
@@ -250,7 +249,7 @@
 
       (doseq [{:keys [path user-tags]} tags
               account (get-in accounts [path])]
-        (accounts/update (assoc account :user-tags user-tags))))))
+        (models/put (assoc account :account/user-tags user-tags))))))
 
 (defn compile-sass []
   (println (:out (sh "resources/compile-sass.sh"))))

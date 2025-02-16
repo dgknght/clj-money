@@ -3,8 +3,9 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [ring.util.response :refer [response status header]]
-            [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.validation :as v]
+            [clj-money.authorization :as authorization]
             [clj-money.models :as models]
             [clj-money.api :refer [log-error]]))
 
@@ -77,11 +78,16 @@
   (fn [req]
     (handler (update-in req [:params] normalize-collection-params))))
 
-(defmulti handle-exception (comp :type ex-data))
+(defmulti handle-exception
+  (fn [e]
+    (when-let [data (ex-data e)]
+      (if (::v/errors data)
+        :validation
+        (:type data)))))
 
 (defmethod handle-exception ::authorization/unauthorized
   [e]
-  (if (:opaque? (ex-data e))
+  (if (authorization/opaque? (ex-data e))
     api/not-found
     api/forbidden))
 
@@ -100,9 +106,18 @@
   [_]
   api/not-found)
 
+(defmethod handle-exception :validation
+  [e]
+  (-> e
+      ex-data
+      ::v/errors
+      (api/response 400)))
+
 (defmethod handle-exception :default
   [e]
-  (log/error e "Unexpected ExceptionInfo was while hanlding the web request.")
+  (if-let [details (ex-data e)]
+    (log/errorf e "Unexpected ExceptionInfo was encountered while handling the web request: %s" (pr-str details))
+    (log/error e "Unexpected ExceptionInfo was encountered while handling the web request."))
   api/internal-server-error)
 
 ; TODO: Move this to the api namespace
@@ -112,6 +127,7 @@
     (try
      (handler request)
      (catch clojure.lang.ExceptionInfo e
+       (log-error e "unexpected clojure error")
        (handle-exception e))
      (catch Exception e
        (log-error e "unexpected error")
