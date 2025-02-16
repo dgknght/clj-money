@@ -230,15 +230,15 @@
   [{:trade/keys [dividend? dividend-account account value entity date] :as trade}]
   (when dividend?
     (if dividend-account
-      (models/put #:transaction{:entity entity
-                                :transaction-date date
-                                :description (dividend-transaction-description trade)
-                                :items [#:transaction-item{:action :credit
-                                                           :account dividend-account
-                                                           :quantity value}
-                                        #:transaction-item{:action :debit
-                                                           :account account
-                                                           :quantity value}]})
+      #:transaction{:entity entity
+                    :transaction-date date
+                    :description (dividend-transaction-description trade)
+                    :items [#:transaction-item{:action :credit
+                                               :account dividend-account
+                                               :quantity value}
+                            #:transaction-item{:action :debit
+                                               :account account
+                                               :quantity value}]}
       (throw (ex-info "Unable to apply the dividend because a dividend account was not specified"
                       trade)))))
 
@@ -435,7 +435,9 @@
                       create-price
                       update-accounts
                       create-lot)
-          div-trans (create-dividend-transaction prepped)
+          div-trans (some-> prepped
+                            create-dividend-transaction
+                            models/put)
           res (-> prepped
                   create-purchase-transaction
                   propagate-price-to-accounts
@@ -568,7 +570,7 @@
                #(merge settings %))))
  
 (def ^:private find-or-create-account
-  (some-fn models/find-by models/put))
+  (some-fn models/find-by identity))
  
 (defn- find-or-create-gains-account
   [{:trade/keys [entity]} term result]
