@@ -295,7 +295,7 @@
                     (dates/unserialize-local-date "2000-01-01"))))
 
 (deftest serialize-a-local-date-time
-  (is (= "2000-01-01T12:34:56.000"
+  (is (= "2000-01-01T12:34:56"
          (dates/serialize-local-date-time (t/local-date-time 2000 1 1 12 34 56)))))
 
 (deftest unserialize-a-local-date-time
