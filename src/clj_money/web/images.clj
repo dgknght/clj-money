@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [ring.util.response :as res]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.authorization.images]))
 
@@ -10,6 +11,7 @@
   [{:keys [params authenticated]}]
   (some-> params
           (select-keys [:id])
+          (util/model-type :image)
           (+scope :image authenticated)
           (models/find-by {:include-body? true})))
 
