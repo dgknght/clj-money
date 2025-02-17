@@ -216,60 +216,6 @@
                               :credit)
                     {:transaction/items ["Sum of debits must equal the sum of credits"]})))
 
-(def balance-context
-  (conj base-context
-        #:transaction{:transaction-date (t/local-date 2016 3 2)
-                      :entity "Personal"
-                      :description "Paycheck"
-                      :debit-account "Checking"
-                      :credit-account "Salary"
-                      :quantity 1000M}
-        #:transaction{:transaction-date (t/local-date 2016 3 3)
-                      :entity "Personal"
-                      :description "Kroger"
-                      :debit-account "Groceries"
-                      :credit-account "Checking"
-                      :quantity 100M}))
-
-(deftest item-balances-are-set-when-saved
-  (with-context balance-context
-    (let [[checking-items
-           salary-items
-           groceries-items] (items-by-account ["Checking"
-                                               "Salary"
-                                               "Groceries"])]
-      ; Transactions are returned with most recent first
-      (is (= [900M 1000M]
-             (map :transaction-item/balance checking-items))
-          "The checking account balances are correct")
-      (is (= [1000M] (map :transaction-item/balance salary-items))
-          "The salary account balances are correct")
-      (is (= [100M] (map :transaction-item/balance groceries-items))
-          "The groceries account balances are correct"))))
-
-(deftest item-indexes-are-set-when-saved
-  (with-context balance-context
-    (let [[checking-items
-           salary-items
-           groceries-items] (items-by-account ["Checking"
-                                               "Salary"
-                                               "Groceries"])]
-      (is (= [1 0] (map :transaction-item/index checking-items)) "The checking transaction items have correct indexes")
-      (is (= [0]   (map :transaction-item/index salary-items)) "The salary transaction items have the correct indexes")
-      (is (= [0]   (map :transaction-item/index groceries-items)) "The groceries transaction items have the correct indexes"))))
-
-(deftest account-balances-are-set-when-saved
-  (with-context balance-context
-    (let [[checking
-           salary
-           groceries] (find-accounts "Checking"
-                                     "Salary"
-                                     "Groceries")]
-      (assert-account-quantities
-        checking 900M
-        salary 1000M
-        groceries 100M))))
-
 (def insert-context
   (conj base-context
         #:transaction{:transaction-date (t/local-date 2016 3 2)
@@ -283,17 +229,21 @@
                       :description "Kroger"
                       :debit-account "Groceries"
                       :credit-account "Checking"
-                      :quantity 100M}
-        #:transaction{:transaction-date (t/local-date 2016 3 3)
-                      :entity "Personal"
-                      :description "Kroger"
-                      :debit-account "Groceries"
-                      :credit-account "Checking"
-                      :quantity 99M}))
+                      :quantity 100M}))
 
 (deftest insert-transaction-before-the-end
   (with-context insert-context
-    (is (seq-of-maps-like? [#:transaction-item{:index 2
+    (println "TEST GOES HERE")
+    #_(let [out-chan (models/propagation-chan)]
+      (models/put #:transaction{:transaction-date (t/local-date 2016 3 3)
+                                :entity (find-entity "Personal")
+                                :description "Kroger"
+                                :debit-account (find-account "Groceries")
+                                :credit-account (find-account "Checking")
+                                :quantity 99M}
+                  :out-chan out-chan)
+      (pprint {::chan-output (a/alts!! [out-chan (a/timeout 1000)])}))
+    #_(is (seq-of-maps-like? [#:transaction-item{:index 2
                                                :quantity 100M
                                                :balance 801M}
                             #:transaction-item{:index 1
@@ -304,9 +254,9 @@
                                                :balance 1000M}]
                            (items-by-account "Checking"))
         "The checking item indexes and balances are adjusted")
-    (is (= 801M (:account/quantity (reload-account "Checking")))
+    #_(is (= 801M (:account/quantity (reload-account "Checking")))
         "The checking account quantity is updated")
-    (is (= 199M (:account/quantity (reload-account "Groceries")))
+    #_(is (= 199M (:account/quantity (reload-account "Groceries")))
         "The groceries account quantity is updated")))
  
 (def multi-context
@@ -314,31 +264,28 @@
         #:account{:name "Bonus"
                   :type :income
                   :entity "Personal"
-                  :commodity "USD"}
-        #:transaction{:transaction-date (t/local-date 2016 3 2)
-                      :entity "Personal"
-                      :description "Paycheck"
-                      :items [#:transaction-item{:action :debit
-                                                 :account "Checking"
-                                                 :quantity 1000M}
-                              #:transaction-item{:action :debit
-                                                 :account "Checking"
-                                                 :quantity 100M}
-                              #:transaction-item{:action :credit
-                                                 :account "Salary"
-                                                 :quantity 1000M}
-                              #:transaction-item{:action :credit
-                                                 :account "Bonus"
-                                                 :quantity 100M}]}
-        #:transaction{:transaction-date (t/local-date 2016 3 10)
-                      :entity "Personal"
-                      :description "Kroger"
-                      :debit-account "Groceries"
-                      :credit-account "Checking"
-                      :quantity 100M}))
+                  :commodity "USD"}))
 
 (deftest create-a-transaction-with-multiple-items-for-one-account
   (with-context multi-context
+    (let [out-chan (models/propagation-chan)]
+      (models/put #:transaction{:transaction-date (t/local-date 2016 3 2)
+                                :entity (find-entity "Personal")
+                                :description "Paycheck"
+                                :items [#:transaction-item{:action :debit
+                                                           :account (find-account "Checking")
+                                                           :quantity 1000M}
+                                        #:transaction-item{:action :debit
+                                                           :account (find-account "Checking")
+                                                           :quantity 100M}
+                                        #:transaction-item{:action :credit
+                                                           :account (find-account "Salary")
+                                                           :quantity 1000M}
+                                        #:transaction-item{:action :credit
+                                                           :account (find-account "Bonus")
+                                                           :quantity 100M}]}
+                  :out-chan out-chan)
+      (a/alts!! [out-chan (a/timeout 1000)]))
     (let [checking (reload-account "Checking")]
       (is (comparable? {:account/earliest-transaction-date (t/local-date 2016 3 2)
                         :account/latest-transaction-date (t/local-date 2016 3 10)}

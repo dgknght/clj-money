@@ -8,7 +8,8 @@
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
             [clj-money.transactions :refer [expand]]
-            [clj-money.trading :as trading]))
+            [clj-money.trading :as trading]
+            [clj-money.models.transactions :refer [propagate-all]]))
 
 (def ^:dynamic *context* nil)
 
@@ -432,15 +433,20 @@
 (defn realize
   "Realizes a test context"
   [input]
-  (->> input
-       (reduce (fn [ctx m]
-                 (apply conj
-                        ctx
-                        (-> m
-                            (prepare ctx)
-                            process)))
-               [])
-       (mapv post-process)))
+  (let [result (->> input
+                    (reduce (fn [ctx m]
+                              (apply conj
+                                     ctx
+                                     (-> m
+                                         (prepare ctx)
+                                         process)))
+                            [])
+                    (mapv post-process))]
+
+    (pprint {::initial-result (util/simplify result)})
+
+    (propagate-all)
+    result))
 
 (defmacro with-context
   [& args]

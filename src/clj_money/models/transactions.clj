@@ -309,6 +309,10 @@
          :transaction-item/index (+ 1 prev-index)
          :transaction-item/balance (+ polarized-quantity prev-balance)))
 
+(def ^:private blank-item
+  #:transaction-item{:index -1
+                     :balance 0M})
+
 (defn- propagation-basis
   "Given and account and a date, return the last item before
   the date. If no such item exists, return a dummy item with
@@ -316,8 +320,7 @@
   [account date]
   (or (when (util/live-id? account)
         (last-account-item-before account date))
-      #:transaction-item{:index -1
-                         :balance 0M}))
+      blank-item))
 
 (defn- polarize
   [{:transaction-item/keys [account quantity action] :as item}]
@@ -553,3 +556,18 @@
         (let [items (group-by :transaction-item/transaction
                               (models/select #:transaction-item{:transaction [:in (map :id trxs)]}))]
           (map #(assoc % :transaction/items (items (:id %)))))))))
+
+(defn propagate-all
+  ([]
+   (doseq [entity (models/select (util/model-type {} :entity))]
+     (propagate-all entity)))
+  ([entity]
+   (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
+     (doall (for [account (map #(update-in % [:account/commodity] commodities)
+                               (models/select {:account/entity entity}))
+                  :let [items (seq (models/select {:transaction-item/account account}))]]
+
+              (when items
+                (models/put-many
+                  (re-index account
+                            (cons blank-item items)))))))))
