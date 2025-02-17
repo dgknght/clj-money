@@ -22,8 +22,9 @@
 (defmulti before-validation util/model-type-dispatch)
 (defmethod before-validation :default [m & _] m)
 
-(defmulti propagate (fn [b a]
-                      (util/model-type (or b a))))
+(defmulti propagate #(->> %
+                          (filter identity)
+                          (some util/model-type)))
 (defmethod propagate :default [_before _after] [])
 
 (defmulti before-save util/model-type-dispatch)
@@ -179,13 +180,11 @@
   are dispatched by model type, including: before-validation, before-save,
   after-save.
 
-  Additionally, propagates changes to related records, also dispatched by model
-  type.
-
   Options:
   :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
-  :out-chan     - An async channel, that when passed, before and after versions
-                  of each model affected by the operation."
+  :out-chan     - An async channel, that when passed, receives change tuples
+                  containing before and after versions of each model affected
+                  by the operation."
   ([models] (put-many {} models))
   ([{:as opts
      :keys [out-chan
@@ -222,6 +221,14 @@
                                identity)))
               (a/onto-chan!! out-chan))))
      result)))
+
+(defn propagation-chan
+  "Returns a channel that will accept before & after output (from the out-chan
+   of either put, put-many, delete, or delete-many) and propagates changes to
+   any other models affected by the change."
+  []
+  (a/chan 1 (comp (map propagate)
+                  (map put-many))))
 
 (defn put
   [model & {:as opts}]

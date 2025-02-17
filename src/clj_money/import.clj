@@ -3,17 +3,17 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [<!! >! chan go pipe sliding-buffer] :as async]
+            [clojure.core.async :refer [>! chan go pipe sliding-buffer] :as async]
             [clojure.spec.alpha :as s]
             [java-time.api :as t]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.dates :as dates]
             [clj-money.trading :as trading]
-            [clj-money.accounts :refer [->>criteria]]
-            [clj-money.transactions :refer [polarize-item-quantity]]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.settings :as settings]))
+            #_[clj-money.accounts :refer [->>criteria]]
+            #_[clj-money.transactions :refer [polarize-item-quantity]]
+            #_[clj-money.models.transactions :as transactions]
+            #_[clj-money.models.settings :as settings]))
 
 (defmulti read-source
   (fn [source-type & _]
@@ -472,13 +472,13 @@
                   (assoc-error context (.getMessage e) (ex-data e))))
            record)))))
 
-(defn- append-child-ids
+#_(defn- append-child-ids
   [account-id account-children]
   (cons account-id
         (mapcat #(append-child-ids % account-children)
                 (account-children account-id))))
 
-(defn- fetch-reconciled-items
+#_(defn- fetch-reconciled-items
   [{:reconciliation/keys [account]
     :keys [id]}
    {:keys [account-children
@@ -497,7 +497,7 @@
                                        accounts)
                           :transaction-item/reconciliation (util/->model-ref id)))))
 
-(defn- process-reconciliation
+#_(defn- process-reconciliation
   [{:reconciliation/keys [account] :as recon} ctx]
   (let [account (models/find account :account)
         updated (assoc recon
@@ -509,7 +509,7 @@
                        :reconciliation/status :completed)]
     (models/put updated)))
 
-(defn- process-reconciliations
+#_(defn- process-reconciliations
   [{:keys [entity] :as ctx} out-chan]
   (let [reconciliations (models/select
                           (util/model-type
@@ -634,7 +634,7 @@
 (defn- import-data*
   [import-spec progress-chan]
   (let [user (models/find (:import/user import-spec) :user)
-        [inputs source-type] (prepare-input (:import/images import-spec))
+        [_inputs _source-type] (prepare-input (:import/images import-spec))
         entity ((some-fn models/find-by models/put)
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
@@ -643,7 +643,7 @@
         rebalance-chan (chan 1 (map #(assoc % :import/record-type :account-balance)))
         reconciliations-chan (chan 1 (map #(assoc % :import/record-type :process-reconciliation)))
         prep-chan (chan (sliding-buffer 1) (->progress))
-        read-source-result-chan (async/transduce
+        _read-source-result-chan (async/transduce
                                   (comp (filter-import)
                                         import-record
                                         (forward prep-chan))
@@ -657,7 +657,8 @@
     (pipe prep-chan progress-chan false)
     (go
       (try
-        (let [result (transactions/with-delayed-balancing [(:id entity) rebalance-chan]
+        (throw (RuntimeException. "Need to rewrite the logic that executes propagation after import is completed"))
+        #_(let [result (transactions/with-delayed-balancing [(:id entity) rebalance-chan]
                        (read-source source-type inputs source-chan)
                        (<!! read-source-result-chan))]
           (deref

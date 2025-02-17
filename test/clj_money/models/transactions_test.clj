@@ -1,6 +1,6 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer [deftest use-fixtures testing is]]
-            [clojure.core.async :refer [chan go-loop <!]]
+            [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-money.db.sql.ref]
@@ -94,8 +94,17 @@
 
 (deftest create-a-transaction
   (with-context base-context
-    (let [{:transaction/keys [items]} (assert-created (attributes))
-          date (t/local-date 2016 3 2)]
+    (assert-created (attributes))))
+
+(deftest create-and-propagate-a-transaction
+  (with-context base-context
+    (let [date (t/local-date 2016 3 2)
+          prop-chan (models/propagation-chan)
+          out-chan (a/chan)]
+      (a/pipe prop-chan out-chan)
+      (models/put (attributes)
+                  :out-chan (models/propagation-chan))
+      (a/alts!! [out-chan (a/timeout 2000)])
       (testing "entity updates"
         (is (comparable? #:settings{:earliest-transaction-date date
                                     :latest-transaction-date date}
@@ -111,43 +120,12 @@
                          (reload-account "Salary"))
             "The credited account is updated with transaction dates"))
       (testing "item updates"
-        (is (comparable? #:transaction-item{:index 0
-                                            :balance 1000M}
-                         (first items))
-            "The first item has the correct summary data")
-        (is (comparable? #:transaction-item{:index 0
-                                            :balance 1000M}
-                         (second items))
-            "The first item has the correct summary data")))))
-
-; (deftest rollback-on-failure
-;   (let [call-count (atom 0)]
-;     (with-redefs [transactions/before-save-item (fn [item]
-;                                                   (if (= 1 @call-count)
-;                                                     (throw (RuntimeException. "Induced error"))
-;                                                     (do
-;                                                       (swap! call-count inc)
-;                                                       (update-in item [:action] name))))]
-;       (with-context base-context
-;         (let [checking (find-account "Checking")
-;               salary (find-account "Salary")
-;               entity (find-entity "Personal")]
-;           (try
-;             (transactions/create (attributes))
-;             (catch RuntimeException _
-;               nil))
-;           (testing "records are not created"
-;             (is (= 0 (count (transactions/search
-;                               {:entity-id (:id entity)
-;                                :transaction-date [:between>
-;                                                   (t/local-date 2016 1 1)
-;                                                   (t/local-date 2017 1 1)]})))
-;                 "The transaction should not be saved")
-;             (is (= 0 (count (items-by-account checking)))
-;                 "The transaction item for checking should not be created")
-;             (is (= 0 (count (items-by-account salary)))
-;                 "The transaction item for salary should not be created"))
-;           (assert-account-quantities checking 0M salary 0M))))))
+        (is (seq-of-maps-like? [#:transaction-item{:index 0
+                                                   :balance 1000M}
+                                #:transaction-item{:index 0
+                                                   :balance 1000M}]
+                               (models/select {:transaction-item/transaction-date date}))
+            "The item indices and balances are calculated")))))
 
 (deftest transaction-date-is-required
   (with-context base-context
@@ -978,17 +956,18 @@
           "The February value is the balance for the last item in the period"))))
 
 (deftest create-multiple-transactions-then-recalculate-balances
-  (with-context base-context
+  (is false "Need to rewrite this test")
+  #_(with-context base-context
     (let [entity (find-entity "Personal")
           [checking
            salary
            groceries] (find-accounts "Checking" "Salary" "Groceries")
-          progress-chan (chan)
+          progress-chan (a/chan)
           progress (atom [])]
-      (go-loop [p (<! progress-chan)]
-               (when p
-                 (swap! progress conj p)
-                 (recur (<! progress-chan))))
+      (a/go-loop [p (a/<! progress-chan)]
+                 (when p
+                   (swap! progress conj p)
+                   (recur (a/<! progress-chan))))
       (transactions/with-delayed-balancing [(:id entity) progress-chan]
         (mapv (comp models/put
                     #(assoc % :transaction/entity entity))

@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.async :as a]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid
                                           index-by]]
@@ -462,7 +461,7 @@
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [before {:transaction/keys [transaction-date] :keys [id] :as after}]
+  [[before {:transaction/keys [transaction-date] :keys [id] :as after}]]
   (->> (:transaction/items after)
        (map #(cond-> %
                true (assoc :transaction-item/transaction-date transaction-date)
@@ -477,7 +476,7 @@
                  :delete? false))))
 
 (defn- propagate-dereferenced-account-items
-  [before {:transaction/keys [items]}]
+  [[before {:transaction/keys [items]}]]
   (let [act-ids (->> items
                      (map (comp :id
                                 :transaction-item/account))
@@ -496,11 +495,9 @@
 (defn- propagate-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [before after]
-  (concat (propagate-current-items before after)
-          (propagate-dereferenced-account-items before after)))
-
-(def delayed (atom {}))
+  [change]
+  (concat (propagate-current-items change)
+          (propagate-dereferenced-account-items change)))
 
 (defn- propagate-scheduled-transaction
   [{:transaction/keys [transaction-date]
@@ -511,10 +508,10 @@
     (assoc sched-trx :scheduled-transaction/last-occurrence transaction-date)))
 
 (defn- propagate-transaction
-  [before {:as trx :transaction/keys [transaction-date]}]
+  [[_ {:as trx :transaction/keys [transaction-date]} :as change]]
   (let [{transaction-items true
          others false} (group-by (belongs-to-trx? trx)
-                                 (propagate-items before trx))
+                                 (propagate-items change))
         entity (-> (:transaction/entity trx)
                    (models/find :entity)
                    (push-date-boundaries transaction-date
@@ -529,39 +526,11 @@
             transaction-items
             others)))
 
-(defn- append-delay-details
-  [m
-   {before :transaction/transaction-date}
-   {after :transaction/transaction-date :transaction/keys [items]}]
-  (-> m
-      (update-in [:accounts] #(apply (fnil conj #{})
-                                     %
-                                     (map (comp util/->model-ref
-                                                :transaction-item/account)
-                                          items)))
-      (update-in [:earliest-date] dates/earliest before after)
-      (update-in [:latest-date] dates/latest before after)))
-
-(defn- delay-propagation
-  "Given a transaction, appends dummy index and balance values
-  and saves account and date information for later use"
-  [entity before after]
-  (swap! delayed
-         update-in
-         [(:id entity)]
-         append-delay-details
-         before
-         after)
-  [])
-
 (defmethod models/propagate :transaction
-  [before after]
-  (let [entity (some :transaction/entity [before after])]
-    (if (@delayed (:id entity))
-      (delay-propagation entity before after)
-      (if after
-        (propagate-transaction before after)
-        (propagate-dereferenced-account-items before nil)))))
+  [[_ after :as change]]
+  (if after
+    (propagate-transaction change)
+    (propagate-dereferenced-account-items change)))
 
 (defmethod models/before-delete :transaction
   [trx]
@@ -571,48 +540,6 @@
                                   :transaction-item/reconciliation [:!= nil]})))
     (throw (IllegalStateException. "Cannot delete transaction with reconciled items")))
   trx)
-
-(defn process-delayed-balances*
-  [entity-id {:keys [accounts earliest-date latest-date]} progress-chan]
-  (-> (models/find entity-id :entity)
-      (update-in [:entity/settings
-                  :settings/earliest-transaction-date]
-                 dates/earliest earliest-date)
-      (update-in [:entity/settings
-                  :settings/latest-transaction-date]
-                 dates/latest latest-date)
-      models/put)
-  (a/>!! progress-chan
-         (->> accounts
-              (map (comp (fn [a]
-                           (let [basis (propagation-basis a earliest-date)
-                                 affected (map (comp polarize
-                                                     #(assoc % :transaction-item/account a))
-                                               (account-items-on-or-after a earliest-date))]
-                             (models/put-many (re-index a (cons basis affected)))))
-                         #(models/find % :account)))
-              (reduce (fn [prg _put-result]
-                        (a/>!! progress-chan prg)
-                        (update-in prg [:completed] inc))
-                      {:total (count accounts)
-                       :completed 0})))
-  (a/close! progress-chan))
-
-(defmacro with-delayed-balancing
-  "Any transactions saved in this body of this macro will not propagate
-  changes to other models until the form is completed.
-
-  The first binding argument is the ID of the entity for which balancing is delayed.
-  The second binding argument is a channel to which updates will be sent."
-  [bindings & body]
-  `(let [f# (fn* [] ~@body)
-         entity-id# ~(first bindings)
-         prog-chan# ~(second bindings)
-         _# (swap! delayed assoc entity-id# {})
-         result# (f#)]
-     (process-delayed-balances* entity-id# (@delayed entity-id#) prog-chan#)
-     (swap! delayed dissoc entity-id#)
-     result#))
 
 (defn append-items
   "Given a list of transactions, return the same with the items appended.
