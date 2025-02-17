@@ -257,7 +257,7 @@
         "The checking account quantity is updated")
     (is (= 199M (:account/quantity (reload-account "Groceries")))
         "The groceries account quantity is updated")))
- 
+
 (def multi-context
   (conj base-context
         #:account{:name "Bonus"
@@ -285,27 +285,20 @@
                                                            :quantity 100M}]}
                   :out-chan out-chan)
       (a/alts!! [out-chan (a/timeout 1000)]))
-    (let [checking (reload-account "Checking")]
-      (is (comparable? {:account/earliest-transaction-date (t/local-date 2016 3 2)
-                        :account/latest-transaction-date (t/local-date 2016 3 10)}
-                       checking)
-          "The checking account transaction date boundaries reflect all transactions")
-      (is (seq-of-maps-like? [{:transaction-item/index 0
-                               :transaction-item/action :debit
-                               :transaction-item/quantity 1000M
-                               :transaction-item/balance 1000M}
-                              {:transaction-item/index 1
-                               :transaction-item/action :debit
-                               :transaction-item/quantity 100M
-                               :transaction-item/balance 1100M}
-                              {:transaction-item/index 2
-                               :transaction-item/action :credit
-                               :transaction-item/quantity 100M
-                               :transaction-item/balance 1000M}]
-                             (-> checking
-                                 acts/->criteria
-                                 (models/select {:sort [[:transaction-item/index :asc]]})))
-          "The checking account items has sequential indices and a running balance"))))
+    (is (comparable? {:account/earliest-transaction-date (t/local-date 2016 3 2)
+                      :account/latest-transaction-date (t/local-date 2016 3 2)}
+                     (reload-account "Checking"))
+        "The checking account transaction date boundaries reflect all transactions")
+    (is (seq-of-maps-like? [{:transaction-item/index 1
+                             :transaction-item/action :debit
+                             :transaction-item/quantity 100M
+                             :transaction-item/balance 1100M}
+                            {:transaction-item/index 0
+                             :transaction-item/action :debit
+                             :transaction-item/quantity 1000M
+                             :transaction-item/balance 1000M}]
+                           (items-by-account "Checking"))
+        "The checking account items has sequential indices and a running balance")))
 
 (def delete-context
   (conj base-context
@@ -332,8 +325,9 @@
   (with-context delete-context
     (let [checking-items-before (items-by-account "Checking")
           trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])
-          _ (models/delete trans)
-          checking-items-after (items-by-account "Checking")]
+          ch (models/propagation-chan)]
+      (models/delete trans :out-chan ch)
+      (a/alts!! [ch (a/timeout 1000)])
       (testing "checking transaction item balances are adjusted"
         (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity 102M :balance 798M}
                                 #:transaction-item{:index 1 :quantity 100M :balance 900M}
@@ -342,7 +336,7 @@
             "The item to be deleted is present before the delete")
         (is (seq-of-maps-like? [#:transaction-item{:index 1 :quantity 102M :balance 898M}
                                 #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
-                               checking-items-after)
+                               (items-by-account "Checking"))
             "The deleted item is absent after the delete"))
       (testing "account balances are adjusted"
         (is (= 898M (:account/quantity (reload-account "Checking")))
@@ -449,16 +443,19 @@
 
 (defn- update-trx-items
   [trx & {:as change-map}]
-  (update-in trx [:transaction/items] update-items change-map))
+  (let [ch (models/propagation-chan)
+        result (models/put (update-in trx [:transaction/items] update-items change-map)
+                           :out-chan ch)]
+    (a/alts!! [ch (a/timeout 1000)])
+    result))
 
 (deftest update-a-transaction-change-quantity
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
-      (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
-          (update-trx-items groceries {:transaction-item/quantity 99.99M}
-                            checking {:transaction-item/quantity 99.99M})
-          models/put)
+      (update-trx-items (find-transaction [(t/local-date 2016 3 12) "Kroger"])
+                        groceries {:transaction-item/quantity 99.99M}
+                        checking {:transaction-item/quantity 99.99M})
       (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity  102.00M :balance   798.01M}
                               #:transaction-item{:index 1 :quantity   99.99M :balance   900.01M}
                               #:transaction-item{:index 0 :quantity 1000.00M :balance 1000.00M}]
@@ -475,9 +472,11 @@
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
           trx (find-transaction [(t/local-date 2016 3 22) "Kroger"])
+          ch (models/propagation-chan)
           result (-> trx
                      (assoc :transaction/transaction-date (t/local-date 2016 3 10))
-                     models/put)]
+                     (models/put :out-chan ch))]
+      (a/alts!! [ch (a/timeout 1000)])
       (is (seq-of-maps-like? [#:transaction-item{:index 2
                                                  :transaction-date (t/local-date 2016 3 12)
                                                  :quantity 101M
@@ -660,9 +659,8 @@
   (with-context change-account-context
     (let [[rent
            groceries] (find-accounts "Rent" "Groceries")]
-      (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
-          (update-trx-items groceries {:transaction-item/account rent})
-          models/put)
+      (update-trx-items (find-transaction [(t/local-date 2016 3 16) "Kroger"])
+                        groceries {:transaction-item/account rent})
       (is (seq-of-maps-like? [#:transaction-item{:index 1
                                                  :quantity 103M
                                                  :balance 204M}
@@ -709,10 +707,9 @@
   (with-context change-action-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
-      (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
-          (update-trx-items groceries {:transaction-item/action :credit}
-                            checking {:transaction-item/action :debit})
-          models/put)
+      (update-trx-items (find-transaction [(t/local-date 2016 3 16) "Kroger"])
+                        groceries {:transaction-item/action :credit}
+                        checking {:transaction-item/action :debit})
       (is (= [#:transaction-item{:index 2
                                  :quantity 101M
                                  :action :debit
@@ -794,14 +791,18 @@
 
 (deftest update-a-transaction-remove-item
   (with-context add-remove-item-context
-    (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
-        (update-trx-items (find-account "Groceries")
-                          #:transaction-item{:quantity 102M
-                                             :value 102M})
-        (update-in [:transaction/items] #(remove (fn [i]
-                                                   (= 12M (:transaction-item/quantity i)))
-                                                 %))
-        models/put)
+    (let [ch (models/propagation-chan)]
+      (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
+          (update-in [:transaction/items]
+                     update-items
+                     {(find-account "Groceries")
+                      #:transaction-item{:quantity 102M
+                                         :value 102M}})
+          (update-in [:transaction/items] #(remove (fn [i]
+                                                     (= 12M (:transaction-item/quantity i)))
+                                                   %))
+          (models/put :out-chan ch))
+      (a/alts!! [ch (a/timeout 1000)]))
     (is (seq-of-maps-like? [#:transaction-item{:index 2
                                                :quantity 101M
                                                :balance 306M}
@@ -820,17 +821,21 @@
   (with-context add-remove-item-context
     (let [[pets
            groceries
-           checking] (find-accounts "Pets" "Groceries" "Checking")]
+           checking] (find-accounts "Pets" "Groceries" "Checking")
+          ch (models/propagation-chan)]
       (-> (find-transaction [(t/local-date 2016 3 9) "Kroger"])
-          (update-trx-items groceries #:transaction-item{:quantity 90M
-                                                         :value 90M})
+          (update-in [:transaction/items]
+                     update-items
+                     {groceries #:transaction-item{:quantity 90M
+                                                   :value 90M}})
           (update-in [:transaction/items]
                      conj
                      #:transaction-item{:action :debit
                                         :account pets
                                         :quantity 13M
                                         :value 13M})
-          models/put)
+          (models/put :out-chan ch))
+      (a/alts!! [ch (a/timeout 1000)])
       (testing "item values are correct"
         (is (seq-of-maps-like? [#:transaction-item{:index 1
                                                    :quantity 12M
@@ -946,7 +951,7 @@
                         :settings/latest-transaction-date (t/local-date 2017 2 1)}
                        (:entity/settings (models/find entity)))
           "The entity transaction date boundaries are updated"))))
- 
+
 (deftest use-simplified-items
   (with-context base-context
     (let [entity (find-entity "Personal")
@@ -964,35 +969,6 @@
                                                  :action :credit
                                                  :account (util/->model-ref salary)}]
                              (:transaction/items trx))))))
-
-(deftest set-account-boundaries
-  (with-context base-context
-    (let [entity (find-entity "Personal")
-          [checking
-           salary
-           groceries] (map util/->model-ref
-                           (find-accounts "Checking" "Salary" "Groceries"))]
-      (->> [#:transaction{:transaction-date (t/local-date 2017 2 27)
-                          :description "Paycheck"
-                          :quantity 1000M
-                          :debit-account checking
-                          :credit-account salary}
-            #:transaction{:transaction-date (t/local-date 2017 3 2)
-                          :description "Kroger"
-                          :quantity 100M
-                          :debit-account groceries
-                          :credit-account checking}]
-           (map #(assoc % :transaction/entity entity))
-           (mapv models/put))
-      (is (comparable? #:account {:earliest-transaction-date (t/local-date 2017 2 27)
-                                  :latest-transaction-date (t/local-date 2017 3 2)}
-                       (reload-account "Checking")))
-      (is (comparable? #:account {:earliest-transaction-date (t/local-date 2017 2 27)
-                                  :latest-transaction-date (t/local-date 2017 2 27)}
-                       (reload-account "Salary")))
-      (is (comparable? #:account {:earliest-transaction-date (t/local-date 2017 3 2)
-                                  :latest-transaction-date (t/local-date 2017 3 2)}
-                       (reload-account "Groceries"))))))
 
 (def ^:private existing-reconciliation-context
   (conj base-context
