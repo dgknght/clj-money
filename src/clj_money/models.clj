@@ -184,56 +184,44 @@
 
   Options:
   :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
-  :prop-chan    - An async channel, that when passed, receives the result of
-                  the propagation. When not passed, the propagation is done
-                  synchronously and the result is included with the primary result."
+  :out-chan     - An async channel, that when passed, before and after versions
+                  of each model affected by the operation."
   ([models] (put-many {} models))
   ([{:as opts
-     :keys [prop-chan
-            depth
-            storage]
-     :or {depth 0}}
+     :keys [out-chan
+            storage]}
     models]
    {:pre [(s/valid? (s/coll-of map?) models)]}
 
-   (if (> depth 3)
-     (throw (ex-info "Excessive recursion" {:depth depth}))
-     (let [to-save (->> models
-                        (handle-dupes opts)
-                        (map (dispatch
-                               (comp ensure-id
-                                     before-save
-                                     validate
-                                     before-validation))))
-           before-map (->> to-save
-                           (map (juxt :id (dispatch before)))
-                           (into {}))
-           {:keys [saved id-map]} (db/put (or storage
-                                              (db/storage))
-                                          to-save)
-           primary-result (map (comp append-before
-                                     after-save
-                                     #(after-read % {}))
-                               saved)
-           inverted-id-map (map-invert id-map)
-           propagation-to-save (->> (deletions models)
-                                    (concat primary-result)
-                                    (map (fn [{:keys [id] :as a}]
-                                           [(before-map (or (inverted-id-map id)
-                                                            id))
-                                            a]))
-                                    (mapcat #(apply propagate %))
-                                    seq)]
-       (if prop-chan
-         (do
-           (when propagation-to-save
-             (a/go
-               (a/onto-chan! prop-chan
-                             (put-many {:depth (inc depth)} propagation-to-save))))
-           primary-result)
-         (concat primary-result
-                 (when propagation-to-save
-                   (put-many {:depth (inc depth)} propagation-to-save))))))))
+   (let [to-save (->> models
+                      (handle-dupes opts)
+                      (map (dispatch
+                             (comp ensure-id
+                                   before-save
+                                   validate
+                                   before-validation))))
+         before-map (->> to-save
+                         (map (juxt :id (dispatch before)))
+                         (into {}))
+         {:keys [saved id-map]} (db/put (or storage
+                                            (db/storage))
+                                        to-save)
+         result (map (comp append-before
+                           after-save
+                           #(after-read % {}))
+                     saved)
+         inverted-id-map (map-invert id-map)
+         working-id (comp #(inverted-id-map % %))
+         before (comp before-map working-id :id)]
+     (when out-chan
+       (a/go
+         (->> (deletions models)
+              (concat result)
+              (map (comp vec
+                         (juxt before
+                               identity)))
+              (a/onto-chan!! out-chan))))
+     result)))
 
 (defn put
   [model & {:as opts}]
@@ -241,19 +229,17 @@
 
 (defn delete-many
   ([models] (delete-many {} models))
-  ([{:keys [prop-chan]} models]
+  ([{:keys [out-chan]} models]
    {:pre [(seq (filter identity models))]}
-   (let [propagation (mapcat #(propagate % nil)
-                             models)]
-     (->> models
-          (map before-delete)
-          (db/delete (db/storage)))
-     (when propagation
-       (if prop-chan
-         (a/go
-           (a/onto-chan! prop-chan
-                         (put-many {} propagation)))
-         (put-many {} propagation))))))
+   (let [result (->> models
+                     (map before-delete)
+                     (db/delete (db/storage)))]
+     (when out-chan
+       (a/go
+         (->> models
+              (map #(vector % nil))
+              (a/onto-chan!! out-chan))))
+     result)))
 
 (defn delete
   [model & {:as opts}]

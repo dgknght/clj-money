@@ -2,7 +2,10 @@
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
-            [clj-money.model-helpers :refer [assert-invalid]]
+            [clj-money.model-helpers :refer [assert-created
+                                             assert-updated
+                                             assert-invalid
+                                             assert-deleted]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.dates :refer [with-fixed-time]]
@@ -19,19 +22,14 @@
                        :password "please01"})
 
 (deftest create-a-user
-  (let [user (models/put attributes)
-        expected (dissoc attributes :user/password)]
-    (is (:id user) "The result has an :id attributes")
+  (let [user (assert-created attributes
+                             :ignore-attributes [:user/password])]
     (is (not (:user/password user))
         "The password is not returned")
     (is (not (:user/password-reset-token user))
         "The password reset token is not returned")
     (is (not (:user/token-expires-at user))
-        "The token expiration is not returned")
-    (is (comparable? expected user)
-        "The result contains the specified attribute values")
-    (is (comparable? expected (models/find user))
-        "The user can be retrieved from the data store.")))
+        "The token expiration is not returned")))
 
 (deftest first-name-is-required
   (assert-invalid (dissoc attributes :user/first-name)
@@ -132,3 +130,12 @@
 
       (is (comparable? user result :id :first-name :last-name :email)
           "The existing user is returned"))))
+
+(deftest update-a-user
+  (with-context existing-user-ctx
+    (assert-updated (find-user "john@doe.com")
+                    {:user/first-name "J-man"})))
+
+(deftest delete-a-user
+  (with-context existing-user-ctx
+    (assert-deleted (find-user "john@doe.com"))))
