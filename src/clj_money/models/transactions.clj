@@ -4,7 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid
-                                          index-by]]
+                                          index-by
+                                          update-in-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
@@ -306,7 +307,7 @@
    {prev-index :transaction-item/index
     prev-balance :transaction-item/balance}]
   (assoc item
-         :transaction-item/index (+ 1 prev-index)
+         :transaction-item/index (inc prev-index)
          :transaction-item/balance (+ polarized-quantity prev-balance)))
 
 (def ^:private blank-item
@@ -565,9 +566,13 @@
    (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
      (doall (for [account (map #(update-in % [:account/commodity] commodities)
                                (models/select {:account/entity entity}))
-                  :let [items (seq (models/select {:transaction-item/account account}))]]
-
+                  :let [items (->> (models/select {:transaction-item/account account})
+                                   (map (comp polarize
+                                              #(assoc % :transaction-item/account account)))
+                                   seq)]]
               (when items
-                (models/put-many
-                  (re-index account
-                            (cons blank-item items)))))))))
+                (->> (re-index account
+                               (cons blank-item items))
+                     (map (comp #(dissoc % ::polarized-quantity)
+                                #(update-in-if % [:transaction-item/account] util/->model-ref)))
+                     models/put-many)))))))

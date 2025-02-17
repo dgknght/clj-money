@@ -442,9 +442,6 @@
                                          process)))
                             [])
                     (mapv post-process))]
-
-    (pprint {::initial-result (util/simplify result)})
-
     (propagate-all)
     result))
 

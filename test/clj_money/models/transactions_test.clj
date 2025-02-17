@@ -233,8 +233,7 @@
 
 (deftest insert-transaction-before-the-end
   (with-context insert-context
-    (println "TEST GOES HERE")
-    #_(let [out-chan (models/propagation-chan)]
+    (let [out-chan (models/propagation-chan)]
       (models/put #:transaction{:transaction-date (t/local-date 2016 3 3)
                                 :entity (find-entity "Personal")
                                 :description "Kroger"
@@ -242,8 +241,8 @@
                                 :credit-account (find-account "Checking")
                                 :quantity 99M}
                   :out-chan out-chan)
-      (pprint {::chan-output (a/alts!! [out-chan (a/timeout 1000)])}))
-    #_(is (seq-of-maps-like? [#:transaction-item{:index 2
+      (a/alts!! [out-chan (a/timeout 1000)]))
+    (is (seq-of-maps-like? [#:transaction-item{:index 2
                                                :quantity 100M
                                                :balance 801M}
                             #:transaction-item{:index 1
@@ -254,9 +253,9 @@
                                                :balance 1000M}]
                            (items-by-account "Checking"))
         "The checking item indexes and balances are adjusted")
-    #_(is (= 801M (:account/quantity (reload-account "Checking")))
+    (is (= 801M (:account/quantity (reload-account "Checking")))
         "The checking account quantity is updated")
-    #_(is (= 199M (:account/quantity (reload-account "Groceries")))
+    (is (= 199M (:account/quantity (reload-account "Groceries")))
         "The groceries account quantity is updated")))
  
 (def multi-context
