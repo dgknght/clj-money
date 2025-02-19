@@ -310,7 +310,7 @@
          :transaction-item/index (inc prev-index)
          :transaction-item/balance (+ polarized-quantity prev-balance)))
 
-(def ^:private blank-item
+(def ^:private initial-basis
   #:transaction-item{:index -1
                      :balance 0M})
 
@@ -321,7 +321,7 @@
   [account date]
   (or (when (util/live-id? account)
         (last-account-item-before account date))
-      blank-item))
+      initial-basis))
 
 (defn- polarize
   [{:transaction-item/keys [account quantity action] :as item}]
@@ -572,7 +572,69 @@
                                    seq)]]
               (when items
                 (->> (re-index account
-                               (cons blank-item items))
+                               (cons initial-basis items))
                      (map (comp #(dissoc % ::polarized-quantity)
                                 #(update-in-if % [:transaction-item/account] util/->model-ref)))
                      models/put-many)))))))
+
+(defn propagate-accounts
+  "Takes a map of account ids to dates and recalculates indices and balances for those
+  accounts as of the associated dates."
+  [{:keys [accounts entity entity-id]}]
+  (models/put-many
+    (cons (-> (models/find entity-id :entity)
+              (update-in [:entity/settings
+                          :settings/earliest-transaction-date]
+                         dates/earliest
+                         (first entity))
+              (update-in [:entity/settings
+                          :settings/latest-transaction-date]
+                         dates/latest
+                         (second entity)))
+          (->> accounts
+               (map (fn [[id date]]
+                      (let [account (models/find id :account)]
+                        {:account account
+                         :date date
+                         :basis (or (last-account-item-before account date)
+                                    initial-basis)
+                         :items (map (comp polarize
+                                           #(assoc % :transaction-item/account account))
+                                     (models/select {:transaction-item/account account}))})))
+               (mapcat (fn [{:keys [account items basis]}]
+                         (re-index account (cons basis items))))))))
+
+(def extract-dates
+  (comp (mapcat identity)
+        (filter identity)
+        (filter (util/model-type? :transaction))
+        (mapcat (fn [{:transaction/keys [entity transaction-date items]}]
+                  (map (fn [{:transaction-item/keys [account]}]
+                         [entity account transaction-date])
+                       items)))))
+
+(defn accumulate-dates
+  [m [entity account date]]
+  (-> m
+      (assoc :entity-id (:id entity))
+      (update-in [:accounts (:id account)] dates/earliest date)
+      (update-in [:entity 0] dates/earliest date)
+      (update-in [:entity 1] dates/latest date)))
+
+(defmacro with-delayed-propagation
+  [bindings & body]
+  `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
+         out# (a/chan 10)
+         copy# (a/chan)
+         reduce# (a/transduce
+                   extract-dates
+                   (completing accumulate-dates)
+                   {:entity []
+                    :accounts {}}
+                   out#)
+         prim-result# (f# out# copy#)
+         _# (a/<!! copy#) ; wait for all of the data to be passed to the out-chan
+         _# (a/close! out#)
+         sec-result# (propagate-accounts (a/<!! reduce#))]
+     (concat prim-result#
+             sec-result#)))

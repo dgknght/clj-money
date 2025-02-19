@@ -188,7 +188,10 @@
   ([models] (put-many {} models))
   ([{:as opts
      :keys [out-chan
-            storage]}
+            copy-chan
+            close-chan?
+            storage]
+     :or {close-chan? true}}
     models]
    {:pre [(s/valid? (s/coll-of map?) models)]}
 
@@ -214,12 +217,14 @@
          before (comp before-map working-id :id)]
      (when out-chan
        (a/go
-         (->> (deletions models)
-              (concat result)
-              (map (comp vec
-                         (juxt before
-                               identity)))
-              (a/onto-chan!! out-chan))))
+         (let [coll (->> (deletions models)
+                         (concat result)
+                         (map (comp vec
+                                    (juxt before
+                                          identity))))
+               c (a/onto-chan! out-chan coll close-chan?)]
+           (when copy-chan
+             (a/pipe c copy-chan)))))
      result)))
 
 (defn propagation-chan

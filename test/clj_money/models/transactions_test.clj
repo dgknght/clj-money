@@ -7,9 +7,9 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
+            [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.db.sql :as sql]
-            [clj-money.accounts :as acts]
             [clj-money.model-helpers :as helpers :refer [assert-invalid]]
             [clj-money.models :as models]
             [clj-money.models.ref]
@@ -907,20 +907,17 @@
           "The February value is the balance for the last item in the period"))))
 
 (deftest create-multiple-transactions-then-recalculate-balances
-  (is false "Need to rewrite this test")
-  #_(with-context base-context
+  (with-context base-context
     (let [entity (find-entity "Personal")
           [checking
            salary
-           groceries] (find-accounts "Checking" "Salary" "Groceries")
-          progress-chan (a/chan)
-          progress (atom [])]
-      (a/go-loop [p (a/<! progress-chan)]
-                 (when p
-                   (swap! progress conj p)
-                   (recur (a/<! progress-chan))))
-      (transactions/with-delayed-balancing [(:id entity) progress-chan]
-        (mapv (comp models/put
+           groceries] (find-accounts "Checking" "Salary" "Groceries")]
+      ^{:clj-kondo/ignore [:unresolved-symbol]}
+      (transactions/with-delayed-propagation [out-chan copy-chan]
+        (mapv (comp #(models/put %
+                                 :out-chan out-chan
+                                 :close-chan? false
+                                 :copy-chan copy-chan)
                     #(assoc % :transaction/entity entity))
               [#:transaction{:transaction-date (t/local-date 2017 1 1)
                              :description "Paycheck"
@@ -936,17 +933,9 @@
                              :description "Paycheck"
                              :debit-account checking
                              :credit-account salary
-                             :quantity 1000M}])
-        (is (= 0M (:account/quantity (reload-account "Checking")))
-            "The account balance is not recalculated before the form exits"))
+                             :quantity 1000M}]))
       (is (= 1900M (:account/quantity (reload-account "Checking")))
           "The account balance is recalculated after the form exits")
-      (is (= [{:total 3 :completed 0}
-              {:total 3 :completed 1}
-              {:total 3 :completed 2}
-              {:total 3 :completed 3}]
-             @progress)
-          "The progress is reported during the process")
       (is (comparable? {:settings/earliest-transaction-date (t/local-date 2017 1 1)
                         :settings/latest-transaction-date (t/local-date 2017 2 1)}
                        (:entity/settings (models/find entity)))
