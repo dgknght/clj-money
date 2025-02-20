@@ -349,13 +349,12 @@
                                        (if (= item updated)
                                          (reduced output)
                                          (conj output updated))))
-                                   [(first items)]))
-        ; the 1st is the basis and is not updated
-        to-return (->> updated-items
-                       (drop 1)
-                       (map #(dissoc % ::polarized-quantity)))
+                                   [(first items)])
+                           (drop 1) ; the 1st is the basis and is not updated
+                           (map #(dissoc % ::polarized-quantity)))
         final-qty (or (:transaction-item/balance (last updated-items))
                       0M)
+        ; TODO: Shortcut this by checking if the commodity is the entity default
         price (or (:account/commodity-price account)
                   (:price/price
                     (models/find-by
@@ -365,14 +364,20 @@
                                           (:commodity/latest-price commodity)]}
                       {:sort [[:price/trade-date :desc]]}))
                   1M)]
-    (if (= (count to-return)
+    (if (= (count updated-items)
            (- (count items)
               1))  ; this means a short-circuit did not take place
-      (cons (assoc account
-                   :account/quantity final-qty
-                   :account/value (* final-qty price))
-            to-return)
-      to-return)))
+      (cons (-> account
+                (update-in [:account/latest-transaction-date]
+                           dates/latest
+                           (:transaction-item/transaction-date (last items)))
+                (update-in [:account/earliest-transaction-date]
+                           dates/earliest
+                           (some :transaction-item/transaction-date items))
+                (assoc :account/quantity final-qty
+                       :account/value (* final-qty price)))
+            updated-items)
+      updated-items)))
 
 (defn- account-items-on-or-after
   [account as-of]
