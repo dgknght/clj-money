@@ -7,7 +7,6 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
-            [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.db.sql :as sql]
             [clj-money.model-helpers :as helpers :refer [assert-invalid]]
