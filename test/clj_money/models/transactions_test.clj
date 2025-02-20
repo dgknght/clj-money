@@ -510,9 +510,11 @@
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
+          out-chan (models/propagation-chan)
           result (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
                      (assoc :transaction/transaction-date (t/local-date 2016 4 12))
-                     models/put)]
+                     (models/put :out-chan out-chan))]
+      (a/alts!! [out-chan (a/timeout 1000)])
       (is (seq-of-maps-like? [#:transaction-item{:index 2
                                                  :transaction-date (t/local-date 2016 4 12)
                                                  :quantity 101M
@@ -587,13 +589,15 @@
 (deftest update-a-transaction-short-circuit-updates
   (with-context short-circuit-context
     (let [calls (atom [])
-          orig-put sql/put*]
+          orig-put sql/put*
+          out-chan (models/propagation-chan)]
       (with-redefs [sql/put* (fn [ds models]
                                (swap! calls conj models)
                                (orig-put ds models))]
         (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
             (assoc :transaction/transaction-date (t/local-date 2016 3 8))
-            models/put)
+            (models/put :out-chan out-chan))
+        (a/alts!! [out-chan (a/timeout 1000)])
         (let [[c1 c2 :as cs] @calls
               checking (find-account "Checking")]
           (is (= 2 (count cs))
