@@ -563,24 +563,47 @@
                               (models/select #:transaction-item{:transaction [:in (map :id trxs)]}))]
           (map #(assoc % :transaction/items (items (:id %)))))))))
 
+(defn- apply-commodities
+  [[{:account/keys [entity]} :as accounts]]
+  (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
+    (map #(update-in % [:account/commodity] commodities)
+         accounts)))
+
 (defn propagate-all
   ([]
    (doseq [entity (models/select (util/model-type {} :entity))]
      (propagate-all entity)))
   ([entity]
-   (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
-     (doall (for [account (map #(update-in % [:account/commodity] commodities)
-                               (models/select {:account/entity entity}))
-                  :let [items (->> (models/select {:transaction-item/account account})
-                                   (map (comp polarize
-                                              #(assoc % :transaction-item/account account)))
-                                   seq)]]
-              (when items
-                (->> (re-index account
-                               (cons initial-basis items))
-                     (map (comp #(dissoc % ::polarized-quantity)
-                                #(update-in-if % [:transaction-item/account] util/->model-ref)))
-                     models/put-many)))))))
+   (let [{:keys [entity models]}
+         (->> (models/select {:account/entity entity})
+              apply-commodities
+              (reduce (fn [ctx account]
+                        (let [items (->> (models/select {:transaction-item/account account})
+                                         (map (comp polarize
+                                                    #(assoc % :transaction-item/account account)))
+                                         seq)
+                              [{:account/keys [earliest-transaction-date
+                                               latest-transaction-date]}
+                               :as updated] (when items
+                                              (->> (re-index account
+                                                             (cons initial-basis items))
+                                                   (map (comp #(dissoc % ::polarized-quantity)
+                                                              #(update-in-if % [:transaction-item/account] util/->model-ref)))))]
+                          (-> ctx
+                              (update-in [:models] concat updated)
+                              (update-in [:entity
+                                          :entity/settings
+                                          :settings/earliest-transaction-date]
+                                         dates/earliest
+                                         earliest-transaction-date)
+                              (update-in [:entity
+                                          :entity/settings
+                                          :settings/latest-transaction-date]
+                                         dates/latest
+                                         latest-transaction-date))))
+                      {:entity entity
+                       :models []}))]
+     (models/put-many (cons entity models)))))
 
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
