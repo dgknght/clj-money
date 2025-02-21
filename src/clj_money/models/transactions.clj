@@ -578,7 +578,9 @@
          (->> (models/select {:account/entity entity})
               apply-commodities
               (reduce (fn [ctx account]
-                        (let [items (->> (models/select {:transaction-item/account account})
+                        (let [items (->> (models/select {:transaction-item/account account}
+                                                        {:sort [:transaction-item/transaction-date
+                                                                :transaction-item/index]})
                                          (map (comp polarize
                                                     #(assoc % :transaction-item/account account)))
                                          seq)
