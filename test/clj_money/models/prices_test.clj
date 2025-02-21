@@ -1,6 +1,7 @@
 (ns clj-money.models.prices-test
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [clojure.pprint :refer [pprint]]
+            [clojure.core.async :as a]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
@@ -48,9 +49,15 @@
 
 (deftest create-a-price
   (with-context price-context
+    (assert-created attributes)))
+
+(deftest propagate-a-new-price
+  (with-context price-context
     (let [{:as attr :price/keys [trade-date]} (attributes)
-          entity (find-entity "Personal")]
-      (assert-created attr)
+          entity (find-entity "Personal")
+          out-chan (models/propagation-chan)]
+      (models/put attr :out-chan out-chan)
+      (a/alts!! [out-chan (a/timeout 1000)])
       (is (comparable? #:commodity{:earliest-price trade-date 
                                    :latest-price trade-date}
                        (models/find-by {:commodity/symbol "AAPL"
@@ -123,13 +130,11 @@
 (deftest get-the-most-recent-price-for-a-commodity
   (with-context multi-price-context
     (testing "When at least one price exists"
-      (let [commodity (find-commodity "AAPL")
-            price (prices/most-recent (models/find commodity))]
-        (is (= 12.20M (:price/price price))
-            "The most recent price is returned")))
+      (is (comparable? {:price/price 12.20M}
+                       (prices/most-recent (models/find-by {:commodity/symbol "AAPL"})))
+          "The most recent price is returned"))
     (testing "When no prices exist"
-      (let [commodity (find-commodity "USD")
-            price (prices/most-recent commodity)]
+      (let [price (prices/most-recent (models/find-by {:commodity/symbol "USD"}))]
         (is (nil? price) "The nil is returned")))))
 
 (deftest deleting-a-commodity-deletes-the-prices
