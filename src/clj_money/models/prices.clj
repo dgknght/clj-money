@@ -9,8 +9,7 @@
             [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.settings :as settings]))
+            [clj-money.models.accounts :as accounts]))
 
 (defn- trade-date-unique?
   [{:keys [id] :as price}]
