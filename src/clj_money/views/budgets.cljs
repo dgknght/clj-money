@@ -13,6 +13,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.util :as util]
             [clj-money.components :refer [button]]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [app-state
@@ -386,13 +387,9 @@
                                                 periods))))))
   (repeat period-count 0M))
 
-(defn- temp-id?
-  [value]
-  (not (integer? value)))
-
 (defn- update-budget-item
   [budget item]
-  (let [f (if (temp-id? (:id item))
+  (let [f (if (util/temp-id? (:id item))
             (fn [items]
               (conj (or items [])
                     (dissoc item :id)))
