@@ -360,34 +360,12 @@
                            :lot/shares-purchased shares
                            :lot/shares-owned shares}))
 
-(defn- propagate-price-to-accounts
-  "Propagate price change to affected accounts"
-  [{:trade/keys [price commodity date commodity-account] :as trade}]
-  ; For any account that references the commodity in this trade,
-  ; that reflects a price-as-of date that is earlier than this
-  ; trade date, update the value of the account based on the current
-  ; price
-  (assoc trade
-         :trade/affected-accounts
-         (->> (models/select (cond-> #:account{:commodity commodity
-                                               :price-as-of [:<= date]
-                                               :quantity [:> 0M]}
-
-                               (util/live-id? (:id commodity-account))
-                               (assoc :account/id [:!= (:id commodity-account)])))
-              (map (fn [{:as act :account/keys [quantity]}]
-                     (assoc act
-                            :account/price-as-of date
-                            :account/value (with-precision 2
-                                             (* price quantity))))))))
-
 (defn- put-purchase
   [{:trade/keys [transactions
                  lot
                  commodity
                  account
                  commodity-account
-                 affected-accounts
                  price] :as trade}]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
@@ -400,8 +378,7 @@
                                     commodity
                                     price
                                     account]
-                                   transactions
-                                   affected-accounts)))]
+                                   transactions)))]
     (assoc trade
            :trade/transactions (:transaction result) ; TODO: Prune out the propagated transactions
            :trade/fee-account (->> (:account result)
@@ -440,7 +417,6 @@
                             models/put)
           res (-> prepped
                   create-purchase-transaction
-                  propagate-price-to-accounts
                   put-purchase)]
       (if div-trans
         (update-in res [:trade/transactions] #(cons div-trans %))
@@ -570,7 +546,7 @@
                #(merge settings %))))
  
 (def ^:private find-or-create-account
-  (some-fn models/find-by identity))
+  (some-fn models/find-by util/+temp-id))
  
 (defn- find-or-create-gains-account
   [{:trade/keys [entity]} term result]
@@ -610,23 +586,30 @@
                  commodity
                  account
                  commodity-account
-                 affected-accounts
+                 lt-capital-gains-account
+                 lt-capital-loss-account
+                 st-capital-gains-account
+                 st-capital-loss-account
                  price
                  entity] :as trade}]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finally save the affected accounts
-  (let [result (group-by util/model-type
-                         (models/put-many
-                           (concat updated-lots
-                                   affected-accounts
-                                   transactions
-                                   [commodity-account
-                                    commodity
-                                    price
-                                    account
-                                    entity])))]
+  (let [result (->> (concat [lt-capital-gains-account
+                             lt-capital-loss-account
+                             st-capital-gains-account
+                             st-capital-loss-account
+                             commodity-account
+                             commodity
+                             price
+                             account
+                             entity]
+                            transactions
+                            updated-lots)
+                    (filter identity)
+                    (models/put-many)
+                    (group-by util/model-type))]
     (assoc trade
            :trade/transactions (:transaction result)
            :trade/fee-account (->> (:account result)
@@ -655,7 +638,6 @@
         update-accounts
         process-lot-sales
         create-sale-transaction
-        propagate-price-to-accounts
         put-sale)))
 
 (defn unsell
