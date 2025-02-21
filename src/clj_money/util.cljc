@@ -498,12 +498,16 @@
           (swap! cache assoc id retrieved)
           retrieved)))))
 
+(def ^:private ->id (some-fn :id identity))
+
 (defn temp-id
   "Generates a new temporary id"
   []
   (str "temp-" (random-uuid)))
 
-(def ^:private ->id (some-fn :id identity))
+(defn +temp-id
+  [model]
+  (assoc model :id (temp-id)))
 
 (defn temp-id?
   "Given a model or an id, returns true if the model has a temporary
