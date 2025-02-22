@@ -8,8 +8,7 @@
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
             [clj-money.transactions :refer [expand]]
-            [clj-money.trading :as trading]
-            [clj-money.models.transactions :refer [propagate-all]]))
+            [clj-money.trading :as trading]))
 
 (def ^:dynamic *context* nil)
 
@@ -442,7 +441,7 @@
                                          process)))
                             [])
                     (mapv post-process))]
-    (propagate-all)
+    (models/propagate-all)
     result))
 
 (defmacro with-context

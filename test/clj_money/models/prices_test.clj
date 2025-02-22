@@ -49,7 +49,7 @@
 
 (deftest create-a-price
   (with-context price-context
-    (assert-created attributes)))
+    (assert-created (attributes))))
 
 (deftest propagate-a-new-price
   (with-context price-context

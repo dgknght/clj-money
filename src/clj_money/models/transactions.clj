@@ -607,6 +607,8 @@
                        :models []}))]
      (models/put-many (cons entity models)))))
 
+(models/add-full-propagation propagate-all)
+
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
   accounts as of the associated dates."

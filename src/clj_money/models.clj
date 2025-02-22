@@ -11,6 +11,16 @@
             [clj-money.util :as util :refer [model=]]
             [clj-money.db :as db]))
 
+(def ^:private full-propagations (atom #{}))
+
+(defn propagate-all []
+  (doseq [f @full-propagations]
+    (f)))
+
+(defn add-full-propagation
+  [f]
+  (swap! full-propagations conj f))
+
 (def exchanges #{:nyse :nasdaq :amex :otc})
 
 (s/def ::id (some-fn uuid? int? util/temp-id?))

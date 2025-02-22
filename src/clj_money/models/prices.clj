@@ -120,3 +120,49 @@
       (cons (update-commodity price)
             (cons (update-entity price)
                   (apply-to-account-chains latest))))))
+
+(defn- aggregate
+  [prices]
+  (reduce (fn [m {:price/keys [trade-date commodity] :as price}]
+            (-> (cond-> m
+                  (or (nil? (get-in m [commodity :latest]))
+                      (t/after? (get-in m [commodity :latest]) trade-date))
+                  (assoc-in [:commodities commodity :current] price))
+                (update-in [:commodities commodity :earliest] dates/earliest trade-date)
+                (update-in [:commodities commodity :latest] dates/latest trade-date)
+                (update-in [:earliest] dates/earliest trade-date)
+                (update-in [:latest] dates/latest trade-date)))
+          {}
+          prices))
+
+(defn apply-agg-to-entity
+  [entity agg]
+  (-> entity
+      (assoc-in [:entity/settings :settings/earliest-price-date]
+                (:earliest agg))
+      (assoc-in [:entity/settings :settings/latest-price-date]
+                (:latest agg))))
+
+(defn apply-agg-to-commodities
+  [agg]
+  (mapcat (fn [[commodity {:keys [current earliest latest]}]]
+            (cons (-> (models/find commodity :commodity)
+                      (assoc :commodity/earliest-price earliest
+                             :commodity/latest-price latest))
+                  (apply-to-account-chains current)))
+          (:commodities agg)))
+
+(defn propagate-all
+  ([]
+   (doseq [e (models/select (util/model-type {} :entity))]
+     (propagate-all e)))
+  ([entity]
+   (when-let [prices (seq
+                       (models/select
+                         (util/model-type {:commodity/entity entity}
+                                          :price)))]
+     (let [agg (aggregate prices)]
+       (models/put-many (cons (apply-agg-to-entity entity agg)
+                              (apply-agg-to-commodities agg)))))))
+
+(models/add-full-propagation propagate-all)
