@@ -607,7 +607,7 @@
                        :models []}))]
      (models/put-many (cons entity models)))))
 
-(models/add-full-propagation propagate-all)
+(models/add-full-propagation propagate-all :priority 5)
 
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those

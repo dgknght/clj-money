@@ -11,15 +11,18 @@
             [clj-money.util :as util :refer [model=]]
             [clj-money.db :as db]))
 
-(def ^:private full-propagations (atom #{}))
+; A map of priority number to sets of propagation fns
+(def ^:private full-propagations (atom {}))
 
 (defn propagate-all []
-  (doseq [f @full-propagations]
-    (f)))
+  (->> @full-propagations
+       (sort-by first)
+       (mapcat second)
+       (mapv #(%))))
 
 (defn add-full-propagation
-  [f]
-  (swap! full-propagations conj f))
+  [f & {:keys [priority] :or {priority 10}}]
+  (swap! full-propagations update-in [priority] (fnil conj #{}) f))
 
 (def exchanges #{:nyse :nasdaq :amex :otc})
 
