@@ -185,17 +185,18 @@
       (is (comparable? #:account{:value 1000M}
                        (models/find-by {:account/name "AAPL"}))
           "An account tracking the commodity is unchanged after the update")
-      (is (comparable? #:account{:value 1000M} ; TODO: This is actually incorrect, but should be fixed in the trading test
+      (is (comparable? #:account{:value 1900M} ; $1,000 in cash + AAPL, $900 (100 shares at $9 current price)
                        (models/find-by {:account/name "IRA"}))
-          "Parents of accounts tracking the commodity are unchanged after the update"))
+          "Parents of accounts tracking the commodity are changed after the update"))
     (testing "a most recent price"
-      (models/put #:price{:commodity (find-commodity "AAPL")
-                          :trade-date (t/local-date 2015 3 1)
-                          :price 12M})
+      (models/put-and-propagate
+        #:price{:commodity (find-commodity "AAPL")
+                :trade-date (t/local-date 2015 3 1)
+                :price 12M})
       (is (comparable? #:account{:value 1200M}
                        (models/find-by {:account/name "AAPL"}))
           "An account tracking the commodity has an updated value after the update")
-      (is (comparable? #:account{:value 1200M} ; TODO: This is actually incorrect, but should be fixed in the trading test
+      (is (comparable? #:account{:value 2100M} ; $1,000 in cash + AAPL, $1,200 (100 shares at $12 current price)
                        (models/find-by {:account/name "IRA"}))
           "Parents of accounts tracking the commodity have an updated value after the update"))))
 

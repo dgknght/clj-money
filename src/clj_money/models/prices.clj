@@ -67,6 +67,7 @@
                                                 latest-price)]}
                        {:sort [[:price/trade-date :desc]]})))))
 
+; TODO: Rethink this, because probably value should not include children
 (defn- apply-to-account-chain
   [price]
   (fn [[{:as account :account/keys [value quantity]} & ancestors]]
