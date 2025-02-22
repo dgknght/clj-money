@@ -178,9 +178,10 @@
 (deftest creating-a-price-updates-account-summary-data
   (with-context account-summary-context
     (testing "a historical price"
-      (models/put #:price{:commodity (find-commodity "AAPL")
-                          :trade-date (t/local-date 2015 1 15)
-                          :price 9M})
+      (models/put-and-propagate
+        #:price{:commodity (find-commodity "AAPL")
+                :trade-date (t/local-date 2015 1 15)
+                :price 9M})
       (is (comparable? #:account{:value 1000M}
                        (models/find-by {:account/name "AAPL"}))
           "An account tracking the commodity is unchanged after the update")

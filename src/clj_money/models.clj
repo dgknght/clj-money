@@ -246,11 +246,23 @@
    any other models affected by the change."
   []
   (a/chan 1 (comp (map propagate)
+                  (remove empty?)
                   (map put-many))))
 
 (defn put
   [model & {:as opts}]
   (first (put-many opts [model])))
+
+(defn put-and-propagate
+  [model & {:as opts}]
+  (let [out-chan (propagation-chan)
+        result (apply put
+                      model
+                      (mapcat identity
+                              (assoc opts
+                                     :out-chan out-chan)))]
+    (cons result
+          (a/<!! out-chan))))
 
 (defn delete-many
   ([models] (delete-many {} models))
