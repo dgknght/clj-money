@@ -1,6 +1,7 @@
 (ns clj-money.trading-test
   (:require [clojure.test :refer [use-fixtures deftest is testing]]
             [clojure.pprint :refer [pprint]]
+            [clojure.core.async :as a]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
@@ -150,11 +151,13 @@
 (deftest purchase-a-commodity-with-a-fee
   (with-context purchase-context
     (let [ira (find-account "IRA")
-          inv-exp (find-account "Investment Expenses")]
+          inv-exp (find-account "Investment Expenses")
+          out-chan (models/propagation-chan)]
       (-> (purchase-attributes)
           (assoc :trade/fee 5M
                  :trade/fee-account inv-exp)
-          trading/buy)
+          (trading/buy :out-chan out-chan))
+      (a/alts!! [out-chan (a/timeout 1000)])
       (is (= 995M (:account/quantity (models/find ira)))
           "The investment account balance reflects the fee")
       (is (= 5M (:account/quantity (models/find inv-exp)))
@@ -163,7 +166,8 @@
 (deftest reinvest-a-dividend
   (with-context purchase-context
     (let [dividends (find-account "Dividends")
-          ira (models/find (find-account "IRA"))]
+          ira (models/find (find-account "IRA"))
+          out-chan (models/propagation-chan)]
       (-> #:trade{:commodity (find-commodity "AAPL")
                   :account (find-account "IRA")
                   :date (t/local-date 2016 2 2)
@@ -171,7 +175,8 @@
                   :value 50M}
           (assoc :trade/dividend? true
                  :trade/dividend-account dividends)
-          trading/buy)
+          (trading/buy :out-chan out-chan))
+      (a/alts!! [out-chan (a/timeout 1000)])
       (is (= 50M (:account/quantity (models/find dividends)))
           "The dividend account is debited for the amount of the purchase")
       (is (= (:account/quantity ira)
