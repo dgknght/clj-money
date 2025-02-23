@@ -253,16 +253,20 @@
   [model & {:as opts}]
   (first (put-many opts [model])))
 
-(defn put-and-propagate
-  [model & {:as opts}]
+(defn- act-and-propagate
+  [model f {:as opts}]
   (let [out-chan (propagation-chan)
-        result (apply put
+        result (apply f
                       model
                       (mapcat identity
                               (assoc opts
                                      :out-chan out-chan)))]
     (cons result
           (a/<!! out-chan))))
+
+(defn put-and-propagate
+  [model & {:as opts}]
+  (act-and-propagate model put (mapcat identity opts)))
 
 (defn delete-many
   ([models] (delete-many {} models))
@@ -282,6 +286,10 @@
   [model & {:as opts}]
   {:pre [model]}
   (delete-many opts [model]))
+
+(defn delete-and-propagate
+  [model & {:as opts}]
+  (act-and-propagate model delete (mapcat identity opts)))
 
 (defn resolve-ref
   ([model-type]
