@@ -38,7 +38,7 @@
 (defmulti propagate #(->> %
                           (filter identity)
                           (some util/model-type)))
-(defmethod propagate :default [_before _after] [])
+(defmethod propagate :default [[_before _after]] [])
 
 (defmulti before-save util/model-type-dispatch)
 (defmethod before-save :default [m & _] m)
