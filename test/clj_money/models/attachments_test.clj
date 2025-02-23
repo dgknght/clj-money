@@ -8,7 +8,8 @@
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.model-helpers :as helpers :refer [assert-deleted
+                                                         assert-invalid]]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-transaction
@@ -43,9 +44,15 @@
 
 (deftest create-an-attachment
   (with-context attach-context
-    (assert-created (attributes))
+    (assert-created (attributes))))
+
+(deftest propagate-attachment-creation
+  (with-context attach-context
+    (models/put-and-propagate (attributes))
     (is (comparable? {:transaction/attachment-count 1}
-                     (models/find (find-transaction [(t/local-date 2017 1 1) "Paycheck"]))))))
+                     (models/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
+                                                   :description "Paycheck"}))
+        "The attachment count is incremented for the associated transaction")))
 
 (deftest transaction-is-required
   (with-context attach-context
@@ -79,10 +86,19 @@
 
 (deftest delete-an-attachment
   (with-context update-context
-    (let [att (find-attachment "receipt")]
-      (models/delete att)
-      (is (nil? (models/find att))
-          "The attachment cannot be retrieved after delete")
+    (assert-deleted (find-attachment "receipt"))))
+
+(deftest propagate-attachment-deletion
+  (with-context update-context
+    (let [att (find-attachment "receipt")
+          trx (models/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
+                                            :description "Paycheck"})]
+      (is (comparable? {:transaction/attachment-count 1}
+                       trx)
+          "The count reflects the attachment before delete")
+
+      (models/delete-and-propagate att)
+
       (is (comparable? {:transaction/attachment-count 0}
-                       (models/find (find-transaction [(t/local-date 2017 1 1) "Paycheck"])))
-          "The attachment count is updated in the transaction"))))
+                       (models/find trx))
+          "The attachment count is decremented for the associated transaction"))))
