@@ -133,7 +133,7 @@
 
 (def app
   (ring/ring-handler
-    (ring/router ["/" #_{:middleware [wrap-request-logging]}
+    (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
                   ["auth/" {:middleware [:site
                                          wrap-merge-path-params
