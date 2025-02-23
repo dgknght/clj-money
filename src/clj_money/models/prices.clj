@@ -8,8 +8,7 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
-            [clj-money.models :as models]
-            [clj-money.models.accounts :as accounts]))
+            [clj-money.models :as models]))
 
 (defn- trade-date-unique?
   [{:keys [id] :as price}]
@@ -67,20 +66,15 @@
                                                 latest-price)]}
                        {:sort [[:price/trade-date :desc]]})))))
 
-; TODO: Rethink this, because probably value should not include children
-(defn- apply-to-account-chain
-  [price]
-  (fn [[{:as account :account/keys [value quantity]} & ancestors]]
-    (let [new-value (* quantity price)
-          adjustment (- new-value value)]
-      (cons (assoc account :account/value new-value)
-            (map #(update-in % [:account/value] + adjustment)
-                 ancestors)))))
+(defn- apply-to-account
+  [{:price/keys [price]}]
+  (fn [{:as account :account/keys [quantity]}]
+    (assoc account :account/value (* quantity price))))
 
-(defn- apply-to-account-chains
-  [{:price/keys [commodity price]}]
-  (mapcat (apply-to-account-chain price)
-          (accounts/select-with-ancestors commodity)))
+(defn- apply-to-accounts
+  [{:as price :price/keys [commodity]}]
+  (map (apply-to-account price)
+       (models/select {:account/commodity commodity})))
 
 (defn- update-entity
   [{:price/keys [trade-date commodity]}]
@@ -120,7 +114,7 @@
     (let [price (update-in latest [:price/commodity] (models/find :commodity))]
       (cons (update-commodity price)
             (cons (update-entity price)
-                  (apply-to-account-chains latest))))))
+                  (apply-to-accounts latest))))))
 
 (defn- aggregate
   [prices]
@@ -150,7 +144,7 @@
             (cons (-> (models/find commodity :commodity)
                       (assoc :commodity/earliest-price earliest
                              :commodity/latest-price latest))
-                  (apply-to-account-chains current)))
+                  (apply-to-accounts current)))
           (:commodities agg)))
 
 (defn propagate-all

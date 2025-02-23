@@ -185,7 +185,7 @@
       (is (comparable? #:account{:value 1000M}
                        (models/find-by {:account/name "AAPL"}))
           "An account tracking the commodity is unchanged after the update")
-      (is (comparable? #:account{:value 1900M} ; $1,000 in cash + AAPL, $900 (100 shares at $9 current price)
+      (is (comparable? #:account{:value 1000M} ; value is just the value of the account itself, exclusive of children
                        (models/find-by {:account/name "IRA"}))
           "Parents of accounts tracking the commodity are changed after the update"))
     (testing "a most recent price"
@@ -196,7 +196,7 @@
       (is (comparable? #:account{:value 1200M}
                        (models/find-by {:account/name "AAPL"}))
           "An account tracking the commodity has an updated value after the update")
-      (is (comparable? #:account{:value 2100M} ; $1,000 in cash + AAPL, $1,200 (100 shares at $12 current price)
+      (is (comparable? #:account{:value 1000M}
                        (models/find-by {:account/name "IRA"}))
           "Parents of accounts tracking the commodity have an updated value after the update"))))
 
@@ -215,7 +215,7 @@
     (-> (find-price ["AAPL" (t/local-date 2015 2 2)])
         (assoc :price/price 13M
                :price/trade-date (t/local-date 2016 1 1))
-        models/put)
+        models/put-and-propagate)
 
     (testing "after the update"
       (is (= 1300M (:account/value (models/find-by {:account/name "AAPL"})))
@@ -236,12 +236,12 @@
       (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
           "The account value reflects the price before delete"))
 
-    (models/delete (find-price ["AAPL" (t/local-date 2015 2 2)]))
+    (models/delete-and-propagate (find-price ["AAPL" (t/local-date 2015 2 2)]))
 
     (testing "after delete"
       (is (comparable? {:account/value 1000M}
                        (models/find-by {:account/name "AAPL"}))
           "The account value reflects the previous price after delete")
-      (is (comparable? {:account/value 1000M} ; TODO: This is actually incorrect, but should be fixed in the trading test
+      (is (comparable? {:account/value 1000M}
                        (models/find-by {:account/name "IRA"}))
           "The parent account value reflects the previous price after delete"))))
