@@ -366,13 +366,15 @@
                  commodity
                  account
                  commodity-account
-                 price] :as trade}]
+                 price] :as trade}
+   opts]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finally save the affected accounts
   (let [result (group-by util/model-type
                          (models/put-many
+                           opts
                            (concat [commodity-account
                                     lot
                                     commodity
@@ -402,7 +404,7 @@
 ; :trade/shares
 ; :trade/value
 (defn buy
-  [purchase]
+  [purchase & {:as opts}]
   (with-ex-validation purchase ::models/purchase []
     (let [prepped (-> purchase
                       append-commodity-account
@@ -417,7 +419,7 @@
                             models/put)
           res (-> prepped
                   create-purchase-transaction
-                  put-purchase)]
+                  (put-purchase opts))]
       (if div-trans
         (update-in res [:trade/transactions] #(cons div-trans %))
         res))))
