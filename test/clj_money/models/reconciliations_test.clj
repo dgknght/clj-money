@@ -78,6 +78,7 @@
   [attr]
   (helpers/assert-created attr
                           :refs [:reconciliation/account]
+                          :ignore-attributes [:reconciliation/item-refs]
                           :compare-result? false))
 
 (defn- attributes []
@@ -190,20 +191,23 @@
   (with-context parent-account-context
     (let [savings (find-account "Savings")
           car (find-account "Car")
-          reserve (find-account "Reserve")]
-      (assert-created
-        #:reconciliation{:account savings
-                         :end-of-period (t/local-date 2015 1 31)
-                         :status :completed
-                         :balance 300M
-                         :item-refs (->> *context*
-                                         (filter (util/model-type? :transaction))
-                                         (mapcat :transaction/items)
-                                         (filter #(or (model= reserve
-                                                              (:transaction-item/account %))
-                                                      (model= car
-                                                              (:transaction-item/account %))))
-                                         (mapv ->item-ref))}))))
+          reserve (find-account "Reserve")
+          item-refs (->> *context*
+                         (filter (util/model-type? :transaction))
+                         (mapcat :transaction/items)
+                         (filter #(or (model= reserve
+                                              (:transaction-item/account %))
+                                      (model= car
+                                              (:transaction-item/account %))))
+                         (mapv ->item-ref))
+          created (assert-created
+                    #:reconciliation{:account savings
+                                     :end-of-period (t/local-date 2015 1 31)
+                                     :status :completed
+                                     :balance 300M
+                                     :item-refs item-refs})]
+      (is (= (set item-refs)
+             (set (:reconciliation/item-refs created)))))))
 
 (def ^:private working-rec-context
   (conj reconciliation-context
@@ -310,19 +314,16 @@
 
 (deftest the-most-recent-completed-reconciliation-can-be-deleted
   (with-context existing-reconciliation-context
-    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
-      (assert-deleted reconciliation)
-      (is (empty? (models/select
-                    (util/model-type
-                      {:transaction-item/reconciliation (->model-ref reconciliation)
-                       :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
-                      :transaction-item)))
-          "The reconciliation is not associated with any items after delete"))))
+    (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 1)]))))
 
 (deftest a-working-reconciliation-can-be-deleted
   (with-context working-reconciliation-context
+    (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 3)]))))
+
+(deftest propagate-reconciliation-deletion
+  (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
-      (assert-deleted reconciliation)
+      (models/delete-and-propagate reconciliation)
       (is (empty? (models/select
                     (util/model-type
                       {:transaction-item/reconciliation (->model-ref reconciliation)
@@ -334,7 +335,7 @@
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
-                            (models/delete reconciliation))
+                            (models/delete-and-propagate reconciliation))
           "an exception is thrown")
       (is (models/find reconciliation) "The reconciliation can still be retrieved")
       (is (seq (models/select

@@ -263,7 +263,7 @@
   recon)
 
 (defmethod models/propagate :reconciliation
-  [{:as recon :reconciliation/keys [account]} after]
+  [[{:as recon :reconciliation/keys [account]} after]]
   (when-not after
     (map #(assoc % :transaction-item/reconciliation nil)
          (models/select (assoc (acts/->criteria (models/find account :account))
