@@ -51,6 +51,7 @@
                                                         dgknght.app-lib.test-assertions/includes-progress-notification?])
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
+                                         (clj-money.models/with-propagation)
                                          (clj-money.tasks/with-options)]}
            :unused-private-var {:exclude #{clj-money.models.transactions/simplify}}
            :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate

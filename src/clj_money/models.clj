@@ -299,3 +299,32 @@
    (if (util/model-ref? model-or-ref)
      (find model-or-ref model-type)
      model-or-ref)))
+
+(defn +propagation
+  [f]
+  (fn [model]
+    (let [out-chan (propagation-chan)
+          copy-chan (a/chan)
+          propagations (atom [])
+          _ (a/go-loop [x (a/<! out-chan)]
+              (swap! propagations concat x)
+              (recur (a/<! out-chan)))
+          result (f model
+                    :out-chan out-chan
+                    :copy-chan copy-chan
+                    :close-chan? false)]
+      (a/alts!! [copy-chan (a/timeout 5000)])
+      (a/close! out-chan)
+      (concat result @propagations))))
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defmacro with-propagation
+  [bindings & body]
+  `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
+         out# (propagation-chan)
+         copy# (a/chan)
+         prim-result# (f# out# copy#)]
+     (a/go (a/alts! [out# (a/timeout 5000)]))
+     (a/<!! copy#)
+     (a/close! out#)
+     prim-result#))
