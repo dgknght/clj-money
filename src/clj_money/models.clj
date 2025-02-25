@@ -299,3 +299,14 @@
    (if (util/model-ref? model-or-ref)
      (find model-or-ref model-type)
      model-or-ref)))
+
+(defmacro with-propagation
+  [bindings & body]
+  `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
+         out# (propagation-chan)
+         copy# (a/chan)
+         prim-result# (f# out# copy#)]
+     (a/go (a/alts! [out# (a/timeout 5000)]))
+     (a/<!! copy#)
+     (a/close! out#)
+     prim-result#))

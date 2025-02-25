@@ -144,16 +144,12 @@
   (with-context purchase-context
     (let [personal (find-entity "Personal")
           ira (find-account "IRA")
-          commodity (find-commodity "AAPL")
-          out-chan (models/propagation-chan)
-          copy-chan (a/chan)]
-      (trading/buy (purchase-attributes)
-                   :out-chan out-chan
-                   :copy-chan copy-chan
-                   :close-chan? false)
-      (a/go (a/alts! [out-chan (a/timeout 1000)]))
-      (a/<!! copy-chan)
-      (a/close! out-chan)
+          commodity (find-commodity "AAPL")]
+      (models/with-propagation [out-chan copy-chan]
+        (trading/buy (purchase-attributes)
+                     :out-chan out-chan
+                     :copy-chan copy-chan
+                     :close-chan? false))
       (testing "The commodity account"
         (is (comparable? #:account{:name "AAPL"
                                    :quantity 100M
