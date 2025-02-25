@@ -120,18 +120,10 @@
                                    :type :asset
                                    :parent (util/->model-ref ira)
                                    :system-tags #{:tradable}
-                                   :price-as-of (t/local-date 2016 1 2)
-                                   :quantity 100M
-                                   :value 1000M}
+                                   :price-as-of (t/local-date 2016 1 2)}
                          (models/find-by #:account{:commodity commodity
                                                    :entity personal}))
             "An account to track shares of the commodity is created"))
-      (testing "The trading account"
-        (is (comparable? #:account{:name "IRA"
-                                   :quantity 1000M
-                                   :value 1000M}
-                         (models/find ira))
-            "The trading account balance is updated to reflect money paid out"))
       (testing "The lot"
         (is (comparable? #:lot{:shares-purchased 100M
                                :shares-owned 100M
@@ -147,6 +139,34 @@
                                  :trade-date (t/local-date 2016 1 2)}
                          (:trade/price result))
             "The price is returned")))))
+
+(deftest propagate-a-purchase
+  (with-context purchase-context
+    (let [personal (find-entity "Personal")
+          ira (find-account "IRA")
+          commodity (find-commodity "AAPL")
+          out-chan (models/propagation-chan)
+          copy-chan (a/chan)]
+      (trading/buy (purchase-attributes)
+                   :out-chan out-chan
+                   :copy-chan copy-chan
+                   :close-chan? false)
+      (a/go (a/alts! [out-chan (a/timeout 1000)]))
+      (a/<!! copy-chan)
+      (a/close! out-chan)
+      (testing "The commodity account"
+        (is (comparable? #:account{:name "AAPL"
+                                   :quantity 100M
+                                   :value 1000M}
+                         (models/find-by #:account{:commodity commodity
+                                                   :entity personal}))
+            "An account to track shares of the commodity is has propagated values"))
+      (testing "The trading account"
+        (is (comparable? #:account{:name "IRA"
+                                   :quantity 1000M
+                                   :value 1000M}
+                         (models/find ira))
+            "The trading account balance is updated to reflect money paid out")))))
 
 (deftest purchase-a-commodity-with-a-fee
   (with-context purchase-context
