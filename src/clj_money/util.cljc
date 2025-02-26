@@ -571,12 +571,16 @@
     a1
 
     ; apply to a model map
-    :else
+    (map? a1)
     (let [{:keys [include]} (apply hash-map args)
           selected (select-keys a1 (concat simple-keys include))]
       (if (empty? selected)
         a1
-        selected))))
+        selected))
+
+    ; just return anything we don't recognize as-is
+    :else
+    a1))
 
 (defn upsert-into
   "Given a collection and an item, either update the item in the collection,
