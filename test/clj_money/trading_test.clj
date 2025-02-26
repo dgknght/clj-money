@@ -1,7 +1,6 @@
 (ns clj-money.trading-test
   (:require [clojure.test :refer [use-fixtures deftest is testing]]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.async :as a]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
@@ -145,11 +144,7 @@
     (let [personal (find-entity "Personal")
           ira (find-account "IRA")
           commodity (find-commodity "AAPL")]
-      (models/with-propagation [out-chan copy-chan]
-        (trading/buy (purchase-attributes)
-                     :out-chan out-chan
-                     :copy-chan copy-chan
-                     :close-chan? false))
+      (trading/buy-and-propagate (purchase-attributes))
       (testing "The commodity account"
         (is (comparable? #:account{:name "AAPL"
                                    :quantity 100M
@@ -167,13 +162,11 @@
 (deftest purchase-a-commodity-with-a-fee
   (with-context purchase-context
     (let [ira (find-account "IRA")
-          inv-exp (find-account "Investment Expenses")
-          out-chan (models/propagation-chan)]
+          inv-exp (find-account "Investment Expenses")]
       (-> (purchase-attributes)
           (assoc :trade/fee 5M
                  :trade/fee-account inv-exp)
-          (trading/buy :out-chan out-chan))
-      (a/alts!! [out-chan (a/timeout 1000)])
+          (trading/buy-and-propagate))
       (is (= 995M (:account/quantity (models/find ira)))
           "The investment account balance reflects the fee")
       (is (= 5M (:account/quantity (models/find inv-exp)))
@@ -182,8 +175,7 @@
 (deftest reinvest-a-dividend
   (with-context purchase-context
     (let [dividends (find-account "Dividends")
-          ira (models/find (find-account "IRA"))
-          out-chan (models/propagation-chan)]
+          ira (models/find (find-account "IRA"))]
       (-> #:trade{:commodity (find-commodity "AAPL")
                   :account (find-account "IRA")
                   :date (t/local-date 2016 2 2)
@@ -191,8 +183,7 @@
                   :value 50M}
           (assoc :trade/dividend? true
                  :trade/dividend-account dividends)
-          (trading/buy :out-chan out-chan))
-      (a/alts!! [out-chan (a/timeout 1000)])
+          (trading/buy-and-propagate))
       (is (= 50M (:account/quantity (models/find dividends)))
           "The dividend account is debited for the amount of the purchase")
       (is (= (:account/quantity ira)
@@ -694,10 +685,11 @@
           commodity (find-commodity "AAPL")
           commodity-account (models/find-by #:account{:name "AAPL"
                                                       :parent ira})
-          result (trading/split #:split{:commodity commodity
-                                        :account ira
-                                        :shares-gained 100M
-                                        :date (t/local-date 2016 3 3)})]
+          result (trading/split-and-propagate
+                   #:split{:commodity commodity
+                           :account ira
+                           :shares-gained 100M
+                           :date (t/local-date 2016 3 3)})]
       (is (= 2M (:split/ratio result))
           "The split ratio is returned")
       (testing "The transaction"

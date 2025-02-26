@@ -424,6 +424,9 @@
         (update-in res [:trade/transactions] #(cons div-trans %))
         res))))
 
+(def buy-and-propagate
+  (models/+propagation buy))
+
 (defn unbuy
   "Reverses a commodity purchase"
   [trx]
@@ -861,9 +864,10 @@
   [{:split/keys [transaction
                  lots
                  lot-items
-                 ratio]}]
+                 ratio]}
+   opts]
   (let [result (->> (cons transaction (concat lots lot-items))
-                    models/put-many
+                    (models/put-many (mapcat identity opts))
                     (group-by util/model-type))]
     {:split/transaction (first (:transaction result))
      :split/lots (:lot result)
@@ -887,7 +891,7 @@
   :shares-gained - the difference in the number of shares held before and after the split
   :account       - the trading account through which the commodity was purchased"
 
-  [split]
+  [split & {:as opts}]
   (with-ex-validation split ::models/split
     (-> split
         (update-in [:split/commodity] (models/resolve-ref :commodity))
@@ -896,4 +900,7 @@
         append-split-ratio
         adjust-split-lots
         create-split-transaction
-        put-split)))
+        (put-split opts))))
+
+(def split-and-propagate
+  (models/+propagation split))
