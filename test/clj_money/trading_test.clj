@@ -184,7 +184,9 @@
           (assoc :trade/dividend? true
                  :trade/dividend-account dividends)
           (trading/buy-and-propagate))
-      (is (= 50M (:account/quantity (models/find dividends)))
+      (is (comparable? #:account{:quantity 50M
+                                 :value 50M}
+                       (models/find dividends))
           "The dividend account is debited for the amount of the purchase")
       (is (= (:account/quantity ira)
              (:account/quantity (models/find ira)))
