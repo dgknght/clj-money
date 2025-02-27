@@ -414,14 +414,14 @@
                       create-price
                       update-accounts
                       create-lot)
-          div-trans (some-> prepped
-                            create-dividend-transaction
-                            models/put)
+          div-trx (some-> prepped
+                          create-dividend-transaction
+                          models/put)
           res (-> prepped
                   create-purchase-transaction
                   (put-purchase opts))]
-      (if div-trans
-        (update-in res [:trade/transactions] #(cons div-trans %))
+      (if div-trx
+        (update-in res [:trade/transactions] #(cons div-trx %))
         res))))
 
 (def buy-and-propagate
