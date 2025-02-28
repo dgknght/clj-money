@@ -12,7 +12,8 @@
             [clj-money.models :as models]
             [clj-money.models.prices :as prices]
             [clj-money.util :as util]
-            [clj-money.db :as db])
+            [clj-money.db :as db]
+            [clj-money.models.transactions :as transactions])
   (:import java.math.BigDecimal))
 
 (s/def :trade/commodity ::models/model-ref)
@@ -228,19 +229,22 @@
   "When :dividend? is true, creates the transaction for
   the receipt of the dividend"
   [{:trade/keys [dividend? dividend-account account value entity date] :as trade}]
-  (when dividend?
+  (if dividend?
     (if dividend-account
-      #:transaction{:entity entity
-                    :transaction-date date
-                    :description (dividend-transaction-description trade)
-                    :items [#:transaction-item{:action :credit
-                                               :account dividend-account
-                                               :quantity value}
-                            #:transaction-item{:action :debit
-                                               :account account
-                                               :quantity value}]}
+      (assoc trade
+             :trade/dividend-transaction
+             #:transaction{:entity entity
+                           :transaction-date date
+                           :description (dividend-transaction-description trade)
+                           :items [#:transaction-item{:action :credit
+                                                      :account dividend-account
+                                                      :quantity value}
+                                   #:transaction-item{:action :debit
+                                                      :account account
+                                                      :quantity value}]})
       (throw (ex-info "Unable to apply the dividend because a dividend account was not specified"
-                      trade)))))
+                      trade)))
+    trade))
 
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
@@ -269,17 +273,16 @@
                                                        :account fee-account
                                                        :quantity fee
                                                        :value fee}))]
-    (update-in trade
-               [:trade/transactions]
-               (fnil conj [])
-               #:transaction{:entity entity
-                             :transaction-date date
-                             :description (purchase-transaction-description trade)
-                             :items items
-                             :lot-items [#:lot-item{:lot lot
-                                                    :lot-action :buy
-                                                    :price (with-precision 4 (/ value shares))
-                                                    :shares shares}]})))
+    (assoc trade
+           :trade/transaction
+           #:transaction{:entity entity
+                         :transaction-date date
+                         :description (purchase-transaction-description trade)
+                         :items items
+                         :lot-items [#:lot-item{:lot lot
+                                                :lot-action :buy
+                                                :price (with-precision 4 (/ value shares))
+                                                :shares shares}]})))
 
 (defn- create-capital-gains-item
   [{:keys [quantity description long-term?]} trade]
@@ -361,7 +364,8 @@
                            :lot/shares-owned shares}))
 
 (defn- put-purchase
-  [{:trade/keys [transactions
+  [{:trade/keys [transaction
+                 dividend-transaction
                  lot
                  commodity
                  account
@@ -372,17 +376,17 @@
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finally save the affected accounts
-  (let [result (group-by util/model-type
-                         (models/put-many
-                           opts
-                           (concat [commodity-account
-                                    lot
-                                    commodity
-                                    price
-                                    account]
-                                   transactions)))]
+  (let [result (->> [[dividend-transaction]
+                     [commodity-account
+                      lot
+                      commodity
+                      price
+                      account
+                      transaction]]
+                    (mapcat (partial models/put-many opts))
+                    (group-by util/model-type))]
     (assoc trade
-           :trade/transactions (:transaction result) ; TODO: Prune out the propagated transactions
+           :trade/transactions (:transaction result)
            :trade/fee-account (->> (:account result)
                                    (filter #(= :expense (:account/type %)))
                                    first)
@@ -406,23 +410,17 @@
 (defn buy
   [purchase & {:as opts}]
   (with-ex-validation purchase ::models/purchase []
-    (let [prepped (-> purchase
-                      append-commodity-account
-                      append-commodity
-                      append-accounts
-                      append-entity
-                      create-price
-                      update-accounts
-                      create-lot)
-          div-trx (some-> prepped
-                          create-dividend-transaction
-                          models/put)
-          res (-> prepped
-                  create-purchase-transaction
-                  (put-purchase opts))]
-      (if div-trx
-        (update-in res [:trade/transactions] #(cons div-trx %))
-        res))))
+    (-> purchase
+        append-commodity-account
+        append-commodity
+        append-accounts
+        append-entity
+        create-price
+        update-accounts
+        create-lot
+        create-dividend-transaction
+        create-purchase-transaction
+        (put-purchase opts))))
 
 (def buy-and-propagate
   (models/+propagation buy))
