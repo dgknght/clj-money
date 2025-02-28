@@ -206,7 +206,7 @@
             storage]
      :or {close-chan? true}}
     models]
-   {:pre [(s/valid? (s/coll-of map?) models)]}
+   {:pre [(s/valid? (s/coll-of map? :min-count 1) models)]}
 
    (let [to-save (->> models
                       (handle-dupes opts)
