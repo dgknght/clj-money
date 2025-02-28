@@ -353,7 +353,7 @@
                            (drop 1) ; the 1st is the basis and is not updated
                            (map #(dissoc % ::polarized-quantity)))
         final-qty (or (:transaction-item/balance (last updated-items))
-                      0M)
+                      (:transaction-item/balance (first items)))
         ; TODO: Shortcut this by checking if the commodity is the entity default
         price (or (:account/commodity-price account)
                   (:price/price
