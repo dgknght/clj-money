@@ -11,6 +11,12 @@
             [clj-money.util :as util :refer [model=]]
             [clj-money.db :as db]))
 
+(s/def ::model (s/and map?
+                      util/model-type))
+(s/def ::puttable (s/or :map       ::model
+                        :operation (s/tuple ::db/operation ::model)))
+(s/def ::puttables (s/coll-of ::puttable :min-count 1))
+
 ; A map of priority number to sets of propagation fns
 (def ^:private full-propagations (atom {}))
 
@@ -206,7 +212,7 @@
             storage]
      :or {close-chan? true}}
     models]
-   {:pre [(s/valid? (s/coll-of map? :min-count 1) models)]}
+   {:pre [(s/valid? ::puttables models)]}
 
    (let [to-save (->> models
                       (handle-dupes opts)

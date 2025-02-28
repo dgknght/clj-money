@@ -238,15 +238,14 @@
         (assoc-in [:id-map (:id m)]
                   saved)))))
 
-(s/def ::operation #{::db/insert ::db/update ::db/delete})
 (s/def ::id (some-fn string?
                      integer?
                      uuid?))
 (s/def ::model (s/and (s/keys :req-un [::id])
                       util/model-type))
-(s/def ::putable (s/or :map ::model
-                       :operation (s/tuple ::operation ::model)))
-(s/def ::putables (s/coll-of ::putable))
+(s/def ::puttable (s/or :map ::model
+                       :operation (s/tuple ::db/operation ::model)))
+(s/def ::puttables (s/coll-of ::puttable))
 
 ; This is only exposed publicly to support tests that enforce
 ; short-circuting transaction propagation
@@ -254,7 +253,7 @@
   "Executes operations against the database. This function is not entended
   to be used directly."
   [ds models]
-  {:pre [(s/valid? ::putables models)]}
+  {:pre [(s/valid? ::puttables models)]}
   (let [result (jdbc/with-transaction [tx ds]
                  (->> models
                       (mapcat deconstruct)
