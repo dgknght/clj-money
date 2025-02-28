@@ -12,8 +12,7 @@
             [clj-money.models :as models]
             [clj-money.models.prices :as prices]
             [clj-money.util :as util]
-            [clj-money.db :as db]
-            [clj-money.models.transactions :as transactions])
+            [clj-money.db :as db])
   (:import java.math.BigDecimal))
 
 (s/def :trade/commodity ::models/model-ref)
@@ -672,9 +671,6 @@
     (models/put-many opts
                      (cons [::db/delete trx]
                            updated-lots))))
-
-(def unsell-and-propagate
-  (models/+propagation unsell))
 
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account
