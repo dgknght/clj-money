@@ -383,6 +383,8 @@
                       price
                       account
                       transaction]]
+                    (map #(filter identity %))
+                    (filter seq)
                     (mapcat (partial models/put-many opts))
                     (group-by util/model-type))]
     (assoc trade
@@ -427,7 +429,7 @@
 
 (defn unbuy
   "Reverses a commodity purchase"
-  [trx]
+  [trx & {:as opts}]
   (let [lot (models/resolve-ref
               (get-in trx [:transaction/lot-items
                            0
@@ -438,10 +440,13 @@
     (when (not= (:lot/shares-purchased lot) (:lot/shares-owned lot))
       (throw (IllegalStateException.
                "Cannot undo a purchase if shares have been sold from the lot")))
-    (models/delete-many [trx lot])
+    (models/delete-many opts [trx lot])
     {:transaction trx
      :lot lot
      :commodity commodity}))
+
+(def unbuy-and-propagate
+  (models/+propagation unbuy))
  
 (defn- acquire-lots
   "Given a trade map, finds the next lot containing
@@ -644,7 +649,7 @@
         put-sale)))
 
 (defn unsell
-  [trx]
+  [trx & {:as opts}]
   (let [lot-items (models/select
                     #:lot-item{:transaction trx
                                :transaction-date (:transaction/transaction-date trx)})
@@ -660,8 +665,12 @@
                                                 #(+ % (:lot-item/shares lot-item))))
                                    lots
                                    lot-items))]
-    (models/put-many (cons [::db/delete trx]
+    (models/put-many opts
+                     (cons [::db/delete trx]
                            updated-lots))))
+
+(def unsell-and-propagate
+  (models/+propagation unsell))
 
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account

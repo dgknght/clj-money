@@ -561,8 +561,9 @@
 
 (deftest undo-a-purchase
   (with-context sale-context
-    (trading/unbuy (find-transaction [(t/local-date 2016 3 2)
-                                      "Purchase 100 shares of AAPL at 10.000"] ))
+    (trading/unbuy-and-propagate
+      (find-transaction [(t/local-date 2016 3 2)
+                         "Purchase 100 shares of AAPL at 10.000"] ))
     ; TODO Should we delete the price that was created?
     (testing "The trading account"
       (is (comparable? {:account/quantity 2000M}
