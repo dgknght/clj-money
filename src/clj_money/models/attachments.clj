@@ -46,10 +46,11 @@
    (doseq [e (models/select (util/model-type {} :entity))]
      (propagate-all e)))
   ([entity]
-   (->> (models/select
-          (util/model-type {:transaction/entity entity}
-                           :attachment))
-        (map #(adjust-trx % inc))
-        (models/put-many))))
+   (some->> (models/select
+              (util/model-type {:transaction/entity entity}
+                               :attachment))
+            seq
+            (map #(adjust-trx % inc))
+            (models/put-many))))
 
 (models/add-full-propagation propagate-all)
