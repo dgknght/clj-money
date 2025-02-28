@@ -599,7 +599,8 @@
                  st-capital-gains-account
                  st-capital-loss-account
                  price
-                 entity] :as trade}]
+                 entity] :as trade}
+   opts]
   ; First save the primary accounts so they all have ids
   ; Next save the transaction and lots, which will update the
   ; commodity account also
@@ -616,7 +617,7 @@
                             transactions
                             updated-lots)
                     (filter identity)
-                    (models/put-many)
+                    (models/put-many opts)
                     (group-by util/model-type))]
     (assoc trade
            :trade/transactions (:transaction result)
@@ -632,7 +633,7 @@
                                          first)
            :trade/updated-lots (:lot result))))
 (defn sell
-  [sale]
+  [sale & {:as opts}]
   (with-ex-validation sale ::models/sale
     (-> sale
         append-commodity-account
@@ -646,7 +647,10 @@
         update-accounts
         process-lot-sales
         create-sale-transaction
-        put-sale)))
+        (put-sale opts))))
+
+(def sell-and-propagate
+  (models/+propagation sell))
 
 (defn unsell
   [trx & {:as opts}]

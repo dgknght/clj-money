@@ -248,7 +248,7 @@
 
 (deftest sell-a-commodity-for-a-gain-after-1-year
   (with-context sale-context
-    (let [result (trading/sell (sale-attributes))
+    (let [result (trading/sell-and-propagate (sale-attributes))
           ltcg (find-account "Long-term Capital Gains")
           aapl-acc (models/find-by #:account{:entity (find-entity "Personal")
                                              :commodity (find-commodity "AAPL")})]
