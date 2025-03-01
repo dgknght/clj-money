@@ -3,65 +3,57 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
+            [clj-money.models :as models]
+            [clj-money.model-helpers :as helpers :refer [assert-deleted]]
+            [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-user
                                             find-grant]]
-            [clj-money.models.grants :as grants]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private grant-context
-  {:users (map #(factory :user {:email %})
-               ["john@doe.com" "jane@doe.com"])
-   :entities [{:name "Business"
-               :user-id "john@doe.com"}]
-   :commodities [{:name "US Dollar"
-                  :type :currency
-                  :symbol "USD"}]})
+  (conj (mapv #(factory :user {:user/email %})
+              ["john@doe.com" "jane@doe.com"])
+        #:entity{:name "Business"
+                 :user "john@doe.com"}
+        #:commodity{:name "US Dollar"
+                    :entity "Business"
+                    :type :currency
+                    :symbol "USD"}))
+
+(defn- assert-created
+  [attr]
+  (helpers/assert-created attr :refs [:grant/entity :grant/user]))
 
 (deftest create-a-grant
-  (let [context (realize grant-context)
-        entity (find-entity context "Business")
-        user (find-user context "jane@doe.com")
-        grant {:entity-id (:id entity)
-               :user-id (:id user)
-               :permissions {:account #{:index :show}}}
-        result (grants/create grant)
-        retrieved (grants/find result)]
-    (is (valid? result)) 
-    (is (comparable? grant result) "The return value has correct attributes")
-    (is (comparable? grant retrieved)
-        "The retrieved value has the correct attributes")))
+  (with-context grant-context
+    (assert-created #:grant{:entity (find-entity "Business") 
+                            :user (find-user "jane@doe.com")
+                            :permissions {:account #{:index :show}}})))
 
 (def ^:private existing-grant-context
-  (assoc grant-context :grants [{:user-id "jane@doe.com"
-                                 :entity-id "Business"
-                                 :permissions {:account #{:index :show}}}]))
+  (conj grant-context
+        #:grant{:user "jane@doe.com"
+                :entity "Business"
+                :permissions {:account #{:index :show}}}))
 
 (deftest update-a-grant
-  (let [context (realize existing-grant-context)
-        entity (find-entity context "Business")
-        user (find-user context "jane@doe.com")
-        grant (find-grant context (:id entity) (:id user))
-        result (grants/update
-                (update-in grant
-                           [:permissions]
-                           #(assoc % :transaction #{:index :show})))
-        retrieved (grants/find result)]
-    (is (valid? result))
-    (is (= {:account #{:index :show}
-            :transaction #{:index :show}}
-           (:permissions retrieved))
-        "The retrieved record should have the correct content")))
+  (with-context existing-grant-context
+    (let [result (-> (find-grant ["Business" "jane@doe.com"])
+                     (update-in [:grant/permissions]
+                                assoc :transaction #{:index :show})
+                     models/put)]
+      (is (comparable? #:grant{:permissions {:transaction #{:index :show}}}
+                       result)
+          "The returned value has the specified attributes") 
+      (is (comparable? #:grant{:permissions {:transaction #{:index :show}}}
+                       (models/find result))
+          "The retrieved value has the specified attributes"))))
 
 (deftest delete-a-grant
-  (let [context (realize existing-grant-context)
-        entity (find-entity context "Business")
-        user (find-user context "jane@doe.com")
-        grant (find-grant context (:id entity) (:id user))
-        _ (grants/delete grant)
-        grant-list (grants/search {:entity-id (:id entity)})]
-    (is (empty? (filter #(= (:id grant) (:id %)) grant-list))
-        "The grant is not present after delete")))
+  (with-context existing-grant-context
+    (assert-deleted (find-grant ["Business" "jane@doe.com"]))))

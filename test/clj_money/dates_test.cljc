@@ -176,6 +176,22 @@
     (is (dates/equal? feb (dates/latest jan feb)))
     (is (dates/equal? feb (dates/latest feb jan)))))
 
+(deftest get-the-first-day-of-the-year
+  (is (= (t/local-date 2020 1 1)
+         (dates/first-day-of-the-year 2020))
+      "It returns the first day of the specified year when given a number")
+  (is (= (t/local-date 2020 1 1)
+         (dates/first-day-of-the-year (t/local-date 2020 3 2)))
+      "It returns the first day of the same year when given a date"))
+
+(deftest get-the-last-day-of-the-year
+  (is (= (t/local-date 2020 12 31)
+         (dates/last-day-of-the-year 2020))
+      "It returns the last day of the specified year when given a number")
+  (is (= (t/local-date 2020 12 31)
+         (dates/last-day-of-the-year (t/local-date 2020 3 2)))
+      "It returns the last day of the same year when given a date"))
+
 (deftest get-the-first-day-of-a-month
   (is (dates/equal? (t/local-date 2015 4 1)
                     (dates/first-day-of-the-month 2015 4))))
@@ -278,6 +294,25 @@
   (is (dates/equal? (t/local-date 2000 1 1)
                     (dates/unserialize-local-date "2000-01-01"))))
 
+(deftest serialize-a-local-date-time
+  (is (= "2000-01-01T12:34:56"
+         (dates/serialize-local-date-time (t/local-date-time 2000 1 1 12 34 56)))))
+
+(deftest unserialize-a-local-date-time
+  (is (dates/equal? (t/local-date-time 2000 1 1 11 22 33)
+                    (dates/unserialize-local-date-time "2000-01-01T11:22:33"))))
+
 (deftest get-the-number-of-days-in-a-period
   (is (= 3 (dates/days-between (t/local-date 2000 1 1)
                                (t/local-date 2000 1 4)))))
+
+(deftest get-range-boundaries
+  (let [[start end] (dates/range-boundaries [(t/local-date 2000 1 15)
+                                             (t/local-date 2000 1 31)
+                                             (t/local-date 2000 1 1)])]
+    (is (dates/equal? (t/local-date 2000 1 1)
+                      start)
+        "The range start date is in the first position of the return value.")
+    (is (dates/equal? (t/local-date 2000 1 31)
+                      end)
+        "The range end date is in the second position of the return value.")))

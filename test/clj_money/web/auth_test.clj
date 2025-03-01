@@ -1,5 +1,5 @@
 (ns clj-money.web.auth-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [clj-http.core :as http]
             [cheshire.core :as json]
@@ -8,9 +8,12 @@
             [dgknght.app-lib.core :as app-lib]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.users :as usrs])
   (:import java.io.ByteArrayInputStream))
+
+(use-fixtures :each reset-db)
 
 (deftest start-the-oauth-process
   (with-redefs [app-lib/uuid (constantly "abc123")]
@@ -53,7 +56,7 @@
             "The site redirects back to the root page")
         (is (http-response-with-cookie? "auth-token" "abc123" res)
             "The redirect contains the auth token")
-        (is (comparable? {:email "john@doe.com"
-                          :first-name "John"
-                          :last-name "Doe"}
+        (is (comparable? #:user{:email "john@doe.com"
+                                :first-name "John"
+                                :last-name "Doe"}
                          (usrs/find-by-email "john@doe.com")))))))

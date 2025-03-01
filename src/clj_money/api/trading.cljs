@@ -1,15 +1,13 @@
 (ns clj-money.api.trading
-  (:require [dgknght.app-lib.web :refer [serialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]))
+  (:require [clj-money.models :refer [prune]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn create
-  [{:keys [entity-id] :as trade} xf]
-  {:pre [(:entity-id trade)]}
+  [{:trade/keys [entity] :as trade} & {:as opts}]
+  {:pre [(:trade/entity trade)]}
 
-  (api/post (api/path :entities entity-id :trades)
+  (api/post (api/path :entities entity :trades)
             (-> trade
-                (dissoc :entity-id)
-                (update-in [:trade-date] serialize-date))
-            {:transform xf
-             :handle-ex (handle-ex "Unable to create the trading transaction: %s")}))
+                (prune :trade)
+                (dissoc :trade/entity))
+            (add-error-handler opts "Unable to create the trading transaction: %s")))

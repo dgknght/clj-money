@@ -1,5 +1,7 @@
 (ns ^:figwheel-hooks clj-money.core
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
@@ -12,6 +14,7 @@
                                                current-user
                                                current-entity]]
             [clj-money.html :refer [google-g]]
+            [clj-money.util :as util]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -24,6 +27,7 @@
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
+            [clj-money.api]
             [clj-money.api.entities :as entities]
             [clj-money.api.users :as users]))
 
@@ -74,7 +78,6 @@
 (defn- default-nav-item
   [{:keys [id]} active-nav]
   {:label (humanize id)
-   :toggle "#primary-nav"
    :path (str "/" (name id))
    :active? (= id active-nav)
    :tool-tip (str "Click here to manage "
@@ -98,52 +101,53 @@
 
 (defn navbar
   [items {:keys [profile-photo-url]}]
-  [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
-   [:div.container
-    [:a.navbar-brand {:href "/"}
-     [:img {:src "/images/logo.svg"
-            :alt "abacus logo"
-            :width 24
-            :height 24}]]
-    (when-let [entity (:name @current-entity)]
-      [:a.navbar-brand {:href "#entity-selection"
-                        :data-bs-toggle "offcanvas"
-                        :role :button
-                        :aria-controls "entity-selection"}
-       entity])
-    [:button.navbar-toggler {:type :button
-                             :data-bs-toggle :collapse
-                             :data-bs-target "#primary-nav"
-                             :aria-controls "primary-nav"
-                             :aria-expanded false
-                             :aria-label "Toggle Navigation"}
-     [:span.navbar-toggler-icon]]
-    (when (seq items)
-      [:div#primary-nav.collapse.navbar-collapse
-       [:ul.navbar-nav.me-auto.mb-2.mb-lg-0
-        (->> items
-             (map bs/nav-item)
-             doall)]])
+  (fn []
+    [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
+     [:div.container
+      [:a.navbar-brand {:href "/"}
+       [:img {:src "/images/logo.svg"
+              :alt "abacus logo"
+              :width 24
+              :height 24}]]
+      (when-let [entity (:entity/name @current-entity)]
+        [:a.navbar-brand {:href "#entity-selection"
+                          :data-bs-toggle "offcanvas"
+                          :role :button
+                          :aria-controls "entity-selection"}
+         entity])
+      [:button.navbar-toggler {:type :button
+                               :data-bs-toggle :collapse
+                               :data-bs-target "#primary-nav"
+                               :aria-controls "primary-nav"
+                               :aria-expanded false
+                               :aria-label "Toggle Navigation"}
+       [:span.navbar-toggler-icon]]
+      (when (seq items)
+        [:div#primary-nav.collapse.navbar-collapse
+         [:ul.navbar-nav.me-auto.mb-2.mb-lg-0
+          (->> items
+               (map bs/nav-item)
+               doall)]])
 
-    (when profile-photo-url ; TODO: Fetch this when authenticating via google
-      [:img.rounded-circle.d-none.d-lg-block
-       {:src profile-photo-url
-        :style {:max-width "32px"}
-        :alt "Profile Photo"}])]])
+      (when profile-photo-url ; TODO: Fetch this when authenticating via google
+        [:img.rounded-circle.d-none.d-lg-block
+         {:src profile-photo-url
+          :style {:max-width "32px"}
+          :alt "Profile Photo"}])]]))
 
 (defn- nav []
-  (let [active-nav (r/cursor app-state [:active-nav])]
+  (let [active-nav (r/cursor app-state [:active-nav])items
+        (make-reaction #(nav-items @active-nav))]
     (fn []
-      (let [items (nav-items @active-nav)]
-        (navbar
-          items
-          {:brand "clj-money"
-           :brand-path "/"})))))
+      [navbar
+       @items
+       {:brand "clj-money"
+        :brand-path "/"}])))
 
 (defn- alerts []
   (fn []
     (when (seq @notify/notifications)
-      [:div#alerts
+      [:div#alerts.m-3
        (doall (for [n @notify/notifications]
                 (bs/alert n)))])))
 
@@ -177,7 +181,7 @@
                            :class (when (= (:id entity)
                                            (:id current))
                                     "active")}
-                          (:name entity)]))))]]
+                          (:entity/name entity)]))))]]
          [:div.col-md-3
           [:ul.nav.nav-pills.nav-fill.flex-md-column
            [:li.nav-item
@@ -214,15 +218,23 @@
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
-  (entities/select
-    (map receive-entities)))
+  (entities/select :on-success receive-entities))
 
 (defn- fetch-current-user []
-  (users/me (map #(swap! app-state assoc :current-user %))))
+  (users/me :on-success
+            #(swap! app-state
+                    assoc
+                    :current-user
+                    (dissoc %
+                            :user/created-at
+                            :user/updated-at))))
 
 (defn- sign-in-from-cookie []
   (if @current-user
-    (fetch-entities)
+    (do
+      (when (util/model-ref? @current-user)
+        (users/me :on-success #(reset! current-user %)))
+      (fetch-entities))
     (when-let [auth-token (cookies/get :auth-token)]
       (swap! app-state assoc :auth-token auth-token)
       (fetch-current-user)

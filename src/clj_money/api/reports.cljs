@@ -5,14 +5,6 @@
             [clj-money.api :as api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]))
 
-(defn- after-read
-  [report]
-  (map (fn [item]
-         (-> item
-             (update-in [:style] keyword)
-             (update-in-if [:items] after-read)))
-       report))
-
 (defn income-statement
   [{:keys [start-date end-date]} & xf]
   (api/get (api/path :entities
@@ -22,9 +14,7 @@
                      (serialize-date start-date)
                      (serialize-date end-date))
            {}
-           {:transform (apply comp
-                              (map after-read)
-                              xf)
+           {:post-xf xf
             :handle-ex (handle-ex "Unable to retrieve the income statement: %s")}))
 
 (defn balance-sheet
@@ -35,7 +25,7 @@
                      :balance-sheet
                      (serialize-date as-of))
            {}
-           {:transform (cons (map after-read) xf)
+           {:post-xf xf
             :handle-ex (handle-ex "Unable to retrieve the balance sheet: %s")}))
 
 (defn budget
@@ -51,8 +41,7 @@
                            map->query-string)))]
     (api/get url
              {}
-             {:transform (cons (map #(update-in % [:items] after-read))
-                               xf)
+             {:post-xf xf
               :handle-ex (handle-ex "Unable to retrieve the budget report: %s")})))
 
 (defn budget-monitors
@@ -62,7 +51,7 @@
                      :reports
                      :budget-monitors)
            {}
-           {:transform xf
+           {:post-xf xf
             :handle-ex (handle-ex "Unable to retrieve the budget monitors: %s")}))
 
 (defn- after-portfolio-read
@@ -83,6 +72,6 @@
                      (update-in-if [:aggregate] name)
                      map->query-string))
             {}
-            {:transform (cons (map after-portfolio-read)
+            {:post-xf (cons (map after-portfolio-read)
                               (cons xf xfs))
              :handle-ex (handle-ex "Unable to retrieve the portfolio report: %s")})))

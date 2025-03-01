@@ -1,34 +1,26 @@
 (ns clj-money.api.lots
   (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]))
-
-(defn- after-read
-  [lot]
-  (update-in lot [:purchase-date] unserialize-date))
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- prepare-criteria
   [criteria]
-  (update-in-if criteria [:shares-owned] (fn [v]
-                                           (if (and (sequential? v)
-                                                    (= :!= (first v)))
-                                             (update-in v [0] name)
-                                             v))))
+  (update-in-if criteria [:lot/shares-owned] (fn [v]
+                                               (if (and (sequential? v)
+                                                        (= :!= (first v)))
+                                                 (update-in v [0] name)
+                                                 v))))
 
-(defn search
-  [criteria xf]
-  {:pre (contains? criteria :account-id)}
+(defn select
+  [criteria & {:as opts}]
+  {:pre (contains? criteria :lot/account)}
 
-  (let [[path criteria] (if (coll? (:account-id criteria))
+  (let [[path criteria] (if (coll? (:lot/account criteria))
                           [(api/path :lots)
                            criteria]
                           [(api/path :accounts
-                                     (:account-id criteria)
+                                     (:lot/account criteria)
                                      :lots)
-                           (dissoc criteria :account-id)])]
+                           (dissoc criteria :lot/account)])]
     (api/get path
              (prepare-criteria criteria)
-             {:transform (comp (api/apply-fn after-read)
-                               xf)
-              :handle-ex (handle-ex "Unable to retrieve the lots: %s")})))
+             (add-error-handler opts "Unable to retrieve the lots: %s"))))
