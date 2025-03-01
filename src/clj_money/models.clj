@@ -3,7 +3,6 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
-            [clojure.set :refer [map-invert]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.models :as models]
@@ -192,23 +191,44 @@
   (every-pred vector?
               #(= ::db/delete (first %))))
 
+(defn- emit-changes
+  [{:keys [to-save
+           result
+           out-chan
+           copy-chan
+           close-chan?]
+    :or {close-chan? true}}]
+  (when out-chan
+    (a/go
+      (let [coll (concat
+                   (->> result
+                        (interleave to-save)
+                        (partition 2)
+                        (map (fn [[input after]]
+                               (if (deletion? input)
+                                 [(second input) nil]
+                                 [(before input) after])))))
+            c (a/onto-chan! out-chan coll close-chan?)]
+        (when copy-chan
+          (a/pipe c copy-chan))))))
+
 (defn put-many
   "Save a sequence of models to the database, providing lifecycle hooks that
   are dispatched by model type, including: before-validation, before-save,
-  after-save.
+  after-save, etc.
 
   Options:
   :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
-  :out-chan     - An async channel, that when passed, receives change tuples
+  :out-chan     - An async channel that when passed, receives change tuples
                   containing before and after versions of each model affected
-                  by the operation."
+                  by the operation.
+  :copy-chan    - An async channel that receives a message when the out-chan
+                  has received all pending results.
+  :close-chan?  - A boolean value indicating whether or not the out-chan should be
+                  closed automatically once all pending results have been sent."
   ([models] (put-many {} models))
   ([{:as opts
-     :keys [out-chan
-            copy-chan
-            close-chan?
-            storage]
-     :or {close-chan? true}}
+     :keys [storage]}
     models]
    {:pre [(s/valid? ::puttables models)]}
 
@@ -219,32 +239,16 @@
                                    before-save
                                    validate
                                    before-validation))))
-         before-map (->> to-save
-                         (map (juxt :id (dispatch before)))
-                         (into {}))
-         {:keys [saved id-map]} (db/put (or storage
-                                            (db/storage))
-                                        to-save)
+         {:keys [saved]} (db/put (or storage
+                                     (db/storage))
+                                 to-save)
          result (map (comp append-before
                            after-save
                            #(after-read % {}))
-                     saved)
-         inverted-id-map (map-invert id-map)
-         working-id (comp #(inverted-id-map % %))
-         before (comp before-map working-id :id)]
-     (when out-chan
-       (a/go
-         (let [coll (concat
-                      (->> result
-                            (interleave models)
-                            (partition 2)
-                            (map (fn [[input after]]
-                                   (if (deletion? input)
-                                     [(second input) nil]
-                                     [(before input) after])))))
-               c (a/onto-chan! out-chan coll close-chan?)]
-           (when copy-chan
-             (a/pipe c copy-chan)))))
+                     saved)]
+     (emit-changes (assoc opts
+                          :to-save to-save
+                          :result result))
      result)))
 
 (defn propagation-chan
