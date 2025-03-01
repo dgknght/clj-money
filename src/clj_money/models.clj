@@ -192,10 +192,6 @@
   (every-pred vector?
               #(= ::db/delete (first %))))
 
-(defn- deletions
-  [ms]
-  (filter deletion? ms))
-
 (defn put-many
   "Save a sequence of models to the database, providing lifecycle hooks that
   are dispatched by model type, including: before-validation, before-save,
