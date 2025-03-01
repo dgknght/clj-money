@@ -236,14 +236,12 @@
        (a/go
          (let [coll (concat
                       (->> result
-                           (filter deletion?) ; TODO: This isn't working because the result has lost the db operation
-                           (map (comp vector
-                                      second)))
-                      (->> result
-                           (remove deletion?)
-                           (map (comp vec
-                                 (juxt before
-                                       identity)))))
+                            (interleave models)
+                            (partition 2)
+                            (map (fn [[input after]]
+                                   (if (deletion? input)
+                                     [(second input) nil]
+                                     [(before input) after])))))
                c (a/onto-chan! out-chan coll close-chan?)]
            (when copy-chan
              (a/pipe c copy-chan)))))
