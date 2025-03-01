@@ -18,15 +18,47 @@
 
 (next.jdbc.date-time/read-as-local)
 
+(defn- map->pg-object
+  [m]
+  (doto (PGobject.)
+    (.setType "jsonb")
+    (.setValue (json/generate-string m))))
+
+(defn- <-pg-object
+  [^PGobject obj]
+  (case (.getType obj)
+
+    ("jsonb" "json")
+    (json/parse-string (.getValue obj)
+                       (fn [k]
+                         ; Account use account ids as keys for the allocations
+                         (if (re-matches #"\d+" k)
+                           (Integer/parseInt k)
+                           (keyword k))))
+
+    (.getValue obj)))
+
 (extend-protocol rs/ReadableColumn
   Array
   (read-column-by-label [^Array v _] (vec (.getArray v)))
-  (read-column-by-index [^Array v _ _] (vec (.getArray v))))
+  (read-column-by-index [^Array v _ _] (vec (.getArray v)))
+
+  PGobject
+  (read-column-by-label [^PGobject v _] (<-pg-object v))
+  (read-column-by-index [^PGobject v _ _] (<-pg-object v)))
 
 (extend-protocol p/SettableParameter
   clojure.lang.Keyword
   (set-parameter [^clojure.lang.Keyword k ^PreparedStatement s ^long i]
-    (.setObject s i (name k))))
+    (.setObject s i (name k)))
+
+  clojure.lang.PersistentArrayMap
+  (set-parameter [^clojure.lang.PersistentArrayMap m ^PreparedStatement s ^long i]
+    (.setObject s i (map->pg-object m)))
+
+  clojure.lang.PersistentHashMap
+  (set-parameter [^clojure.lang.PersistentHashMap m ^PreparedStatement s ^long i]
+    (.setObject s i (map->pg-object m))))
 
 (defmulti coerce-id type)
 
@@ -46,15 +78,3 @@
             (coerce-id x)
             x))
         v))
-
-(defn ->json
-  [x]
-  (when x
-    (doto (PGobject.)
-      (.setType "jsonb")
-      (.setValue (json/generate-string x)))))
-
-(defn json->map
-  [^org.postgresql.util.PGobject x & {:keys [key-fn] :or {key-fn true}}]
-  (when x
-    (json/parse-string (.getValue x) key-fn)))
