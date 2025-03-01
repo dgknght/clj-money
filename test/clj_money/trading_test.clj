@@ -692,11 +692,11 @@
           commodity (find-commodity "AAPL")
           commodity-account (models/find-by #:account{:name "AAPL"
                                                       :parent ira})
-          result (trading/split-and-propagate
-                   #:split{:commodity commodity
-                           :account ira
-                           :shares-gained 100M
-                           :date (t/local-date 2016 3 3)})]
+          [result] (trading/split-and-propagate
+                     #:split{:commodity commodity
+                             :account ira
+                             :shares-gained 100M
+                             :date (t/local-date 2016 3 3)})]
       (is (= 2M (:split/ratio result))
           "The split ratio is returned")
       (testing "The transaction"
@@ -709,7 +709,7 @@
                                                                   :quantity 100M
                                                                   :balance 200M
                                                                   :value 0M}]}
-                         (:split/transaction result))
+                         (models/find (:split/transaction result)))
             "The result contains the transaction that was created"))
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)

@@ -878,7 +878,7 @@
                  ratio]}
    opts]
   (let [result (->> (cons transaction (concat lots lot-items))
-                    (models/put-many (mapcat identity opts))
+                    (models/put-many opts)
                     (group-by util/model-type))]
     {:split/transaction (first (:transaction result))
      :split/lots (:lot result)
@@ -914,4 +914,4 @@
         (put-split opts))))
 
 (def split-and-propagate
-  (models/+propagation split))
+  (models/+propagation split :combine-with cons))
