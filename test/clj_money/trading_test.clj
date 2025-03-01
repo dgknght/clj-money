@@ -248,7 +248,7 @@
 
 (deftest sell-a-commodity-for-a-gain-after-1-year
   (with-context sale-context
-    (let [result (trading/sell-and-propagate (sale-attributes))
+    (let [result (trading/sell (sale-attributes))
           ltcg (find-account "Long-term Capital Gains")
           aapl-acc (models/find-by #:account{:entity (find-entity "Personal")
                                              :commodity (find-commodity "AAPL")})]
@@ -270,29 +270,16 @@
             "The transaction is created and returned")
         (is (comparable?
               #:transaction-item{:action :debit
-                                            :value 375M
-                                            :quantity 375M}
-                         (item-by-account (find-account "IRA")
-                                          (first (:trade/transactions result))))
+                                 :value 375M
+                                 :quantity 375M}
+              (item-by-account (find-account "IRA")
+                               (first (:trade/transactions result))))
             "The trading account is debited the total proceeds from the purchase")
         (is (comparable? #:transaction-item{:action :credit
                                             :value 250M
                                             :quantity 25M}
                          (item-by-account aapl-acc (first (:trade/transactions result))))
             "The commodity account is credited the number of shares and purchase value of the shares."))
-      (testing "The commodity account"
-        (is (comparable? #:account{:name "AAPL"
-                                   :quantity 75M
-                                   :value 1125M
-                                   :price-as-of (t/local-date 2017 3 2)}
-                         (models/find aapl-acc))
-            "The commodity account is updated wth new value and price date"))
-      (testing "The trading account"
-        (is (comparable? #:account{:name "IRA"
-                                   :quantity 1375M
-                                   :value 1375M}
-                         (models/find (find-account "IRA")))
-            "The trading account is updated wth new value"))
       (testing "The capital gains account"
         (is (comparable? #:transaction-item{:action :credit
                                             :value 125M
@@ -313,6 +300,23 @@
           (is (model= (find-account "Short-term Capital Losses")
                       (get-in entity [:entity/settings :settings/st-capital-loss-account]))
               "The short-term capital losses account is saved"))))))
+
+(deftest propagate-a-sale
+  (with-context sale-context
+    (trading/sell-and-propagate (sale-attributes))
+    (testing "The commodity account"
+      (is (comparable? #:account{:name "AAPL"
+                                 :quantity 75M
+                                 :value 1125M
+                                 :price-as-of (t/local-date 2017 3 2)}
+                       (models/find-by {:account/name "AAPL"}))
+          "The commodity account is updated wth new value and price date"))
+    (testing "The trading account"
+      (is (comparable? #:account{:name "IRA"
+                                 :quantity 1375M
+                                 :value 1375M}
+                       (models/find-by {:account-name "IRA"}))
+          "The trading account is updated wth new value"))))
 
 (deftest sell-a-commodity-for-a-gain-before-1-year
   (with-context sale-context
