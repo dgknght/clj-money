@@ -31,7 +31,7 @@
   (assoc imp :import/entity-exists? (entity-exists? imp)))
 
 (defmethod models/propagate :import
-  [{:import/keys [images]} after]
+  [[{:import/keys [images]} after]]
   (when-not after
     (map (comp (partial vector ::db/delete)
                (util/model-type :image))
