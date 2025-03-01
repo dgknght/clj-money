@@ -424,7 +424,7 @@
         (put-purchase opts))))
 
 (def buy-and-propagate
-  (models/+propagation buy))
+  (models/+propagation buy :combine-with cons))
 
 (defn unbuy
   "Reverses a commodity purchase"
@@ -649,7 +649,7 @@
         (put-sale opts))))
 
 (def sell-and-propagate
-  (models/+propagation sell))
+  (models/+propagation sell :combine-with cons))
 
 (defn unsell
   [trx & {:as opts}]

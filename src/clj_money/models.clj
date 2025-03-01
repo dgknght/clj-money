@@ -307,7 +307,7 @@
      model-or-ref)))
 
 (defn +propagation
-  [f]
+  [f & {:keys [combine-with] :or {combine-with concat}}]
   (fn [model]
     (let [out-chan (propagation-chan)
           copy-chan (a/chan)
@@ -321,7 +321,7 @@
                     :close-chan? false)]
       (a/alts!! [copy-chan (a/timeout 5000)])
       (a/close! out-chan)
-      (concat result @propagations))))
+      (combine-with result @propagations))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defmacro with-propagation
