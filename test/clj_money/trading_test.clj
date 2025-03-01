@@ -14,7 +14,7 @@
                                             find-commodity
                                             find-transaction]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util :refer [model= id=]]
             [clj-money.models :as models]
             [clj-money.trading :as trading]))
 
@@ -413,10 +413,10 @@
           (is (comparable? {:account/type :income}
                            account)
               "The long-term capital gains account is an income account")
-          (is (model= (get-in entity
-                              [:entity/settings
-                               :settings/lt-capital-gains-account])
-                      account)
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/lt-capital-gains-account])
+                   account)
               "The Long-term Capital Gains account is specified in the entity settings")))
       (testing "Short-term capital gains"
         (let [account (models/find-by #:account{:entity entity
@@ -424,10 +424,10 @@
           (is (comparable? {:account/type :income}
                            account)
               "The short-term capital gains account is an income account")
-          (is (model= (get-in entity
-                              [:entity/settings
-                               :settings/st-capital-gains-account])
-                      account)
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/st-capital-gains-account])
+                   account)
               "The Short-term Capital Gains account id is placed in the entity settings")))
       (testing "Long-term capital losses"
         (let [account (models/find-by #:account{:entity entity
@@ -435,10 +435,10 @@
           (is (comparable? {:account/type :expense}
                            account)
               "The long-term capital losses account is an expense account")
-          (is (model= (get-in entity
-                              [:entity/settings
-                               :settings/lt-capital-loss-account])
-                      account)
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/lt-capital-loss-account])
+                   account)
               "The Long-term Capital Losses account id is placed in the entity settings")))
       (testing "Short-term capital losses"
         (let [account (models/find-by #:account{:entity entity
@@ -446,17 +446,18 @@
           (is (comparable? {:account/type :expense}
                            account)
               "The short-term capital losses account is an expense account")
-          (is (model= (get-in entity
-                              [:entity/settings
-                               :settings/st-capital-loss-account])
-                      account)
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/st-capital-loss-account])
+                   account)
               "The Short-term Capital Losses account id is placed in the entity settings"))))))
 
 (deftest sell-a-commodity-with-a-fee
   (with-context sale-context
-    (trading/sell (assoc (sale-attributes)
-                         :trade/fee 5M
-                         :trade/fee-account (find-account "Investment Expenses")))
+    (trading/sell-and-propagate
+      (assoc (sale-attributes)
+             :trade/fee 5M
+             :trade/fee-account (find-account "Investment Expenses")))
     ; Opening balance             $2,000
     ; Purchase AAPL     -1,000 -> $1,000
     ; Sell AAPL          + 375 -> $1,375

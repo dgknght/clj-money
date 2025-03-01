@@ -23,9 +23,9 @@
       id)))
 
 (defmethod sql/resolve-temp-ids :entity
-  [{:as entity} id-map]
+  [entity id-map]
   (-> entity
-      (update-in-if [:entity/settings :settings/lt-capital-gains-account] (resolve-temp-id id-map))
-      (update-in-if [:entity/settings :settings/lt-capital-loss-account] (resolve-temp-id id-map))
-      (update-in-if [:entity/settings :settings/st-capital-gains-account] (resolve-temp-id id-map))
-      (update-in-if [:entity/settings :settings/st-capital-loss-account] (resolve-temp-id id-map))))
+      (update-in-if [:entity/settings :settings/lt-capital-gains-account :id] (resolve-temp-id id-map))
+      (update-in-if [:entity/settings :settings/lt-capital-loss-account :id] (resolve-temp-id id-map))
+      (update-in-if [:entity/settings :settings/st-capital-gains-account :id] (resolve-temp-id id-map))
+      (update-in-if [:entity/settings :settings/st-capital-loss-account :id] (resolve-temp-id id-map))))
