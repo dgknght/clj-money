@@ -315,7 +315,7 @@
       (is (comparable? #:account{:name "IRA"
                                  :quantity 1375M
                                  :value 1375M}
-                       (models/find-by {:account-name "IRA"}))
+                       (models/find-by {:account/name "IRA"}))
           "The trading account is updated wth new value"))))
 
 (deftest sell-a-commodity-for-a-gain-before-1-year
@@ -406,7 +406,7 @@
                           :date (t/local-date 2017 3 2)
                           :shares 25M
                           :value 375M})
-    (let [entity (models/find (find-entity "Personal"))]
+    (let [entity (models/find-by {:entity/name "Personal"})]
       (testing "Long-term capital gains"
         (let [account (models/find-by #:account{:entity entity
                                                 :name "Long-term Capital Gains"})]
@@ -634,7 +634,7 @@
     (let [from-account (find-account "IRA")
           to-account (find-account "IRA 2")
           commodity (models/find (find-commodity "AAPL")) ; reload to get the date boundaries
-          result (trading/transfer
+          [result] (trading/transfer-and-propagate
                    #:transfer{:commodity commodity
                               :from-account from-account
                               :to-account to-account
@@ -659,7 +659,7 @@
                                                        :account (util/->model-ref
                                                                   (models/find-by #:account{:name "AAPL"
                                                                                             :parent to-account}))}]}
-              (:transfer/transaction result))
+              (models/find (:transfer/transaction result)))
             "A transaction is created and returned"))
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:commodity (util/->model-ref commodity)

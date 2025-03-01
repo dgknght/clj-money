@@ -739,11 +739,12 @@
 (defn- put-transfer
   [{:transfer/keys [transaction
                     lots
-                    to-commodity-account]}]
+                    to-commodity-account]}
+   opts]
   (let [result (->> (cond->> (cons transaction lots)
                       (util/temp-id? to-commodity-account)
                       (cons to-commodity-account))
-                    models/put-many
+                    (models/put-many opts)
                     (group-by util/model-type))]
     {:transfer/transaction (first (:transaction result))
      :transfer/lots (:lot result)}))
@@ -767,14 +768,17 @@
   :date         - the date on which the transfer takes place
   :from-account - the account from which the commodity is to be moved
   :to-account   - the account to which the commodity is to be moved"
-  [transfer]
+  [transfer & {:as opts}]
   (with-ex-validation transfer ::models/transfer
     (some-> transfer
             (update-in [:transfer/commodity] (models/resolve-ref :commodity))
             append-transfer-accounts
             process-transfer-lots
             create-transfer-transaction
-            put-transfer)))
+            (put-transfer opts))))
+
+(def transfer-and-propagate
+  (models/+propagation transfer :combine-with cons))
 
 (defn- append-split-lots
   [{:split/keys [commodity account] :as split}]
