@@ -610,7 +610,7 @@
     (let [trx (find-transaction [(t/local-date 2017 3 2)
                                  "Sell 25 shares of AAPL at 15.000"])
           ira (find-account "IRA")]
-      (trading/unsell trx)
+      (trading/unsell-and-propagate trx)
       (testing "The transaction"
         (is (nil? (models/find trx))
             "The transaction cannot be retrieved after unsell"))

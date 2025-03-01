@@ -672,6 +672,9 @@
                      (cons [::db/delete trx]
                            updated-lots))))
 
+(def unsell-and-propagate
+  (models/+propagation unsell :combine-with cons))
+
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account
                      to-account
