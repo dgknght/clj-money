@@ -463,7 +463,8 @@
   (loop [input models output [] current nil]
     (if-let [mdl (first input)]
       (cond
-        (child? mdl)
+        (and current
+             (child? mdl))
         (recur (rest input)
                output
                (update-in current [children-key] (fnil conj []) mdl))
