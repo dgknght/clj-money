@@ -562,6 +562,12 @@
     (keyword? a1)
     #(apply simplify % args)
 
+    (and (vector? a1)
+         #{:clj-money.db/delete
+           :clj-money.db/insert
+           :clj-money.db/update} (first a1))
+    (update-in a1 [1] #(apply simplify % args))
+
     ; iterate over the sequence and apply any options
     (sequential? a1)
     (map #(apply simplify % args)
