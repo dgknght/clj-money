@@ -188,11 +188,13 @@
                          (or id (util/temp-id))))
     m))
 
+(def ^:private deletion?
+  (every-pred vector?
+              #(= ::db/delete (first %))))
+
 (defn- deletions
   [ms]
-  (filter (every-pred vector?
-                      #(= ::db/delete (first %)))
-          ms))
+  (filter deletion? ms))
 
 (defn put-many
   "Save a sequence of models to the database, providing lifecycle hooks that
@@ -236,11 +238,16 @@
          before (comp before-map working-id :id)]
      (when out-chan
        (a/go
-         (let [coll (->> (deletions models)
-                         (concat result)
-                         (map (comp vec
-                                    (juxt before
-                                          identity))))
+         (let [coll (concat
+                      (->> result
+                           (filter deletion?) ; TODO: This isn't working because the result has lost the db operation
+                           (map (comp vector
+                                      second)))
+                      (->> result
+                           (remove deletion?)
+                           (map (comp vec
+                                 (juxt before
+                                       identity)))))
                c (a/onto-chan! out-chan coll close-chan?)]
            (when copy-chan
              (a/pipe c copy-chan)))))
