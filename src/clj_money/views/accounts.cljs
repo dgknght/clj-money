@@ -51,9 +51,8 @@
   (when (js/confirm (str "Are you sure you want to delete the account " (:name account) "?"))
     (+busy)
     (accounts/delete account
-                     (map (fn []
-                            (-busy)
-                            (fetch-accounts))))))
+                     :callback -busy
+                     :on-success fetch-accounts)))
 
 (defn- toggle-account
   [id page-state]
@@ -224,7 +223,6 @@
                                           (update-in [:completed] inc))))
                      (when (>= (:completed @results)
                                (count account-ids))
-                       (-busy)
                        (swap! page-state #(dissoc % :bulk-edit))
                        (fetch-accounts)
                        (notify/toast "Updated Finished"
@@ -241,8 +239,9 @@
                        (map apply-fn))]
     (doseq [account to-update]
       (accounts/update account
-                       (map success-fn)
-                       error-fn))))
+                       {:on-success success-fn
+                        :on-error error-fn
+                        :callback -busy}))))
 
 (defn- tag-elem
   [tag {:keys [remove-fn]}]
@@ -385,10 +384,10 @@
   (-> (some #(get-in @page-state %) [[:selected]
                                      [:allocation :account]])
       prepare-for-save
-      (accounts/save (map (fn [_saved]
-                            (fetch-accounts)
-                            (-busy)
-                            (swap! page-state dissoc :selected :allocation))))))
+      (accounts/save :callback -busy
+                     :on-success (fn [_saved]
+                                   (fetch-accounts)
+                                   (swap! page-state dissoc :selected :allocation)))))
 
 (defn- account-form
   [page-state]

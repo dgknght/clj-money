@@ -1,7 +1,6 @@
 (ns clj-money.api.trading
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.api :as api]
-            [clj-money.models :as models]
             [clj-money.authorization :refer [authorize] :as authorization]
             [clj-money.authorization.trades]
             [clj-money.trading :as trading]))

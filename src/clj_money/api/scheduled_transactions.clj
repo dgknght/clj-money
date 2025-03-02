@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
             [clj-money.authorization :refer [authorize
@@ -10,7 +9,6 @@
                                              +scope]
              :as authorization]
             [clj-money.db :as db]
-            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))

@@ -2,8 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [uuid
-                                     update-in-if]]
+            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization :refer [authorize
                                              +scope]
