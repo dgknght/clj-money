@@ -1,7 +1,6 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models :as models]
@@ -15,13 +14,11 @@
                        (+scope :entity authenticated)))))
 
 (defn- extract-entity
-  [{:keys [body authenticated]}]
-  (-> body
+  [{:keys [params authenticated]}]
+  (-> params
       (select-keys [:entity/name
                     :entity/settings])
-      (update-in [:entity/user] (fnil identity authenticated))
-      (update-in-if [:entity/settings :settings/monitored-account-ids] set)
-      (update-in-if [:entity/settings :settings/inventory-method] keyword)))
+      (update-in [:entity/user] (fnil identity authenticated))))
 
 (defn- create
   [req]

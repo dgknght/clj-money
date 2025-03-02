@@ -4,8 +4,6 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body
-                                          parse-edn-body]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.models.ref]
@@ -13,7 +11,9 @@
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-entity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]))
 
@@ -27,16 +27,16 @@
   (with-context create-context
     (let [user (find-user "john@doe.com")
           response (-> (req/request :post (path :api :entities))
-                       (req/json-body #:entity{:name "Personal"
-                                               :settings {:settings/inventory-method :fifo}})
+                       (edn-body #:entity{:name "Personal"
+                                          :settings {:settings/inventory-method :fifo}})
                        (add-auth user)
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       (is (http-success? response))
       (is (comparable? #:entity{:user (select-keys user [:id])
                                 :name "Personal"
                                 :settings {:settings/inventory-method :fifo}}
-                       (models/find (get-in response [:json-body :id])
+                       (models/find (get-in response [:edn-body :id])
                                     :entity))
           "The entity can be retrieved"))))
 
@@ -53,21 +53,21 @@
     (let [user (find-user email)
           entity (find-entity "Personal")
           response (-> (req/request :patch (path :api :entities (:id entity)))
-                       (req/json-body (-> entity
+                       (edn-body (-> entity
                                           (assoc :entity/name "New Name")
                                           (assoc-in [:entity/settings :settings/monitored-account-ids] #{1 2})
                                           (select-keys [:entity/name
                                                         :entity/settings])))
                        (add-auth user)
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       [response (models/find entity)])))
 
 (defn- assert-successful-edit
   [[response retrieved]]
   (is (http-success? response))
   (is (comparable? {:entity/name "New Name"}
-                   (:json-body response))
+                   (:edn-body response))
       "The updated entity is returned in the response")
   (is (comparable? {:entity/name "New Name"}
                    retrieved)
@@ -90,7 +90,7 @@
   (with-context list-context
     (let [entity (find-entity "Personal")
           response (-> (req/request :patch (path :api :entities (:id entity)))
-                       (req/json-body (-> entity
+                       (edn-body (-> entity
                                           (assoc :entity/name "New Name")
                                           (select-keys [:entity/name
                                                         :entity/settings])))
@@ -111,17 +111,17 @@
         parse-edn-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [{:entity/name "Business"}
                           {:entity/name "Personal"}]
-                         json-body)
+                         edn-body)
       "The body contains the correct entities"))
 
 (defn- assert-blocked-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-his-entities
   (assert-successful-list (get-a-list "john@doe.com")))
