@@ -28,20 +28,15 @@
       models/select
       api/response))
 
-(defn- ->sched-trans-item
-  [item]
-  (-> item
-      (update-in-if [:scheduled-transaction-item/quantity] bigdec)
-      (update-in-if [:scheduled-transaction-item/action] keyword)))
-
 (defn- extract-sched-tran
-  [{:keys [body]}]
-  (-> body
-      (update-in-if [:scheduled-transaction/items] #(map ->sched-trans-item %))
-      (update-in-if [:scheduled-transaction/interval-type] keyword)
-      (update-in-if [:scheduled-transaction/start-date] dates/unserialize-local-date)
-      (update-in-if [:scheduled-transaction/end-date] dates/unserialize-local-date)
-      (update-in-if [:scheduled-transaction/last-occurrence] dates/unserialize-local-date)))
+  [{:keys [params]}]
+  (select-keys params [:scheduled-transaction/description
+                       :scheduled-transaction/start-date
+                       :scheduled-transaction/date-spec
+                       :scheduled-transaction/interval-type
+                       :scheduled-transaction/interval-count
+                       :scheduled-transaction/memo
+                       :scheduled-transaction/items]))
 
 (defn- create
   [{:keys [params authenticated] :as req}]

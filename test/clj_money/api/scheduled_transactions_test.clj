@@ -8,8 +8,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.dates :as dates :refer [with-fixed-time]]
-            [clj-money.api.test-helper :refer [add-auth
-                                               parse-json-body]]
+            [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -18,7 +17,9 @@
                                             find-account
                                             find-scheduled-transaction]]
             [clj-money.models.transactions :as trxs]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -54,30 +55,30 @@
                                   :scheduled-transactions))
           (add-auth (find-user user-email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-list
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
   (is (seq-of-maps-like?
-        [#:scheduled-transaction{:start-date "2004-03-02"
+        [#:scheduled-transaction{:start-date (t/local-date 2004 3 2)
                                  :description "Landlord"
                                  :memo "automatically created"
-                                 :interval-type "year"
+                                 :interval-type :year
                                  :interval-count 1
-                                 :items [#:scheduled-transaction-item{:action "credit"
-                                                                      :quantity 50.0
+                                 :items [#:scheduled-transaction-item{:action :credit
+                                                                      :quantity 50.0M
                                                                       :memo "checking"}
-                                         #:scheduled-transaction-item{:action "debit"
-                                                                      :quantity 50.0
+                                         #:scheduled-transaction-item{:action :debit
+                                                                      :quantity 50.0M
                                                                       :memo "rent"}]}]
-        json-body)
+        edn-body)
       "The body contains the existing scheduled transactions"))
 
 (defn- assert-blocked-list
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
-  (is (empty? json-body)))
+  (is (empty? edn-body)))
 
 (deftest a-user-can-get-a-list-of-scheduled-transactions-in-his-entity
   (assert-successful-list (get-list "john@doe.com")))
@@ -87,7 +88,7 @@
 
 (defn- attr []
   #:scheduled-transaction{:description "Paycheck"
-                          :start-date "2021-01-01"
+                          :start-date (t/local-date 2021 1 1)
                           :date-spec {:days [:friday]}
                           :interval-type :week
                           :interval-count 2
@@ -108,47 +109,34 @@
                                               :entities
                                               (:id entity)
                                               :scheduled-transactions))
-                     (req/json-body (attr))
+                     (edn-body (attr))
                      (add-auth (find-user user-email))
                      app
-                     parse-json-body)]
+                     parse-edn-body)]
     [response
-     (when-let [id (get-in response [:json-body :id])]
+     (when-let [id (get-in response [:edn-body :id])]
        (models/find id :scheduled-transaction))]))
 
 (defn- assert-sched-tran-created
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-created? response))
-  (is (:id json-body) "The return value contains an :id")
-  (is (comparable?
-        #:scheduled-transaction{:description "Paycheck"
-                                :start-date "2021-01-01"
-                                :date-spec {:days ["friday"]}
-                                :interval-type "week"
-                                :interval-count 2
-                                :memo "biweekly"
-                                :items [#:scheduled-transaction-item{:action "debit"
-                                                                     :quantity 1000
-                                                                     :memo "checking"}
-                                        #:scheduled-transaction-item{:action "credit"
-                                                                     :quantity 1000
-                                                                     :memo "salary"}]}
-        json-body)
-      "The return value contains the created schedule transaction")
-  (is (comparable? #:scheduled-transaction{:description "Paycheck"
-                                           :start-date (t/local-date 2021 1 1)
-                                           :date-spec {:days [:friday]}
-                                           :interval-type :week
-                                           :interval-count 2
-                                           :memo "biweekly"
-                                           :items [#:scheduled-transaction-item{:action :debit
-                                                                                :quantity 1000M
-                                                                                :memo "checking"}
-                                                   #:scheduled-transaction-item{:action :credit
-                                                                                :quantity 1000M
-                                                                                :memo "salary"}]}
-                   retrieved)
-      "The scheduled transaction can be retrieved"))
+  (is (:id edn-body) "The return value contains an :id")
+  (let [expected #:scheduled-transaction{:description "Paycheck"
+                                         :start-date (t/local-date 2021 1 1)
+                                         :date-spec {:days [:friday]}
+                                         :interval-type :week
+                                         :interval-count 2
+                                         :memo "biweekly"
+                                         :items [#:scheduled-transaction-item{:action :debit
+                                                                              :quantity 1000M
+                                                                              :memo "checking"}
+                                                 #:scheduled-transaction-item{:action :credit
+                                                                              :quantity 1000M
+                                                                              :memo "salary"}]}]
+    (is (comparable? expected edn-body)
+        "The return value contains the created schedule transaction")
+    (is (comparable? expected retrieved)
+        "The scheduled transaction can be retrieved")))
 
 (defn- assert-blocked-create
   [[response retrieved]]
@@ -190,18 +178,18 @@
       [(-> (req/request :patch (path :api
                                      :scheduled-transactions
                                      (:id tran)))
-           (req/json-body update-attr)
+           (edn-body update-attr)
            (add-auth (find-user user-email))
            app
-           parse-json-body)
+           parse-edn-body)
        (models/find tran)])))
 
 (defn- assert-successful-update
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:scheduled-transaction{:interval-type "week"
+  (is (comparable? #:scheduled-transaction{:interval-type :week
                                            :interval-count 2}
-                   json-body)
+                   edn-body)
       "The updated scheduled transaction is returned")
   (is (comparable? update-attr retrieved)
       "The database is updated correctly"))
@@ -210,8 +198,8 @@
   [[response retrieved]]
   (is (http-not-found? response))
   (is (comparable? #:scheduled-transaction{:interval-type :month
-                                 :interval-count 1}
-         retrieved)
+                                           :interval-count 1}
+                   retrieved)
       "The database is not updated"))
 
 (deftest a-user-can-edit-a-scheduled-transaction-in-his-entity
@@ -229,7 +217,7 @@
                                       (:id tran)))
            (add-auth (find-user user-email))
            app
-           parse-json-body)
+           parse-edn-body)
        (models/find tran)])))
 
 (defn- assert-successful-delete
@@ -258,8 +246,9 @@
                                       (:id sched-tran)
                                       :realize))
              (add-auth (find-user user-email))
+             (req/header "Accept" "application/edn")
              app
-             parse-json-body))
+             parse-edn-body))
        (trxs/append-items
          (models/select
            #:transaction{:transaction-date [:between>
@@ -364,7 +353,7 @@
                                       :realize))
              (add-auth (find-user user-email))
              app
-             parse-json-body))
+             parse-edn-body))
        (trxs/append-items
          (models/select #:transaction{:transaction-date [:between>
                                                          (t/local-date 2016 1 1)
@@ -375,22 +364,16 @@
 (defn- assert-successful-mass-realization
   [[response retrieved]]
   (is (http-created? response))
-  (is (seq-of-maps-like? [#:transaction{:description "Groceries"
-                                        :transaction-date "2016-01-31"}
-                          #:transaction{:description "Paycheck"
-                                        :transaction-date "2016-02-01"}
-                          #:transaction{:description "Groceries"
-                                        :transaction-date "2016-02-07"}]
-                         (:json-body response))
-      "The created transactions are returned.")
-  (is (seq-of-maps-like? [#:transaction{:description "Groceries"
-                                        :transaction-date (t/local-date 2016 1 31)}
-                          #:transaction{:description "Paycheck"
-                                        :transaction-date (t/local-date 2016 2 1)}
-                          #:transaction{:description "Groceries"
-                                        :transaction-date (t/local-date 2016 2 7)}]
-                         retrieved)
-      "The transactions can be retrieved."))
+  (let [expected [#:transaction{:description "Groceries"
+                                :transaction-date (t/local-date 2016 1 31)}
+                  #:transaction{:description "Paycheck"
+                                :transaction-date (t/local-date 2016 2 1)}
+                  #:transaction{:description "Groceries"
+                                :transaction-date (t/local-date 2016 2 7)}]]
+    (is (seq-of-maps-like? expected (:edn-body response))
+        "The created transactions are returned.")
+    (is (seq-of-maps-like? expected retrieved)
+        "The transactions can be retrieved.")))
 
 (defn- assert-blocked-mass-realization
   [[response retrieved]]
