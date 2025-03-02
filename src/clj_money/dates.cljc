@@ -350,7 +350,7 @@
 
 (defn serialize-local-date-time
   [local-date-time]
-  #?(:clj (t/format (t/formatter "yyyy-MM-dd'T'hh:mm:ss.SSS") local-date-time)
+  #?(:clj (t/format (t/formatter "yyyy-MM-dd'T'hh:mm:ss") local-date-time)
      :cljs (tf/unparse-local (tf/formatters :date-hour-minute-second) local-date-time)))
 
 (defn unserialize-local-date-time
