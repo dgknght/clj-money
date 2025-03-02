@@ -1,49 +1,42 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.api :as api :refer [handle-ex]]))
+  (:require [clj-money.api :as api :refer [add-error-handler]]))
 
-(defn- after-read
-  [entity]
-  (update-in-if entity
-                [:entity/settings :settings/monitored-account-ids]
-                set))
-
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read)
-        xf))
 
 (defn select
-  [xf]
+  [& {:as opts}]
   (api/get (api/path :entities)
            {}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the entities: %s")}))
+           (add-error-handler
+             opts
+             "Unable to retrieve the entities: %s")))
 
 (defn create
-  [entity xf]
+  [entity opts]
   (api/post (api/path :entities)
             entity
-            {:transform (transform xf)
-             :handle-ex (handle-ex "Unable to create the entity: %s")}))
+            (add-error-handler
+              opts
+              "Unable to create the entity: %s")))
 
 (defn update
-  [entity xf]
+  [entity opts]
   (api/patch (api/path :entities (:id entity))
              entity
-             {:transform (transform xf)
-              :handle-ex (handle-ex "Unable to update the entity: %s")}))
+             (add-error-handler
+               opts
+               "Unable to update the entity: %s")))
 
 (defn save
-  [entity xf]
+  [entity & {:as opts}]
   (let [f (if (:id entity)
             update
             create)]
-    (f entity xf)))
+    (f entity opts)))
 
 (defn delete
-  [entity xf]
+  [entity & {:as opts}]
   (api/delete (api/path :entities (:id entity))
-              {:transform xf
-               :handle-ex (handle-ex "Unable to remove the entity: %s")}))
+              (add-error-handler
+                opts
+                "Unable to remove the entity: %s")))
