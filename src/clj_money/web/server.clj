@@ -3,7 +3,6 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [cheshire.generate]
-            [cheshire.core :as json]
             [reitit.core :as reitit]
             [reitit.ring :as ring]
             [reitit.exception :refer [format-exception]]
@@ -13,8 +12,7 @@
                                               api-defaults]]
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.format-response :refer [make-encoder
-                                                     wrap-format-response]]
+            [ring.middleware.format :refer [wrap-restful-format]]
             [ring.middleware.session.cookie :refer [cookie-store]]
             [config.core :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
@@ -138,25 +136,29 @@
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
                   ["auth/" {:middleware [:site
-                                         wrap-merge-path-params]}
+                                         wrap-merge-path-params
+                                         wrap-request-logging]}
                    web-auth/routes]
                   ["app/" {:middleware [:site
                                         wrap-merge-path-params
                                         wrap-integer-id-params
-                                        :authentication]}
+                                        :authentication
+                                        wrap-request-logging]}
                    images/routes]
                   ["oapi/" {:middleware [:api
-                                         :wrap-format-response
+                                         :wrap-restful-format
                                          wrap-merge-path-params
                                          wrap-integer-id-params
-                                         wrap-exceptions]}
+                                         wrap-exceptions
+                                         wrap-request-logging]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
-                                        :wrap-format-response
+                                        :wrap-restful-format
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         :authentication
-                                        wrap-exceptions]}
+                                        wrap-exceptions
+                                        wrap-request-logging]}
                    users-api/routes
                    entities-api/routes
                    commodities-api/routes
@@ -178,14 +180,8 @@
                                          :api [wrap-defaults (-> api-defaults
                                                                  (assoc-in [:params :multipart] true)
                                                                  (assoc-in [:security :anti-forgery] false))]
-                                         :wrap-format-response [wrap-format-response
-                                                                {:predicate (constantly true)
-                                                                 :encoders [(make-encoder pr-str "application/edn")
-                                                                            (make-encoder json/generate-string "application/json")]
-                                                                 :charset "UTF-8"
-                                                                 :handle-error (fn [ex _req res]
-                                                                                 (pprint {::error-formatting-the-response ex})
-                                                                                 res)}]
+                                         :wrap-restful-format [wrap-restful-format
+                                                               {:formats [:edn :json]}]
                                          :authentication [api/wrap-authentication
                                                           {:authenticate-fn find-user-by-auth-token}]}})
     (ring/routes
