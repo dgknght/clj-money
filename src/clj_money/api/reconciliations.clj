@@ -46,23 +46,12 @@
     (models/select (extract-criteria req)
                    (extract-options req))))
 
-(defn- unserialize-item-ref
-  [item-ref]
-  (-> item-ref
-      (update-in [0] uuid)
-      (update-in [1] dates/unserialize-local-date)))
-
 (defn- extract-recon
-  [{:keys [body]}]
-  (-> body
-      (select-keys [:reconciliation/end-of-period
-                    :reconciliation/balance
-                    :reconciliation/status
-                    :reconciliation/item-refs])
-      (update-in-if [:reconciliation/status] keyword)
-      (update-in-if [:reconciliation/balance] bigdec)
-      (update-in-if [:reconciliation/end-of-period] dates/unserialize-local-date)
-      (update-in-if [:reconciliation/item-refs] #(map unserialize-item-ref %))))
+  [{:keys [params]}]
+  (select-keys params [:reconciliation/end-of-period
+                       :reconciliation/balance
+                       :reconciliation/status
+                       :reconciliation/item-refs]))
 
 (defn- create
   [{:keys [params authenticated] :as req}]

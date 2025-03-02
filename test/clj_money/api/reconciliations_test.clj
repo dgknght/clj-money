@@ -4,12 +4,13 @@
             [ring.mock.request :as req]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.web :refer [path]]
             [clj-money.models.ref]
             [clj-money.db :as db]
             [clj-money.db.sql.ref]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -65,20 +66,20 @@
                                 :reconciliations))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:reconciliation{:end-of-period "2015-01-04"
-                                           :balance 400.0}]
-                         json-body)
+  (is (seq-of-maps-like? [#:reconciliation{:end-of-period (t/local-date 2015 1 4)
+                                           :balance 400.0M}]
+                         edn-body)
       "The response contains the list of reconciliations"))
 
 (defn- assert-blocked-get
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body) "No reconciliations are returned"))
+  (is (empty? edn-body) "No reconciliations are returned"))
 
 (deftest a-user-can-get-a-reconciliations-from-his-entity
   (assert-successful-get (get-reconciliations "john@doe.com")))
@@ -104,30 +105,28 @@
                                                 :accounts
                                                 (:id account)
                                                 :reconciliations))
-                       (req/json-body #:reconciliation{:end-of-period "2015-02-04"
-                                                       :balance 299.0
-                                                       :status status
-                                                       :item-refs item-refs})
+                       (edn-body #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                                  :balance 299.0M
+                                                  :status status
+                                                  :item-refs item-refs})
                        (add-auth user)
                        app
-                       parse-json-body)
+                       parse-edn-body)
           retrieved (models/find-by
                       #:reconciliation{:account account
                                        :end-of-period (t/local-date 2015 2 4)})]
       [response retrieved])))
 
 (defn- assert-create-succeeded
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
-  (is (valid? json-body))
-  (is (comparable? #:reconciliation{:end-of-period "2015-02-04"
-                                    :balance 299.0}
-                   json-body)
-      "The body contains the created reconciliation")
-  (is (comparable? #:reconciliation{:end-of-period (t/local-date 2015 2 4)
-                                    :balance 299M}
-                   retrieved)
-      "The newly created reconciliation can be retrieved"))
+  (is (valid? edn-body))
+  (let [expected #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                  :balance 299M}]
+    (is (comparable? expected edn-body)
+        "The body contains the created reconciliation")
+    (is (comparable? expected retrieved)
+        "The newly created reconciliation can be retrieved")))
 
 (defn- assert-blocked-create
   [[response retrieved]]
@@ -161,12 +160,12 @@
           response (-> (req/request :patch (path :api
                                                  :reconciliations
                                                  (:id recon)))
-                       (req/json-body (-> recon
+                       (edn-body (-> recon
                                           (dissoc :id :reconciliation/item-refs)
                                           (assoc :reconciliation/status :completed)))
                        (add-auth (find-user email))
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       [response (models/find-by
                   (db/model-type
                     (select-keys recon
@@ -175,14 +174,13 @@
                     :reconciliation))])))
 
 (defn- assert-successful-update
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? {:reconciliation/status "completed"}
-                   json-body)
-      "The response includes the updated reconciliation")
-  (is (comparable? {:reconciliation/status :completed}
-                   retrieved)
-      "The reconciliation is updated in the database"))
+  (let [expected {:reconciliation/status :completed}]
+    (is (comparable? expected edn-body)
+        "The response includes the updated reconciliation")
+    (is (comparable? expected retrieved)
+        "The reconciliation is updated in the database")))
 
 (defn- assert-blocked-update
   [[response retrieved]]
