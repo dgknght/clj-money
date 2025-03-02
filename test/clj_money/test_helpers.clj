@@ -34,4 +34,5 @@
 
 (defn parse-edn-body
   [res]
-  (test/parse-edn-body res :readers {'local-date t/local-date}))
+  (test/parse-edn-body res :readers {'local-date t/local-date
+                                     'local-date-time t/local-date-time}))

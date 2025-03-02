@@ -7,11 +7,12 @@
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.dates :as dates]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
             [clj-money.test-context :refer [with-context
@@ -48,18 +49,19 @@
                                                                :content-type "image/jpg"}
                                                         :attachment/caption "receipt"}))
                        (add-auth (find-user email))
+                       (req/header "Accept" "application/edn")
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       [response
-       (when-let [id (get-in response [:json-body :id])]
+       (when-let [id (get-in response [:edn-body :id])]
          (models/find id :attachment))])))
 
 (defn- assert-successful-create
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-created? response))
-  (is (empty? (::v/errors json-body))
+  (is (empty? (::v/errors edn-body))
       "There are no validation errors")
-  (is (:id json-body) "An ID is assigned to the new record")
+  (is (:id edn-body) "An ID is assigned to the new record")
   (is (comparable? {:attachment/transaction-date (t/local-date 2015 1 1)}
                    retrieved) 
       "The created attachment can be retrieved"))
@@ -100,19 +102,19 @@
                                     :transaction-id (:id transaction)})))
           (add-auth (find-user email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [{:attachment/caption "Receipt"}]
-                         json-body)
+                         edn-body)
       "The correct content is returned."))
 
 (defn- assert-blocked-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body) "No records are returned"))
+  (is (empty? edn-body) "No records are returned"))
 
 (deftest a-user-can-get-a-list-of-attachments-in-his-entity
   (assert-successful-list (list-attachments "john@doe.com")))
@@ -127,18 +129,18 @@
           response (-> (req/request :patch (path :api
                                                  :attachments
                                                  (:id attachment)))
-                       (req/json-body (assoc attachment
-                                             :attachment/caption "Updated caption"))
+                       (edn-body (assoc attachment
+                                        :attachment/caption "Updated caption"))
                        (add-auth (find-user email))
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       [response (models/find attachment)])))
 
 (defn- assert-successful-update
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (is (comparable? {:attachment/caption "Updated caption"}
-                   json-body)
+                   edn-body)
       "The updated attachment is returned")
   (is (comparable? {:attachment/caption "Updated caption"}
                    retrieved)
@@ -164,7 +166,7 @@
           response (-> (req/request :delete (path :api
                                                   :attachments
                                                   (:id attachment)))
-                       (req/json-body (assoc attachment :caption "Updated caption"))
+                       (edn-body (assoc attachment :caption "Updated caption"))
                        (add-auth (find-user email))
                        app)]
       [response (models/find attachment)])))

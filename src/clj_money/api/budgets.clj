@@ -29,23 +29,17 @@
     (models/select (extract-criteria req)
                    {:sort [[:budget/start-date :desc]]})))
 
-(defn- prepare-item
-  [item]
-  (-> item
-      (update-in-if [:budget-item/periods] #(mapv bigdec %))
-      (update-in-if [:budget-item/spec :start-date] dates/unserialize-local-date)))
-
 (defn- extract-budget
-  [{:keys [body]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (select-keys [:budget/name
                     :budget/start-date
                     :budget/period
                     :budget/period-count
                     :budget/items])
-      (update-in-if [:budget/items] #(mapv prepare-item %))
-      (update-in-if [:budget/period] keyword)
-      (update-in-if [:budget/start-date] dates/unserialize-local-date)))
+      (update-in-if [:budget/items] (fn [items]
+                                      (mapv #(update-in % [:budget-item/periods] vec)
+                                            items)))))
 
 (defn- historical-items
   [{:budget/keys [entity period period-count]} start-date]
@@ -81,7 +75,7 @@
   (if-let [items (seq
                    (auto-create-items
                      budget
-                     (dates/unserialize-local-date start-date)))]
+                     start-date))]
     (assoc budget
            :budget/items
            (vec items))
@@ -96,13 +90,13 @@
     budget))
 
 (defn- create
-  [{:keys [authenticated params body] :as req}]
+  [{:keys [authenticated params] :as req}]
   (-> req
       extract-budget
       (assoc :budget/entity {:id (:entity-id params)} )
       (authorize ::auth/create authenticated)
       models/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (append-items (:budget/auto-create-start-date body))
+      (append-items (:budget/auto-create-start-date params))
       api/creation-response))
 
 (defn- find-and-auth
