@@ -4,8 +4,8 @@
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
@@ -17,7 +17,9 @@
                                             find-entity
                                             find-account
                                             find-transaction]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -62,23 +64,24 @@
                                 "2016-02-29"
                                 :transactions))
         (add-auth (find-user email))
+        (req/header "Accept" "application/edn")
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:transaction{:transaction-date "2016-02-01"
+  (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2016 2 1)
                                         :description "Paycheck"
                                         :memo "Pre-existing transaction"
-                                        :value 1000.0}]
-                         json-body)
+                                        :value 1000.0M}]
+                         edn-body)
       "The response contains the transaction for the specified entity in the specified date range"))
 
 (defn- assert-blocked-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-transactions-in-his-entity
   (assert-successful-list (get-a-list "john@doe.com")))
@@ -95,17 +98,18 @@
                                   "2016-02-01"
                                   (:id transaction)))
           (add-auth (find-user email))
+          (req/header "Accept" "application/edn")
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-get
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (comparable? #:transaction{:transaction-date "2016-02-01"
+  (is (comparable? #:transaction{:transaction-date (t/local-date 2016 2 1)
                                  :description "Paycheck"
                                  :memo "Pre-existing transaction"
-                                 :value 1000.0}
-                   json-body)
+                                 :value 1000.0M}
+                   edn-body)
       "The response body contains the transaction details"))
 
 (defn- assert-blocked-get
@@ -128,15 +132,15 @@
                                                 :entities
                                                 (:id entity)
                                                 :transactions))
-                       (req/json-body #:transaction{:description "Paycheck"
-                                                    :transaction-date "2016-03-02"
-                                                    :memo "Seems like there should be more"
-                                                    :debit-account {:id (:id checking)}
-                                                    :credit-account {:id (:id salary)}
-                                                    :quantity 1000M})
+                       (edn-body #:transaction{:description "Paycheck"
+                                               :transaction-date (t/local-date 2016 3 2)
+                                               :memo "Seems like there should be more"
+                                               :debit-account (util/->model-ref checking)
+                                               :credit-account (util/->model-ref salary)
+                                               :quantity 1000M})
                        (add-auth (find-user email))
                        app
-                       parse-json-body)
+                       parse-edn-body)
           retrieved (models/select #:transaction{:entity entity
                                                  :transaction-date (t/local-date 2016 3 2)})]
       [response retrieved])))
@@ -151,31 +155,31 @@
                                                 :entities
                                                 (:id entity)
                                                 :transactions))
-                       (req/json-body
+                       (edn-body
                          #:transaction{:description "Paycheck"
-                                       :transaction-date "2016-03-02"
+                                       :transaction-date (t/local-date 2016 3 2)
                                        :memo "Seems like there should be more"
                                        :items [#:transaction-item{:account (select-keys checking [:id])
                                                                   :action :debit
-                                                                  :quantity 1000.0
+                                                                  :quantity 1000.0M
                                                                   :memo "checking item"}
                                                #:transaction-item{:account (select-keys salary [:id])
                                                                   :action :credit
-                                                                  :quantity 1000.0
+                                                                  :quantity 1000.0M
                                                                   :memo "salary item"}]})
                        (add-auth (find-user email))
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       [response (models/select #:transaction{:entity entity
                                              :transaction-date (t/local-date 2016 3 2)})])))
 
 (defn- assert-successful-create
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (is (comparable? #:transaction{:description "Paycheck"
-                                 :transaction-date "2016-03-02"
+                                 :transaction-date (t/local-date 2016 3 2)
                                  :memo "Seems like there should be more"}
-                   json-body)
+                   edn-body)
       "The created transaction is returned in the response")
   (is (seq-with-map-like? #:transaction{:description "Paycheck"
 
@@ -222,31 +226,27 @@
                                                  :transactions
                                                  (serialize-local-date (:transaction/transaction-date transaction))
                                                  (:id transaction)))
-                       (req/json-body (-> transaction
-                                          (assoc :transaction/description "Just got paid today")
-                                          (update-in [:transaction/transaction-date] serialize-local-date)
-                                          (update-in [:transaction/items] update-items)))
+                       (edn-body (-> transaction
+                                     (assoc :transaction/description "Just got paid today")
+                                     (update-in [:transaction/items] update-items)))
                        (add-auth (find-user email))
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       [response (models/find-by
                   (select-keys transaction
                                [:id
                                 :transaction/transaction-date]))])))
 
 (defn- assert-successful-update
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:transaction{:description "Just got paid today"
-                                 :transaction-date "2016-02-01"
-                                 :memo "Pre-existing transaction"}
-                   json-body)
-      "The updated transaction is returned in the response")
-  (is (comparable? #:transaction{:description "Just got paid today"
-                                 :transaction-date (t/local-date 2016 2 1)
-                                 :memo "Pre-existing transaction"}
-                   retrieved)
-      "The transaction is updated in the database"))
+  (let [expected #:transaction{:description "Just got paid today"
+                               :transaction-date (t/local-date 2016 2 1)
+                               :memo "Pre-existing transaction"}]
+    (is (comparable? expected edn-body)
+        "The updated transaction is returned in the response")
+    (is (comparable? expected retrieved)
+        "The transaction is updated in the database")))
 
 (defn- assert-blocked-update
   [[response retrieved]]

@@ -66,21 +66,11 @@
    :transaction/credit-account
    :transaction/quantity])
 
-(defn- parse-item
-  [item]
-  (-> item
-      (update-in-if [:id] uuid)
-      (update-in-if [:transaction-item/quantity] bigdec)
-      (update-in-if [:transaction-item/value] bigdec)
-      (update-in-if [:transaction-item/action] keyword)))
-
 (defn- extract-transaction
-  [{:keys [body]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (dissoc :id)
       expand
-      (update-in-if [:transaction/transaction-date] unserialize-local-date)
-      (update-in-if [:transaction/items] #(map parse-item %))
       (select-keys attribute-keys)))
 
 (defn- create
@@ -94,12 +84,11 @@
 
 (defn- apply-to-existing
   [updated-item items]
-  (let [parsed (parse-item updated-item)]
-    (if-let [existing (->> items
-                           (filter #(= (:id %) (:id updated-item)))
-                           first)]
-      (merge existing parsed)
-      parsed)))
+  (if-let [existing (->> items
+                         (filter #(= (:id %) (:id updated-item)))
+                         first)]
+    (merge existing updated-item)
+    updated-item))
 
 (defn- apply-item-updates
   [items updates]
