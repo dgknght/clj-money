@@ -110,8 +110,8 @@
       (select-keys attribute-keys)))
 
 (defn- create
-  [{:keys [params body authenticated]}]
-  (-> body
+  [{:keys [params authenticated]}]
+  (-> params
       (assoc :account/entity {:id (:entity-id params)})
       before-save
       (authorize ::auth/create authenticated)
@@ -119,10 +119,10 @@
       api/creation-response))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [{:keys [params] :as req}]
   (if-let [account (find-and-auth req ::auth/update)]
     (-> account
-        (merge (before-save body))
+        (merge (before-save params))
         models/put
         api/update-response)
     api/not-found))
