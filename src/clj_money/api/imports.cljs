@@ -2,10 +2,9 @@
   (:refer-clojure :exclude [update get])
   (:require [cljs-http.client :as http]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date-time]]
             [dgknght.app-lib.api-async :as lib-api]
             [clj-money.state :refer [app-state]]
-            [clj-money.api :as api :refer [handle-ex]]))
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- ->multipart-params
   [{:keys [files] :as import-data}]
@@ -17,59 +16,48 @@
                         file))
                (dissoc import-data :files))))
 
-(defn- after-read
-  [imp]
-  (-> imp
-      (update-in [:created-at] unserialize-date-time)
-      (update-in [:updated-at] unserialize-date-time)))
-
-(defn- after-create
-  [result]
-  (update-in result [:import] after-read))
-
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read)
-        xf))
-
 (defn create
-  [import-data xf]
+  [import-data & {:as opts}]
   (let [params (-> import-data
                    ->multipart-params
                    (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                   clj->js)))]
     (http/post (api/path :imports)
-               (-> (lib-api/request {:transform (comp (api/apply-fn after-create)
-                                                  xf)
-                                 :handle-ex (handle-ex "Unable to create the import: %s")})
+               (-> (lib-api/request (add-error-handler
+                                      opts
+                                      "Unable to create the import: %s"))
                    (lib-api/multipart-params params)
                    (assoc :oauth-token (:auth-token @app-state))))))
 
 (defn get
-  [id xf]
+  [id & {:as opts}]
   (api/get (api/path :imports id)
            {}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the import: %s")}))
+           (add-error-handler
+             opts
+             "Unable to retrieve the import: %s")))
 
 (defn select
-  [xf]
+  [criteria & {:as opts}]
   (api/get (api/path :imports)
-           {}
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the imports: %s")}))
+           criteria
+           (add-error-handler
+             opts
+             "Unable to retrieve the imports: %s")))
 
 (defn delete
-  [{id :id} xf]
-  (api/delete (api/path :imports id)
-              {:transform xf
-               :handle-ex (handle-ex "Unable to delete the import: %s")}))
+  [import & {:as opts}]
+  (api/delete (api/path :imports import)
+              (add-error-handler
+                opts
+                "Unable to delete the import: %s")))
 
 (defn start
-  [{id :id} xf]
-  (let [path (api/path :imports id)]
+  [import & {:as opts}]
+  (let [path (api/path :imports import)]
     (http/patch path
                 (assoc (lib-api/request
-                         {:transform (transform xf)
-                          :handle-ex (handle-ex "Unable to start the import: %s")})
+                         (add-error-handler
+                           opts
+                           "Unable to start the import: %s"))
                        :oauth-token (:auth-token @app-state)))))
