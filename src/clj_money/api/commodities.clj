@@ -81,13 +81,11 @@
    :commodity/price-config])
 
 (defn- extract-commodity
-  [{:keys [body params]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (select-keys attribute-keys)
       (update-in [:commodity/entity] (fnil identity
-                                           {:id (:entity-id params)}))
-      (update-in-if [:commodity/exchange] keyword)
-      (update-in-if [:commodity/type] keyword)))
+                                           {:id (:entity-id params)}))))
 
 (defn- create
   [{:keys [authenticated] :as req}]

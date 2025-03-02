@@ -4,7 +4,6 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.models :as models]
             [clj-money.models.ref]
@@ -14,7 +13,9 @@
                                             find-user
                                             find-entity
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]))
 
@@ -47,17 +48,17 @@
                                 :count))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-count
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= {:count 2} json-body) "The body contains the count"))
+  (is (= {:count 2} edn-body) "The body contains the count"))
 
 (defn- assert-blocked-count
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= {:count 0} json-body) "The body contains a count of zero"))
+  (is (= {:count 0} edn-body) "The body contains a count of zero"))
 
 (deftest a-user-can-get-a-count-of-commodities-in-his-entity
   (assert-successful-count (get-a-count-of-commodities "john@doe.com")))
@@ -74,25 +75,25 @@
                                 :commodities))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [#:commodity{:name "Microsoft, Inc"
                                       :symbol "MSFT"
-                                      :type "stock"
-                                      :exchange "nasdaq"}
+                                      :type :stock
+                                      :exchange :nasdaq}
                           #:commodity{:name "US Dollar"
                                       :symbol "USD"
-                                      :type "currency"}]
-                         json-body)
+                                      :type :currency}]
+                         edn-body)
       "The body contains the list of commodities"))
 
 (defn- assert-blocked-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-commodities-in-his-entity
   (assert-successful-list (get-a-list-of-commodities "john@doe.com")))
@@ -108,16 +109,16 @@
                                 (:id (find-commodity "MSFT"))))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (comparable? #:commodity{:name "Microsoft, Inc"
                                :symbol "MSFT"
-                               :type "stock"
-                               :exchange "nasdaq"}
-                   json-body)
+                               :type :stock
+                               :exchange :nasdaq}
+                   edn-body)
       "The specified commodity is returned in the response"))
 
 (defn- assert-blocked-get
@@ -131,10 +132,10 @@
   (assert-blocked-get (get-a-commodity "jane@doe.com")))
 
 (def ^:private attributes
-  #:commodity{:type "stock"
+  #:commodity{:type :stock
               :name "Apple, Inc."
               :symbol "AAPL"
-              :exchange "nasdaq"
+              :exchange :nasdaq
               :price-config {:price-config/enabled true}})
 
 (defn- create-a-commodity
@@ -145,18 +146,18 @@
                                                 :entities
                                                 (:id entity)
                                                 :commodities))
-                       (req/json-body attributes)
+                       (edn-body attributes)
                        (add-auth (find-user email))
                        app
-                       parse-json-body)]
-      [response (when-let [id (-> response :json-body :id)]
+                       parse-edn-body)]
+      [response (when-let [id (-> response :edn-body :id)]
                   (models/find id :commodity))])))
 
 (defn- assert-successful-create
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
   (is (comparable? attributes
-                   json-body)
+                   edn-body)
       "The newly created commodity is returned in the response")
   (is (comparable? #:commodity{:type :stock
                                :name "Apple, Inc."
@@ -185,13 +186,13 @@
                                                 :entities
                                                 (:id entity)
                                                 :commodities))
-                       (req/json-body (assoc attributes :commodity/exchange "notvalid"))
+                       (edn-body (assoc attributes :commodity/exchange "notvalid"))
                        (add-auth (find-user "john@doe.com"))
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       (is (http-bad-request? response))
       (is (= ["Exchange must be amex, nasdaq, nyse, or otc"]
-             (get-in response [:json-body :commodity/exchange])))
+             (get-in response [:edn-body :commodity/exchange])))
       (is (empty? (models/select {:commodity/entity entity
                                   :commodity/symbol "AAPL"}))
           "The record is not created"))))
@@ -203,17 +204,17 @@
           response (-> (req/request :patch (path :api
                                                  :commodities
                                                  (:id msft)))
-                       (req/json-body (assoc msft :commodity/name "Microsoft, Ltd."))
+                       (edn-body (assoc msft :commodity/name "Microsoft, Ltd."))
                        (add-auth (find-user email))
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       [response (models/find msft)])))
 
 (defn- assert-successful-update
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (is (comparable? {:commodity/name "Microsoft, Ltd."}
-                   json-body)
+                   edn-body)
       "The returned value has the updated attributes")
   (is (comparable? {:commodity/name "Microsoft, Ltd."}
                    retrieved)
