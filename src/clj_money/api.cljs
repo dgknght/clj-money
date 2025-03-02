@@ -16,8 +16,6 @@
 (def default-options
   {:encoding :edn})
 
-(def apply-fn api/apply-fn)
-
 (defn path
   [& segments]
   (->> segments
