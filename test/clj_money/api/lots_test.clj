@@ -4,7 +4,6 @@
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.factories.user-factory]
             [java-time.api :as t]
@@ -13,7 +12,8 @@
                                             find-user
                                             find-account
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -82,26 +82,26 @@
                                    {:commodity-id (:id commodity)})))
           (add-auth (find-user email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-get
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:lot{:purchase-date "2016-02-01"
-                                :shares-purchased 10.0
-                                :purchase-price 5.0
-                                :shares-owned 5.0}
-                          #:lot{:purchase-date "2016-03-01"
-                                :shares-purchased 10.0
-                                :purchase-price 6.0
-                                :shares-owned 10.0}]
-                         json-body)
+  (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 2 1)
+                                :shares-purchased 10.0M
+                                :purchase-price 5.0M
+                                :shares-owned 5.0M}
+                          #:lot{:purchase-date (t/local-date 2016 3 1)
+                                :shares-purchased 10.0M
+                                :purchase-price 6.0M
+                                :shares-owned 10.0M}]
+                         edn-body)
       "The response body contains the lot data"))
 
 (defn- assert-blocked-get
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-lots-for-an-account-in-his-entity
   (assert-successful-get (get-lots-for-an-account "john@doe.com")))
@@ -120,7 +120,7 @@
                                  (map->query-string {:account-id (map :id [ira opening])})))
           (add-auth (find-user email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (deftest a-user-can-get-lots-for-multiple-accounts-in-his-entity
   (assert-successful-get (get-lots-for-multiple-accounts "john@doe.com")))
