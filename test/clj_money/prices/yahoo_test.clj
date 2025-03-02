@@ -17,16 +17,17 @@
 
 (deftest get-price-quotes
   (with-web-mocks [calls] mocks
-    (is (seq-of-maps-like? [{:symbol "AMD"
-                             :regularMarketTime (t/local-date 2021 12 10)
-                             :regularMarketPrice 137.51M}
-                            {:symbol "IBM"
-                             :regularMarketTime (t/local-date 2021 12 10)
-                             :regularMarketPrice 123.55M}
-                            {:symbol "AAPL"
-                             :regularMarketTime (t/local-date 2021 12 10)
-                             :regularMarketPrice 177.78M}]
-                           (yahoo/get-quotes ["AMD" "IBM" "AAPL"])))
+    (let [result (yahoo/get-quotes ["AMD" "IBM" "AAPL"])]
+      (is (seq-of-maps-like? [{:symbol "AMD"
+                               :regularMarketTime (t/local-date 2021 12 10)
+                               :regularMarketPrice 137.51M}
+                              {:symbol "IBM"
+                               :regularMarketTime (t/local-date 2021 12 10)
+                               :regularMarketPrice 123.55M}
+                              {:symbol "AAPL"
+                               :regularMarketTime (t/local-date 2021 12 10)
+                               :regularMarketPrice 177.78M}]
+                             result)))
     (is (called-with-headers? :once
                               calls
                               {"X-Rapidapi-Host" "yh-finance.p.rapidapi.com"
