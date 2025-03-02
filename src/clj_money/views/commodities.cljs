@@ -30,21 +30,22 @@
 (defn- load-commodities
   [page-state]
   (+busy)
-  (commodities/select
-    (map (fn [result]
-           (-busy)
-           (swap! page-state #(-> %
-                                  (dissoc :prices-commodity)
-                                  (assoc :commodities (sort-by :name result))))))))
+  (commodities/select {}
+                      :callback -busy
+                      :on-success #(swap! page-state
+                                          (fn [s]
+                                            (-> s
+                                                (dissoc :prices-commodity)
+                                                (assoc :commodities (sort-by :name %)))))))
 
 (defn- save-commodity
   [page-state]
   (+busy)
   (commodities/save (get-in @page-state [:selected])
-                    (map (fn [_]
-                           (-busy)
-                           (swap! page-state dissoc :selected)
-                           (load-commodities page-state)))))
+                    :callback -busy
+                    :on-successs (fn [_]
+                                   (swap! page-state dissoc :selected)
+                                   (load-commodities page-state))))
 
 (defn- commodity-form
   [page-state]
@@ -87,11 +88,9 @@
   [commodity page-state]
   (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
     (+busy)
-    (commodities/delete
-      commodity
-      (map (fn []
-             (-busy)
-             (load-commodities page-state))))))
+    (commodities/delete commodity
+                        :callback -busy
+                        :on-success #(load-commodities page-state))))
 
 (defn- truncate
   ([value] (truncate value 20))
