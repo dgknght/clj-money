@@ -4,7 +4,6 @@
             [ring.mock.request :as req]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.json]
             [clj-money.db :as db]
@@ -18,7 +17,9 @@
                                             find-entity
                                             find-commodity
                                             find-account]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]
             [clj-money.models :as models]))
@@ -35,22 +36,22 @@
                                                 :entities
                                                 (:id entity)
                                                 :accounts))
-                       (req/json-body {:account/name "Savings"
-                                       :account/type "asset"
+                       (edn-body {:account/name "Savings"
+                                       :account/type :asset
                                        :account/commodity (util/->model-ref usd)})
                        (add-auth user)
                        app
-                       parse-json-body)
-          retrieved (when-let [id (get-in response [:json-body :id])]
+                       parse-edn-body)
+          retrieved (when-let [id (get-in response [:edn-body :id])]
                       (models/find id :account))]
       [response retrieved])))
 
 (defn- assert-successful-create
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
   (is (comparable? #:account{:name "Savings"
-                             :type "asset"}
-                   json-body)
+                             :type :asset}
+                   edn-body)
       "The created account is returned in the response")
   (is (comparable? #:account{:name "Savings"
                              :type :asset}
@@ -82,20 +83,20 @@
                                 :accounts))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-list
   [response]
   (is (http-success? response))
   (is (seq-of-maps-like? [#:account{:name "Checking"
-                                    :type "asset"}] 
-                         (:json-body response))
+                                    :type :asset}] 
+                         (:edn-body response))
       "The accounts are returned in the response"))
 
 (defn- assert-blocked-list
   [response]
   (is (http-success? response))
-  (is (empty? (:json-body response))))
+  (is (empty? (:edn-body response))))
 
 (deftest a-user-can-get-a-list-of-accounts-in-his-entity
   (assert-successful-list (get-a-list "john@doe.com")))
@@ -114,10 +115,10 @@
                                          ))
                   (add-auth (find-user "john@doe.com"))
                   app
-                  parse-json-body)]
+                  parse-edn-body)]
       (is (http-success? res))
       (is (seq-of-maps-like? [{:account/name "Checking"}]
-                             (:json-body res))))))
+                             (:edn-body res))))))
 
 (defn- get-an-account
   [email]
@@ -127,14 +128,14 @@
                                 (:id (find-account "Checking"))))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
   (is (comparable? #:account{:name "Checking"
-                             :type "asset"}
-                   json-body)
+                             :type :asset}
+                   edn-body)
       "The accounts are returned in the response"))
 
 (defn- assert-blocked-get
@@ -154,25 +155,25 @@
           response (-> (req/request :patch (path :api
                                                  :accounts
                                                  (:id account)))
-                       (req/json-body (-> account
-                                          (assoc :account/name "New Name")
-                                          (select-keys [:account/name
-                                                        :account/type
-                                                        :account/commodity
-                                                        :account/parent])))
+                       (edn-body (-> account
+                                     (assoc :account/name "New Name")
+                                     (select-keys [:account/name
+                                                   :account/type
+                                                   :account/commodity
+                                                   :account/parent])))
                        (add-auth (find-user email))
                        app
-                       parse-json-body)
+                       parse-edn-body)
           retrieved (models/find account)]
       [response retrieved])))
 
 (defn- assert-successful-update
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
-  (is (empty? (:dgknght.app-lib.validation/errors json-body))
+  (is (empty? (:dgknght.app-lib.validation/errors edn-body))
       "There are no validation errors")
   (is (comparable? {:account/name "New Name"}
-                   json-body)
+                   edn-body)
       "The updated account is returned in the response")
   (is (comparable? {:account/name "New Name"}
                    retrieved)
