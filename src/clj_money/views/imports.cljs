@@ -12,7 +12,6 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon]]
             [clj-money.components :refer [button]]
@@ -26,17 +25,16 @@
 (defn- load-imports
   [page-state]
   (+busy)
-  (imports/select (map (fn [result]
-                         (-busy)
-                         (swap! page-state assoc :imports result)))))
+  (imports/select {}
+                  :callback -busy
+                  :on-success #(swap! page-state assoc :imports %)))
 
 (defn- delete-import
   [imp page-state]
   (+busy)
   (imports/delete imp
-                  (map (fn [_]
-                         (-busy)
-                         (load-imports page-state)))))
+                  :callback -busy
+                  :on-success #(load-imports page-state)))
 
 (defn- append-dropped-files
   [event import-data]
@@ -119,16 +117,16 @@
   [page-state]
   ; Don't set busy because this happens constantly during import
   (imports/get (get-in @page-state [:active :id])
-               (map #(receive-import % page-state))))
+               :on-success #(receive-import % page-state)))
 
 (defn- start-import
   [imp page-state]
   (+busy)
   (imports/start imp
-                 (map (fn [result]
-                        (-busy)
-                        (reset! auto-refresh true)
-                        (receive-import result page-state)))))
+                 :callback -busy
+                 :on-success (fn [result]
+                               (reset! auto-refresh true)
+                               (receive-import result page-state))))
 
 (defn- import-row
   [imp page-state busy?]
@@ -225,25 +223,24 @@
      [:div.mt-2
       [errors-card page-state]]]))
 
+(defn- post-save-and-start
+  [page-state]
+  (fn [result]
+    (state/add-entity (:entity result))
+    (reset! auto-refresh true)
+    (swap! page-state #(-> %
+                           (dissoc :import-data)
+                           (update-in [:imports] conj (:import result))
+                           (assoc :active (:import result))))
+    (load-import page-state)))
+
 (defn- save-and-start-import
   [event page-state]
   (.preventDefault event)
   (+busy)
-  (try
-    (imports/create (dissoc (get-in @page-state [:import-data]) ::v/validation)
-                    (map (fn [result]
-                           (-busy)
-                           (state/add-entity (:entity result))
-                           (reset! auto-refresh true)
-                           (swap! page-state #(-> %
-                                                  (dissoc :import-data)
-                                                  (update-in [:imports] conj (:import result))
-                                                  (assoc :active (:import result))))
-                           (load-import page-state))))
-    (catch js/Error e
-      (-busy)
-      (.dir js/console e)
-      (notify/danger (str "Unable to start the import: " (.-name e) " - " (.-message e))))))
+  (imports/create (dissoc (get-in @page-state [:import-data]) ::v/validation)
+                  :callback -busy
+                  :on-success (post-save-and-start page-state)))
 
 (defn- file-drop
   [import-data event]
