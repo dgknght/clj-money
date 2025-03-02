@@ -17,9 +17,8 @@
   (when (js/confirm (str "Are you sure you want to delete the entity \"" (:name entity) "\"?"))
     (+busy)
     (entities/delete entity
-                     (map (fn []
-                            (-busy)
-                            (state/remove-entity entity))))))
+                     :callback -busy
+                     :on-success #(state/remove-entity entity))))
 
 (defn- relay-updated-entity
   "Accepts an entity and replaces the corresponding enty
@@ -37,12 +36,12 @@
   (let [entity (get-in @page-state [:selected])]
     (+busy)
     (entities/save entity
-                   (map (fn [result]
-                          (-busy)
-                          (if (:id entity)
-                            (relay-updated-entity result)
-                            (state/add-entity result))
-                          (swap! page-state dissoc :selected))))))
+                   :callback -busy
+                   :on-success (fn [result]
+                                 (if (:id entity)
+                                   (relay-updated-entity result)
+                                   (state/add-entity result))
+                                 (swap! page-state dissoc :selected)))))
 
 (defn- entity-form
   [page-state]
