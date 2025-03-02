@@ -66,32 +66,32 @@
 (defn- create-transaction
   [receipt page-state]
   (+busy)
-  (trn/create (->transaction receipt)
-              :callback -busy
-              :on-success (fn [result]
-                            (swap! page-state
-                                   update-in
-                                   [:receipts]
-                                   (fnil conj '())
-                                   result)
-                            (new-receipt page-state))))
+  (trn/save (->transaction receipt)
+            :callback -busy
+            :on-success (fn [result]
+                          (swap! page-state
+                                 update-in
+                                 [:receipts]
+                                 (fnil conj '())
+                                 result)
+                          (new-receipt page-state))))
 
 (defn- update-transaction
   [receipt page-state]
   (+busy)
-  (trn/update (->transaction receipt)
-              :callback -busy
-              :on-success (fn [result]
-                            (swap! page-state
-                                   update-in
-                                   [:receipts]
-                                   (fn [receipts]
-                                     (map #(if (= (:id receipt)
-                                                  (:id %))
-                                             result
-                                             %)
-                                          receipts)))
-                            (new-receipt page-state))))
+  (trn/save (->transaction receipt)
+            :callback -busy
+            :on-success (fn [result]
+                          (swap! page-state
+                                 update-in
+                                 [:receipts]
+                                 (fn [receipts]
+                                   (map #(if (= (:id receipt)
+                                                (:id %))
+                                           result
+                                           %)
+                                        receipts)))
+                          (new-receipt page-state))))
 
 (defn- remove-empty-items
   [items]

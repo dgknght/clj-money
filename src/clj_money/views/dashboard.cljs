@@ -116,8 +116,8 @@
                        (:account-id %))
                    monitors)))
   (+busy)
-  (entities/update @current-entity
-                   :callback -busy))
+  (entities/save @current-entity
+                 :callback -busy))
 
 (defn- monitor
   [{:keys [scope account] :as monitor} state]
