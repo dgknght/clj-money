@@ -41,12 +41,9 @@
       api/response))
 
 (defn- extract-price
-  [{:keys [body]}]
-  (-> body
-      (select-keys [:price/trade-date
-                    :price/price])
-      (update-in-if [:price/trade-date] dates/unserialize-local-date)
-      (update-in-if [:price/price] bigdec)))
+  [{:keys [params]}]
+  (select-keys params [:price/trade-date
+                       :price/price]))
 
 (defn- create
   [{:keys [authenticated params] :as req}]
