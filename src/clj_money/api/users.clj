@@ -10,8 +10,8 @@
   (api/response authenticated))
 
 (defn- extract-credentials
-  [{:keys [body]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (select-keys [:email :password])
       (rename-keys {:email :username})))
 
