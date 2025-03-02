@@ -23,10 +23,9 @@
                    (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                   clj->js)))]
     (http/post (api/path :imports)
-               (-> (lib-api/request (add-error-handler
-                                      opts
-                                      "Unable to create the import: %s"))
+               (-> (lib-api/request opts)
                    (lib-api/multipart-params params)
+                   (add-error-handler "Unable to create the import: %s")
                    (assoc :oauth-token (:auth-token @app-state))))))
 
 (defn get
