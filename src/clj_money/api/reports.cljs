@@ -2,19 +2,11 @@
   (:require [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date]]
-            [clj-money.api :as api :refer [handle-ex]]
+            [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
-(defn- after-read
-  [report]
-  (map (fn [item]
-         (-> item
-             (update-in [:style] keyword)
-             (update-in-if [:items] after-read)))
-       report))
-
 (defn income-statement
-  [{:keys [start-date end-date]} & xf]
+  [{:keys [start-date end-date]} & {:as opts}]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
@@ -22,67 +14,64 @@
                      (serialize-date start-date)
                      (serialize-date end-date))
            {}
-           {:transform (apply comp
-                              (map after-read)
-                              xf)
-            :handle-ex (handle-ex "Unable to retrieve the income statement: %s")}))
+           (add-error-handler opts "Unable to retrieve the income statement: %s")))
 
 (defn balance-sheet
-  [{:keys [as-of]} & xf]
+  [{:keys [as-of]} & {:as opts}]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
                      :balance-sheet
                      (serialize-date as-of))
            {}
-           {:transform (cons (map after-read) xf)
-            :handle-ex (handle-ex "Unable to retrieve the balance sheet: %s")}))
+           (add-error-handler opts "Unable to retrieve the balance sheet: %s")))
+
+(defn- budget-report-url
+  [{:keys [budget-id] :as report}]
+  (-> (api/path :reports
+                :budget
+                budget-id)
+      uri
+      (assoc :query (-> report
+                        (dissoc :budget-id)
+                        (update-in-if [:tags] #(map name %))
+                        map->query-string))
+      str))
 
 (defn budget
-  [{:keys [budget-id] :as opts} & xf]
-  (let [url (str
-              (assoc
-                (uri (api/path :reports
-                               :budget
-                               budget-id))
-                :query (-> opts
-                           (dissoc :budget-id)
-                           (update-in-if [:tags] #(map name %))
-                           map->query-string)))]
-    (api/get url
-             {}
-             {:transform (cons (map #(update-in % [:items] after-read))
-                               xf)
-              :handle-ex (handle-ex "Unable to retrieve the budget report: %s")})))
+  [report & {:as opts}]
+  (api/get (budget-report-url report)
+           {}
+           (add-error-handler opts "Unable to retrieve the budget report: %s")))
 
 (defn budget-monitors
-  [& xf]
+  [& {:as opts}]
   (api/get (api/path :entities
-                     (:id @current-entity)
+                     @current-entity
                      :reports
                      :budget-monitors)
            {}
-           {:transform xf
-            :handle-ex (handle-ex "Unable to retrieve the budget monitors: %s")}))
+           (add-error-handler opts "Unable to retrieve the budget monitors: %s")))
 
-(defn- after-portfolio-read
+(def ^:private default-portfolio-report
+  {:aggregate :by-account})
+
+(defn- portfolio-report-url
   [report]
-  (map #(update-in-if % [:parents] set) report))
+  (str (api/path :entities
+                 (:id @current-entity)
+                 :reports
+                 :portfolio)
+       "?"
+       (-> report
+           (update-in-if [:as-of] serialize-date)
+           (update-in-if [:aggregate] name)
+           map->query-string)))
 
 (defn portfolio
-  ([xf]
-   (portfolio {:aggregate :by-account} xf))
-  ([options xf & xfs]
-   (api/get (str (api/path :entities
-                           (:id @current-entity)
-                           :reports
-                           :portfolio)
-                 "?"
-                 (-> options
-                     (update-in-if [:as-of] serialize-date)
-                     (update-in-if [:aggregate] name)
-                     map->query-string))
-            {}
-            {:transform (cons (map after-portfolio-read)
-                              (cons xf xfs))
-             :handle-ex (handle-ex "Unable to retrieve the portfolio report: %s")})))
+  [report & {:as opts}]
+  (-> default-portfolio-report
+      (merge report)
+      portfolio-report-url
+      (api/get {}
+               (add-error-handler opts "Unable to retrieve the portfolio report: %s"))))
