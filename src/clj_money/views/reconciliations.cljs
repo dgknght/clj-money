@@ -4,29 +4,34 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
+            [clj-money.state :refer [+busy
+                                     -busy]]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.accounts :as accounts]
             [clj-money.views.transactions :as trns]
             [clj-money.api.reconciliations :as recs]))
 
 (defn- receive-reconciliation
-  [page-state reconciliation]
-  (swap! page-state assoc
-         :reconciliation (if reconciliation
-                           (update-in reconciliation
-                                      [:item-refs]
-                                      (fn [item-refs]
-                                        (reduce #(assoc %1 (first %2) true)
-                                                {}
-                                                item-refs)))
-                           {:account-id (get-in @page-state
-                                                [:view-account :id])})))
+  [page-state]
+  (fn [reconciliation]
+    (swap! page-state assoc
+           :reconciliation (if reconciliation
+                             (update-in reconciliation
+                                        [:item-refs]
+                                        (fn [item-refs]
+                                          (reduce #(assoc %1 (first %2) true)
+                                                  {}
+                                                  item-refs)))
+                             {:account-id (get-in @page-state
+                                                  [:view-account :id])}))))
 
 (defn load-working-reconciliation
   [page-state]
+  (+busy)
   (recs/find {:account-id (get-in @page-state [:view-account :id])
               :status "new"}
-             (map (partial receive-reconciliation page-state))))
+             :callback -busy
+             :on-success (receive-reconciliation page-state)))
 
 (defn- resolve-item-refs
   [item-refs items]
@@ -41,12 +46,14 @@
 
 (defn- save-reconciliation*
   [page-state]
+  (+busy)
   (recs/save (update-in (get-in @page-state [:reconciliation])
                         [:item-refs]
                         #(resolve-item-refs % (:items @page-state)))
-             (map (fn [_created]
-                    (swap! page-state dissoc :reconciliation)
-                    (trns/reset-item-loading page-state)))))
+             :callback -busy
+             :on-success (fn [_created]
+                           (swap! page-state dissoc :reconciliation)
+                           (trns/reset-item-loading page-state))))
 
 (defn- save-reconciliation
   [page-state]
@@ -55,13 +62,17 @@
 
 (defn- load-previous-balance
   [page-state]
+  (+busy)
   (recs/find (-> (get-in @page-state [:view-account])
                  (accounts/->criteria {:date-field :end-of-period})
                  (assoc :desc :end-of-period
                         :status :completed))
-             (map #(swap! page-state assoc
-                          :previous-reconciliation (or %
-                                                       {:balance 0})))))
+             :callback -busy
+             :on-success #(swap! page-state
+                                 assoc
+                                 :previous-reconciliation
+                                 (or %
+                                     {:balance 0M}))))
 
 (defn- finish-reconciliation
   [page-state]
