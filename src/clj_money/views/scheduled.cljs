@@ -40,12 +40,12 @@
 (defn- load-sched-trans
   [page-state]
   (+busy)
-  (sched-trans/search (map (fn [result]
-                             (-busy)
-                             (swap! page-state
-                                    assoc
-                                    :scheduled-transactions
-                                    (map-next-occurrence result))))))
+  (sched-trans/search {}
+                      :callback -busy
+                      :on-success #(swap! page-state
+                                          assoc
+                                          :scheduled-transactions
+                                          (map-next-occurrence %))))
 
 (defn set-next-occurrence
   [sched-tran]
@@ -71,17 +71,19 @@
   (let [[sched-tran page-state] (if (= 1 (count args))
                                   (cons nil args)
                                   args)
-        xf (map (fn [result]
-                  (-busy)
-                  (swap! page-state #(-> %
-                                         (update-sched-trans result)
-                                         (update-in [:created] (fnil concat []) result)))
-                  (notify/toast "Success" (if (empty? result)
-                                            "No transactions are ready to be created."
-                                            "The scheduled transactions where created"))))]
+        on-success (fn [result]
+                     (swap! page-state #(-> %
+                                            (update-sched-trans result)
+                                            (update-in [:created] (fnil concat []) result)))
+                     (notify/toast "Success" (if (empty? result)
+                                               "No transactions are ready to be created."
+                                               "The scheduled transactions where created")))]
     (if sched-tran
-      (sched-trans/realize sched-tran xf)
-      (sched-trans/realize xf))))
+      (sched-trans/realize sched-tran
+                           :callback -busy
+                           :on-success on-success)
+      (sched-trans/realize :callback -busy
+                           :on-success on-success))))
 
 (defn- delete-sched-tran
   [_sched-tran _page-state]
@@ -231,10 +233,10 @@
   (+busy)
   (-> (:selected @page-state)
       ->saveable
-      (sched-trans/save (map (fn [_]
-                               (-busy)
-                               (load-sched-trans page-state)
-                               (swap! page-state dissoc :selected))))))
+      (sched-trans/save :callback -busy
+                        :on-success (fn [_]
+                                      (load-sched-trans page-state)
+                                      (swap! page-state dissoc :selected)))))
 
 (defn- adj-items
   [page-state]
@@ -439,14 +441,16 @@
         [sched-tran-form page-state]]])))
 
 (defn- autorun []
-  (sched-trans/search
-    (map (fn [results]
-           (let [r (map-next-occurrence results)]
-             (reset! auto-loaded (seq r))
-             (secretary/dispatch! (if (some pending?
-                                            r)
-                                    "/scheduled"
-                                    "/"))))))
+  (+busy)
+  (sched-trans/search {}
+                      :callback -busy
+                      :on-success (fn [results]
+                                    (let [r (map-next-occurrence results)]
+                                      (reset! auto-loaded (seq r))
+                                      (secretary/dispatch! (if (some pending?
+                                                                     r)
+                                                             "/scheduled"
+                                                             "/")))))
   (fn []
     [:div.row.mt-3
      [:div.col-md-4.offset-md-4
