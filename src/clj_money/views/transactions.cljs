@@ -80,13 +80,13 @@
   [item page-state]
   (+busy)
   (transactions/get (item->tkey item)
-                    (map (fn [result]
-                           (-busy)
-                           (let [prepared (prepare-transaction-for-edit
-                                            result
-                                            (:view-account @page-state))]
-                             (swap! page-state assoc :transaction prepared))
-                           (set-focus "transaction-date")))))
+                    :callback -busy
+                    :on-success (fn [result]
+                                  (let [prepared (prepare-transaction-for-edit
+                                                   result
+                                                   (:view-account @page-state))]
+                                    (swap! page-state assoc :transaction prepared))
+                                  (set-focus "transaction-date"))))
 
 (defn load-unreconciled-items
   [page-state]
@@ -157,8 +157,10 @@
 (defn- delete-transaction
   [item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
+    (+busy)
     (transactions/delete (item->tkey item)
-                         (map (fn [_] (reset-item-loading page-state))))))
+                         :callback -busy
+                         :on-success #(reset-item-loading page-state))))
 
 (defn- post-item-row-drop
   [page-state item {:keys [body]}]
@@ -530,20 +532,23 @@
     (-> @page-state :transaction mode)))
 
 (defmethod save-transaction :default
-  [page-state xf]
+  [page-state & {:as opts}]
+  (+busy)
   (let [{:keys [transaction]} @page-state
         mode (mode transaction)
         prepare ((untransformations) mode)]
-    (-> transaction
-        prepare
-        (transactions/save xf))))
+    (apply transactions/save
+           (prepare transaction)
+           (mapcat identity (assoc opts :callback -busy)))))
 
 (defmethod save-transaction ::trade
-  [page-state xf]
-  (trading/create (:transaction @page-state)
-                  (map xf)))
+  [page-state & {:as opts}]
+  (+busy)
+  (apply trading/create
+         (:transaction @page-state)
+         (mapcat identity (assoc opts :callback -busy))))
 
-(defn- assoc-reinvest-desc
+#_(defn- assoc-reinvest-desc
   [transaction commodity]
   (assoc transaction
          :description
@@ -553,7 +558,7 @@
                       (:name commodity)
                       (:symbol commodity))))
 
-(defn- reinvest-dividend
+#_(defn- reinvest-dividend
   [page-state]
   (fn [xf]
     (completing
@@ -569,19 +574,19 @@
                                             :trade %})))))))))
 
 (defmethod save-transaction ::dividend
-  [page-state xf]
+  [page-state & {:as opts}]
   (let [{:keys [transaction commodities]} @page-state
         commodity (get-in commodities [(:commodity-id transaction)])
         dividends-account (->> @accounts ; TODO: Need a better way to make sure we have this value
                                (filter #(= :income (:type %)))
                                (filter #(re-find #"(?i)dividend" (:name %)))
-                               first)]
-    (-> transaction
-        (dissoc :commodity-id :shares)
-        (assoc :description (gstr/format "%s (%s)"
-                                         (:name commodity)
-                                         (:symbol commodity))
-               :other-account-id (:id dividends-account))
-        fullify-trx
-        (transactions/save (comp (reinvest-dividend page-state)
-                                 xf)))))
+                               first)
+        to-save
+        (-> transaction
+            (dissoc :commodity-id :shares)
+            (assoc :description (gstr/format "%s (%s)"
+                                             (:name commodity)
+                                             (:symbol commodity))
+                   :other-account-id (:id dividends-account))
+            fullify-trx)]
+    (apply transactions/save to-save (mapcat identity opts))))

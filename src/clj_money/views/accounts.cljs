@@ -612,7 +612,9 @@
         [trns/trade-transaction-form page-state]
         [trns/dividend-transaction-form page-state]]
        [:div
-        [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
+        [:button.btn.btn-primary {:on-click #(trns/save-transaction
+                                               page-state
+                                               :post-xf (post-transaction-save page-state))
                                   :title "Click here to save the transaction"}
          (icon-with-text :check "Save")]
         [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :transaction)
@@ -815,7 +817,9 @@
             [:div.card-body
              [trns/trade-transaction-form page-state]]
             [:div.card-footer
-             [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
+             [:button.btn.btn-primary {:on-click #(trns/save-transaction
+                                                    page-state
+                                                    :post-xf (post-transaction-save page-state))
                                        :title "Click here to save the transaction"}
               (icon-with-text :check "Save")]
              (html/space)
