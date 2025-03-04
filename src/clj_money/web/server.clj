@@ -12,8 +12,7 @@
                                               api-defaults]]
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.json :refer [wrap-json-body
-                                          wrap-json-response]]
+            [ring.middleware.format :refer [wrap-restful-format]]
             [ring.middleware.session.cookie :refer [cookie-store]]
             [config.core :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
@@ -100,8 +99,21 @@
     (if query-string
       (log/infof "Request %s \"%s?%s\"" request-method uri query-string)
       (log/infof "Request %s \"%s\"" request-method uri))
+    (log/debugf "Request details %s \"%s\": %s"
+                request-method
+                uri
+                (with-out-str
+                  (pprint
+                    (dissoc req
+                            :reitit.core/match
+                            :reitit.core/router))))
     (let [res (handler req)]
       (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
+      (log/debugf "Response details %s \"%s\": %s"
+                  request-method
+                  uri
+                  (with-out-str
+                    (pprint res)))
       res)))
 
 (defn- wrap-merge-path-params
@@ -123,27 +135,29 @@
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
                   ["auth/" {:middleware [:site
-                                         wrap-merge-path-params]}
+                                         wrap-merge-path-params
+                                         wrap-request-logging]}
                    web-auth/routes]
                   ["app/" {:middleware [:site
                                         wrap-merge-path-params
                                         wrap-integer-id-params
-                                        :authentication]}
+                                        :authentication
+                                        wrap-request-logging]}
                    images/routes]
                   ["oapi/" {:middleware [:api
-                                         wrap-json-response
+                                         :wrap-restful-format
                                          wrap-merge-path-params
                                          wrap-integer-id-params
                                          wrap-exceptions
-                                         :json-body]}
+                                         wrap-request-logging]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
-                                        wrap-json-response
+                                        :wrap-restful-format
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         :authentication
                                         wrap-exceptions
-                                        :json-body]}
+                                        wrap-request-logging]}
                    users-api/routes
                    entities-api/routes
                    commodities-api/routes
@@ -165,7 +179,8 @@
                                          :api [wrap-defaults (-> api-defaults
                                                                  (assoc-in [:params :multipart] true)
                                                                  (assoc-in [:security :anti-forgery] false))]
-                                         :json-body [wrap-json-body {:keywords? true :bigdecimals? true}]
+                                         :wrap-restful-format [wrap-restful-format
+                                                               {:formats [:edn :json]}]
                                          :authentication [api/wrap-authentication
                                                           {:authenticate-fn find-user-by-auth-token}]}})
     (ring/routes
