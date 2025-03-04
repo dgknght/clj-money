@@ -2,10 +2,8 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -14,7 +12,9 @@
                                             find-entity
                                             find-commodity
                                             find-account]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.accounts :as accounts]))
@@ -31,22 +31,22 @@
                                                 :entities
                                                 (:id entity)
                                                 :accounts))
-                       (req/json-body {:name "Savings"
-                                       :type "asset"
+                       (edn-body {:name "Savings"
+                                       :type :asset
                                        :commodity-id (:id usd)})
                        (add-auth user)
                        app
-                       parse-json-body)
-          retrieved (when-let [id (get-in response [:json-body :id])]
+                       parse-edn-body)
+          retrieved (when-let [id (get-in response [:edn-body :id])]
                       (accounts/find id))]
       [response retrieved])))
 
 (defn- assert-successful-create
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
   (is (comparable? {:name "Savings"
-                    :type "asset"}
-                   json-body)
+                    :type :asset}
+                   edn-body)
       "The created account is returned in the response")
   (is (comparable? {:name "Savings"
                     :type :asset} retrieved)
@@ -79,9 +79,9 @@
                                                (:id entity)
                                                :accounts))
                        (add-auth user)
-                       app)
-          body (json/parse-string (:body response) true)]
-      [response body])))
+                       app
+                       parse-edn-body)]
+      [response (:edn-body response)])))
 
 (defn- assert-successful-list
   [[response body]]
@@ -116,10 +116,10 @@
                                          ))
                   (add-auth user)
                   app
-                  parse-json-body)]
+                  parse-edn-body)]
       (is (http-success? res))
       (is (seq-of-maps-like? [{:name "Checking"}]
-                             (:json-body res))))))
+                             (:edn-body res))))))
 
 (defn- get-an-account
   [email]
@@ -131,14 +131,14 @@
                                   (:id checking)))
           (add-auth user)
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-get
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
   (is (comparable? {:name "Checking"
-                    :type "asset"}
-                   json-body)
+                    :type :asset}
+                   edn-body)
       "The accounts are returned in the response"))
 
 (defn- assert-blocked-get
@@ -159,22 +159,22 @@
           response (-> (req/request :patch (path :api
                                                  :accounts
                                                  (:id account)))
-                       (req/json-body (-> account
+                       (edn-body (-> account
                                           (assoc :name "New Name")
                                           (select-keys [:name :type :commodity-id :parent-id])))
                        (add-auth user)
                        app
-                       parse-json-body)
+                       parse-edn-body)
           retrieved (accounts/find account)]
       [response retrieved])))
 
 (defn- assert-successful-update
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
-  (is (empty? (:dgknght.app-lib.validation/errors json-body))
+  (is (empty? (:dgknght.app-lib.validation/errors edn-body))
       "There are no validation errors")
   (is (comparable? {:name "New Name"}
-                   json-body)
+                   edn-body)
       "The updated account is returned in the response")
   (is (comparable? {:name "New Name"}
                    retrieved)

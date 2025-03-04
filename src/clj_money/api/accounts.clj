@@ -3,7 +3,6 @@
   (:require [clojure.set :refer [rename-keys]]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if
-                                          parse-int
                                           parse-bool]]
             [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
@@ -72,53 +71,21 @@
    :parent-id
    :allocations])
 
-(defn- prepare-tags
-  [tags]
-  (if tags
-    (->> tags
-         (map keyword)
-         set)
-    #{}))
-
-(defn- handle-trading-tag
-  [{:keys [trading] :as account}]
-  (if trading
-    (update-in account [:system-tags] (fnil conj #{}) :trading)
-    account))
-
-; JSON serialization/deserialization wants the keys to be keywords
-(defn- correct-allocations
-  [allocations]
-  (reduce (fn [r [k v]]
-            (assoc r (-> k name parse-int) (bigdec v)))
-          {}
-          allocations))
-
-(defn- before-save
-  [account]
-  (-> account
-      (update-in-if [:user-tags] prepare-tags)
-      (update-in-if [:system-tags] prepare-tags)
-      (update-in-if [:type] keyword)
-      (update-in-if [:allocations] correct-allocations)
-      handle-trading-tag
-      (select-keys attribute-keys)))
-
 (defn- create
-  [{:keys [params body authenticated]}]
-  (-> body
+  [{:keys [params authenticated]}]
+  (-> params
       (assoc :entity-id (:entity-id params))
-      before-save
+      (select-keys attribute-keys)
       (storage/tag ::models/account)
       (authorize ::authorization/create authenticated)
       accounts/create
       api/creation-response))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [{:keys [params] :as req}]
   (if-let [account (find-and-auth req ::authorization/update)]
     (-> account
-        (merge (before-save body))
+        (merge (select-keys params attribute-keys))
         accounts/update
         api/update-response)
     api/not-found))
