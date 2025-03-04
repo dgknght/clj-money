@@ -1,6 +1,5 @@
 (ns clj-money.api.lots-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
@@ -13,7 +12,8 @@
                                             find-user
                                             find-account
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -73,40 +73,35 @@
   (let [ctx (realize list-context)
         account (find-account ctx "IRA")
         commodity (find-commodity ctx "FND")
-        user (find-user ctx email)
-        response (-> (req/request :get (str (path :api
-                                                  :accounts
-                                                  (:id account)
-                                                  :lots)
-                                            "?"
-                                            (map->query-string {:commodity-id (:id commodity)})))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        user (find-user ctx email)]
+    (-> (req/request :get (str (path :api
+                                     :accounts
+                                     (:id account)
+                                     :lots)
+                               "?"
+                               (map->query-string {:commodity-id (:id commodity)})))
+        (add-auth user)
+        (req/header "Accept" "application/edn")
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (let [expected [{:purchase-date "2016-02-01"
-                   :shares-purchased 10.0
-                   :purchase-price 5.0
-                   :shares-owned 5.0}
-                  {:purchase-date "2016-03-01"
-                   :shares-purchased 10.0
-                   :purchase-price 6.0
-                   :shares-owned 10.0}]
-        actual (mapv #(select-keys % [:purchase-date
-                                      :shares-purchased
-                                      :shares-owned
-                                      :purchase-price])
-                     body)]
-    (is (= expected actual))))
+  (is (comparable? [{:purchase-date (t/local-date 2016 2 1)
+                     :shares-purchased 10.0M
+                     :purchase-price 5.0M
+                     :shares-owned 5.0M}
+                    {:purchase-date (t/local-date 2016 3 1)
+                     :shares-purchased 10.0M
+                     :purchase-price 6.0M
+                     :shares-owned 10.0M}]
+                   edn-body)))
 
 (defn- assert-blocked-get
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-lots-for-an-account-in-his-entity
   (assert-successful-get (get-lots-for-an-account "john@doe.com")))
@@ -119,15 +114,15 @@
   (let [ctx (realize list-context)
         ira (find-account ctx "IRA")
         opening (find-account ctx "Opening Balances")
-        user (find-user ctx email)
-        response (-> (req/request :get (str (path :api
-                                                  :lots)
-                                            "?"
-                                            (map->query-string {:account-id (map :id [ira opening])})))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        user (find-user ctx email)]
+    (-> (req/request :get (str (path :api
+                                     :lots)
+                               "?"
+                               (map->query-string {:account-id (map :id [ira opening])})))
+        (add-auth user)
+        (req/header "Accept" "application/edn")
+        app
+        parse-edn-body)))
 
 (deftest a-user-can-get-lots-for-multiple-accounts-in-his-entity
   (assert-successful-get (get-lots-for-multiple-accounts "john@doe.com")))
