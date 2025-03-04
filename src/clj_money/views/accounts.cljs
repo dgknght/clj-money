@@ -755,11 +755,11 @@
                 commodity-id
                 earliest-transaction-date
                 latest-transaction-date]} @account]
-    (lots/search {:account-id parent-id
+    (lots/select {:account-id parent-id
                   :commodity-id commodity-id
                   :shares-owned [:!= 0]}
                  (map #(swap! page-state assoc :lots %)))
-    (prices/search {:commodity-id commodity-id
+    (prices/select {:commodity-id commodity-id
                     :trade-date [earliest-transaction-date
                                  latest-transaction-date]}
                    (map #(swap! page-state assoc :prices %)))
@@ -793,7 +793,7 @@
           (icon-with-text :plus "Buy/Sell")]
          (html/space)
          [:button.btn.btn-light {:title "Click here to return the the account list."
-                                :on-click #(swap! page-state dissoc :view-account)}
+                                 :on-click #(swap! page-state dissoc :view-account)}
           (icon-with-text :arrow-left-short "Back")]]]])))
 
 (defn- tradable-account-details

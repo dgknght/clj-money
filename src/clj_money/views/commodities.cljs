@@ -106,7 +106,7 @@
   [xf]
   (completing
     (fn [ch criteria]
-      (prices/search criteria (map #(xf ch %))))))
+      (prices/select criteria (map #(xf ch %))))))
 
 (defn- init-price-loading
   [page-state]
