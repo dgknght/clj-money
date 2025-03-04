@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.core :as stow]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.authorization
@@ -10,7 +9,6 @@
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
-            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :refer [create-items-from-history]]
             [clj-money.models.transactions :as trans]
@@ -24,23 +22,14 @@
                         (select-keys [:entity-id])
                         (+scope ::models/budget authenticated))
                     {:sort [[:start-date :desc]]})))
-(defn- prepare-item
-  [item]
-  (-> item
-      (update-in-if [:periods] #(map bigdec %))
-      (update-in-if [:spec :start-date] dates/unserialize-local-date)))
 
 (defn- extract-budget
-  [{:keys [body]}]
-  (-> body
-      (select-keys [:name
-                    :start-date
-                    :period
-                    :period-count
-                    :items])
-      (update-in-if [:items] #(map prepare-item %))
-      (update-in-if [:period] keyword)
-      (update-in-if [:start-date] dates/unserialize-local-date)))
+  [{:keys [params]}]
+  (select-keys params [:name
+                       :start-date
+                       :period
+                       :period-count
+                       :items]))
 
 (defn- auto-create-items
   [{:keys [entity-id period period-count] :as budget} start-date]
@@ -66,19 +55,19 @@
     (-> budget
         (assoc :items (auto-create-items
                         budget
-                        (dates/unserialize-local-date start-date)))
+                        start-date))
         budgets/update)
     budget))
 
 (defn- create
-  [{:keys [authenticated params body] :as req}]
+  [{:keys [authenticated params] :as req}]
   (-> req
       extract-budget
       (assoc :entity-id (:entity-id params))
       (stow/tag ::models/budget)
       (authorize ::auth/create authenticated)
       budgets/create ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (append-items (:auto-create-start-date body))
+      (append-items (:auto-create-start-date params))
       api/creation-response))
 
 (defn- find-and-auth

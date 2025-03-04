@@ -1,15 +1,15 @@
 (ns clj-money.api.budgets-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [java-time.api :as t]
-            [cheshire.core :as json]
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.test]
             [clj-money.dates :refer [periodic-seq]]
-            [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.api.test-helper :refer [add-auth
-                                               parse-json-body]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
+            [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-user
@@ -34,35 +34,35 @@
                                               :entities
                                               (:id entity)
                                               :budgets))
-                     (req/json-body {:name "2020"
-                                     :start-date "2020-01-01"
-                                     :period "month"
-                                     :period-count 12})
+                     (edn-body {:name "2020"
+                                :start-date (t/local-date 2020 1 1)
+                                :period :month
+                                :period-count 12})
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         retrieved (budgets/search {:entity-id (:id entity)})]
-    [response body retrieved]))
+    [response retrieved]))
 
 (defn- assert-successful-create
-  [[response body [retrieved]]]
+  [[{:as response :keys [edn-body]} [retrieved]]]
   (is (http-created? response))
-  (is (nil? (::v/errors body)) "There are no validation errors")
+  (is (nil? (::v/errors edn-body)) "There are no validation errors")
   (is (comparable? {:name "2020"
-                    :start-date "2020-01-01"
-                    :period "month"
+                    :start-date (t/local-date 2020 1 1)
+                    :period :month
                     :period-count 12}
-                   body)
+                   edn-body)
       "The response contains the newly created budget")
   (is (comparable? {:name "2020"
-                          :start-date (t/local-date 2020 1 1)
-                          :period :month
-                          :period-count 12}
+                    :start-date (t/local-date 2020 1 1)
+                    :period :month
+                    :period-count 12}
                    retrieved)
-       "The record can be retrieved after create"))
+      "The record can be retrieved after create"))
 
 (defn- assert-blocked-create
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
   (is (not ((->> retrieved (map :name) set) "2020"))
       "The record is not created."))
@@ -105,34 +105,34 @@
         entity (find-entity ctx "Personal")
         salary (find-account ctx "Salary")
         groceries (find-account ctx "Groceries")
-        {:keys [json-body]
+        {:keys [edn-body]
          :as response} (-> (req/request :post (path :api
                                                     :entities
                                                     (:id entity)
                                                     :budgets))
-                           (req/json-body {:name "2020"
-                                           :start-date "2017-01-01"
-                                           :period "month"
-                                           :period-count 12
-                                           :auto-create-start-date "2016-01-01"})
+                           (edn-body {:name "2020"
+                                      :start-date (t/local-date 2017 1 1)
+                                      :period :month
+                                      :period-count 12
+                                      :auto-create-start-date (t/local-date 2016 1 1)})
                            (add-auth user)
                            app
-                           parse-json-body)]
+                           parse-edn-body)]
     (is (http-created? response))
-    (is (= 2 (count (:items json-body)))
+    (is (= 2 (count (:items edn-body)))
         "The created budget contains an item for each income statement account with transaction items in the specified time frame")
-    (is (= [500.0 400.0 400.0
-            500.0 400.0 400.0
-            500.0 400.0 500.0
-            400.0 400.0 500.0]
-           (:periods (->> (:items json-body)
+    (is (= [500.0M 400.0M 400.0M
+            500.0M 400.0M 400.0M
+            500.0M 400.0M 500.0M
+            400.0M 400.0M 500.0M]
+           (:periods (->> (:items edn-body)
                           (filter #(= (:id groceries) (:account-id %)))
                           first))))
-    (is (= [3000.0 2000.0 2000.0
-            2000.0 2000.0 2000.0
-            3000.0 2000.0 2000.0
-            2000.0 2000.0 3000.0]
-           (:periods (->> (:items json-body)
+    (is (= [3000.0M 2000.0M 2000.0M
+            2000.0M 2000.0M 2000.0M
+            3000.0M 2000.0M 2000.0M
+            2000.0M 2000.0M 3000.0M]
+           (:periods (->> (:items edn-body)
                           (filter #(= (:id salary) (:account-id %)))
                           first))))))
 
@@ -159,30 +159,28 @@
   [email]
   (let [ctx (realize list-context)
         user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (path :api
-                                             :entities
-                                             (:id entity)
-                                             :budgets))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        entity (find-entity ctx "Personal")]
+    (-> (req/request :get (path :api
+                                :entities
+                                (:id entity)
+                                :budgets))
+        (add-auth user)
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-get-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= [{:name "2016"
-           :start-date "2016-01-01"}
-          {:name "2015"
-           :start-date "2015-01-01"}]
-         (map #(select-keys % [:name :start-date])
-              body))))
+  (is (seq-of-maps-like? [{:name "2016"
+                           :start-date (t/local-date 2016 1 1)}
+                          {:name "2015"
+                           :start-date (t/local-date 2015 1 1)}]
+                         edn-body)))
 
 (defn- assert-blocked-get-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-budgets-for-his-entity
   (assert-successful-get-list (get-budgets "john@doe.com")))
@@ -194,32 +192,31 @@
   [email]
   (let [ctx (realize list-context)
         user (find-user ctx email)
-        budget (find-budget ctx "2016")
-        response (-> (req/request :get (path :api
-                                             :budgets
-                                             (:id budget)))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        budget (find-budget ctx "2016")]
+    (-> (req/request :get (path :api
+                                :budgets
+                                (:id budget)))
+        (add-auth user)
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= 3 (count (:items body)))
+  (is (= 3 (count (:items edn-body)))
       "The items are included")
-  (is (some #(= 1001.0 (first (:periods %)))
-            (:items body))
+  (is (some #(= 1001.0M (first (:periods %)))
+            (:items edn-body))
       "The salary item is present in the response")
-  (is (some #(= 501.0 (first (:periods %)))
-            (:items body))
+  (is (some #(= 501.0M (first (:periods %)))
+            (:items edn-body))
       "The rent item is present in the response")
-  (is (some #(= 201.0 (first (:periods %)))
-            (:items body))
+  (is (some #(= 201.0M (first (:periods %)))
+            (:items edn-body))
       "The groceries item is present in the response"))
 
 (defn- assert-blocked-get
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-detailed-budget-for-his-entity
@@ -236,26 +233,26 @@
         response (-> (req/request :patch (path :api
                                                :budgets
                                                (:id budget)))
-                     (req/json-body (assoc-in budget [:items 1 :periods] (repeat 12 502)))
+                     (edn-body (assoc-in budget [:items 1 :periods] (repeat 12 502M)))
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         retrieved (budgets/find budget)]
-    [response body retrieved]))
+    [response retrieved]))
 
 (defn- assert-successful-update
-  [[response body retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (empty? (v/error-messages body)))
-  (is (= (repeat 12 502.0)
-         (get-in body [:items 1 :periods]))
+  (is (empty? (v/error-messages edn-body)))
+  (is (= (repeat 12 502.0M)
+         (get-in edn-body [:items 1 :periods]))
       "The response contains the updated budget")
   (is (= [502M 502M 502M 502M 502M 502M 502M 502M 502M 502M 502M 502M]
          (get-in retrieved [:items 1 :periods]))
       "The retrieved value contains the update attributes"))
 
 (defn- assert-blocked-update
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
   (is (comparable? {:periods [501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M]}
                    (get-in retrieved [:items 1]))
