@@ -2,9 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.core :as storage]
-            [dgknght.app-lib.core :refer [update-in-if
-                                          uuid
-                                          parse-decimal
+            [dgknght.app-lib.core :refer [uuid
+                                          update-in-if
                                           parse-int]]
             [dgknght.app-lib.authorization :refer [+scope
                                              authorize]
@@ -35,13 +34,17 @@
     (prices/search (extract-criteria req)
                    {:sort [[:trade-date :desc]]})))
 
+(defn- ensure-local-date
+  [d]
+  (if (string? d)
+    (dates/unserialize-local-date d)
+    d))
+
 (defn- extract-price
-  [{:keys [params body]}]
+  [{:keys [params]}]
   (-> params
-      (merge body)
       (select-keys [:commodity-id :trade-date :price])
-      (update-in-if [:trade-date] dates/unserialize-local-date)
-      (update-in-if [:price] parse-decimal)
+      (update-in-if [:trade-date] ensure-local-date)
       (storage/tag ::models/price)))
 
 (defn- create
@@ -55,20 +58,17 @@
 (defn- scoped-find
   [{:keys [params authenticated]} action]
   (authorize (prices/find (uuid (:id params))
-                          (dates/unserialize-local-date (:trade-date params)))
+                          (:trade-date params))
              action
              authenticated))
 
 (defn- update
-  [{:keys [body] :as req}]
-  (if-let [price (scoped-find req ::authorization/update)]
-    (api/response
-      (prices/update
-        (merge price (-> body
-                         (select-keys [:price :trade-date])
-                         (update-in-if [:price] bigdec)
-                         (update-in [:trade-date] dates/unserialize-local-date)))))
-    api/not-found))
+  [req]
+  (or (some-> (scoped-find req ::authorization/update)
+              (merge (extract-price req))
+              prices/update
+              api/update-response)
+      api/not-found))
 
 (defn- delete
   [req]
