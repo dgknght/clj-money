@@ -85,10 +85,10 @@
      authenticated)))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [{:keys [params] :as req}]
   (if-let [attachment (find-and-auth req ::auth/update)]
     (-> attachment
-        (merge (select-keys body [:caption]))
+        (merge (select-keys params [:caption]))
         att/update
         api/update-response)
     api/not-found))
