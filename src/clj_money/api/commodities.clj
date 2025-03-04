@@ -75,20 +75,11 @@
    :type
    :price-config])
 
-(defn- ensure-keyword
-  [m & ks]
-  (reduce #(if (contains? %1 %2)
-             (update-in %1 [%2] keyword)
-             m)
-          m
-          ks))
-
 (defn- extract-commodity
-  [{:keys [body params]}]
-  (-> body
+  [{:keys [params]}]
+  (-> params
       (assoc :entity-id (:entity-id params))
       (select-keys attribute-keys)
-      (ensure-keyword :exchange :type)
       (storage/tag ::models/commodity)))
 
 (defn- create
@@ -100,12 +91,10 @@
       api/creation-response))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [{:keys [params] :as req}]
   (if-let [commodity (find-and-authorize req ::authorization/update)]
     (-> commodity
-        (merge (-> body
-                   (select-keys attribute-keys)
-                   (ensure-keyword :exchange :type)))
+        (merge (select-keys params attribute-keys))
         coms/update
         api/update-response)
     api/not-found))
