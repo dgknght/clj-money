@@ -1,21 +1,20 @@
 (ns clj-money.api.transaction-items-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [cheshire.core :as json]
             [ring.mock.request :as req]
             [java-time.api :as t]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.util :refer [make-series]]
-            [clj-money.api.test-helper :refer [add-auth
-                                               parse-json-body]]
+            [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-entity
                                             find-account
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -106,55 +105,54 @@
   [email]
   (let [ctx (realize context)
         user (find-user ctx email)
-        account (find-account ctx "Checking")
-        response (-> (req/request :get (str (path :api
-                                                  :accounts
-                                                  (:id account)
-                                                  :transaction-items)
-                                            "?"
-                                            (map->query-string {:limit 5
-                                                                :unreconciled true
-                                                                :transaction-date ["2017-01-01" "2017-01-31"]})))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        account (find-account ctx "Checking")]
+    (-> (req/request :get (str (path :api
+                                     :accounts
+                                     (:id account)
+                                     :transaction-items)
+                               "?"
+                               (map->query-string {:limit 5
+                                                   :unreconciled true
+                                                   :transaction-date [(t/local-date 2017 1 1) (t/local-date 2017 1 31)]})))
+        (add-auth user)
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:transaction-date "2017-01-29"
+  (is (seq-of-maps-like? [{:transaction-date (t/local-date 2017 1 29)
                            :description "Kroger"
-                           :quantity 100.0
-                           :polarized-quantity -100.0
-                           :action "credit"}
-                          {:transaction-date "2017-01-22"
+                           :quantity 100.0M
+                           :polarized-quantity -100.0M
+                           :action :credit}
+                          {:transaction-date (t/local-date 2017 1 22)
                            :description "Kroger"
-                           :quantity 100.0
-                           :polarized-quantity -100.0
-                           :action "credit"}
-                          {:transaction-date "2017-01-15"
+                           :quantity 100.0M
+                           :polarized-quantity -100.0M
+                           :action :credit}
+                          {:transaction-date (t/local-date 2017 1 15)
                            :description "Paycheck"
-                           :quantity 1000.0
-                           :polarized-quantity 1000.0
-                           :action "debit"}
-                          {:transaction-date "2017-01-14"
+                           :quantity 1000.0M
+                           :polarized-quantity 1000.0M
+                           :action :debit}
+                          {:transaction-date (t/local-date 2017 1 14)
                            :description "Kroger"
-                           :quantity 100.0
-                           :polarized-quantity -100.0
-                           :action "credit"}
-                          {:transaction-date "2017-01-01"
+                           :quantity 100.0M
+                           :polarized-quantity -100.0M
+                           :action :credit}
+                          {:transaction-date (t/local-date 2017 1 1)
                            :description "Kroger"
-                           :quantity 100.0
-                           :polarized-quantity -100.0
-                           :action "credit"}]
-                         body)
+                           :quantity 100.0M
+                           :polarized-quantity -100.0M
+                           :action :credit}]
+                         edn-body)
       "The correct transaction items are returned in the response"))
 
 (defn- assert-blocked-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? body) "No transaction items are returned"))
+  (is (empty? edn-body) "No transaction items are returned"))
 
 (deftest a-user-can-get-a-list-of-transaction-items-in-his-entity
   (assert-successful-list (get-a-list "john@doe.com")))
@@ -207,11 +205,11 @@
                                             "?"
                                             (map->query-string {:include-children true})))
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
+                     app
+                     parse-edn-body)]
     (is (http-success? response))
-    (is (= #{101.0 102.0 103.0}
-           (transduce (map :quantity) conj #{} body))
+    (is (= #{101.0M 102.0M 103.0M}
+           (transduce (map :quantity) conj #{} (:edn-body response)))
         "The items in the specified account and the children accounts are returned.")))
 
 (def ^:private summary-context
@@ -255,41 +253,41 @@
     (-> (req/request :get path)
         (add-auth user)
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-summary
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
-  (is (= [{:start-date "2016-01-01"
-           :end-date "2016-01-31"
-           :quantity 201.0}
-          {:start-date "2016-02-01"
-           :end-date "2016-02-29"
-           :quantity 0}
-          {:start-date "2016-03-01"
-           :end-date "2016-03-31"
-           :quantity 102.0}
-          {:start-date "2016-04-01"
-           :end-date "2016-04-30"
-           :quantity 0}]
-         json-body)))
+  (is (= [{:start-date (t/local-date 2016 1 1)
+           :end-date (t/local-date 2016 1 31)
+           :quantity 201.0M}
+          {:start-date (t/local-date 2016 2 1)
+           :end-date (t/local-date 2016 2 29)
+           :quantity 0M}
+          {:start-date (t/local-date 2016 3 1)
+           :end-date (t/local-date 2016 3 31)
+           :quantity 102.0M}
+          {:start-date (t/local-date 2016 4 1)
+           :end-date (t/local-date 2016 4 30)
+           :quantity 0M}]
+         edn-body)))
 
 (defn- assert-blocked-summary
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
-  (is (= [{:start-date "2016-01-01"
-           :end-date "2016-01-31"
-           :quantity 0}
-          {:start-date "2016-02-01"
-           :end-date "2016-02-29"
-           :quantity 0}
-          {:start-date "2016-03-01"
-           :end-date "2016-03-31"
-           :quantity 0}
-          {:start-date "2016-04-01"
-           :end-date "2016-04-30"
-           :quantity 0}]
-         json-body)))
+  (is (= [{:start-date (t/local-date 2016 1 1)
+           :end-date (t/local-date 2016 1 31)
+           :quantity 0M}
+          {:start-date (t/local-date 2016 2 1)
+           :end-date (t/local-date 2016 2 29)
+           :quantity 0M}
+          {:start-date (t/local-date 2016 3 1)
+           :end-date (t/local-date 2016 3 31)
+           :quantity 0M}
+          {:start-date (t/local-date 2016 4 1)
+           :end-date (t/local-date 2016 4 30)
+           :quantity 0M}]
+         edn-body)))
 
 (deftest a-user-can-summarize-items-in-his-entity
   (assert-successful-summary (summarize-items "john@doe.com")))
