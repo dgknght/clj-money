@@ -43,41 +43,22 @@
    (recs/search (extract-criteria req)
                 (extract-options req))))
 
-(defn- unserialize-item-ref
-  [item-ref]
-  (-> item-ref
-      (update-in [0] uuid)
-      (update-in [1] dates/unserialize-local-date)))
-
 (defn- create
-  [{:keys [params body authenticated]}]
+  [{:keys [params authenticated]}]
   (-> params
       (select-keys [:account-id])
-      (merge (select-keys body [:end-of-period
-                                :balance
-                                :status
-                                :item-refs]))
-      (update-in [:status] keyword)
-      (update-in [:balance] bigdec)
-      (update-in [:end-of-period] dates/unserialize-local-date)
-      (update-in [:item-refs] #(map unserialize-item-ref %))
+      (merge (select-keys params [:end-of-period
+                                  :balance
+                                  :status
+                                  :item-refs]))
       (stow/tag ::models/reconciliation)
       (authorize ::auth/create authenticated)
       recs/create
       api/creation-response))
 
 (defn- extract-recon
-  [{:keys [body]}]
-  (-> body
-      (dissoc :id)
-      (update-in-if [:status] keyword)
-      (update-in-if [:balance] bigdec)
-      (update-in-if [:end-of-period] dates/unserialize-local-date)
-      (update-in-if [:item-refs] (fn [item-refs]
-                                   (map #(-> %
-                                             (update-in [0] uuid)
-                                             (update-in [1] dates/unserialize-local-date))
-                                        item-refs)))))
+  [{:keys [params]}]
+  (dissoc params :id))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
