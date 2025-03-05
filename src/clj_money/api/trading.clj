@@ -3,7 +3,6 @@
             [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
             [dgknght.app-lib.authorization :refer [authorize] :as authorization]
-            [clj-money.dates :as dates]
             [clj-money.authorization.trades]
             [clj-money.trading :as trading]))
 
@@ -11,16 +10,12 @@
   [:trade-date :entity-id :shares :value :commodity-id :account-id])
 
 (defn create
-  [{:keys [params body authenticated]}]
-  (let [f (if (= "sell" (:action body))
+  [{:keys [params authenticated]}]
+  (let [f (if (= :sell (:action params))
             trading/sell
             trading/buy)]
     (api/creation-response
       (-> params
-          (merge (-> body
-                     (update-in [:value] bigdec)
-                     (update-in [:shares] bigdec)
-                     (update-in [:trade-date] dates/unserialize-local-date)))
           (select-keys create-attributes)
           (storage/tag ::models/trade)
           (authorize ::authorization/create authenticated)
