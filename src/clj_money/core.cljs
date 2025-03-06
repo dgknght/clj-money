@@ -84,17 +84,18 @@
                   ".")})
 
 (defn- available?
-  [nav-item]
-  (or (:path nav-item)
-      (:nav-fn nav-item)
-      @current-entity))
+  [entity]
+  (fn [nav-item]
+    (or (:path nav-item)
+        (:nav-fn nav-item)
+        entity)))
 
 (defn- nav-items
-  [active-nav]
-  (->> (if @current-user
+  [active-nav current-user current-entity]
+  (->> (if current-user
            authenticated-nav-items
            unauthenticated-nav-items)
-         (filter available?)
+         (filter (available? current-entity))
          (map #(merge (default-nav-item % active-nav)
                    %))))
 
@@ -136,7 +137,7 @@
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])]
     (fn []
-      (let [items (nav-items @active-nav)]
+      (let [items (nav-items @active-nav @current-user @current-entity)]
         (navbar
           items
           {:brand "clj-money"
