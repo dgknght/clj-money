@@ -9,6 +9,8 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api :as api]
             [clj-money.state :as state :refer [app-state
+                                               +busy
+                                               -busy
                                                current-user
                                                current-entity]]
             [clj-money.html :refer [google-g]]
@@ -214,11 +216,14 @@
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
-  (entities/select
-    (map receive-entities)))
+  (+busy)
+  (entities/select :callback -busy
+                   :on-success receive-entities))
 
 (defn- fetch-current-user []
-  (users/me (map #(swap! app-state assoc :current-user %))))
+  (+busy)
+  (users/me :callback -busy
+            :on-success #(swap! app-state assoc :current-user %)))
 
 (defn- sign-in-from-cookie []
   (if @current-user
