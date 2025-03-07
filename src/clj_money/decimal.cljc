@@ -3,6 +3,11 @@
   #?(:cljs (:require[dgknght.app-lib.decimal :as decimal]))
   #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
 
+#?(:cljs (extend-protocol IPrintWithWriter
+            js/Decimal
+            (-pr-writer [d writer _]
+               (write-all writer d "M"))))
+
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (def d
   #?(:clj bigdec

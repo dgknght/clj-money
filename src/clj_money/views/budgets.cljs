@@ -1,5 +1,6 @@
 (ns clj-money.views.budgets
   (:require [clojure.string :as string]
+            [clojure.pprint :refer [pprint]]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -320,7 +321,7 @@
 
 (defmethod calc-periods :per-total
   [{{:keys [total]} :spec} {:keys [period-count]} callback]
-  (callback (repeat period-count (/ total period-count))))
+  (callback (repeat period-count (decimal// total period-count))))
 
 (defmethod calc-periods :weekly
   [{{:keys [start-date week-count amount-per]} :spec}
