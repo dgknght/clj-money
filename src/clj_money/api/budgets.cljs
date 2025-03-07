@@ -4,11 +4,11 @@
             [clj-money.state :refer [current-entity]]))
 
 (defn search
-  [& {:as opts}]
+  [criteria  & {:as opts}]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :budgets)
-           {}
+           criteria
            (add-error-handler
              opts
              "Unable to retrieve the budgets: %s")))

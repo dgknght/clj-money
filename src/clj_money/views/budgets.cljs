@@ -27,39 +27,29 @@
             [clj-money.api.transaction-items :as tran-items]
             [clj-money.api.budgets :as api]))
 
-(defn- post-load-budgets
-  [page-state budgets]
-  (-busy)
-  (swap! page-state assoc :budgets budgets))
-
 (defn- load-budgets
   [page-state]
   (+busy)
-  (api/search (map (partial post-load-budgets page-state))))
-
-(defn- post-delete-budget
-  [page-state]
-  (-busy)
-  (load-budgets page-state))
+  (api/search {}
+              :callback -busy
+              :on-success #(swap! page-state assoc :budgets %)))
 
 (defn- delete-budget
   [budget page-state]
   (when (js/confirm (str "Are you sure you want to delete the budget " (:name budget) "?"))
     (+busy)
     (api/delete budget
-                (map (partial post-delete-budget page-state)))))
-
-(defn- post-load-budget-details
-  [page-state budget]
-  (-busy)
-  (swap! page-state assoc :detailed-budget budget)
-  (set-focus "account-id"))
+                :callback -busy
+                :on-success #(load-budgets page-state))))
 
 (defn- load-budget-details
   [budget page-state]
   (+busy)
   (api/find (:id budget)
-            (map (partial post-load-budget-details page-state))))
+            :callback -busy
+            :on-success (fn [b]
+                          (swap! page-state assoc :detailed-budget b)
+                          (set-focus "account-id"))))
 
 (defn- budget-row
   [budget page-state]
@@ -120,17 +110,14 @@
                  :icon :plus
                  :caption "Add"}]]])))
 
-(defn- post-save-budget
-  [page-state _budget]
-  (-busy)
-  (load-budgets page-state)
-  (swap! page-state dissoc :selected))
-
 (defn- save-budget
   [page-state]
   (+busy)
   (api/save (dissoc (:selected @page-state) :items)
-           (map (partial post-save-budget page-state)) ))
+            :callback -busy
+            :on-success (fn []
+                          (load-budgets page-state)
+                          (swap! page-state dissoc :selected))))
 
 (defn- budget-form
   [page-state]
@@ -165,11 +152,6 @@
                    :icon :x
                    :caption "Cancel"}]]]))))
 
-(defn- post-delete-budget-item
-  [page-state budget]
-  (-busy)
-  (swap! page-state assoc :detailed-budget budget))
-
 (defn- delete-budget-item
   [{:keys [account-id]} page-state]
   (when (js/confirm (str "Are you sure you want to remove the account "
@@ -182,7 +164,8 @@
                            (remove #(= (:account-id %)
                                        account-id)
                                    items)))
-              (map (partial post-delete-budget-item page-state)))))
+              :callback -busy
+              :on-success #(swap! page-state assoc :detailed-budget %))))
 
 (defn- infer-spec
   [item]
@@ -370,6 +353,7 @@
    {:keys [period-count period]}
    callback]
   (when start-date
+    (+busy)
     (tran-items/summarize {:transaction-date [start-date
                                               (t/minus (t/plus start-date
                                                                ((case period
@@ -380,10 +364,11 @@
                            :account-id account-id
                            :interval-type period
                            :interval-count 1}
-                          (map (fn [periods]
-                                 (callback (map (comp #(round % round-to)
-                                                      :quantity)
-                                                periods))))))
+                          :callback -busy
+                          :on-success (fn [periods]
+                                        (callback (map (comp #(round % round-to)
+                                                             :quantity)
+                                                       periods)))))
   (repeat period-count 0M))
 
 (defn- temp-id?
@@ -405,11 +390,11 @@
     (update-in budget [:items] f)))
 
 (defn- post-save-budget-item
-  [page-state budget]
-  (-busy)
-  (swap! page-state #(-> %
-                         (assoc :detailed-budget budget)
-                         (dissoc :selected-item))))
+  [page-state]
+  (fn [budget]
+    (swap! page-state #(-> %
+                           (assoc :detailed-budget budget)
+                           (dissoc :selected-item)))))
 
 (defn- save-budget-item
   [page-state]
@@ -421,7 +406,8 @@
                  (select-keys [:id :account-id :spec])
                  (assoc :periods periods))]
     (api/save (update-budget-item budget item)
-              (map (partial post-save-budget-item page-state)))))
+              :callback -busy
+              :on-success (post-save-budget-item page-state))))
 
 (defn- period-row
   [index item budget]
