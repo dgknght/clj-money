@@ -2,6 +2,7 @@
   (:require [clojure.set :refer [rename-keys]]
             [clojure.string :as string]
             [clojure.zip :as zip]
+            [cljs.pprint :refer [pprint]]
             [goog.string :as gstr]
             [cljs.core.async :as a :refer [<! >! go go-loop]]
             [cljs-time.core :as t]
@@ -80,13 +81,13 @@
   [item page-state]
   (+busy)
   (transactions/get (item->tkey item)
-                    (map (fn [result]
-                           (-busy)
-                           (let [prepared (prepare-transaction-for-edit
-                                            result
-                                            (:view-account @page-state))]
-                             (swap! page-state assoc :transaction prepared))
-                           (set-focus "transaction-date")))))
+                    :callback -busy
+                    :on-success (fn [result]
+                                  (let [prepared (prepare-transaction-for-edit
+                                                   result
+                                                   (:view-account @page-state))]
+                                    (swap! page-state assoc :transaction prepared))
+                                  (set-focus "transaction-date"))))
 
 (defn load-unreconciled-items
   [page-state]
@@ -97,11 +98,9 @@
                                      (:latest-transaction-date account)]
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
-    (transaction-items/search
-      criteria
-      (map (fn [items]
-             (-busy)
-             (swap! page-state assoc :items items))))))
+    (transaction-items/search criteria
+                              :callback -busy
+                              :on-success #(swap! page-state assoc :items %))))
 
 (defn- load-attachments
   [page-state]
@@ -116,7 +115,7 @@
   (completing
     (fn [ch criteria]
       (transaction-items/search criteria
-                                (map #(xf ch %))))))
+                                :post-xf (map #(xf ch %))))))
 
 (defn init-item-loading
   [page-state]
@@ -157,8 +156,10 @@
 (defn- delete-transaction
   [item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
+    (+busy)
     (transactions/delete (item->tkey item)
-                         (map (fn [_] (reset-item-loading page-state))))))
+                         :callback -busy
+                         :on-success #(reset-item-loading page-state))))
 
 (defn- post-item-row-drop
   [page-state item {:keys [body]}]
@@ -215,7 +216,7 @@
            :completed :check-box
            :new       :dot
            :unchecked-box)
-         {:size :small}))]
+         :size :small))]
      (when-not @reconciliation
        [:td.text-end.d-none.d-md-table-cell (format-quantity (:balance item)
                                                              @account)])
@@ -224,7 +225,7 @@
         [:div.btn-group
          [:button.btn.btn-light.btn-sm {:on-click #(edit-transaction item page-state)
                                        :title "Click here to edit this transaction."}
-          (icon :pencil {:size :small})]
+          (icon :pencil :size :small)]
          [:button.btn.btn-light.btn-sm.d-none.d-md-block
           {:on-click (fn []
                        (swap! page-state
@@ -234,11 +235,11 @@
                        (load-attachments page-state))
            :title "Click here to view attachments for this transaction"}
           (if (zero? attachment-count)
-            (icon :paperclip {:size :small})
+            (icon :paperclip :size :small)
             [:span.badge.bg-secondary attachment-count])]
          [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
                                          :title "Click here to remove this transaction."}
-          (icon :x-circle {:size :small})]]])]))
+          (icon :x-circle :size :small)]]])]))
 
 (defn items-table
   [page-state]
@@ -521,22 +522,23 @@
    ::dividend fullify-trx})
 
 (defmulti save-transaction
-  (fn [page-state _xf]
+  (fn [page-state & _]
     (-> @page-state :transaction mode)))
 
 (defmethod save-transaction :default
-  [page-state xf]
+  [page-state & {:as opts}]
   (let [{:keys [transaction]} @page-state
         mode (mode transaction)
         prepare ((untransformations) mode)]
     (-> transaction
         prepare
-        (transactions/save xf))))
+        (apply transactions/save (mapcat identity opts)))))
 
 (defmethod save-transaction ::trade
-  [page-state xf]
-  (trading/create (:transaction @page-state)
-                  (map xf)))
+  [page-state & {:as opts}]
+  (apply trading/create
+         (:transaction @page-state)
+         (mapcat identity opts)))
 
 (defn- assoc-reinvest-desc
   [transaction commodity]
@@ -564,7 +566,7 @@
                                             :trade %})))))))))
 
 (defmethod save-transaction ::dividend
-  [page-state xf]
+  [page-state & {:as opts}]
   (let [{:keys [transaction commodities]} @page-state
         commodity (get-in commodities [(:commodity-id transaction)])
         dividends-account (->> @accounts ; TODO: Need a better way to make sure we have this value
@@ -578,5 +580,5 @@
                                          (:symbol commodity))
                :other-account-id (:id dividends-account))
         fullify-trx
-        (transactions/save (comp (reinvest-dividend page-state)
-                                 xf)))))
+        (apply transactions/save (mapcat identity (assoc opts
+                                                         :post-xf (reinvest-dividend page-state)))))))
