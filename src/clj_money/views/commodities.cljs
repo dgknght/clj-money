@@ -157,14 +157,14 @@
      [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
-       [:button.btn.btn-light.btn-sm {:title "Click here to edit this commodity."
+       [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this commodity."
                                      :on-click (fn []
                                                  (swap! page-state #(-> %
                                                                         (dissoc :prices-commodity)
                                                                         (assoc :selected commodity)))
                                                  (set-focus "type"))}
         (icon :pencil :size :small)]
-       [:button.btn.btn-light.btn-sm {:title "Click here to view prices for this commodity."
+       [:button.btn.btn-secondary.btn-sm {:title "Click here to view prices for this commodity."
                                      :disabled default?
                                      :on-click #(select-prices-commodity page-state
                                                                          commodity)}
@@ -299,7 +299,7 @@
                 :icon :plus
                 :caption "Add"
                 :disabled? selected}]
-       [button {:html {:class "btn-light ms-2"
+       [button {:html {:class "btn-secondary ms-2"
                        :title "Click here to download recent prices for each commodity."
                        :on-click #(download-prices page-state)}
                 :icon :download
@@ -327,7 +327,7 @@
    [:td.text-end (currency-format (:price price))]
    [:td
     [:div.btn-group
-     [:button.btn.btn-light.btn-sm {:title "Click here to edit this price."
+     [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this price."
                                    :on-click (fn []
                                                (swap! page-state assoc :selected-price price)
                                                (set-focus "trade-date"))}
@@ -469,10 +469,10 @@
        [:div.row
         [:div.col-md-8.d-flex.justify-content-between.align-items-center
          [:h1.mt-3 "Commodities"]
-         [:button.btn.btn-light {:type :button
-                                 :data-bs-toggle "offcanvas"
-                                 :data-bs-target "#filter"
-                                 :aria-controls "filter"}
+         [:button.btn.btn-dark {:type :button
+                                :data-bs-toggle "offcanvas"
+                                :data-bs-target "#filter"
+                                :aria-controls "filter"}
           (icon :funnel :size :small)]]]
        [filter-container page-state]
        [:div.row
