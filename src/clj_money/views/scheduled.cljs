@@ -41,7 +41,8 @@
 (defn- load-sched-trans
   [page-state]
   (+busy)
-  (sched-trans/search :callback -busy
+  (sched-trans/search {}
+                      :callback -busy
                       :on-success #(swap! page-state
                                           assoc
                                           :scheduled-transactions
@@ -71,17 +72,19 @@
   (let [[sched-tran page-state] (if (= 1 (count args))
                                   (cons nil args)
                                   args)
-        xf (map (fn [result]
-                  (-busy)
-                  (swap! page-state #(-> %
-                                         (update-sched-trans result)
-                                         (update-in [:created] (fnil concat []) result)))
-                  (notify/toast "Success" (if (empty? result)
-                                            "No transactions are ready to be created."
-                                            "The scheduled transactions where created"))))]
+        on-success (fn [result]
+                     (swap! page-state #(-> %
+                                            (update-sched-trans result)
+                                            (update-in [:created] (fnil concat []) result)))
+                     (notify/toast "Success" (if (empty? result)
+                                               "No transactions are ready to be created."
+                                               "The scheduled transactions where created")))]
     (if sched-tran
-      (sched-trans/realize sched-tran :post-xf xf)
-      (sched-trans/realize :post-xf xf))))
+      (sched-trans/realize sched-tran
+                           :callback -busy
+                           :on-success on-success)
+      (sched-trans/realize :callback -busy
+                           :on-success on-success))))
 
 (defn- delete-sched-tran
   [_sched-tran _page-state]
@@ -130,15 +133,15 @@
                           :on-click #(realize sched-tran page-state)}
       (if busy?
         (bs/spinner {:size :small})
-        (icon :gear {:size :small}))]
+        (icon :gear :size :small))]
      [:button.btn.btn-light.btn-sm {:title "Click here to edit this scheduled transaction."
                                    :on-click (fn [_]
                                                (swap! page-state assoc :selected (->editable sched-tran))
                                                (set-focus "description"))}
-      (icon :pencil {:size :small})]
+      (icon :pencil :size :small)]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this scheduled transaction."
                                      :on-click #(delete-sched-tran sched-tran page-state)}
-      (icon :x {:size :small})]]]])
+      (icon :x :size :small)]]]])
 
 (defn- date-compare
   [d1 d2]

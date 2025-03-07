@@ -1,6 +1,7 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
-  (:require [clj-money.api :as api :refer [add-error-handler]]
+  (:require [cljs.pprint :refer [pprint]]
+            [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
 (defn- path
@@ -54,8 +55,8 @@
 (defn realize
   [& args]
   (let [[sched-tran & {:as opts}] (if (map? (first args))
-                                    (cons nil args)
-                                    args)
+                                    args
+                                    (cons nil args))
         path (if sched-tran
                (path sched-tran :realize)
                (path :realize))]
