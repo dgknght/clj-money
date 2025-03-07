@@ -1,5 +1,6 @@
 (ns ^:figwheel-hooks clj-money.core
   (:require [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
@@ -135,13 +136,13 @@
         :alt "Profile Photo"}])]])
 
 (defn- nav []
-  (let [active-nav (r/cursor app-state [:active-nav])]
+  (let [active-nav (r/cursor app-state [:active-nav])
+        items (make-reaction #(nav-items @active-nav @current-user @current-entity))]
     (fn []
-      (let [items (nav-items @active-nav @current-user @current-entity)]
-        (navbar
-          items
-          {:brand "clj-money"
-           :brand-path "/"})))))
+      (navbar
+        @items
+        {:brand "clj-money"
+         :brand-path "/"}))))
 
 (defn- alerts []
   (fn []
