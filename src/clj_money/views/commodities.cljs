@@ -1,10 +1,12 @@
 (ns clj-money.views.commodities
   (:require [cljs.core.async :refer [chan <! >! go go-loop]]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
             [cljs-time.core :as t]
+            [cljs-time.coerce :as tc]
             [dgknght.app-lib.core :refer [fmin
                                           fmax]]
             [dgknght.app-lib.web :refer [format-date]]
@@ -235,13 +237,14 @@
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
-        filter-fn (make-reaction #(if @hide-zero-shares?
+        remove? (make-reaction #(if @hide-zero-shares?
+                                  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
                                     (fn [{:keys [shares-owned created-at]}]
-                                      (or (t/after? created-at
-                                                    (t/minus (t/now) (t/hours 1)))
-                                          (not (zero? shares-owned))))
-                                    (constantly true)))
-        filtered (make-reaction #(filter @filter-fn @commodities))
+                                      (or (t/before? (tc/to-local-date-time created-at)
+                                                     an-hour-ago)
+                                          (zero? shares-owned))))
+                                  (constantly false)))
+        filtered (make-reaction #(remove @remove? @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
         search-term (r/cursor page-state [:search-term])
