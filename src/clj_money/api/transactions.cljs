@@ -2,9 +2,8 @@
   (:refer-clojure :exclude [update get])
   (:require [cljs-time.core :as t]
             [dgknght.app-lib.web :refer [serialize-date]]
-            [dgknght.app-lib.api-async :as api]
             [clj-money.state :refer [current-entity]]
-            [clj-money.api :refer [add-error-handler]]))
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (def ^:private working-date
   (some-fn :original-transaction-date
