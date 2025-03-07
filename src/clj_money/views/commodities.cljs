@@ -6,7 +6,6 @@
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
             [cljs-time.core :as t]
-            [cljs-time.coerce :as tc]
             [dgknght.app-lib.core :refer [fmin
                                           fmax]]
             [dgknght.app-lib.web :refer [format-date]]
@@ -240,7 +239,7 @@
         remove? (make-reaction #(if @hide-zero-shares?
                                   (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
                                     (fn [{:keys [shares-owned created-at]}]
-                                      (or (t/before? (tc/to-local-date-time created-at)
+                                      (or (t/before? created-at
                                                      an-hour-ago)
                                           (zero? shares-owned))))
                                   (constantly false)))

@@ -12,6 +12,7 @@
             [stowaway.sql :as storage]
             [dgknght.app-lib.core :refer [update-in-if]])
   (:import [java.sql PreparedStatement]
+           java.util.Date
            org.postgresql.util.PGobject
            [clojure.lang PersistentArrayMap PersistentVector Keyword]))
 
@@ -45,6 +46,11 @@
                          index)]
       (.setObject stmt index (->json value type-name))
       (.setObject stmt index value))))
+
+(extend-protocol jdbc/IResultSetReadColumn
+  Date
+  (result-set-read-column [value _ _]
+    (t/local-date-time value)))
 
 (defn insert-model
   "Inserts a record into the specified table"
