@@ -146,6 +146,7 @@
   [ms]
   (->> ms
        (remove vector?)
+       (filter :id)
        (map (juxt util/model-type :id))
        (frequencies)
        (remove (comp #{1} second))

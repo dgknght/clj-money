@@ -48,8 +48,8 @@
                                     :commodities
                                     (:id commodity)
                                     :prices))
-           (edn-body {:price 12.34M
-                      :trade-date (t/local-date 2016 3 2)})
+           (edn-body #:price{:price 12.34M
+                             :trade-date (t/local-date 2016 3 2)})
            (add-auth (find-user email))
            app
            parse-edn-body)
@@ -285,7 +285,7 @@
                                        (map (fn [s]
                                               {:symbol s
                                                :regularMarketPrice 10.01M
-                                               :regularMarketTime (t/local-date 2015 3 2)
+                                               :regularMarketTime (t/local-date-time 2015 3 2 12 0 0)
                                                :fullExchangeName "NasdaqGS"})
                                             symbols))]
         (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))

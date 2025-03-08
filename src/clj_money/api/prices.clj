@@ -40,7 +40,8 @@
                     :trade-date :price/trade-date})
       (update-in-if [:price/commodity] util/->model-ref)
       (update-in-if [:commodity/entity] util/->model-ref)
-      (+scope :price authenticated)))
+      (+scope :price authenticated)
+      (util/model-type :price)))
 
 (defn- index
   [req]

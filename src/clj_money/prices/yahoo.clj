@@ -56,6 +56,7 @@
                                  :regularMarketTime :price/trade-date
                                  :fullExchangeName :commodity/exchange
                                  :symbol :commodity/symbol})
+                   (update-in [:price/trade-date] t/local-date)
                    (update-in [:commodity/exchange] map-exchange-name)
                    (select-keys [:price/price
                                  :price/trade-date
