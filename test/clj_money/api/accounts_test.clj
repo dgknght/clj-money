@@ -36,8 +36,8 @@
                                                 (:id entity)
                                                 :accounts))
                        (edn-body {:account/name "Savings"
-                                       :account/type :asset
-                                       :account/commodity (util/->model-ref usd)})
+                                  :account/type :asset
+                                  :account/commodity (util/->model-ref usd)})
                        (add-auth user)
                        app
                        parse-edn-body)

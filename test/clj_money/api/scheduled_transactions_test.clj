@@ -8,8 +8,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.dates :as dates :refer [with-fixed-time]]
-            [clj-money.api.test-helper :refer [add-auth
-                                               parse-json-body]]
+            [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -18,7 +17,9 @@
                                             find-account
                                             find-scheduled-transaction]]
             [clj-money.models.transactions :as trxs]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -54,10 +55,10 @@
                                   :scheduled-transactions))
           (add-auth (find-user user-email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-list
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
   (is (seq-of-maps-like?
         [#:scheduled-transaction{:start-date "2004-03-02"
@@ -71,13 +72,13 @@
                                          #:scheduled-transaction-item{:action "debit"
                                                                       :quantity 50.0
                                                                       :memo "rent"}]}]
-        json-body)
+        edn-body)
       "The body contains the existing scheduled transactions"))
 
 (defn- assert-blocked-list
-  [{:keys [json-body] :as response}]
+  [{:keys [edn-body] :as response}]
   (is (http-success? response))
-  (is (empty? json-body)))
+  (is (empty? edn-body)))
 
 (deftest a-user-can-get-a-list-of-scheduled-transactions-in-his-entity
   (assert-successful-list (get-list "john@doe.com")))
@@ -108,18 +109,18 @@
                                               :entities
                                               (:id entity)
                                               :scheduled-transactions))
-                     (req/json-body (attr))
+                     (edn-body (attr))
                      (add-auth (find-user user-email))
                      app
-                     parse-json-body)]
+                     parse-edn-body)]
     [response
-     (when-let [id (get-in response [:json-body :id])]
+     (when-let [id (get-in response [:edn-body :id])]
        (models/find id :scheduled-transaction))]))
 
 (defn- assert-sched-tran-created
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-created? response))
-  (is (:id json-body) "The return value contains an :id")
+  (is (:id edn-body) "The return value contains an :id")
   (is (comparable?
         #:scheduled-transaction{:description "Paycheck"
                                 :start-date "2021-01-01"
@@ -133,7 +134,7 @@
                                         #:scheduled-transaction-item{:action "credit"
                                                                      :quantity 1000
                                                                      :memo "salary"}]}
-        json-body)
+        edn-body)
       "The return value contains the created schedule transaction")
   (is (comparable? #:scheduled-transaction{:description "Paycheck"
                                            :start-date (t/local-date 2021 1 1)
@@ -190,18 +191,18 @@
       [(-> (req/request :patch (path :api
                                      :scheduled-transactions
                                      (:id tran)))
-           (req/json-body update-attr)
+           (edn-body update-attr)
            (add-auth (find-user user-email))
            app
-           parse-json-body)
+           parse-edn-body)
        (models/find tran)])))
 
 (defn- assert-successful-update
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
   (is (comparable? #:scheduled-transaction{:interval-type "week"
                                            :interval-count 2}
-                   json-body)
+                   edn-body)
       "The updated scheduled transaction is returned")
   (is (comparable? update-attr retrieved)
       "The database is updated correctly"))
@@ -229,7 +230,7 @@
                                       (:id tran)))
            (add-auth (find-user user-email))
            app
-           parse-json-body)
+           parse-edn-body)
        (models/find tran)])))
 
 (defn- assert-successful-delete
@@ -259,7 +260,7 @@
                                       :realize))
              (add-auth (find-user user-email))
              app
-             parse-json-body))
+             parse-edn-body))
        (trxs/append-items
          (models/select
            #:transaction{:transaction-date [:between>
@@ -364,7 +365,7 @@
                                       :realize))
              (add-auth (find-user user-email))
              app
-             parse-json-body))
+             parse-edn-body))
        (trxs/append-items
          (models/select #:transaction{:transaction-date [:between>
                                                          (t/local-date 2016 1 1)
@@ -373,7 +374,7 @@
                         {:sort [:transaction/transaction-date]}))])))
 
 (defn- assert-successful-mass-realization
-  [[response retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
   (is (seq-of-maps-like? [#:transaction{:description "Groceries"
                                         :transaction-date "2016-01-31"}
@@ -381,7 +382,7 @@
                                         :transaction-date "2016-02-01"}
                           #:transaction{:description "Groceries"
                                         :transaction-date "2016-02-07"}]
-                         (:json-body response))
+                         edn-body)
       "The created transactions are returned.")
   (is (seq-of-maps-like? [#:transaction{:description "Groceries"
                                         :transaction-date (t/local-date 2016 1 31)}

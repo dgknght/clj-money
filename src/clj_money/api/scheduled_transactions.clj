@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
             [clj-money.authorization :refer [authorize
@@ -10,7 +9,6 @@
                                              +scope]
              :as authorization]
             [clj-money.util :as util]
-            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
@@ -28,20 +26,18 @@
       models/select
       api/response))
 
-(defn- ->sched-trans-item
-  [item]
-  (-> item
-      (update-in-if [:scheduled-transaction-item/quantity] bigdec)
-      (update-in-if [:scheduled-transaction-item/action] keyword)))
-
 (defn- extract-sched-tran
-  [{:keys [body]}]
-  (-> body
-      (update-in-if [:scheduled-transaction/items] #(map ->sched-trans-item %))
-      (update-in-if [:scheduled-transaction/interval-type] keyword)
-      (update-in-if [:scheduled-transaction/start-date] dates/unserialize-local-date)
-      (update-in-if [:scheduled-transaction/end-date] dates/unserialize-local-date)
-      (update-in-if [:scheduled-transaction/last-occurrence] dates/unserialize-local-date)))
+  [{:keys [params]}]
+  (select-keys params [:scheduled-transaction/start-date
+                       :scheduled-transaction/end-date
+                       :scheduled-transaction/enabled
+                       :scheduled-transaction/last-occurrence
+                       :scheduled-transaction/date-spec
+                       :scheduled-transaction/interval-type
+                       :scheduled-transaction/interval-count
+                       :scheduled-transaction/entity
+                       :scheduled-transaction/description
+                       :scheduled-transaction/memo]))
 
 (defn- create
   [{:keys [params authenticated] :as req}]

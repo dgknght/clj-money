@@ -39,12 +39,7 @@
   (swap! bg-proc-count inc))
 
 (defn -busy []
-  (swap! bg-proc-count dec))
-
-(def -busy-x
-  (map (fn [x]
-         (swap! bg-proc-count dec)
-         x)))
+  (swap! bg-proc-count (lib/fmin dec 0)))
 
 (defn- remove-entity-from-list
   [entity entities]

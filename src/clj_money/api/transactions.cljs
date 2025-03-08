@@ -7,7 +7,6 @@
             [clj-money.models :refer [prune]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
-
 (def ^:private working-date
   (some-fn :transaction/original-transaction-date
            :transaction/transaction-date))

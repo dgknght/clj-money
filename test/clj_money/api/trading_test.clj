@@ -17,7 +17,8 @@
                                             find-entity
                                             find-user
                                             find-account
-                                            find-commodity]]
+                                            find-commodity
+                                            find-account]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -90,14 +91,14 @@
       "The new transaction can be retrieved from the database"))
 
 (defn- assert-successful-reinvestment
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (is (seq-of-maps-like?
         [#:transaction{:transaction-date "2016-03-02"
                        :description "Dividend received"}
          #:transaction{:transaction-date "2016-03-02"
                        :description "Reinvest $1,000.00 and purchase 100.0 shares of AAPL at 10.000"}]
-        (:trade/transactions json-body))
+        (:trade/transactions edn-body))
       "The creating transaction is returned in the response")
   (is (seq-of-maps-like?
         [#:transaction{:transaction-date "2016-03-02"

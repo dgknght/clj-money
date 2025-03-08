@@ -11,15 +11,12 @@
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
-            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.authorization.reconciliations]))
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
-      (update-in-if [:end-of-period-or-before] dates/unserialize-local-date) ; TODO: include all posibilities
-      (update-in-if [:end-of-period-or-after] dates/unserialize-local-date)
       (symbolic-comparatives :end-of-period)
       (select-keys [:account-id :status :end-of-period])
       (rename-keys {:account-id :reconciliation/account
@@ -46,31 +43,18 @@
     (models/select (extract-criteria req)
                    (extract-options req))))
 
-(defn- unserialize-item-ref
-  [item-ref]
-  (-> item-ref
-      (update-in [0] uuid)
-      (update-in [1] dates/unserialize-local-date)))
-
 (defn- extract-recon
-  [{:keys [body]}]
-  (-> body
-      (select-keys [:reconciliation/end-of-period
-                    :reconciliation/balance
-                    :reconciliation/status
-                    :reconciliation/item-refs])
-      (update-in-if [:reconciliation/status] keyword)
-      (update-in-if [:reconciliation/balance] bigdec)
-      (update-in-if [:reconciliation/end-of-period] dates/unserialize-local-date)
-      (update-in-if [:reconciliation/item-refs] #(map unserialize-item-ref %))))
+  [{:keys [params]}]
+  (select-keys params
+               [:reconciliation/end-of-period
+                :reconciliation/balance
+                :reconciliation/status
+                :reconciliation/item-refs]))
 
 (defn- create
-  [{:keys [params authenticated] :as req}]
-  (-> params
-      (select-keys [:account-id])
-      (update-in [:account-id] #(hash-map :id %))
-      (rename-keys {:account-id :reconciliation/account})
-      (merge (extract-recon req))
+  [{:keys [authenticated] :as req}]
+  (-> req
+      extract-recon
       (authorize ::auth/create authenticated)
       models/put
       api/creation-response))
@@ -86,12 +70,12 @@
 
 (defn- update
   [req]
-  (if-let [recon (find-and-auth req ::auth/update)]
-    (-> recon
-        (merge (extract-recon req))
-        models/put
-        api/update-response)
-    api/not-found))
+  (or (some-> req
+              (find-and-auth ::auth/update)
+              (merge (extract-recon req))
+              models/put
+              api/update-response)
+      api/not-found))
 
 (def routes
   [["accounts/:account-id/reconciliations" {:get {:handler index}

@@ -6,9 +6,10 @@
             [dgknght.app-lib.test]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
-            [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.api.test-helper :refer [add-auth
-                                               parse-json-body]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
+            [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             find-user]]
             [clj-money.web.server :refer [app]]))
@@ -29,17 +30,19 @@
                                                :me))
                        (add-auth (find-user "john@doe.com"))
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       (is (http-success? response))
       (is (comparable? #:user{:email "john@doe.com"
                               :first-name "John"
                               :last-name "Doe"}
-                       (:json-body response))))))
+                       (:edn-body response))))))
 
 (deftest an-unauthenticated-user-cannot-get-me-info
-  (let [response (app (req/request :get (path :api
+  (let [response (-> (req/request :get (path :api
                                               :users
-                                              :me)))]
+                                              :me))
+                     (req/header "accept" "application/edn")
+                     app)]
     (is (http-unauthorized? response))))
 
 (deftest a-user-signs-in-directly
@@ -47,9 +50,9 @@
     (let [response (-> (req/request :post (path :oapi
                                                 :users
                                                 :authenticate))
-                       (req/json-body {:email "john@doe.com"
+                       (edn-body {:email "john@doe.com"
                                        :password "please01"})
                        app
-                       parse-json-body)]
+                       parse-edn-body)]
       (is (http-success? response))
-      (is (:auth-token (:json-body response))))))
+      (is (:auth-token (:edn-body response))))))

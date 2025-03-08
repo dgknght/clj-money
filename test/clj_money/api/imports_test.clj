@@ -5,13 +5,13 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
             [clj-money.test-context :refer [with-context
@@ -41,7 +41,7 @@
           calls (atom [])
 
           {:as response
-           {:keys [entity import]} :json-body}
+           {:keys [entity import]} :edn-body}
           (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
             (-> (req/request :post (path :api :imports))
                 (merge (build-multipart-request {:import/entity-name "Personal"
@@ -49,7 +49,7 @@
                                                                         :content-type "application/gnucash"}}))
                 (add-auth user)
                 app
-                parse-json-body))]
+                parse-edn-body))]
       (is (http-success? response))
       (is (comparable? #:entity{:name "Personal"
                                 :user (util/->model-ref user)}
@@ -89,20 +89,20 @@
     (-> (req/request :get (path :api :imports))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [#:import{:entity-name "Personal"}
                           #:import{:entity-name "Business"}]
-                         json-body)
+                         edn-body)
       "The response contains the user's imports"))
 
 (defn- assert-other-user-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? json-body)
+  (is (empty? edn-body)
       "No imports are included in the response"))
 
 (deftest a-user-can-get-a-list-of-his-imports
@@ -119,12 +119,12 @@
                                 (:id (find-import "Personal"))))
         (add-auth (find-user email))
         app
-        parse-json-body)))
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (comparable? {:import/entity-name "Personal"} json-body)
+  (is (comparable? {:import/entity-name "Personal"} edn-body)
       "The import is returned in the response"))
 
 (defn- assert-blocked-get

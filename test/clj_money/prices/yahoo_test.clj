@@ -19,13 +19,13 @@
   (with-web-mocks [calls] mocks
     (let [result (yahoo/get-quotes ["AMD" "IBM" "AAPL"])]
       (is (seq-of-maps-like? [{:symbol "AMD"
-                               :regularMarketTime (t/local-date 2021 12 10)
+                               :regularMarketTime (t/instant "2021-12-10T19:08:35Z")
                                :regularMarketPrice 137.51M}
                               {:symbol "IBM"
-                               :regularMarketTime (t/local-date 2021 12 10)
+                               :regularMarketTime (t/instant "2021-12-10T19:08:35Z")
                                :regularMarketPrice 123.55M}
                               {:symbol "AAPL"
-                               :regularMarketTime (t/local-date 2021 12 10)
+                               :regularMarketTime (t/instant "2021-12-10T19:08:41Z")
                                :regularMarketPrice 177.78M}]
                              result)))
     (is (called-with-headers? :once

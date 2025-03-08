@@ -143,7 +143,9 @@
 (defn- delete-transaction
   [item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
+    (+busy)
     (transactions/delete (item->tkey item)
+                         :callback -busy
                          :on-success #(reset-item-loading page-state))))
 
 (defn- post-item-row-drop

@@ -21,19 +21,23 @@
 
 (defn- load-monitors
   [state]
-  (reports/budget-monitors (map #(swap! state assoc :monitors %))))
+  (+busy)
+  (reports/budget-monitors :callback -busy
+                           :on-success #(swap! state assoc :monitors %)))
 
 (defn- save-monitor
   [state]
+  (+busy)
   (swap! current-entity
          update-in
          [:settings :monitored-account-ids]
          (fnil conj [])
          (get-in @state [:new-monitor :account-id]))
   (entities/save @current-entity
-                 (map (fn []
-                        (load-monitors state)
-                        (swap! state dissoc :new-monitor)))))
+                 :callback -busy
+                 :on-success (fn []
+                               (load-monitors state)
+                               (swap! state dissoc :new-monitor))))
 
 (defn- monitor-form
   [state]
@@ -114,8 +118,8 @@
                        (:account-id %))
                    monitors)))
   (+busy)
-  (entities/update @current-entity
-                   (map #(-busy))))
+  (entities/save @current-entity
+                 :callback -busy))
 
 (defn- monitor
   [{:keys [scope account] :as monitor} state]

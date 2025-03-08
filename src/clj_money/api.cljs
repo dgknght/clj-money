@@ -44,6 +44,9 @@
 
 (defn- append-query
   [url query]
+  {:pre [(string? url)
+         (or (nil? query)
+             (map? query))]}
   (if (seq query)
     (-> (uri/uri url)
         (assoc :query (uri/map->query-string query))

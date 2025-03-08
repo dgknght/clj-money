@@ -1,60 +1,49 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count get])
-  (:require [cljs.pprint :refer [pprint]]
-            [clj-money.models :as models]
-            [clj-money.state :refer [current-entity]]
-            [clj-money.api :as api :refer [handle-ex]]))
+  (:require [clj-money.state :refer [current-entity]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn count
-  [{:as criteria :commodity/keys [entity]} & {:as opts}]
-  (api/get (api/path :entities
-                     (or entity @current-entity)
-                     :commodities
-                     :count)
-           (dissoc criteria :commodity/entity)
-           (merge
-             {:on-error (handle-ex "Unable to get a count of commodities: %s")}
-             opts)))
+  [& {:as opts}]
+  (api/get (api/path :entities @current-entity :commodities :count)
+           (add-error-handler
+             opts
+             "Unable to get a count of commodities: %s")))
 
 (defn select
-  [{:as criteria :commodity/keys [entity]} & {:as opts}]
-  (api/get (api/path :entities
-                     (or entity @current-entity)
-                     :commodities)
-           (dissoc criteria :commodity/entity)
-           (merge
-               {:on-error (handle-ex "Unable to retrieve the commodities: %s")}
-               opts)))
+  [criteria & {:as opts}]
+  (api/get (api/path :entities @current-entity :commodities)
+           criteria
+           (add-error-handler
+             opts
+             "Unable to retrieve the commodities: %s")))
 
 (defn create
-  [commodity opts]
-  (api/post (api/path :entities @current-entity :commodities)
+  [{:as commodity :commodity/keys [entity]} opts]
+  (api/post (api/path :entities entity :commodities)
             commodity
-            (merge
-               {:on-error (handle-ex "Unable to create the commodity: %s")}
-               opts)))
+            (add-error-handler
+              opts
+               "Unable to create the commodity: %s)")))
 
 (defn update
   [commodity opts]
   (api/patch (api/path :commodities commodity)
              commodity
-             (merge
-               {:on-error (handle-ex "Unable to update the commodity: %s")}
-               opts)))
+             (add-error-handler
+               opts
+               "Unable to update the commodity: %s")))
 
 (defn save
   [commodity & {:as opts}]
   (let [f (if (:id commodity)
             update
             create)]
-    (-> commodity
-        (models/prune :commodity
-                      :exclude [:commodity/entity])
-        (f opts))))
+    (f commodity opts)))
 
 (defn delete
   [commodity & {:as opts}]
   (api/delete (api/path :commodities commodity)
-              (merge
-               {:on-error (handle-ex "Unable to delete the commodity: %s")}
-               opts)))
+              (add-error-handler
+                opts
+                "Unable to remove the commodity: %s")))

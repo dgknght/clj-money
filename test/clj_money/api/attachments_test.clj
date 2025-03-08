@@ -109,7 +109,7 @@
   (is (http-success? response))
   (is (seq-of-maps-like? [{:attachment/caption "Receipt"}]
                          edn-body)
-      "The correct content is returned."))
+      "The list of attachments is returned."))
 
 (defn- assert-blocked-list
   [{:as response :keys [edn-body]}]

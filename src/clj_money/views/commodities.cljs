@@ -15,7 +15,7 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
-            [clj-money.util :as util]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.icons :refer [icon]]
             [clj-money.dates :as dates]
             [clj-money.components :refer [button
@@ -255,25 +255,21 @@
                                 seq)]
     (+busy)
     (prices/fetch commodity-ids
-                  (map (fn [r]
-                         (load-commodities page-state)
-                         (-busy)
-                         r)))))
+                  :callback -busy
+                  :on-success #(load-commodities page-state))))
 
 (defn- commodities-table
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
-        filter-fn (make-reaction #(if @hide-zero-shares?
-                                    (fn [{:commodity/keys [created-at
-                                                           type]
-                                          :lot/keys [shares-owned]}]
-                                      (or (= :currency type)
-                                          (t/before? created-at
-                                                     (t/minus (t/now) (t/hours 1)))
-                                          (not (zero? shares-owned))))
-                                    (constantly true)))
-        filtered (make-reaction #(filter @filter-fn @commodities))
+        remove? (make-reaction #(if @hide-zero-shares?
+                                  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
+                                    (fn [{:keys [shares-owned created-at]}]
+                                      (or (t/before? created-at
+                                                     an-hour-ago)
+                                          (zero? shares-owned))))
+                                  (constantly false)))
+        filtered (make-reaction #(remove @remove? @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
         search-term (r/cursor page-state [:search-term])
@@ -337,21 +333,21 @@
                 :caption "Fetch Prices"}]])))
 
 (defn- post-delete-price
-  [page-state price]
-  (-busy)
-  (swap! page-state
-         update-in
-         [:prices]
-         (fn [prices]
-           (remove (fn [p] (= (:id price) (:id p)))
-                   prices))))
+  [page-state]
+  (fn [price]
+    (swap! page-state
+           update-in
+           [:prices]
+           (fn [prices]
+             (remove #(id= price %) prices)))))
 
 (defn- delete-price
   [price page-state]
   (when (js/confirm (str "Are you sure you want to delete the price from " (format-date (:trade-date price)) "?"))
     (+busy)
     (prices/delete price
-                   (map (partial post-delete-price page-state price)))))
+                   :callback -busy
+                   :on-success (post-delete-price page-state))))
 
 (defn- price-row
   [{:as p :price/keys [trade-date price]} page-state]

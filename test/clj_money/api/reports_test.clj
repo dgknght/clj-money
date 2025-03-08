@@ -4,11 +4,11 @@
             [ring.mock.request :as req]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
             [clj-money.models :as models]
             [clj-money.dates :refer [with-fixed-time]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -42,13 +42,13 @@
                                   "2016-01-31"))
           (add-auth (find-user email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-income-statement
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= ["Income" "Expense" "Net"]
-         (->> json-body
+         (->> edn-body
               (filter #(#{"header" "summary"}
                          (:report/style %)))
               (map :report/caption)))
@@ -77,13 +77,13 @@
                                     "2016-01-31"))
             (add-auth (find-user email))
             app
-            parse-json-body)))))
+            parse-edn-body)))))
 
 (defn- assert-successful-balance-sheet
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
-         (->> json-body
+         (->> edn-body
               (filter #(#{"summary" "header"} (:report/style %)))
               (map :report/caption)))
       "The body contains the balance sheet report"))
@@ -116,16 +116,16 @@
                                   (:id budget)))
           (add-auth (find-user email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-budget-report
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= "2016: January to December"
-         (:title json-body))
+         (:title edn-body))
       "The response contains the report tital")
   (is (= ["Income" "Expense" "Net"]
-         (->> (:items json-body)
+         (->> (:items edn-body)
               (filter #(#{"header" "summary"} (:report/style %)))
               (map :report/caption)))
       "The reponse contains the budget report at the :items key"))
@@ -177,10 +177,10 @@
                                     :budget-monitors))
             (add-auth (find-user email))
             app
-            parse-json-body)))))
+            parse-edn-body)))))
 
 (defn- assert-successful-monitor-list
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [#:report{:caption "Groceries"
                                    :period #:report{:total-budget 200.0
@@ -193,7 +193,7 @@
                                                     :percentage 0.0191
                                                     :prorated-budget 45.902
                                                     :actual-percent 0.035417}}]
-                         json-body)))
+                         edn-body)))
 
 (defn- assert-blocked-monitor-list
   [response]
@@ -242,13 +242,13 @@
                                  "?aggregate=by-account"))
           (add-auth (find-user email))
           app
-          parse-json-body))))
+          parse-edn-body))))
 
 (defn- assert-successful-portfolio-report
-  [{:as response :keys [json-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= ["IRA" "Total"]
-         (->> json-body
+         (->> edn-body
               (filter #(#{"header" "summary"} (:report/style %)))
               (map :report/caption)))
       "The body contains the correct captions"))
@@ -261,4 +261,4 @@
   (assert-successful-portfolio-report (get-portfolio-report "john@doe.com")))
 
 (deftest a-user-cannot-get-a-portfolio-report-for-anothers-entity
-  (assert-blocked-portfolio-report (get-portfolio-report "jane@doe.com")))
+ (assert-blocked-portfolio-report (get-portfolio-report "jane@doe.com")))

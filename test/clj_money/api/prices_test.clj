@@ -1,12 +1,10 @@
 (ns clj-money.api.prices-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.pprint :refer [pprint]]
-            [clojure.java.io :as io]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.web :refer [path]]
-            #_[dgknght.app-lib.test :refer [parse-edn-body]]
             [dgknght.app-lib.test-assertions]
             [java-time.api :as t]
             [clj-money.util :as util]
@@ -17,7 +15,9 @@
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.models :as models]
             [clj-money.web.server :refer [app]]))
@@ -40,13 +40,6 @@
                :exchange :nasdaq
                :type :fund}])
 
-(defn- parse-edn-body
-  [{:as req :keys [body]}]
-  (assoc req :edn-body (-> body
-                           io/reader
-                           slurp
-                           read-string)))
-
 (defn- create-a-price
   [email]
   (with-context context
@@ -55,8 +48,8 @@
                                     :commodities
                                     (:id commodity)
                                     :prices))
-           (req/body (pr-str #:price{:price 12.34
-                                     :trade-date "2016-03-02"}))
+           (edn-body {:price 12.34M
+                      :trade-date (t/local-date 2016 3 2)})
            (add-auth (find-user email))
            app
            parse-edn-body)
@@ -64,16 +57,14 @@
                               :trade-date (t/local-date 2016 3 2)})])))
 
 (defn- assert-successful-create
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:price{:price 12.34
-                           :trade-date "2016-03-02"}
-                   json-body)
-      "The created price is returned in the response")
-  (is (seq-of-maps-like? [#:price{:price 12.34M
-                                  :trade-date (t/local-date 2016 3 2)}]
-                         retrieved)
-      "The price is created in the database"))
+  (let [expected #:price{:price 12.34M
+                         :trade-date (t/local-date 2016 3 2)}]
+    (is (comparable? expected edn-body)
+        "The created price is returned in the response")
+    (is (seq-of-maps-like? [expected] retrieved)
+        "The price is created in the database")))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
@@ -110,7 +101,7 @@
                              (:id commodity)
                              :prices))
                   (assoc :query (map->query-string
-                                   {:trade-date ["2016-01-01" "2016-12-31"]}))
+                                   {:trade-date [(t/local-date 2016 1 1) (t/local-date 2016 12 31)]}))
                   str)]
       (-> (req/request :get url)
           (req/header "Accept" "application/edn")
@@ -121,10 +112,10 @@
 (defn- assert-successful-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:price{:trade-date "2016-03-02"
-                                  :price 11.0}
-                          #:price{:trade-date "2016-02-27"
-                                  :price 10.0}]
+  (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2016 3 2)
+                                  :price 11.0M}
+                          #:price{:trade-date (t/local-date 2016 2 27)
+                                  :price 10.0M}]
                          edn-body)))
 
 (defn- assert-blocked-list
@@ -146,23 +137,21 @@
                                      :prices
                                      (dates/serialize-local-date (:price/trade-date price))
                                      (:id price)))
-           (req/json-body #:price{:price 9.99})
+           (edn-body #:price{:price 9.99M})
            (add-auth (find-user email))
            app
            parse-edn-body)
        (models/find price)])))
 
 (defn- assert-successful-update
-  [[{:as response :keys [json-body]} retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:price{:trade-date "2016-02-27"
-                           :price 9.99}
-                   json-body)
-      "The response contains the updated price")
-  (is (comparable? #:price{:trade-date (t/local-date 2016 2 27)
-                           :price 9.99M}
-                   retrieved)
-      "The database record is updated"))
+  (let [expected #:price{:trade-date (t/local-date 2016 2 27)
+                         :price 9.99M}]
+    (is (comparable? expected edn-body)
+        "The response contains the updated price")
+    (is (comparable? expected retrieved)
+        "The database record is updated")))
 
 (defn- assert-blocked-update
   [[response retrieved]]
@@ -254,22 +243,18 @@
 (defn- assert-successful-fetch
   [response]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:price{:trade-date "2015-03-02"
-                                  :price 10.01
-                                  :commodity (util/->model-ref (find-commodity "AAPL")) }
-                          #:price{:trade-date "2015-03-02"
-                                  :price 5.01
-                                  :commodity (util/->model-ref (find-commodity "MSFT"))}]
-                         (:json-body response))
-      "The prices are returned in the response")
-  (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 3 2)
-                                  :price 10.01M
-                                  :commodity (util/->model-ref (find-commodity "AAPL"))}
-                          #:price{:trade-date (t/local-date 2015 3 2)
-                                  :price 5.01M
-                                  :commodity (util/->model-ref (find-commodity "MSFT"))}]
-                         (models/select #:price{:trade-date (t/local-date 2015 3 2)}))
-      "The prices are written to the database"))
+  (let [expected [#:price{:trade-date (t/local-date 2015 3 2)
+                          :price 10.01M
+                          :commodity (util/->model-ref (find-commodity "AAPL"))}
+                  #:price{:trade-date (t/local-date 2015 3 2)
+                          :price 5.01M
+                          :commodity (util/->model-ref (find-commodity "MSFT"))}]]
+    (is (seq-of-maps-like? expected
+                           (:edn-body response))
+        "The prices are returned in the response")
+    (is (seq-of-maps-like? expected
+                           (models/select #:price{:trade-date (t/local-date 2015 3 2)}))
+        "The prices are written to the database")))
 
 (deftest a-user-can-fetch-a-current-commodity-prices
   (with-context fetch-context

@@ -2,12 +2,12 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [uuid
-                                     update-in-if]]
+            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
+            [clj-money.util :refer [id=]]
             [clj-money.dates :refer [unserialize-local-date]]
             [clj-money.models :as models]
             [clj-money.authorization.transactions]
@@ -35,12 +35,12 @@
    (models/select (->criteria req) (->options req))))
 
 (defn- find-and-auth
-  [{:keys [params authenticated]} action]
+  [{:keys [path-params authenticated]} action]
   (let [trans-date (unserialize-local-date
-                     (some #(params %)
+                     (some #(path-params %)
                            [:original-transaction-date
                             :transaction-date]))]
-    (some-> params
+    (some-> path-params
             (select-keys [:id])
             (update-in [:id] uuid)
             (assoc :transaction/transaction-date trans-date)
@@ -66,14 +66,6 @@
    :transaction/credit-account
    :transaction/quantity])
 
-(defn- parse-item
-  [item]
-  (-> item
-      (update-in-if [:id] uuid)
-      (update-in-if [:transaction-item/quantity] bigdec)
-      (update-in-if [:transaction-item/value] bigdec)
-      (update-in-if [:transaction-item/action] keyword)))
-
 (defn- extract-transaction
   [{:keys [params]}]
   (-> params
@@ -92,12 +84,11 @@
 
 (defn- apply-to-existing
   [updated-item items]
-  (let [parsed (parse-item updated-item)]
-    (if-let [existing (->> items
-                           (filter #(= (:id %) (:id updated-item)))
-                           first)]
-      (merge existing parsed)
-      parsed)))
+  (if-let [existing (->> items
+                         (filter #(id= % updated-item))
+                         first)]
+    (merge existing updated-item)
+    updated-item))
 
 (defn- apply-item-updates
   [items updates]

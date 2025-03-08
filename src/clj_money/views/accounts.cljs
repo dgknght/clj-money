@@ -60,8 +60,7 @@
     (+busy)
     (accounts/delete account
                      :callback -busy
-                     :on-success (fn [_]
-                                   (fetch-accounts)))))
+                     :on-success fetch-accounts)))
 
 (defn- toggle-account
   [id page-state]
@@ -256,9 +255,10 @@
                        (map @accounts-by-id)
                        (map apply-fn))]
     (doseq [account to-update]
-      (accounts/update account
-                       {:on-success success-fn
-                        :on-error error-fn}))))
+      (accounts/save account
+                     :callback -busy
+                     :on-success success-fn
+                     :on-error error-fn))))
 
 (defn- tag-elem
   [tag {:keys [remove-fn]}]
@@ -382,10 +382,10 @@
   (-> (some #(get-in @page-state %) [[:selected]
                                      [:allocation :account]])
       prepare-for-save
-      (accounts/save :on-success (fn [_]
+      (accounts/save :callback -busy
+                     :on-success (fn [_saved]
                                    (fetch-accounts)
-                                   (swap! page-state dissoc :selected :allocation))
-                     :callback -busy)))
+                                   (swap! page-state dissoc :selected :allocation)))))
 
 (defn- account-form
   [page-state]

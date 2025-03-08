@@ -1,10 +1,12 @@
 (ns clj-money.api.imports
   (:refer-clojure :exclude [update get])
-  (:require #_[cljs-http.client :as http]
-            #_[clj-money.state :refer [app-state]]
-            [clj-money.api :as api :refer [handle-ex]]))
+  (:require [cljs-http.client :as http]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.api-async :as lib-api]
+            [clj-money.state :refer [app-state]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
-#_(defn- ->multipart-params
+(defn- ->multipart-params
   [{:keys [files] :as import-data}]
   (->> files
        (map-indexed (fn [idx f] [idx f]))
@@ -15,48 +17,46 @@
                (dissoc import-data :files))))
 
 (defn create
-  [_import-data & {:as _opts}]
-  (throw (js/Error. "Not implemented"))
-  #_(let [params (-> import-data
+  [import-data & {:as opts}]
+  (let [params (-> import-data
                    ->multipart-params
                    (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                   clj->js)))]
     (http/post (api/path :imports)
-               (-> (lib-api/request {:transform (comp (api/apply-fn after-create)
-                                                      xf)
-                                     :handle-ex (handle-ex "Unable to create the import: %s")})
+               (-> (lib-api/request opts)
                    (lib-api/multipart-params params)
+                   (add-error-handler "Unable to create the import: %s")
                    (assoc :oauth-token (:auth-token @app-state))))))
 
 (defn get
   [id & {:as opts}]
   (api/get (api/path :imports id)
            {}
-           (merge
-             {:on-error (handle-ex "Unable to retrieve the import: %s")}
-             opts)))
+           (add-error-handler
+             opts
+             "Unable to retrieve the import: %s")))
 
 (defn select
-  [& {:as opts}]
+  [criteria & {:as opts}]
   (api/get (api/path :imports)
-           {}
-           (merge
-             {:on-error (handle-ex "Unable to retrieve the imports: %s")}
-             opts)))
+           criteria
+           (add-error-handler
+             opts
+             "Unable to retrieve the imports: %s")))
 
 (defn delete
-  [{:keys [id]} & {:as opts}]
-  (api/delete (api/path :imports id)
-              (merge
-                {:on-error (handle-ex "Unable to delete the import: %s")}
-                opts)))
+  [import & {:as opts}]
+  (api/delete (api/path :imports import)
+              (add-error-handler
+                opts
+                "Unable to delete the import: %s")))
 
 (defn start
-  [{:keys [_id]} & {:as _opts}]
-  (throw (js/Error. "Not implemented"))
-  #_(let [path (api/path :imports id)]
+  [import & {:as opts}]
+  (let [path (api/path :imports import)]
     (http/patch path
                 (assoc (lib-api/request
-                         {:transform (transform xf)
-                          :handle-ex (handle-ex "Unable to start the import: %s")})
+                         (add-error-handler
+                           opts
+                           "Unable to start the import: %s"))
                        :oauth-token (:auth-token @app-state)))))

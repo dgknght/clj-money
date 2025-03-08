@@ -1,13 +1,12 @@
 (ns clj-money.decimal
-   (:refer-clojure :exclude [* + - / zero? abs])
-   #?(:cljs (:require [dgknght.app-lib.decimal :as decimal]
-                      ["decimal.js" :as Decimal]))
-   #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
+  (:refer-clojure :exclude [* + - / zero? abs])
+  #?(:cljs (:require[dgknght.app-lib.decimal :as decimal]))
+  #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
 
 #?(:cljs (extend-protocol IPrintWithWriter
-            Decimal
+            js/Decimal
             (-pr-writer [d writer _]
-               (write-all writer "#bigdec \"" d "\""))))
+               (write-all writer d "M"))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (def d

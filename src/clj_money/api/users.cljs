@@ -6,14 +6,10 @@
   [credentials & {:as opts}]
   (api/post (path :oapi :users :authenticate)
             credentials
-            (add-error-handler
-              opts
-              "Unable to authenticate the user: %s")))
+            (add-error-handler opts "Unable to authenticate the user: %s")))
 
 (defn me
   [& {:as opts}]
   (api/get (api/path :users :me)
            {}
-           (add-error-handler
-             opts
-             "Unable to retrieve your user profile: %s")))
+           (add-error-handler opts "Unable to retrieve your user profile: %s")))

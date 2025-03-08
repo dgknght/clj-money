@@ -11,6 +11,8 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api :as api]
             [clj-money.state :as state :refer [app-state
+                                               +busy
+                                               -busy
                                                current-user
                                                current-entity]]
             [clj-money.html :refer [google-g]]
@@ -85,17 +87,18 @@
                   ".")})
 
 (defn- available?
-  [nav-item]
-  (or (:path nav-item)
-      (:nav-fn nav-item)
-      @current-entity))
+  [entity]
+  (fn [nav-item]
+    (or (:path nav-item)
+        (:nav-fn nav-item)
+        entity)))
 
 (defn- nav-items
-  [active-nav]
-  (->> (if @current-user
+  [active-nav current-user current-entity]
+  (->> (if current-user
            authenticated-nav-items
            unauthenticated-nav-items)
-         (filter available?)
+         (filter (available? current-entity))
          (map #(merge (default-nav-item % active-nav)
                    %))))
 
@@ -136,13 +139,13 @@
           :alt "Profile Photo"}])]]))
 
 (defn- nav []
-  (let [active-nav (r/cursor app-state [:active-nav])items
-        (make-reaction #(nav-items @active-nav))]
+  (let [active-nav (r/cursor app-state [:active-nav])
+        items (make-reaction #(nav-items @active-nav @current-user @current-entity))]
     (fn []
-      [navbar
-       @items
-       {:brand "clj-money"
-        :brand-path "/"}])))
+      (navbar
+        @items
+        {:brand "clj-money"
+         :brand-path "/"}))))
 
 (defn- alerts []
   (fn []
@@ -218,16 +221,14 @@
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
-  (entities/select :on-success receive-entities))
+  (+busy)
+  (entities/select :callback -busy
+                   :on-success receive-entities))
 
 (defn- fetch-current-user []
-  (users/me :on-success
-            #(swap! app-state
-                    assoc
-                    :current-user
-                    (dissoc %
-                            :user/created-at
-                            :user/updated-at))))
+  (+busy)
+  (users/me :callback -busy
+            :on-success #(swap! app-state assoc :current-user %)))
 
 (defn- sign-in-from-cookie []
   (if @current-user

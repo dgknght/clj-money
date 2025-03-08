@@ -22,9 +22,8 @@
   (when (js/confirm (str "Are you sure you want to delete the entity \"" (:name entity) "\"?"))
     (+busy)
     (entities/delete entity
-                     (map (fn []
-                            (-busy)
-                            (state/remove-entity entity))))))
+                     :callback -busy
+                     :on-success #(state/remove-entity entity))))
 
 (defn- relay-updated-entity*
   [entity]

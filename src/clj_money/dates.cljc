@@ -51,7 +51,7 @@
 (defn local-date-time
   [x]
   #?(:clj (t/local-date-time x)
-     :cljs (tf/parse (tf/formatters :date-hour-minute-second-fraction) x)))
+     :cljs (tf/parse (tf/formatters :date-hour-minute-second) x)))
 
 (def local-date-time?
   #?(:clj t/local-date-time?
