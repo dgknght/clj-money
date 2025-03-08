@@ -1,5 +1,6 @@
 (ns clj-money.views.dashboard
   (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
@@ -31,7 +32,7 @@
   (swap! current-entity
          update-in
          [:settings :monitored-account-ids]
-         (fnil conj [])
+         (fnil conj #{})
          (get-in @state [:new-monitor :account-id]))
   (entities/save @current-entity
                  :callback -busy
@@ -138,14 +139,14 @@
      :style {:margin "0.5em"
              :cursor "pointer"}
      :title "Click here to remove this budget monitor."}
-    (icon :x-circle {:size :small})]])
+    (icon :x-circle :size :small)]])
 
 (defn- monitor-nav-tab
-  [scope state]
-  {:elem-key scope
-   :caption (title-case (name scope))
-   :active? (= scope (get-in @state [:monitor-scope]))
-   :on-click #(swap! state assoc :monitor-scope scope)})
+  [scope current state]
+  {:id scope
+   :label (title-case (name scope))
+   :active? (= scope current)
+   :nav-fn #(swap! state assoc :monitor-scope scope)})
 
 (defn- monitors []
   (let [state (r/atom {:monitor-scope :period})
@@ -168,7 +169,7 @@
       [:div
        [:h3 "Monitors"]
        (when (seq @monitors)
-         [bs/nav-tabs (map #(monitor-nav-tab % state) [:period :budget])])
+         [bs/nav-tabs (map #(monitor-nav-tab % @scope state) [:period :budget])])
        (if (and @monitors @accounts)
          (->> @monitors-with-detail
               (map #(monitor % state))

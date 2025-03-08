@@ -126,15 +126,15 @@
                                                                 :value id}]]
    [:td.text-center
     [:div.btn-group
-     [:button.btn.btn-light.btn-sm {:on-click #(swap! page-state assoc :view-account account)
+     [:button.btn.btn-secondary.btn-sm {:on-click #(swap! page-state assoc :view-account account)
                                     :title "Click here to view transactions for this account."}
       (icon :collection :size :small)]
-     [:button.btn.btn-light.btn-sm {:on-click (fn []
+     [:button.btn.btn-secondary.btn-sm {:on-click (fn []
                                                (swap! page-state assoc :selected account)
                                                (set-focus "parent-id"))
                                    :title "Click here to edit this account."}
       (icon :pencil :size :small)]
-     [:button.btn.btn-light {:on-click #(swap! page-state assoc :allocation {:account (prepare-for-allocation account)
+     [:button.btn.btn-secondary {:on-click #(swap! page-state assoc :allocation {:account (prepare-for-allocation account)
                                                                              :cash (:value account)
                                                                              :withdrawal 0M})
                              :disabled (not (system-tags :trading))
@@ -510,7 +510,7 @@
                      (trns/load-unreconciled-items page-state)
                      (set-focus "end-of-period"))
          :title "Click here to reconcile this account"}
-        (icon-with-text :check-box "Reconcile")]
+        (icon-with-text :check-square "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
                                                     (trns/stop-item-loading page-state)
                                                     (swap! page-state dissoc
@@ -568,11 +568,11 @@
 (defn- transaction-form-nav-tab
   [{:keys [mode disabled?]} page-state]
   (let [current-mode (trns/mode (:transaction @page-state))]
-    {:caption (humanize (name mode))
+    {:label (humanize (name mode))
      :disabled? disabled?
-     :elem-key (str "entry-mode-" (name mode))
+     :id (str "entry-mode-" (name mode))
      :active? (= current-mode mode)
-     :on-click #(do-tab-nav mode page-state)}))
+     :nav-fn #(do-tab-nav mode page-state)}))
 
 (defn- neutralize
   [transaction mode]
@@ -640,10 +640,10 @@
     (fn []
       [:<>
        [:div.d-flex.flex-row-reverse {:class (when-not @reconciliation "d-none")}
-        [:button.btn.btn-light {:on-click #(check-all-items page-state)
+        [:button.btn.btn-secondary {:on-click #(check-all-items page-state)
                                 :title "Click here to mark all items as reconciled"}
          (icon :check-box :size :small)]
-        [:button.btn.btn-light.ms-2 {:on-click #(uncheck-all-items page-state)
+        [:button.btn.btn-secondary.ms-2 {:on-click #(uncheck-all-items page-state)
                                      :title "Click here to mark all items as unreconciled"}
          (icon :unchecked-box :size :small)]]
 
@@ -792,7 +792,7 @@
                                                (set-focus "trade-date"))}
           (icon-with-text :plus "Buy/Sell")]
          (html/space)
-         [:button.btn.btn-light {:title "Click here to return the the account list."
+         [:button.btn.btn-secondary {:title "Click here to return the the account list."
                                  :on-click #(swap! page-state dissoc :view-account)}
           (icon-with-text :arrow-left-short "Back")]]]])))
 
@@ -994,11 +994,11 @@
          [:div.d-flex
           [:h1.accounts-title.me-auto (str "Accounts" (when @view-account
                                                         (str " - " (:name @view-account))))]
-          [:button.btn.btn-light {:type :button
-                                  :class (when @hide-funnel? "d-none")
-                                  :data-bs-toggle "offcanvas"
-                                  :data-bs-target "#account-filter"
-                                  :aria-controls "account-filter"}
+          [:button.btn.btn-dark {:type :button
+                                 :class (when @hide-funnel? "d-none")
+                                 :data-bs-toggle "offcanvas"
+                                 :data-bs-target "#account-filter"
+                                 :aria-controls "account-filter"}
            (icon :funnel :size :small)]]]]
        [account-filter-container page-state]
        [accounts-table page-state]

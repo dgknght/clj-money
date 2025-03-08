@@ -18,6 +18,6 @@
 (defn google-signin-link
   ([] (google-signin-link {}))
   ([options]
-   [:a.btn.btn-light {:href "/auth/google/start"}
+   [:a.btn.btn-secondary {:href "/auth/google/start"}
     (google-g options)
     " Sign In With Google"]))

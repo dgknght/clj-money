@@ -129,12 +129,12 @@
      [:button.btn.btn-sm {:title "Click here to realize transactions for this schedule."
                           :class (if (pending? sched-tran)
                                    "btn-success"
-                                   "btn-light")
+                                   "btn-secondary")
                           :on-click #(realize sched-tran page-state)}
       (if busy?
         (bs/spinner {:size :small})
         (icon :gear :size :small))]
-     [:button.btn.btn-light.btn-sm {:title "Click here to edit this scheduled transaction."
+     [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this scheduled transaction."
                                    :on-click (fn [_]
                                                (swap! page-state assoc :selected (->editable sched-tran))
                                                (set-focus "description"))}

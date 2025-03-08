@@ -55,7 +55,7 @@
          [:h3.mt-3 "Other sign in options:"]
          [:ul.list-group
           [:li.list-group-item.d-flex.justify-content-center
-           [:a#login.btn.btn-light {:href "/auth/google/start"
+           [:a#login.btn.btn-secondary {:href "/auth/google/start"
                                     :title "Click here to sign in with a Google account"}
             (google-g)
             [:span "Sign in with Google"]]]]]]])))

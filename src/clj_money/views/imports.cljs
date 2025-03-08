@@ -144,7 +144,7 @@
                                       :on-click #(start-import imp page-state)
                                       :title "Click here to start the import."}
       (icon :play :size :small)]
-     [:button.btn.btn-light.btn-sm {:on-click (fn []
+     [:button.btn.btn-secondary.btn-sm {:on-click (fn []
                                                 (swap! page-state assoc :active imp)
                                                 (reset! auto-refresh true)
                                                 (load-import page-state))
