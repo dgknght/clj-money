@@ -66,32 +66,32 @@
 (defn- create-transaction
   [receipt page-state]
   (+busy)
-  (trn/create (->transaction receipt)
-              (map (fn [result]
-                     (-busy)
-                     (swap! page-state
-                            update-in
-                            [:receipts]
-                            (fnil conj '())
-                            result)
-                     (new-receipt page-state)))))
+  (trn/save (->transaction receipt)
+            :callback -busy
+            :on-success (fn [result]
+                          (swap! page-state
+                                 update-in
+                                 [:receipts]
+                                 (fnil conj '())
+                                 result)
+                          (new-receipt page-state))))
 
 (defn- update-transaction
   [receipt page-state]
   (+busy)
-  (trn/update (->transaction receipt)
-              (map (fn [result]
-                     (-busy)
-                     (swap! page-state
-                            update-in
-                            [:receipts]
-                            (fn [receipts]
-                              (map #(if (= (:id receipt)
-                                           (:id %))
-                                      result
-                                      %)
-                                   receipts)))
-                     (new-receipt page-state)))))
+  (trn/save (->transaction receipt)
+            :callback -busy
+            :on-success (fn [result]
+                          (swap! page-state
+                                 update-in
+                                 [:receipts]
+                                 (fn [receipts]
+                                   (map #(if (= (:id receipt)
+                                                (:id %))
+                                           result
+                                           %)
+                                        receipts)))
+                          (new-receipt page-state))))
 
 (defn- remove-empty-items
   [items]
@@ -270,14 +270,14 @@
   [page-state]
   (+busy)
   (trn/search {:include-items true}
-              (map (fn [transactions]
-                     (-busy)
-                     (swap! page-state
-                            assoc
-                            :transactions transactions
-                            :receipts (filter #(t/after? (:created-at %)
-                                                         (-> 12 t/hours t/ago))
-                                              transactions))))))
+              :callback -busy
+              :on-success (fn [transactions]
+                            (swap! page-state
+                                   assoc
+                                   :transactions transactions
+                                   :receipts (filter #(t/after? (:created-at %)
+                                                                (-> 12 t/hours t/ago))
+                                                     transactions)))))
 
 (defn- index []
   (let [page-state (r/atom {})]

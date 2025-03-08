@@ -3,14 +3,14 @@
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [cheshire.core :as json]
             [ring.mock.request :as req]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.dates :as dates]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
             [clj-money.test-context :refer [basic-context
@@ -44,18 +44,19 @@
                      (merge (build-multipart-request {:file {:file file
                                                              :content-type "image/jpg"}}))
                      (add-auth user)
+                     (req/header "Accept" "application/edn")
                      app
-                     parse-json-body)
-        retrieved (when-let [id (get-in response [:json-body :id])]
+                     parse-edn-body)
+        retrieved (when-let [id (get-in response [:edn-body :id])]
                     (att/find id))]
     [response retrieved]))
 
 (defn- assert-successful-create
-  [[{:keys [json-body] :as response} retrieved]]
+  [[{:keys [edn-body] :as response} retrieved]]
   (is (http-created? response))
-  (is (empty? (::v/errors json-body))
+  (is (empty? (::v/errors edn-body))
       "There are no validation errors")
-  (is (:id json-body) "An ID is assigned to the new record")
+  (is (:id edn-body) "An ID is assigned to the new record")
   (is (comparable? {:transaction-date (t/local-date 2015 1 1)}
                    retrieved) 
       "The created attachment can be retrieved"))
@@ -86,30 +87,29 @@
   [email]
   (let [ctx (realize list-context)
         user (find-user ctx email)
-        transaction (find-transaction ctx (t/local-date 2015 1 1) "Paycheck")
-        response (-> (req/request :get (str (path :api
-                                                  :attachments)
-                                            "?"
-                                            (map->query-string
-                                             {:transaction-date-on-or-after "2015-01-01"
-                                              :transaction-date-on-or-before "2015-01-31"
-                                              :transaction-id (:id transaction)})))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        transaction (find-transaction ctx (t/local-date 2015 1 1) "Paycheck")]
+    (-> (req/request :get (str (path :api
+                                     :attachments)
+                               "?"
+                               (map->query-string
+                                 {:transaction-date-on-or-after "2015-01-01"
+                                  :transaction-date-on-or-before "2015-01-31"
+                                  :transaction-id (:id transaction)})))
+        (add-auth user)
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= [{:caption "Receipt"}]
-         (map #(select-keys % [:caption]) body))
-      "The correct content is returned."))
+  (is (seq-of-maps-like? [{:caption "Receipt"}]
+                         edn-body)
+      "The list of attachments is returned"))
 
 (defn- assert-blocked-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? body) "No records are returned"))
+  (is (empty? edn-body) "No records are returned"))
 
 (deftest a-user-can-get-a-list-of-attachments-in-his-entity
   (assert-successful-list (list-attachments "john@doe.com")))
@@ -125,28 +125,28 @@
         response (-> (req/request :patch (path :api
                                                :attachments
                                                (:id attachment)))
-                     (req/json-body (assoc attachment :caption "Updated caption"))
+                     (edn-body (assoc attachment :caption "Updated caption"))
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         retrieved (att/find attachment)]
-    [response body retrieved]))
+    [response retrieved]))
 
 (defn- assert-successful-update
-  [[response body retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (= {:caption "Updated caption"}
-         (select-keys body [:caption]))
+  (is (comparable? {:caption "Updated caption"}
+                   edn-body)
       "The updated attachment is returned")
-  (is (= {:caption "Updated caption"}
-         (select-keys retrieved [:caption]))
+  (is (comparable? {:caption "Updated caption"}
+                   retrieved)
       "The database is updated"))
 
 (defn- assert-blocked-update
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
-  (is (= {:caption "Receipt"}
-         (select-keys retrieved [:caption]))
+  (is (comparable? {:caption "Receipt"}
+                   retrieved)
       "The database is not updated"))
 
 (deftest a-user-can-update-an-attachment-in-his-entity
@@ -163,7 +163,7 @@
         response (-> (req/request :delete (path :api
                                                 :attachments
                                                 (:id attachment)))
-                     (req/json-body (assoc attachment :caption "Updated caption"))
+                     (edn-body (assoc attachment :caption "Updated caption"))
                      (add-auth user)
                      app)
         retrieved (att/find attachment)]

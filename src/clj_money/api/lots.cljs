@@ -1,12 +1,7 @@
 (ns clj-money.api.lots
   (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]))
-
-(defn- after-read
-  [lot]
-  (update-in lot [:purchase-date] unserialize-date))
+            [clj-money.api :refer [add-error-handler]]))
 
 (defn- prepare-criteria
   [criteria]
@@ -16,8 +11,8 @@
                                              (update-in v [0] name)
                                              v))))
 
-(defn search
-  [criteria xf]
+(defn select
+  [criteria & {:as opts}]
   {:pre (contains? criteria :account-id)}
 
   (let [[path criteria] (if (coll? (:account-id criteria))
@@ -29,6 +24,4 @@
                            (dissoc criteria :account-id)])]
     (api/get path
              (prepare-criteria criteria)
-             {:transform (comp (api/apply-fn after-read)
-                               xf)
-              :handle-ex (handle-ex "Unable to retrieve the lots: %s")})))
+             (add-error-handler opts "Unable to retrieve the lots: %s"))))

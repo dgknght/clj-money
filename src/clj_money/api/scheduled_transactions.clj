@@ -2,14 +2,12 @@
   (:refer-clojure :exclude [update])
   (:require [java-time.api :as t]
             [stowaway.core :as storage]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.authorization :refer [authorize
                                                    allowed?
                                                    +scope]
              :as authorization]
-            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.models.entities :as entities]
@@ -26,25 +24,13 @@
   (api/response
     (sched-trans/search (->criteria req))))
 
-(defn- ->sched-trans-item
-  [item]
-  (-> item
-      (update-in-if [:quantity] bigdec)
-      (update-in-if [:action] keyword)))
-
 (defn- extract-sched-tran
-  [body]
-  (-> body
-      (update-in-if [:items] #(map ->sched-trans-item %))
-      (update-in-if [:interval-type] keyword)
-      (update-in-if [:start-date] dates/unserialize-local-date)
-      (update-in-if [:end-date] dates/unserialize-local-date)
-      (update-in-if [:last-occurrence] dates/unserialize-local-date)
-      (storage/tag ::models/scheduled-transaction)))
+  [{:keys [params]}]
+  (storage/tag params ::models/scheduled-transaction))
 
 (defn- create
-  [{:keys [params authenticated body]}]
-  (-> body
+  [{:keys [params authenticated] :as req}]
+  (-> req
       extract-sched-tran
       (assoc :entity-id (:entity-id params))
       (authorize ::authorization/create authenticated)
@@ -59,10 +45,10 @@
                authenticated)))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [req]
   (if-let [sched-tran (find-and-authorize req ::authorization/update)]
     (-> sched-tran
-        (merge (extract-sched-tran body))
+        (merge (extract-sched-tran req))
         sched-trans/update
         api/response)
     api/not-found))

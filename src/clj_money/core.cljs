@@ -1,5 +1,6 @@
 (ns ^:figwheel-hooks clj-money.core
   (:require [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
@@ -9,6 +10,8 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api :as api]
             [clj-money.state :as state :refer [app-state
+                                               +busy
+                                               -busy
                                                current-user
                                                current-entity]]
             [clj-money.html :refer [google-g]]
@@ -82,17 +85,18 @@
                   ".")})
 
 (defn- available?
-  [nav-item]
-  (or (:path nav-item)
-      (:nav-fn nav-item)
-      @current-entity))
+  [entity]
+  (fn [nav-item]
+    (or (:path nav-item)
+        (:nav-fn nav-item)
+        entity)))
 
 (defn- nav-items
-  [active-nav]
-  (->> (if @current-user
+  [active-nav current-user current-entity]
+  (->> (if current-user
            authenticated-nav-items
            unauthenticated-nav-items)
-         (filter available?)
+         (filter (available? current-entity))
          (map #(merge (default-nav-item % active-nav)
                    %))))
 
@@ -132,13 +136,13 @@
         :alt "Profile Photo"}])]])
 
 (defn- nav []
-  (let [active-nav (r/cursor app-state [:active-nav])]
+  (let [active-nav (r/cursor app-state [:active-nav])
+        items (make-reaction #(nav-items @active-nav @current-user @current-entity))]
     (fn []
-      (let [items (nav-items @active-nav)]
-        (navbar
-          items
-          {:brand "clj-money"
-           :brand-path "/"})))))
+      (navbar
+        @items
+        {:brand "clj-money"
+         :brand-path "/"}))))
 
 (defn- alerts []
   (fn []
@@ -214,11 +218,14 @@
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
-  (entities/select
-    (map receive-entities)))
+  (+busy)
+  (entities/select :callback -busy
+                   :on-success receive-entities))
 
 (defn- fetch-current-user []
-  (users/me (map #(swap! app-state assoc :current-user %))))
+  (+busy)
+  (users/me :callback -busy
+            :on-success #(swap! app-state assoc :current-user %)))
 
 (defn- sign-in-from-cookie []
   (if @current-user

@@ -20,8 +20,7 @@
                                      current-entity
                                      accounts-by-id
                                      +busy
-                                     -busy
-                                     -busy-x]]
+                                     -busy]]
             [clj-money.budgets :refer [period-description]]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
@@ -65,14 +64,13 @@
   [page-state]
   (+busy)
   (swap! page-state update-in [:income-statement] dissoc :report)
-  (let [options (get-in @page-state [:income-statement :options])]
-    (rpt/income-statement
-      options
-      (comp -busy-x
-            (map #(swap! page-state
-                         assoc-in
-                         [:income-statement :report]
-                         %))))))
+  (let [report-spec (get-in @page-state [:income-statement :options])]
+    (rpt/income-statement report-spec
+                          :callback -busy
+                          :on-success #(swap! page-state
+                                              assoc-in
+                                              [:income-statement :report]
+                                              %))))
 
 (defn- income-statement-options
   [options]
@@ -125,10 +123,9 @@
   [page-state]
   (+busy)
   (swap! page-state update-in [:balance-sheet] dissoc :report)
-  (rpt/balance-sheet
-    (get-in @page-state [:balance-sheet :options])
-    -busy-x
-    (map #(swap! page-state assoc-in [:balance-sheet :report] %))))
+  (rpt/balance-sheet (get-in @page-state [:balance-sheet :options])
+                     :callback -busy
+                     :on-success #(swap! page-state assoc-in [:balance-sheet :report] %)))
 
 (defn- balance-sheet-options
   [options]
@@ -169,16 +166,21 @@
              [:td.text-center
               [bs/spinner]]])]]]])))
 
+(defn- receive-budget-report
+  [page-state]
+  (fn [report]
+    (swap! page-state
+           #(-> %
+                (assoc-in [:budget :report] report)
+                (update-in [:budget] dissoc :apply-info)))))
+
 (defmethod load-report :budget
   [page-state]
   (+busy)
   (swap! page-state update-in [:budget] dissoc :report)
   (rpt/budget (dissoc (get-in @page-state [:budget :options]) :depth)
-              (comp -busy-x
-              (map (fn [result]
-                     (swap! page-state #(-> %
-                                            (assoc-in [:budget :report] result)
-                                            (update-in [:budget] dissoc :apply-info))))))))
+              :callback -busy
+              :on-success (receive-budget-report page-state)))
 
 (defn- budget-options
   [options page-state]
@@ -220,7 +222,8 @@
   (+busy)
   (let [{{:keys [budget-id]} :budget} @page-state]
     (bdt/find budget-id
-              (map #(receive-budget % report-item page-state)))))
+              :callback -busy
+              :on-success #(receive-budget % report-item page-state))))
 
 (defn- budget-report-row
   [{:keys [id
@@ -249,18 +252,23 @@
    [:td.text-end.d-none.d-md-table-cell (format-percent percent-difference)]
    [:td.text-end.d-none.d-md-table-cell (format-decimal actual-per-period)]])
 
+(defn- receive-budgets
+  [page-state]
+  (fn [budgets]
+    (swap! page-state
+           (fn [state]
+             (-> state
+                 (assoc-in [:budgets] (->> budgets
+                                           (map (juxt :id identity))
+                                           (into {})))
+                 (assoc-in [:budget :options :budget-id] (-> budgets first :id)))))))
+
 (defn- load-budgets
   [page-state]
   (+busy)
-  (bdt/search (map (fn [budgets]
-                     (-busy)
-                     (swap! page-state
-                            (fn [state]
-                              (-> state
-                                  (assoc-in [:budgets] (->> budgets
-                                                                    (map (juxt :id identity))
-                                                                    (into {})))
-                                  (assoc-in [:budget :options :budget-id] (-> budgets first :id)))))))))
+  (bdt/search {}
+              :callback -busy
+              :on-success (receive-budgets page-state)))
 
 (defn- refine-items
   [depth items]
@@ -284,15 +292,14 @@
     (+busy)
     (bdt/save (update-in budget [:items] (fn [items]
                                            (-> items
-                                              (assoc (:account-id budget-item)
-                                                     (update-in budget-item
-                                                                [:periods]
-                                                                #(mapv (fnil identity (decimal/zero))
-                                                                       %)))
-                                              vals)))
-              (map (fn [& _]
-                     (-busy)
-                     (load-report page-state))))))
+                                               (assoc (:account-id budget-item)
+                                                      (update-in budget-item
+                                                                 [:periods]
+                                                                 #(mapv (fnil identity (decimal/zero))
+                                                                        %)))
+                                               vals)))
+              :callback -busy
+              :on-success #(load-report page-state))))
 
 (defn- apply-budget-item-form
   [page-state]
@@ -393,11 +400,11 @@
   (let [opts (get-in @page-state [:portfolio :options])]
     (swap! page-state update-in [:portfolio] dissoc :report)
     (rpt/portfolio (:filter opts)
-                   -busy-x
-                   (map #(swap! page-state
-                                assoc-in
-                                [:portfolio :report]
-                                %)))))
+                   :callback -busy
+                   :on-success #(swap! page-state
+                                       assoc-in
+                                       [:portfolio :report]
+                                       %))))
 
 (defn- visible?
   [record visible-ids]

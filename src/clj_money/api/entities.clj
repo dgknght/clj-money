@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.core :as storage]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models :as models]
@@ -17,11 +16,10 @@
                          (+scope ::models/entity authenticated)))))
 
 (defn- extract-entity
-  [{:keys [body authenticated]}]
-  (-> body
+  [{:keys [params authenticated]}]
+  (-> params
       (select-keys [:name :settings])
       (assoc :user-id (:id authenticated))
-      (update-in-if [:settings :inventory-method] keyword)
       (storage/tag ::models/entity)))
 
 (defn- create
@@ -40,12 +38,10 @@
           (authorize action authenticated)))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [{:keys [params] :as req}]
   (if-let [entity (find-and-auth req ::authorization/update)]
     (-> entity
-        (merge (-> body
-                   (update-in-if [:settings :monitored-account-ids] set)
-                   (select-keys [:name :settings])))
+        (merge (select-keys params [:name :settings]))
         entities/update
         api/update-response)
     api/not-found))

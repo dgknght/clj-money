@@ -1,67 +1,49 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count get])
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date
-                                         unserialize-date-time]]
-            [clj-money.state :refer [current-entity]]
-            [clj-money.api :as api :refer [handle-ex]]))
+  (:require [clj-money.state :refer [current-entity]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn count
-  [xf]
-  (api/get (api/path :entities (:id @current-entity) :commodities :count)
-           {:transform xf
-            :handle-ex (handle-ex "Unable to get a count of commodities: %s")}))
-
-(defn- after-read
-  [commodity]
-  (-> commodity
-      (update-in [:created-at] unserialize-date-time)
-      (update-in-if [:earliest-price] unserialize-date)
-      (update-in-if [:latest-price] unserialize-date)
-      (update-in-if [:most-recent-price :trade-date] unserialize-date)))
-
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read) xf))
+  [& {:as opts}]
+  (api/get (api/path :entities @current-entity :commodities :count)
+           (add-error-handler
+             opts
+             "Unable to get a count of commodities: %s")))
 
 (defn select
-  ([xf]
-   (select {} xf))
-  ([criteria xf]
-   (api/get (api/path :entities (:id @current-entity) :commodities)
-            criteria
-            {:transform (transform xf)
-             :handle-ex (handle-ex "Unable to retrieve the commodities: %s")})))
-
-(defn get
-  [id xf]
-  (api/get (api/path :commodities id)
-           {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the commdoity: %s")}))
+  [criteria & {:as opts}]
+  (api/get (api/path :entities @current-entity :commodities)
+           criteria
+           (add-error-handler
+             opts
+             "Unable to retrieve the commodities: %s")))
 
 (defn create
-  [commodity xf]
-  (api/post (api/path :entities (:entity-id commodity) :commodities)
+  [commodity opts]
+  (api/post (api/path :entities (:commodity/entity commodity) :commodities)
             commodity
-            {:transform (transform xf)
-             :handle-ex (handle-ex "Unable to create the commodity: %s)")}))
+            (add-error-handler
+              opts
+               "Unable to create the commodity: %s)")))
 
 (defn update
-  [commodity xf]
-  (api/patch (api/path :commodities (:id commodity))
+  [commodity opts]
+  (api/patch (api/path :commodities commodity)
              commodity
-             {:transform (transform xf)
-              :handle-ex (handle-ex "Unable to update the commodity: %s")}))
+             (add-error-handler
+               opts
+               "Unable to update the commodity: %s")))
 
 (defn save
-  [commodity xf]
+  [commodity & {:as opts}]
   (let [f (if (:id commodity)
             update
             create)]
-    (f commodity xf)))
+    (f commodity opts)))
 
 (defn delete
-  [commodity xf]
+  [commodity & {:as opts}]
   (api/delete (api/path :commodities (:id commodity))
-              {:transform xf
-               :handle-ex (handle-ex "Unable to remove the commodity: %s")}))
+              (add-error-handler
+                opts
+                "Unable to remove the commodity: %s")))

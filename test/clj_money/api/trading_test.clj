@@ -1,14 +1,15 @@
 (ns clj-money.api.trading-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-user
@@ -53,36 +54,35 @@
         aapl (find-commodity context "AAPL")
         ira (find-account context "IRA")
         user (find-user context email)
-        attr {:trade-date "2016-03-02"
+        attr {:trade-date (t/local-date 2016 3 2)
               :action :buy
               :entity-id (:id entity)
-              :shares 100.0
-              :value 1000.0
+              :shares 100.0M
+              :value 1000.0M
               :commodity-id (:id aapl)
               :account-id (:id ira)}
         response (-> (req/request :post (path :api
                                               :entities
                                               (:id entity)
                                               :trades))
-                     (req/json-body attr)
+                     (edn-body attr)
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         transactions (trans/search {:entity-id (:id entity)
                                     :transaction-date (t/local-date 2016 3 2)})]
-    [response body transactions]))
+    [response transactions]))
 
 (defn- assert-successful-purchase
-  [[response body transactions]]
+  [[{:as response :keys [edn-body]} transactions]]
   (is (http-success? response))
-  (is (comparable? {:transaction-date "2016-03-02"
-                   :description "Purchase 100.0 shares of AAPL at 10.000"}
-                  (:transaction body))
-      "The creating transaction is returned in the response")
-  (is (seq-with-map-like? {:transaction-date (t/local-date 2016 3 2)
-                           :description "Purchase 100.0 shares of AAPL at 10.000"}
-                          transactions)
-      "The new transaction can be retrieved from the database"))
+  (let [expected {:transaction-date (t/local-date 2016 3 2)
+                  :description "Purchase 100.0 shares of AAPL at 10.000"}]
+    (is (comparable? expected
+                     (:transaction edn-body))
+        "The creating transaction is returned in the response")
+    (is (seq-with-map-like? expected transactions)
+        "The new transaction can be retrieved from the database")))
 
 (defn- assert-blocked-purchase
   [[response _ transactions]]
@@ -138,8 +138,8 @@
         entity (find-entity ctx "Personal")
         aapl (find-commodity ctx "AAPL")
         ira (find-account ctx "IRA")
-        attr {:trade-date "2016-03-02"
-              :action "sell"; TODO: make this match the serialization :type [:purchase :sale]
+        attr {:trade-date (t/local-date 2016 3 2)
+              :action :sell
               :entity-id (:id entity)
               :shares 100M
               :value 1100M
@@ -149,22 +149,22 @@
                                               :entities
                                               (:id entity)
                                               :trades))
-                     (req/json-body attr)
+                     (edn-body attr)
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         transactions (trans/search {:entity-id (:id entity)
                                     :transaction-date (t/local-date 2016 3 2)})
         lots (lots/search  {:account-id (:id ira)
                             :commodity-id (:id aapl)})]
-    [response body transactions lots]))
+    [response transactions lots]))
 
 (defn- assert-successful-sale
-  [[response body transactions lots]]
+  [[{:as response :keys [edn-body]} transactions lots]]
   (is (http-success? response))
-  (is (comparable? {:transaction-date "2016-03-02"
+  (is (comparable? {:transaction-date (t/local-date 2016 3 2)
                     :description "Sell 100 shares of AAPL at 11.000"}
-                   (:transaction body))
+                   (:transaction edn-body))
       "The created transaction is included in the response")
   (is (seq-with-map-like? {:transaction-date (t/local-date 2016 3 2)
                           :description "Sell 100 shares of AAPL at 11.000"}
@@ -174,7 +174,7 @@
        "The shares are not longer owned"))
 
 (defn- assert-blocked-sale
-  [[response _ transactions lots]]
+  [[response transactions lots]]
   (is (http-not-found? response))
   (is (seq-with-no-map-like? {:transaction-date (t/local-date 2016 3 2)
                               :description "Sell 100.0 shares of AAPL at 11.000"}

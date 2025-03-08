@@ -1,12 +1,12 @@
 (ns clj-money.api.reports-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.dates :refer [with-fixed-time]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [realize
                                             basic-context
@@ -24,30 +24,30 @@
   [email]
   (let [ctx (realize report-context)
         user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (path :api
-                                             :entities
-                                             (:id entity)
-                                             :reports
-                                             :income-statement
-                                             "2016-01-01"
-                                             "2016-01-31"))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        entity (find-entity ctx "Personal")]
+    (-> (req/request :get (path :api
+                                :entities
+                                (:id entity)
+                                :reports
+                                :income-statement
+                                "2016-01-01"
+                                "2016-01-31"))
+        (add-auth user)
+        (req/header "Accept" "application/edn")
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-income-statement
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= ["Income" "Expense" "Net"]
-         (->> body
-              (filter #(#{"header" "summary"} (:style %)))
+         (->> edn-body
+              (filter #(#{:header :summary} (:style %)))
               (map :caption)))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-income-statement
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-income-statement-for-his-entity
@@ -60,30 +60,30 @@
   [email]
   (let [ctx (realize report-context)
         user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (with-fixed-time "2016-02-02T00:00:00Z"
-                   (-> (req/request :get (path :api
-                                               :entities
-                                               (:id entity)
-                                               :reports
-                                               :balance-sheet
-                                               "2016-01-31"))
-                       (add-auth user)
-                       app))
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        entity (find-entity ctx "Personal")]
+    (with-fixed-time "2016-02-02T00:00:00Z"
+      (-> (req/request :get (path :api
+                                  :entities
+                                  (:id entity)
+                                  :reports
+                                  :balance-sheet
+                                  "2016-01-31"))
+          (add-auth user)
+          (req/header "Accept" "application/edn")
+          app
+          parse-edn-body))))
 
 (defn- assert-successful-balance-sheet
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
-         (->> body
-              (filter #(#{"summary" "header"} (:style %)))
+         (->> edn-body
+              (filter #(#{:summary :header} (:style %)))
               (map :caption)))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-balance-sheet
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-balance-sheet-for-his-entity
@@ -103,23 +103,23 @@
   [email]
   (let [ctx (realize budget-context)
         user (find-user ctx email)
-        budget (find-budget ctx "2016")
-        response (-> (req/request :get (path :api
-                                             :reports
-                                             :budget
-                                             (:id budget)))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        budget (find-budget ctx "2016")]
+    (-> (req/request :get (path :api
+                                :reports
+                                :budget
+                                (:id budget)))
+        (add-auth user)
+        (req/header "Accept" "application/edn")
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-budget-report
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (coll? body)))
+  (is (coll? edn-body)))
 
 (defn- assert-blocked-budget-report
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-budget-report-for-his-entity
@@ -143,38 +143,36 @@
   [email]
   (let [ctx (realize monitor-context)
         user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (with-fixed-time "2016-01-07T00:00:00Z"
-                   (-> (req/request :get (path :api
-                                               :entities
-                                               (:id entity)
-                                               :reports
-                                               :budget-monitors))
-                       (add-auth user)
-                       app))
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        entity (find-entity ctx "Personal")]
+    (with-fixed-time "2016-01-07T00:00:00Z"
+      (-> (req/request :get (path :api
+                                  :entities
+                                  (:id entity)
+                                  :reports
+                                  :budget-monitors))
+          (add-auth user)
+          (req/header "Accept" "application/edn")
+          app
+          parse-edn-body))))
 
 (defn- assert-successful-monitor-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (let [expected [{:caption "Groceries"
-                   :period {:total-budget 200.0
-                            :actual 85.0
-                            :percentage 0.2258
-                            :prorated-budget 45.162
-                            :actual-percent 0.425}
-                   :budget {:total-budget 2400.0
-                            :actual 85.0
-                            :percentage 0.0191
-                            :prorated-budget 45.902
-                            :actual-percent 0.035417}}]
-        actual (when (sequential? body)
-                 (map #(dissoc % :account-id) body))]
-    (is (= expected actual))))
+  (is (seq-of-maps-like? [{:caption "Groceries"
+                           :period {:total-budget 200.0M
+                                    :actual 85.0M
+                                    :percentage 0.2258M
+                                    :prorated-budget 45.162M
+                                    :actual-percent 0.425M}
+                           :budget {:total-budget 2400.0M
+                                    :actual 85.0M
+                                    :percentage 0.0191M
+                                    :prorated-budget 45.902M
+                                    :actual-percent 0.035417M}}]
+                         edn-body)))
 
 (defn- assert-blocked-monitor-list
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-budget-monitors-for-his-entity
@@ -209,29 +207,29 @@
   [email]
   (let [ctx (realize portfolio-context)
         user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (str (path :api
-                                                  :entities
-                                                  (:id entity)
-                                                  :reports
-                                                  :portfolio)
-                                            "?aggregate=by-account"))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        entity (find-entity ctx "Personal")]
+    (-> (req/request :get (str (path :api
+                                     :entities
+                                     (:id entity)
+                                     :reports
+                                     :portfolio)
+                               "?aggregate=by-account"))
+        (add-auth user)
+        (req/header "Accept" "application/edn")
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-portfolio-report
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= ["IRA" "Total"]
-         (->> body
-              (filter #(#{"header" "summary"} (:style %)))
+         (->> edn-body
+              (filter #(#{:header :summary} (:style %)))
               (map :caption)))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-portfolio-report
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-portfolio-report-for-his-entity

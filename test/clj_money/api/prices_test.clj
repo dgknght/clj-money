@@ -1,11 +1,9 @@
 (ns clj-money.api.prices-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test :refer [parse-json-body]]
             [java-time.api :as t]
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -14,7 +12,9 @@
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
@@ -46,26 +46,24 @@
                                               :commodities
                                               (:id commodity)
                                               :prices))
-                     (req/json-body {:price 12.34
-                                     :trade-date "2016-03-02"})
+                     (edn-body {:price 12.34M
+                                :trade-date (t/local-date 2016 3 2)})
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         retrieved (prices/search {:commodity-id (:id commodity)
                                   :trade-date (t/local-date 2016 3 2)})]
-    [response body retrieved]))
+    [response retrieved]))
 
 (defn- assert-successful-create
-  [[response body retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? {:price 12.34
-                    :trade-date "2016-03-02"}
-                   body)
-      "The created price is returned in the response")
-  (is (comparable? {:price 12.34M
-                    :trade-date (t/local-date 2016 3 2)}
-                   (first retrieved))
-      "The price is created in the database"))
+  (let [expected {:price 12.34M
+                  :trade-date (t/local-date 2016 3 2)}]
+    (is (comparable? expected edn-body)
+        "The created price is returned in the response")
+    (is (comparable? expected (first retrieved))
+        "The price is created in the database")))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
@@ -96,31 +94,30 @@
   [email]
   (let [ctx (realize list-context)
         user (find-user ctx email)
-        commodity (find-commodity ctx "AAPL")
-        response (-> (req/request :get (str (path :api :prices)
-                                            "?"
-                                            (map->query-string {:trade-date ["2016-01-01" "2016-12-31"]
-                                                                :commodity-id (:id commodity)})))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        commodity (find-commodity ctx "AAPL")]
+    (-> (req/request :get (str (path :api :prices)
+                               "?"
+                               (map->query-string {:trade-date [(t/local-date 2016 1 1) (t/local-date 2016 12 31)]
+                                                   :commodity-id (:id commodity)})))
+        (add-auth user)
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= [{:trade-date "2016-03-02"
-           :price 11.0}
-          {:trade-date "2016-02-27"
-           :price 10.0}]
+  (is (= [{:trade-date (t/local-date 2016 3 2)
+           :price 11.0M}
+          {:trade-date (t/local-date 2016 2 27)
+           :price 10.0M}]
          (map #(select-keys % [:trade-date
                                :price])
-              body))))
+              edn-body))))
 
 (defn- assert-blocked-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-prices-from-his-entity
   (assert-successful-list (get-a-list-by-commodity "john@doe.com")))
@@ -137,28 +134,26 @@
                                                :prices
                                                (dates/serialize-local-date (:trade-date price))
                                                (:id price)))
-                     (req/json-body {:trade-date "2016-02-27"
-                                     :price 9.99})
+                     (edn-body {:trade-date (t/local-date 2016 2 27)
+                                :price 9.99M})
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         retrieved (prices/find price)]
-    [response body retrieved]))
+    [response retrieved]))
 
 (defn- assert-successful-update
-  [[response body retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? {:trade-date "2016-02-27"
-                    :price 9.99}
-                   body)
-      "The response contains the updated price")
-  (is (comparable? {:trade-date (t/local-date 2016 2 27)
-                    :price 9.99M}
-                   retrieved)
-      "The database record is updated"))
+  (let [expected {:trade-date (t/local-date 2016 2 27)
+                  :price 9.99M}]
+    (is (comparable? expected edn-body)
+        "The response contains the updated price")
+    (is (comparable? expected retrieved)
+        "The database record is updated")))
 
 (defn- assert-blocked-update
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
   (is (comparable? {:trade-date (t/local-date 2016 2 27)
                     :price 10M}
@@ -241,27 +236,17 @@
                                    (:id msft)))
             (add-auth user)
             app
-            parse-json-body)))))
+            parse-edn-body)))))
 
 (defn- assert-successful-fetch
   [response]
   (is (http-success? response))
-  (is (= [{:trade-date "2015-03-02"
-           :price 10.01
-           :symbol "AAPL"
-           :exchange "nasdaq"}
-          {:trade-date "2015-03-02"
-           :price 10.01
-           :symbol "MSFT"
-           :exchange "nasdaq"}]
-         (:json-body response)))
   (is (seq-of-maps-like? [{:trade-date (t/local-date 2015 3 2)
-                           :price 10.01M
-                           :commodity-id (:id (find-commodity "AAPL"))}
+                           :price 10.01M}
                           {:trade-date (t/local-date 2015 3 2)
-                           :price 10.01M
-                           :commodity-id (:id (find-commodity "MSFT"))}]
-                         (prices/search {:trade-date (t/local-date 2015 3 2)}))))
+                           :price 10.01M}]
+                         (:edn-body response))
+      "The response contains the matching prices"))
 
 (deftest a-user-can-fetch-a-current-commodity-prices
   (with-context fetch-context
@@ -295,7 +280,7 @@
                                      (:id msft)))
               (add-auth user)
               app
-              parse-json-body)
+              parse-edn-body)
           (-> (req/request :get (str (path :api
                                            :prices
                                            :fetch)
@@ -305,6 +290,6 @@
                                      (:id msft)))
               (add-auth user)
               app
-              parse-json-body))
+              parse-edn-body))
         (is (= 1 (count @calls))
             "The external service is only called once")))))

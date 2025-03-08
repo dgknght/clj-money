@@ -2,12 +2,12 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.java.io :as io]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
             [clj-money.test-context :refer [realize
@@ -36,23 +36,25 @@
         user (find-user ctx "john@doe.com")
         source-file (io/file (io/resource "fixtures/sample.gnucash"))
         calls (atom [])
-        response (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
-                   (-> (req/request :post (path :api :imports))
-                       (merge (build-multipart-request {:entity-name "Personal"
-                                                        :source-file-0 {:file source-file
-                                                                        :content-type "application/gnucash"}}))
-                       (add-auth user)
-                       app))
-        body (json/parse-string (:body response) true)
+        {:as response
+         :keys [edn-body]} (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
+                             (-> (req/request :post (path :api :imports))
+                                 (merge (build-multipart-request {:entity-name "Personal"
+                                                                  :source-file-0 {:file source-file
+                                                                                  :content-type "application/gnucash"}}))
+                                 (add-auth user)
+                                 (req/header "Accept" "application/edn")
+                                 app
+                                 parse-edn-body))
         retrieved (imports/search {:user-id (:id user)})]
-    (is (http-success? response))
+    (is (http-created? response))
     (is (comparable? {:name "Personal"
                       :user-id (:id user)}
-                     (:entity body))
+                     (:entity edn-body))
         "The newly created entity is returned in the response")
     (is (comparable? {:entity-name "Personal"
                       :user-id (:id user)}
-                     (:import body))
+                     (:import edn-body))
         "The newly created import is returned in the response")
     (is (comparable? {:entity-name "Personal"}
                      (first retrieved))
@@ -69,28 +71,27 @@
 (defn- get-a-list
   [email]
   (let [ctx (realize list-context)
-        user (find-user ctx email)
-        response (-> (req/request :get (path :api :imports))
+        user (find-user ctx email)]
+    (-> (req/request :get (path :api :imports))
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+                     app
+                     parse-edn-body)))
 
 (defn- assert-successful-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (= #{"Personal" "Business"}
-         (->> body
+         (->> edn-body
               (map :entity-name)
               set))
       "The response contains the user's imports"))
 
 (defn- assert-other-user-list
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (not (some #(= "Personal" (:entity-name %)) body))
+  (is (not (some #(= "Personal" (:entity-name %)) edn-body))
       "The Personal import is not included in the result")
-  (is (not (some #(= "Business" (:entity-name %)) body))
+  (is (not (some #(= "Business" (:entity-name %)) edn-body))
       "The Business import is not included in the result"))
 
 (deftest a-user-can-get-a-list-of-his-imports
@@ -103,21 +104,21 @@
   [email]
   (let [ctx (realize list-context)
         user (find-user ctx email)
-        imp (find-import ctx "Personal")
-        response (-> (req/request :get (path :api :imports (:id imp)))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        imp (find-import ctx "Personal")]
+    (-> (req/request :get (path :api :imports (:id imp)))
+        (add-auth user)
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (comparable? {:entity-name "Personal"} body)
+  (is (comparable? {:entity-name "Personal"}
+                   edn-body)
       "The import is returned in the response"))
 
 (defn- assert-blocked-get
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-view-his-own-import

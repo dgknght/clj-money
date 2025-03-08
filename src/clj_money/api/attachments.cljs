@@ -1,16 +1,14 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update])
-  (:require [cljs.core.async :as a]
-            [cljs-http.client :as http]
-            [dgknght.app-lib.core :refer [update-in-if]]
+  (:require [cljs-http.client :as http]
             [dgknght.app-lib.web :refer [serialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]
+            [dgknght.app-lib.api-async :as lib-api]
+            [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [app-state]]
             [clj-money.util :as util]))
 
 (defn create
-  [{:keys [transaction-id transaction-date] :as attachment} xf]
+  [{:keys [transaction-id transaction-date] :as attachment} & {:as opts}]
   {:pre [(:transaction-id attachment)
          (:transaction-date attachment)]}
 
@@ -18,40 +16,38 @@
                        transaction-id
                        (serialize-date transaction-date)
                        :attachments)
-             (-> {:channel (a/chan 1 xf (handle-ex "Unable to create the attachment: %s"))}
-                 (api/multipart-params (dissoc attachment :transaction-id :transaction-date))
+             (-> (lib-api/request opts)
+                 (lib-api/multipart-params (dissoc attachment
+                                                   :transaction-id
+                                                   :transaction-date))
+                 (add-error-handler "Unable to create the attachment: %s")
                  (assoc :oauth-token (:auth-token @app-state)))))
-
-(defn- serialize-transaction-date
-  [criteria]
-  (reduce #(update-in-if %1 [%2] serialize-date)
-          criteria
-          (util/nominative-variations :transaction-date)))
 
 (defn- prepare-criteria
   [criteria]
-  (-> criteria
-      (util/nominal-comparatives :transaction-date)
-      serialize-transaction-date))
+  (util/nominal-comparatives criteria :transaction-date))
 
 (defn search
-  [criteria xf]
+  [criteria & {:as opts}]
   (api/get (api/path :attachments)
            (prepare-criteria criteria)
-           {:transform xf
-            :handle-ex (handle-ex "Unable to retrieve the attachments: %s")}))
+           (add-error-handler
+             opts
+             "Unable to retrieve the attachments: %s")))
 
 (defn update
-  [attachment xf]
+  [attachment & {:as opts}]
   (api/patch (api/path :attachments
                        (:id attachment))
              attachment
-             {:transform xf
-              :handle-ex (handle-ex "Unable to update the attachment: %s")}))
+             (add-error-handler
+               opts
+               "Unable to update the attachment: %s")))
 
 (defn delete
-  [attachment xf]
+  [attachment & {:as opts}]
   (api/delete (api/path :attachments
                         (:id attachment))
-              {:transform xf
-               :handle-ex (handle-ex "Unable to delete the attachment: %s")}))
+              (add-error-handler
+                opts
+                "Unable to delete the attachment: %s")))

@@ -2,22 +2,13 @@
   (:refer-clojure :exclude [find update])
   (:require [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.dates :refer [nominal-comparatives]]
-            [dgknght.app-lib.web :refer [serialize-date
-                                         unserialize-date]]
+            [dgknght.app-lib.web :refer [serialize-date]]
             [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]))
+            [clj-money.api :refer [add-error-handler]]))
 
-(defn- after-read
-  [reconciliation]
-  (update-in reconciliation [:end-of-period] unserialize-date))
-
-(defn- transform
-  [xf]
-  (comp (api/apply-fn after-read)
-        xf))
 
 (defn search
-  [{:keys [account-id] :as criteria} xf]
+  [{:keys [account-id] :as criteria} & {:as opts}]
   {:pre [account-id]}
   (let [prepared-criteria (-> criteria
                               (update-in-if [:status] name)
@@ -30,49 +21,32 @@
                        account-id
                        :reconciliations)
              prepared-criteria
-             {:transform (transform xf)
-              :handle-ex (handle-ex "Unable to retrieve the reconciliations: %s")})))
+             (add-error-handler opts "Unable to retrieve the reconciliations: %s"))))
 
 (defn find
-  [criteria xf]
-  (search (assoc criteria :limit 1)
-          (comp (map first)
-                xf)))
-
-(defn- serialize-item-ref
-  [item-ref]
-  (update-in item-ref [1] serialize-date))
-
-(defn- before-save
-  [reconciliation]
-  (-> reconciliation
-      (update-in [:end-of-period] serialize-date)
-      (update-in [:item-refs] #(map serialize-item-ref %))))
+  [criteria & {:as opts}]
+  (apply search
+         (assoc criteria :limit 1)
+         (mapcat identity opts)))
 
 (defn create
-  [{:keys [account-id] :as reconciliation} xf]
+  [{:keys [account-id] :as reconciliation} opts]
   (api/post (api/path :accounts
                       account-id
                       :reconciliations)
-            (-> reconciliation
-                (dissoc :account-id)
-                before-save)
-            {:transform (transform xf)
-             :handle-ex (handle-ex "Unable to create the reconciliation: %s")}))
+            (dissoc reconciliation :account-id)
+            (add-error-handler opts "Unable to create the reconciliation: %s")))
 
 (defn update
-  [{:keys [id] :as reconciliation} xf]
+  [{:keys [id] :as reconciliation} opts]
   (api/patch (api/path :reconciliations
                        id)
-             (-> reconciliation
-                 (dissoc :id :account-id)
-                 before-save)
-             {:transform (transform xf)
-              :handle-ex (handle-ex "Unable to update the reconciliation: %s")}))
+             (dissoc reconciliation :id :account-id)
+             (add-error-handler opts "Unable to update the reconciliation: %s")))
 
 (defn save
-  [reconciliation xf]
+  [reconciliation & {:as opts}]
   (let [f (if (:id reconciliation)
             update
             create)]
-    (f reconciliation xf)))
+    (f reconciliation opts)))

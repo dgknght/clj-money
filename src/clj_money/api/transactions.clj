@@ -3,8 +3,7 @@
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
             [stowaway.core :as storage]
-            [dgknght.app-lib.core :refer [uuid
-                                     update-in-if]]
+            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.authorization :refer [authorize
                                              +scope]
@@ -36,12 +35,12 @@
    (trans/search (->criteria req) (->options req))))
 
 (defn- find-and-auth
-  [{:keys [params authenticated]} action]
+  [{:keys [path-params authenticated]} action]
   (let [trans-date (unserialize-local-date
-                     (some #(params %)
+                     (some #(path-params %)
                            [:original-transaction-date
                             :transaction-date]))]
-    (some-> params
+    (some-> path-params
             (select-keys [:id])
             (update-in [:id] uuid)
             (assoc :transaction-date trans-date)
@@ -68,20 +67,11 @@
    :credit-account-id
    :quantity])
 
-(defn- parse-item
-  [item]
-  (-> item
-      (update-in-if [:quantity] bigdec)
-      (update-in-if [:value] bigdec)
-      (update-in-if [:action] keyword)))
-
 (defn- create
-  [{:keys [params body authenticated]}]
+  [{:keys [params authenticated]}]
   (api/creation-response
-    (-> body
+    (-> params
         expand
-        (update-in-if [:transaction-date] unserialize-local-date)
-        (update-in-if [:items] #(map parse-item %))
         (select-keys attribute-keys)
         (assoc :entity-id (:entity-id params))
         (storage/tag ::models/transaction)
@@ -90,32 +80,28 @@
 
 (defn- apply-to-existing
   [updated-item items]
-  (let [parsed (parse-item updated-item)]
-    (if-let [existing (->> items
-                           (filter #(= (:id %) (:id updated-item)))
-                           first)]
-      (merge existing parsed)
-      parsed)))
+  (if-let [existing (->> items
+                         (filter #(= (:id %) (:id updated-item)))
+                         first)]
+    (merge existing updated-item)
+    updated-item))
 
 (defn- apply-item-updates
   [items updates]
   (map #(apply-to-existing % items) updates))
 
 (defn- apply-update
-  [transaction body]
+  [transaction body-params]
   (-> transaction
-      (merge (-> body
-                 (update-in-if [:transaction-date] unserialize-local-date)
-                 (update-in-if [:original-transaction-date] unserialize-local-date)
-                 (update-in-if [:id] uuid)))
+      (merge body-params)
       (select-keys attribute-keys)
-      (update-in [:items] apply-item-updates (:items body))))
+      (update-in [:items] apply-item-updates (:items body-params))))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [{:keys [body-params] :as req}]
   (if-let [transaction (find-and-auth req ::authorization/update)]
     (-> transaction
-        (apply-update body)
+        (apply-update body-params)
         trans/update
         api/update-response)
     api/not-found))

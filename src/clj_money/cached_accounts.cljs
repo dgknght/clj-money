@@ -8,12 +8,12 @@
   (reset! accounts (->> retrieved nest unnest (into []))))
 
 (defn fetch-accounts
-  ([] (fetch-accounts nil))
+  ([]
+   (accts/select {} :on-success reset-accounts))
   ([xf]
-   (let [xform (if xf
-                 (comp (map reset-accounts) xf)
-                 (map reset-accounts))]
-     (accts/select xform))))
+   (accts/select {}
+                 :on-success reset-accounts
+                 :post-xf xf)))
 
 (defn watch-entity
   [_ _ _ current]

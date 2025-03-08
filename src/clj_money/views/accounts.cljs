@@ -50,9 +50,8 @@
   (when (js/confirm (str "Are you sure you want to delete the account " (:name account) "?"))
     (+busy)
     (accounts/delete account
-                     (map (fn []
-                            (-busy)
-                            (fetch-accounts))))))
+                     :callback -busy
+                     :on-success fetch-accounts)))
 
 (defn- toggle-account
   [id page-state]
@@ -234,9 +233,10 @@
                        (map @accounts-by-id)
                        (map apply-fn))]
     (doseq [account to-update]
-      (accounts/update account
-                       (map success-fn)
-                       error-fn))))
+      (accounts/save account
+                     :callback -busy
+                     :on-success success-fn
+                     :on-error error-fn))))
 
 (defn- tag-elem
   [tag {:keys [remove-fn]}]
@@ -379,10 +379,10 @@
   (-> (some #(get-in @page-state %) [[:selected]
                                      [:allocation :account]])
       prepare-for-save
-      (accounts/save (map (fn [_saved]
-                            (fetch-accounts)
-                            (-busy)
-                            (swap! page-state dissoc :selected :allocation))))))
+      (accounts/save :callback -busy
+                     :on-success (fn [_saved]
+                                   (fetch-accounts)
+                                   (swap! page-state dissoc :selected :allocation)))))
 
 (defn- account-form
   [page-state]
@@ -755,14 +755,14 @@
                 commodity-id
                 earliest-transaction-date
                 latest-transaction-date]} @account]
-    (lots/search {:account-id parent-id
+    (lots/select {:account-id parent-id
                   :commodity-id commodity-id
                   :shares-owned [:!= 0]}
-                 (map #(swap! page-state assoc :lots %)))
-    (prices/search {:commodity-id commodity-id
+                 :on-success #(swap! page-state assoc :lots %))
+    (prices/select {:commodity-id commodity-id
                     :trade-date [earliest-transaction-date
                                  latest-transaction-date]}
-                   (map #(swap! page-state assoc :prices %)))
+                   :on-success #(swap! page-state assoc :prices %))
     (fn []
       [:section
        (bs/nav-tabs [{:caption "Lots"
@@ -793,7 +793,7 @@
           (icon-with-text :plus "Buy/Sell")]
          (html/space)
          [:button.btn.btn-light {:title "Click here to return the the account list."
-                                :on-click #(swap! page-state dissoc :view-account)}
+                                 :on-click #(swap! page-state dissoc :view-account)}
           (icon-with-text :arrow-left-short "Back")]]]])))
 
 (defn- tradable-account-details
@@ -910,11 +910,14 @@
 (defn- load-commodities
   [page-state]
   (+busy)
-  (commodities/select (map (fn [result]
-                             (-busy)
-                             (swap! page-state assoc :commodities (->> result
-                                                                       (map (juxt :id identity))
-                                                                       (into {})))))))
+  (commodities/select {}
+                      :callback -busy
+                      :on-success #(swap! page-state
+                                          assoc
+                                          :commodities
+                                          (->> %
+                                               (map (juxt :id identity))
+                                               (into {})))))
 
 (defn- account-filter
   [page-state]

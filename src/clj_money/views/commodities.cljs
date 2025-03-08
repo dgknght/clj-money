@@ -1,5 +1,6 @@
 (ns clj-money.views.commodities
   (:require [cljs.core.async :refer [chan <! >! go go-loop]]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
@@ -29,21 +30,21 @@
 (defn- load-commodities
   [page-state]
   (+busy)
-  (commodities/select
-    (map (fn [result]
-           (-busy)
-           (swap! page-state #(-> %
-                                  (dissoc :prices-commodity)
-                                  (assoc :commodities (sort-by :name result))))))))
+  (commodities/select {}
+                      :callback -busy
+                      :on-success (fn [result]
+                                    (swap! page-state #(-> %
+                                                           (dissoc :prices-commodity)
+                                                           (assoc :commodities (sort-by :name result)))))))
 
 (defn- save-commodity
   [page-state]
   (+busy)
   (commodities/save (get-in @page-state [:selected])
-                    (map (fn [_]
-                           (-busy)
-                           (swap! page-state dissoc :selected)
-                           (load-commodities page-state)))))
+                    :callback -busy
+                    :on-success (fn [_]
+                                  (swap! page-state dissoc :selected)
+                                  (load-commodities page-state))))
 
 (defn- commodity-form
   [page-state]
@@ -86,11 +87,9 @@
   [commodity page-state]
   (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
     (+busy)
-    (commodities/delete
-      commodity
-      (map (fn []
-             (-busy)
-             (load-commodities page-state))))))
+    (commodities/delete commodity
+                        :callback -busy
+                        :on-success #(load-commodities page-state))))
 
 (defn- truncate
   ([value] (truncate value 20))
@@ -106,7 +105,7 @@
   [xf]
   (completing
     (fn [ch criteria]
-      (prices/search criteria (map #(xf ch %))))))
+      (prices/select criteria :post-xf (map #(xf ch %))))))
 
 (defn- init-price-loading
   [page-state]
@@ -230,22 +229,21 @@
                                 seq)]
     (+busy)
     (prices/fetch commodity-ids
-                  (map (fn [r]
-                         (load-commodities page-state)
-                         (-busy)
-                         r)))))
+                  :callback -busy
+                  :on-success #(load-commodities page-state))))
 
 (defn- commodities-table
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
-        filter-fn (make-reaction #(if @hide-zero-shares?
+        remove? (make-reaction #(if @hide-zero-shares?
+                                  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
                                     (fn [{:keys [shares-owned created-at]}]
-                                      (or (t/after? created-at
-                                                    (t/minus (t/now) (t/hours 1)))
-                                          (not (zero? shares-owned))))
-                                    (constantly true)))
-        filtered (make-reaction #(filter @filter-fn @commodities))
+                                      (or (t/before? created-at
+                                                     an-hour-ago)
+                                          (zero? shares-owned))))
+                                  (constantly false)))
+        filtered (make-reaction #(remove @remove? @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
         search-term (r/cursor page-state [:search-term])
@@ -308,22 +306,18 @@
                 :disabled? selected
                 :caption "Fetch Prices"}]])))
 
-(defn- post-delete-price
-  [page-state price]
-  (-busy)
-  (swap! page-state
-         update-in
-         [:prices]
-         (fn [prices]
-           (remove (fn [p] (= (:id price) (:id p)))
-                   prices))))
-
 (defn- delete-price
   [price page-state]
   (when (js/confirm (str "Are you sure you want to delete the price from " (format-date (:trade-date price)) "?"))
     (+busy)
     (prices/delete price
-                   (map (partial post-delete-price page-state price)))))
+                   :callback -busy
+                   :on-success #(swap! page-state
+                                       update-in
+                                       [:prices]
+                                       (fn [prices]
+                                         (remove (fn [p] (= (:id %) (:id p)))
+                                                 prices))))))
 
 (defn- price-row
   [price page-state]
@@ -395,27 +389,28 @@
   (comp-prices p2 p1))
 
 (defn- post-save-price
-  [page-state new? {:keys [id] :as price}]
-  (-busy)
-  (let [update-fn (if new?
-                    (fn [prices]
-                      (->> (conj prices price)
-                           (sort comp-prices-rev)
-                           vec))
-                    (fn [prices]
-                      (mapv #(if (= (:id %) id)
-                               price
-                               %)
-                            prices)))]
-    (swap! page-state #(-> %
-                           (dissoc :selected-price)
-                           (update-in [:prices] update-fn)))))
+  [page-state new?]
+  (fn [{:keys [id] :as price}]
+    (let [update-fn (if new?
+                      (fn [prices]
+                        (->> (conj prices price)
+                             (sort comp-prices-rev)
+                             vec))
+                      (fn [prices]
+                        (mapv #(if (= (:id %) id)
+                                 price
+                                 %)
+                              prices)))]
+      (swap! page-state #(-> %
+                             (dissoc :selected-price)
+                             (update-in [:prices] update-fn))))))
 (defn- save-price
   [page-state]
   (let [price (get-in @page-state [:selected-price])]
     (+busy)
     (prices/save price
-                 (map (partial post-save-price page-state (not (:id price)))))))
+                 :callback -busy
+                 :on-success (post-save-price page-state (not (:id price))))))
 
 (defn- price-form
   [page-state]

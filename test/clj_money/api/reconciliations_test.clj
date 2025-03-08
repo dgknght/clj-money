@@ -1,11 +1,13 @@
 (ns clj-money.api.reconciliations-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [java-time.api :as t]
-            [cheshire.core :as json]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [basic-context
                                             realize
@@ -59,35 +61,32 @@
   [email]
   (let [ctx (realize recon-context)
         user (find-user ctx email)
-        account (find-account ctx "Checking")
-        response (-> (req/request :get (path :api
-                                             :accounts
-                                             (:id account)
-                                             :reconciliations))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        account (find-account ctx "Checking")]
+    (-> (req/request :get (path :api
+                                :accounts
+                                (:id account)
+                                :reconciliations))
+        (add-auth user)
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-get
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= 1 (count body))
-      "The correct number of reconciliations is returned")
-  (is (comparable? {:end-of-period "2015-01-04"
-                    :balance 400.0}
-                   (first body))
-      "The correct reconciliation records are returned"))
+  (is (seq-of-maps-like? [{:end-of-period (t/local-date 2015 1 4)
+                           :balance 400.0M}]
+                         edn-body)
+      "The reconciliation records are returned"))
 
 (defn- assert-blocked-get
-  [[response body]]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? body) "No reconciliations are returned"))
+  (is (empty? edn-body) "No reconciliations are returned"))
 
-(deftest a-user-can-get-a-reconciliations-from-his-entity
+(deftest a-user-can-get-reconciliations-from-his-entity
   (assert-successful-get (get-reconciliations "john@doe.com")))
 
-(deftest a-user-cannot-get-a-reconciliations-from-anothers-entity
+(deftest a-user-cannot-get-reconciliations-from-anothers-entity
   (assert-blocked-get (get-reconciliations "jane@doe.com")))
 
 (defn- create-reconciliation
@@ -108,32 +107,30 @@
                                               :accounts
                                               (:id account)
                                               :reconciliations))
-                     (req/json-body {:end-of-period "2015-02-04"
-                                     :balance 299.0
-                                     :status status
-                                     :item-refs item-refs})
+                     (edn-body {:end-of-period (t/local-date 2015 2 4)
+                                :balance 299.0M
+                                :status status
+                                :item-refs item-refs})
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
+                     app
+                     parse-edn-body)
         retrieved (recs/find-by {:account-id (:id account)
                                  :end-of-period (t/local-date 2015 2 4)})]
-    [response body retrieved]))
+    [response retrieved]))
 
 (defn- assert-create-succeeded
-  [[response body retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
-  (is (valid? body))
-  (is (comparable? {:end-of-period "2015-02-04"
-                    :balance 299.0}
-                   body)
-      "The body contains the created reconciliation")
-  (is (comparable? {:end-of-period (t/local-date 2015 2 4)
-                    :balance 299M}
-                   retrieved)
-      "The newly created reconciliation can be retrieved"))
+  (is (valid? edn-body))
+  (let [expected {:end-of-period (t/local-date 2015 2 4)
+                  :balance 299M}]
+    (is (comparable? expected edn-body)
+        "The body contains the created reconciliation")
+    (is (comparable? expected retrieved)
+        "The newly created reconciliation can be retrieved")))
 
 (defn- assert-blocked-create
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
   (is (nil?  retrieved) "The reconciliation is not created"))
 
@@ -168,25 +165,25 @@
         response (-> (req/request :patch (path :api
                                                :reconciliations
                                                (:id recon)))
-                     (req/json-body (-> recon
-                                        (dissoc :id)
-                                        (assoc :status :completed)))
+                     (edn-body (-> recon
+                                   (dissoc :id)
+                                   (assoc :status :completed)))
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        retrieved (recs/find recon)]
-    [response body retrieved]))
+                     app
+                     parse-edn-body)]
+    [response (recs/find recon)]))
 
 (defn- assert-successful-update
-  [[response body retrieved]]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (= "completed" (:status body))
-      "The response includes the updated reconciliation")
-  (is (= :completed (:status retrieved))
-      "The reconciliation is updated in the database"))
+  (let [expected {:status :completed}]
+    (is (comparable? expected edn-body)
+        "The response includes the updated reconciliation")
+    (is (comparable? expected retrieved)
+        "The reconciliation is updated in the database")))
 
 (defn- assert-blocked-update
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
   (is (= :new (:status retrieved))
       "The reconciliation is not updated in the database"))
