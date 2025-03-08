@@ -79,7 +79,7 @@
    [:td (:name entity)]
    [:td.text-end
     [:div.btn-group
-     [:button.btn.btn-sm.btn-light {:on-click (fn []
+     [:button.btn.btn-sm.btn-secondary {:on-click (fn []
                                                 (swap! page-state assoc :selected entity)
                                                 (set-focus "name"))
                                     :disabled busy?

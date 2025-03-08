@@ -42,7 +42,7 @@
            :height 64}]
     [:h1.display-5.ms-3 "clj-money"]]
    [:p "This is a double-entry accounting application that aims to be available anywhere."]
-   [:a#login.btn.btn-light {:href "/auth/google/start"
+   [:a#login.btn.btn-secondary {:href "/auth/google/start"
                             :title "Click here to sign in with a Google account"}
     (google-g)
     [:span "Sign in with Google"]]])

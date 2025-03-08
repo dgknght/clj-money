@@ -345,7 +345,7 @@
          [:button.btn-primary {:title "Click here to save this budget item."
                                :on-click #(save-budget page-state)}
           (icon-with-text :check "Save")]
-         [:button.btn-light.ms-2
+         [:button.btn-secondary.ms-2
           {:title "Click here to cancel this edit."
            :on-click #(swap! page-state update-in [:budget] dissoc :apply-info)}
           (icon-with-text :x "Cancel")]]]])))
@@ -592,7 +592,7 @@
 
        [:div.d-print-none.d-flex.justify-content-between
         [:h1 "Reports"]
-        [:button.btn.btn-light
+        [:button.btn.btn-secondary
          {:type :button
           :data-bs-toggle "offcanvas"
           :data-bs-target "#report-options"

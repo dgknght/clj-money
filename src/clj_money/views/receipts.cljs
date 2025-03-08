@@ -235,7 +235,7 @@
    [:td (:description transaction)]
    [:td (format-decimal (:value transaction))]
    [:td
-    [:button.btn.btn-sm.btn-light
+    [:button.btn.btn-sm.btn-secondary
      {:title "Click here to edit this transaction."
       :on-click #(swap! page-state assoc :receipt (->receipt transaction))}
      (icon :pencil {:size :small})]]])

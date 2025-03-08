@@ -223,10 +223,10 @@
      (when-not @reconciliation
        [:td
         [:div.btn-group
-         [:button.btn.btn-light.btn-sm {:on-click #(edit-transaction item page-state)
+         [:button.btn.btn-secondary.btn-sm {:on-click #(edit-transaction item page-state)
                                        :title "Click here to edit this transaction."}
           (icon :pencil :size :small)]
-         [:button.btn.btn-light.btn-sm.d-none.d-md-block
+         [:button.btn.btn-secondary.btn-sm.d-none.d-md-block
           {:on-click (fn []
                        (swap! page-state
                               assoc
