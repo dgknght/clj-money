@@ -48,6 +48,7 @@
                                                  :import/source-file-0 {:file source-file
                                                                         :content-type "application/gnucash"}}))
                 (add-auth user)
+                (req/header "Accept" "application/edn")
                 app
                 parse-edn-body))]
       (is (http-success? response))

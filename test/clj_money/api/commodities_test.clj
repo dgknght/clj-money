@@ -82,11 +82,11 @@
   (is (http-success? response))
   (is (seq-of-maps-like? [#:commodity{:name "Microsoft, Inc"
                                       :symbol "MSFT"
-                                      :type "stock"
-                                      :exchange "nasdaq"}
+                                      :type :stock
+                                      :exchange :nasdaq}
                           #:commodity{:name "US Dollar"
                                       :symbol "USD"
-                                      :type "currency"}]
+                                      :type :currency}]
                          edn-body)
       "The body contains the list of commodities"))
 
@@ -116,8 +116,8 @@
   (is (http-success? response))
   (is (comparable? #:commodity{:name "Microsoft, Inc"
                                :symbol "MSFT"
-                               :type "stock"
-                               :exchange "nasdaq"}
+                               :type :stock
+                               :exchange :nasdaq}
                    edn-body)
       "The specified commodity is returned in the response"))
 
@@ -132,10 +132,10 @@
   (assert-blocked-get (get-a-commodity "jane@doe.com")))
 
 (def ^:private attributes
-  #:commodity{:type "stock"
+  #:commodity{:type :stock
               :name "Apple, Inc."
               :symbol "AAPL"
-              :exchange "nasdaq"
+              :exchange :nasdaq
               :price-config {:price-config/enabled true}})
 
 (defn- create-a-commodity

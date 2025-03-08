@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models :as models]
             [clj-money.authorization.entities]))
@@ -31,6 +32,7 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
+          (util/model-type :entity)
           (+scope :entity authenticated)
           models/find-by
           (authorize action authenticated)))

@@ -20,7 +20,8 @@
       (update-in-if [:shares-owned 0] keyword)
       (update-in-if [:shares-owned 1] bigdec)
       (util/qualify-keys :lot)
-      (+scope :lot authenticated)))
+      (+scope :lot authenticated)
+      (util/model-type :lot)))
 
 (defn index
   [req]

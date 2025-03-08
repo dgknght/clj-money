@@ -104,6 +104,7 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
+          (util/model-type :import)
           (+scope :import authenticated)
           models/find-by
           (authorize action authenticated)))

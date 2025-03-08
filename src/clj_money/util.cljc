@@ -120,7 +120,8 @@
    {:pre [x]}
    (model-type* x))
   ([m model-or-type]
-   {:pre [(map? m)
+   {:pre [(or (map? m)
+              (vector? m))
           (or (map? model-or-type)
               (keyword? model-or-type))]}
    (let [t (extract-model-type model-or-type)]
