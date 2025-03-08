@@ -568,11 +568,11 @@
 (defn- transaction-form-nav-tab
   [{:keys [mode disabled?]} page-state]
   (let [current-mode (trns/mode (:transaction @page-state))]
-    {:caption (humanize (name mode))
+    {:label (humanize (name mode))
      :disabled? disabled?
-     :elem-key (str "entry-mode-" (name mode))
+     :id (str "entry-mode-" (name mode))
      :active? (= current-mode mode)
-     :on-click #(do-tab-nav mode page-state)}))
+     :nav-fn #(do-tab-nav mode page-state)}))
 
 (defn- neutralize
   [transaction mode]

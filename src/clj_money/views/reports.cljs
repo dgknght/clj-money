@@ -247,7 +247,7 @@
        {:on-click #(apply-to-budget item page-state)
         :title "Click here to update the budget with recorded actual values."
         :style {:cursor :pointer}}
-       (icon :gear {:size :small})])
+       (icon :gear :size :small)])
     [:span.flex-fill.text-end (format-decimal difference)]]
    [:td.text-end.d-none.d-md-table-cell (format-percent percent-difference)]
    [:td.text-end.d-none.d-md-table-cell (format-decimal actual-per-period)]])
@@ -501,11 +501,11 @@
     (fn []
       [:<>
        (bs/nav-pills {:class "mb-2"} (map (fn [id]
-                                            {:elem-key id
-                                             :caption (humanize id)
-                                             :on-click (fn []
-                                                         (reset! current-nav id)
-                                                         (load-report page-state))
+                                            {:id id
+                                             :label (humanize id)
+                                             :nav-fn (fn []
+                                                       (reset! current-nav id)
+                                                       (load-report page-state))
                                              :active? (= id @current-nav)})
                                           [:by-account :by-commodity]))
        [forms/date-field options [:as-of]]])))
@@ -528,13 +528,13 @@
   [page-state]
   (fn [id]
     (let [selected (get-in @page-state [:selected])]
-      {:elem-key id
-       :caption (title-case (humanize id))
+      {:id id
+       :label (title-case (humanize id))
        :active? (= id selected)
-       :on-click (fn []
-                   (swap! page-state assoc :selected id)
-                   (when-not (get-in @page-state [id :report])
-                     (load-report page-state)))})))
+       :nav-fn (fn []
+                 (swap! page-state assoc :selected id)
+                 (when-not (get-in @page-state [id :report])
+                   (load-report page-state)))})))
 
 (defn- filter-form
   [page-state]
@@ -558,9 +558,10 @@
            :budget           [budget-options options page-state]
            :portfolio        [portfolio-options options page-state])
          [:div.mt-3
-          [:button.btn-primary {:type :submit
-                                :data-bs-dismiss :offcanvas
-                                :title "Click here to show the report with the specified parameters"}
+          [:button.btn.btn-primary
+           {:type :submit
+            :data-bs-dismiss :offcanvas
+            :title "Click here to show the report with the specified parameters"}
            (icon-with-text :arrow-repeat "Show")]]]]])))
 
 (defn- init-state []
@@ -592,7 +593,7 @@
 
        [:div.d-print-none.d-flex.justify-content-between
         [:h1 "Reports"]
-        [:button.btn.btn-secondary
+        [:button.btn.btn-dark
          {:type :button
           :data-bs-toggle "offcanvas"
           :data-bs-target "#report-options"
