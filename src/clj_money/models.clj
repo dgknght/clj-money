@@ -19,13 +19,27 @@
 ; A map of priority number to sets of propagation fns
 (def ^:private full-propagations (atom {}))
 
-(defn propagate-all []
-  (->> @full-propagations
-       (sort-by first)
-       (mapcat second)
-       (mapv #(%))))
+(defn propagate-all
+  "Performs a full propagation for all models in the system.
+
+  Model namespaces register a function with add-full-propagation so that when
+  this function is called, all of the mode-specific propagations will be executed."
+  ([]
+   (->> @full-propagations
+        (sort-by first)
+        (mapcat second)
+        (map #(%))))
+  ([entity]
+   (->> @full-propagations
+        (sort-by first)
+        (mapcat second)
+        (map #(% entity)))))
 
 (defn add-full-propagation
+  "Registers a function that will be executed with propagate-all is invoked.
+
+  The function must have two arities: One that accepts an entity as the single argument,
+  and one that accepts no arguments (and processes all entities)"
   [f & {:keys [priority] :or {priority 10}}]
   (swap! full-propagations update-in [priority] (fnil conj #{}) f))
 
