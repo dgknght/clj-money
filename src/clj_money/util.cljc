@@ -561,7 +561,7 @@
   (cond
     ; the args are the options, return a function with the specified options
     (keyword? a1)
-    #(apply simplify % args)
+    #(apply simplify % (cons a1 args))
 
     (and (vector? a1)
          #{:clj-money.db/delete
@@ -573,10 +573,6 @@
     (sequential? a1)
     (map #(apply simplify % args)
          a1)
-
-    ; don't simplify model refs
-    (model-ref? a1)
-    a1
 
     ; apply to a model map
     (map? a1)

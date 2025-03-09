@@ -299,3 +299,29 @@
                              [{:id 2 :user/name "Joan"}
                               {:id 1 :user/name "John"}]))
         "An existing item is replaed"))
+
+(deftest render-a-simplified-model
+  (is (= {:account/name "Checking"}
+         (util/simplify {:account/name "Checking"
+                         :account/balance 100M}))
+      "A map is simplified")
+  (is (= [{:account/name "Checking"}]
+         (util/simplify '({:account/name "Checking"
+                           :account/balance 100M})))
+      "A sequence of maps is simplified")
+  (is (= {:unknown-key 123}
+         (util/simplify {:unknown-key 123}))
+      "A map with no recognized keys is returned as-is")
+  (is (= 123
+         (util/simplify 123))
+      "An unrecognized type is returned as-is")
+  (is (= {:id 123}
+         (util/simplify {:id 123}))
+      "A model ref is returned as-is")
+  (let [f (util/simplify :include [:account/balance])]
+    (is (= {:account/name "Checking"
+            :account/balance 100M}
+           (f {:account/name "Checking"
+               :account/balance 100M
+               :account/type :asset}))
+        "When only options are specified, a simplifying function is returned")))
