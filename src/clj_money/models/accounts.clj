@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [stowaway.core :as stow :refer [tag]]
             [dgknght.app-lib.core :refer [assoc-if
                                           index-by]]
             [dgknght.app-lib.validation :as v]
@@ -87,7 +86,6 @@
   "Adjusts account data for saving in the database"
   [account & _]
   (-> account
-      (tag ::models/account)
       (update-in [:quantity] (fnil identity 0M))
       (update-in [:value] (fnil identity 0M))
       (update-in [:type] name)
