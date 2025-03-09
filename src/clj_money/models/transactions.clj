@@ -575,6 +575,7 @@
    (doseq [entity (models/select (util/model-type {} :entity))]
      (propagate-all entity)))
   ([entity]
+   {:pre [entity]}
    (let [{:keys [entity models]}
          (->> (models/select {:account/entity entity})
               apply-commodities
