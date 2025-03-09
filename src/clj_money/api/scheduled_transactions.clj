@@ -1,6 +1,7 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [java-time.api :as t]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
@@ -17,6 +18,8 @@
   [{:keys [params authenticated]}]
   (-> params
       (select-keys [:entity-id])
+      (rename-keys {:entity-id :scheduled-transaction/entity})
+      (update-in [:scheduled-transaction/entity] util/->model-ref)
       (+scope :scheduled-transaction authenticated)))
 
 (defn- index
@@ -37,7 +40,8 @@
                        :scheduled-transaction/interval-count
                        :scheduled-transaction/entity
                        :scheduled-transaction/description
-                       :scheduled-transaction/memo]))
+                       :scheduled-transaction/memo
+                       :scheduled-transaction/items]))
 
 (defn- create
   [{:keys [params authenticated] :as req}]
@@ -50,11 +54,11 @@
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
-  (authorize (models/find-by (+scope (select-keys params [:id])
-                                     :scheduled-transaction
-                                     authenticated))
-             action
-             authenticated))
+  (-> params
+      (select-keys [:id])
+      (+scope :scheduled-transaction authenticated)
+      models/find-by
+      (authorize action authenticated)))
 
 (defn- update
   [req]
@@ -82,9 +86,10 @@
 
 (defn- mass-realize
   [{:keys [params authenticated]}]
-  (if-let [entity (models/find-by (+scope {:id (:entity-id params)}
-                                          :entity
-                                          authenticated))]
+  (if-let [entity (some-> {:id (:entity-id params)}
+                          (util/model-type :entity)
+                          (+scope :entity authenticated)
+                          models/find-by)]
     (->> (models/select
            [:and
             #:scheduled-transaction{:entity entity
@@ -94,9 +99,9 @@
              {:scheduled-transaction/end-date [:< (t/local-date)]}]])
          (filter #(allowed? % ::sched-trans-auth/realize authenticated))
          (mapcat sched-trans/realize)
-         (sort-by :transaction/transaction-date t/before?)
          models/put-many
          (filter (util/model-type? :transaction))
+         (sort-by :transaction/transaction-date t/before?)
          api/creation-response)
     api/not-found))
 

@@ -61,16 +61,16 @@
   [{:keys [edn-body] :as response}]
   (is (http-success? response))
   (is (seq-of-maps-like?
-        [#:scheduled-transaction{:start-date "2004-03-02"
+        [#:scheduled-transaction{:start-date (t/local-date 2004 03 02)
                                  :description "Landlord"
                                  :memo "automatically created"
-                                 :interval-type "year"
+                                 :interval-type :year
                                  :interval-count 1
-                                 :items [#:scheduled-transaction-item{:action "credit"
-                                                                      :quantity 50.0
+                                 :items [#:scheduled-transaction-item{:action :credit
+                                                                      :quantity 50M
                                                                       :memo "checking"}
-                                         #:scheduled-transaction-item{:action "debit"
-                                                                      :quantity 50.0
+                                         #:scheduled-transaction-item{:action :debit
+                                                                      :quantity 50M
                                                                       :memo "rent"}]}]
         edn-body)
       "The body contains the existing scheduled transactions"))
@@ -88,7 +88,7 @@
 
 (defn- attr []
   #:scheduled-transaction{:description "Paycheck"
-                          :start-date "2021-01-01"
+                          :start-date (t/local-date 2021 01 01)
                           :date-spec {:days [:friday]}
                           :interval-type :week
                           :interval-count 2
@@ -121,35 +121,22 @@
   [[{:keys [edn-body] :as response} retrieved]]
   (is (http-created? response))
   (is (:id edn-body) "The return value contains an :id")
-  (is (comparable?
-        #:scheduled-transaction{:description "Paycheck"
-                                :start-date "2021-01-01"
-                                :date-spec {:days ["friday"]}
-                                :interval-type "week"
-                                :interval-count 2
-                                :memo "biweekly"
-                                :items [#:scheduled-transaction-item{:action "debit"
-                                                                     :quantity 1000
-                                                                     :memo "checking"}
-                                        #:scheduled-transaction-item{:action "credit"
-                                                                     :quantity 1000
-                                                                     :memo "salary"}]}
-        edn-body)
-      "The return value contains the created schedule transaction")
-  (is (comparable? #:scheduled-transaction{:description "Paycheck"
-                                           :start-date (t/local-date 2021 1 1)
-                                           :date-spec {:days [:friday]}
-                                           :interval-type :week
-                                           :interval-count 2
-                                           :memo "biweekly"
-                                           :items [#:scheduled-transaction-item{:action :debit
-                                                                                :quantity 1000M
-                                                                                :memo "checking"}
-                                                   #:scheduled-transaction-item{:action :credit
-                                                                                :quantity 1000M
-                                                                                :memo "salary"}]}
-                   retrieved)
-      "The scheduled transaction can be retrieved"))
+  (let [expected #:scheduled-transaction{:description "Paycheck"
+                                         :start-date (t/local-date 2021 1 1)
+                                         :date-spec {:days [:friday]}
+                                         :interval-type :week
+                                         :interval-count 2
+                                         :memo "biweekly"
+                                         :items [#:scheduled-transaction-item{:action :debit
+                                                                              :quantity 1000M
+                                                                              :memo "checking"}
+                                                 #:scheduled-transaction-item{:action :credit
+                                                                              :quantity 1000M
+                                                                              :memo "salary"}]}]
+    (is (comparable? expected edn-body)
+        "The return value contains the created schedule transaction")
+    (is (comparable? expected retrieved)
+        "The scheduled transaction can be retrieved")))
 
 (defn- assert-blocked-create
   [[response retrieved]]
@@ -200,7 +187,7 @@
 (defn- assert-successful-update
   [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:scheduled-transaction{:interval-type "week"
+  (is (comparable? #:scheduled-transaction{:interval-type :week
                                            :interval-count 2}
                    edn-body)
       "The updated scheduled transaction is returned")
@@ -376,22 +363,16 @@
 (defn- assert-successful-mass-realization
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
-  (is (seq-of-maps-like? [#:transaction{:description "Groceries"
-                                        :transaction-date "2016-01-31"}
-                          #:transaction{:description "Paycheck"
-                                        :transaction-date "2016-02-01"}
-                          #:transaction{:description "Groceries"
-                                        :transaction-date "2016-02-07"}]
-                         edn-body)
-      "The created transactions are returned.")
-  (is (seq-of-maps-like? [#:transaction{:description "Groceries"
-                                        :transaction-date (t/local-date 2016 1 31)}
-                          #:transaction{:description "Paycheck"
-                                        :transaction-date (t/local-date 2016 2 1)}
-                          #:transaction{:description "Groceries"
-                                        :transaction-date (t/local-date 2016 2 7)}]
-                         retrieved)
-      "The transactions can be retrieved."))
+  (let [expected [#:transaction{:description "Groceries"
+                                :transaction-date (t/local-date 2016 1 31)}
+                  #:transaction{:description "Paycheck"
+                                :transaction-date (t/local-date 2016 2 1)}
+                  #:transaction{:description "Groceries"
+                                :transaction-date (t/local-date 2016 2 7)}]]
+    (is (seq-of-maps-like? expected edn-body)
+        "The created transactions are returned.")
+    (is (seq-of-maps-like? expected retrieved)
+        "The transactions can be retrieved.")))
 
 (defn- assert-blocked-mass-realization
   [[response retrieved]]

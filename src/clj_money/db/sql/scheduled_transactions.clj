@@ -1,6 +1,7 @@
 (ns clj-money.db.sql.scheduled-transactions
   (:require [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
@@ -29,5 +30,7 @@
   [storage trxs]
   (map #(assoc %
                :scheduled-transaction/items
-               (vec (db/select storage {:scheduled-transaction-item/scheduled-transaction %} {})))
+               (vec (db/select storage
+                               {:scheduled-transaction-item/scheduled-transaction (util/->model-ref %)}
+                               {})))
        trxs))

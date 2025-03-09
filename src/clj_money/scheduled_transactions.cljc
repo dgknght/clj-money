@@ -138,8 +138,16 @@
   if the date of the new transactions would be within one week
   of the current date"
   [sched-trx]
-  (mapv (->transaction sched-trx)
-        (next-transaction-dates sched-trx)))
+  (when-let [created (->> (next-transaction-dates sched-trx)
+                          (map (->transaction sched-trx))
+                          seq)]
+    (cons (assoc sched-trx
+                 :scheduled-transaction/last-occurrence
+                 (->> created
+                      (map :transaction/transaction-date)
+                      (sort t/after?)
+                      first))
+          created)))
 
 (defn pending?
   [{:scheduled-transaction/keys [enabled start-date end-date next-occurrence]}]
