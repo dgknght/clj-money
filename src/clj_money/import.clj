@@ -3,7 +3,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [>! chan go pipe sliding-buffer] :as async]
+            [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
             [java-time.api :as t]
             [clj-money.util :as util]
@@ -535,7 +535,7 @@
     (completing
       (fn
         [acc v]
-        (go (>! c v))
+        (a/go (a/>! c v))
         (xf acc v)))))
 
 (defmulti update-progress-state
@@ -634,16 +634,16 @@
 (defn- import-data*
   [import-spec progress-chan]
   (let [user (models/find (:import/user import-spec) :user)
-        [_inputs _source-type] (prepare-input (:import/images import-spec))
+        [inputs source-type] (prepare-input (:import/images import-spec))
         entity ((some-fn models/find-by models/put)
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
         wait-promise (promise)
-        source-chan (chan)
-        rebalance-chan (chan 1 (map #(assoc % :import/record-type :account-balance)))
-        reconciliations-chan (chan 1 (map #(assoc % :import/record-type :process-reconciliation)))
-        prep-chan (chan (sliding-buffer 1) (->progress))
-        _read-source-result-chan (async/transduce
+        source-chan (a/chan)
+        rebalance-chan (a/chan 1 (map #(assoc % :import/record-type :account-balance)))
+        reconciliations-chan (a/chan 1 (map #(assoc % :import/record-type :process-reconciliation)))
+        prep-chan (a/chan (a/sliding-buffer 1) (->progress))
+        read-source-result-chan (a/transduce
                                   (comp (filter-import)
                                         import-record
                                         (forward prep-chan))
@@ -652,21 +652,15 @@
                                    :account-ids {}
                                    :entity entity}
                                   source-chan)]
-    (pipe rebalance-chan prep-chan false)
-    (pipe reconciliations-chan prep-chan false)
-    (pipe prep-chan progress-chan false)
-    (go
+    (a/pipe rebalance-chan prep-chan false)
+    (a/pipe reconciliations-chan prep-chan false)
+    (a/pipe prep-chan progress-chan false)
+    (a/go
       (try
-        (throw (RuntimeException. "Need to rewrite the logic that executes propagation after import is completed"))
-        #_(let [result (transactions/with-delayed-balancing [(:id entity) rebalance-chan]
-                       (read-source source-type inputs source-chan)
-                       (<!! read-source-result-chan))]
-          (deref
-            (process-reconciliations (assoc result
-                                            :earliest-date (settings/get :earliest-partition-date)
-                                            :latest-date (settings/get :latest-partition-date))
-                                     reconciliations-chan))
-          (>! prep-chan ::finished))
+        (read-source source-type inputs source-chan)
+        (a/<!! read-source-result-chan)
+        ; TODO: Also need to restore the reconciliation processing
+        (models/propagate-all entity)
         (finally
           (deliver wait-promise true))))
     {:entity entity
