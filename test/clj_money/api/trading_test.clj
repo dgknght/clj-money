@@ -93,20 +93,14 @@
 (defn- assert-successful-reinvestment
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (seq-of-maps-like?
-        [#:transaction{:transaction-date "2016-03-02"
-                       :description "Dividend received"}
-         #:transaction{:transaction-date "2016-03-02"
-                       :description "Reinvest $1,000.00 and purchase 100.0 shares of AAPL at 10.000"}]
-        (:trade/transactions edn-body))
-      "The creating transaction is returned in the response")
-  (is (seq-of-maps-like?
-        [#:transaction{:transaction-date "2016-03-02"
-                       :description "Dividend received"}
-         #:transaction{:transaction-date (t/local-date 2016 3 2)
-                       :description "Reinvest $1,000.00 and purchase 100.0 shares of AAPL at 10.000"}]
-        retrieved)
-      "The new transaction can be retrieved from the database"))
+  (let [expected [#:transaction{:transaction-date (t/local-date 2016 3 2)
+                                :description "Dividend received"}
+                  #:transaction{:transaction-date (t/local-date 2016 3 2)
+                                :description "Reinvest $1,000.00 and purchase 100.0 shares of AAPL at 10.000"}]]
+    (is (seq-of-maps-like? expected (:trade/transactions edn-body))
+        "The creating transaction is returned in the response")
+    (is (seq-of-maps-like? expected retrieved)
+        "The new transaction can be retrieved from the database")))
 
 (defn- assert-blocked-purchase
   [[response retrieved]]

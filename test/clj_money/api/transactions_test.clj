@@ -5,6 +5,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
@@ -69,10 +70,10 @@
 (defn- assert-successful-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:transaction{:transaction-date "2016-02-01"
+  (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2016 02 01)
                                         :description "Paycheck"
                                         :memo "Pre-existing transaction"
-                                        :value 1000.0}]
+                                        :value 1000.0M}]
                          edn-body)
       "The response contains the transaction for the specified entity in the specified date range"))
 
@@ -102,10 +103,10 @@
 (defn- assert-successful-get
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (comparable? #:transaction{:transaction-date "2016-02-01"
+  (is (comparable? #:transaction{:transaction-date (t/local-date 2016 02 01)
                                  :description "Paycheck"
                                  :memo "Pre-existing transaction"
-                                 :value 1000.0}
+                                 :value 1000.0M}
                    edn-body)
       "The response body contains the transaction details"))
 
@@ -130,7 +131,7 @@
                                                 (:id entity)
                                                 :transactions))
                        (edn-body #:transaction{:description "Paycheck"
-                                                    :transaction-date "2016-03-02"
+                                                    :transaction-date (t/local-date 2016 03 02)
                                                     :memo "Seems like there should be more"
                                                     :debit-account {:id (:id checking)}
                                                     :credit-account {:id (:id salary)}
@@ -154,15 +155,15 @@
                                                 :transactions))
                        (edn-body
                          #:transaction{:description "Paycheck"
-                                       :transaction-date "2016-03-02"
+                                       :transaction-date (t/local-date 2016 03 02)
                                        :memo "Seems like there should be more"
-                                       :items [#:transaction-item{:account (select-keys checking [:id])
+                                       :items [#:transaction-item{:account (util/->model-ref checking)
                                                                   :action :debit
-                                                                  :quantity 1000.0
+                                                                  :quantity 1000M
                                                                   :memo "checking item"}
-                                               #:transaction-item{:account (select-keys salary [:id])
+                                               #:transaction-item{:account (util/->model-ref salary)
                                                                   :action :credit
-                                                                  :quantity 1000.0
+                                                                  :quantity 1000M
                                                                   :memo "salary item"}]})
                        (add-auth (find-user email))
                        app
@@ -173,17 +174,13 @@
 (defn- assert-successful-create
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:transaction{:description "Paycheck"
-                                 :transaction-date "2016-03-02"
-                                 :memo "Seems like there should be more"}
-                   edn-body)
-      "The created transaction is returned in the response")
-  (is (seq-with-map-like? #:transaction{:description "Paycheck"
-
-                                        :transaction-date (t/local-date 2016 3 2)
-                                        :memo "Seems like there should be more"}
-                          retrieved)
-      "The created transaction can be retrieved from the database"))
+  (let [expected #:transaction{:description "Paycheck"
+                               :transaction-date (t/local-date 2016 3 2)
+                               :memo "Seems like there should be more"}]
+    (is (comparable? expected edn-body)
+        "The created transaction is returned in the response")
+    (is (seq-with-map-like? expected retrieved)
+        "The created transaction can be retrieved from the database")))
 
 (defn- assert-blocked-create
   [[response retrieved]]
@@ -224,9 +221,8 @@
                                                  (serialize-local-date (:transaction/transaction-date transaction))
                                                  (:id transaction)))
                        (edn-body (-> transaction
-                                          (assoc :transaction/description "Just got paid today")
-                                          (update-in [:transaction/transaction-date] serialize-local-date)
-                                          (update-in [:transaction/items] update-items)))
+                                     (assoc :transaction/description "Just got paid today")
+                                     (update-in [:transaction/items] update-items)))
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
@@ -238,16 +234,13 @@
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:transaction{:description "Just got paid today"
-                                 :transaction-date "2016-02-01"
-                                 :memo "Pre-existing transaction"}
-                   edn-body)
-      "The updated transaction is returned in the response")
-  (is (comparable? #:transaction{:description "Just got paid today"
-                                 :transaction-date (t/local-date 2016 2 1)
-                                 :memo "Pre-existing transaction"}
-                   retrieved)
-      "The transaction is updated in the database"))
+  (let [expected #:transaction{:description "Just got paid today"
+                               :transaction-date (t/local-date 2016 2 1)
+                               :memo "Pre-existing transaction"}]
+    (is (comparable? expected edn-body)
+        "The updated transaction is returned in the response")
+    (is (comparable? expected retrieved)
+        "The transaction is updated in the database")))
 
 (defn- assert-blocked-update
   [[response retrieved]]

@@ -7,7 +7,7 @@
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
-            [clj-money.util :refer [id=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :refer [unserialize-local-date]]
             [clj-money.models :as models]
             [clj-money.authorization.transactions]

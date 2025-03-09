@@ -1,5 +1,6 @@
 (ns clj-money.authorization.transactions
-  (:require [clj-money.authorization :as authorization]
+  (:require [clj-money.util :as util]
+            [clj-money.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
 (defmethod authorization/allowed? [:transaction ::authorization/manage]
@@ -8,8 +9,8 @@
 
 (defmethod authorization/scope :transaction
   [_ user]
-  {:entity/user user})
+  (util/model-type {:entity/user user} :transaction))
 
 (defmethod authorization/scope :transaction-item
   [_ user]
-  {:entity/user user})
+  (util/model-type {:entity/user user} :transaction-item))

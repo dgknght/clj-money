@@ -123,7 +123,7 @@
                                  "?"
                                  (map->query-string {:limit 5
                                                      :unreconciled true
-                                                     :transaction-date ["2017-01-01" "2017-02-01"]})))
+                                                     :transaction-date [(t/local-date 2017 01 01) (t/local-date 2017 02 01)]})))
           (add-auth (find-user email))
           app
           parse-edn-body))))
@@ -131,33 +131,33 @@
 (defn- assert-successful-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:transaction-item/transaction-date "2017-01-29"
+  (is (seq-of-maps-like? [{:transaction-item/transaction-date (t/local-date 2017 01 29)
                            :transaction/description "Kroger"
-                           :transaction-item/quantity 100.0
-                           :transaction-item/polarized-quantity -100.0
-                           :transaction-item/action "credit"}
-                          {:transaction-item/transaction-date "2017-01-22"
+                           :transaction-item/quantity 100M
+                           :transaction-item/polarized-quantity -100M
+                           :transaction-item/action :credit}
+                          {:transaction-item/transaction-date (t/local-date 2017 01 22)
                            :transaction/description "Kroger"
-                           :transaction-item/quantity 100.0
-                           :transaction-item/polarized-quantity -100.0
-                           :transaction-item/action "credit"}
-                          {:transaction-item/transaction-date "2017-01-15"
+                           :transaction-item/quantity 100M
+                           :transaction-item/polarized-quantity -100M
+                           :transaction-item/action :credit}
+                          {:transaction-item/transaction-date (t/local-date 2017 01 15)
                            :transaction/description "Paycheck"
-                           :transaction-item/quantity 1000.0
-                           :transaction-item/polarized-quantity 1000.0
-                           :transaction-item/action "debit"}
-                          {:transaction-item/transaction-date "2017-01-14"
+                           :transaction-item/quantity 1000M
+                           :transaction-item/polarized-quantity 1000M
+                           :transaction-item/action :debit}
+                          {:transaction-item/transaction-date (t/local-date 2017 01 14)
                            :transaction/description "Kroger"
-                           :transaction-item/quantity 100.0
-                           :transaction-item/polarized-quantity -100.0
-                           :transaction-item/action "credit"}
-                          {:transaction-item/transaction-date "2017-01-01"
+                           :transaction-item/quantity 100M
+                           :transaction-item/polarized-quantity -100M
+                           :transaction-item/action :credit}
+                          {:transaction-item/transaction-date (t/local-date 2017 01 01)
                            :transaction/description "Kroger"
-                           :transaction-item/quantity 100.0
-                           :transaction-item/polarized-quantity -100.0
-                           :transaction-item/action "credit"}]
+                           :transaction-item/quantity 100M
+                           :transaction-item/polarized-quantity -100M
+                           :transaction-item/action :credit}]
                          edn-body)
-      "The correct transaction items are returned in the response"))
+      "The transaction items are returned in the response"))
 
 (defn- assert-blocked-list
   [response]
@@ -221,14 +221,14 @@
                        app
                        parse-edn-body)]
       (is (http-success? response))
-      (is (seq-of-maps-like? [{:transaction-item/quantity 103.0
-                               :transaction-item/transaction-date "2015-01-04"
+      (is (seq-of-maps-like? [{:transaction-item/quantity 103M
+                               :transaction-item/transaction-date (t/local-date 2015 01 04)
                                :transaction/description "For the sub-zero"}
-                              {:transaction-item/quantity 102.0
-                               :transaction-item/transaction-date "2015-01-03"
+                              {:transaction-item/quantity 102M
+                               :transaction-item/transaction-date (t/local-date 2015 01 03)
                                :transaction/description "For a Tesla"}
-                              {:transaction-item/quantity 101.0
-                               :transaction-item/transaction-date "2015-01-02"
+                              {:transaction-item/quantity 101M
+                               :transaction-item/transaction-date (t/local-date 2015 01 02)
                                :transaction/description "For a rainy day"}]
                              (:edn-body response))
           "The items in the specified account and the children accounts are returned."))))
@@ -280,13 +280,13 @@
   (is (http-success? response))
   (is (= [{:start-date (t/local-date 2016 1 1)
            :end-date (t/local-date 2016 1 31)
-           :quantity 201.0M}
+           :quantity 201M}
           {:start-date (t/local-date 2016 2 1)
            :end-date (t/local-date 2016 2 29)
            :quantity 0M}
           {:start-date (t/local-date 2016 3 1)
            :end-date (t/local-date 2016 3 31)
-           :quantity 102.0M}
+           :quantity 102M}
           {:start-date (t/local-date 2016 4 1)
            :end-date (t/local-date 2016 4 30)
            :quantity 0M}]
