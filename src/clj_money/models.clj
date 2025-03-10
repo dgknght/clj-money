@@ -217,15 +217,15 @@
     :or {close-chan? true}}]
   (when out-chan
     (a/go
-      (let [coll (concat
-                   (->> result
-                        (interleave to-save)
-                        (partition 2)
-                        (map (fn [[input after]]
-                               (if (deletion? input)
-                                 [(second input) nil]
-                                 [(before input) after])))))
-            c (a/onto-chan! out-chan coll close-chan?)]
+      (let [changes (concat
+                      (->> result
+                           (interleave to-save)
+                           (partition 2)
+                           (mapv (fn [[input after]]
+                                   (if (deletion? input)
+                                     [(second input) nil]
+                                     [(before input) after])))))
+            c (a/onto-chan! out-chan changes close-chan?)]
         (when copy-chan
           (a/pipe c copy-chan))))))
 
@@ -275,7 +275,8 @@
   []
   (a/chan 1 (comp (map propagate)
                   (remove empty?)
-                  (map put-many))))
+                  (map #(when (seq %)
+                          (put-many %))))))
 
 (defn put
   [model & {:as opts}]
@@ -335,8 +336,9 @@
           copy-chan (a/chan)
           propagations (atom [])
           _ (a/go-loop [x (a/<! out-chan)]
-              (swap! propagations concat x)
-              (recur (a/<! out-chan)))
+              (when x
+                (swap! propagations concat x)
+                (recur (a/<! out-chan))))
           result (f model
                     :out-chan out-chan
                     :copy-chan copy-chan
