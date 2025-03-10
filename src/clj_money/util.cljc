@@ -549,6 +549,11 @@
    :import/entity-name
    :image/original-filename])
 
+(def ^:private db-oper?
+  #{:clj-money.db/delete
+    :clj-money.db/insert
+    :clj-money.db/update})
+
 (defn simplify
   "Return the given model maps with non-essentail attributes removed
 
@@ -564,9 +569,8 @@
     #(apply simplify % (cons a1 args))
 
     (and (vector? a1)
-         #{:clj-money.db/delete
-           :clj-money.db/insert
-           :clj-money.db/update} (first a1))
+         (= 2 (count a1))
+         (db-oper? (first a1)))
     (update-in a1 [1] #(apply simplify % args))
 
     ; iterate over the sequence and apply any options
