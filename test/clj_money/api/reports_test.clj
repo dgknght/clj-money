@@ -49,7 +49,7 @@
   (is (http-success? response))
   (is (= ["Income" "Expense" "Net"]
          (->> edn-body
-              (filter #(#{"header" "summary"}
+              (filter #(#{:header :summary}
                          (:report/style %)))
               (map :report/caption)))
       "The body contains the income statement report for the specified entity"))
@@ -84,7 +84,7 @@
   (is (http-success? response))
   (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
          (->> edn-body
-              (filter #(#{"summary" "header"} (:report/style %)))
+              (filter #(#{:summary :header} (:report/style %)))
               (map :report/caption)))
       "The body contains the balance sheet report"))
 
@@ -126,7 +126,7 @@
       "The response contains the report tital")
   (is (= ["Income" "Expense" "Net"]
          (->> (:items edn-body)
-              (filter #(#{"header" "summary"} (:report/style %)))
+              (filter #(#{:header :summary} (:report/style %)))
               (map :report/caption)))
       "The reponse contains the budget report at the :items key"))
 
@@ -183,16 +183,16 @@
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [#:report{:caption "Groceries"
-                                   :period #:report{:total-budget 200.0
-                                                    :actual 85.0
-                                                    :percentage 0.2258
-                                                    :prorated-budget 45.162
-                                                    :actual-percent 0.425}
-                                   :budget #:report{:total-budget 2400.0
-                                                    :actual 85.0
-                                                    :percentage 0.0191
-                                                    :prorated-budget 45.902
-                                                    :actual-percent 0.035417}}]
+                                   :period #:report{:total-budget 200M
+                                                    :actual 85M
+                                                    :percentage 0.2258M
+                                                    :prorated-budget 45.162M
+                                                    :actual-percent 0.425M}
+                                   :budget #:report{:total-budget 2400M
+                                                    :actual 85M
+                                                    :percentage 0.0191M
+                                                    :prorated-budget 45.902M
+                                                    :actual-percent 0.035417M}}]
                          edn-body)))
 
 (defn- assert-blocked-monitor-list
@@ -249,7 +249,7 @@
   (is (http-success? response))
   (is (= ["IRA" "Total"]
          (->> edn-body
-              (filter #(#{"header" "summary"} (:report/style %)))
+              (filter #(#{:header :summary} (:report/style %)))
               (map :report/caption)))
       "The body contains the correct captions"))
 

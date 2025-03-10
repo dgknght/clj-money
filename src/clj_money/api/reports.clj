@@ -1,6 +1,7 @@
 (ns clj-money.api.reports
   (:require [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
             [clj-money.authorization :refer [+scope]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
@@ -10,9 +11,10 @@
 
 (defn- fetch-entity
   [{:keys [params authenticated]}]
-  (models/find-by (+scope {:id (:entity-id params)}
-                          :entity
-                          authenticated)))
+  (-> {:id (:entity-id params)}
+      (util/model-type :entity)
+      (+scope :entity authenticated)
+      models/find-by))
 
 (defn- income-statement
   [{{:keys [since as-of]} :params :as req}]

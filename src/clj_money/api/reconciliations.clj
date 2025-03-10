@@ -52,9 +52,10 @@
                 :reconciliation/item-refs]))
 
 (defn- create
-  [{:keys [authenticated] :as req}]
+  [{:keys [authenticated params] :as req}]
   (-> req
       extract-recon
+      (assoc :reconciliation/account {:id (:account-id params)})
       (authorize ::auth/create authenticated)
       models/put
       api/creation-response))

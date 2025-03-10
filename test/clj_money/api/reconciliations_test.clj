@@ -71,8 +71,8 @@
 (defn- assert-successful-get
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:reconciliation{:end-of-period "2015-01-04"
-                                           :balance 400.0}]
+  (is (seq-of-maps-like? [#:reconciliation{:end-of-period (t/local-date 2015 1 4)
+                                           :balance 400M}]
                          edn-body)
       "The response contains the list of reconciliations"))
 
@@ -105,10 +105,10 @@
                                                 :accounts
                                                 (:id account)
                                                 :reconciliations))
-                       (edn-body #:reconciliation{:end-of-period "2015-02-04"
-                                                       :balance 299.0
-                                                       :status status
-                                                       :item-refs item-refs})
+                       (edn-body #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                                  :balance 299.0M
+                                                  :status status
+                                                  :item-refs item-refs})
                        (add-auth user)
                        app
                        parse-edn-body)
@@ -121,14 +121,12 @@
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
   (is (valid? edn-body))
-  (is (comparable? #:reconciliation{:end-of-period "2015-02-04"
-                                    :balance 299.0}
-                   edn-body)
-      "The body contains the created reconciliation")
-  (is (comparable? #:reconciliation{:end-of-period (t/local-date 2015 2 4)
-                                    :balance 299M}
-                   retrieved)
-      "The newly created reconciliation can be retrieved"))
+  (let [expected #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                  :balance 299M}]
+    (is (comparable? expected edn-body)
+        "The body contains the created reconciliation")
+    (is (comparable? expected retrieved)
+        "The newly created reconciliation can be retrieved")))
 
 (defn- assert-blocked-create
   [[response retrieved]]
@@ -178,12 +176,11 @@
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? {:reconciliation/status "completed"}
-                   edn-body)
-      "The response includes the updated reconciliation")
-  (is (comparable? {:reconciliation/status :completed}
-                   retrieved)
-      "The reconciliation is updated in the database"))
+  (let [expected {:reconciliation/status :completed}]
+    (is (comparable? expected edn-body)
+        "The response includes the updated reconciliation")
+    (is (comparable? expected retrieved)
+        "The reconciliation is updated in the database")))
 
 (defn- assert-blocked-update
   [[response retrieved]]
