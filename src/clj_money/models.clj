@@ -28,12 +28,14 @@
    (->> @full-propagations
         (sort-by first)
         (mapcat second)
-        (map #(%))))
+        (map #(%))
+        doall))
   ([entity]
    (->> @full-propagations
         (sort-by first)
         (mapcat second)
-        (map #(% entity)))))
+        (map #(% entity))
+        doall)))
 
 (defn add-full-propagation
   "Registers a function that will be executed with propagate-all is invoked.
