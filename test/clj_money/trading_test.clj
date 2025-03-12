@@ -476,19 +476,19 @@
         {::v/errors errors}
         (trading/sell attr))))
 
-(deftest sales-requires-a-trade-date
+(deftest sale-requires-a-trade-date
   (with-context sale-context
     (assert-invalid-sale
       (dissoc (sale-attributes) :trade/date)
       {:trade/date ["Date is required"]})))
 
-(deftest sales-requires-a-number-of-shares
+(deftest sale-requires-a-number-of-shares
   (with-context sale-context
     (assert-invalid-sale
       (dissoc (sale-attributes) :trade/shares)
       {:trade/shares ["Shares is required"]})))
 
-(deftest sales-requires-a-value
+(deftest sale-requires-a-value
   (with-context sale-context
     (assert-invalid-sale
       (dissoc (sale-attributes) :trade/value)
