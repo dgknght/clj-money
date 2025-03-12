@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
+            [clojure.data :refer [diff]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.models :as models]
@@ -208,6 +209,11 @@
   (every-pred vector?
               #(= ::db/delete (first %))))
 
+(defn- changed?
+  [[before after]]
+  (let [[missing extra] (diff before after)]
+    (or (seq missing) (seq extra))))
+
 (defn- emit-changes
   [{:keys [to-save
            result
@@ -221,10 +227,11 @@
                       (->> result
                            (interleave to-save)
                            (partition 2)
-                           (mapv (fn [[input after]]
+                           (map (fn [[input after]]
                                    (if (deletion? input)
                                      [(second input) nil]
-                                     [(before input) after])))))
+                                     [(before input) after])))
+                           (filter changed?)))
             c (a/onto-chan! out-chan changes close-chan?)]
         (when copy-chan
           (a/pipe c copy-chan))))))
