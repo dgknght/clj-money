@@ -672,10 +672,10 @@
     (fn []
       [:<>
        [:div.d-flex.flex-row-reverse {:class (when-not @reconciliation "d-none")}
-        [:button.btn.btn-light {:on-click #(check-all-items page-state)
+        [:button.btn.btn-secondary {:on-click #(check-all-items page-state)
                                 :title "Click here to mark all items as reconciled"}
          (icon :check-box :size :small)]
-        [:button.btn.btn-light.ms-2 {:on-click #(uncheck-all-items page-state)
+        [:button.btn.btn-secondary.ms-2 {:on-click #(uncheck-all-items page-state)
                                      :title "Click here to mark all items as unreconciled"}
          (icon :unchecked-box :size :small)]]
 

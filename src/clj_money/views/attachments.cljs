@@ -38,7 +38,7 @@
                                              (:image-id attachment))
                                  :target "_blank"}
       (icon :eye {:size :small})]
-     [:button.btn.btn-sm.btn-light {:title "Click here to edit this attachment"
+     [:button.btn.btn-sm.btn-secondary {:title "Click here to edit this attachment"
                                    :on-click (fn []
                                                (swap! page-state
                                                       assoc

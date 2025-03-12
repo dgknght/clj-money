@@ -60,12 +60,12 @@
    [:td (:name budget)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-sm.btn-light {:on-click (fn []
+     [:button.btn.btn-sm.btn-secondary {:on-click (fn []
                                                (swap! page-state assoc :selected budget)
                                                (set-focus "name"))
                                    :title "Click here to edit this budget"}
       (icon :pencil :size :small)]
-     [:button.btn.btn-sm.btn-light {:on-click #(load-budget-details budget page-state)
+     [:button.btn.btn-sm.btn-secondary {:on-click #(load-budget-details budget page-state)
                                    :title "Click here to fill out details for this budget."}
       (icon :collection :size :small)]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget budget page-state)
@@ -216,7 +216,7 @@
    [:td.text-end (format-decimal (:total item))]
    [:td
     [:div.btn-group
-     [:button.btn.btn-sm.btn-light {:on-click #(select-budget-item (:item item) page-state)
+     [:button.btn.btn-sm.btn-secondary {:on-click #(select-budget-item (:item item) page-state)
                                    :title "Click here to edit this values for this account."}
       (icon :pencil :size :small)]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget-item (:item item) page-state)

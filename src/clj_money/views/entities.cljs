@@ -119,12 +119,13 @@
    [:td (:entity/name entity)]
    [:td.text-end
     [:div.btn-group
-     [:button.btn.btn-sm.btn-secondary {:on-click (fn []
-                                                    (swap! page-state assoc :selected entity)
-                                                    (load-commodities page-state)
-                                                    (set-focus "name"))
-                                        :disabled busy?
-                                        :title "Click here to edit this entity."}
+     [:button.btn.btn-sm.btn-secondary
+      {:on-click (fn []
+                   (swap! page-state assoc :selected entity)
+                   (load-commodities page-state)
+                   (set-focus "name"))
+       :disabled busy?
+       :title "Click here to edit this entity."}
       (icon :pencil :size :small)]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete entity)
                                      :disabled busy?

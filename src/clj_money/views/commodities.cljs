@@ -357,10 +357,11 @@
    [:td.text-end (currency-format price)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this price."
-                                        :on-click (fn []
-                                                    (swap! page-state assoc :selected-price p)
-                                                    (set-focus "trade-date"))}
+     [:button.btn.btn-secondary.btn-sm
+      {:title "Click here to edit this price."
+       :on-click (fn []
+                   (swap! page-state assoc :selected-price p)
+                   (set-focus "trade-date"))}
       (icon :pencil :size :small)]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
                                      :on-click #(delete-price p page-state)}
