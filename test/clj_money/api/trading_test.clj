@@ -45,6 +45,10 @@
              :type :equity
              :entity "Personal"
              :currency "USD"}
+   #:account{:name "Dividends"
+             :type :income
+             :entity "Personal"
+             :currency "USD"}
    #:transaction{:transaction-date (t/local-date 2016 1 1)
                  :entity "Personal"
                  :description "Opening balances"
@@ -58,15 +62,17 @@
     (let [entity (find-entity "Personal")
           aapl (find-commodity "AAPL")
           ira (find-account "IRA")
+          dividends (find-account "Dividends")
           user (find-user email)
           attr (cond-> #:trade{:date (t/local-date 2016 3 2)
                                :action :buy
                                :entity (util/->model-ref entity)
-                               :shares 100.0
-                               :value 1000.0
+                               :shares 100M
+                               :value 1000M
                                :commodity (util/->model-ref aapl)
                                :account (util/->model-ref ira)
-                               :reinvest-divident? dividend?})]
+                               :dividend? dividend?
+                               :dividend-account (util/->model-ref dividends)})]
       [(-> (req/request :post (path :api
                                     :entities
                                     (:id entity)
@@ -76,31 +82,30 @@
            app
            parse-edn-body)
        (models/select #:transaction{:entity entity
-                                    :transaction-date (t/local-date 2016 3 2)})])))
+                                    :transaction-date (t/local-date 2016 3 2)}
+                      {:order-by [:transaction/created-at]})])))
 
 (defn- assert-successful-purchase
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:transaction{:transaction-date (t/local-date 2016 3 2)
-                                 :description "Purchase 100.0 shares of AAPL at 10.000"}
-                   (:trade/transaction edn-body))
-      "The creating transaction is returned in the response")
-  (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2016 3 2)
-                                        :description "Purchase 100.0 shares of AAPL at 10.000"}]
-                         retrieved)
-      "The new transaction can be retrieved from the database"))
+  (let [expected [#:transaction{:transaction-date (t/local-date 2016 3 2)
+                                :description "Purchase 100.000 shares of AAPL at 10.000"}]]
+    (is (seq-of-maps-like? expected (:trade/transactions edn-body))
+        "The creating transaction is returned in the response")
+    (is (seq-of-maps-like? expected retrieved)
+        "The new transaction can be retrieved from the database")))
 
 (defn- assert-successful-reinvestment
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (let [expected [#:transaction{:transaction-date (t/local-date 2016 3 2)
-                                :description "Dividend received"}
+                                :description "Dividend received from AAPL"}
                   #:transaction{:transaction-date (t/local-date 2016 3 2)
-                                :description "Reinvest $1,000.00 and purchase 100.0 shares of AAPL at 10.000"}]]
+                                :description "Reinvest dividend of 1,000.00: purchase 100.000 shares of AAPL at 10.000"}]]
     (is (seq-of-maps-like? expected (:trade/transactions edn-body))
-        "The creating transaction is returned in the response")
+        "The new transactions are returned")
     (is (seq-of-maps-like? expected retrieved)
-        "The new transaction can be retrieved from the database")))
+        "The new transactions can be retrieved")))
 
 (defn- assert-blocked-purchase
   [[response retrieved]]
@@ -157,14 +162,13 @@
 (defn- assert-successful-sale
   [[{:as response :keys [edn-body]} transactions lot]]
   (is (http-success? response))
-  (is (comparable? #:transaction{:transaction-date (t/local-date 2016 3 2)
-                                 :description "Sell 100 shares of AAPL at 11.000"}
-                   (:trade/transaction edn-body))
-      "The created transaction is included in the response")
-  (is (seq-with-map-like? #:transaction{:transaction-date (t/local-date 2016 3 2)
-                                        :description "Sell 100 shares of AAPL at 11.000"}
-                          transactions)
-      "The created transaction can be retrieved")
+  (let [expected #:transaction{:transaction-date (t/local-date 2016 3 2)
+                               :description "Sell 100.000 shares of AAPL at 11.000"}]
+    (is (comparable? expected
+                     (:trade/transaction edn-body))
+        "The created transaction is included in the response")
+    (is (seq-with-map-like? expected transactions)
+        "The created transaction can be retrieved"))
   (is  (comparable? #:lot{:shares-owned 0M}
                     lot)
       "The shares are no longer owned"))

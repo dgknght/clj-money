@@ -12,7 +12,9 @@
    :trade/shares
    :trade/value
    :trade/commodity
-   :trade/account])
+   :trade/account
+   :trade/dividend?
+   :trade/dividend-account])
 
 (def ^:private trade-fn-map
   {:buy trading/buy
@@ -31,7 +33,7 @@
         (select-keys create-attributes)
         (authorize ::authorization/create authenticated)
         f
-        (select-keys [:trade/transaction
+        (select-keys [:trade/transactions
                       :trade/lot
                       :trade/lots])
         (update-in [:trade/lot :lot/account] util/->model-ref)
