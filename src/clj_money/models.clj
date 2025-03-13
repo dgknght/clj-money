@@ -35,7 +35,13 @@
    (->> @full-propagations
         (sort-by first)
         (mapcat second)
-        (map #(% entity))
+        (reduce (fn [entity f]
+                  (if-let [updated (->> (f entity)
+                                        (filter (util/model-type? :entity))
+                                        first)]
+                    updated
+                    entity))
+                entity)
         doall)))
 
 (defn add-full-propagation
