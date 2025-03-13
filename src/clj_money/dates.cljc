@@ -17,7 +17,14 @@
            (-equiv [this other]
              (and (= (type this)
                      (type other))
-                  (t/equal? this other)))))
+                  (t/equal? this other)))
+
+           IComparable
+           (-compare [d1 d2]
+             (cond
+               (t/before? d1 d2) -1
+               (t/after? d1 d2)   1
+               :else 0))))
 
 (declare serialize-local-date)
 (declare serialize-local-date-time)
@@ -126,6 +133,24 @@
 (defn today []
   #?(:clj (t/local-date)
      :cljs (t/today)))
+
+(defn first-day-of-the-year
+  ([] (first-day-of-the-year (today)))
+  ([date-or-year]
+   (let [year (if (local-date? date-or-year)
+                (t/year date-or-year)
+                date-or-year)]
+     (t/local-date year 1 1))))
+
+(defn last-day-of-the-year
+  ([] (last-day-of-the-year (today)))
+  ([date-or-year]
+   (let [year (if (local-date? date-or-year)
+                (t/year date-or-year)
+                date-or-year)]
+     (t/minus (t/plus (t/local-date year 1 1)
+                      (t/years 1))
+              (t/days 1)))))
 
 (defn first-day-of-the-month
   ([] (first-day-of-the-month (today)))

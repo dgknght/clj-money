@@ -1,15 +1,14 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
-            [stowaway.core :as storage]
+            [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-bool]]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
             [clj-money.models :as models]
-            [dgknght.app-lib.authorization :refer [authorize
-                                                   +scope]
-             :as authorization]
-            [clj-money.models.accounts :as accounts]
+            [clj-money.authorization :as auth :refer [authorize
+                                                      +scope]]
             [clj-money.authorization.accounts]))
 
 (defn- ->coll
@@ -27,12 +26,18 @@
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
-      (rename-keys {"system-tags[]" :system-tags
-                    "user-tags[]" :user-tags})
-      (select-keys [:entity-id :system-tags :user-tags :name])
-      (update-in-if [:system-tags] tag-criteria)
-      (update-in-if [:user-tags] tag-criteria)
-      (+scope ::models/account authenticated)))
+      (util/qualify-keys :account) 
+      (rename-keys {"system-tags[]" :account/system-tags
+                    "user-tags[]" :account/user-tags
+                    :account/entity-id :account/entity})
+      (select-keys [:account/entity
+                    :account/system-tags
+                    :account/user-tags
+                    :account/name])
+      (update-in-if [:account/entity] #(hash-map :id %))
+      (update-in-if [:account/system-tags] tag-criteria)
+      (update-in-if [:account/user-tags] tag-criteria)
+      (+scope authenticated)))
 
 (defn- extract-options
   [{:keys [params]}]
@@ -43,58 +48,57 @@
 (defn- index
   [req]
   (api/response
-    (accounts/search (extract-criteria req)
-                     (extract-options req))))
+    (models/select (extract-criteria req)
+                   (extract-options req))))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (+scope ::models/account authenticated)
-          accounts/find-by
+          (+scope :account authenticated)
+          models/find-by
           (authorize action authenticated)))
 
 (defn- show
   [req]
-  (if-let [account (find-and-auth req ::authorization/show)]
+  (if-let [account (find-and-auth req ::auth/show)]
     (api/response account)
     api/not-found))
 
 (def ^:private attribute-keys
   [:id
-   :name
-   :entity-id
-   :type
-   :commodity-id
-   :system-tags
-   :user-tags
-   :parent-id
-   :allocations])
+   :account/name
+   :account/entity
+   :account/type
+   :account/commodity
+   :account/system-tags
+   :account/user-tags
+   :account/parent
+   :account/allocations])
 
 (defn- create
   [{:keys [params authenticated]}]
   (-> params
-      (assoc :entity-id (:entity-id params))
+      (assoc :account/entity {:id (:entity-id params)})
       (select-keys attribute-keys)
-      (storage/tag ::models/account)
-      (authorize ::authorization/create authenticated)
-      accounts/create
+      (authorize ::auth/create authenticated)
+      models/put
       api/creation-response))
 
 (defn- update
   [{:keys [params] :as req}]
-  (if-let [account (find-and-auth req ::authorization/update)]
+  (if-let [account (find-and-auth req ::auth/update)]
     (-> account
         (merge (select-keys params attribute-keys))
-        accounts/update
+        models/put
         api/update-response)
     api/not-found))
 
 (defn- delete
   [req]
-  (if-let [account (find-and-auth req ::authorization/destroy)]
+  (if-let [account (find-and-auth req ::auth/destroy)]
     (do
-      (accounts/delete account)
+      (models/delete account)
       (api/response))
     api/not-found))
 

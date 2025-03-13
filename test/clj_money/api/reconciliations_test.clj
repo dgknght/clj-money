@@ -3,80 +3,78 @@
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [java-time.api :as t]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web :refer [path]]
+            [clj-money.models.ref]
+            [clj-money.util :as util]
+            [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
                                             parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.test-context :refer [basic-context
-                                            realize
+            [clj-money.test-context :refer [with-context
+                                            basic-context
                                             find-user
                                             find-account
                                             find-transaction-item
-                                            find-recon]]
+                                            find-reconciliation]]
             [clj-money.web.server :refer [app]]
-            [clj-money.models.reconciliations :as recs]))
+            [clj-money.models :as models]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private recon-context
-  (assoc basic-context
-         :transactions [{:entity-id "Personal"
-                         :description "Paycheck"
-                         :transaction-date (t/local-date 2015 1 1)
-                         :debit-account-id "Checking"
-                         :credit-account-id "Salary"
-                         :quantity 1000M}
-                        {:entity-id "Personal"
-                         :description "Landlord"
-                         :transaction-date (t/local-date 2015 1 2)
-                         :debit-account-id "Rent"
-                         :credit-account-id "Checking"
-                         :quantity 500M}
-                        {:entity-id "Personal"
-                         :description "Kroger"
-                         :transaction-date (t/local-date 2015 1 3)
-                         :debit-account-id "Groceries"
-                         :credit-account-id "Checking"
-                         :quantity 100M}
-                        {:entity-id "Personal"
-                         :description "Kroger"
-                         :transaction-date (t/local-date 2015 1 10)
-                         :debit-account-id "Groceries"
-                         :credit-account-id "Checking"
-                         :quantity 101M}]
-         :reconciliations [{:account-id "Checking"
-                            :balance 400M
-                            :status :completed
-                            :end-of-period (t/local-date 2015 1 4)
-                            :item-refs [{:transaction-date (t/local-date 2015 1 1)
-                                         :quantity 1000M}
-                                        {:transaction-date (t/local-date 2015 1 2)
-                                         :quantity 500M}
-                                        {:transaction-date (t/local-date 2015 1 3)
-                                         :quantity 100M}]}]))
+  (conj basic-context
+        #:transaction{:entity "Personal"
+                      :description "Paycheck"
+                      :transaction-date (t/local-date 2015 1 1)
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:entity "Personal"
+                      :description "Landlord"
+                      :transaction-date (t/local-date 2015 1 2)
+                      :debit-account "Rent"
+                      :credit-account "Checking"
+                      :quantity 500M}
+        #:transaction{:entity "Personal"
+                      :description "Kroger"
+                      :transaction-date (t/local-date 2015 1 3)
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 100M}
+        #:transaction{:entity "Personal"
+                      :description "Kroger"
+                      :transaction-date (t/local-date 2015 1 10)
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 101M}
+        #:reconciliation{:account "Checking"
+                         :balance 400M
+                         :status :completed
+                         :end-of-period (t/local-date 2015 1 4)
+                         :item-refs [[(t/local-date 2015 1 1) 1000M]
+                                     [(t/local-date 2015 1 2) 500M]
+                                     [(t/local-date 2015 1 3) 100M]]}))
 
 (defn- get-reconciliations
   [email]
-  (let [ctx (realize recon-context)
-        user (find-user ctx email)
-        account (find-account ctx "Checking")]
+  (with-context recon-context
     (-> (req/request :get (path :api
                                 :accounts
-                                (:id account)
+                                (:id (find-account "Checking"))
                                 :reconciliations))
-        (add-auth user)
+        (add-auth (find-user email))
         app
         parse-edn-body)))
 
 (defn- assert-successful-get
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:end-of-period (t/local-date 2015 1 4)
-                           :balance 400.0M}]
+  (is (seq-of-maps-like? [#:reconciliation{:end-of-period (t/local-date 2015 1 4)
+                                           :balance 400M}]
                          edn-body)
-      "The reconciliation records are returned"))
+      "The response contains the list of reconciliations"))
 
 (defn- assert-blocked-get
   [{:as response :keys [edn-body]}]
@@ -91,39 +89,40 @@
 
 (defn- create-reconciliation
   [email complete?]
-  (let [ctx (realize recon-context)
-        user (find-user ctx email)
-        account (find-account ctx "Checking")
-        item-refs (if complete?
-                    (let [item (find-transaction-item ctx (t/local-date 2015 1 10)
-                                                      101M
-                                                      (:id account))]
-                      [((juxt :id :transaction-date) item)])
-                    [])
-        status (if complete?
-                 :completed
-                 :new)
-        response (-> (req/request :post (path :api
-                                              :accounts
-                                              (:id account)
-                                              :reconciliations))
-                     (edn-body {:end-of-period (t/local-date 2015 2 4)
-                                :balance 299.0M
-                                :status status
-                                :item-refs item-refs})
-                     (add-auth user)
-                     app
-                     parse-edn-body)
-        retrieved (recs/find-by {:account-id (:id account)
-                                 :end-of-period (t/local-date 2015 2 4)})]
-    [response retrieved]))
+  (with-context recon-context
+    (let [user (find-user email)
+          account (find-account "Checking")
+          item-refs (if complete?
+                      (let [item (find-transaction-item [(t/local-date 2015 1 10)
+                                                         101M
+                                                         account])]
+                        [((juxt :id :transaction-item/transaction-date) item)])
+                      [])
+          status (if complete?
+                   :completed
+                   :new)
+          response (-> (req/request :post (path :api
+                                                :accounts
+                                                (:id account)
+                                                :reconciliations))
+                       (edn-body #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                                  :balance 299.0M
+                                                  :status status
+                                                  :item-refs item-refs})
+                       (add-auth user)
+                       app
+                       parse-edn-body)
+          retrieved (models/find-by
+                      #:reconciliation{:account account
+                                       :end-of-period (t/local-date 2015 2 4)})]
+      [response retrieved])))
 
 (defn- assert-create-succeeded
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
   (is (valid? edn-body))
-  (let [expected {:end-of-period (t/local-date 2015 2 4)
-                  :balance 299M}]
+  (let [expected #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                  :balance 299M}]
     (is (comparable? expected edn-body)
         "The body contains the created reconciliation")
     (is (comparable? expected retrieved)
@@ -132,7 +131,7 @@
 (defn- assert-blocked-create
   [[response retrieved]]
   (is (http-not-found? response))
-  (is (nil?  retrieved) "The reconciliation is not created"))
+  (is (nil? retrieved) "The reconciliation is not created"))
 
 (deftest a-user-can-create-a-completed-reconciliation-in-his-entity
   (assert-create-succeeded (create-reconciliation "john@doe.com" true)))
@@ -147,36 +146,37 @@
   (assert-blocked-create (create-reconciliation "jane@doe.com" false)))
 
 (def ^:private update-context
-  (update-in recon-context
-             [:reconciliations]
-             conj
-             {:end-of-period (t/local-date 2015 2 4)
-              :account-id "Checking"
-              :balance 299M
-              :status :new
-              :item-refs [{:transaction-date (t/local-date 2015 1 10)
-                           :quantity 101M}]}))
+  (conj recon-context
+        #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                         :account "Checking"
+                         :balance 299M
+                         :status :new
+                         :item-refs [[(t/local-date 2015 1 10) 101M]]}))
 
 (defn- update-reconciliation
   [email]
-  (let [ctx (realize update-context)
-        recon (find-recon ctx "Checking" (t/local-date 2015 2 4))
-        user (find-user ctx email)
-        response (-> (req/request :patch (path :api
-                                               :reconciliations
-                                               (:id recon)))
-                     (edn-body (-> recon
-                                   (dissoc :id)
-                                   (assoc :status :completed)))
-                     (add-auth user)
-                     app
-                     parse-edn-body)]
-    [response (recs/find recon)]))
+  (with-context update-context
+    (let [recon (find-reconciliation ["Checking" (t/local-date 2015 2 4)])
+          response (-> (req/request :patch (path :api
+                                                 :reconciliations
+                                                 (:id recon)))
+                       (edn-body (-> recon
+                                     (dissoc :id :reconciliation/item-refs)
+                                     (assoc :reconciliation/status :completed)))
+                       (add-auth (find-user email))
+                       app
+                       parse-edn-body)]
+      [response (models/find-by
+                  (util/model-type
+                    (select-keys recon
+                                 [:id
+                                  :reconciliation/end-of-period])
+                    :reconciliation))])))
 
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (let [expected {:status :completed}]
+  (let [expected {:reconciliation/status :completed}]
     (is (comparable? expected edn-body)
         "The response includes the updated reconciliation")
     (is (comparable? expected retrieved)
@@ -185,7 +185,8 @@
 (defn- assert-blocked-update
   [[response retrieved]]
   (is (http-not-found? response))
-  (is (= :new (:status retrieved))
+  (is (comparable? {:reconciliation/status :new}
+                   retrieved)
       "The reconciliation is not updated in the database"))
 
 (deftest a-user-can-update-a-reconciliation-in-his-entity

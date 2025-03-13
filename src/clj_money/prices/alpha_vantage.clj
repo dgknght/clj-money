@@ -8,8 +8,7 @@
             [camel-snake-kebab.extras :refer [transform-keys]]
             [lambdaisland.uri :refer [uri
                                       map->query-string]]
-            [clj-money.prices :as prices]
-            [clj-money.models.cached-prices :as cached-prices]))
+            [clj-money.prices :as prices]))
 
 (def service-uri (uri "https://alpha-vantage.p.rapidapi.com/query"))
 (def rapidapi-host "alpha-vantage.p.rapidapi.com")
@@ -80,23 +79,17 @@
         adj-keys
         (update-in [:meta-data :last-refreshed] (partial t/local-date-time date-time-formatter)))))
 
-(defn cache
-  [price]
-  (cached-prices/create price)
-  price)
-
 (defn- transform-quote
   [m]
   (let [trade-date (t/local-date (get-in m [:meta-data :last-refreshed]))]
-    {:price (get-in m [:time-series trade-date "USD" :close])
-     :symbol (get-in m [:meta-data :digital-currency-code])
-     :exchange :currency
-     :trade-date trade-date}))
+    {:price/price (get-in m [:time-series trade-date "USD" :close])
+     :price/trade-date trade-date
+     :commodity/symbol (get-in m [:meta-data :digital-currency-code])
+     :commodity/exchange :currency}))
 
 (deftype AlphaVantageProvider []
   prices/PriceProvider
   (prices/fetch-prices [_ symbols]
     (mapv (comp transform-quote
-                get-quote
-                cache)
+                get-quote)
           symbols)))

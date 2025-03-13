@@ -41,7 +41,8 @@
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
-            [clj-money.web.apps :as apps]))
+            [clj-money.web.apps :as apps]
+            [cljs.pprint :as pprint]))
 
 (defn- not-found []
   (-> (slurp "resources/404.html")

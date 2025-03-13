@@ -15,7 +15,8 @@
    [:link  {:rel "icon" :href "images/logo.svg"}]
    [:title "clj-money"]
 
-   [:script {:src "/js/bootstrap.min.js"}]
+   (include-js "https://unpkg.com/@popperjs/core@2")
+   (include-js "js/bootstrap.min.js")
 
    [:link {:rel "stylesheet" :href "/css/site.css"}]])
 
