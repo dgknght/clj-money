@@ -173,7 +173,8 @@
 
 (deftest realize-a-scheduled-transaction-after-the-date
   (with-fixed-time "2016-02-02T00:00:00Z"
-    (let [expected [#:transaction{:description "Paycheck"
+    (let [expected [#:scheduled-transaction{:last-occurrence (t/local-date 2016 2 1)}
+                    #:transaction{:description "Paycheck"
                                   :transaction-date (t/local-date 2016 1 1)
                                   :scheduled-transaction {:id 101}
                                   :items [#:transaction-item{:action :debit

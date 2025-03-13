@@ -95,7 +95,7 @@
         (is (seq-of-maps-like?
               [#:transaction{:entity (util/->model-ref personal)
                              :transaction-date (t/local-date 2016 1 2)
-                             :description "Purchase 100 shares of AAPL at 10.000"
+                             :description "Purchase 100.000 shares of AAPL at 10.000"
                              :value 1000M
                              :lot-items [#:lot-item{:lot-action :buy
                                                     :transaction-date (t/local-date 2016 1 2)
@@ -271,7 +271,7 @@
       (testing "The transaction"
         (is (seq-of-maps-like?
               [#:transaction{:transaction-date (t/local-date 2017 3 2)
-                             :description "Sell 25 shares of AAPL at 15.000"}]
+                             :description "Sell 25.000 shares of AAPL at 15.000"}]
               (:trade/transactions result))
             "The transaction is created and returned")
         (is (comparable?
@@ -358,7 +358,7 @@
       (testing "The transaction"
         (is (seq-of-maps-like?
               [#:transaction{:transaction-date (t/local-date 2017 3 2)
-                             :description "Sell 25 shares of AAPL at 8.000"}]
+                             :description "Sell 25.000 shares of AAPL at 8.000"}]
               (:trade/transactions result))
             "The result contains the transaction")
         (is (comparable? #:transaction-item{:action :debit
@@ -574,7 +574,7 @@
   (with-context sale-context
     (trading/unbuy-and-propagate
       (find-transaction [(t/local-date 2016 3 2)
-                         "Purchase 100 shares of AAPL at 10.000"] ))
+                         "Purchase 100.000 shares of AAPL at 10.000"] ))
     ; TODO Should we delete the price that was created?
     (testing "The trading account"
       (is (comparable? {:account/quantity 2000M}
@@ -594,7 +594,7 @@
     (is (thrown-with-msg? IllegalStateException #"Cannot undo"
                           (trading/unbuy
                             (find-transaction [(t/local-date 2016 3 2)
-                                               "Purchase 100 shares of AAPL at 10.000"]))))))
+                                               "Purchase 100.000 shares of AAPL at 10.000"]))))))
 
 (def ^:privat existing-sale-context
   (conj sale-context
@@ -614,7 +614,7 @@
 (deftest undo-a-sale
   (with-context existing-sale-context
     (let [trx (find-transaction [(t/local-date 2017 3 2)
-                                 "Sell 25 shares of AAPL at 15.000"])
+                                 "Sell 25.000 shares of AAPL at 15.000"])
           ira (find-account "IRA")]
       (trading/unsell-and-propagate trx)
       (testing "The transaction"
