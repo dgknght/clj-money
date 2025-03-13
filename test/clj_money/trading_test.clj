@@ -175,15 +175,21 @@
 (deftest reinvest-a-dividend
   (with-context purchase-context
     (let [dividends (find-account "Dividends")
-          ira (models/find (find-account "IRA"))]
-      (-> #:trade{:commodity (find-commodity "AAPL")
-                  :account (find-account "IRA")
-                  :date (t/local-date 2016 2 2)
-                  :shares 4.5M
-                  :value 50M}
-          (assoc :trade/dividend? true
-                 :trade/dividend-account dividends)
-          (trading/buy-and-propagate))
+          ira (models/find (find-account "IRA"))
+          [{:trade/keys [transactions]}] (-> #:trade{:commodity (find-commodity "AAPL")
+                                                     :account (find-account "IRA")
+                                                     :date (t/local-date 2016 2 2)
+                                                     :shares 4.5M
+                                                     :value 50M}
+                                             (assoc :trade/dividend? true
+                                                    :trade/dividend-account dividends)
+                                             (trading/buy-and-propagate))]
+      (is (comparable? #:transaction{:description "Dividend received from AAPL"}
+                       (first transactions))
+          "The transaction for the receipt of the dividend is returned")
+      (is (comparable? #:transaction{:description "Reinvest dividend of 50.00: purchase 4.500 shares of AAPL at 11.110"}
+                       (second transactions))
+          "The transaction for the purchase of shares with dividend is returned")
       (is (comparable? #:account{:quantity 50M
                                  :value 50M}
                        (models/find dividends))

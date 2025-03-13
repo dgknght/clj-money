@@ -200,29 +200,29 @@
   [{:trade/keys [shares]
     {:commodity/keys [symbol]} :trade/commodity
     {:price/keys [price]} :trade/price}]
-  (format "Sell %s shares of %s at %s"
+  (format "Sell %,1.3f shares of %s at %,1.3f"
           shares
           symbol
           (format-decimal price {:fraction-digits 3})))
 
 (defn- purchase-transaction-description
-  [{:trade/keys [shares]
+  [{:trade/keys [shares dividend? value]
     {:commodity/keys [symbol]} :trade/commodity
     {:price/keys [price]} :trade/price}]
-  (format "Purchase %s shares of %s at %s"
-          shares
-          symbol
-          (format-decimal price {:fraction-digits 3})))
+  (if dividend?
+    (format "Reinvest dividend of %,1.2f: purchase %,1.3f shares of %s at %,1.3f"
+            value
+            shares
+            symbol
+            price)
+    (format "Purchase %,1.3f shares of %s at %,1.3f"
+            shares
+            symbol
+            price)))
 
 (defn- dividend-transaction-description
-  [{:trade/keys [shares value]
-    {:commodity/keys [symbol]} :trade/commodity
-    {:price/keys [price]} :trade/price}]
-  (format "Reinvest dividend of %s: purchase %s shares of %s at %s"
-          value
-          shares
-          symbol
-          (format-decimal price {:fraction-digits 3})))
+  [{{:commodity/keys [symbol]} :trade/commodity}]
+  (format "Dividend received from %s" symbol))
 
 (defn- create-dividend-transaction
   "When :dividend? is true, creates the transaction for
