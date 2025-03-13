@@ -203,7 +203,7 @@
   (format "Sell %,1.3f shares of %s at %,1.3f"
           shares
           symbol
-          (format-decimal price {:fraction-digits 3})))
+          price))
 
 (defn- purchase-transaction-description
   [{:trade/keys [shares dividend? value]

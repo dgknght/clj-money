@@ -57,7 +57,7 @@
                  :quantity 1000M}])
 
 (defn- buy-a-commodity
-  [email & {:keys [dividend?]}]
+  [email & {:keys [dividend?] :or {dividend? false}}]
   (with-context buy-context
     (let [entity (find-entity "Personal")
           aapl (find-commodity "AAPL")
@@ -164,8 +164,8 @@
   (is (http-success? response))
   (let [expected #:transaction{:transaction-date (t/local-date 2016 3 2)
                                :description "Sell 100.000 shares of AAPL at 11.000"}]
-    (is (comparable? expected
-                     (:trade/transaction edn-body))
+    (is (seq-of-maps-like? [expected]
+                     (:trade/transactions edn-body))
         "The created transaction is included in the response")
     (is (seq-with-map-like? expected transactions)
         "The created transaction can be retrieved"))
