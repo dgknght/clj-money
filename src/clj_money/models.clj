@@ -220,6 +220,18 @@
   (let [[missing extra] (diff before after)]
     (or (seq missing) (seq extra))))
 
+^{:clj-kondo/ignore true}
+(defn- change
+  [[before after]]
+  (cond
+    (and before after)
+    (let [[b a] (diff before after)]
+      [:changed b a])
+
+    before [:deleted (util/simplify before)]
+
+    after [:inserted (util/simplify after)]))
+
 (defn- emit-changes
   [{:keys [to-save
            result
@@ -282,7 +294,7 @@
      result)))
 
 (defn propagation-chan
-  "Returns a channel that will accept before & after output (from the out-chan
+  "Returns a channel that accepts change tuples (before, after) (from the out-chan
    of either put, put-many, delete, or delete-many) and propagates changes to
    any other models affected by the change."
   []
