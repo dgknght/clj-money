@@ -1,5 +1,6 @@
 (ns clj-money.models.propagation
   (:require [clojure.core.async :as a]
+            [clojure.pprint :refer [pprint]]
             [clj-money.util :as util]
             [clj-money.models :as models]))
 
@@ -60,7 +61,7 @@
   [f & {:keys [combine-with] :or {combine-with concat}}]
   (fn [model]
     (let [out-chan (propagation-chan)
-          copy-chan (a/chan)
+          completed-chan (a/promise-chan)
           propagations (atom [])
           _ (a/go-loop [x (a/<! out-chan)]
               (when x
@@ -68,9 +69,9 @@
                 (recur (a/<! out-chan))))
           result (f model
                     :out-chan out-chan
-                    :copy-chan copy-chan
+                    :completed-chan completed-chan
                     :close-chan? false)]
-      (a/alts!! [copy-chan (a/timeout 5000)])
+      (pprint {::wait (a/alts!! [completed-chan (a/timeout 5000)])})
       (a/close! out-chan)
       (combine-with result @propagations))))
 

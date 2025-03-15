@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
+            [clojure.core :as c]
             [clojure.data :refer [diff]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
@@ -202,20 +203,24 @@
               (if (deletion? input)
                 [(second input) nil]
                 [(before input) after])))
-       (filter changed?)))
+       (filterv changed?)))
 
 (defn- emit-changes
   [{:keys [to-save
-           result
+           saved
            out-chan
-           copy-chan
-           close-chan?]
+           close-chan?
+           completed-chan]
     :or {close-chan? true}}]
   (when out-chan
     (a/go
-      (let [c (a/onto-chan! out-chan (calc-changes to-save result) close-chan?)]
-        (when copy-chan
-          (a/pipe c copy-chan))))))
+      (let [changes (calc-changes to-save saved)]
+        (doseq [c changes]
+          (a/>! out-chan c))
+        (when close-chan?
+          (a/close! out-chan))
+        (when completed-chan
+          (a/>! completed-chan (c/count changes)))))))
 
 (defn put-many
   "Save a sequence of models to the database, providing lifecycle hooks that
@@ -227,10 +232,10 @@
   :out-chan     - An async channel that when passed, receives change tuples
                   containing before and after versions of each model affected
                   by the operation.
-  :copy-chan    - An async channel that receives a message when the out-chan
-                  has received all pending results.
   :close-chan?  - A boolean value indicating whether or not the out-chan should be
-                  closed automatically once all pending results have been sent."
+                  closed automatically once all pending results have been sent.
+  :completed-chan - Gets a message when the changes have been emitted. Use when
+                    :close-chan? is false to know when to close the output chan manually"
   ([models] (put-many {} models))
   ([{:as opts
      :keys [storage]}
@@ -253,7 +258,7 @@
                      saved)]
      (emit-changes (assoc opts
                           :to-save to-save
-                          :result result))
+                          :saved result))
      result)))
 
 (defn put
