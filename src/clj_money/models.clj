@@ -191,6 +191,19 @@
 
     after [:inserted (util/simplify after)]))
 
+(defn- calc-changes
+  "Given a sequence of models that are to be saved and the corresponding sequence
+  of saved models, calculate the difference tuples"
+  [to-save saved]
+  (->> saved
+       (interleave to-save)
+       (partition 2)
+       (map (fn [[input after]]
+              (if (deletion? input)
+                [(second input) nil]
+                [(before input) after])))
+       (filter changed?)))
+
 (defn- emit-changes
   [{:keys [to-save
            result
@@ -200,16 +213,7 @@
     :or {close-chan? true}}]
   (when out-chan
     (a/go
-      (let [changes (concat
-                      (->> result
-                           (interleave to-save)
-                           (partition 2)
-                           (map (fn [[input after]]
-                                   (if (deletion? input)
-                                     [(second input) nil]
-                                     [(before input) after])))
-                           (filter changed?)))
-            c (a/onto-chan! out-chan changes close-chan?)]
+      (let [c (a/onto-chan! out-chan (calc-changes to-save result) close-chan?)]
         (when copy-chan
           (a/pipe c copy-chan))))))
 
