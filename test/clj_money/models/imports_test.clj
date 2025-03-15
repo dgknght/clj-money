@@ -13,7 +13,8 @@
                                             find-image
                                             find-import]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.models :as models]))
+            [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]))
 
 (use-fixtures :each reset-db)
 
@@ -102,7 +103,7 @@
   (with-context delete-context
     (let [user (find-user "john@doe.com")]
       (testing "deleting an import deletes the associated files"
-        (models/delete-and-propagate (find-import "import entity"))
+        (prop/delete-and-propagate (find-import "import entity"))
         (is (empty? (models/select #:import{:user user
                                             :entity-name "import entity"}))
             "The import record is removed")

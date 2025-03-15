@@ -5,7 +5,8 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [fmin]]
             [clj-money.util :as util]
-            [clj-money.models :as models]))
+            [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]))
 
 (s/def :attachment/transaction ::models/model-ref)
 (s/def :attachment/transaction-date t/local-date?)
@@ -32,7 +33,7 @@
              [:transaction/attachment-count]
              (fnil f 0)))
 
-(defmethod models/propagate :attachment
+(defmethod prop/propagate :attachment
   [[before after]]
   (cond-> []
     (and after (not before))
@@ -53,4 +54,4 @@
             (map #(adjust-trx % inc))
             (models/put-many))))
 
-(models/add-full-propagation propagate-all)
+(prop/add-full-propagation propagate-all)

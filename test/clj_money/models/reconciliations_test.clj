@@ -14,6 +14,7 @@
                      assert-deleted]
              :as helpers]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.models.ref]
             [clj-money.test-context :refer [with-context
                                             *context*
@@ -323,7 +324,7 @@
 (deftest propagate-reconciliation-deletion
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
-      (models/delete-and-propagate reconciliation)
+      (prop/delete-and-propagate reconciliation)
       (is (empty? (models/select
                     (util/model-type
                       {:transaction-item/reconciliation (->model-ref reconciliation)
@@ -335,7 +336,7 @@
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
-                            (models/delete-and-propagate reconciliation))
+                            (prop/delete-and-propagate reconciliation))
           "an exception is thrown")
       (is (models/find reconciliation) "The reconciliation can still be retrieved")
       (is (seq (models/select

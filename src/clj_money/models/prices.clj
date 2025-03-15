@@ -8,7 +8,8 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
-            [clj-money.models :as models]))
+            [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]))
 
 (defn- trade-date-unique?
   [{:keys [id] :as price}]
@@ -104,7 +105,7 @@
                           trade-date))
       price)))
 
-(defmethod models/propagate :price
+(defmethod prop/propagate :price
   [[before after]]
   (when-let [latest (if after
                       (when (latest-price? after)
@@ -160,4 +161,4 @@
        (models/put-many (cons (apply-agg-to-entity entity agg)
                               (apply-agg-to-commodities agg)))))))
 
-(models/add-full-propagation propagate-all)
+(prop/add-full-propagation propagate-all)

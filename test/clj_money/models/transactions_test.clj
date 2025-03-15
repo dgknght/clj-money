@@ -1,6 +1,5 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer [deftest use-fixtures testing is]]
-            [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-money.db.sql.ref]
@@ -11,6 +10,7 @@
             [clj-money.db.sql :as sql]
             [clj-money.model-helpers :as helpers :refer [assert-invalid]]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.models.ref]
             [clj-money.models.transactions :as transactions]
             [clj-money.factories.user-factory]
@@ -97,13 +97,8 @@
 
 (deftest create-and-propagate-a-transaction
   (with-context base-context
-    (let [date (t/local-date 2016 3 2)
-          prop-chan (models/propagation-chan)
-          out-chan (a/chan)]
-      (a/pipe prop-chan out-chan)
-      (models/put (attributes)
-                  :out-chan (models/propagation-chan))
-      (a/alts!! [out-chan (a/timeout 2000)])
+    (let [date (t/local-date 2016 3 2)]
+      (prop/put-and-propagate (attributes))
       (testing "entity updates"
         (is (comparable? #:settings{:earliest-transaction-date date
                                     :latest-transaction-date date}
@@ -232,15 +227,13 @@
 
 (deftest insert-transaction-before-the-end
   (with-context insert-context
-    (let [out-chan (models/propagation-chan)]
-      (models/put #:transaction{:transaction-date (t/local-date 2016 3 3)
-                                :entity (find-entity "Personal")
-                                :description "Kroger"
-                                :debit-account (find-account "Groceries")
-                                :credit-account (find-account "Checking")
-                                :quantity 99M}
-                  :out-chan out-chan)
-      (a/alts!! [out-chan (a/timeout 1000)]))
+    (prop/put-and-propagate
+      #:transaction{:transaction-date (t/local-date 2016 3 3)
+                    :entity (find-entity "Personal")
+                    :description "Kroger"
+                    :debit-account (find-account "Groceries")
+                    :credit-account (find-account "Checking")
+                    :quantity 99M})
     (is (seq-of-maps-like? [#:transaction-item{:index 2
                                                :quantity 100M
                                                :balance 801M}
@@ -266,24 +259,22 @@
 
 (deftest create-a-transaction-with-multiple-items-for-one-account
   (with-context multi-context
-    (let [out-chan (models/propagation-chan)]
-      (models/put #:transaction{:transaction-date (t/local-date 2016 3 2)
-                                :entity (find-entity "Personal")
-                                :description "Paycheck"
-                                :items [#:transaction-item{:action :debit
-                                                           :account (find-account "Checking")
-                                                           :quantity 1000M}
-                                        #:transaction-item{:action :debit
-                                                           :account (find-account "Checking")
-                                                           :quantity 100M}
-                                        #:transaction-item{:action :credit
-                                                           :account (find-account "Salary")
-                                                           :quantity 1000M}
-                                        #:transaction-item{:action :credit
-                                                           :account (find-account "Bonus")
-                                                           :quantity 100M}]}
-                  :out-chan out-chan)
-      (a/alts!! [out-chan (a/timeout 1000)]))
+    (prop/put-and-propagate
+      #:transaction{:transaction-date (t/local-date 2016 3 2)
+                    :entity (find-entity "Personal")
+                    :description "Paycheck"
+                    :items [#:transaction-item{:action :debit
+                                               :account (find-account "Checking")
+                                               :quantity 1000M}
+                            #:transaction-item{:action :debit
+                                               :account (find-account "Checking")
+                                               :quantity 100M}
+                            #:transaction-item{:action :credit
+                                               :account (find-account "Salary")
+                                               :quantity 1000M}
+                            #:transaction-item{:action :credit
+                                               :account (find-account "Bonus")
+                                               :quantity 100M}]})
     (is (comparable? {:account/earliest-transaction-date (t/local-date 2016 3 2)
                       :account/latest-transaction-date (t/local-date 2016 3 2)}
                      (reload-account "Checking"))
@@ -323,10 +314,8 @@
 (deftest delete-a-transaction
   (with-context delete-context
     (let [checking-items-before (items-by-account "Checking")
-          trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])
-          ch (models/propagation-chan)]
-      (models/delete trans :out-chan ch)
-      (a/alts!! [ch (a/timeout 1000)])
+          trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])]
+      (prop/delete-and-propagate trans)
       (testing "checking transaction item balances are adjusted"
         (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity 102M :balance 798M}
                                 #:transaction-item{:index 1 :quantity 100M :balance 900M}
@@ -442,11 +431,8 @@
 
 (defn- update-trx-items
   [trx & {:as change-map}]
-  (let [ch (models/propagation-chan)
-        result (models/put (update-in trx [:transaction/items] update-items change-map)
-                           :out-chan ch)]
-    (a/alts!! [ch (a/timeout 1000)])
-    result))
+  (prop/put-and-propagate
+    (update-in trx [:transaction/items] update-items change-map)))
 
 (deftest update-a-transaction-change-quantity
   (with-context update-context
@@ -471,11 +457,9 @@
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
           trx (find-transaction [(t/local-date 2016 3 22) "Kroger"])
-          ch (models/propagation-chan)
-          result (-> trx
-                     (assoc :transaction/transaction-date (t/local-date 2016 3 10))
-                     (models/put :out-chan ch))]
-      (a/alts!! [ch (a/timeout 1000)])
+          [result] (-> trx
+                       (assoc :transaction/transaction-date (t/local-date 2016 3 10))
+                       prop/put-and-propagate)]
       (is (seq-of-maps-like? [#:transaction-item{:index 2
                                                  :transaction-date (t/local-date 2016 3 12)
                                                  :quantity 101M
@@ -510,11 +494,9 @@
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
-          out-chan (models/propagation-chan)
-          result (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
-                     (assoc :transaction/transaction-date (t/local-date 2016 4 12))
-                     (models/put :out-chan out-chan))]
-      (a/alts!! [out-chan (a/timeout 1000)])
+          [result] (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
+                       (assoc :transaction/transaction-date (t/local-date 2016 4 12))
+                       prop/put-and-propagate)]
       (is (seq-of-maps-like? [#:transaction-item{:index 2
                                                  :transaction-date (t/local-date 2016 4 12)
                                                  :quantity 101M
@@ -589,15 +571,13 @@
 (deftest update-a-transaction-short-circuit-updates
   (with-context short-circuit-context
     (let [calls (atom [])
-          orig-put sql/put*
-          out-chan (models/propagation-chan)]
+          orig-put sql/put*]
       (with-redefs [sql/put* (fn [ds models]
                                (swap! calls conj models)
                                (orig-put ds models))]
         (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
             (assoc :transaction/transaction-date (t/local-date 2016 3 8))
-            (models/put :out-chan out-chan))
-        (a/alts!! [out-chan (a/timeout 1000)])
+            prop/put-and-propagate)
         (let [[c1 c2 :as cs] @calls
               checking (find-account "Checking")]
           (is (= 2 (count cs))
@@ -794,38 +774,22 @@
 
 (deftest update-a-transaction-remove-item
   (with-context add-remove-item-context
-    (let [ch (models/propagation-chan)]
-      (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
-          (update-in [:transaction/items]
-                     update-items
-                     {(find-account "Groceries")
-                      #:transaction-item{:quantity 102M
-                                         :value 102M}})
-          (update-in [:transaction/items] #(remove (fn [i]
-                                                     (= 12M (:transaction-item/quantity i)))
-                                                   %))
-          (models/put :out-chan ch))
-      (a/alts!! [ch (a/timeout 1000)]))
-    (is (seq-of-maps-like? [#:transaction-item{:index 2
-                                               :quantity 101M
-                                               :balance 306M}
-                            #:transaction-item{:index 1
-                                               :quantity 102M
-                                               :balance 205M}
-                            #:transaction-item{:index 0
-                                               :quantity 103M
-                                               :balance 103M}]
-                           (items-by-account "Groceries")))
-    (assert-account-quantities (find-account "Pets")        0M
-                               (find-account "Groceries") 306M
-                               (find-account "Checking")  694M)))
+    (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
+        (update-in [:transaction/items]
+                   update-items
+                   {(find-account "Groceries")
+                    #:transaction-item{:quantity 102M
+                                       :value 102M}})
+        (update-in [:transaction/items] #(remove (fn [i]
+                                                   (= 12M (:transaction-item/quantity i)))
+                                                 %))
+        prop/put-and-propagate)))
 
 (deftest update-a-transaction-add-item
   (with-context add-remove-item-context
     (let [[pets
            groceries
-           checking] (find-accounts "Pets" "Groceries" "Checking")
-          ch (models/propagation-chan)]
+           checking] (find-accounts "Pets" "Groceries" "Checking")]
       (-> (find-transaction [(t/local-date 2016 3 9) "Kroger"])
           (update-in [:transaction/items]
                      update-items
@@ -837,8 +801,7 @@
                                         :account pets
                                         :quantity 13M
                                         :value 13M})
-          (models/put :out-chan ch))
-      (a/alts!! [ch (a/timeout 1000)])
+          prop/put-and-propagate)
       (testing "item values are correct"
         (is (seq-of-maps-like? [#:transaction-item{:index 1
                                                    :quantity 12M

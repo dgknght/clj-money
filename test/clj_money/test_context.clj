@@ -7,6 +7,7 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.transactions :refer [expand]]
             [clj-money.trading :as trading]))
 
@@ -441,7 +442,7 @@
                                          process)))
                             [])
                     (mapv post-process))]
-    (models/propagate-all)
+    (prop/propagate-all)
     result))
 
 (defmacro with-context

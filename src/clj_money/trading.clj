@@ -10,6 +10,7 @@
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.models.prices :as prices]
             [clj-money.util :as util]
             [clj-money.db :as db])
@@ -424,7 +425,7 @@
         (put-purchase opts))))
 
 (def buy-and-propagate
-  (models/+propagation buy :combine-with cons))
+  (prop/+propagation buy :combine-with cons))
 
 (defn unbuy
   "Reverses a commodity purchase"
@@ -445,7 +446,7 @@
      :commodity commodity}))
 
 (def unbuy-and-propagate
-  (models/+propagation unbuy))
+  (prop/+propagation unbuy))
  
 (defn- acquire-lots
   "Given a trade map, finds the next lot containing
@@ -649,7 +650,7 @@
         (put-sale opts))))
 
 (def sell-and-propagate
-  (models/+propagation sell :combine-with cons))
+  (prop/+propagation sell :combine-with cons))
 
 (defn unsell
   [trx & {:as opts}]
@@ -673,7 +674,7 @@
                            updated-lots))))
 
 (def unsell-and-propagate
-  (models/+propagation unsell :combine-with cons))
+  (prop/+propagation unsell :combine-with cons))
 
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account
@@ -781,7 +782,7 @@
             (put-transfer opts))))
 
 (def transfer-and-propagate
-  (models/+propagation transfer :combine-with cons))
+  (prop/+propagation transfer :combine-with cons))
 
 (defn- append-split-lots
   [{:split/keys [commodity account] :as split}]
@@ -917,4 +918,4 @@
         (put-split opts))))
 
 (def split-and-propagate
-  (models/+propagation split :combine-with cons))
+  (prop/+propagation split :combine-with cons))

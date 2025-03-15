@@ -6,7 +6,8 @@
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
-            [clj-money.models :as models]))
+            [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]))
 
 (defn- name-is-unique?
   [{:keys [id] :as commodity}]
@@ -88,4 +89,4 @@
                                     :settings/default-commodity]
                                    (util/->model-ref (first currencies)))])))))
 
-(models/add-full-propagation propagate-all :priority 5)
+(prop/add-full-propagation propagate-all :priority 5)

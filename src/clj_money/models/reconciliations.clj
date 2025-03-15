@@ -6,6 +6,7 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.accounts :as acts]))
 
 (defn- get-meta
@@ -262,7 +263,7 @@
     (throw (ex-info "Only the most recent reconciliation may be deleted" {:reconciliation recon})))
   recon)
 
-(defmethod models/propagate :reconciliation
+(defmethod prop/propagate :reconciliation
   [[{:as recon :reconciliation/keys [account]} after]]
   (when-not after
     (map #(assoc % :transaction-item/reconciliation nil)

@@ -4,7 +4,8 @@
             [clojure.spec.alpha :as s]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.models :as models]))
+            [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]))
 
 (s/def :import/entity-name string?)
 (s/def :import/images (s/coll-of ::models/model-ref :min-count 1))
@@ -30,7 +31,7 @@
   [imp _]
   (assoc imp :import/entity-exists? (entity-exists? imp)))
 
-(defmethod models/propagate :import
+(defmethod prop/propagate :import
   [[{:import/keys [images]} after]]
   (when-not after
     (map (comp (partial vector ::db/delete)

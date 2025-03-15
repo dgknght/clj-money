@@ -4,6 +4,8 @@
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.models :as models]
+            [clj-money.models.propagation :refer [put-and-propagate
+                                                  delete-and-propagate]]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
@@ -48,7 +50,7 @@
 
 (deftest propagate-attachment-creation
   (with-context attach-context
-    (models/put-and-propagate (attributes))
+    (put-and-propagate (attributes))
     (is (comparable? {:transaction/attachment-count 1}
                      (models/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
                                                    :description "Paycheck"}))
@@ -97,7 +99,7 @@
                        trx)
           "The count reflects the attachment before delete")
 
-      (models/delete-and-propagate att)
+      (delete-and-propagate att)
 
       (is (comparable? {:transaction/attachment-count 0}
                        (models/find trx))

@@ -7,6 +7,9 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.core]
             [clj-money.models :as models]
+            [clj-money.models.propagation :refer [propagation-chan
+                                                  put-and-propagate
+                                                  delete-and-propagate]]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.db.sql.ref]
@@ -55,7 +58,7 @@
   (with-context price-context
     (let [{:as attr :price/keys [trade-date]} (attributes)
           entity (find-entity "Personal")
-          out-chan (models/propagation-chan)]
+          out-chan (propagation-chan)]
       (models/put attr :out-chan out-chan)
       (a/alts!! [out-chan (a/timeout 1000)])
       (is (comparable? #:commodity{:earliest-price trade-date 
@@ -178,7 +181,7 @@
 (deftest creating-a-price-updates-account-summary-data
   (with-context account-summary-context
     (testing "a historical price"
-      (models/put-and-propagate
+      (put-and-propagate
         #:price{:commodity (find-commodity "AAPL")
                 :trade-date (t/local-date 2015 1 15)
                 :price 9M})
@@ -189,7 +192,7 @@
                        (models/find-by {:account/name "IRA"}))
           "Parents of accounts tracking the commodity are changed after the update"))
     (testing "a most recent price"
-      (models/put-and-propagate
+      (put-and-propagate
         #:price{:commodity (find-commodity "AAPL")
                 :trade-date (t/local-date 2015 3 1)
                 :price 12M})
@@ -215,7 +218,7 @@
     (-> (find-price ["AAPL" (t/local-date 2015 2 2)])
         (assoc :price/price 13M
                :price/trade-date (t/local-date 2016 1 1))
-        models/put-and-propagate)
+        put-and-propagate)
 
     (testing "after the update"
       (is (= 1300M (:account/value (models/find-by {:account/name "AAPL"})))
@@ -236,7 +239,7 @@
       (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
           "The account value reflects the price before delete"))
 
-    (models/delete-and-propagate (find-price ["AAPL" (t/local-date 2015 2 2)]))
+    (delete-and-propagate (find-price ["AAPL" (t/local-date 2015 2 2)]))
 
     (testing "after delete"
       (is (comparable? {:account/value 1000M}

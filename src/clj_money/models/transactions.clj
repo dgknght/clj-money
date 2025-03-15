@@ -1,6 +1,7 @@
 (ns clj-money.models.transactions
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid
@@ -11,6 +12,7 @@
             [clj-money.dates :as dates]
             [clj-money.transactions :as trxs]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.accounts :as acts]))
 
 (defn- simplify
@@ -535,7 +537,7 @@
             transaction-items
             others)))
 
-(defmethod models/propagate :transaction
+(defmethod prop/propagate :transaction
   [[_ after :as change]]
   (if after
     (propagate-transaction change)
@@ -609,7 +611,7 @@
                        :models []}))]
      (models/put-many (cons entity models)))))
 
-(models/add-full-propagation propagate-all :priority 5)
+(prop/add-full-propagation propagate-all :priority 5)
 
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
@@ -666,9 +668,8 @@
                    {:entity []
                     :accounts {}}
                    out#)
-         prim-result# (f# out# copy#)
-         _# (a/<!! copy#) ; wait for all of the data to be passed to the out-chan
-         _# (a/close! out#)
-         sec-result# (propagate-accounts (a/<!! reduce#))]
+         prim-result# (f# out# copy#)]
+     (a/<!! copy#) ; wait for all of the data to be passed to the out-chan
+     (a/close! out#)
      (concat prim-result#
-             sec-result#)))
+             (propagate-accounts (a/<!! reduce#)))))

@@ -8,6 +8,7 @@
             [java-time.api :as t]
             [clj-money.util :as util]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.dates :as dates]
             [clj-money.trading :as trading]
             #_[clj-money.accounts :refer [->>criteria]]
@@ -660,7 +661,7 @@
         (read-source source-type inputs source-chan)
         (a/<!! read-source-result-chan)
         ; TODO: Also need to restore the reconciliation processing
-        (models/propagate-all entity)
+        (prop/propagate-all entity)
         (finally
           (deliver wait-promise true))))
     {:entity entity
