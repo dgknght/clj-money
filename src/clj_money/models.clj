@@ -87,7 +87,7 @@
 (defn find-many
   [m-or-ids model-type]
   (select (util/model-type {:id [:in (mapv ->id m-or-ids)]}
-                         model-type)))
+                           model-type)))
 
 (defn find
   "Find a model by id or by reference map.
@@ -103,11 +103,11 @@
        (assert (:id arg) "The argument must have an id")
        (assert (util/model-type arg) "The argument must have a model type")
        (find (:id arg)
-           (keyword (util/model-type arg)))))) ; TODO: can we remove the call to keyword?
+             (keyword (util/model-type arg)))))) ; TODO: can we remove the call to keyword?
   ([id-or-ref model-type]
    {:pre [id-or-ref (keyword? model-type)]}
    (find-by (util/model-type (util/->model-ref id-or-ref)
-                           model-type))))
+                             model-type))))
 
 (def ^:private mergeable?
   (every-pred map? :id))
@@ -147,7 +147,6 @@
     :merge-last-wins (merge-dupes ms)
     :throw (throw-on-duplicate ms)
     (throw (ex-info "Invalid on-duplicate value" {:on-duplicate on-duplicate}))))
-
 
 (defn- dispatch
   "Returns a function that accepts either a naked model or a model wrapped in a
