@@ -668,8 +668,9 @@
                    {:entity []
                     :accounts {}}
                    out#)
-         prim-result# (f# out# copy#)]
-     (a/<!! copy#) ; wait for all of the data to be passed to the out-chan
-     (a/close! out#)
+         prim-result# (f# out# copy#)
+         _# (pprint {::copy-out (a/<!! copy#)}) ; wait for primary result to finish emitting
+         _# (a/close! out#)
+         sec-result# (a/<!! reduce#)]
      (concat prim-result#
-             (propagate-accounts (a/<!! reduce#)))))
+             (propagate-accounts sec-result#))))
