@@ -210,17 +210,17 @@
            saved
            out-chan
            close-chan?
-           completed-chan]
+           ctrl-chan]
     :or {close-chan? true}}]
   (when out-chan
     (a/go
-      (let [changes (calc-changes to-save saved)]
-        (doseq [c changes]
-          (a/>! out-chan c))
-        (when close-chan?
-          (a/close! out-chan))
-        (when completed-chan
-          (a/>! completed-chan (c/count changes)))))))
+      (when-let [changes (seq (calc-changes to-save saved))]
+        (when ctrl-chan
+          (a/>! ctrl-chan :start))
+        (let [c (a/onto-chan! out-chan changes close-chan?)]
+          (when ctrl-chan
+            (a/<!! c)
+            (a/>! ctrl-chan :finish)))))))
 
 (defn put-many
   "Save a sequence of models to the database, providing lifecycle hooks that
@@ -234,8 +234,8 @@
                   by the operation.
   :close-chan?  - A boolean value indicating whether or not the out-chan should be
                   closed automatically once all pending results have been sent.
-  :completed-chan - Gets a message when the changes have been emitted. Use when
-                    :close-chan? is false to know when to close the output chan manually"
+  :ctrl-chan    - Gets a message (:start) when changes are about to be emitted
+                  another (:finish) when the changes have been emitted"
   ([models] (put-many {} models))
   ([{:as opts
      :keys [storage]}
