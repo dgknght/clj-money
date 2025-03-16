@@ -7,7 +7,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.core]
             [clj-money.models :as models]
-            [clj-money.models.propagation :refer [propagation-chan
+            [clj-money.models.propagation :refer [propagation-xf
                                                   put-and-propagate
                                                   delete-and-propagate]]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
@@ -58,7 +58,7 @@
   (with-context price-context
     (let [{:as attr :price/keys [trade-date]} (attributes)
           entity (find-entity "Personal")
-          out-chan (propagation-chan)]
+          out-chan (a/chan 1 propagation-xf)]
       (models/put attr :out-chan out-chan)
       (a/alts!! [out-chan (a/timeout 1000)])
       (is (comparable? #:commodity{:earliest-price trade-date 

@@ -176,7 +176,7 @@
   (with-context purchase-context
     (let [dividends (find-account "Dividends")
           ira (models/find (find-account "IRA"))
-          [{:trade/keys [transactions]} :as result] (-> #:trade{:commodity (find-commodity "AAPL")
+          [{:trade/keys [transactions]}] (-> #:trade{:commodity (find-commodity "AAPL")
                                                      :account (find-account "IRA")
                                                      :date (t/local-date 2016 2 2)
                                                      :shares 4.5M

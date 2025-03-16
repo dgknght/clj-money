@@ -425,7 +425,7 @@
         (put-purchase opts))))
 
 (def buy-and-propagate
-  (prop/+propagation buy :combine-with cons))
+  (prop/+propagation buy))
 
 (defn unbuy
   "Reverses a commodity purchase"
@@ -650,7 +650,7 @@
         (put-sale opts))))
 
 (def sell-and-propagate
-  (prop/+propagation sell :combine-with cons))
+  (prop/+propagation sell))
 
 (defn unsell
   [trx & {:as opts}]
@@ -674,7 +674,7 @@
                            updated-lots))))
 
 (def unsell-and-propagate
-  (prop/+propagation unsell :combine-with cons))
+  (prop/+propagation unsell))
 
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account
@@ -782,7 +782,7 @@
             (put-transfer opts))))
 
 (def transfer-and-propagate
-  (prop/+propagation transfer :combine-with cons))
+  (prop/+propagation transfer))
 
 (defn- append-split-lots
   [{:split/keys [commodity account] :as split}]
@@ -918,4 +918,4 @@
         (put-split opts))))
 
 (def split-and-propagate
-  (prop/+propagation split :combine-with cons))
+  (prop/+propagation split))

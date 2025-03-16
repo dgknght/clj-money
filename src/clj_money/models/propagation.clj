@@ -81,7 +81,7 @@
      (combine# prim-result# (a/<!! res#))))
 
 (defn +propagation
-  [f & {:keys [combine-with] :or {combine-with concat}}]
+  [f]
   (fn [model]
     (with-propagation [out-chan ctrl-chan]
       (f model
