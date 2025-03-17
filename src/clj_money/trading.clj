@@ -794,13 +794,13 @@
 
 (defn- append-split-ratio
   [{:split/keys [shares-gained lots] :as split}]
-  (assert (seq lots) "No lots found to which to apply the split.")
-  (let [shares-owned (->> lots
-                          (map :lot/shares-owned)
-                          (reduce + 0M))]
-    (assoc split :split/ratio (with-precision 4
-                                (/ (+ shares-owned shares-gained)
-                                   shares-owned)))))
+  (when (seq lots)
+    (let [shares-owned (->> lots
+                            (map :lot/shares-owned)
+                            (reduce + 0M))]
+      (assoc split :split/ratio (with-precision 4
+                                  (/ (+ shares-owned shares-gained)
+                                     shares-owned))))))
 
 (defn- apply-ratio-to-lot-item
   [item ratio]
@@ -908,14 +908,14 @@
 
   [split & {:as opts}]
   (with-ex-validation split ::models/split
-    (-> split
-        (update-in [:split/commodity] (models/resolve-ref :commodity))
-        append-split-accounts
-        append-split-lots
-        append-split-ratio
-        adjust-split-lots
-        create-split-transaction
-        (put-split opts))))
+    (some-> split
+            (update-in [:split/commodity] (models/resolve-ref :commodity))
+            append-split-accounts
+            append-split-lots
+            append-split-ratio
+            adjust-split-lots
+            create-split-transaction
+            (put-split opts))))
 
 (def split-and-propagate
   (prop/+propagation split))
