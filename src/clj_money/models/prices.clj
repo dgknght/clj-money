@@ -149,10 +149,10 @@
           (:commodities agg)))
 
 (defn propagate-all
-  ([]
+  ([opts]
    (doseq [e (models/select (util/model-type {} :entity))]
-     (propagate-all e)))
-  ([entity]
+     (propagate-all e opts)))
+  ([entity _opts]
    (when-let [prices (seq
                        (models/select
                          (util/model-type {:commodity/entity entity}

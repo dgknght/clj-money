@@ -43,10 +43,10 @@
     (conj (adjust-trx before (fmin dec 0)))))
 
 (defn propagate-all
-  ([]
+  ([opts]
    (doseq [e (models/select (util/model-type {} :entity))]
-     (propagate-all e)))
-  ([entity]
+     (propagate-all e opts)))
+  ([entity _opts]
    (some->> (models/select
               (util/model-type {:transaction/entity entity}
                                :attachment))

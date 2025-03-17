@@ -572,43 +572,54 @@
                                                   :id))
          accounts)))
 
+(defn propagate-account-from-start
+  [ctx account]
+  (let [items (->> (models/select {:transaction-item/account account}
+                                  {:sort [:transaction-item/transaction-date
+                                          :transaction-item/index]})
+                   (map (comp polarize
+                              #(assoc % :transaction-item/account account)))
+                   seq)
+        [{:account/keys [earliest-transaction-date
+                         latest-transaction-date]}
+         :as updated] (when items
+                        (->> (re-index account
+                                       (cons initial-basis items))
+                             (map (comp #(dissoc % ::polarized-quantity)
+                                        #(update-in-if % [:transaction-item/account] util/->model-ref)))))]
+    (-> ctx
+        (update-in [:models] concat updated)
+        (update-in [:entity
+                    :entity/settings
+                    :settings/earliest-transaction-date]
+                   dates/earliest
+                   earliest-transaction-date)
+        (update-in [:entity
+                    :entity/settings
+                    :settings/latest-transaction-date]
+                   dates/latest
+                   latest-transaction-date))))
+
 (defn propagate-all
-  ([]
+  ([opts]
    (doseq [entity (models/select (util/model-type {} :entity))]
-     (propagate-all entity)))
-  ([entity]
+     (propagate-all entity opts)))
+  ([entity {:keys [progress-chan]}]
    {:pre [entity]}
-   (let [{:keys [entity models]}
-         (->> (models/select {:account/entity entity})
+   (let [accounts (models/select {:account/entity entity})
+         _ (a/go (a/>! progress-chan {:total (count accounts)
+                                      :completed 0}))
+         {:keys [entity models]}
+         (->> accounts
               apply-commodities
-              (reduce (fn [ctx account]
-                        (let [items (->> (models/select {:transaction-item/account account}
-                                                        {:sort [:transaction-item/transaction-date
-                                                                :transaction-item/index]})
-                                         (map (comp polarize
-                                                    #(assoc % :transaction-item/account account)))
-                                         seq)
-                              [{:account/keys [earliest-transaction-date
-                                               latest-transaction-date]}
-                               :as updated] (when items
-                                              (->> (re-index account
-                                                             (cons initial-basis items))
-                                                   (map (comp #(dissoc % ::polarized-quantity)
-                                                              #(update-in-if % [:transaction-item/account] util/->model-ref)))))]
-                          (-> ctx
-                              (update-in [:models] concat updated)
-                              (update-in [:entity
-                                          :entity/settings
-                                          :settings/earliest-transaction-date]
-                                         dates/earliest
-                                         earliest-transaction-date)
-                              (update-in [:entity
-                                          :entity/settings
-                                          :settings/latest-transaction-date]
-                                         dates/latest
-                                         latest-transaction-date))))
+              (reduce (comp (fn [ctx]
+                              (a/go (a/>! progress-chan {:total (count accounts)
+                                                         :completed (inc (:completed ctx))}))
+                              (update-in ctx [:completed] inc))
+                            propagate-account-from-start)
                       {:entity entity
-                       :models []}))]
+                       :models []
+                       :completed 0}))]
      (models/put-many (cons entity models)))))
 
 (prop/add-full-propagation propagate-all :priority 5)

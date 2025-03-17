@@ -544,7 +544,7 @@
     (if (= ::finished record)
       :finish
       (case (:import/record-type record)
-        (:account-balance :process-reconciliation) :direct ; this comes from models/transactions or here and is basically ready to go
+        (:propagation :process-reconciliation) :direct ; this comes from models/transactions or here and is basically ready to go
         :declaration :init ; this comes from a declaration in the import source indicating the number or records to expect
         :imported)))) ; this is an imported record
 
@@ -633,7 +633,7 @@
 ; 2. filt
 
 (defn- import-data*
-  [import-spec progress-chan]
+  [import-spec {:keys [progress-chan]}]
   (let [user (models/find (:import/user import-spec) :user)
         [inputs source-type] (prepare-input (:import/images import-spec))
         entity ((some-fn models/find-by models/put)
@@ -641,7 +641,7 @@
                  :entity/name (:import/entity-name import-spec)})
         wait-promise (promise)
         source-chan (a/chan)
-        rebalance-chan (a/chan 1 (map #(assoc % :import/record-type :account-balance)))
+        propagation-chan (a/chan 1 (map #(assoc % :import/record-type :propagation)))
         reconciliations-chan (a/chan 1 (map #(assoc % :import/record-type :process-reconciliation)))
         prep-chan (a/chan (a/sliding-buffer 1) (->progress))
         read-source-result-chan (a/transduce
@@ -653,7 +653,7 @@
                                    :account-ids {}
                                    :entity entity}
                                   source-chan)]
-    (a/pipe rebalance-chan prep-chan false)
+    (a/pipe propagation-chan prep-chan false)
     (a/pipe reconciliations-chan prep-chan false)
     (a/pipe prep-chan progress-chan false)
     (a/go
@@ -661,7 +661,7 @@
         (read-source source-type inputs source-chan)
         (a/<!! read-source-result-chan)
         ; TODO: Also need to restore the reconciliation processing
-        (prop/propagate-all entity)
+        (prop/propagate-all entity :progress-chan propagation-chan)
         (finally
           (deliver wait-promise true))))
     {:entity entity
@@ -672,9 +672,7 @@
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  ([import-spec progress-chan]
-   (import-data import-spec progress-chan {}))
-  ([import-spec progress-chan options]
-   (if (:atomic? options)
-     (throw (UnsupportedOperationException. "Atomic imports are not supported"))
-     (import-data* import-spec progress-chan))))
+  [import-spec & {:as opts :keys [atomic?]}]
+  (if atomic?
+    (throw (UnsupportedOperationException. "Atomic imports are not supported"))
+    (import-data* import-spec opts)))

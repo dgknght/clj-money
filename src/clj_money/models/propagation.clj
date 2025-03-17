@@ -12,18 +12,18 @@
 
   Model namespaces register a function with add-full-propagation so that when
   this function is called, all of the mode-specific propagations will be executed."
-  ([]
+  ([opts]
    (->> @full-propagations
         (sort-by first)
         (mapcat second)
-        (map #(%))
+        (map #(% opts))
         doall))
-  ([entity]
+  ([entity & {:as opts}]
    (->> @full-propagations
         (sort-by first)
         (mapcat second)
         (reduce (fn [entity f]
-                  (if-let [updated (->> (f entity)
+                  (if-let [updated (->> (f entity opts)
                                         (filter (util/model-type? :entity))
                                         first)]
                     updated

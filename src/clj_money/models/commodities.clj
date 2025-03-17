@@ -70,10 +70,10 @@
   (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
 
 (defn propagate-all
-  ([]
+  ([opts]
    (doseq [entity (models/select (util/model-type {} :entity))]
-     (propagate-all entity)))
-  ([entity]
+     (propagate-all entity opts)))
+  ([entity _opts]
    {:pre [entity]}
    (when-not (get-in entity [:entity/settings
                              :settings/default-commodity])

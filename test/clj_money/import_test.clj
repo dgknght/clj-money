@@ -113,7 +113,7 @@
                    (when p
                      (swap! updates #(conj % p))
                      (recur (<! progress-chan))))
-        {:keys [entity wait]} (import-data imp progress-chan {:atomic? false})] ; TODO: can we continue to have atomic imports?
+        {:keys [entity wait]} (import-data imp :progress-chan progress-chan)]
     @wait
     {:entity entity
      :updates @updates}))
@@ -176,17 +176,17 @@
         updates)
       "The final transaction progress is reported")
   (is (includes-progress-notification?
-        :account-balance
+        :propagation
         {:total 4
          :completed 0}
         updates)
-      "The initial account balance progress is reported")
+      "The initial propagation progress is reported")
   (is (includes-progress-notification?
-        :account-balance
+        :propagation
         {:total 4
          :completed 4}
         updates)
-      "The final account balance progress is reported"))
+      "The final propagation progress is reported"))
 
 (defn- test-import []
   (let [imp (find-import "Personal")
