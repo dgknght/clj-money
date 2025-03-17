@@ -607,14 +607,19 @@
   ([entity {:keys [progress-chan]}]
    {:pre [entity]}
    (let [accounts (models/select {:account/entity entity})
-         _ (a/go (a/>! progress-chan {:total (count accounts)
-                                      :completed 0}))
+         _ (when progress-chan
+             (a/go (a/>! progress-chan {:total (count accounts)
+                                        :completed 0})))
          {:keys [entity models]}
          (->> accounts
               apply-commodities
               (reduce (comp (fn [ctx]
-                              (a/go (a/>! progress-chan {:total (count accounts)
-                                                         :completed (inc (:completed ctx))}))
+                              (when progress-chan
+                                (a/go
+                                  (a/>! progress-chan
+                                        {:total (count accounts)
+                                         :completed (inc (:completed ctx))})))
+
                               (update-in ctx [:completed] inc))
                             propagate-account-from-start)
                       {:entity entity
