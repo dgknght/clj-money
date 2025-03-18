@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.test :refer [deftest is use-fixtures testing assert-expr do-report]]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [go-loop <! chan]]
+            [clojure.core.async :as a :refer [go-loop <! chan]]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
@@ -113,8 +113,8 @@
                    (when p
                      (swap! updates #(conj % p))
                      (recur (<! progress-chan))))
-        {:keys [entity wait]} (import-data imp :progress-chan progress-chan)]
-    @wait
+        {:keys [entity wait-chan]} (import-data imp :progress-chan progress-chan)]
+    (a/alts!! [wait-chan (a/timeout 5000)])
     {:entity entity
      :updates @updates}))
 
@@ -316,8 +316,8 @@
 (deftest import-a-budget
   (with-context import-budget-context
     (let [imp (find-import "Personal")
-          {:keys [entity wait]} (import-data imp :progress-chan (nil-chan))]
-      @wait
+          {:keys [entity wait-chan]} (import-data imp :progress-chan (nil-chan))]
+      (a/alts!! [wait-chan (a/timeout 5000)])
       (let [retrieved (models/select {:budget/entity entity})]
         (is (seq-of-maps-like? [#:budget{:name "2017"
                                          :entity (util/->model-ref entity)
@@ -359,8 +359,8 @@
 (deftest import-commodities
   (with-context commodities-context
     (let [imp (find-import "Personal")
-          {:keys [wait]} (import-data imp :progress-chan (nil-chan))]
-      @wait
+          {:keys [wait-chan]} (import-data imp :progress-chan (nil-chan))]
+      (a/alts!! [wait-chan (a/timeout 5000)])
       (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 1 17)
                                     :shares-purchased 100M
                                     :shares-owned 100M
@@ -383,9 +383,9 @@
 
 (deftest import-commodities-with-extended-actions
   (with-context ext-context
-    (let [{:keys [entity wait]} (import-data (find-import "Personal")
+    (let [{:keys [entity wait-chan]} (import-data (find-import "Personal")
                                              :progress-chan (nil-chan))
-          _ @wait
+          _ (a/alts!! [wait-chan (a/timeout 5000)])
           four-oh-one-k (models/find-by {:account/name "401k"})
           ira (models/find-by {:account/name "IRA"
                                :account/entity entity})

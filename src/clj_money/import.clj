@@ -638,7 +638,7 @@
         entity ((some-fn models/find-by models/put)
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
-        wait-promise (promise)
+        wait-chan (a/promise-chan)
         source-chan (a/chan)
         propagation-chan (a/chan 1 (+record-type :propagation))
         reconciliations-chan (a/chan 1 (+record-type :process-reconciliation))
@@ -666,9 +666,9 @@
             (process-reconciliations result
                                      reconciliations-chan)))
         (finally
-          (deliver wait-promise true))))
+          (a/close! wait-chan))))
     {:entity entity
-     :wait wait-promise}))
+     :wait-chan wait-chan}))
 
 (defn import-data
   "Reads the contents from the specified input and saves
