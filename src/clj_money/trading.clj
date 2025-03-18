@@ -715,30 +715,37 @@
              (mapv #(assoc % :lot/account to-account)
                    lots)))))
 
+(defn- append-most-recent-price
+  [{:as transfer :transfer/keys [commodity date]}]
+  (assoc transfer
+         :most-recent-price
+         (prices/most-recent commodity date)))
+
 (defn- create-transfer-transaction
   [{:transfer/keys [commodity
+                    most-recent-price
                     from-commodity-account
                     to-commodity-account
                     date
                     shares]
     :as transfer}]
-  (let [price (prices/most-recent commodity date)
-        value (* shares (:price/price price))]
-    (assoc transfer
-           :transfer/transaction
-           #:transaction{:entity (:commodity/entity commodity)
-                         :transaction-date date
-                         :description (format "Transfer %s shares of %s"
-                                              shares
-                                              (:commodity/symbol commodity))
-                         :items [#:transaction-item{:action :credit
-                                                    :quantity shares
-                                                    :value value
-                                                    :account from-commodity-account}
-                                 #:transaction-item{:action :debit
-                                                    :quantity shares
-                                                    :value value
-                                                    :account to-commodity-account}]})))
+  (assert most-recent-price)
+  (let [value (* shares (:price/price most-recent-price))]
+      (assoc transfer
+             :transfer/transaction
+             #:transaction{:entity (:commodity/entity commodity)
+                           :transaction-date date
+                           :description (format "Transfer %s shares of %s"
+                                                shares
+                                                (:commodity/symbol commodity))
+                           :items [#:transaction-item{:action :credit
+                                                      :quantity shares
+                                                      :value value
+                                                      :account from-commodity-account}
+                                   #:transaction-item{:action :debit
+                                                      :quantity shares
+                                                      :value value
+                                                      :account to-commodity-account}]})))
 
 (defn- put-transfer
   [{:transfer/keys [transaction
@@ -777,6 +784,7 @@
     (some-> transfer
             (update-in [:transfer/commodity] (models/resolve-ref :commodity))
             append-transfer-accounts
+            append-most-recent-price
             process-transfer-lots
             create-transfer-transaction
             (put-transfer opts))))
