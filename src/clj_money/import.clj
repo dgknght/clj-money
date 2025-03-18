@@ -659,7 +659,9 @@
       (try
         (read-source source-type inputs source-chan)
         (let [result (a/<!! read-source-result-chan)]
-          (prop/propagate-all entity :progress-chan propagation-chan)
+          (-> entity
+              models/find
+              (prop/propagate-all :progress-chan propagation-chan))
           (deref
             (process-reconciliations (update-in result
                                                 [:entity]
