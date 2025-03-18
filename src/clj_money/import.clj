@@ -608,6 +608,12 @@
             :ignore (xf acc (assoc record :import/ignore? true))
             :drop   (xf acc)))))))
 
+(defn- +record-type
+  "Returns a transducing fn that appends the specified value in the received
+  maps at the key :import/record-type"
+  [record-type]
+  (map #(assoc % :import/record-type record-type)))
+
 ; Import steps
 ; read input -> stream of records
 ; rebalance accounts -> stream of accounts (just counts?)
@@ -634,8 +640,8 @@
                  :entity/name (:import/entity-name import-spec)})
         wait-promise (promise)
         source-chan (a/chan)
-        propagation-chan (a/chan 1 (map #(assoc % :import/record-type :propagation)))
-        reconciliations-chan (a/chan 1 (map #(assoc % :import/record-type :process-reconciliation)))
+        propagation-chan (a/chan 1 (+record-type :propagation))
+        reconciliations-chan (a/chan 1 (+record-type :process-reconciliation))
         prep-chan (a/chan (a/sliding-buffer 1) (->progress))
         read-source-result-chan (a/transduce
                                   (comp (filter-import)
