@@ -316,7 +316,7 @@
 (deftest import-a-budget
   (with-context import-budget-context
     (let [imp (find-import "Personal")
-          {:keys [entity wait]} (import-data imp (nil-chan))]
+          {:keys [entity wait]} (import-data imp :progress-chan (nil-chan))]
       @wait
       (let [retrieved (models/select {:budget/entity entity})]
         (is (seq-of-maps-like? [#:budget{:name "2017"
@@ -359,7 +359,7 @@
 (deftest import-commodities
   (with-context commodities-context
     (let [imp (find-import "Personal")
-          {:keys [wait]} (import-data imp (nil-chan))]
+          {:keys [wait]} (import-data imp :progress-chan (nil-chan))]
       @wait
       (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 1 17)
                                     :shares-purchased 100M
@@ -384,7 +384,7 @@
 (deftest import-commodities-with-extended-actions
   (with-context ext-context
     (let [{:keys [entity wait]} (import-data (find-import "Personal")
-                                             (nil-chan))
+                                             :progress-chan (nil-chan))
           _ @wait
           four-oh-one-k (models/find-by {:account/name "401k"})
           ira (models/find-by {:account/name "IRA"
