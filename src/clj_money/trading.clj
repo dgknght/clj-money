@@ -554,7 +554,7 @@
                #(merge settings %))))
  
 (def ^:private find-or-create-account
-  (some-fn models/find-by util/+temp-id))
+  (some-fn models/find-by models/put))
  
 (defn- find-or-create-gains-account
   [{:trade/keys [entity]} term result]
