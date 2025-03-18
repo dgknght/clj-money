@@ -663,9 +663,7 @@
               models/find
               (prop/propagate-all :progress-chan propagation-chan))
           (deref
-            (process-reconciliations (update-in result
-                                                [:entity]
-                                                models/find)
+            (process-reconciliations result
                                      reconciliations-chan)))
         (finally
           (deliver wait-promise true))))
