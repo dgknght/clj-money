@@ -289,13 +289,13 @@
       (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-gains-account]))
           "The long-term capital gains account id is set correctly")
-      #_(is (util/model-ref? (get-in entity [:entity/settings
+      (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/st-capital-gains-account]))
           "The short-term capital gains account id is set correctly")
-      #_(is (util/model-ref? (get-in entity [:entity/settings
+      (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-loss-account]))
           "The long-term capital losses account id is set correctly")
-      #_(is (util/model-ref? (get-in entity [:entity/settings
+      (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-loss-account]))
           "The short-term capital losses account id is set correctly"))))
 
