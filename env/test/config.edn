@@ -1,4 +1,5 @@
-{:alpha-vantage-api-key "alpha-vantage-api-key"
+{:allow-unbound-queries true
+ :alpha-vantage-api-key "alpha-vantage-api-key"
  :application-name "clj-money"
  :db {:strategies {:sql {:clj-money.db/strategy :clj-money.db/sql
                          :host "localhost"

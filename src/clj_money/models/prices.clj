@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [config.core :refer [env]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
@@ -45,10 +46,15 @@
                                             commodity)]
      (cond
        (every? nil? [earliest-price latest-price])
-       (log/warnf
-         "No price bounding for commodity %s %s"
-         (:id commodity)
-         (:commodity/symbol commodity))
+       (do
+         (log/warnf
+           "No price bounding for commodity %s %s"
+           (:id commodity)
+           (:commodity/symbol commodity))
+         (when (env :allow-unbound-queries)
+           (models/find-by #:price{:commodity commodity
+                                   :trade-date [:<= as-of]}
+                           {:sort [[:price/trade-date :desc]]})))
 
        (and as-of
             (t/after? earliest-price as-of))
