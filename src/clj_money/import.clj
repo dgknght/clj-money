@@ -11,10 +11,8 @@
             [clj-money.models.propagation :as prop]
             [clj-money.dates :as dates]
             [clj-money.trading :as trading]
-            #_[clj-money.accounts :refer [->>criteria]]
-            #_[clj-money.transactions :refer [polarize-item-quantity]]
-            #_[clj-money.models.transactions :as transactions]
-            #_[clj-money.models.settings :as settings]))
+            [clj-money.accounts :refer [->>criteria]]
+            [clj-money.transactions :refer [polarize-item-quantity]]))
 
 (defmulti read-source
   (fn [source-type & _]
@@ -137,7 +135,7 @@
                                           (:transaction-item/action %))
                                       items)
           item-account-ids (map #(get-in account-ids [(:import/account-id %)])
-                           non-commodity-items)
+                                non-commodity-items)
           accounts-map (->> (models/select
                               (util/model-type
                                 {:id [:in item-account-ids]}
@@ -329,10 +327,10 @@
   [{:keys [account-recons] :as ctx} items]
   (if account-recons
     (mapv (fn [{:as item :import/keys [reconciled? account-id]}]
-           (cond-> item
-             reconciled? (assoc :transaction-item/reconciliation
-                                (util/->model-ref (find-reconciliation-id account-id ctx)))))
-         items)
+            (cond-> item
+              reconciled? (assoc :transaction-item/reconciliation
+                                 (util/->model-ref (find-reconciliation-id account-id ctx)))))
+          items)
     items))
 
 (defmethod import-record* :transaction
@@ -473,58 +471,53 @@
                   (assoc-error context (.getMessage e) (ex-data e))))
            record)))))
 
-#_(defn- append-child-ids
-  [account-id account-children]
-  (cons account-id
-        (mapcat #(append-child-ids % account-children)
-                (account-children account-id))))
-
-#_(defn- fetch-reconciled-items
+(defn- fetch-reconciled-items
   [{:reconciliation/keys [account]
     :keys [id]}
-   {:keys [account-children
-           earliest-date
-           latest-date]}]
+   {:keys [entity]}]
   (let [accounts (models/select
-                   (util/model-type
-                     {:id (if account-children
-                            [:in (append-child-ids
-                                   (:id account)
-                                   account-children)]
-                            (:id account))}
-                     :account))]
-    (models/select (assoc (->>criteria {:earliest-date earliest-date
-                                        :latest-date latest-date}
-                                       accounts)
-                          :transaction-item/reconciliation (util/->model-ref id)))))
+                  (util/model-type
+                   {:id (:id account)}
+                   :account)
+                  {:include-children? true})]
+    (models/select
+     (assoc (->>criteria {:earliest-date (-> entity
+                                             :entity/settings
+                                             :settings/earliest-transaction-date)
+                          :latest-date (-> entity
+                                           :entity/settings
+                                           :settings/latest-transaction-date)}
+                         accounts)
+            :transaction-item/reconciliation (util/->model-ref id)))))
 
-#_(defn- process-reconciliation
+(defn- process-reconciliation
   [{:reconciliation/keys [account] :as recon} ctx]
   (let [account (models/find account :account)
-        updated (assoc recon
-                       :reconciliation/balance (->> (fetch-reconciled-items recon ctx)
-                                                    (map (comp :transaction-item/polarized-quantity
-                                                               polarize-item-quantity
-                                                               #(assoc % :transaction-item/account account)))
-                                                    (reduce + 0M))
-                       :reconciliation/status :completed)]
-    (models/put updated)))
+        balance (->> (fetch-reconciled-items recon ctx)
+                     (map (comp :transaction-item/polarized-quantity
+                                polarize-item-quantity
+                                #(assoc % :transaction-item/account account)))
+                     (reduce + 0M))]
+    (-> recon
+        (assoc :reconciliation/balance balance
+               :reconciliation/status :completed)
+        models/put)))
 
-#_(defn- process-reconciliations
+(defn- process-reconciliations
   [{:keys [entity] :as ctx} out-chan]
   (let [reconciliations (models/select
-                          (util/model-type
-                            {:account/entity entity}
-                            :reconciliation))
+                         (util/model-type
+                          {:account/entity entity}
+                          :reconciliation))
         progress {:total (count reconciliations)}
         done (promise)]
-    (go
-      (>! out-chan progress)
+    (a/go
+      (a/>! out-chan progress)
       (->> reconciliations
            (map #(process-reconciliation % ctx))
            (map-indexed (fn [i _]
-                          (go
-                            (>! out-chan (assoc progress :completed (+ 1 i))))))
+                          (a/go
+                            (a/>! out-chan (assoc progress :completed (+ 1 i))))))
            doall)
       (deliver done true))
     done))
@@ -659,9 +652,13 @@
     (a/go
       (try
         (read-source source-type inputs source-chan)
-        (a/<!! read-source-result-chan)
-        ; TODO: Also need to restore the reconciliation processing
-        (prop/propagate-all entity :progress-chan propagation-chan)
+        (let [result (a/<!! read-source-result-chan)]
+          (prop/propagate-all entity :progress-chan propagation-chan)
+          (deref
+            (process-reconciliations (update-in result
+                                                [:entity]
+                                                models/find)
+                                     reconciliations-chan)))
         (finally
           (deliver wait-promise true))))
     {:entity entity
