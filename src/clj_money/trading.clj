@@ -718,7 +718,7 @@
 (defn- append-most-recent-price
   [{:as transfer :transfer/keys [commodity date]}]
   (assoc transfer
-         :most-recent-price
+         :transfer/most-recent-price
          (prices/most-recent commodity date)))
 
 (defn- create-transfer-transaction
