@@ -510,7 +510,7 @@
                           {:account/entity entity}
                           :reconciliation))
         progress {:total (count reconciliations)}
-        done (promise)]
+        ch (a/promise-chan)]
     (a/go
       (a/>! out-chan progress)
       (->> reconciliations
@@ -519,8 +519,8 @@
                           (a/go
                             (a/>! out-chan (assoc progress :completed (+ 1 i))))))
            doall)
-      (deliver done true))
-    done))
+      (a/close! ch))
+    ch))
 
 (defn- forward
   "Returns a transducer that places received values on the specified channel"
@@ -662,9 +662,9 @@
           (-> entity
               models/find
               (prop/propagate-all :progress-chan propagation-chan))
-          (deref
-            (process-reconciliations result
-                                     reconciliations-chan)))
+          (a/alts!! [(process-reconciliations result
+                                              reconciliations-chan)
+                     (a/timeout 5000)]))
         (finally
           (a/close! wait-chan))))
     {:entity entity
