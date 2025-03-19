@@ -264,7 +264,7 @@
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
         remove? (make-reaction #(if @hide-zero-shares?
                                   (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
-                                    (fn [{:keys [shares-owned created-at]}]
+                                    (fn [{:commodity/keys [shares-owned created-at]}]
                                       (or (t/before? created-at
                                                      an-hour-ago)
                                           (zero? shares-owned))))
