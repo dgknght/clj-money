@@ -90,15 +90,17 @@
          :close-chan? false))))
 
 (defn- act-and-propagate
-  [model f {:as opts}]
+  [model f {:as opts :keys [return-all?] :or {return-all? false}}]
   (let [out-chan (a/chan 1 propagation-xf)
         result (apply f
                       model
                       (mapcat identity
                               (assoc opts
-                                     :out-chan out-chan)))]
-    (cons result
-          (a/<!! out-chan))))
+                                     :out-chan out-chan)))
+        propagations (a/<!! out-chan)]
+    (if return-all?
+      (cons result propagations)
+      result)))
 
 (defn put-and-propagate
   [model & {:as opts}]
