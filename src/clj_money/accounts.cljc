@@ -8,7 +8,7 @@
             [clj-money.decimal :as d]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [clj-money.util :as util :refer [model= format]]))
+            [clj-money.util :as util :refer [id= format]]))
 
 (defprotocol ValuationData
   "Provides data need by the valuate function.
@@ -298,16 +298,18 @@
   (map #(valuate-commodity-account % opts)
        accounts))
 
+(defn- default-commodity?
+  [{{:settings/keys [default-commodity]} :entity/settings}]
+  (fn [{:account/keys [commodity]}]
+    (id= commodity
+         default-commodity)))
+
 (defn valuate
   "Given a sequence of accounts, assess their value based on the given implementation
   of the ValuationData protocol."
   [data accounts]
-  (let [default-commodity? (fn [{:account/keys [commodity] :as a}]
-                             (model= commodity
-                                     (get-in (fetch-entity data a)
-                                             [:entity/settings
-                                              :settings/default-commodity])))
-        {simple true commodity false} (group-by default-commodity?
+  (let [{simple true commodity false} (group-by (default-commodity?
+                                                  (fetch-entity data (first accounts)))
                                                 accounts)]
     (->> (when (seq simple)
            (valuate-simple-accounts data simple))
