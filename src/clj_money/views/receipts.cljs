@@ -1,5 +1,6 @@
 (ns clj-money.views.receipts
   (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [goog.string :as gstr]
             [cljs-time.core :as t]
             [secretary.core :as secretary :include-macros true]
@@ -13,119 +14,79 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.util :as util]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.state :refer [app-state
-                                     current-entity
                                      accounts
                                      accounts-by-id
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
+            [clj-money.receipts :as receipts]
             [clj-money.api.transactions :as trn]))
 
 (defn- new-receipt
   [page-state]
   (let [defaults (-> (get-in @page-state [:receipt])
-                     (select-keys [:transaction-date :account-id])
-                     (update-in [:transaction-date] (fnil identity (t/today)))
-                     (assoc :items [{}]))]
+                     (select-keys [:receipt/transaction-date
+                                   :receipt/account])
+                     (update-in [:receipt/transaction-date] (fnil identity (t/today)))
+                     (assoc :receipt/items [{}]))]
     (swap! page-state assoc :receipt defaults)
     (set-focus "transaction-date")))
-
-(defn- ->transaction-item
-  [item]
-  (assoc item :action :debit))
-
-(defn- ->transaction
-  [receipt]
-  (-> receipt
-      (dissoc :account-id)
-      (assoc :entity-id (:id @current-entity))
-      (update-in [:items] (comp #(conj % {:action :credit
-                                          :account-id (:account-id receipt)
-                                          :quantity (->> (:items receipt)
-                                                         (map :quantity)
-                                                         decimal/sum)})
-                                #(->> %
-                                      (remove empty?)
-                                      (map ->transaction-item))))))
 
 (defn- ->receipt
   ([transaction]
    (->receipt transaction {}))
-  ([{:keys [items] :as transaction} {:keys [for-reuse?]}]
-   (let [{:keys [debit] [credit] :credit} (group-by :action items)
-         retain (cond-> [:description]
-                  (not for-reuse?) (concat [:id :transaction-date]))]
+  ([{:transaction/keys [items] :as transaction} {:keys [for-reuse?]}]
+   (let [{:keys [debit] [credit] :credit} (group-by :transaction-item/action items)
+         retain (cond-> [:transaction/description]
+                  (not for-reuse?) (concat [:id :transaction/transaction-date]))]
      (merge (select-keys transaction retain)
-            {:account-id (:account-id credit)
+            {:account (:transaction-item/account credit)
              :items (mapv #(select-keys % [:account-id :quantity :memo])
                           debit)}))))
-
-(defn- create-transaction
-  [receipt page-state]
-  (+busy)
-  (trn/save (->transaction receipt)
-            :callback -busy
-            :on-success (fn [result]
-                          (swap! page-state
-                                 update-in
-                                 [:receipts]
-                                 (fnil conj '())
-                                 result)
-                          (new-receipt page-state))))
-
-(defn- update-transaction
-  [receipt page-state]
-  (+busy)
-  (trn/save (->transaction receipt)
-            :callback -busy
-            :on-success (fn [result]
-                          (swap! page-state
-                                 update-in
-                                 [:receipts]
-                                 (fn [receipts]
-                                   (map #(if (= (:id receipt)
-                                                (:id %))
-                                           result
-                                           %)
-                                        receipts)))
-                          (new-receipt page-state))))
-
-(defn- remove-empty-items
-  [items]
-  (remove (every-pred #(nil? (:account-id %))
-                      #(nil? (:quantity %)))
-          items))
 
 (defn- save-transaction
   [page-state]
   (let [{:keys [receipt]} @page-state
-        to-save (update-in receipt [:items] remove-empty-items)]
-    (if (:id to-save)
-      (update-transaction to-save page-state)
-      (create-transaction to-save page-state))))
+        trx (receipts/->transaction receipt)]
+
+    (pprint {::save-transaction receipt
+             ::trx trx})
+
+    (trn/save trx
+              :callback -busy
+              :on-success (fn [trx]
+                            (swap! page-state
+                                 update-in
+                                 [:receipts] ; TODO: rename this to :transactions?
+                                 #(util/upsert-into trx
+                                                    {:sort-key :transaction/transaction-date}
+                                                    %))
+                            (new-receipt page-state)))))
 
 (defn- search-accounts []
   (fn [input callback]
     (callback (find-by-path input @accounts))))
 
 (defn- search-transactions
-  [transactions input callback]
-  (let [term (string/lower-case input)]
-    (->> transactions
-         (filter #(-> %
-                      (get-in [:description])
-                      string/lower-case
-                      (string/includes? term)))
-         callback)))
+  [transactions]
+  (fn [input callback]
+    (let [term (string/lower-case input)]
+      (->> transactions
+           (filter #(-> %
+                        (get-in [:transaction/description])
+                        string/lower-case
+                        (string/includes? term)))
+           callback))))
 
 (defn- ensure-blank-item
   [page-state]
-  (let [{{:keys [items]} :receipt} @page-state]
+  (let [{{:receipt/keys [items]} :receipt} @page-state]
     (when-not (some empty? items)
-      (swap! page-state update-in [:receipt :items] conj {}))))
+      (swap! page-state update-in [:receipt :receipt/items] conj {}))))
 
 (defn- receipt-item-row
   [index receipt page-state]
@@ -133,20 +94,20 @@
   [:tr
    [:td [forms/typeahead-input
          receipt
-         [:items index :account-id]
+         [:receipt/items index :receipt-item/account :id]
          {:search-fn (search-accounts)
           :find-fn (fn [id callback]
                      (callback (@accounts-by-id id)))
           :on-change #(ensure-blank-item page-state)
-          :caption-fn #(string/join "/" (:path %))
+          :caption-fn #(string/join "/" (:account/path %))
           :value-fn :id}]]
    [:td [forms/decimal-input
          receipt
-         [:items index :quantity]
+         [:receipt/items index :receipt-item/quantity]
          {:on-accept #(ensure-blank-item page-state)}]]
    [:td [forms/text-input
          receipt
-         [:items index :memo]
+         [:receipt/items index :receipt-item/memo]
          {:on-change #(ensure-blank-item page-state)}]]])
 
 (defn- reuse-trans
@@ -159,13 +120,20 @@
         (update-in [:receipt] merge (->receipt transaction {:for-reuse? true})))
     state))
 
+(defn- format-existing-trx
+  [{:transaction/keys [transaction-date description value]}]
+  (gstr/format "%s $%s %s"
+               (format-date transaction-date)
+               (format-decimal value)
+               description))
+
 (defn- receipt-form
   [page-state]
   (let [receipt (r/cursor page-state [:receipt])
-        item-count (make-reaction #(count (:items @receipt)))
+        item-count (make-reaction #(count (:receipt/items @receipt)))
         transactions (r/cursor page-state [:transactions])
-        total (make-reaction #(->> (:items @receipt)
-                                   (map :quantity)
+        total (make-reaction #(->> (:receipt/items @receipt)
+                                   (map :receipt-item/quantity)
                                    decimal/sum))]
     (fn []
       [:form {:no-validate true
@@ -174,31 +142,28 @@
                            (v/validate receipt)
                            (when (v/valid? receipt)
                              (save-transaction page-state)))}
-       [forms/date-field receipt [:transaction-date] {:validations #{::v/required}}]
+       [forms/date-field receipt [:receipt/transaction-date] {:validations #{::v/required}}]
        [forms/typeahead-field
         receipt
-        [:description]
+        [:receipt/description]
         {:mode :direct
          :validations #{::v/required}
          :caption "Description"
-         :search-fn #(search-transactions @transactions %1 %2)
+         :search-fn (search-transactions @transactions)
          :find-fn (constantly nil)
          :caption-fn :description
-         :list-caption-fn #(gstr/format "%s $%s %s"
-                                        (format-date (:transaction-date %))
-                                        (format-decimal (:value %))
-                                        (:description %))
+         :list-caption-fn format-existing-trx
          :on-change #(swap! page-state reuse-trans %)
          :value-fn :description}]
        [forms/typeahead-field
         receipt
-        [:account-id]
+        [:receipt/payment-account :id]
         {:validations #{::v/required}
          :caption "Payment Method"
          :search-fn (search-accounts)
          :find-fn (fn [id callback]
                     (callback (@accounts-by-id id)))
-         :caption-fn #(string/join "/" (:path %))
+         :caption-fn #(string/join "/" (:account/path %))
          :value-fn :id}]
        [:table.table.table-borderless
         [:thead
@@ -215,15 +180,15 @@
           [:td.text-end {:col-span 2}
            (format-decimal @total)]]]]
        [:div.mb-2
-        [:button.btn-primary
+        [:button.btn.btn-primary
          {:type :submit
           :title "Click here to create this transaction."}
          (icon-with-text :check "Enter")]
-        [:button.btn-secondary.ms-2
+        [:button.btn.btn-secondary.ms-2
          {:type :button
           :title "Click here to discard this receipt."
           :on-click (fn [_]
-                      (swap! receipt select-keys [:transaction-date])
+                      (swap! receipt select-keys [:receipt/transaction-date])
                       (set-focus "transaction-date"))}
          (icon-with-text :x "Cancel")]]])))
 
@@ -238,7 +203,7 @@
     [:button.btn.btn-sm.btn-secondary
      {:title "Click here to edit this transaction."
       :on-click #(swap! page-state assoc :receipt (->receipt transaction))}
-     (icon :pencil {:size :small})]]])
+     (icon :pencil :size :small)]]])
 
 (defn- results-table
   [page-state]
@@ -275,7 +240,7 @@
                             (swap! page-state
                                    assoc
                                    :transactions transactions
-                                   :receipts (filter #(t/after? (:created-at %)
+                                   :receipts (filter #(t/after? (:transaction/created-at %)
                                                                 (-> 12 t/hours t/ago))
                                                      transactions)))))
 
