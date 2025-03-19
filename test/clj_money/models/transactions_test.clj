@@ -457,7 +457,7 @@
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
           trx (find-transaction [(t/local-date 2016 3 22) "Kroger"])
-          [result] (-> trx
+          result (-> trx
                        (assoc :transaction/transaction-date (t/local-date 2016 3 10))
                        prop/put-and-propagate)]
       (is (seq-of-maps-like? [#:transaction-item{:index 2
@@ -494,7 +494,7 @@
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
-          [result] (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
+          result (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
                        (assoc :transaction/transaction-date (t/local-date 2016 4 12))
                        prop/put-and-propagate)]
       (is (seq-of-maps-like? [#:transaction-item{:index 2
