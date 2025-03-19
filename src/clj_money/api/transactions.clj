@@ -10,6 +10,7 @@
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :refer [unserialize-local-date]]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.authorization.transactions]
             [clj-money.transactions :refer [expand]]))
 
@@ -75,12 +76,12 @@
 
 (defn- create
   [{:keys [authenticated params] :as req}]
-  (api/creation-response
-    (-> req
-        extract-transaction
-        (assoc :transaction/entity {:id (:entity-id params)})
-        (authorize ::authorization/create authenticated)
-        models/put)))
+  (-> req
+      extract-transaction
+      (assoc :transaction/entity {:id (:entity-id params)})
+      (authorize ::authorization/create authenticated)
+      prop/put-and-propagate
+      api/creation-response))
 
 (defn- apply-to-existing
   [updated-item items]
@@ -108,14 +109,14 @@
   [req]
   (or (some-> (find-and-auth req ::authorization/update)
               (apply-update req)
-              models/put
+              prop/put-and-propagate
               api/update-response)
       api/not-found))
 
 (defn- delete
   [req]
   (or (some-> (find-and-auth req ::authorization/destroy)
-              models/delete
+              prop/delete-and-propagate
               api/response)
       api/not-found))
 
