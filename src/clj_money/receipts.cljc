@@ -5,6 +5,13 @@
             [clj-money.decimal :as d]
             [clj-money.dates :as dates]))
 
+(defn total
+  [{:receipt/keys [items]}]
+  (->> items
+       (remove empty?)
+       (map :receipt-item/quantity)
+       (reduce d/+ 0M)))
+
 (defn- item-polarity-aligns?
   [{:receipt/keys [items]}]
   (let [grouped (->> items
@@ -14,7 +21,7 @@
     (or (empty? (grouped true))
         (empty? (grouped false)))))
 
-(s/def ::id (s/or :string string? :int int? :key keyword?)) ; keyword is for testing
+(s/def ::id (s/or :uuid uuid? :string string? :int int? :key keyword?)) ; keyword is for testing
 (s/def ::model-ref (s/keys :req-un [::id]))
 (s/def :receipt-item/quantity d/decimal?)
 (s/def :receipt-item/account ::model-ref)
@@ -55,10 +62,7 @@
                    items]
     :as receipt}]
   {:pre [(s/valid? ::receipt receipt)]}
-  (let [total (->> items
-                   (map :receipt-item/quantity)
-                   (filter identity)
-                   (reduce d/+ 0M))
+  (let [total (total receipt)
         [payment-action item-action] (if (< 0M total)
                                        [:credit :debit]
                                        [:debit :credit])]
@@ -71,3 +75,22 @@
                                             (remove empty-item?)
                                             (map (->transaction-item item-action))))}
       transaction-id (assoc :id transaction-id))))
+
+(defn- <-transaction-item
+  [{:transaction-item/keys [account quantity memo]}]
+  #:receipt-item{:account account
+                 :quantity quantity
+                 :memo memo})
+
+(defn <-transaction
+  [{:transaction/keys [items transaction-date description] :as trx}]
+  (let [{[payment :as payments] true expenses false} (group-by #(= :credit
+                                                   (:transaction-item/action %))
+                                               items)]
+    (assert (= 1 (count payments))
+            "Expected one payment item, but found more")
+    #:receipt{:transaction-date transaction-date
+              :transaction-id (:id trx)
+              :description description
+              :payment-account (:transaction-item/account payment)
+              :items (mapv <-transaction-item expenses)}))

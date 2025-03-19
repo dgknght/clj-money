@@ -94,3 +94,47 @@
                                                    :quantity -100M
                                                    :memo "weekly stuff"}]}))
       "A receipt with mixed positive and negative item quantities is not valid"))
+
+(deftest convert-a-transaction-to-a-receipt
+  (is (= #:receipt{:transaction-date (dates/local-date "2020-01-01")
+                   :transaction-id "abc123"
+                   :description "Kroger"
+                   :payment-account {:id :checking}
+                   :items [#:receipt-item{:account {:id :groceries}
+                                          :quantity 100M
+                                          :memo "weekly stuff"}]}
+         (receipts/<-transaction
+           {:id "abc123"
+            :transaction/transaction-date (dates/local-date "2020-01-01")
+            :transaction/description "Kroger"
+            :transaction/items [#:transaction-item{:action :credit
+                                                   :account {:id :checking}
+                                                   :quantity 100M}
+                                #:transaction-item{:action :debit
+                                                   :account {:id :groceries}
+                                                   :quantity 100M
+                                                   :memo "weekly stuff"}]}))))
+
+(deftest calculate-a-receipt-total
+  (is (= 100M
+         (receipts/total
+           #:receipt{:items [#:receipt-item{:account {:id :groceries}
+                                            :quantity 100M
+                                            :memo "weekly stuff"}]}))
+      "The total is the quantity of a receipt with one item")
+  (is (= 100M
+         (receipts/total
+           #:receipt{:items [#:receipt-item{:account {:id :groceries}
+                                            :quantity 100M
+                                            :memo "weekly stuff"}
+                             {}]}))
+      "Empty items are ignored")
+  (is (= 110M
+         (receipts/total
+           #:receipt{:items [#:receipt-item{:account {:id :groceries}
+                                            :quantity 100M
+                                            :memo "weekly stuff"}
+                             #:receipt-item{:account {:id :medicine}
+                                            :quantity 10M
+                                            :memo "weekly stuff"}]}))
+      "Multiple items are summed"))

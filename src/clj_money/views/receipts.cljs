@@ -10,7 +10,6 @@
                                          format-decimal]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
-            [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
@@ -52,10 +51,6 @@
   [page-state]
   (let [{:keys [receipt]} @page-state
         trx (receipts/->transaction receipt)]
-
-    (pprint {::save-transaction receipt
-             ::trx trx})
-
     (trn/save trx
               :callback -busy
               :on-success (fn [trx]
@@ -132,9 +127,7 @@
   (let [receipt (r/cursor page-state [:receipt])
         item-count (make-reaction #(count (:receipt/items @receipt)))
         transactions (r/cursor page-state [:transactions])
-        total (make-reaction #(->> (:receipt/items @receipt)
-                                   (map :receipt-item/quantity)
-                                   decimal/sum))]
+        total (make-reaction #(receipts/total @receipt))]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -193,16 +186,16 @@
          (icon-with-text :x "Cancel")]]])))
 
 (defn- result-row
-  [transaction page-state]
-  ^{:key (str "result-row-" (:id transaction))}
+  [{:transaction/keys [transaction-date description value] :as trx} page-state]
+  ^{:key (str "result-row-" (:id trx))}
   [:tr
-   [:td (format-date (:transaction-date transaction))]
-   [:td (:description transaction)]
-   [:td (format-decimal (:value transaction))]
+   [:td (format-date transaction-date)]
+   [:td description]
+   [:td.text-end (format-decimal value)]
    [:td
     [:button.btn.btn-sm.btn-secondary
      {:title "Click here to edit this transaction."
-      :on-click #(swap! page-state assoc :receipt (->receipt transaction))}
+      :on-click #(swap! page-state assoc :receipt (receipts/<-transaction trx))}
      (icon :pencil :size :small)]]])
 
 (defn- results-table
@@ -214,7 +207,7 @@
         [:tr
          [:th "Date"]
          [:th "Description"]
-         [:th "Amount"]
+         [:th.text-end "Amount"]
          [:th (html/space)]]]
        [:tbody
         (cond
@@ -231,18 +224,20 @@
           [:tr
            [:td {:col-span 4} (bs/spinner)]])]])))
 
+(defn- recent? []
+  (let [cutoff (-> 24 t/hours t/ago)]
+    (fn [{:transaction/keys [created-at]}]
+      (t/before? cutoff created-at))))
+
 (defn- load-transactions
   [page-state]
   (+busy)
   (trn/search {:include-items true}
               :callback -busy
-              :on-success (fn [transactions]
-                            (swap! page-state
-                                   assoc
-                                   :transactions transactions
-                                   :receipts (filter #(t/after? (:transaction/created-at %)
-                                                                (-> 12 t/hours t/ago))
-                                                     transactions)))))
+              :on-success #(swap! page-state
+                                  assoc
+                                  :transactions %
+                                  :receipts (filter (recent?) %))))
 
 (defn- index []
   (let [page-state (r/atom {})]
