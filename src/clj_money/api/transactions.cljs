@@ -33,7 +33,7 @@
 (defn create
   [transaction opts]
   (api/post (api/path :entities
-                      (:transaction/entity transaction)
+                      @current-entity
                       :transactions)
             (dissoc transaction :transaction/entity)
             (add-error-handler opts "Unable to create the transaction: %s")))
