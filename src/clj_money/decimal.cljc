@@ -1,5 +1,5 @@
 (ns clj-money.decimal
-  (:refer-clojure :exclude [* + - / zero? abs])
+  (:refer-clojure :exclude [* + - / zero? abs decimal?])
   #?(:cljs (:require[dgknght.app-lib.decimal :as decimal]))
   #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
 
@@ -12,6 +12,10 @@
 (def d
   #?(:clj bigdec
      :cljs decimal/->decimal))
+
+(def decimal?
+   #?(:clj clojure.core/decimal?
+      :cljs decimal/decimal?))
 
 #?(:cljs (defn zero? [n] (decimal/zero? n))
    :clj  (defn zero? [^java.math.BigDecimal n]
