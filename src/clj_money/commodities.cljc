@@ -1,5 +1,7 @@
 (ns clj-money.commodities
-  (:require [clj-money.util :as util]))
+  (:require #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])
+            [clj-money.util :as util]))
 
 (defn search
   ([commodities]

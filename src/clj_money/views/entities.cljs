@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
+            [dgknght.app-lib.core :refer [parse-int]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field
@@ -82,8 +83,10 @@
          [select-field
           entity
           [:entity/settings
-           :settings/default-commodity-id]
-          comm-opts]
+           :settings/default-commodity
+           :id]
+          comm-opts
+          {:transform-fn parse-int}]
          #_[radio-buttons [:entity/settings :settings/inventory-method] ["fifo" "lifo"]]]
         [:div.card-footer
          [button {:html {:title "Click here to save this entity."

@@ -1,5 +1,6 @@
 (ns clj-money.views.reports
   (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -25,17 +26,17 @@
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
 
-(defmulti ^:private report-row :style)
+(defmulti ^:private report-row :report/style)
 
 (defmethod ^:private report-row :header
-  [{:keys [caption value]} _]
+  [{:report/keys [caption value]} _]
   ^{:key (str "report-row-" caption)}
   [:tr.report-header
    [:th {:scope :row} caption]
    [:td.text-end (format-decimal value)]])
 
 (defmethod ^:private report-row :data
-  [{:keys [id caption value depth]} hide-zeros?]
+  [{:report/keys [id caption value depth]} hide-zeros?]
   ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (when (and hide-zeros?
                           (zero? value))
@@ -47,7 +48,7 @@
     [:span {:class (str "value-depth-" depth)} (format-decimal value)]]])
 
 (defmethod ^:private report-row :summary
-  [{:keys [caption value]} _]
+  [{:report/keys [caption value]} _]
   ^{:key (str "report-row-" caption)}
   [:tr.report-summary
    [:th {:scope :row} caption]
@@ -226,14 +227,14 @@
               :on-success #(receive-budget % report-item page-state))))
 
 (defn- budget-report-row
-  [{:keys [id
-           caption
-           style
-           budget
-           actual
-           difference
-           percent-difference
-           actual-per-period]
+  [{:report/keys [id
+                  caption
+                  style
+                  budget
+                  actual
+                  difference
+                  percent-difference
+                  actual-per-period]
     :as item}
    page-state]
   ^{:key (str "report-row-" (or id caption))}

@@ -394,7 +394,8 @@
         all-user-tags (make-reaction #(->> @accounts
                                            (mapcat :account/user-tags)
                                            set))
-        commodities (r/cursor page-state [:commodities])
+        commodities-map (r/cursor page-state [:commodities])
+        commodities (make-reaction #(vals @commodities-map))
         hide-type? (make-reaction #(-> @account :account/parent :id))]
     (fn []
       (when @account
@@ -406,7 +407,7 @@
                                (save-account page-state)))}
          [forms/typeahead-field
           account
-          [:account/parent]
+          [:account/parent :id]
           {:search-fn (fn [input callback]
                         (->> @accounts
                              (find-by-path input)
@@ -415,8 +416,10 @@
                         (swap! account assoc
                                :account/commodity commodity
                                :account/type type))
+           :caption "Parent"
            :caption-fn (comp (partial string/join "/") :account/path)
-           :find-fn (fn [{:keys [id]} callback]
+           :value-fn #(:id %)
+           :find-fn (fn [id callback]
                       (callback (@accounts-by-id id)))}]
          [forms/select-field account
           [:account/type]
@@ -425,12 +428,14 @@
          [forms/text-field account [:account/name] {:validations #{::v/required}}]
          [forms/typeahead-field
           account
-          [:account/commodity]
+          [:account/commodity :id]
           {:search-fn (fn [input callback]
                         (callback (cmdts/search input @commodities)))
+           :caption "Commodity"
            :caption-fn cmdts/description
-           :find-fn (fn [{:keys [id]} callback]
-                      (callback (get-in @commodities [id])))
+           :find-fn (fn [id callback]
+                      (callback (get-in @commodities-map [id])))
+           :value-fn #(:id %)
            :validations #{::v/required}}]
          [forms/checkbox-field
           account
@@ -1000,13 +1005,10 @@
                             :hide-zero-balances? (any-non-zero-balances?)
                             :filter-tags #{}
                             :ctl-chan (chan)})
-        commodities (r/cursor page-state [:commodities])
         default-commodity (make-reaction
-                            #(when (seq @commodities)
-                               (when-let [id (get-in @current-entity
-                                                     [:entity/settings
-                                                      :settings/default-commodity-id])]
-                                 (get-in @commodities [id]))))
+                            #(get-in @current-entity
+                                     [:entity/settings
+                                      :settings/default-commodity]))
         view-account (r/cursor page-state [:view-account])
         selected (r/cursor page-state [:selected])
         allocation-account (r/cursor page-state [:allocation :account])
@@ -1052,8 +1054,8 @@
                          :on-click (fn []
                                      (swap! page-state
                                             assoc :selected
-                                            {:account/entity @current-entity
-                                             :account/type "asset"
+                                            {:account/entity (util/->model-ref @current-entity)
+                                             :account/type :asset
                                              :account/commodity @default-commodity})
                                      (set-focus "parent-id"))
                          :disabled @busy?}
