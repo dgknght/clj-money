@@ -548,7 +548,8 @@
                                     :shares-owned 50M
                                     :purchase-price 20M}]
                              (models/select #:lot{:commodity commodity
-                                                  :account ira}))
+                                                  :account ira}
+                                            {:sort [[:lot/purchase-date :asc]]}))
           "Shares are sold from the most recent lot"))))
 
 (deftest fifo-sale
@@ -567,7 +568,8 @@
                                     :shares-owned 100M
                                     :purchase-price 20M}]
                              (models/select #:lot{:commodity commodity
-                                                  :account ira}))
+                                                  :account ira}
+                                            {:sort [[:lot/purchase-date :asc]]}))
           "Shares are sold from the earliest lot"))))
 
 (deftest undo-a-purchase
