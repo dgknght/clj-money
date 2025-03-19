@@ -9,7 +9,7 @@
             [dgknght.app-lib.forms :refer [text-field
                                            select-field]]
             [dgknght.app-lib.forms-validation :as v]
-            [clj-money.util :refer [model=]]
+            [clj-money.util :as util :refer [model=]]
             [clj-money.components :refer [button]]
             [clj-money.icons :refer  [icon]]
             [clj-money.api.entities :as entities]
@@ -31,14 +31,14 @@
   (fn [state]
     (-> state
         (update-in [:entities]
-                   #(map (fn [e]
-                           (if (model= e entity)
-                             entity
-                             e))
-                         %))
+                   #(util/upsert-into
+                      entity
+                      {}
+                      %))
         (update-in [:currenty-entity]
                    (fn [e]
-                     (if (model= e entity)
+                     (if (or (nil? e)
+                             (model= e entity))
                        entity
                        e))))))
 
