@@ -203,15 +203,6 @@
 (deftest a-user-cannot-create-a-simple-transaction-in-aothers-entity
   (assert-blocked-create (create-a-simple-transaction "jane@doe.com")))
 
-(defn- update-items
-  [items]
-  (->> items
-       (map #(select-keys % [:id
-                             :transaction-item/quantity
-                             :transaction-item/account
-                             :transaction-item/action
-                             :transaction-item/memo]))))
-
 (defn- update-a-transaction
   [email]
   (with-context context
@@ -220,9 +211,9 @@
                                                  :transactions
                                                  (serialize-local-date (:transaction/transaction-date transaction))
                                                  (:id transaction)))
-                       (edn-body (-> transaction
-                                     (assoc :transaction/description "Just got paid today")
-                                     (update-in [:transaction/items] update-items)))
+                       (edn-body (assoc transaction
+                                        :transaction/description
+                                        "Just got paid today"))
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
