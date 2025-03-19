@@ -9,7 +9,7 @@
             [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util :refer [id= model=]]
             [clj-money.dates :as dates :refer [earliest]]
             [clj-money.accounts :as accounts :refer [nest
                                                      unnest
@@ -119,7 +119,7 @@
                                               :lot-item/transaction-date [:<= as-of]})))
         prices (atom {})]
     (reify accounts/ValuationData
-      (fetch-entity [& _] entity)
+      (fetch-entity [_ _account] entity)
       (fetch-balance [_ {:keys [id]}] (balances id))
       (fetch-lots [_ {:account/keys [parent commodity]}]
         (lots (mapv :id [parent commodity])))
@@ -932,9 +932,9 @@
                                  #_:account/system-tags #_[:&& #{:trading :tradable}]})
         commodities (->> (models/select {:commodity/entity entity})
                          (map (fn [c]
-                                (if (model= c
-                                            (get-in entity [:entity/settings
-                                                            :settings/default-commodity]))
+                                (if (id= c
+                                         (get-in entity [:entity/settings
+                                                         :settings/default-commodity]))
                                   (assoc c
                                          :commodity/name "Cash"
                                          :commodity/default? true)
