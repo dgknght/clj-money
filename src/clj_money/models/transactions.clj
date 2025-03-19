@@ -677,16 +677,24 @@
   [bindings & body]
   `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
          out# (a/chan 10)
-         copy# (a/chan)
+         ctrl# (a/chan)
+         pending# (atom 0)
+         ready# (atom false)
+         _# (a/go-loop [msg# (a/<! ctrl#)]
+                       (when msg#
+                         (let [count# (swap! pending# (case msg# :start inc :finish dec))]
+                           (when (and @ready#
+                                      (= 0 count#))
+                             (a/close! out#))
+                           (recur (a/<! ctrl#)))))
          reduce# (a/transduce
                    extract-dates
                    (completing accumulate-dates)
                    {:entity []
                     :accounts {}}
                    out#)
-         prim-result# (f# out# copy#)
-         _# (pprint {::copy-out (a/<!! copy#)}) ; wait for primary result to finish emitting
-         _# (a/close! out#)
+         prim-result# (f# out# ctrl#)
+         _# (reset! ready# true)
          sec-result# (a/<!! reduce#)]
      (concat prim-result#
              (propagate-accounts sec-result#))))

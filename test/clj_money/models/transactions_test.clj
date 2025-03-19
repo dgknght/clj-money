@@ -879,11 +879,11 @@
            salary
            groceries] (find-accounts "Checking" "Salary" "Groceries")]
       ^{:clj-kondo/ignore [:unresolved-symbol]}
-      (transactions/with-delayed-propagation [out-chan copy-chan]
+      (transactions/with-delayed-propagation [out-chan ctrl-chan]
         (mapv (comp #(models/put %
                                  :out-chan out-chan
                                  :close-chan? false
-                                 :copy-chan copy-chan)
+                                 :ctrl-chan ctrl-chan)
                     #(assoc % :transaction/entity entity))
               [#:transaction{:transaction-date (t/local-date 2017 1 1)
                              :description "Paycheck"
