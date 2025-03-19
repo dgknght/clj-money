@@ -144,11 +144,6 @@
 
 (defn type-dispatch [x & _] (type x))
 
-(defn abs
-  [value]
-  #?(:clj (.abs value) ; we're assuming BigDecimal here
-     :cljs (Math/abs value)))
-
 (defmulti present? type)
 
 (defmethod present? :default
@@ -507,6 +502,7 @@
   []
   (str "temp-" (random-uuid)))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn +temp-id
   [model]
   (assoc model :id (temp-id)))
