@@ -178,7 +178,7 @@
     (name account-type)]
    [:td.text-end.d-none.d-sm-table-cell
     (currency-format (->> group
-                          (map :value)
+                          (map :account/value)
                           (reduce decimal/+)))]
    [:td {:col-span 2} (html/space)]])
 
@@ -209,22 +209,22 @@
                                                          (seq (intersection @filter-tags user-tags)))
                                     :else identity))
         expanded (r/cursor page-state [:expanded])
-        hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])]
+        hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])
+        grouped (make-reaction #(group-by :account/type @accounts))]
     (fn []
-      (let [grouped (group-by :account/type @accounts)]
-        [:tbody
-         (->> grouped
-              (mapcat (fn [[account-type group]]
-                        (cons (account-type-row account-type
-                                                group
-                                                @expanded
-                                                page-state)
-                              (account-rows group
-                                            @filter-fn
-                                            @expanded
-                                            @hide-zero-balances?
-                                            page-state))))
-              doall)]))))
+      [:tbody
+       (->> @grouped
+            (mapcat (fn [[account-type group]]
+                      (cons (account-type-row account-type
+                                              group
+                                              @expanded
+                                              page-state)
+                            (account-rows group
+                                          @filter-fn
+                                          @expanded
+                                          @hide-zero-balances?
+                                          page-state))))
+            doall)])))
 
 (defn- bulk-save
   [page-state]
