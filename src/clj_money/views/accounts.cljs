@@ -364,17 +364,20 @@
            [:div.spinner-border {:role :status}
             [:span.visually-hidden "Loading"]]]]]])]))
 
+(defn- prepare-allocations
+  [allocations]
+  (when allocations
+    (->> allocations
+         (remove (fn [[_ v]] (decimal/zero? v)))
+         (into {}))))
+
 (defn- prepare-for-save
-  [account]
+  [{:as account :keys [trading]}]
   ; TODO: Add logic to turn trading attribute into a system tag
-  (-> account
-      (update-in [:account/type] keyword)
-      (update-in [:account/allocations]
-                 (fn [allocations]
-                   (when allocations
-                     (->> allocations
-                          (remove (fn [[_ v]] (decimal/zero? v)))
-                          (into {})))))))
+  (cond-> (-> account
+              (update-in [:account/type] keyword)
+              (update-in [:account/allocations] prepare-allocations))
+    trading (update-in [:account/system-tags] (fnil conj #{}) :trading)))
 
 (defn- save-account
   [page-state]
