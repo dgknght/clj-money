@@ -43,7 +43,7 @@
 
 (s/def :budget-item/periods (s/coll-of decimal? :min-count 1 :kind vector?))
 (s/def :budget-item/account ::models/model-ref)
-(s/def :budget-item/spec (s/nilable map?))
+(s/def :budget-item/spec (s/nilable ::budgets/item-spec))
 (s/def ::models/budget-item (s/keys :req [:budget-item/account
                                           :budget-item/periods]
                                     :opt [:budget-item/spec]))
@@ -51,7 +51,7 @@
 (s/def :budget/items (s/coll-of ::models/budget-item))
 (s/def :budget/name v/non-empty-string?)
 (s/def :budget/start-date t/local-date?)
-(s/def :budget/period #{:week :month})
+(s/def :budget/period #{:month :quarter :year})
 (s/def :budget/period-count v/positive-integer?)
 (s/def :budget/entity ::models/model-ref)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
