@@ -1,9 +1,12 @@
 (ns clj-money.budgets
   (:require [clojure.string :as string]
             [clojure.set :refer [intersection]]
+            [clojure.spec.alpha :as s]
+            [clojure.core.async :as a]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.inflection :refer [title-case]]
+            [clj-money.decimal :as d]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.accounts :as acts]
@@ -11,10 +14,23 @@
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.format :as tf])
-            #?(:cljs [cljs-time.coerce :as tc])
-            #?(:cljs [dgknght.app-lib.decimal :as decimal])))
+            #?(:cljs [cljs-time.coerce :as tc])))
 
 (def periods #{:month :quarter :year})
+
+(s/def ::total d/decimal?)
+(s/def ::average d/decimal?)
+(s/def ::amount d/decimal?)
+(s/def ::week-count integer?)
+(s/def ::start-date dates/local-date?)
+(s/def ::round-to integer?)
+(s/def ::item-spec (s/or :per-total (s/keys :req-un [::total])
+                         :per-average (s/keys :req-un [::average])
+                         :per-week (s/keys :req-un [::start-date
+                                                    ::amount
+                                                    ::week-count])
+                         :historical (s/keys :req-un [::start-date
+                                                      ::round-to])))
 
 (defmulti period-description
   (fn [_ budget]
@@ -33,7 +49,7 @@
 (defn- sum
   [coll]
   #?(:clj (reduce + coll)
-     :cljs (decimal/sum coll)))
+     :cljs (reduce d/+ coll)))
 
 (defn- render-section
   [items caption filter-fn]
@@ -242,3 +258,64 @@
        (filter #(= id
                    (get-in % [:budget-item/account :id])))
        first))
+
+(defn- to-chan
+  [x]
+  (let [ch (a/promise-chan)]
+    (a/go (a/>! ch x))
+    ch))
+
+(defmulti calc-periods
+  (fn [{:budget-item/keys [spec]} & _]
+    (let [conformed (s/conform ::item-spec spec)]
+      (if (= ::s/invalid conformed)
+        (throw (ex-info "Unrecognized budget item spec." {:spec spec}))
+        (first conformed)))))
+
+(defmethod calc-periods :per-average
+  [{{:keys [average]} :budget-item/spec} {:budget/keys [period-count]} & _]
+  (to-chan (repeat period-count average)))
+
+(defmethod calc-periods :per-total
+  [{{:keys [total]} :budget-item/spec} {:budget/keys [period-count]}]
+  (let [amount (d// total (d/d period-count))]
+    (to-chan (repeat period-count amount))))
+
+(defmethod calc-periods :per-week
+  [{{:keys [start-date week-count amount]} :budget-item/spec}
+   {:budget/keys [end-date]}
+   & _]
+  (->> (dates/periodic-seq start-date
+                           (t/weeks week-count))
+       (take-while #(t/before? % end-date))
+       (group-by t/month)
+       (map #(update-in %
+                        [1]
+                        (comp (partial d/* amount)
+                              d/d
+                              count)))
+       (sort-by first)
+       (map second)
+       to-chan))
+
+(defmethod calc-periods :historical
+  [{:budget-item/keys [account]
+    {:keys [start-date _round-to]} :budget-item/spec}
+   {:budget/keys [_period-count period] :as budget}
+   & {:keys [fetch-item-summaries]}]
+  (let [end-date (t/plus (end-date (assoc budget
+                                          :budget/start-date
+                                          start-date))
+                         (t/days 1))
+        out-chan (a/chan)]
+    (a/go
+      (a/pipeline 1
+                  out-chan
+                  (map (fn [periods]
+                         (map :quantity periods)))
+                  (fetch-item-summaries
+                    {:transaction-item/transaction-date [start-date end-date]
+                     :transaction-item/account account
+                     :interval-type period
+                     :interval-count 1})))
+    out-chan))

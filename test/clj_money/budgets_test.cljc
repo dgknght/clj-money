@@ -3,6 +3,7 @@
                :cljs [cljs.test :refer [deftest is testing]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clojure.core.async :as a]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
@@ -321,3 +322,68 @@
        :cljs (is (dgknght.app-lib.test-assertions/comparable?
                    expected
                    actual)))))
+
+(deftest calculate-periods
+  (is (= [100M
+          100M
+          100M
+          100M]
+         (first (a/alts!! [(budgets/calc-periods #:budget-item{:spec {:average 100M}}
+                                                 #:budget{:period-count 4})
+                           (a/timeout 1000)])))
+      "An avarage is applied to each period")
+  (is (= [100M
+          100M
+          100M
+          100M]
+         (first (a/alts!! [(budgets/calc-periods #:budget-item{:spec {:average 100M}}
+                                                 #:budget{:period-count 4})
+                           (a/timeout 1000)])))
+      "An avarage is applied to each period")
+  (is (= [300M
+          200M
+          200M
+          200M
+          200M
+          200M
+          300M
+          200M
+          200M
+          200M
+          200M
+          200M]
+         (first (a/alts!! [(budgets/calc-periods
+                             #:budget-item{:spec {:start-date (t/local-date 2025 1 1)
+                                                  :week-count 2
+                                                  :amount 100M}}
+                             #:budget{:period-count 4
+                                      :end-date (t/local-date 2025 12 31)})
+                           (a/timeout 1000)])))
+      "A weekly amount is calculated based on occurrences in each month of the specified year")
+  (is (= [101M
+          102M
+          103M
+          104M]
+         (first (a/alts!! [(budgets/calc-periods
+                             #:budget-item{:spec {:start-date (t/local-date 2024 1 1)
+                                                  :round-to 0}}
+                             #:budget{:period-count 4
+                                      :period :quarterly}
+                             :fetch-item-summaries (fn [_]
+                                                     (let [ch (a/chan)]
+                                                       (a/go
+                                                         (a/>! ch [{:start-date (t/local-date 2024 1 1)
+                                                                    :end-date (t/local-date 2024 3 31)
+                                                                    :quantity 101M}
+                                                                   {:start-date (t/local-date 2024 4 1)
+                                                                    :end-date (t/local-date 2024 6 30)
+                                                                    :quantity 102M}
+                                                                   {:start-date (t/local-date 2024 7 1)
+                                                                    :end-date (t/local-date 2024 9 30)
+                                                                    :quantity 103M}
+                                                                   {:start-date (t/local-date 2024 10 1)
+                                                                    :end-date (t/local-date 2024 12 31)
+                                                                    :quantity 104M}]))
+                                                       ch)))
+                           (a/timeout 1000)])))
+      "Historical amounts are calculated from queried data"))
