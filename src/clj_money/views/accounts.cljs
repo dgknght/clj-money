@@ -23,7 +23,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util :refer [model= id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.components :refer [load-on-scroll
@@ -96,17 +96,23 @@
   [{:account/keys [children-value allocations] :as account}]
   (if allocations
     account
-    (assoc account
-           :account/allocations
-           (->> @accounts
-                (filter #(model= account
-                                 (:account/parent %)))
-                (reduce #(assoc %1
-                                (:id %2)
+    (let [children (filterv #(id= account
+                                  (:account/parent %))
+                            @accounts)]
+      (if (seq children)
+        (assoc account
+               :account/allocations
+               (reduce (fn [allocs act]
+                         (assoc allocs
+                                (:id act)
                                 (decimal/* 100M
-                                           (decimal// (:account/total-value %2)
-                                                      children-value)))
-                        {})))))
+                                           (if (< 0M children-value)
+                                             (decimal// (:account/total-value act)
+                                                      children-value)
+                                             (decimal// 1 (count children))))))
+                       {}
+                       children))
+        {}))))
 
 (defn- account-row
   [{:keys [id] :account/keys [parent-ids system-tags] :as account} expanded page-state]
