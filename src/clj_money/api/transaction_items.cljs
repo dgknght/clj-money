@@ -1,6 +1,8 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require [lambdaisland.uri :refer [map->query-string]]
+  (:require [clojure.set :refer [rename-keys]]
+            [lambdaisland.uri :refer [map->query-string]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.dates :refer [serialize-local-date]]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [add-error-handler]]))
@@ -25,8 +27,11 @@
 (defn- prepare-summary-criteria
   [criteria]
   (-> criteria
-      (update-in [:transaction-date 0] serialize-local-date)
-      (update-in [:transaction-date 1] serialize-local-date)
+      (update-in [:transaction-item/transaction-date 0] serialize-local-date)
+      (update-in [:transaction-item/transaction-date 1] serialize-local-date)
+      (update-in-if [:transaction-item/account] :id)
+      (rename-keys {:transaction-item/transaction-date :transaction-date
+                    :transaction-item/account :account-id})
       (update-in [:interval-type] name)
       map->query-string))
 
