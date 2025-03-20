@@ -1,11 +1,11 @@
 (ns clj-money.views.budgets
   (:require [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
+            [clojure.spec.alpha :as s]
+            [clojure.core.async :as a]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
-            [cljs-time.core :as t]
-            [cljs-time.periodic :refer [periodic-seq]]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.dom :refer [set-focus]]
@@ -26,7 +26,7 @@
                                      busy?]]
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
-            [clj-money.api.transaction-items :as tran-items]
+            [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.budgets :as api]))
 
 (defn- load-budgets
@@ -203,20 +203,20 @@
                   (take-last 1 segments))))))
 
 (defn- budget-item-row
-  [item detail? page-state]
-  ^{:key (str "budget-item-row-" (get-in item [:item :id]))}
+  [{:budget-section/keys [caption total item]} detail? page-state]
+  ^{:key (str "budget-item-row-" (:id item))}
   [:tr.budget-item-row
    [:th
-    [:span.d-none.d-md-inline (:caption item)]
-    [:span.d-md-none (abbreviate (:caption item))]]
+    [:span.d-none.d-md-inline caption]
+    [:span.d-md-none (abbreviate caption)]]
    (when detail?
      (doall
       (map-indexed
        (fn [index value]
          ^{:key (str "period-value-" (:id item) "-" index)}
          [:td.text-end (format-decimal value)])
-       (:periods (:item item)))))
-   [:td.text-end (format-decimal (:total item))]
+       (:budget-item/periods item))))
+   [:td.text-end (format-decimal total)]
    [:td
     [:div.btn-group
      [:button.btn.btn-sm.btn-secondary {:on-click #(select-budget-item (:item item) page-state)
@@ -226,58 +226,58 @@
                                      :title "Click here to remove this account from the budget."}
       (icon :x-circle :size :small)]]]])
 
-(defn- budget-item-group-header-row
-  [item-group detail?]
-  ^{:key (str "budget-item-header-row-" (:caption item-group))}
+(defn- budget-section-header-row
+  [{:budget-section/keys [caption periods]} detail?]
+  ^{:key (str "budget-section-header-row-" caption)}
   [:tr.report-header
-   [:th {:col-span 2 :scope "row"} (:caption item-group)]
+   [:th {:col-span 2 :scope "row"} caption]
    (when detail?
      (doall
       (map-indexed
        (fn [index _value]
-         ^{:key (str "period-value-" (:caption item-group) "-" index)}
+         ^{:key (str "period-value-" caption "-" index)}
          [:td (html/space)])
-       (:periods item-group))))
+       periods)))
    [:td {:col-span 2} (html/space)]])
 
-(defn- budget-item-group-footer-row
-  [item-group detail?]
-  ^{:key (str "budget-item-footer-row-" (:caption item-group))}
+(defn- budget-section-footer-row
+  [{:budget-section/keys [caption total periods]} detail?]
+  ^{:key (str "budget-item-footer-row-" caption)}
   [:tr.report-footer
    [:td (html/space)]
    (when detail?
      (doall
       (map-indexed
        (fn [index value]
-         ^{:key (str "period-value-" (:caption item-group) "-" index)}
+         ^{:key (str "period-value-" caption "-" index)}
          [:td.text-end (format-decimal value)])
-       (:periods item-group))))
-   [:td.text-end (format-decimal (:total item-group))]
+       periods)))
+   [:td.text-end (format-decimal total)]
    [:td (html/space)]])
 
 (defn- budget-item-condensed-row
-  [item-group detail?]
-  ^{:key (str "budget-summary-row-" (:caption item-group))}
+  [{:budget-section/keys [caption periods total]} detail?]
+  ^{:key (str "budget-summary-row-" caption)}
   [:tr.report-condensed-summary
-   [:th {:scope "row"} (:caption item-group)]
+   [:th {:scope "row"} caption]
    (when detail?
      (doall
       (map-indexed
        (fn [index value]
-         ^{:key (str "period-value-" (:caption item-group) "-" index)}
+         ^{:key (str "period-value-" caption "-" index)}
          [:td.text-end (format-decimal value)])
-       (:periods item-group))))
-   [:td.text-end (format-decimal (:total item-group))]
+       periods)))
+   [:td.text-end (format-decimal total)]
    [:td (html/space)]])
 
-(defn- budget-item-rows
-  [item-group detail? page-state]
-  (if (seq (:items item-group))
-    (concat [(budget-item-group-header-row item-group detail?)]
+(defn- budget-section-rows
+  [{:as budget-section :budget-section/keys [items]} detail? page-state]
+  (if (seq items)
+    (concat [(budget-section-header-row budget-section detail?)]
             (map #(budget-item-row % detail? page-state)
-                 (:items item-group))
-            [(budget-item-group-footer-row item-group detail?)])
-    [(budget-item-condensed-row item-group detail?)]))
+                 items)
+            [(budget-section-footer-row budget-section detail?)])
+    [(budget-item-condensed-row budget-section detail?)]))
 
 (defn- budget-items-table
   [page-state]
@@ -309,73 +309,8 @@
          [:th (html/space)]]]
        [:tbody
         (->> @rendered-budget
-             (mapcat #(budget-item-rows % @detail? page-state))
+             (mapcat #(budget-section-rows % @detail? page-state))
              doall)]])))
-
-(defmulti calc-periods
-  (fn [item _budget _callback]
-    (get-in item [:spec :entry-mode])))
-
-(defmethod calc-periods :per-period
-  [item _ callback]
-  (callback (:periods item)))
-
-(defmethod calc-periods :per-average
-  [{{:keys [average]} :spec} {:keys [period-count]} callback]
-  (callback (repeat period-count average)))
-
-(defmethod calc-periods :per-total
-  [{{:keys [total]} :spec} {:keys [period-count]} callback]
-  (callback (repeat period-count (decimal// total period-count))))
-
-(defmethod calc-periods :weekly
-  [{{:keys [start-date week-count amount-per]} :spec}
-   {:keys [end-date period-count]}
-   callback]
-  (callback
-    (if (and start-date week-count amount-per)
-      (->> (periodic-seq start-date
-                         (t/weeks week-count))
-           (take-while #(t/before? % end-date))
-           (group-by t/month)
-           (map (comp (partial decimal/* amount-per)
-                      count
-                      second)))
-      (repeat period-count 0M))))
-
-(defn- round
-  [value round-to]
-  (if round-to
-    (decimal/*
-      (decimal/round
-        (decimal// value
-                   round-to))
-      round-to)
-    value))
-
-(defmethod calc-periods :historical
-  [{:keys [account-id]
-    {:keys [start-date round-to]} :spec}
-   {:keys [period-count period]}
-   callback]
-  (when start-date
-    (+busy)
-    (tran-items/summarize {:transaction-date [start-date
-                                              (t/minus (t/plus start-date
-                                                               ((case period
-                                                                  :month t/months
-                                                                  :week t/weeks)
-                                                                period-count))
-                                                       (t/days 1))]
-                           :account-id account-id
-                           :interval-type period
-                           :interval-count 1}
-                          :callback -busy
-                          :on-success (fn [periods]
-                                        (callback (map (comp #(round % round-to)
-                                                             :quantity)
-                                                       periods)))))
-  (repeat period-count 0M))
 
 (defn- post-save-budget-item
   [page-state]
@@ -396,7 +331,7 @@
                                :budget-item/spec])
                  (assoc :budget-item/periods periods))]
     (-> budget
-        (update-in [:budget/items] #(util/upsert-into item %))
+        (update-in [:budget/items] #(util/upsert-into item {:sort-key (comp :account/name :budget-item/account)} %))
         (api/save :callback -busy
                   :on-success (post-save-budget-item page-state)))))
 
@@ -451,17 +386,25 @@
   ^{:key "period-field-round-to"}
    [forms/integer-field item [:budget-item/spec :round-to]]])
 
-(defn- deref-and-calc-periods
-  [item budget periods]
-  (when (and @item @budget)
-    (calc-periods @item @budget #(reset! periods %))))
+(defn- recalc-periods
+  [i b periods]
+  (let [{:budget-item/keys [spec] :as item} @i
+        budget @b]
+    (when (and (s/valid? ::budgets/item-spec spec)
+               budget)
+      (a/go
+        (let [updated (a/<! (budgets/calc-periods
+                              item
+                              budget
+                              :fetch-item-summaries trx-items/summarize))]
+          (reset! periods updated))))))
 
 (defn- periods-table
   [page-state]
   (let [item (r/cursor page-state [:selected-item])
         budget (r/cursor page-state [:detailed-budget])
         periods (r/cursor page-state [:calculated-periods])
-        calculated (r/track! deref-and-calc-periods item budget periods)
+        calculated (r/track! recalc-periods item budget periods)
         total (make-reaction #(reduce decimal/+ @periods))]
     (fn []
       [:table.table.table-sm.table-hover {:title (str "periods for item" (:account-id @item))}
@@ -492,7 +435,7 @@
    {:label "By Average"
     :id :per-average}
    {:label "Weekly"
-    :id :weekly
+    :id :per-week
     :filter-fn #(#{:month} (:period %))}
    {:label "Historical"
     :id :historical}])
@@ -509,7 +452,7 @@
   (map (fn [{:keys [id] :as option}]
          (assoc option
                 :active? (= id current-mode)
-                :nav-fn #(swap! item assoc-in [:spec :entry-mode] id)))
+                :nav-fn #(swap! item assoc-in [:entry-mode] id)))
        (filtered-period-field-nav-options budget)))
 
 (defn- period-field-select-options
@@ -521,7 +464,7 @@
 (defn- period-fields
   [item page-state]
   (let [budget (r/cursor page-state [:detailed-budget])
-        entry-mode (r/cursor item [:spec :entry-mode])]
+        entry-mode (r/cursor item [:entry-mode])]
     (fn []
       [:div.card
        [:div.card-header
@@ -531,7 +474,7 @@
         [:div.d-md-none
          [forms/select-elem
           item
-          [:spec :entry-mode]
+          [:entry-mode]
           (period-field-select-options @entry-mode item @budget)
           {:transform-fn keyword}]]
         [:div.mt-2
@@ -542,7 +485,7 @@
            (period-fields-per-total item)
            :per-average
            (period-fields-per-average item)
-           :weekly
+           :per-week
            (period-fields-weekly item)
            :historical
            (period-fields-historical item)
@@ -564,6 +507,7 @@
         {:search-fn (fn [input callback]
                       (callback (accounts/find-by-path input @accounts)))
          :caption-fn #(string/join "/" (:account/path %))
+         :caption "Account"
          :value-fn :id
          :find-fn (fn [id callback]
                     (callback @accounts-by-id id))}]
@@ -593,7 +537,7 @@
         selected-item (r/cursor page-state [:selected-item])
         show-periods-table? (make-reaction #(and @selected-item
                                                  (not= :per-period
-                                                       (get-in @selected-item [:spec :entry-mode]))))
+                                                       (get-in @selected-item [:entry-mode]))))
         window-height (r/cursor resize-state [:window-height])
         scrollable-height (make-reaction #(if (< @window-height 800)
                                             400
@@ -616,12 +560,13 @@
          [:div.my-2
           [button {:html {:class "btn-primary"
                           :on-click (fn []
-                                      (swap! page-state assoc
-                                             :selected-item {:id (random-uuid)
-                                                             :periods (->> (range (:period-count @budget))
-                                                                           (map (constantly 0M))
-                                                                           (into []))
-                                                             :spec {:entry-mode :per-total}})
+                                      (swap! page-state
+                                             assoc
+                                             :selected-item {:id (util/temp-id)
+                                                             :budget-item/periods (->> (range (:period-count @budget))
+                                                                                       (map (constantly 0M))
+                                                                                       (into []))
+                                                             :entry-mode :per-total})
                                       (set-focus "account"))
                           :disabled (or @busy?
                                         (boolean @selected-item))
