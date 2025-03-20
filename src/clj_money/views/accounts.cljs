@@ -807,11 +807,13 @@
                        :commodity commodity
                        :shares-owned [:!= 0]}
                  :on-success #(swap! page-state assoc :lots %))
-    (prices/select #:price{:commodity commodity
-                           :trade-date [earliest-transaction-date
-                                        (t/plus latest-transaction-date
-                                                (t/days 1))]}
-                   :on-success #(swap! page-state assoc :prices %))
+    (when (and earliest-transaction-date
+               latest-transaction-date)
+      (prices/select #:price{:commodity commodity
+                             :trade-date [earliest-transaction-date
+                                          (t/plus latest-transaction-date
+                                                  (t/days 1))]}
+                     :on-success #(swap! page-state assoc :prices %)))
     (fn []
       [:section
        (bs/nav-tabs [{:id :lots-nav
