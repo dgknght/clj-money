@@ -497,24 +497,7 @@
       #?(:clj (is (seq-of-maps-like? expected actual))
          :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual)))))
   (testing "Simple and commodity accounts"
-    (let [expected [{:account/name "IRA"
-                     :account/value (d 1000)
-                     :account/cost-basis (d 2500) ; (d 1000) cash + sum of children
-                     :account/total-value (d 2900) ; (d 1500) of AAPL + (d 500) of MSFT + (d 1000) in cash
-                     :account/gain (d 400)}
-                    {:account/name "AAPL"
-                     :account/shares-owned (d 100)
-                     :account/cost-basis (d 1000)
-                     :account/current-price (d 15)
-                     :account/total-value (d 1500)
-                     :account/gain (d 500)}
-                    {:account/name "MSFT"
-                     :account/shares-owned (d 50)
-                     :account/cost-basis (d 500)
-                     :account/current-price (d 8)
-                     :account/total-value (d 400)
-                     :account/gain (d -100)}
-                    {:account/name "401k"
+    (let [expected [{:account/name "401k"
                      :account/value (d 2000)
                      :account/cost-basis (d 5200) ; (d 2000) cash + sum of children
                      :account/total-value (d 5800)
@@ -530,7 +513,24 @@
                      :account/cost-basis (d 1000)
                      :account/current-price (d 8)
                      :account/total-value (d 800)
-                     :account/gain (d -200)}]
+                     :account/gain (d -200)}
+                    {:account/name "IRA"
+                     :account/value (d 1000)
+                     :account/cost-basis (d 2500) ; (d 1000) cash + sum of children
+                     :account/total-value (d 2900) ; (d 1500) of AAPL + (d 500) of MSFT + (d 1000) in cash
+                     :account/gain (d 400)}
+                    {:account/name "AAPL"
+                     :account/shares-owned (d 100)
+                     :account/cost-basis (d 1000)
+                     :account/current-price (d 15)
+                     :account/total-value (d 1500)
+                     :account/gain (d 500)}
+                    {:account/name "MSFT"
+                     :account/shares-owned (d 50)
+                     :account/cost-basis (d 500)
+                     :account/current-price (d 8)
+                     :account/total-value (d 400)
+                     :account/gain (d -100)}]
           actual (accounts/valuate
                    (valuation-data commodity-supplemental-data)
                    commodity-accounts)]
