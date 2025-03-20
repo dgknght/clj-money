@@ -593,10 +593,11 @@
 
   Options:
     :sort-key - A function that extracts the value on which to sort the collection."
-  [m {:keys [sort-key comp] :or {sort-key identity comp compare}} coll]
-  (sort-by #(sort-key %)
-           comp
-           (cons m (remove #(model= m %) coll))))
+  ([m coll] (upsert-into m {} coll))
+  ([m {:keys [sort-key comp] :or {sort-key identity comp compare}} coll]
+   (sort-by #(sort-key %)
+            comp
+            (cons m (remove #(model= m %) coll)))))
 
 (defn match?
   "Given a search term and a list of keys, returns a predicate function that
