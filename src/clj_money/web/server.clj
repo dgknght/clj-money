@@ -19,6 +19,7 @@
             [dgknght.app-lib.api :as api]
             [clj-money.core]
             [clj-money.json]
+            [clj-money.decimal :as d]
             [clj-money.web.auth :as web-auth]
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-integer-id-params
@@ -131,9 +132,16 @@
                                :cookie-attrs {:same-site :lax
                                               :http-only true}})]))
 
+(defn- wrap-decimals
+  [handler]
+  (fn [req]
+    (-> req
+        handler
+        (update-in [:body] d/wrap-decimals))))
+
 (def app
   (ring/ring-handler
-    (ring/router ["/" {:middleware [wrap-request-logging]}
+    (ring/router ["/" #_{:middleware [wrap-request-logging]}
                   apps/routes
                   ["auth/" {:middleware [:site
                                          wrap-merge-path-params
@@ -147,6 +155,7 @@
                    images/routes]
                   ["oapi/" {:middleware [:api
                                          :wrap-restful-format
+                                         wrap-decimals
                                          wrap-merge-path-params
                                          wrap-integer-id-params
                                          wrap-exceptions
@@ -154,6 +163,7 @@
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
                                         :wrap-restful-format
+                                        wrap-decimals
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         :authentication

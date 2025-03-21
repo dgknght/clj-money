@@ -32,10 +32,10 @@
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
            (-pr-writer [date writer _]
-             (write-all writer "#local-date \"" (serialize-local-date date) "\""))
+             (write-all writer "#clj-money/local-date \"" (serialize-local-date date) "\""))
            DateTime
            (-pr-writer [date writer _]
-             (write-all writer "#local-date-time \"" (serialize-local-date-time date) "\""))))
+             (write-all writer "#clj-money/local-date-time \"" (serialize-local-date-time date) "\""))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn local-date

@@ -3,6 +3,7 @@
             [java-time.api :as t]
             [ring.mock.request :as req]
             [dgknght.app-lib.test :as test]
+            [clj-money.decimal :as d]
             [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models :as models]))
@@ -34,5 +35,6 @@
 
 (defn parse-edn-body
   [res]
-  (test/parse-edn-body res :readers {'local-date t/local-date
-                                     'local-date-time t/local-date-time}))
+  (test/parse-edn-body res :readers {'clj-money/local-date t/local-date
+                                     'clj-money/local-date-time t/local-date-time
+                                     'clj-money/decimal d/d}))
