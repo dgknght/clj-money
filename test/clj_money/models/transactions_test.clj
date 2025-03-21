@@ -366,31 +366,31 @@
 
 (def search-context
   (conj base-context
-        #:transaction{:transaction-date #local-date "2016-01-01"
+        #:transaction{:transaction-date #clj-money/local-date "2016-01-01"
                       :entity "Personal"
                       :description "Paycheck"
                       :quantity 160101M
                       :debit-account "Checking"
                       :credit-account "Salary"}
-        #:transaction{:transaction-date #local-date "2016-06-01"
+        #:transaction{:transaction-date #clj-money/local-date "2016-06-01"
                       :entity "Personal"
                       :description "Paycheck"
                       :quantity 160601M
                       :debit-account "Checking"
                       :credit-account "Salary"}
-        #:transaction{:transaction-date #local-date "2017-01-01"
+        #:transaction{:transaction-date #clj-money/local-date "2017-01-01"
                       :entity "Personal"
                       :description "Paycheck"
                       :quantity 170101M
                       :debit-account "Checking"
                       :credit-account "Salary"}
-        #:transaction{:transaction-date #local-date "2017-06-01"
+        #:transaction{:transaction-date #clj-money/local-date "2017-06-01"
                       :entity "Personal"
                       :description "Paycheck"
                       :quantity 170601M
                       :debit-account "Checking"
                       :credit-account "Salary"}
-        #:transaction{:transaction-date #local-date "2017-06-15"
+        #:transaction{:transaction-date #clj-money/local-date "2017-06-15"
                       :entity "Personal"
                       :description "Paycheck"
                       :quantity 170615M

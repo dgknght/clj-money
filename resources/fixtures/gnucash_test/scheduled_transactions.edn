@@ -45,8 +45,8 @@
                            :import/commodity {:commodity/type :currency
                                               :commodity/symbol "USD"}}]
                 :scheduled-transaction [{:scheduled-transaction/description "Paycheck"
-                                         :scheduled-transaction/start-date #local-date "2016-01-15"
-                                         :scheduled-transaction/end-date #local-date "2018-12-31"
+                                         :scheduled-transaction/start-date #clj-money/local-date "2016-01-15"
+                                         :scheduled-transaction/end-date #clj-money/local-date "2018-12-31"
                                          :scheduled-transaction/enabled true
                                          :scheduled-transaction/last-occurrence nil
                                          :scheduled-transaction/interval-type :week

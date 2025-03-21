@@ -22,13 +22,13 @@
                              :commodity/exchange :nasdaq
                              :import/record-type :commodity
                              :import/ignore? false}]
-                :price [{:price/trade-date #local-date "2015-01-30"
+                :price [{:price/trade-date #clj-money/local-date "2015-01-30"
                          :price/price 12.00M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
                          :import/ignore? false}
-                        {:price/trade-date #local-date "2015-01-17"
+                        {:price/trade-date #clj-money/local-date "2015-01-17"
                          :price/price 10.00M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
@@ -83,7 +83,7 @@
                            :account/type :liability
                            :import/commodity {:commodity/type :currency
                                               :commodity/symbol "USD"}}]
-                :transaction [{:transaction/transaction-date #local-date "2015-01-01"
+                :transaction [{:transaction/transaction-date #clj-money/local-date "2015-01-01"
                                :transaction/description "Paycheck"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 1000M
@@ -97,7 +97,7 @@
                                                     :import/reconciled? false}]
                                :import/record-type :transaction
                                :import/ignore? false}
-                              {:transaction/transaction-date #local-date "2015-01-04"
+                              {:transaction/transaction-date #clj-money/local-date "2015-01-04"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 100M
@@ -111,7 +111,7 @@
                                                     :import/reconciled? false}]
                                :import/record-type :transaction
                                :import/ignore? false}
-                              {:transaction/transaction-date #local-date "2015-01-11"
+                              {:transaction/transaction-date #clj-money/local-date "2015-01-11"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 100M
@@ -125,7 +125,7 @@
                                                     :import/reconciled? false}]
                                :import/record-type :transaction
                                :import/ignore? false}
-                              {:transaction/transaction-date #local-date "2015-01-12"
+                              {:transaction/transaction-date #clj-money/local-date "2015-01-12"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 10M
@@ -139,7 +139,7 @@
                                                     :import/reconciled? false}]
                                :import/record-type :transaction
                                :import/ignore? false}
-                              {:transaction/transaction-date #local-date "2015-01-15"
+                              {:transaction/transaction-date #clj-money/local-date "2015-01-15"
                                :transaction/description "Paycheck"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 1000M
@@ -154,7 +154,7 @@
                                :import/record-type :transaction
                                :import/ignore? false}
 
-                              {:transaction/transaction-date #local-date "2015-01-16"
+                              {:transaction/transaction-date #clj-money/local-date "2015-01-16"
                                :transaction/description "Retirement"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 1000M
@@ -168,7 +168,7 @@
                                                     :import/reconciled? false}]
                                :import/record-type :transaction
                                :import/ignore? false}
-                              {:transaction/transaction-date #local-date "2015-01-17"
+                              {:transaction/transaction-date #clj-money/local-date "2015-01-17"
                                :transaction/description "Purchase shares AAPL"
                                :trade/action :buy
                                :trade/shares 100M
@@ -186,7 +186,7 @@
                                                     :import/reconciled? false}]
                                :import/record-type :transaction
                                :import/ignore? false}
-                              {:transaction/transaction-date #local-date "2015-01-18"
+                              {:transaction/transaction-date #clj-money/local-date "2015-01-18"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 100M
@@ -200,7 +200,7 @@
                                                     :import/reconciled? false}]
                                :import/record-type :transaction
                                :import/ignore? false}
-                              ;{:transaction-date #local-date "2015-03-03"
+                              ;{:transaction-date #clj-money/local-date "2015-03-03"
                                 ; :description "Transfer shares of AAPL"
                                 ; :action :transfer
                                 ; :shares 100M
@@ -217,10 +217,10 @@
                                                      ;          :quantity 100M
                                                      ;          :value 1000M
                                                      ;          :reconciled false}]}
-                              ;{:transaction-date #local-date "2015-04-03"
+                              ;{:transaction-date #clj-money/local-date "2015-04-03"
                                 ; :description "Stock Split"
                                 ; :action :split
-                                ; :split-date #local-date "2015-04-03"
+                                ; :split-date #clj-money/local-date "2015-04-03"
                                 ; :shares-gained 100M
                                 ; :commodity-account-id (:apple-ira ids)
                                 ; :items [{:action :debit
@@ -241,10 +241,10 @@
                                                      ;          :quantity 1M
                                                      ;          :value 1M
                                                      ;          :reconciled false}]}
-                              ;{:transaction-date #local-date "2015-05-03"
+                              ;{:transaction-date #clj-money/local-date "2015-05-03"
                                 ; :description "Sell shares of AAPL"
                                 ; :action :sell
-                                ; :trade-date #local-date "2015-05-03"
+                                ; :trade-date #clj-money/local-date "2015-05-03"
                                 ; :shares 100M
                                 ; :commodity-account-id (:apple-ira ids)
                                 ; :items [{:action :debit

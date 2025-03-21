@@ -6,7 +6,7 @@
          :entity/updated-at
          #object[java.time.LocalDateTime 0x5ae93815 "2024-12-07T17:35:50.960526"],
          :entity/settings
-         #:settings{:earliest-price-date #local-date "2016-03-02",
+         #:settings{:earliest-price-date #clj-money/local-date "2016-03-02",
                     :st-capital-gains-account
                     {:account/allocations nil,
                      :account/quantity 0M,
@@ -19,7 +19,7 @@
                      :account/value 0M,
                      :account/name "Short-term Capital Gains"},
                     :earliest-transaction-date
-                    #local-date "2016-01-01",
+                    #clj-money/local-date "2016-01-01",
                     :lt-capital-gains-account
                     {:account/allocations nil,
                      :account/quantity 0M,
@@ -31,8 +31,8 @@
                      :account/type :income,
                      :account/value 0M,
                      :account/name "Long-term Capital Gains"},
-                    :latest-transaction-date #local-date "2016-03-02",
-                    :latest-price-date #local-date "2016-03-02",
+                    :latest-transaction-date #clj-money/local-date "2016-03-02",
+                    :latest-price-date #clj-money/local-date "2016-03-02",
                     :lt-capital-loss-account
                     {:account/allocations nil,
                      :account/quantity 0M,
@@ -61,7 +61,7 @@
         :updated-lots
         [{:lot/shares-purchased 100.0000M,
           :lot/purchase-price 10.0000M,
-          :lot/purchase-date #local-date "2016-03-02",
+          :lot/purchase-date #clj-money/local-date "2016-03-02",
           :lot/created-at
           #object[java.time.LocalDateTime 0x5ef99f75 "2024-12-07T17:35:51.543476"],
           :lot/shares-owned 75.0000M,
@@ -74,7 +74,7 @@
         [#:lot-item{:lot
                     {:lot/shares-purchased 100.0000M,
                      :lot/purchase-price 10.0000M,
-                     :lot/purchase-date #local-date "2016-03-02",
+                     :lot/purchase-date #clj-money/local-date "2016-03-02",
                      :lot/created-at
                      #object[java.time.LocalDateTime 0x5ef99f75 "2024-12-07T17:35:51.543476"],
                      :lot/shares-owned 100.0000M,
@@ -97,7 +97,7 @@
          :account/type :income,
          :account/value 0M,
          :account/name "Short-term Capital Gains"},
-        :date #local-date "2017-03-02",
+        :date #clj-money/local-date "2017-03-02",
         :commodity-account
         {:account/allocations nil,
          :account/quantity 75.0000M,
@@ -108,17 +108,17 @@
          :account/created-at
          #object[java.time.LocalDateTime 0x418e1cd6 "2024-12-07T17:35:51.543476"],
          :account/user-tags nil,
-         :account/price-as-of #local-date "2016-03-02",
+         :account/price-as-of #clj-money/local-date "2016-03-02",
          :id 55462,
-         :account/earliest-transaction-date #local-date "2016-03-02",
+         :account/earliest-transaction-date #clj-money/local-date "2016-03-02",
          :account/parent {:id 55454},
          :account/commodity {:id 16998},
          :account/type :asset,
-         :account/latest-transaction-date #local-date "2017-03-02",
+         :account/latest-transaction-date #clj-money/local-date "2017-03-02",
          :account/value 750.00000000M,
          :account/name "AAPL"},
         :transaction
-        {:transaction/transaction-date #local-date "2017-03-02",
+        {:transaction/transaction-date #clj-money/local-date "2017-03-02",
          :transaction/description "Sell 25 shares of AAPL at 15.000",
          :transaction/value 375.00M,
          :id #uuid "a078b7c9-077f-44cd-85e7-f3e0bc7a36e2",
@@ -131,7 +131,7 @@
            :transaction-item/account {:id 55456},
            :transaction-item/value 125.00M,
            :id #uuid "f18cc87b-7906-4d66-a3c9-29195871d7b9",
-           :transaction-item/transaction-date #local-date "2017-03-02",
+           :transaction-item/transaction-date #clj-money/local-date "2017-03-02",
            :transaction-item/quantity 125.00M,
            :transaction-item/balance 125.00M,
            :transaction-item/memo "Sell 25 shares of AAPL at 15.000"}
@@ -142,7 +142,7 @@
            :transaction-item/account {:id 55454},
            :transaction-item/value 375M,
            :id #uuid "9c795529-3093-4e69-8d69-767e9feff5a1",
-           :transaction-item/transaction-date #local-date "2017-03-02",
+           :transaction-item/transaction-date #clj-money/local-date "2017-03-02",
            :transaction-item/quantity 375M,
            :transaction-item/balance 1375.0000M}
           {:transaction-item/index 1,
@@ -152,14 +152,14 @@
            :transaction-item/account {:id 55462},
            :transaction-item/value 250.00M,
            :id #uuid "607cd6e0-5fc2-461e-b0b7-aa4c52885231",
-           :transaction-item/transaction-date #local-date "2017-03-02",
+           :transaction-item/transaction-date #clj-money/local-date "2017-03-02",
            :transaction-item/quantity 25M,
            :transaction-item/balance 75.0000M}],
          :transaction/lot-items
          [{:lot-item/lot-action :sell,
            :lot-item/shares 25M,
            :lot-item/price 15M,
-           :lot-item/transaction-date #local-date "2017-03-02",
+           :lot-item/transaction-date #clj-money/local-date "2017-03-02",
            :id 199,
            :lot-item/transaction
            {:id #uuid "a078b7c9-077f-44cd-85e7-f3e0bc7a36e2"},
@@ -202,11 +202,11 @@
          :account/value 0M,
          :account/name "Long-term Capital Losses"},
         :price
-        {:price/trade-date #local-date "2017-03-02",
+        {:price/trade-date #clj-money/local-date "2017-03-02",
          :price/price 15M,
          :id #uuid "015c6cce-aa00-4270-8387-47c4e800ddc5",
          :price/commodity
-         {:commodity/earliest-price #local-date "2016-03-02",
+         {:commodity/earliest-price #clj-money/local-date "2016-03-02",
           :commodity/entity {:id 18028},
           :commodity/updated-at
           #object[java.time.LocalDateTime 0x6ae47c1e "2024-12-07T17:35:51.015756"],
@@ -216,7 +216,7 @@
           #object[java.time.LocalDateTime 0x7be55279 "2024-12-07T17:35:51.015756"],
           :id 16998,
           :commodity/type :stock,
-          :commodity/latest-price #local-date "2016-03-02",
+          :commodity/latest-price #clj-money/local-date "2016-03-02",
           :commodity/symbol "AAPL",
           :commodity/name "Apple, Inc."}},
         :lots [],

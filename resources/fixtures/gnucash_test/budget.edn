@@ -53,7 +53,7 @@
                                               :commodity/symbol "USD"}}]
                 :transaction [{:import/record-type :transaction
                                :import/ignore? false
-                               :transaction/transaction-date #local-date "2015-01-01"
+                               :transaction/transaction-date #clj-money/local-date "2015-01-01"
                                :transaction/description "Paycheck"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 1000M
@@ -67,7 +67,7 @@
                                                     :import/reconciled? false}]}
                               {:import/record-type :transaction
                                :import/ignore? false
-                               :transaction/transaction-date #local-date "2015-01-04"
+                               :transaction/transaction-date #clj-money/local-date "2015-01-04"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 100M
@@ -81,7 +81,7 @@
                                                     :import/reconciled? true}]}
                               {:import/record-type :transaction
                                :import/ignore? false
-                               :transaction/transaction-date #local-date "2015-01-11"
+                               :transaction/transaction-date #clj-money/local-date "2015-01-11"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 100M
@@ -95,7 +95,7 @@
                                                     :import/reconciled? true}]}
                               {:import/record-type :transaction
                                :import/ignore? false
-                               :transaction/transaction-date #local-date "2015-01-12"
+                               :transaction/transaction-date #clj-money/local-date "2015-01-12"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 10M
@@ -109,7 +109,7 @@
                                                     :import/reconciled? false}]}
                               {:import/record-type :transaction
                                :import/ignore? false
-                               :transaction/transaction-date #local-date "2015-01-15"
+                               :transaction/transaction-date #clj-money/local-date "2015-01-15"
                                :transaction/description "Paycheck"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 1000M
@@ -123,7 +123,7 @@
                                                     :import/reconciled? false}]}
                               {:import/record-type :transaction
                                :import/ignore? false
-                               :transaction/transaction-date #local-date "2015-01-18"
+                               :transaction/transaction-date #clj-money/local-date "2015-01-18"
                                :transaction/description "Kroger"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 100M
@@ -139,11 +139,11 @@
                                   :import/record-type :reconciliation
                                   :import/include-children? false
                                   :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                  :reconciliation/end-of-period #local-date "2015-01-15"}]
+                                  :reconciliation/end-of-period #clj-money/local-date "2015-01-15"}]
                 :budget [{:import/id "61ed60ec54ff4ece8837ca18d5897162"
                           :import/record-type :budget
                           :budget/name "2017"
-                          :budget/start-date #local-date "2017-01-01"
+                          :budget/start-date #clj-money/local-date "2017-01-01"
                           :budget/period :month
                           :budget/period-count 12
                           :budget/items [{:import/account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
