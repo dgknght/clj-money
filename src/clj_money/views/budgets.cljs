@@ -576,7 +576,7 @@
                                                                                        (map (constantly 0M))
                                                                                        (into []))
                                                              :entry-mode :per-total})
-                                      (set-focus "account"))
+                                      (set-focus "account-id"))
                           :disabled (or @busy?
                                         (boolean @selected-item))
                           :title "Click here to add a new budget line item"}
