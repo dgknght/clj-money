@@ -45,7 +45,16 @@
                                                     greater-than-zero?))
 (s/def :scheduled-transaction/start-date t/local-date?)
 (s/def :scheduled-transaction/end-date (s/nilable t/local-date?))
-(s/def :scheduled-transaction/date-spec map?)
+(s/def ::month (s/and integer?
+                      #(<= 1 % 12)))
+(s/def ::day (s/and integer?
+                    #(<= 1 % 31)))
+(s/def ::days (s/coll-of #{:sunday :monday :tuesday :wednesday :thursday :friday :saturday}
+                         :kind set?))
+(s/def ::date-spec (s/or :yearly (s/keys :req-un [::month ::day])
+                         :monthly (s/keys :req-un [::day])
+                         :weekly (s/keys :req-un [::days])))
+(s/def :scheduled-transaction/date-spec ::date-spec)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/scheduled-transaction (s/keys :req [:scheduled-transaction/entity
                                                     :scheduled-transaction/description

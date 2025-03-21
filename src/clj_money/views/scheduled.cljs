@@ -94,36 +94,38 @@
   [{:keys [end-date]}]
   (and end-date (t/after? (t/today) end-date)))
 
-(def ^:private disabled? (complement :enabled))
+(def ^:private disabled? (complement :scheduled-transaction/enabled))
 
 (def ^:private active? (complement (some-fn expired? disabled?)))
 
 (defn- ->editable-item
-  [{:keys [action quantity] :as item}]
-  (cond-> (dissoc item :quantity :action)
+  [{:scheduled-transaction-item/keys [action quantity] :as item}]
+  (cond-> (dissoc item
+                  :scheduled-transaction-item/quantity
+                  :scheduled-transaction-item/action)
     (= :debit action) (assoc :debit-quantity quantity)
     (= :credit action) (assoc :credit-quantity quantity)))
 
 (defn- ->editable
   [sched-tran]
   (update-in sched-tran
-             [:items]
+             [:scheduled-transaction/items]
              (fn [items]
                (conj
                  (mapv ->editable-item items)
                  {}))))
 
 (defn- sched-tran-row
-  [sched-tran page-state busy?]
+  [{:scheduled-transaction/keys [description last-occurrence next-occurrence] :as sched-tran} page-state busy?]
   ^{:key (str "sched-tran-row-" (:id sched-tran))}
   [:tr {:class (cond-> []
                  (disabled? sched-tran) (conj "sched-tran-disabled")
                  (expired? sched-tran) (conj "sched-tran-expired"))}
-   [:td (:description sched-tran)]
-   [:td.d-none.d-md-table-cell (format-date (:last-occurrence sched-tran))]
+   [:td description]
+   [:td.d-none.d-md-table-cell (format-date last-occurrence)]
    [:td
-    [:span.d-none.d-md-inline (format-date (:next-occurrence sched-tran))]
-    [:span.d-md-none (format-date (:next-occurrence sched-tran) "M/d")]]
+    [:span.d-none.d-md-inline (format-date next-occurrence)]
+    [:span.d-md-none (format-date (:scheduled-transaction/next-occurrence sched-tran) "M/d")]]
    [:td
     [:div.btn-group
      [:button.btn.btn-sm {:title "Click here to realize transactions for this schedule."
@@ -183,10 +185,10 @@
   (let [sched-trans (r/cursor page-state [:scheduled-transactions])
         hide-inactive? (r/cursor page-state [:hide-inactive?])
         sort-on (r/cursor page-state [:sort-on])
-        sort-fn (make-reaction #({:next-occurrence date-compare
-                                  :last-occurrence date-compare
-                                  :description compare}
-                                 @sort-on))
+        sort-fn (make-reaction #(#:scheduled-transaction{:next-occurrence date-compare
+                                                         :last-occurrence date-compare
+                                                         :description compare}
+                                                                          @sort-on))
         filter-fn (make-reaction #(if @hide-inactive?
                                     active?
                                     (constantly true)))]
@@ -208,22 +210,22 @@
 (defn- ->saveable-item
   [{:keys [debit-quantity credit-quantity] :as item}]
   (-> item
-      (assoc :action (if debit-quantity
-                       :debit
-                       :credit)
-             :quantity (or debit-quantity credit-quantity))
+      (assoc :scheduled-transaction-item/action (if debit-quantity
+                                                  :debit
+                                                  :credit)
+             :scheduled-transaction-item/quantity (or debit-quantity credit-quantity))
       (dissoc :debit-quantity :credit-quantity)))
 
 (defn- empty-item?
-  [{:keys [account-id debit-quantity credit-quantity]}]
-  (and (nil? account-id)
+  [{:keys [debit-quantity credit-quantity] :scheduled-transaction-item/keys [account]}]
+  (and (nil? (:id account))
        (nil? debit-quantity)
        (nil? credit-quantity)))
 
 (defn- ->saveable
   [sched-tran]
   (update-in sched-tran
-             [:items]
+             [:scheduled-transaction/items]
              (fn [items]
                (->> items
                     (remove empty-item?)
@@ -246,7 +248,7 @@
          [:selected]
          (fn [sched-tran]
            (update-in sched-tran
-                      [:items]
+                      [:scheduled-transaction/items]
                       (fn [items]
                         (conj
                           (->> items
@@ -254,7 +256,7 @@
                                vec)
                           {:debit-quantity nil
                            :credit-quantity nil
-                           :account-id nil}))))))
+                           :scheduled-transaction-item/account nil}))))))
 
 (defn- item-row
   [index sched-tran page-state]
@@ -262,26 +264,26 @@
   [:tr
    [:td [forms/typeahead-input
          sched-tran
-         [:items index :account-id]
+         [:scheduled-transaction/items index :scheduled-transaction-item/account :id]
          {:id (str "account-id-" index)
           :search-fn (fn [input callback]
                        (callback (find-by-path input @accounts)))
           ;:on-change #(ensure-entry-state page-state)
           ;:on-key-up #(item-navigate % item-count)
-          :caption-fn #(string/join "/" (:path %))
+          :caption-fn #(string/join "/" (:account/path %))
           :value-fn :id
           :find-fn (fn [id callback]
                      (callback
                        (get-in @accounts-by-id
                                [id])))
           :on-change #(adj-items page-state)}]]
-   [:td [forms/text-input sched-tran [:items index :memo] {:on-change #(adj-items page-state)}]]
-   [:td [forms/decimal-input sched-tran [:items index :debit-quantity] {:on-accept #(adj-items page-state)}]]
-   [:td [forms/decimal-input sched-tran [:items index :credit-quantity] {:on-accept #(adj-items page-state)}]]])
+   [:td [forms/text-input sched-tran    [:scheduled-transaction/items index :scheduled-transaction-item/memo] {:on-change #(adj-items page-state)}]]
+   [:td [forms/decimal-input sched-tran [:scheduled-transaction/items index :debit-quantity] {:on-accept #(adj-items page-state)}]]
+   [:td [forms/decimal-input sched-tran [:scheduled-transaction/items index :credit-quantity] {:on-accept #(adj-items page-state)}]]])
 
 (defn- items-table-footer
   [page-state]
-  (let [items (r/cursor page-state [:selected :items])
+  (let [items (r/cursor page-state [:selected :scheduled-transaction/items])
         total-credits (make-reaction #(->> @items
                                            (map :credit-quantity)
                                            (filter identity)
@@ -315,7 +317,7 @@
          [:th "Debit"]
          [:th "Credit"]]]
        [:tbody
-        (->> (range (count (:items @sched-tran)))
+        (->> (range (count (:scheduled-transaction/items @sched-tran)))
              (map #(item-row % sched-tran page-state))
              doall)]
        [items-table-footer page-state]])))
@@ -329,41 +331,41 @@
               :on-submit (fn [e]
                            (.preventDefault e)
                            (save-sched-tran page-state))}
-       [forms/text-field sched-tran [:description] {:validation [:required]}]
-       [forms/text-field sched-tran [:memo]]
+       [forms/text-field sched-tran [:scheduled-transaction/description] {:validation [:required]}]
+       [forms/text-field sched-tran [:scheduled-transaction/memo]]
        [:div.row
         [:div.col
-         [forms/date-field sched-tran [:start-date] {:validation [:required]}]]
+         [forms/date-field sched-tran [:scheduled-transaction/start-date] {:validation [:required]}]]
         [:div.col
-         [forms/date-field sched-tran [:end-date] {:validation [:required]}]]]
+         [forms/date-field sched-tran [:scheduled-transaction/end-date] {:validation [:required]}]]]
        [:div.row
         [:div.col
          [forms/select-field
           sched-tran
-          [:interval-type]
+          [:scheduled-transaction/interval-type]
           [[:year "Yearly"]
            [:month "Monthly"]
            [:week "Weekly"]]
           {:transform-fn keyword}]]
         [:div.col
-         [forms/integer-field sched-tran [:interval-count] {:validation [:required]}]]]
-       (case (:interval-type @sched-tran)
+         [forms/integer-field sched-tran [:scheduled-transaction/interval-count] {:validation [:required]}]]]
+       (case (:scheduled-transaction/interval-type @sched-tran)
          :year [:div.row [:div.col [forms/select-field
                                     sched-tran
-                                    [:date-spec :month]
+                                    [:scheduled-transaction/date-spec :month]
                                     (map #(vector (csk/->kebab-case-keyword %)
                                                   %)
                                          calendar/month-names)
                                     {:transform-fn keyword}]]
                 [:div.col
-                 [forms/integer-field sched-tran [:date-spec :day] {:validation [:required]}]]]
-         :month [forms/integer-field sched-tran [:date-spec :day] {:validation [:required]}]
-         :week [forms/checkboxes-field sched-tran [:date-spec :days] (map #(vector (csk/->kebab-case-keyword (:name %))
-                                                                                   (:abbreviation %))
-                                                                          calendar/day-data)]
+                 [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validation [:required]}]]]
+         :month [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validation [:required]}]
+         :week [forms/checkboxes-field sched-tran [:scheduled-transaction/date-spec :days] (map #(vector (csk/->kebab-case-keyword (:name %))
+                                                                                                         (:abbreviation %))
+                                                                                                calendar/day-data)]
          "")
        [items-table page-state]
-       [forms/checkbox-field sched-tran [:enabled]]
+       [forms/checkbox-field sched-tran [:scheduled-transaction/enabled]]
        [:button.btn.btn-primary {:type :submit
                                  :title "Click here to save this scheduled transaction."}
         (icon-with-text :check "Save")]
@@ -373,8 +375,8 @@
         (icon-with-text :x-circle "Cancel")]])))
 
 (defn- created-row
-  [{:keys [id transaction-date description value]}]
-  ^{:key (str "created-transaction-row-" id)}
+  [{:scheduled-transaction/keys [transaction-date description value] :as trx}]
+  ^{:key (str "created-transaction-row-" (:id trx))}
   [:tr
    [:td (format-date transaction-date)]
    [:td description]
@@ -414,18 +416,19 @@
         [forms/checkbox-field page-state [:hide-inactive?]]
         [sched-trans-table page-state]
         [:div.d-flex.mb-5
-         [:button.btn.btn-primary {:title "Click here to schedule a recurring transaction."
-                                   :disabled @selected
-                                   :on-click (fn []
-                                               (swap! page-state
-                                                      assoc
-                                                      :selected
-                                                      {:entity-id (:id @current-entity)
-                                                       :interval-type :yearly
-                                                       :enabled true
-                                                       :items [{:debit-quantity nil}
-                                                               {:credit-quantity nil}]})
-                                               (set-focus "description"))}
+         [:button.btn.btn-primary
+          {:title "Click here to schedule a recurring transaction."
+           :disabled @selected
+           :on-click (fn []
+                       (swap! page-state
+                              assoc
+                              :selected
+                              #:scheduled-transaction{:entity @current-entity
+                                                      :interval-type :yearly
+                                                      :enabled true
+                                                      :items [{:debit-quantity nil}
+                                                              {:credit-quantity nil}]})
+                       (set-focus "description"))}
           (icon-with-text :plus "Add")]
          [:button.btn.btn-secondary.ms-2 {:title "Click here to new transactions from the schedule."
                                           :type :button
