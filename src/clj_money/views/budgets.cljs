@@ -495,7 +495,14 @@
 
 (defn- budget-item-form
   [page-state]
-  (let [item (r/cursor page-state [:selected-item])]
+  (let [item (r/cursor page-state [:selected-item])
+        existing-items (r/cursor page-state [:detailed-budget :budget/items])
+        exists? (make-reaction (fn []
+                                 (->> @existing-items
+                                      (remove #(util/id= @item %))
+                                      (map (comp :id
+                                                 :budget-item/account))
+                                      set)))]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -505,7 +512,9 @@
         item
         [:budget-item/account :id]
         {:search-fn (fn [input callback]
-                      (callback (accounts/find-by-path input @accounts)))
+                      (->> (accounts/find-by-path input @accounts)
+                           (remove (comp @exists? :id))
+                           callback))
          :caption-fn #(string/join "/" (:account/path %))
          :caption "Account"
          :value-fn :id
