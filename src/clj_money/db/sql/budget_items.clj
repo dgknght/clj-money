@@ -36,4 +36,6 @@
   (-> budget-item
       (update-in [:budget-item/periods] extract-bigdec-array)
       (update-in-if [:budget-item/spec :average] bigdec)
+      (update-in-if [:budget-item/spec :total] bigdec)
+      (update-in-if [:budget-item/spec :per-week] bigdec)
       (dissoc :budget-item/budget-id)))

@@ -173,18 +173,24 @@
               :on-success #(swap! page-state assoc :detailed-budget %))))
 
 (defn- infer-spec
-  [item]
-  (let [total (decimal/sum (:periods item))]
-    (if (apply = (:periods item))
-      {:entry-mode :per-average
-       :average (/ total (-> item :periods count))}
-      {:entry-mode :per-period})))
+  [{:budget-item/keys [periods]}]
+  (if (apply = periods)
+    {:entry-mode :per-average
+     :average (first periods)}
+    {:entry-mode :per-period}))
+
+(defn- derive-entry-mode
+  [spec]
+  (let [conformed (s/conform ::budgets/item-spec spec)]
+    (if (= :ss/invalid? conformed)
+      :per-period
+      (first conformed))))
 
 (defn- ensure-spec
-  [item]
-  (if (:spec item)
-    item
-    (assoc item :spec (infer-spec item))))
+  [{:as item :budget-item/keys [spec]}]
+  (if (:budget-item/spec item)
+    (assoc item :entry-mode (derive-entry-mode spec))
+    (assoc item :budget-item/spec (infer-spec item))))
 
 (defn- select-budget-item
   [item page-state]
@@ -219,10 +225,10 @@
    [:td.text-end (format-decimal total)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-sm.btn-secondary {:on-click #(select-budget-item (:item item) page-state)
+     [:button.btn.btn-sm.btn-secondary {:on-click #(select-budget-item item page-state)
                                    :title "Click here to edit this values for this account."}
       (icon :pencil :size :small)]
-     [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget-item (:item item) page-state)
+     [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget-item item page-state)
                                      :title "Click here to remove this account from the budget."}
       (icon :x-circle :size :small)]]]])
 
