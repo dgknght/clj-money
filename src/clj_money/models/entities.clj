@@ -20,7 +20,7 @@
 (s/def :entity/name (s/and string?
                      present?))
 (s/def :entity/user ::models/model-ref)
-(s/def :settings/monitored-account-ids (s/coll-of integer? :kind set?))
+(s/def :settings/monitored-account-ids (s/coll-of ::models/id :kind set?))
 (s/def :settings/inventory-method #{:fifo :lifo})
 (s/def :settings/default-commodity ::models/model-ref)
 (s/def :entity/settings (s/nilable
