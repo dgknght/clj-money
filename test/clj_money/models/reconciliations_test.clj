@@ -284,7 +284,8 @@
                               #:transaction-item{:transaction-date (t/local-date 2017 1 10)
                                                  :quantity 53M
                                                  :reconciliation nil}]
-                             (models/select (-> checking models/find acts/->criteria)))
+                             (models/select (-> checking models/find acts/->criteria)
+                                            {:sort [:transaction-item/transaction-date]}))
           "The retrieved transaction items have the new reconciliation reference"))))
 
 (deftest cannot-create-a-completed-out-of-balance-reconciliation
