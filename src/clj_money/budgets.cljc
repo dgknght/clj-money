@@ -16,7 +16,7 @@
             #?(:cljs [cljs-time.format :as tf])
             #?(:cljs [cljs-time.coerce :as tc])))
 
-(def periods #{:month :quarter :year})
+(def periods #{:week :month :quarter})
 
 (s/def ::total d/decimal?)
 (s/def ::average d/decimal?)

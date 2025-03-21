@@ -72,7 +72,7 @@
 (deftest period-must-be-week-month-or-quarter
   (with-context
     (assert-invalid (assoc (attributes) :budget/period :not-a-period)
-                    {:budget/period ["Period must be week or month"]})))
+                    {:budget/period ["Period must be quarter, week, or month"]})))
 
 (deftest period-count-is-required
   (with-context

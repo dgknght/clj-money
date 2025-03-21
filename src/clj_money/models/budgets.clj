@@ -51,7 +51,7 @@
 (s/def :budget/items (s/coll-of ::models/budget-item))
 (s/def :budget/name v/non-empty-string?)
 (s/def :budget/start-date t/local-date?)
-(s/def :budget/period #{:month :quarter :year})
+(s/def :budget/period #{:week :month :quarter})
 (s/def :budget/period-count v/positive-integer?)
 (s/def :budget/entity ::models/model-ref)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
