@@ -9,6 +9,8 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.forms-validation :as v]
+            [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [current-entity
@@ -31,9 +33,9 @@
   (+busy)
   (swap! current-entity
          update-in
-         [:settings :monitored-account-ids]
+         [:entity/settings :settings/monitored-account-ids]
          (fnil conj #{})
-         (get-in @state [:new-monitor :account-id]))
+         (get-in @state [:new-monitor :account :id]))
   (entities/save @current-entity
                  :callback -busy
                  :on-success (fn []
@@ -44,27 +46,34 @@
   [state]
   (let [new-monitor (r/cursor state [:new-monitor])]
     (fn []
-      [:div
-       [forms/typeahead-field
-        new-monitor
-        [:account-id]
-        {:search-fn (fn [input callback]
-                      (callback (find-by-path input @accounts)))
-         :caption-fn #(string/join "/" (:path %))
-         :value-fn :id
-         :find-fn (fn [id callback]
-                    (callback (@accounts-by-id id)))}]
-       [:button.btn.btn-primary {:on-click #(save-monitor state)
-                                 :title "Click here to add this new monitor"
-                                 :disabled (not (:account-id @new-monitor))}
-        "Save"]
-       (html/space)
-       [:button.btn.btn-secondary {:on-click #(swap! state dissoc :new-monitor)
-                                   :title "Click here to close this form without creating a new monitor"}
-        "Cancel"]])))
+      [:form {:no-validate true
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           (v/validate new-monitor)
+                           (when (v/valid? new-monitor)
+                             (save-monitor state)))}
+       [:div
+        [forms/typeahead-field
+         new-monitor
+         [:account :id]
+         {:search-fn (fn [input callback]
+                       (callback (find-by-path input @accounts)))
+          :caption-fn #(string/join "/" (:account/path %))
+          :caption "Account"
+          :value-fn :id
+          :find-fn (fn [id callback]
+                     (callback (@accounts-by-id id)))}]
+        [:button.btn.btn-primary {:type :submit
+                                  :title "Click here to add this new monitor"
+                                  :disabled (not (get-in @new-monitor [:account :id]))}
+         "Save"]
+        (html/space)
+        [:button.btn.btn-secondary {:on-click #(swap! state dissoc :new-monitor)
+                                    :title "Click here to close this form without creating a new monitor"}
+         "Cancel"]]])))
 
 (defn- monitor-svg
-  [{:keys [percentage actual-percent actual prorated-budget]} opts]
+  [{:report/keys [percentage actual-percent actual prorated-budget]} opts]
   (let [bar-width (str (* 96 actual-percent) "%")
         [bar-fill
          line-stroke] (if (< percentage actual-percent)
@@ -105,35 +114,35 @@
              ")")]]))
 
 (defn- remove-monitor
-  [{:keys [account-id]} state]
+  [{:report/keys [account]} state]
   (swap! current-entity
          update-in
-         [:settings :monitored-account-ids]
+         [:entity/settings :settings/monitored-account-ids]
          disj
-         account-id)
+         (:id account))
   (swap! state
          update-in
          [:monitors]
          (fn [monitors]
-           (remove #(= account-id
-                       (:account-id %))
-                   monitors)))
+           (->> monitors
+                (remove #(id= account (:report/account %)))
+                (into []))))
   (+busy)
   (entities/save @current-entity
                  :callback -busy))
 
 (defn- monitor
-  [{:keys [scope account] :as monitor} state]
+  [{:report/keys [scope account message] :as monitor} state]
 
   ^{:key (str "budget-monitor-" (:id account))}
   [:div.d-flex.align-items-start
    [:div.budget-monitor.my-2
-    (if (:message monitor)
-      [:p (:message monitor)]
-      [:figure
-       (monitor-svg (get-in monitor [scope]) {:style {:width "100%"
-                                                      :height "2em"}})
-       [:figcaption (string/join "/" (:path account))]])]
+    [:figure
+     (if message
+       [:div.alert.alert-warning message]
+       (monitor-svg (get-in monitor [(keyword "report" (name scope))]) {:style {:width "100%"
+                                                                                :height "2em"}}))
+     [:figcaption (string/join "/" (:account/path account))]]]
    [:div
     {:on-click #(remove-monitor monitor state)
      :style {:margin "0.5em"
@@ -153,24 +162,32 @@
         scope (r/cursor state [:monitor-scope])
         monitors (r/cursor state [:monitors])
         new-monitor (r/cursor state [:new-monitor])
-        monitors-with-detail (make-reaction (fn []
-                                              (when (and @monitors @accounts-by-id)
-                                                (->> @monitors
-                                                     (map #(assoc %
-                                                                  :account (@accounts-by-id (:account-id %))
-                                                                  :scope @scope))
-                                                     (sort-by #(get-in % [:account :path]))))))]
+        monitors-with-detail (make-reaction
+                               (fn []
+                                 (when (and @monitors @accounts-by-id)
+                                   (->> @monitors
+                                        (map (fn [m]
+                                               (-> m
+                                                   (update-in [:report/account] (comp @accounts-by-id
+                                                                                      :id))
+                                                   (assoc :report/scope @scope))))
+                                        (sort-by #(get-in % [:report/account :account/path]))
+                                        (into [])))))]
     (load-monitors state)
-    (add-watch current-entity ::monitors (fn [_ _ _ entity]
-                                           (if entity
-                                             (load-monitors state)
+    (add-watch current-entity ::monitors (fn [_ _ prev current]
+                                           (if current
+                                             (when-not (id= prev current)
+                                               (load-monitors state))
                                              (swap! state dissoc :monitors))))
     (fn []
+
+      (pprint {::monitors-with-detail (count @monitors-with-detail)})
+
       [:div
        [:h3 "Monitors"]
        (when (seq @monitors)
          [bs/nav-tabs (map #(monitor-nav-tab % @scope state) [:period :budget])])
-       (if (and @monitors @accounts)
+       (if @monitors-with-detail
          (->> @monitors-with-detail
               (map #(monitor % state))
               doall)
