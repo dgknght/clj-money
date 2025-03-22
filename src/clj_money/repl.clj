@@ -1,6 +1,7 @@
 (ns clj-money.repl
   (:require [clj-money.web.server :as s]
-            [clj-money.models :as models]))
+            [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]))
 
 (def server (atom nil))
 
@@ -17,3 +18,8 @@
                      :last-name last-name
                      :email email
                      :password password}))
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn propagate-all
+  [entity]
+  (prop/propagate-all entity))
