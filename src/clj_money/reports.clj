@@ -917,8 +917,10 @@
            :report/current-value current-value
            :report/cost-basis cost-basis
            :report/gain-loss gain-loss
-           :report/gain-loss-percent (with-precision 3
-                                       (/ gain-loss cost-basis))})))
+           :report/gain-loss-percent (if (< 0M cost-basis)
+                                       (with-precision 3
+                                         (/ gain-loss cost-basis))
+                                       0M)})))
 
 (defn portfolio
   "Returns a portfolio report based on the options:
