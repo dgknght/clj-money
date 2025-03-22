@@ -180,9 +180,6 @@
                                                (load-monitors state))
                                              (swap! state dissoc :monitors))))
     (fn []
-
-      (pprint {::monitors-with-detail (count @monitors-with-detail)})
-
       [:div
        [:h3 "Monitors"]
        (when (seq @monitors)
