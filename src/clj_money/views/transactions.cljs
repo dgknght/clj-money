@@ -30,9 +30,9 @@
             [clj-money.util :as util :refer [debounce model=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
-            [clj-money.accounts :refer [polarize-quantity
-                                        find-by-path
-                                        format-quantity]]
+            [clj-money.accounts :as accounts :refer [polarize-quantity
+                                                     find-by-path
+                                                     format-quantity]]
             [clj-money.transactions :refer [accountify
                                             unaccountify
                                             can-accountify?
@@ -296,9 +296,7 @@
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
-    (transaction-items/select {:account-id (:id @account)
-                               :transaction-date [(:earliest-transaction-date @account)
-                                                  (:latest-transaction-date @account)]}
+    (transaction-items/select (accounts/->criteria @account)
                               :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless
@@ -310,17 +308,23 @@
          [:th.text-end "Bal."]
          [:th.text-end "Value"]]]
        [:tbody
-        (doall (for [item (sort-by :index > @items)]
+        (doall (for [{:as item
+                      :transaction-item/keys [transaction-date
+                                              quantity
+                                              balance
+                                              value
+                                              action]}
+                     (sort-by :index > @items)]
                  ^{:key (str "item-" (:id item))}
                  [:tr
-                  [:td.text-end (format-date (:transaction-date item))]
+                  [:td.text-end (format-date transaction-date)]
                   [:td (:description item)]
-                  [:td.text-end (format-decimal (polarize-quantity (:transaction-item/quantity item)
-                                                                   (:transaction-item/action item)
+                  [:td.text-end (format-decimal (polarize-quantity quantity
+                                                                   action
                                                                    @account)
                                                 4)]
-                  [:td.text-end (format-decimal (:balance item), 4)]
-                  [:td.text-end (currency-format (:value item))]]))]])))
+                  [:td.text-end (format-decimal balance, 4)]
+                  [:td.text-end (currency-format value)]]))]])))
 
 (defn- ensure-entry-state
   [page-state]

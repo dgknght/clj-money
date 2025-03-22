@@ -1,22 +1,32 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
+            [cljs.pprint :refer [pprint]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [cljs-time.core :as t]
             [clj-money.dates :refer [serialize-local-date]]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
+(def ^:private transaction-date
+  (some-fn :transaction/transaction-date
+           :transaction-item/transaction-date))
+
 (defn- prepare-criteria
   [criteria]
-  (-> criteria
-      (dissoc :transaction-item/account)
-      (update-in [:transaction-item/transaction-date] #(map serialize-local-date %))))
+  (let [[_ start end] (transaction-date criteria)]
+    (-> criteria
+        (dissoc :transaction-item/account
+                :transaction-item/transaction-date
+                :transaction/transaction-date)
+        (assoc :transaction-item/transaction-date [(serialize-local-date start)
+                                                   (serialize-local-date (t/plus end (t/days 1)))]))))
 
 (defn select
   [criteria & {:as opts}]
   {:pre [(:transaction-item/account criteria)
-         (:transaction-item/transaction-date criteria)]}
+         (transaction-date criteria)]}
 
   (api/get (api/path :accounts
                      (:transaction-item/account criteria)

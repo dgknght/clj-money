@@ -586,7 +586,7 @@
 (defn- post-transaction-save
   [page-state]
   (fn [_]
-    (swap! page-state dissoc :transaction)
+    (swap! page-state dissoc :transaction :trade)
     (trns/reset-item-loading page-state)
     (refresh-accounts page-state)))
 
