@@ -11,6 +11,7 @@
              :as authorization]
             [clj-money.util :as util]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
 
@@ -76,11 +77,18 @@
       (api/response))
     api/not-found))
 
+(defn- put-many
+  [models]
+  (prop/with-propagation [out-chan ctrl-chan]
+    (models/put-many {:out-chan out-chan
+                      :ctrl-chan ctrl-chan}
+                     models)))
+
 (defn- realize
   [req]
   (or (some-> (find-and-authorize req ::sched-trans-auth/realize)
               sched-trans/realize
-              models/put-many
+              put-many
               api/creation-response)
       api/not-found))
 
@@ -99,7 +107,7 @@
              {:scheduled-transaction/end-date [:< (t/local-date)]}]])
          (filter #(allowed? % ::sched-trans-auth/realize authenticated))
          (mapcat sched-trans/realize)
-         models/put-many
+         put-many
          (filter (util/model-type? :transaction))
          (sort-by :transaction/transaction-date t/before?)
          api/creation-response)
