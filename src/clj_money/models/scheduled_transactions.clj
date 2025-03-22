@@ -47,8 +47,9 @@
 (s/def :scheduled-transaction/end-date (s/nilable t/local-date?))
 (s/def ::month (s/and integer?
                       #(<= 1 % 12)))
-(s/def ::day (s/and integer?
-                    #(<= 1 % 31)))
+(s/def ::day (s/or :number (s/and integer?
+                                  #(<= 1 % 31))
+                   :last #{:last}))
 (s/def ::days (s/coll-of #{:sunday :monday :tuesday :wednesday :thursday :friday :saturday}
                          :kind set?))
 (s/def ::date-spec (s/or :yearly (s/keys :req-un [::month ::day])
