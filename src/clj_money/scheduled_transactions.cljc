@@ -167,7 +167,7 @@
   enabled)
 
 (defn occurring-soon?
-  [{:scheduled-transaction/keys [next-occurrence description]}]
+  [{:scheduled-transaction/keys [next-occurrence]}]
   (t/before? next-occurrence (t/plus (dates/today) (t/days 7))))
 
 (def pending?
