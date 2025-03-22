@@ -378,7 +378,7 @@
   [item]
   [:<>
   ^{:key "period-field-amount-per"}
-   [forms/decimal-field item [:budget-item/spec :amount-per] {:validate [:required]}]
+   [forms/decimal-field item [:budget-item/spec :amount] {:validate [:required]}]
   ^{:key "period-field-start-date"}
    [forms/date-field item [:budget-item/spec :start-date] {:validate [:required]}]
   ^{:key "period-field-week-count"}
@@ -442,7 +442,7 @@
     :id :per-average}
    {:label "Weekly"
     :id :per-week
-    :filter-fn #(#{:month} (:period %))}
+    :filter-fn #(#{:month} (:budget/period %))}
    {:label "Historical"
     :id :historical}])
 
