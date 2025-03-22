@@ -50,18 +50,21 @@
 
 (defn set-next-occurrence
   [sched-tran]
-  (assoc sched-tran :next-occurrence (next-transaction-date sched-tran)))
+  (assoc sched-tran :scheduled-transaction/next-occurrence (next-transaction-date sched-tran)))
 
 (defn- update-sched-trans
   [state transactions]
-  (let [mapped-trans (lib/index-by :scheduled-transaction-id transactions)]
+  (let [mapped-trans (lib/index-by (comp :id
+                                         :transaction/scheduled-transaction)
+                                   transactions)]
     (update-in state
                [:scheduled-transactions]
                (fn [sched-trans]
                  (map (fn [sched-tran]
                         (if-let [trans (get-in mapped-trans [(:id sched-tran)])]
                           (-> sched-tran
-                              (assoc :last-occurrence (:transaction-date trans))
+                              (assoc :scheduled-transaction/last-occurrence
+                                     (:transaction/transaction-date trans))
                               set-next-occurrence)
                           sched-tran))
                       sched-trans)))))
