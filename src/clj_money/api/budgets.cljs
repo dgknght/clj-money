@@ -1,6 +1,7 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
-  (:require [clj-money.api :as api :refer [add-error-handler]]
+  (:require [cljs.pprint :refer [pprint]]
+            [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
 (defn search
@@ -26,7 +27,7 @@
   (api/patch
     (api/path :budgets
               (:id budget))
-    budget
+    (dissoc budget :id)
     (add-error-handler
       opts
       "Unable to update the budget: %s")))

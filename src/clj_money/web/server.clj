@@ -19,6 +19,7 @@
             [dgknght.app-lib.api :as api]
             [clj-money.core]
             [clj-money.json]
+            [clj-money.decimal :as d]
             [clj-money.web.auth :as web-auth]
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-integer-id-params
@@ -41,7 +42,8 @@
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
-            [clj-money.web.apps :as apps]))
+            [clj-money.web.apps :as apps]
+            [cljs.pprint :as pprint]))
 
 (defn- not-found []
   (-> (slurp "resources/404.html")
@@ -130,9 +132,16 @@
                                :cookie-attrs {:same-site :lax
                                               :http-only true}})]))
 
+(defn- wrap-decimals
+  [handler]
+  (fn [req]
+    (-> req
+        handler
+        (update-in [:body] d/wrap-decimals))))
+
 (def app
   (ring/ring-handler
-    (ring/router ["/" {:middleware [wrap-request-logging]}
+    (ring/router ["/" #_{:middleware [wrap-request-logging]}
                   apps/routes
                   ["auth/" {:middleware [:site
                                          wrap-merge-path-params
@@ -146,6 +155,7 @@
                    images/routes]
                   ["oapi/" {:middleware [:api
                                          :wrap-restful-format
+                                         wrap-decimals
                                          wrap-merge-path-params
                                          wrap-integer-id-params
                                          wrap-exceptions
@@ -153,6 +163,7 @@
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
                                         :wrap-restful-format
+                                        wrap-decimals
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         :authentication

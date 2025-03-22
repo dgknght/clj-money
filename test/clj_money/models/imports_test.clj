@@ -1,123 +1,120 @@
 (ns clj-money.models.imports-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
+            [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             find-user
-                                            find-imports]]
+                                            find-image
+                                            find-import]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.models.imports :as imports]
-            [clj-money.models.images :as images]))
+            [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]))
 
 (use-fixtures :each reset-db)
 
 (def import-context
-  {:users [(factory :user {:email "john@doe.com"})]
-   :images [{:original-filename "sample.gnucash"
-             :content-type "application/gnucash"
-             :body "resources/fixtures/sample.gnucash"}]})
+  [(factory :user {:user/email "john@doe.com"})
+   #:image{:original-filename "sample.gnucash"
+           :content-type "application/gnucash"
+           :user "john@doe.com"
+           :body "resources/fixtures/sample.gnucash"}])
 
-(def existing-imports-context
-  (assoc import-context :imports [{:user-id "john@doe.com"
-                                   :entity-name "import entity"
-                                   :image-ids ["sample.gnucash"]}]))
+(defn attributes []
+  #:import{:user (find-user "john@doe.com")
+           :entity-name "Personal"
+           :options {:lt-capital-gains-account "Investments/Long-Term Gains"
+                     :st-capital-gains-account "Investments/Short-Term Gains"
+                     :lt-capital-loss-account "Long-Term Losses"
+                     :st-capital-loss-account "Short-Term Losses"}
+           :images [(util/->model-ref (find-image "sample.gnucash"))]})
 
-(deftest get-a-list-of-imports
-  (let [context (realize existing-imports-context)
-        user (-> context :users first)
-        actual (map #(dissoc % :id :created-at :updated-at)
-                    (imports/search {:user-id (:id user)}))
-        expected [{:entity-name "import entity"
-                   :user-id (:id user)
-                   :progress {}
-                   :options nil
-                   :image-ids (map :id (:images context))
-                   :entity-exists? false}]]
-    (is (= expected actual))))
-
-(defn attributes
-  [context]
-  {:user-id (-> context :users first :id)
-   :entity-name "Personal"
-   :options {:lt-capital-gains-account "Investments/Long-Term Gains"
-             :st-capital-gains-account "Investments/Short-Term Gains"
-             :lt-capital-loss-account "Long-Term Losses"
-             :st-capital-loss-account "Short-Term Losses"}
-   :image-ids (->> (:images context)
-                   (map :id)
-                   (take 1))})
+(defn- assert-created
+  [attr]
+  (helpers/assert-created attr :refs [:import/user]))
 
 (deftest create-an-import
-  (let [context (realize import-context)
-        attr (attributes context)
-        result (imports/create attr)]
+  (with-context import-context
+    (assert-created (attributes))))
 
-    (is (valid? result))
-    (is (:id result) "It assigns an ID to the result")
-    (is (comparable? attr
-                     result)
-        "The attributes are stored and retreived correctly.")))
+(def existing-imports-context
+  (conj import-context
+        #:import{:user "john@doe.com"
+                 :entity-name "import entity"
+                 :images ["sample.gnucash"]}))
 
-(deftest user-id-is-required
-  (let [context (realize import-context)
-        result (imports/create (dissoc (attributes context) :user-id))]
-    (is (invalid? result [:user-id] "User is required"))))
+(deftest get-a-list-of-imports
+  (with-context existing-imports-context
+    (is (seq-of-maps-like?
+          [#:import{:entity-name "import entity"
+                    :progress nil
+                    :options nil
+                    :entity-exists? false}]
+          (models/select #:import{:user (find-user "john@doe.com")})))))
 
-(deftest image-ids-is-required
-  (let [context (realize import-context)
-        result (imports/create (dissoc (attributes context) :image-ids))]
-    (is (invalid? result [:image-ids] "Image ids is required"))))
+(deftest user-is-required
+  (with-context import-context
+    (assert-invalid (dissoc (attributes) :import/user)
+                    {:import/user ["User is required"]})))
+
+(deftest images-is-required
+  (with-context import-context
+    (assert-invalid (dissoc (attributes) :import/images)
+                    {:import/images ["Images is required"]}))) ; TODO: Fix this grammar
 
 (deftest entity-name-is-required
-  (let [context (realize import-context)
-        result (imports/create (dissoc (attributes context) :entity-name))]
-    (is (invalid? result [:entity-name] "Entity name is required"))))
-
+  (with-context import-context
+    (assert-invalid (dissoc (attributes) :import/entity-name)
+                    {:import/entity-name ["Entity name is required"]})))
+ 
 (deftest update-an-import
-  (let [context (realize import-context)
-        imp (imports/create (attributes context))
-        updated (assoc imp :progress {:account {:total 20
-                                                :processed 0}})
-        _ (imports/update updated)
-        retrieved (imports/find imp)]
-    (is (= {:account {:total 20
-                      :processed 0}}
-           (:progress retrieved))
-        "The correct value is retrieved after update")))
+  (with-context existing-imports-context
+    (is (comparable? {:import/progress {:account {:total 20
+                                                  :processed 0}}}
+                     (-> (find-import "import entity")
+                         (assoc :import/progress {:account {:total 20
+                                                            :processed 0}})
+                         models/put))
+        "The return value contains the updated attributes")
+    (is (comparable? {:import/progress {:account {:total 20
+                                                  :processed 0}}}
+                     (models/find (find-import "import entity")))
+        "The retrieved value contains the updated attributes")))
 
 (def ^:private delete-context
-  (-> existing-imports-context
-      (update-in [:imports] #(concat % [{:user-id "john@doe.com"
-                                         :entity-name "other entity"
-                                         :image-ids ["sample_with_commodities.gnucash"]}
-                                        {:user-id "john@doe.com"
-                                         :entity-name "same entity"
-                                         :image-ids ["sample.gnucash"]}]))
-      (update-in [:images] #(conj % {:original-filename "sample_with_commodities.gnucash"
-                                     :content-type "application/gnucash"
-                                     :body "resources/fixtures/sample_with_commodities.gnucash"}))))
+  (conj existing-imports-context
+        #:image{:user "john@doe.com"
+                :original-filename "sample_with_commodities.gnucash"
+                :content-type "application/gnucash"
+                :body "resources/fixtures/sample_with_commodities.gnucash"}
+        #:import{:user "john@doe.com"
+                 :entity-name "other entity"
+                 :images ["sample_with_commodities.gnucash"]}
+        #:import{:user "john@doe.com"
+                 :entity-name "same entity"
+                 :images ["sample.gnucash"]}))
 
 (deftest delete-an-import
-  (let [context (realize delete-context)
-        user (find-user context "john@doe.com")
-        [import-entity
-         same-entity] (find-imports context
-                                    "import entity"
-                                    "same entity")]
-    (testing "deleting an import deletes the associated files"
-      (imports/delete import-entity)
-      (is (empty? (imports/search {:user-id (:id user)
-                                   :entity-name "import entity"}))
-          "The import record is removed")
-      (is (empty? (images/search {:user-id (:id user)
-                                  :original-filename "sample.gnucash"}))
-          "The image record is removed also"))
-    (testing "deleting an import preserves associated files linked to other imports"
-      (imports/delete same-entity)
-      (is (empty? (imports/search {:user-id (:id user)
-                                   :entity-name "same entity"}))
-          "The import record is removed")
-      (is (seq (images/search {:user-id (:id user)
-                               :original-filename "sample_with_commodities.gnucash"}))
-          "The image record is preserved"))))
+  (with-context delete-context
+    (let [user (find-user "john@doe.com")]
+      (testing "deleting an import deletes the associated files"
+        (prop/delete-and-propagate (find-import "import entity"))
+        (is (empty? (models/select #:import{:user user
+                                            :entity-name "import entity"}))
+            "The import record is removed")
+        (is (empty? (models/select #:image{:user user
+                                           :original-filename "sample.gnucash"}))
+            "The image record is removed also"))
+      (testing "deleting an import preserves associated files linked to other imports"
+        (models/delete (find-import "same entity"))
+        (is (empty? (models/select #:import{:user user
+                                            :entity-name "same entity"}))
+            "The import record is removed")
+        (is (seq (models/select #:image{:user (:id user)
+                                        :original-filename "sample_with_commodities.gnucash"}))
+            "The image record is preserved")))))

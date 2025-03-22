@@ -2,26 +2,27 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
-            [dgknght.app-lib.authorization :refer [authorize
+            [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :refer [unserialize-local-date]]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as trans]
+            [clj-money.models.propagation :as prop]
             [clj-money.authorization.transactions]
             [clj-money.transactions :refer [expand]]))
 
 (defn- ->criteria
   [{:keys [params authenticated]}]
   (-> params
-      (assoc :transaction-date [:between
-                                (unserialize-local-date (:start params))
-                                (unserialize-local-date (:end params))])
-      (select-keys [:entity-id :transaction-date])
-      (+scope ::models/transaction authenticated)))
+      (assoc :transaction/transaction-date [:between
+                                            (unserialize-local-date (:start params))
+                                            (unserialize-local-date (:end params))])
+      (select-keys [:transaction/entity
+                    :transaction/transaction-date])
+      (+scope :transaction authenticated)))
 
 (defn- ->options
   [{:keys [params]}]
@@ -32,7 +33,7 @@
 (defn- index
   [req]
   (api/response
-   (trans/search (->criteria req) (->options req))))
+   (models/select (->criteria req) (->options req))))
 
 (defn- find-and-auth
   [{:keys [path-params authenticated]} action]
@@ -43,10 +44,9 @@
     (some-> path-params
             (select-keys [:id])
             (update-in [:id] uuid)
-            (assoc :transaction-date trans-date)
-            (storage/tag ::models/transaction)
+            (assoc :transaction/transaction-date trans-date)
             (+scope authenticated)
-            trans/find-by
+            models/find-by
             (authorize action authenticated))))
 
 (defn- show
@@ -57,62 +57,68 @@
 
 (def ^:private attribute-keys
   [:id
-   :description
-   :entity-id
-   :transaction-date
-   :original-transaction-date
-   :memo
-   :items
-   :debit-account-id
-   :credit-account-id
-   :quantity])
+   :transaction/description
+   :transaction/entity
+   :transaction/transaction-date
+   :transaction/original-transaction-date
+   :transaction/memo
+   :transaction/items
+   :transaction/debit-account
+   :transaction/credit-account
+   :transaction/quantity])
+
+(defn- extract-transaction
+  [{:keys [params]}]
+  (-> params
+      (dissoc :id)
+      expand
+      (select-keys attribute-keys)))
 
 (defn- create
-  [{:keys [params authenticated]}]
-  (api/creation-response
-    (-> params
-        expand
-        (select-keys attribute-keys)
-        (assoc :entity-id (:entity-id params))
-        (storage/tag ::models/transaction)
-        (authorize ::authorization/create authenticated)
-        trans/create)))
+  [{:keys [authenticated params] :as req}]
+  (-> req
+      extract-transaction
+      (assoc :transaction/entity {:id (:entity-id params)})
+      (authorize ::authorization/create authenticated)
+      prop/put-and-propagate
+      api/creation-response))
 
 (defn- apply-to-existing
   [updated-item items]
   (if-let [existing (->> items
-                         (filter #(= (:id %) (:id updated-item)))
+                         (filter #(id= % updated-item))
                          first)]
     (merge existing updated-item)
     updated-item))
 
 (defn- apply-item-updates
   [items updates]
-  (map #(apply-to-existing % items) updates))
+  (mapv #(apply-to-existing % items) updates))
 
 (defn- apply-update
-  [transaction body-params]
-  (-> transaction
-      (merge body-params)
-      (select-keys attribute-keys)
-      (update-in [:items] apply-item-updates (:items body-params))))
+  [transaction req]
+  (let [updated (extract-transaction req)]
+    (-> transaction
+        (merge (dissoc updated :transaction/items))
+        (select-keys attribute-keys)
+        (update-in [:transaction/items]
+                   apply-item-updates
+                   (:transaction/items updated)))))
 
 (defn- update
-  [{:keys [body-params] :as req}]
-  (if-let [transaction (find-and-auth req ::authorization/update)]
-    (-> transaction
-        (apply-update body-params)
-        trans/update
-        api/update-response)
-    api/not-found))
+  [req]
+  (or (some-> (find-and-auth req ::authorization/update)
+              (apply-update req)
+              prop/put-and-propagate
+              api/update-response)
+      api/not-found))
 
 (defn- delete
   [req]
-  (if-let [transaction (find-and-auth req ::authorization/destroy)]
-    (do
-      (trans/delete transaction)
-      (api/response))
-    api/not-found))
+  (or (some-> (find-and-auth req ::authorization/destroy)
+              prop/delete-and-propagate
+              api/response)
+      api/not-found))
 
 (def routes
   [["entities/:entity-id"

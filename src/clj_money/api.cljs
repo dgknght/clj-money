@@ -9,9 +9,9 @@
             [clj-money.decimal :as decimal]
             [clj-money.state :refer [auth-token]]))
 
-(reader/register-tag-parser! 'local-date-time clj-money.dates/local-date-time)
-(reader/register-tag-parser! 'local-date clj-money.dates/local-date)
-(reader/register-tag-parser! 'bigdec clj-money.decimal/d)
+(reader/register-tag-parser! 'clj-money/local-date-time clj-money.dates/local-date-time)
+(reader/register-tag-parser! 'clj-money/local-date clj-money.dates/local-date)
+(reader/register-tag-parser! 'clj-money/decimal clj-money.decimal/d)
 
 (def default-options
   {:encoding :edn})

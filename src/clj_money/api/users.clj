@@ -15,12 +15,19 @@
       (select-keys [:email :password])
       (rename-keys {:email :username})))
 
+(defn- ->auth-response
+  [user]
+  {:user user
+   :auth-token (make-token user)})
+
 (defn- authenticate
   [req]
-  (if-let [user (users/authenticate (extract-credentials req))]
-    (api/creation-response {:user user
-                            :auth-token (make-token user)})
-    api/not-found))
+  (or (some-> req
+              extract-credentials
+              users/authenticate
+              ->auth-response
+              api/creation-response)
+      api/not-found))
 
 (def routes
   ["users/me" {:get {:handler find}}])

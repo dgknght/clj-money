@@ -5,93 +5,74 @@
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
+            [clj-money.models :as models]
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-user
                                             find-entity
                                             find-account
                                             find-scheduled-transaction]]
+            [clj-money.models.transactions :as trxs]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
                                             parse-edn-body]]
-            [clj-money.models.transactions :as trans]
-            [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private sched-trans-context
-  (-> basic-context
-      (update-in [:accounts] concat [{:type :expense
-                                      :name "Gifts"
-                                      :entity-id "Personal"}])
-      (assoc :scheduled-transactions [{:entity-id "Personal"
-                                       :last-occurrence (t/local-date 2015 3 2)
-                                       :start-date (t/local-date 2004 3 2)
-                                       :enabled true
-                                       :date-spec {:day 2
-                                                   :month 3}
-                                       :interval-type :year
-                                       :interval-count 1
-                                       :description "Birthday present"
-                                       :memo "automatically created"
-                                       :items [{:action :credit
-                                                :account-id "Checking"
-                                                :quantity 50M
-                                                :memo "checking"}
-                                               {:action :debit
-                                                :account-id "Gifts"
-                                                :quantity 50
-                                                :memo "gifts"}]}])))
+  (conj basic-context
+        #:scheduled-transaction{:entity "Personal"
+                                :last-occurrence (t/local-date 2015 3 2)
+                                :start-date (t/local-date 2004 3 2)
+                                :enabled true
+                                :date-spec {:day 2
+                                            :month 3}
+                                :interval-type :year
+                                :interval-count 1
+                                :description "Landlord"
+                                :memo "automatically created"
+                                :items [#:scheduled-transaction-item{:action :credit
+                                                                     :account "Checking"
+                                                                     :quantity 50M
+                                                                     :memo "checking"}
+                                        #:scheduled-transaction-item{:action :debit
+                                                                     :account "Rent"
+                                                                     :quantity 50M
+                                                                     :memo "rent"}]}))
 
 (defn- get-list
   [user-email]
-  (let [ctx (realize sched-trans-context)
-        user (find-user ctx user-email)
-        entity (find-entity ctx "Personal")]
-    (-> (req/request :get (path :api
-                                :entities
-                                (:id entity)
-                                :scheduled-transactions))
-        (add-auth user)
-        (req/header "Accept" "application/edn")
-        app
-        parse-edn-body)))
-
-(defn- expectable
-  [sched-tran]
-  (-> sched-tran
-      (select-keys [:description
-                    :interval-type
-                    :interval-count
-                    :start-date
-                    :memo
-                    :items])
-      (update-in [:items] #(map (fn [item]
-                                  (select-keys item
-                                               [:action
-                                                :quantity
-                                                :memo]))
-                                %))))
+  (with-context sched-trans-context
+    (let [entity (find-entity "Personal")]
+      (-> (req/request :get (path :api
+                                  :entities
+                                  (:id entity)
+                                  :scheduled-transactions))
+          (add-auth (find-user user-email))
+          app
+          parse-edn-body))))
 
 (defn- assert-successful-list
   [{:keys [edn-body] :as response}]
   (is (http-success? response))
-  (is (= [{:start-date (t/local-date 2004 3 2)
-           :description "Birthday present"
-           :memo "automatically created"
-           :interval-type :year
-           :interval-count 1
-           :items [{:action :credit
-                    :quantity 50.0M
-                    :memo "checking"}
-                   {:action :debit
-                    :quantity 50.0M
-                    :memo "gifts"}]}]
-         (map expectable edn-body))
+  (is (seq-of-maps-like?
+        [#:scheduled-transaction{:start-date (t/local-date 2004 03 02)
+                                 :description "Landlord"
+                                 :memo "automatically created"
+                                 :interval-type :year
+                                 :interval-count 1
+                                 :items [#:scheduled-transaction-item{:action :credit
+                                                                      :quantity 50M
+                                                                      :memo "checking"}
+                                         #:scheduled-transaction-item{:action :debit
+                                                                      :quantity 50M
+                                                                      :memo "rent"}]}]
+        edn-body)
       "The body contains the existing scheduled transactions"))
 
 (defn- assert-blocked-list
@@ -105,65 +86,57 @@
 (deftest a-user-cannot-get-a-list-of-scheduled-transactions-for-anothers-entity
   (assert-blocked-list (get-list "jane@doe.com")))
 
-(def ^:private attr
-  {:description "Paycheck"
-   :start-date (t/local-date 2021 1 1)
-   :date-spec {:days [:friday]}
-   :interval-type :week
-   :interval-count 2
-   :memo "biweekly"
-   :items [{:action :debit
-            :quantity 1000M
-            :memo "checking"}
-           {:action :credit
-            :quantity 1000M
-            :memo "salary"}]})
+(defn- attr []
+  #:scheduled-transaction{:description "Paycheck"
+                          :start-date (t/local-date 2021 01 01)
+                          :date-spec {:days #{:friday}}
+                          :interval-type :week
+                          :interval-count 2
+                          :memo "biweekly"
+                          :items [#:scheduled-transaction-item{:action :debit
+                                                               :quantity 1000M
+                                                               :account (util/->model-ref (find-account "Checking"))
+                                                               :memo "checking"}
+                                  #:scheduled-transaction-item{:action :credit
+                                                               :quantity 1000M
+                                                               :account (util/->model-ref (find-account "Salary"))
+                                                               :memo "salary"}]})
 
 (defn- create-sched-tran
   [user-email]
-  (let [ctx (realize basic-context)
-        user (find-user ctx user-email)
-        entity (find-entity ctx "Personal")
-        checking (find-account ctx "Checking")
-        salary (find-account ctx "Salary")
-        res (-> (req/request :post (path :api
-                                         :entities
-                                         (:id entity)
-                                         :scheduled-transactions))
-                (edn-body (-> attr
-                              (assoc-in [:items 0 :account-id] (:id checking))
-                              (assoc-in [:items 1 :account-id] (:id salary))))
-                (add-auth user)
-                app
-                parse-edn-body)
-        retrieved (when-let [id (get-in res [:edn-body :id])]
-                    (sched-trans/find id))]
-    [res retrieved]))
+  (let [entity (find-entity "Personal")
+        response (-> (req/request :post (path :api
+                                              :entities
+                                              (:id entity)
+                                              :scheduled-transactions))
+                     (edn-body (attr))
+                     (add-auth (find-user user-email))
+                     app
+                     parse-edn-body)]
+    [response
+     (when-let [id (get-in response [:edn-body :id])]
+       (models/find id :scheduled-transaction))]))
 
 (defn- assert-sched-tran-created
   [[{:keys [edn-body] :as response} retrieved]]
   (is (http-created? response))
   (is (:id edn-body) "The return value contains an :id")
-  (is (comparable? {:description "Paycheck"
-                    :start-date (t/local-date 2021 1 1)
-                    :date-spec {:days [:friday]}
-                    :interval-type :week
-                    :interval-count 2
-                    :memo "biweekly"
-                    :items [{:action :debit
-                             :quantity 1000.0M
-                             :memo "checking"}
-                            {:action :credit
-                             :quantity 1000.0M
-                             :memo "salary"}]}
-                   edn-body)
-      "The return value contains the created schedule transaction")
-  (is (comparable? attr (update-in retrieved
-                                   [:items]
-                                   (fn [items]
-                                     (mapv #(select-keys % [:action :quantity :memo])
-                                          items))))
-      "The scheduled transaction can be retrieved"))
+  (let [expected #:scheduled-transaction{:description "Paycheck"
+                                         :start-date (t/local-date 2021 1 1)
+                                         :date-spec {:days #{:friday}}
+                                         :interval-type :week
+                                         :interval-count 2
+                                         :memo "biweekly"
+                                         :items [#:scheduled-transaction-item{:action :debit
+                                                                              :quantity 1000M
+                                                                              :memo "checking"}
+                                                 #:scheduled-transaction-item{:action :credit
+                                                                              :quantity 1000M
+                                                                              :memo "salary"}]}]
+    (is (comparable? expected edn-body)
+        "The return value contains the created schedule transaction")
+    (is (comparable? expected retrieved)
+        "The scheduled transaction can be retrieved")))
 
 (defn- assert-blocked-create
   [[response retrieved]]
@@ -171,50 +144,51 @@
   (is (empty? retrieved) "The record is not created"))
 
 (deftest a-user-can-create-a-scheduled-transaction-in-his-entity
-  (assert-sched-tran-created (create-sched-tran "john@doe.com")))
+  (with-context sched-trans-context
+    (assert-sched-tran-created (create-sched-tran "john@doe.com"))))
 
 (deftest a-user-cannot-create-a-scheduled-transaction-in-anothers-entity
-  (assert-blocked-create (create-sched-tran "jane@doe.com")))
+  (with-context sched-trans-context
+    (assert-blocked-create (create-sched-tran "jane@doe.com"))))
 
 (def ^:private update-context
-  (assoc basic-context
-         :scheduled-transactions [{:entity-id "Personal"
-                                   :description "Paycheck"
-                                   :interval-type :month
-                                   :interval-count 1
-                                   :last-occurrence (t/local-date 2016 1 1)
-                                   :start-date (t/local-date 2015 1 1)
-                                   :date-spec {:day 1}
-                                   :items [{:action :debit
-                                            :account-id "Checking"
-                                            :quantity 1000M}
-                                           {:action :credit
-                                            :account-id "Salary"
-                                            :quantity 1000M}]}]))
+  (conj basic-context
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Paycheck"
+                                :interval-type :month
+                                :interval-count 1
+                                :last-occurrence (t/local-date 2016 1 1)
+                                :start-date (t/local-date 2015 1 1)
+                                :date-spec {:day 1}
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Checking"
+                                                                     :quantity 1000M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Salary"
+                                                                     :quantity 1000M}]}))
 
 (def ^:private update-attr
-  {:interval-type :week
-   :interval-count 2})
+  #:scheduled-transaction{:interval-type :week
+                          :interval-count 2})
 
 (defn- update-sched-tran
   [user-email]
-  (let [ctx (realize update-context)
-        user (find-user ctx user-email)
-        tran (find-scheduled-transaction ctx "Paycheck")
-        res (-> (req/request :patch (path :api
-                                          :scheduled-transactions
-                                          (:id tran)))
-                (edn-body update-attr)
-                (add-auth user)
-                app
-                parse-edn-body)]
-    [res (sched-trans/find tran)]))
+  (with-context update-context
+    (let [tran (find-scheduled-transaction "Paycheck")]
+      [(-> (req/request :patch (path :api
+                                     :scheduled-transactions
+                                     (:id tran)))
+           (edn-body update-attr)
+           (add-auth (find-user user-email))
+           app
+           parse-edn-body)
+       (models/find tran)])))
 
 (defn- assert-successful-update
   [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
-  (is (comparable? {:interval-type :week
-                    :interval-count 2}
+  (is (comparable? #:scheduled-transaction{:interval-type :week
+                                           :interval-count 2}
                    edn-body)
       "The updated scheduled transaction is returned")
   (is (comparable? update-attr retrieved)
@@ -223,9 +197,9 @@
 (defn- assert-blocked-update
   [[response retrieved]]
   (is (http-not-found? response))
-  (is (= {:interval-type :month
-          :interval-count 1}
-         (select-keys retrieved [:interval-type :interval-count]))
+  (is (comparable? #:scheduled-transaction{:interval-type :month
+                                 :interval-count 1}
+         retrieved)
       "The database is not updated"))
 
 (deftest a-user-can-edit-a-scheduled-transaction-in-his-entity
@@ -236,17 +210,15 @@
 
 (defn- delete-sched-tran
   [user-email]
-  (let [ctx (realize update-context)
-        user (find-user ctx user-email)
-        tran (find-scheduled-transaction ctx "Paycheck")
-        res (-> (req/request :delete (path :api
-                                           :scheduled-transactions
-                                           (:id tran)))
-                (add-auth user)
-                app
-                parse-edn-body)
-        retrieved (sched-trans/find tran)]
-    [res retrieved]))
+  (with-context update-context
+    (let [tran (find-scheduled-transaction "Paycheck")]
+      [(-> (req/request :delete (path :api
+                                      :scheduled-transactions
+                                      (:id tran)))
+           (add-auth (find-user user-email))
+           app
+           parse-edn-body)
+       (models/find tran)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]
@@ -266,45 +238,55 @@
 
 (defn- realize-trans
   [user-email]
-  (let [ctx (realize update-context)
-        user (find-user ctx user-email)
-        sched-tran (find-scheduled-transaction ctx "Paycheck")
-        res (with-fixed-time "2016-02-02T00:00:00Z"
-                     (-> (req/request :post (path :api
-                                                  :scheduled-transactions
-                                                  (:id sched-tran)
-                                                  :realize))
-                         (add-auth user)
-                         app
-                         parse-edn-body))
-        retrieved (trans/search {:transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
-                                 :entity-id (:entity-id sched-tran)
-                                 :description "Paycheck"}
-                                {:include-items? true})]
-    [res retrieved]))
+  (with-context update-context
+    (let [sched-tran (find-scheduled-transaction "Paycheck")]
+      [(with-fixed-time "2016-02-02T00:00:00Z"
+         (-> (req/request :post (path :api
+                                      :scheduled-transactions
+                                      (:id sched-tran)
+                                      :realize))
+             (add-auth (find-user user-email))
+             app
+             parse-edn-body))
+       (trxs/append-items
+         (models/select
+           #:transaction{:transaction-date [:between>
+                                            (t/local-date 2016 1 1)
+                                            (t/local-date 2017 1 1)]
+                         :entity (:scheduled-transaction/entity sched-tran)
+                         :description "Paycheck"}))
+       (models/find sched-tran)])))
 
 (defn- assert-successful-realization
-  [[response retrieved]]
+  [[response trxs retrieved]]
   (is (http-created? response))
-  (is (= 1 (count retrieved))
+  (is (= 1 (count trxs))
       "One transaction is created.")
-  (is (= {:description "Paycheck"
-          :transaction-date (t/local-date 2016 2 1)}
-         (select-keys (first retrieved) [:description :transaction-date]))
+  (is (seq-of-maps-like?
+        [#:transaction{:description "Paycheck"
+                       :transaction-date (t/local-date 2016 2 1)}]
+        trxs)
       "The transaction is created with the correct attributes.")
-  (is (= #{{:action :debit
-            :quantity 1000M}
-           {:action :credit
-            :quantity 1000M}}
-         (->> (:items (first retrieved) retrieved)
-              (map #(select-keys % [:action :quantity]))
+  (is (= #{#:transaction-item{:action :debit
+                              :quantity 1000M}
+           #:transaction-item{:action :credit
+                              :quantity 1000M}}
+         (->> (:transaction/items (first trxs))
+              (map #(select-keys % [:transaction-item/action
+                                    :transaction-item/quantity]))
               (into #{})))
-      "The transaction is created with the correct line items."))
+      "The transaction is created with the correct line items.")
+  (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 2 1)}
+                   retrieved)
+      "The scheduled trx record is updated with the last occurrence"))
 
 (defn- assert-blocked-realization
-  [[response retrieved]]
+  [[response trxs retrieved]]
   (is (http-not-found? response))
-  (is (empty? retrieved) "The transaction is not created."))
+  (is (empty? trxs) "The transaction is not created.")
+  (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 1 1)}
+                   retrieved)
+      "The scheduled trx record is not updated with the last occurrence"))
 
 (deftest a-user-can-realize-a-scheduled-transaction-in-his-entity
   (assert-successful-realization (realize-trans "john@doe.com")))
@@ -313,85 +295,83 @@
   (assert-blocked-realization (realize-trans "jane@doe.com")))
 
 (def ^:private mass-realize-context
-  (update-in update-context
-             [:scheduled-transactions]
-             concat
-             [{:entity-id "Personal"
-               :description "Groceries"
-               :interval-type :week
-               :interval-count 1
-               :last-occurrence (t/local-date 2016 1 24)
-               :start-date (t/local-date 2015 1 1)
-               :enabled true
-               :date-spec {:days #{:sunday} }
-               :items [{:action :debit
-                        :account-id "Groceries"
-                        :quantity 100M}
-                       {:action :credit
-                        :account-id "Checking"
-                        :quantity 100M}]}
-              {:entity-id "Personal"
-               :description "Groceries disabled"
-               :interval-type :week
-               :interval-count 1
-               :last-occurrence (t/local-date 2016 1 24)
-               :start-date (t/local-date 2015 1 1)
-               :enabled false
-               :date-spec {:days #{:sunday} }
-               :items [{:action :debit
-                        :account-id "Groceries"
-                        :quantity 100M}
-                       {:action :credit
-                        :account-id "Checking"
-                        :quantity 100M}]}
-              {:entity-id "Personal"
-               :description "Groceries after end date"
-               :interval-type :week
-               :interval-count 1
-               :last-occurrence (t/local-date 2016 1 24)
-               :start-date (t/local-date 2015 1 1)
-               :end-date (t/local-date 2015 12 31)
-               :enabled true
-               :date-spec {:days #{:sunday} }
-               :items [{:action :debit
-                        :account-id "Groceries"
-                        :quantity 100M}
-                       {:action :credit
-                        :account-id "Checking"
-                        :quantity 100M}]}]))
+  (conj update-context
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Groceries"
+                                :interval-type :week
+                                :interval-count 1
+                                :last-occurrence (t/local-date 2016 1 24)
+                                :start-date (t/local-date 2015 1 1)
+                                :enabled true
+                                :date-spec {:days #{:sunday} }
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Groceries"
+                                                                     :quantity 100M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Checking"
+                                                                     :quantity 100M}]}
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Groceries disabled"
+                                :interval-type :week
+                                :interval-count 1
+                                :last-occurrence (t/local-date 2016 1 24)
+                                :start-date (t/local-date 2015 1 1)
+                                :enabled false
+                                :date-spec {:days #{:sunday} }
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Groceries"
+                                                                     :quantity 100M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Checking"
+                                                                     :quantity 100M}]}
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Groceries after end date"
+                                :interval-type :week
+                                :interval-count 1
+                                :last-occurrence (t/local-date 2016 1 24)
+                                :start-date (t/local-date 2015 1 1)
+                                :end-date (t/local-date 2015 12 31)
+                                :enabled true
+                                :date-spec {:days #{:sunday} }
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Groceries"
+                                                                     :quantity 100M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Checking"
+                                                                     :quantity 100M}]}))
 
 (defn- realize-all-trans
   [user-email]
-  (let [ctx (realize mass-realize-context)
-        user (find-user ctx user-email)
-        entity (find-entity ctx "Personal")
-        res (with-fixed-time "2016-02-02T00:00:00Z"
-                     (-> (req/request :post (path :api
-                                                  :entities
-                                                  (:id entity)
-                                                  :scheduled-transactions
-                                                  :realize))
-                         (add-auth user)
-                         app
-                         parse-edn-body))
-        retrieved (trans/search {:transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
-                                 :entity-id (:id entity)}
-                                {:include-items? true
-                                 :sort [:transaction-date]})]
-    [res retrieved]))
+  (with-context mass-realize-context
+    (let [entity (find-entity "Personal")]
+      [(with-fixed-time "2016-02-02T00:00:00Z"
+         (-> (req/request :post (path :api
+                                      :entities
+                                      (:id entity)
+                                      :scheduled-transactions
+                                      :realize))
+             (add-auth (find-user user-email))
+             app
+             parse-edn-body))
+       (trxs/append-items
+         (models/select #:transaction{:transaction-date [:between>
+                                                         (t/local-date 2016 1 1)
+                                                         (t/local-date 2017 1 1)]
+                                      :entity entity}
+                        {:sort [:transaction/transaction-date]}))])))
 
 (defn- assert-successful-mass-realization
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-created? response))
-  (let [expected [{:description "Groceries"
-                   :transaction-date (t/local-date 2016 1 31)}
-                  {:description "Paycheck"
-                   :transaction-date (t/local-date 2016 2 1)}
-                  {:description "Groceries"
-                   :transaction-date (t/local-date 2016 2 7)}]]
-    (is (comparable? expected edn-body)
+  (let [expected [#:transaction{:description "Groceries"
+                                :transaction-date (t/local-date 2016 1 31)}
+                  #:transaction{:description "Paycheck"
+                                :transaction-date (t/local-date 2016 2 1)}
+                  #:transaction{:description "Groceries"
+                                :transaction-date (t/local-date 2016 2 7)}]]
+    (is (seq-of-maps-like? expected edn-body)
         "The created transactions are returned.")
-    (is (comparable? expected retrieved)
+    (is (seq-of-maps-like? expected retrieved)
         "The transactions can be retrieved.")))
 
 (defn- assert-blocked-mass-realization

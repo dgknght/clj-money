@@ -1,5 +1,6 @@
 (ns clj-money.prices.yahoo
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clj-http.client :as http]
@@ -8,8 +9,7 @@
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [lambdaisland.uri :refer [uri
                                       map->query-string]]
-            [clj-money.prices :as prices]
-            [clj-money.models.cached-prices :as cached-prices]))
+            [clj-money.prices :as prices]))
 
 (def service-uri (uri "https://yh-finance.p.rapidapi.com/market/v2/get-quotes"))
 (def rapidapi-host "yh-finance.p.rapidapi.com")
@@ -37,11 +37,6 @@
                                                           (partial * 1000)))
                     (update-in [:regularMarketPrice] bigdec)))))))
 
-(defn cache
-  [price]
-  (cached-prices/create price)
-  price)
-
 (def ^:private exchange-names
   {"NasdaqGS" :nasdaq
    "Other OTC" :otc})
@@ -57,12 +52,13 @@
     (->> symbols
          get-quotes
          (map #(-> %
-                   (rename-keys {:regularMarketPrice :price
-                                 :regularMarketTime :trade-date
-                                 :fullExchangeName :exchange})
-                   (update-in [:exchange] map-exchange-name)
-                   (select-keys [:price
-                                 :trade-date
-                                 :symbol
-                                 :exchange])
-                   cache)))))
+                   (rename-keys {:regularMarketPrice :price/price
+                                 :regularMarketTime :price/trade-date
+                                 :fullExchangeName :commodity/exchange
+                                 :symbol :commodity/symbol})
+                   (update-in [:price/trade-date] t/local-date)
+                   (update-in [:commodity/exchange] map-exchange-name)
+                   (select-keys [:price/price
+                                 :price/trade-date
+                                 :commodity/symbol
+                                 :commodity/exchange]))))))

@@ -3,91 +3,55 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [config.core :refer [env]]
-            [stowaway.core
-             :refer [tag]]
-            [stowaway.implicit
-             :as storage
-             :refer [with-storage
-                     with-transacted-storage]]
-            [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :refer [with-validation]]
+            [dgknght.app-lib.core :refer [fmin]]
+            [clj-money.util :as util]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.images :as images]))
+            [clj-money.models.propagation :as prop]))
 
-(s/def ::id integer?)
-(s/def ::transaction-id uuid?)
-(s/def ::transaction-date t/local-date?)
-(s/def ::image-id integer?)
-(s/def ::caption string?)
-(s/def ::new-attachment (s/keys :req-un [::transaction-id
-                                         ::transaction-date
-                                         ::image-id]
-                                :opt-un [::caption]))
-(s/def ::existing-attachment (s/keys :req-un [::id]
-                                     :opt-un [::caption]))
+(s/def :attachment/transaction ::models/model-ref)
+(s/def :attachment/transaction-date t/local-date?)
+(s/def :attachment/image ::models/model-ref)
+(s/def :attachment/caption string?)
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(s/def ::models/attachment (s/keys :req [:attachment/transaction
+                                         :attachment/transaction-date
+                                         :attachment/image]
+                                   :opt [:attachment/caption]))
 
-(defn- after-read
-  [attachment]
-  (when attachment
-    (tag attachment ::models/attachment)))
+(defmethod models/before-validation :attachment
+  [{:as att :attachment/keys [transaction]}]
+  (update-in att [:attachment/transaction-date] (fnil identity (:transaction/transaction-date transaction))))
 
-(defn- before-save
-  [attachment]
-  (tag attachment ::models/attachment))
+(defn- find-trx
+  [{:attachment/keys [transaction transaction-date]}]
+  (models/find-by {:id (:id transaction)
+                   :transaction/transaction-date transaction-date}))
 
-(defn- update-transaction
-  [attachment f]
-  (-> (transactions/find attachment)
-      (update-in [:attachment-count] f)
-      transactions/update))
+(defn- adjust-trx
+  [att f]
+  (update-in (find-trx att)
+             [:transaction/attachment-count]
+             (fnil f 0)))
 
-(defn create
-  [attachment]
-  (with-transacted-storage (env :db)
-    (with-validation attachment ::new-attachment
-      (update-transaction attachment inc)
-      (-> attachment
-          before-save
-          storage/create
-          after-read))))
+(defmethod prop/propagate :attachment
+  [[before after]]
+  (cond-> []
+    (and after (not before))
+    (conj (adjust-trx after inc))
 
-(defn search
-  ([criteria]
-   (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map after-read
-          (storage/select (tag criteria ::models/attachment)
-                          options)))))
+    (and before (not after))
+    (conj (adjust-trx before (fmin dec 0)))))
 
-(defn find-by
-  ([criteria]
-   (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (assoc options :limit 1)))))
+(defn propagate-all
+  ([opts]
+   (doseq [e (models/select (util/model-type {} :entity))]
+     (propagate-all e opts)))
+  ([entity _opts]
+   (some->> (models/select
+              (util/model-type {:transaction/entity entity}
+                               :attachment))
+            seq
+            (map #(adjust-trx % inc))
+            (models/put-many))))
 
-(defn find
-  [attachment-or-id]
-  (find-by {:id (->id attachment-or-id)}))
-
-(defn update
-  [attachment]
-  (with-storage (env :db)
-    (with-validation attachment ::existing-attachment
-      (-> attachment
-          before-save
-          storage/update)
-      (find attachment))))
-
-(defn delete
-  [id-or-attachment]
-  (with-transacted-storage (env :db)
-    (let [attachment (if (integer? id-or-attachment)
-                       (find id-or-attachment)
-                       id-or-attachment)
-          image (images/find (:image-id attachment))]
-      (images/delete image)
-      (storage/delete attachment)
-      (update-transaction attachment dec))))
+(prop/add-full-propagation propagate-all)

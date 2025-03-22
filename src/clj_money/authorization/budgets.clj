@@ -1,17 +1,18 @@
 (ns clj-money.authorization.budgets
   (:refer-clojure :exclude [update])
-  (:require [clj-money.models :as models]
-            [dgknght.app-lib.authorization :as authorization]
+  (:require [clj-money.util :as util]
+            [clj-money.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
-(defmethod authorization/allowed? [::models/budget ::authorization/manage]
+(defmethod authorization/allowed? [:budget ::authorization/manage]
   [budget action user]
   (owner-or-granted? budget user action))
 
-(defmethod authorization/allowed? [::models/budget-item ::authorization/manage]
+(defmethod authorization/allowed? [:budget-item ::authorization/manage]
   [budget-item action user]
   (owner-or-granted? budget-item user action))
 
-(defmethod authorization/scope ::models/budget
+(defmethod authorization/scope :budget
   [_ user]
-  {[:entity :user-id] (:id user)})
+  (util/model-type {:entity/user user}
+                 :budget))

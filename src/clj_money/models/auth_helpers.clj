@@ -1,91 +1,84 @@
 (ns clj-money.models.auth-helpers
-  (:require [stowaway.core :as storage]
+  (:require [clojure.pprint :refer [pprint]]
+            [clj-money.util :as util]
             [clj-money.models :as models]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.grants :as grants]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.budgets :as budgets]
-            [clj-money.models.commodities :as commodities]
-            [clj-money.models.attachments :as attachments]))
+            [clj-money.models.grants :as grants]))
 
-(defmulti ^:private lookup-entity-id
-  (fn [resource]
-    (storage/tag resource)))
+(defmulti ^:private fetch-entity util/model-type-dispatch)
 
-(defmethod ^:private lookup-entity-id :default
+(defn- fetch-entity*
+  [model-or-ref]
+  (if (util/model-ref? model-or-ref)
+    (models/find model-or-ref :entity)
+    model-or-ref))
+
+(defmethod fetch-entity :entity
   [resource]
-  {:pre [(:entity-id resource)]}
+  resource)
 
-  (:entity-id resource))
+(defmethod fetch-entity :commodity
+  [{:commodity/keys [entity]}]
+  (fetch-entity* entity))
 
-(defmethod ^:private lookup-entity-id ::models/entity
-  [resource]
-  (:id resource))
+(defmethod fetch-entity :account
+  [{:account/keys [entity]}]
+  (fetch-entity* entity))
 
-(defmethod ^:private lookup-entity-id ::models/attachment
-  [{:keys [transaction-id transaction-date]}]
-  (lookup-entity-id
-   (transactions/find transaction-id
-                      transaction-date)))
+(defmethod fetch-entity :transaction
+  [{:transaction/keys [entity]}]
+  (fetch-entity* entity))
 
-(defmethod ^:private lookup-entity-id ::models/budget-item
-  [{:keys [budget-id]}]
-  (lookup-entity-id
-   (budgets/find budget-id)))
+(defmethod fetch-entity :scheduled-transaction
+  [{:scheduled-transaction/keys [entity]}]
+  (fetch-entity* entity))
 
-(defmethod ^:private lookup-entity-id ::models/price
-  [{:keys [commodity-id]}]
-  (lookup-entity-id
-   (commodities/find commodity-id)))
+(defmethod fetch-entity :attachment
+  [{:attachment/keys [transaction transaction-date]}]
+  (models/find-by
+    (util/model-type
+      {:transaction/id (:id transaction)
+       :transaction/transaction-date transaction-date}
+      :entity)))
 
-(defmethod ^:private lookup-entity-id ::models/reconciliation
-  [{:keys [account-id]}]
-  (lookup-entity-id
-   (accounts/find account-id)))
+(defmethod fetch-entity :budget
+  [{:budget/keys [entity]}]
+  (fetch-entity* entity))
 
-(defmethod ^:private lookup-entity-id ::models/image
-  [{:keys [id]}]
-  (lookup-entity-id
-   (attachments/find-by {:image-id id})))
+(defmethod fetch-entity :budget-item
+  [{:budget-item/keys [budget]}]
+  (models/find-by
+    (util/model-type
+      {:budget/id (:id budget)}
+      :entity)))
 
-(defn- lookup-entity
-  [resource]
-  (if (entities/entity? resource)
-    resource
-    (entities/find (lookup-entity-id resource))))
+(defmethod fetch-entity :price
+  [{:price/keys [commodity]}]
+  (models/find-by
+    (util/model-type
+      {:commodity/id (:id commodity)}
+      :entity)))
 
-(defn user-entity-ids
-  ([user]
-   (user-entity-ids user {}))
-  ([user options]
-   (->> (entities/select {:user-id (:id user)} options)
-        (map :id)
-        (into #{}))))
+(defmethod fetch-entity :reconciliation
+  [{:reconciliation/keys [account]}]
+  (models/find-by
+    (util/model-type
+      {:account/id (:id account)}
+      :entity)))
 
-(defn all-user-entity-ids
-  [user]
-  (user-entity-ids user {:include-grants? true}))
-
-(defn user-owns-entity?
-  [resource user]
-  (= (:user-id (lookup-entity resource))
-     (:id user)))
-
-(defn find-grant
-  [user resource]
-  (let [entity-id (lookup-entity-id resource)]
-    (grants/find-by {:user-id (:id user)
-                     :entity-id entity-id})))
+(defmethod fetch-entity :trade
+  [{:trade/keys [entity]}]
+  (fetch-entity* entity))
 
 (defn user-granted-access?
-  [resource user action]
-  (when-let [g (find-grant user resource)]
+  [resource entity user action]
+  (when-let [g (models/find-by #:grant{:user user
+                                       :entity entity})]
     (grants/has-permission? g
-                            (storage/tag resource)
+                            (util/model-type resource)
                             action)))
 
 (defn owner-or-granted?
   [resource user action]
-  (or (user-owns-entity? resource user)
-      (user-granted-access? resource user action)))
+  (let [entity (fetch-entity resource)]
+    (or (util/model= (:entity/user entity) user)
+        (user-granted-access? resource entity user action))))
