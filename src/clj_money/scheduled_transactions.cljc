@@ -151,9 +151,27 @@
 
 (def ^:private max-date (dates/local-date "9999-12-31"))
 
-(defn pending?
-  [{:scheduled-transaction/keys [enabled start-date end-date next-occurrence]}]
-  (and enabled
-       (t/before? start-date      (dates/today))
-       (t/before? (dates/today)   (or end-date max-date))
-       (t/before? next-occurrence (t/plus (dates/today) (t/days 7)))))
+(defn started?
+  [{:scheduled-transaction/keys [start-date]}]
+  (t/before? start-date (dates/today)))
+
+(defn ended?
+  [{:scheduled-transaction/keys [end-date]}]
+  (t/before? (or end-date max-date)
+             (dates/today)))
+
+(def not-ended? (complement ended?))
+
+(defn enabled?
+  [{:scheduled-transaction/keys [enabled]}]
+  enabled)
+
+(defn occurring-soon?
+  [{:scheduled-transaction/keys [next-occurrence description]}]
+  (t/before? next-occurrence (t/plus (dates/today) (t/days 7))))
+
+(def pending?
+  (every-pred started?
+              not-ended?
+              enabled?
+              occurring-soon?))
