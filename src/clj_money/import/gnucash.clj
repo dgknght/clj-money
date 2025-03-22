@@ -788,7 +788,7 @@
         bigdec)))
 
 (defn- ->scheduled-transaction-item
-  [{:keys [quantity action account-id]}]
+  [{:keys [quantity action account-id] :as item}]
   {:scheduled-transaction-item/quantity (parse-readable-number quantity)
    :scheduled-transaction-item/action action
    :import/account-id account-id})

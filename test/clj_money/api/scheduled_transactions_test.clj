@@ -89,7 +89,7 @@
 (defn- attr []
   #:scheduled-transaction{:description "Paycheck"
                           :start-date (t/local-date 2021 01 01)
-                          :date-spec {:days [:friday]}
+                          :date-spec {:days #{:friday}}
                           :interval-type :week
                           :interval-count 2
                           :memo "biweekly"
@@ -123,7 +123,7 @@
   (is (:id edn-body) "The return value contains an :id")
   (let [expected #:scheduled-transaction{:description "Paycheck"
                                          :start-date (t/local-date 2021 1 1)
-                                         :date-spec {:days [:friday]}
+                                         :date-spec {:days #{:friday}}
                                          :interval-type :week
                                          :interval-count 2
                                          :memo "biweekly"

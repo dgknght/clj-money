@@ -355,6 +355,7 @@
     :last
     (t/day-of-month date)))
 
+; TODO: This should probably be moved to the gnucash ns
 (defn- infer-date-spec
   [{:scheduled-transaction/keys [start-date last-occurrence interval-type]}]
   (let [date (or last-occurrence start-date)]
@@ -362,7 +363,7 @@
       :year {:day (infer-date-spec-day date)
              :month (dates/month date)}
       :month {:day (infer-date-spec-day date)}
-      :week {:days [(nth day-keys (dates/day-of-week date))]})))
+      :week {:days #{(nth day-keys (dates/day-of-week date))}})))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity account-ids]

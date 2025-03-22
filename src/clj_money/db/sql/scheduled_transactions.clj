@@ -24,7 +24,8 @@
       (update-in-if [:scheduled-transaction/start-date] t/local-date)
       (update-in-if [:scheduled-transaction/end-date] t/local-date)
       (update-in-if [:scheduled-transaction/date-spec :day] ->keyword)
-      (update-in-if [:scheduled-transaction/date-spec :days] #(mapv ->keyword %))))
+      (update-in-if [:scheduled-transaction/date-spec :days] (comp set
+                                                                   #(map ->keyword %)))))
 
 (defmethod sql/post-select :scheduled-transaction
   [storage trxs]
