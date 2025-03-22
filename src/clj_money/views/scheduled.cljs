@@ -35,7 +35,9 @@
 
 (defn- map-next-occurrence
   [sched-trans]
-  (map #(assoc % :next-occurrence (next-transaction-date %))
+  (map #(assoc %
+               :scheduled-transaction/next-occurrence
+               (next-transaction-date %))
        sched-trans))
 
 (defn- load-sched-trans
@@ -70,24 +72,22 @@
                       sched-trans)))))
 
 (defn- realize
-  [& args]
-  (+busy)
-  (let [[sched-tran page-state] (if (= 1 (count args))
-                                  (cons nil args)
-                                  args)
-        on-success (fn [result]
-                     (swap! page-state #(-> %
-                                            (update-sched-trans result)
-                                            (update-in [:created] (fnil concat []) result)))
-                     (notify/toast "Success" (if (empty? result)
-                                               "No transactions are ready to be created."
-                                               "The scheduled transactions where created")))]
-    (if sched-tran
-      (sched-trans/realize sched-tran
-                           :callback -busy
-                           :on-success on-success)
-      (sched-trans/realize :callback -busy
-                           :on-success on-success))))
+  ([page-state] (realize nil page-state))
+  ([sched-tran page-state]
+   (+busy)
+   (let [on-success (fn [result]
+                      (swap! page-state #(-> %
+                                             (update-sched-trans result)
+                                             (update-in [:created] (fnil concat []) result)))
+                      (notify/toast "Success" (if (empty? result)
+                                                "No transactions are ready to be created."
+                                                "The scheduled transactions where created")))]
+     (if sched-tran
+       (sched-trans/realize sched-tran
+                            :callback -busy
+                            :on-success on-success)
+       (sched-trans/realize :callback -busy
+                            :on-success on-success)))))
 
 (defn- delete-sched-tran
   [_sched-tran _page-state]
@@ -154,12 +154,12 @@
              (or d2 (t/epoch))))
 
 (def ^:private table-headers
-  [{:key :description}
-   {:key :last-occurrence
+  [{:key :scheduled-transaction/description}
+   {:key :scheduled-transaction/last-occurrence
     :caption "Last"
     :css ["d-none"
           "d-md-table-cell"]}
-   {:key :next-occurrence
+   {:key :scheduled-transaction/next-occurrence
     :caption "Next"}])
 
 (defn- table-header
@@ -378,7 +378,7 @@
         (icon-with-text :x-circle "Cancel")]])))
 
 (defn- created-row
-  [{:scheduled-transaction/keys [transaction-date description value] :as trx}]
+  [{:transaction/keys [transaction-date description value] :as trx}]
   ^{:key (str "created-transaction-row-" (:id trx))}
   [:tr
    [:td (format-date transaction-date)]
@@ -406,7 +406,7 @@
   []
   (let [page-state (r/atom {:scheduled-transactions @auto-loaded
                             :hide-inactive? true
-                            :sort-on :next-occurrence})
+                            :sort-on :scheduled-transaction/next-occurrence})
         selected (r/cursor page-state [:selected])]
     (when-not @auto-loaded
       (load-sched-trans page-state))
