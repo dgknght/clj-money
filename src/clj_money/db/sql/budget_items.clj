@@ -1,6 +1,7 @@
 (ns clj-money.db.sql.budget-items
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.dates :refer [unserialize-local-date]]
             [clj-money.util :refer [temp-id?]]
             [clj-money.db.sql :as sql])
   (:import org.postgresql.jdbc.PgArray))
@@ -38,4 +39,6 @@
       (update-in-if [:budget-item/spec :average] bigdec)
       (update-in-if [:budget-item/spec :total] bigdec)
       (update-in-if [:budget-item/spec :per-week] bigdec)
+      (update-in-if [:budget-item/spec :amount] bigdec)
+      (update-in-if [:budget-item/spec :start-date] unserialize-local-date)
       (dissoc :budget-item/budget-id)))

@@ -468,6 +468,24 @@
        (filtered-period-field-nav-options budget)))
 
 (defn- period-fields
+  [entry-mode budget item]
+  [:div.mt-2
+   (case entry-mode
+     :per-period
+     [period-fields-per-period item budget]
+     :per-total
+     (period-fields-per-total item)
+     :per-average
+     (period-fields-per-average item)
+     :per-week
+     (period-fields-weekly item)
+     :historical
+     (period-fields-historical item)
+
+     [:div.alert.alert-danger
+      (str "Unknown entry mode " @entry-mode)])])
+
+(defn- period-entry
   [item page-state]
   (let [budget (r/cursor page-state [:detailed-budget])
         entry-mode (r/cursor item [:entry-mode])]
@@ -476,28 +494,19 @@
        [:div.card-header
         [:h4 "Values"]]
        [:div.card-body
-        (bs/nav-tabs {:class "d-none d-md-flex"} (period-field-nav-items @entry-mode item @budget))
-        [:div.d-md-none
-         [forms/select-elem
-          item
-          [:entry-mode]
-          (period-field-select-options @entry-mode item @budget)
-          {:transform-fn keyword}]]
-        [:div.mt-2
-         (case @entry-mode
-           :per-period
-           [period-fields-per-period item @budget]
-           :per-total
-           (period-fields-per-total item)
-           :per-average
-           (period-fields-per-average item)
-           :per-week
-           (period-fields-weekly item)
-           :historical
-           (period-fields-historical item)
-
-           [:div.alert.alert-danger
-            (str "Unknown entry mode " @entry-mode)])]]])))
+        [:div.row
+         [:div.col-sm-4
+          (bs/nav-vertical
+            {:class "d-none d-md-flex"}
+            (period-field-nav-items @entry-mode item @budget))]
+         [:div.col-sm-8
+          [:div.d-md-none
+           [forms/select-elem
+            item
+            [:entry-mode]
+            (period-field-select-options @entry-mode item @budget)
+            {:transform-fn keyword}]]
+          (period-fields @entry-mode @budget item)]]]])))
 
 (defn- budget-item-form
   [page-state]
@@ -526,7 +535,7 @@
          :value-fn :id
          :find-fn (fn [id callback]
                     (callback @accounts-by-id id))}]
-       [period-fields item page-state]
+       [period-entry item page-state]
        [:div.mt-3
         [button {:html {:class "btn-primary"
                         :type :submit
