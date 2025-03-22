@@ -52,6 +52,10 @@
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defmacro with-propagation
+  "Propagate puts that occur during the block. The two bindings must be
+  passed to models/put-many and are:
+    - out-chan: a channel for receiving changes emitted from the put
+    - ctrl-chan: a channel for receiving notifications about the stopping and starting of the puts"
   [bindings & body]
   `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
          out# (a/chan)
