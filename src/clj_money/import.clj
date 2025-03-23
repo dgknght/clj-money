@@ -22,7 +22,7 @@
 (defn- validate
   [m spec]
   (when-let [errors (s/explain-data spec m)]
-    (pprint errors))
+    (log/errorf "Invalid model %s: %s" m errors))
   m)
 
 (defn- remove-keys-by-ns
@@ -298,19 +298,29 @@
 
 (defmethod import-record* :reconciliation
   [{:keys [account-ids] :as context} {:import/keys [account-id] :as reconciliation}]
-  (let [created (-> reconciliation
-                    (assoc :reconciliation/balance 0M
-                           :reconciliation/status :new
-                           :reconciliation/account {:id (account-ids account-id)})
-                    purge-import-keys
-                    (validate ::models/reconciliation)
-                    models/put)]
-    ; We'll use this map later to assocate reconciled transactions
-    ; for this account with this reconciliation
-    (update-in context [:account-recons]
-               (fnil assoc {})
-               (-> created :reconciliation/account :id)
-               (:id created))))
+  (if-let [new-id (account-ids account-id)]
+    (let [created (-> reconciliation
+                      (assoc :reconciliation/balance 0M
+                             :reconciliation/status :new
+                             :reconciliation/account {:id new-id})
+                      purge-import-keys
+                      (validate ::models/reconciliation)
+                      models/put)]
+      ; We'll use this map later to assocate reconciled transactions
+      ; for this account with this reconciliation
+      (update-in context [:account-recons]
+                 (fnil assoc {})
+                 (-> created :reconciliation/account :id)
+                 (:id created)))
+    (do
+      (log/warnf "Unable to find account for reconciliation %s" reconciliation)
+      (update-in context
+                 [:progress
+                  :warnings]
+                 (fnil conj [])
+                 (format "Unable to resolve account %s for reconciliation on %s"
+                         account-id
+                         (:reconciliation/end-of-period reconciliation))))))
 
 (defn- find-reconciliation-id
   [old-account-id {:keys [account-ids account-recons account-parents]}]
