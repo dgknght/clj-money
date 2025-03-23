@@ -14,6 +14,7 @@
             [clj-money.prices.alpha-vantage :as alpha-vantage]
             [clj-money.prices.cache :as cache]
             [clj-money.models :as models]
+            [clj-money.models.propagation :as prop]
             [clj-money.authorization :refer [+scope
                                              authorize]
              :as authorization]
@@ -57,7 +58,7 @@
                     :price/price])
       (assoc :price/commodity {:id (:commodity-id params)})
       (authorize ::authorization/create authenticated)
-      models/put
+      prop/put-and-propagate
       api/creation-response))
 
 (defn- find-and-authorize
@@ -72,7 +73,7 @@
   (or (some-> (find-and-authorize req ::authorization/update)
               (merge (select-keys params [:price/price
                                           :price/trade-date]))
-              models/put
+              prop/put-and-propagate
               api/update-response)
       api/not-found))
 
