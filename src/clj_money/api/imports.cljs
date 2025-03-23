@@ -53,10 +53,8 @@
 
 (defn start
   [import & {:as opts}]
-  (let [path (api/path :imports import)]
-    (http/patch path
-                (assoc (lib-api/request
-                         (add-error-handler
-                           opts
-                           "Unable to start the import: %s"))
-                       :oauth-token (:auth-token @app-state)))))
+  (api/patch (api/path :imports import)
+             {}
+             (add-error-handler
+               opts
+               "Unable to start the import: %s")))
