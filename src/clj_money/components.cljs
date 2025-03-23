@@ -130,5 +130,5 @@
      [:span.d-flex.align-items-center
       (if @busy?
         [spinner :size :small]
-        (icons/icon icon :size :small))
+        (icons/icon icon))
       [:span.ms-2 caption]]]))
