@@ -53,7 +53,7 @@
   [page-state]
   (let [imp (r/cursor page-state [:active])]
     (fn []
-      [:strong (str "Import " (:entity-name @imp))])))
+      [:strong (str "Import: " (:import/entity-name @imp))])))
 
 (defn- progress-row
   [[progress-type {:keys [total completed]}]]
@@ -61,7 +61,9 @@
   [:tr
    [:td (name progress-type)]
    [:td.text-center
-    (let [perc (* 100 (/ completed total))]
+    (let [perc (if (< 0 total)
+                 (* 100 (/ completed total))
+                 0)]
       [:div.progress
        [:div.progress-bar
         {:aria-valuenow completed
@@ -87,7 +89,7 @@
 
 (defn- progress-table
   [page-state]
-  (let [progress (r/cursor page-state [:active :progress])]
+  (let [progress (r/cursor page-state [:active :import/progress])]
     (fn []
       [:table.table.table-hover
        [:tbody
@@ -95,7 +97,7 @@
          [:th "Record Type"]
          [:th.text-center "Progress"]]
         (->> @progress
-             (filter #(map? (second %)))
+             (filter (comp map? second))
              (map progress-row)
              doall)]])))
 
@@ -104,43 +106,48 @@
 (declare load-import)
 
 (defn- receive-import
-  [{{:keys [errors finished]} :progress :as received} page-state]
-  (when (seq errors)
-    (pprint {::errors errors}))
-  (when finished
-    (reset! auto-refresh false))
-  (when @auto-refresh
-    (go
-      (<! (timeout 1000))
-      (load-import page-state)))
-  (swap! page-state assoc :active received))
+  ([page-state] (partial receive-import page-state))
+  ([page-state {{:keys [errors finished]} :import/progress
+                :as received}]
+   (when (seq errors)
+     (pprint {::errors errors}))
+   (when @auto-refresh
+     (when finished
+       (reset! auto-refresh false))
+     (go
+       (<! (timeout 1000))
+       (load-import page-state)))
+   (swap! page-state assoc :active received)))
 
 (defn- load-import
   [page-state]
   ; Don't set busy because this happens constantly during import
   (imports/get (get-in @page-state [:active :id])
-               :on-success #(receive-import % page-state)))
+               :on-success (receive-import page-state)))
 
 (defn- start-import
   [imp page-state]
+  (swap! page-state assoc :active imp)
   (+busy)
   (imports/start imp
                  :callback -busy
-                 :on-success (fn [result]
+                 :on-failure (fn [& args]
+                               (pprint {::failure args}))
+                 :on-success (fn [{:keys [import]}]
                                (reset! auto-refresh true)
-                               (receive-import result page-state))))
+                               (receive-import page-state import))))
 
 (defn- import-row
-  [imp page-state busy?]
+  [{:import/keys [created-at entity-name entity-exists?] :as imp} page-state busy?]
   ^{:key (str "import-row-" (:id imp))}
   [:tr
-   [:td (:entity-name imp)]
+   [:td entity-name]
    [:td
-    [:span.d-none.d-md-inline (format-date-time (:created-at imp))]
+    [:span.d-none.d-md-inline (format-date-time created-at)]
     [:span.d-md-none (format-date (:created-at imp) "M/d")]]
    [:td
     [:div.btn-group
-     [:button.btn.btn-success.btn-sm {:disable (str (:entity-exists? imp))
+     [:button.btn.btn-success.btn-sm {:disabled entity-exists?
                                       :on-click #(start-import imp page-state)
                                       :title "Click here to start the import."}
       (icon :play :size :small)]
@@ -206,7 +213,7 @@
 
 (defn- errors-card
   [page-state]
-  (let [errors (r/cursor page-state [:active :progress :errors])]
+  (let [errors (r/cursor page-state [:active :import/progress :errors])]
     (fn []
       (when (seq @errors)
         [:div.card
@@ -228,7 +235,7 @@
 (defn- start-after-save
   [page-state]
   (fn [result]
-    (state/add-entity (:entity result))
+    (state/add-entity (:import/entity result))
     (reset! auto-refresh true)
     (swap! page-state #(-> %
                            (dissoc :import-data)
@@ -245,7 +252,6 @@
                     :callback -busy
                     :on-success (start-after-save page-state))
     (catch js/Error e
-      (-busy)
       (.dir js/console e)
       (notify/danger (str "Unable to start the import: " (.-name e) " - " (.-message e))))))
 
