@@ -28,7 +28,10 @@
         (log/debugf "import progress for %s: %s" (:import/entity-name imp) progress)
         (models/put (assoc imp :import/progress progress))
         (recur (<! progress-chan))))
-    (import-data imp progress-chan)))
+    (let [{:keys [entity]} (import-data imp
+                                        :progress-chan progress-chan)]
+      {:entity entity
+       :import imp})))
 
 (defn- infer-content-type
   [source-file]
@@ -85,10 +88,8 @@
   (let [imp (-> req
                 extract-import
                 (assoc :import/images images)
-                models/put)
-        {:keys [entity]} (launch-and-track-import imp)]
-    (api/response {:entity entity
-                   :import imp}
+                models/put)]
+    (api/response (launch-and-track-import imp)
                   201)))
 
 (defn- step-1
