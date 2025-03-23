@@ -290,7 +290,10 @@
                    purge-import-keys
                    (validate ::models/account)
                    models/put)]
-    (log/infof "imported account \"%s\"" (:account/name result))
+    (log/infof "imported account \"%s\": %s -> %s"
+               (:account/name result)
+               id
+               (:id result))
     (-> context
         (assoc-in [:account-ids id] (:id result))
         (update-account-relationships result)
