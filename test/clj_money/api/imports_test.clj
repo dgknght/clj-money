@@ -173,12 +173,15 @@
           response (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
                      (-> (req/request :patch (path :api :imports (:id imp)))
                          (add-auth (find-user email))
-                         app))]
+                         app
+                         parse-edn-body))]
       [response calls])))
 
 (defn- assert-successful-start
-  [[response calls]]
+  [[{:as response :keys [edn-body]} calls]]
   (is (http-success? response))
+  (is (= #{:entity :import} (-> edn-body keys set))
+      "The response contains the relevant entity and import")
   (let [[c :as cs] @calls]
     (is (= 1 (count cs))
         "Exactly one call is made to launch-and-track-import")
