@@ -434,27 +434,28 @@
     (format-decimal shares {:fraction-digits 4})))
 
 (defn- portfolio-report-row
-  [{:keys [id
-           parents
-           style
-           caption
-           shares-owned
-           shares-purchased
-           cost-basis
-           current-value
-           gain-loss
-           gain-loss-percent]
+  [{:report/keys [style
+                  depth
+                  caption
+                  shares-owned
+                  shares-purchased
+                  cost-basis
+                  current-value
+                  gain-loss
+                  gain-loss-percent]
+    :keys [id]
     :as record}
    visible-ids
    page-state]
-  ^{:key (str "report-row-" (string/join "-" (cons id parents)))}
+  ^{:key (str "report-row-" caption)}
   [:tr {:class (cond-> [(str "report-" style)]
-                   (not (visible? record visible-ids))
-                   (conj "d-none"))
+                 (not (visible? record visible-ids))
+                 (conj "d-none"))
         :on-click (when-not (= "data" style)
                     #(swap! page-state toggle-visibility id))}
-   [:td {:class (when (= "data" style)
-                  "text-end")}
+   [:td {:class [(when (= "data" style)
+                  "text-end")
+                 (str "account-depth-" depth)]}
     caption]
    [:td.text-end.d-none.d-md-table-cell (format-shares shares-purchased)]
    [:td.text-end.d-none.d-md-table-cell (format-shares shares-owned)]

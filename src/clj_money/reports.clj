@@ -818,8 +818,10 @@
                 :report/depth depth
                 :report/cost-basis cost-basis
                 :report/gain-loss gain
-                :report/gain-loss-percent (with-precision 3
-                                            (/ gain cost-basis))
+                :report/gain-loss-percent (if (< 0M cost-basis)
+                                            (with-precision 3
+                                              (/ gain cost-basis))
+                                            0M)
                 :report/shares-owned shares-owned
                 :report/current-value total-value}]
     (if (system-tagged? account :trading)
