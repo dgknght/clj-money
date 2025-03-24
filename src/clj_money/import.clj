@@ -18,6 +18,15 @@
   (fn [source-type & _]
     source-type))
 
+(defn- assoc-warning
+  [ctx msg data]
+  (log/warn msg)
+  (update-in ctx
+             [:progress :warnings]
+             (fnil conj [])
+             {:message msg
+              :data data}))
+
 ; TODO: change this to something makes its way to the output
 (defn- validate
   [m spec]
@@ -315,15 +324,12 @@
                  (fnil assoc {})
                  (-> created :reconciliation/account :id)
                  (:id created)))
-    (do
-      (log/warnf "Unable to find account for reconciliation %s" reconciliation)
-      (update-in context
-                 [:progress
-                  :warnings]
-                 (fnil conj [])
-                 (format "Unable to resolve account %s for reconciliation on %s"
-                         account-id
-                         (:reconciliation/end-of-period reconciliation))))))
+    (assoc-warning
+      context
+      (format "Unable to resolve account %s for reconciliation on %s"
+              account-id
+              (:reconciliation/end-of-period reconciliation))
+      {:reconciliation reconciliation})))
 
 (defn- find-reconciliation-id
   [old-account-id {:keys [account-ids account-recons account-parents]}]
