@@ -477,18 +477,22 @@
              {:message msg
               :data data}))
 
+(defn- ignore?
+  [{:import/keys [ignore?]}]
+  ignore?)
+
 (defn- import-record
   [xf]
   (fn
     ([] (xf))
     ([context] (xf context))
     ([context record]
-     (if (:import/ignore? record)
+     (if (ignore? record)
        (xf context record)
        (xf (try (import-record* context record)
                 (catch Exception e
                   (log/errorf e "unable to import record %s" record)
-                  (assoc-error context (.getMessage e) (ex-data e))))
+                  (assoc-error context (ex-message e) (ex-data e))))
            record)))))
 
 (defn- fetch-reconciled-items
