@@ -14,7 +14,7 @@
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
-            [clj-money.icons :refer [icon]]
+            [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.components :refer [button]]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
@@ -187,15 +187,13 @@
         caption (make-reaction #(if @auto-refresh "Stop" "Auto Refresh"))
         icon-image (make-reaction #(if @auto-refresh :stop :arrow-repeat))]
     (fn []
-      [button {:html {:type :button
-                      :class @css-class
-                      :title @title
-                      :on-click (fn []
-                                  (swap! auto-refresh not)
-                                  (when @auto-refresh
-                                    (load-import page-state)))}
-               :icon @icon-image
-               :caption @caption}])))
+      [:button.btn
+       {:type :button
+        :class @css-class
+        :title @title
+        :on-click #(when (swap! auto-refresh not)
+                     (load-import page-state))}
+       (icon-with-text @icon-image @caption)])))
 
 (defn- progress-card
   [page-state]

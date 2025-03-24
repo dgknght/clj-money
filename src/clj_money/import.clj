@@ -27,11 +27,12 @@
              {:message msg
               :data data}))
 
-; TODO: change this to something makes its way to the output
 (defn- validate
   [m spec]
   (when-let [errors (s/explain-data spec m)]
-    (log/errorf "Invalid model %s: %s" m errors))
+    (throw (ex-info (format "Invalid model %s" (util/simplify m))
+                    {:model m
+                     :explain errors})))
   m)
 
 (defn- remove-keys-by-ns
@@ -439,7 +440,7 @@
       (catch Exception e
         (log/errorf "error importing budget %s - %s: %s"
                     (.getClass e)
-                    (.getMessage e)
+                    (ex-message e)
                     (prn-str to-create))))))
 
 (defmethod import-record* :price
