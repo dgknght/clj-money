@@ -288,16 +288,16 @@
           entity (models/find (:entity result))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
       (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-gains-account]))
-          "The long-term capital gains account id is set correctly")
+          "The long-term capital gains account id is set")
       (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/st-capital-gains-account]))
-          "The short-term capital gains account id is set correctly")
+          "The short-term capital gains account id is set")
       (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-loss-account]))
-          "The long-term capital losses account id is set correctly")
+          "The long-term capital losses account id is set")
       (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-loss-account]))
-          "The short-term capital losses account id is set correctly"))))
+          "The short-term capital losses account id is set"))))
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
