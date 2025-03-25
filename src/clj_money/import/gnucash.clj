@@ -806,14 +806,9 @@
                                              parse-int)
    :import/record-type :scheduled-transaction})
 
-(defn- process-records
-  [xf]
+(defn- process-records []
   (let [state (atom {})]
-    (fn
-      ([] (xf))
-      ([acc] (xf acc))
-      ([acc record]
-       (xf acc (process-record record state))))))
+    (map #(process-record % state))))
 
 (def ^:private reporting-types
   #{})
@@ -832,7 +827,7 @@
 (defmethod read-source :gnucash
   [_ inputs out-chan]
   (let [records-chan (a/chan 100 (comp (filter emit-record?)
-                                       process-records
+                                       (process-records)
                                        log-records))]
     (a/pipe records-chan out-chan)
     (->> inputs
