@@ -627,8 +627,7 @@
         (fn [acc record]
           (case (filter-behavior record state)
             :import (xf acc record)
-            :ignore (xf acc (assoc record :import/ignore? true))
-            :drop   (xf acc)))))))
+            :ignore (xf acc (assoc record :import/ignore? true))))))))
 
 (defn- +record-type
   "Returns a transducing fn that appends the specified value in the received
