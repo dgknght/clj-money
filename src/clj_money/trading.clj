@@ -525,8 +525,8 @@
     (if lot
       (let [[adj-trd
              unsold-shares] (process-lot-sale trd
-                                                  lot
-                                                  shares-remaining)]
+                                              lot
+                                              shares-remaining)]
         (if (zero? unsold-shares)
           adj-trd
           (recur adj-trd
