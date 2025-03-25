@@ -490,10 +490,7 @@
     ([context record]
      (if (ignore? record)
        (xf context record)
-       (xf (try (import-record* context record)
-                (catch Exception e
-                  (log/errorf e "unable to import record %s" record)
-                  (assoc-error context (ex-message e) (ex-data e))))
+       (xf (import-record* context record)
            record)))))
 
 (defn- fetch-reconciled-items
