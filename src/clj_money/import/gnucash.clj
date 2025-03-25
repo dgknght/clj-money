@@ -5,13 +5,7 @@
             [clojure.java.io :as io]
             [clojure.string :as s]
             [clojure.tools.cli :refer [parse-opts]]
-            [clojure.core.async
-             :refer [pipe
-                     chan
-                     close!
-                     <!!
-                     >!!]
-             :as async]
+            [clojure.core.async :as a]
             [clojure.data.xml :as xml]
             [config.core :refer [env]]
             [java-time.api :as t]
@@ -216,18 +210,18 @@
                 :declaration/record-type record-type
                 :declaration/record-count (+ record-count
                                              (if (= :commodity record-type) 1 0))}]
-    (>!! out-chan record))
+    (a/>!! out-chan record))
   (pop-elem state))
 
 (defmethod ^:private process-elem ::gnc/commodity
   [{:keys [out-chan child-content] :as state} _]
-  (>!! out-chan (into {:import/record-type :commodity}
+  (a/>!! out-chan (into {:import/record-type :commodity}
                       (peek child-content)))
   (pop-elem state))
 
 (defmethod ^:private process-elem :price
   [{:keys [out-chan child-content] :as state} _]
-  (>!! out-chan (into {:import/record-type :price}
+  (a/>!! out-chan (into {:import/record-type :price}
                       (peek child-content)))
   (pop-elem state))
 
@@ -254,10 +248,10 @@
                                           "tax-related"
                                           "payer-name-source"} (:key %))) ; TODO: probably should catch this earlier in the process
                               first)]
-      (>!! out-chan (assoc account
+      (a/>!! out-chan (assoc account
                            :import/record-type :account))
       (when reconciliation
-        (>!! out-chan (assoc reconciliation
+        (a/>!! out-chan (assoc reconciliation
                              :account-id (:id account)
                              :import/record-type :reconciliation)))))
   (pop-elem state))
@@ -273,7 +267,7 @@
 
 (defmethod ^:private process-elem ::gnc/budget
   [{:keys [out-chan child-content] :as state} _]
-  (>!! out-chan (reduce (fn [r [k v]]
+  (a/>!! out-chan (reduce (fn [r [k v]]
                           (if (= :item k)
                             (update-in r [:budget/items] conj v)
                             (if (blank-string? v)
@@ -467,11 +461,11 @@
 
 (defn- process-transaction-elem
   [{:keys [out-chan child-content] :as state}]
-  (>!! out-chan
-       (reduce aggregate-child-attr
-               {:splits []
-                :import/record-type :transaction}
-               (peek child-content)))
+  (a/>!! out-chan
+         (reduce aggregate-child-attr
+                 {:splits []
+                  :import/record-type :transaction}
+                 (peek child-content)))
   (pop-elem state))
 
 (defmethod ^:private process-elem ::gnc/transaction
@@ -499,7 +493,7 @@
         sched-tran (-> record
                        (dissoc :templ-acct)
                        (assoc :items (:items template)))]
-    (>!! out-chan sched-tran))
+    (a/>!! out-chan sched-tran))
   (pop-elem state))
 
 (defmulti ^:private process-event
@@ -837,10 +831,10 @@
 
 (defmethod read-source :gnucash
   [_ inputs out-chan]
-  (let [records-chan (chan 100 (comp (filter emit-record?)
-                                     process-records
-                                     log-records))]
-    (pipe records-chan out-chan)
+  (let [records-chan (a/chan 100 (comp (filter emit-record?)
+                                       process-records
+                                       log-records))]
+    (a/pipe records-chan out-chan)
     (->> inputs
          (map #(GZIPInputStream. %))
          (map io/reader)
@@ -850,7 +844,7 @@
                   :content []
                   :child-content []
                   :out-chan records-chan}))
-    (close! records-chan)))
+    (a/close! records-chan)))
 
 (defn- process-output
   "Writes the records to the next output file and resets the record buffer"
@@ -922,15 +916,15 @@
   "Accepts a path to a gnucash file and creates multiple, smaller files
   that container the same data, returning the paths to the new files"
   [& args]
-  (let [records-chan (chan)
+  (let [records-chan (a/chan)
         state (chunk-file-state args)
-        result (async/reduce #(-> %1
-                                  (update-in [:records] conj %2)
-                                  evaluate-output)
-                             state
-                             records-chan)]
+        result (a/reduce #(-> %1
+                              (update-in [:records] conj %2)
+                              evaluate-output)
+                         state
+                         records-chan)]
     (println "reading the source file...")
     (with-open [input-stream (FileInputStream. (:input-file state))]
       (read-source :gnucash [input-stream] records-chan))
-    (process-output (<!! result))
+    (process-output (a/<!! result))
     (println "\nDone")))

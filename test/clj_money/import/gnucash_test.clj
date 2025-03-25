@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [chan] :as async]
+            [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.factories.user-factory]
@@ -20,15 +20,15 @@
 (defn- execute-import
   [input-path]
   (with-redefs [uuid (constantly "00000000000000000000000000000001")]
-    (let [records-chan (chan)
-          result (async/reduce
+    (let [records-chan (a/chan)
+          result (a/reduce
                   track-record
                   {}
                   records-chan)]
       (read-source :gnucash
                    [(io/input-stream input-path)]
                    records-chan)
-      (async/<!! result))))
+      (a/<!! result))))
 
 (defn- execute-test
   [spec-path]
