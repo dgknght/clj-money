@@ -20,15 +20,11 @@
 (defn- execute-import
   [input-path]
   (with-redefs [uuid (constantly "00000000000000000000000000000001")]
-    (let [records-chan (a/chan)
-          result (a/reduce
-                  track-record
-                  {}
-                  records-chan)]
-      (read-source :gnucash
-                   [(io/input-stream input-path)]
-                   records-chan)
-      (a/<!! result))))
+    (a/<!! (a/reduce
+             track-record
+             {}
+             (read-source :gnucash
+                          [(io/input-stream input-path)])))))
 
 (defn- execute-test
   [spec-path]

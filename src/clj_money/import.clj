@@ -664,26 +664,25 @@
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
         wait-chan (a/promise-chan)
-        source-chan (a/chan)
         propagation-chan (a/chan 1 (+record-type :propagation))
         reconciliations-chan (a/chan 1 (+record-type :process-reconciliation))
-        prep-chan (a/chan (a/sliding-buffer 1) (->progress))
-        read-source-result-chan (a/transduce
-                                  (comp (filter-import)
-                                        import-record
-                                        (forward prep-chan))
-                                  (completing (fn [acc _] acc))
-                                  {:import import-spec
-                                   :account-ids {}
-                                   :entity entity}
-                                  source-chan)]
+        prep-chan (a/chan (a/sliding-buffer 1) (->progress))]
     (a/pipe propagation-chan prep-chan false)
     (a/pipe reconciliations-chan prep-chan false)
     (a/pipe prep-chan progress-chan false)
     (a/go
       (try
-        (read-source source-type inputs source-chan)
-        (let [result (a/<!! read-source-result-chan)]
+        (let [result (->> inputs
+                          (read-source source-type)
+                          (a/transduce
+                            (comp (filter-import)
+                                  import-record
+                                  (forward prep-chan))
+                            (completing (fn [acc _] acc))
+                            {:import import-spec
+                             :account-ids {}
+                             :entity entity})
+                          a/<!!)]
           (-> entity
               models/find
               (prop/propagate-all :progress-chan propagation-chan))

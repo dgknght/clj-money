@@ -825,21 +825,24 @@
      (xf acc record))))
 
 (defmethod read-source :gnucash
-  [_ inputs out-chan]
-  (let [records-chan (a/chan 100 (comp (filter emit-record?)
+  [_ inputs]
+  (let [out-chan (a/chan)
+        records-chan (a/chan 100 (comp (filter emit-record?)
                                        (process-records)
                                        log-records))]
     (a/pipe records-chan out-chan)
-    (->> inputs
-         (map #(GZIPInputStream. %))
-         (map io/reader)
-         (mapcat #(xml/event-seq % {}))
-         (reduce process-event
-                 {:elems []
-                  :content []
-                  :child-content []
-                  :out-chan records-chan}))
-    (a/close! records-chan)))
+    (a/go
+      (->> inputs
+           (map #(GZIPInputStream. %))
+           (map io/reader)
+           (mapcat #(xml/event-seq % {}))
+           (reduce process-event
+                   {:elems []
+                    :content []
+                    :child-content []
+                    :out-chan records-chan}))
+      (a/close! records-chan))
+    out-chan))
 
 (defn- process-output
   "Writes the records to the next output file and resets the record buffer"
