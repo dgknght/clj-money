@@ -125,9 +125,8 @@
 
 (defn- test-import []
   (let [imp (find-import "Personal")
-        {:keys [entity errors warnings]} (execute-import imp)]
-    (is (empty? errors) "No errors are reported")
-    (is (empty? warnings) "No errors are reported")
+        {:keys [entity notifications]} (execute-import imp)]
+    (is (empty? notifications) "No errors or warnings are reported")
     (testing "the return value"
       (is (comparable? {:entity/name "Personal"}
                        entity)
@@ -258,11 +257,12 @@
                              (recur (a/<! progress-chan))))
               {:keys [wait-chan]} (import-data (find-import "Personal") :out-chan progress-chan)]
           (a/alts!! [wait-chan (a/timeout 5000)])
-          (let [{:keys [errors]} @state]
+          (let [{:keys [notifications]} @state]
             (is (seq-of-maps-like?
-                  [{:error/message "Induced error"
-                    :error/data {:one 1}}]
-                  errors)
+                  [{:notification/severity :error
+                    :notification/message "Induced error"
+                    :notification/data {:one 1}}]
+                  notifications)
                 "Errors are reported and aggregated")))))))
 
 (def ^:private edn-context
@@ -304,13 +304,12 @@
 (deftest import-with-entity-settings
   (with-context ext-context
     (let [imp (find-import "Personal")
-          {:keys [entity errors warnings]} (execute-import imp)
+          {:keys [entity notifications]} (execute-import imp)
           {{:settings/keys [lt-capital-gains-account
                             st-capital-gains-account
                             lt-capital-loss-account
                             st-capital-loss-account]} :entity/settings} (models/find entity)]
-      (is (empty? errors) "No errors are reported")
-      (is (empty? warnings) "No warnings are reported")
+      (is (empty? notifications) "No errors or warnings are reported")
       (is (util/model-ref? lt-capital-gains-account)
           "The long-term capital gains account id is set")
       (is (util/model-ref? st-capital-gains-account)
@@ -381,9 +380,8 @@
   (with-context commodities-context
     (let [imp (find-import "Personal")
           {:keys [wait-chan]} (import-data imp)
-          {:keys [errors warnings]} (a/alts!! [wait-chan (a/timeout 5000)])]
-      (is (empty? errors) "No errors are reported")
-      (is (empty? warnings) "No warnings are reported")
+          {:keys [notifications]} (a/alts!! [wait-chan (a/timeout 5000)])]
+      (is (empty? notifications) "No errors or warnings are reported")
       (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 1 17)
                                     :shares-purchased 100M
                                     :shares-owned 100M
@@ -499,10 +497,9 @@
 (deftest import-scheduled-transactions
   (with-context sched-context
     (let [imp (find-import "Personal")
-          {:keys [entity errors warnings]} (execute-import imp)
+          {:keys [entity notifications]} (execute-import imp)
           retrieved (models/select #:scheduled-transaction{:entity entity})]
-      (is (empty? errors) "No errors are reported")
-      (is (empty? warnings) "No warnings are reported")
+      (is (empty? notifications) "No errors or warnings are reported")
       (is (seq-of-maps-like?
             [#:scheduled-transaction{:entity (util/->model-ref entity)
                                      :description "Paycheck"

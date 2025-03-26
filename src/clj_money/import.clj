@@ -22,10 +22,12 @@
   [ctx msg data]
   (log/warn msg)
   (update-in ctx
-             [:progress :warnings]
+             [:progress :notifications]
              conj
-             {:message msg
-              :data data}))
+             {:import/record-type :notification
+              :notification/severity :warning
+              :notification/message msg
+              :notification/data data}))
 
 (defn- validate
   [m spec]
@@ -486,11 +488,12 @@
          (xf (import-record* context record)
              record)
          (catch Exception e
-           (let [msg {:import/record-type :error
-                      :error/message (ex-message e)
-                      :error/data (ex-data e)}]
+           (let [msg {:import/record-type :notification
+                      :notification/severity :error
+                      :notification/message (ex-message e)
+                      :notification/data (ex-data e)}]
              (xf (update-in context
-                            [:errors]
+                            [:notifications]
                             conj
                             msg)
                  msg))))))))
@@ -576,11 +579,11 @@
                                  record-type
                                  {:total record-count
                                   :completed 0})
-             :error (swap! progress
-                           update-in
-                           [:errors]
-                           (fnil conj [])
-                           r)
+             :notification (swap! progress
+                                  update-in
+                                  [:notifications]
+                                  conj
+                                  r)
              (swap! progress
                     update-in
                     [(:import/record-type r) :completed]
@@ -653,8 +656,7 @@
                             (completing (fn [acc _] acc))
                             {:import import-spec
                              :account-ids {}
-                             :errors []
-                             :warnings []
+                             :notivications []
                              :entity entity})
                           a/<!!)]
           (-> entity
@@ -663,7 +665,7 @@
           (a/alts!! [(process-reconciliations result
                                               out-chan)
                      (a/timeout 5000)])
-          (a/>! wait-chan (select-keys result [:errors :warnings :entity])))
+          (a/>! wait-chan (select-keys result [:notifications :entity])))
         (finally
           (a/close! wait-chan))))
     {:entity entity
