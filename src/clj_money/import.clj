@@ -524,10 +524,12 @@
 
 (defn- notify-reconciliation-finalization
   [out-chan]
-  (fn [recon]
-    (a/go
-      (a/>! out-chan {:import/record-type :reconciliation-finalization}))
-    recon))
+  (if out-chan
+    (fn [recon]
+      (a/go
+        (a/>! out-chan {:import/record-type :reconciliation-finalization}))
+      recon)
+    identity))
 
 (defn- process-reconciliations
   [{:keys [entity] :as ctx} out-chan]
@@ -537,9 +539,10 @@
                             :reconciliation))
         ch (a/promise-chan)]
     (a/go
-      (a/>! out-chan {:declaration/record-type :reconciliation
-                      :declaration/record-count (count reconciliations)
-                      :import/record-type :declaration})
+      (when out-chan
+        (a/>! out-chan {:declaration/record-type :reconciliation
+                        :declaration/record-count (count reconciliations)
+                        :import/record-type :declaration}))
       (mapv (comp (notify-reconciliation-finalization out-chan)
                   #(process-reconciliation % ctx))
             reconciliations)
@@ -551,10 +554,13 @@
   [c]
   (fn [xf]
     (completing
-      (fn
-        [acc v]
-        (a/go (a/>! c v))
-        (xf acc v)))))
+      (if c
+        (fn
+          [acc v]
+          (a/go (a/>! c v))
+          (xf acc v))
+        (fn [acc v]
+          (xf acc v))))))
 
 (defmulti update-progress-state
   (fn [_state record]
