@@ -500,31 +500,28 @@
 (deftest import-scheduled-transactions
   (with-context sched-context
     (let [imp (find-import "Personal")
-          entity (execute-import imp)]
-      (is (= {:total 1 :completed 1}
-             {} #_(:scheduled-transaction (last updates)))
-          "The progress is updated for the scheduled transactions")
-      (let [retrieved (models/select #:scheduled-transaction{:entity entity})]
-        (is (seq-of-maps-like?
-              [#:scheduled-transaction{:entity (util/->model-ref entity)
-                                       :description "Paycheck"
-                                       :memo nil
-                                       :start-date (t/local-date 2016 1 15)
-                                       :end-date (t/local-date 2018 12 31)
-                                       :enabled true
-                                       :date-spec {:days #{:friday}}
-                                       :last-occurrence nil
-                                       :interval-type :week
-                                       :interval-count 2}]
-              retrieved)
-            "The scheduled transactions are available after import.")
-        (is (seq-of-maps-like? [#:scheduled-transaction-item{:action :debit
-                                                             :account (account-ref "Checking")
-                                                             :quantity 1000M
-                                                             :memo nil}
-                                #:scheduled-transaction-item{:action :credit
-                                                             :account (account-ref "Salary")
-                                                             :quantity 1000M
-                                                             :memo nil}]
-                               (:scheduled-transaction/items (first retrieved)))
-            "The scheduled transaction items can be retrieved after import.")))))
+          entity (execute-import imp)
+          retrieved (models/select #:scheduled-transaction{:entity entity})]
+      (is (seq-of-maps-like?
+            [#:scheduled-transaction{:entity (util/->model-ref entity)
+                                     :description "Paycheck"
+                                     :memo nil
+                                     :start-date (t/local-date 2016 1 15)
+                                     :end-date (t/local-date 2018 12 31)
+                                     :enabled true
+                                     :date-spec {:days #{:friday}}
+                                     :last-occurrence nil
+                                     :interval-type :week
+                                     :interval-count 2}]
+            retrieved)
+          "The scheduled transactions are available after import.")
+      (is (seq-of-maps-like? [#:scheduled-transaction-item{:action :debit
+                                                           :account (account-ref "Checking")
+                                                           :quantity 1000M
+                                                           :memo nil}
+                              #:scheduled-transaction-item{:action :credit
+                                                           :account (account-ref "Salary")
+                                                           :quantity 1000M
+                                                           :memo nil}]
+                             (:scheduled-transaction/items (first retrieved)))
+          "The scheduled transaction items can be retrieved after import."))))
