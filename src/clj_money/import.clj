@@ -470,14 +470,6 @@
         (update-in [:commodities-by-symbol] (fnil assoc {}) symbol created)
         (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) [exchange symbol] created))))
 
-(defn- assoc-error
-  [ctx msg data]
-  (update-in ctx
-             [:progress :errors]
-             (fnil conj [])
-             {:message msg
-              :data data}))
-
 (defn- ignore?
   [{:import/keys [ignore?]}]
   ignore?)
@@ -525,22 +517,27 @@
                :reconciliation/status :completed)
         models/put)))
 
+(defn- notify-reconciliation-finalization
+  [out-chan]
+  (fn [recon]
+    (a/go
+      (a/>! out-chan {:import/record-type :reconciliation-finalization}))
+    recon))
+
 (defn- process-reconciliations
   [{:keys [entity] :as ctx} out-chan]
   (let [reconciliations (models/select
-                         (util/model-type
-                          {:account/entity entity}
-                          :reconciliation))
-        progress {:total (count reconciliations)}
+                          (util/model-type
+                            {:account/entity entity}
+                            :reconciliation))
         ch (a/promise-chan)]
     (a/go
-      (a/>! out-chan progress)
-      (->> reconciliations
-           (map #(process-reconciliation % ctx))
-           (map-indexed (fn [i _]
-                          (a/go
-                            (a/>! out-chan (assoc progress :completed (+ 1 i))))))
-           doall)
+      (a/>! out-chan {:declaration/record-type :reconciliation
+                      :declaration/record-count (count reconciliations)
+                      :import/record-type :declaration})
+      (mapv (comp (notify-reconciliation-finalization out-chan)
+                  #(process-reconciliation % ctx))
+            reconciliations)
       (a/close! ch))
     ch))
 
@@ -585,18 +582,19 @@
               :completed]
              (fnil inc 0)))
 
-(defn- ->progress
-  "Returns a transducer that takes an imported record and converts it
-  into a progress record"
-  []
-  (let [state (atom {})]
-    (fn
-      [xf]
-      (fn
-        ([acc] (xf acc))
-        ([acc record]
-         (swap! state update-progress-state record)
-         (xf acc @state))))))
+(defn progress-xf []
+  (let [progress (atom {})]
+    (map (fn [{:as r :declaration/keys [record-type record-count]}]
+           (case (:import/record-type r)
+             :declaration (swap! progress
+                                 assoc
+                                 record-type
+                                 {:total record-count
+                                  :completed 0})
+             (swap! progress
+                    update-in
+                    [(:import/record-type r) :completed]
+                    (fnil inc 0)))))))
 
 (defmulti filter-behavior
   (fn [record _state]
@@ -629,12 +627,6 @@
             :import (xf acc record)
             :ignore (xf acc (assoc record :import/ignore? true))))))))
 
-(defn- +record-type
-  "Returns a transducing fn that appends the specified value in the received
-  maps at the key :import/record-type"
-  [record-type]
-  (map #(assoc % :import/record-type record-type)))
-
 ; Import steps
 ; read input -> stream of records
 ; rebalance accounts -> stream of accounts (just counts?)
@@ -653,19 +645,13 @@
 ; 2. filt
 
 (defn- import-data*
-  [import-spec {:keys [progress-chan]}]
+  [import-spec {:keys [out-chan]}]
   (let [user (models/find (:import/user import-spec) :user)
         [inputs source-type] (prepare-input (:import/images import-spec))
         entity ((some-fn models/find-by models/put)
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
-        wait-chan (a/promise-chan)
-        propagation-chan (a/chan 1 (+record-type :propagation))
-        reconciliations-chan (a/chan 1 (+record-type :process-reconciliation))
-        prep-chan (a/chan (a/sliding-buffer 1) (->progress))]
-    (a/pipe propagation-chan prep-chan false)
-    (a/pipe reconciliations-chan prep-chan false)
-    (a/pipe prep-chan progress-chan false)
+        wait-chan (a/promise-chan)]
     (a/go
       (try
         (let [result (->> inputs
@@ -673,7 +659,7 @@
                           (a/transduce
                             (comp (filter-import)
                                   import-record
-                                  (forward prep-chan))
+                                  (forward out-chan))
                             (completing (fn [acc _] acc))
                             {:import import-spec
                              :account-ids {}
@@ -681,9 +667,9 @@
                           a/<!!)]
           (-> entity
               models/find
-              (prop/propagate-all :progress-chan propagation-chan))
+              (prop/propagate-all :progress-chan out-chan))
           (a/alts!! [(process-reconciliations result
-                                              reconciliations-chan)
+                                              out-chan)
                      (a/timeout 5000)]))
         (finally
           (a/close! wait-chan))))

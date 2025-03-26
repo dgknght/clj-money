@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.test :refer [deftest is use-fixtures testing assert-expr do-report]]
             [clojure.java.io :as io]
-            [clojure.core.async :as a :refer [go-loop <! chan]]
+            [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
@@ -20,16 +20,16 @@
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.models :as models]
             [clj-money.reports :as reports]
-            [clj-money.import :refer [import-data]]
+            [clj-money.import :refer [import-data] :as imp]
             [clj-money.import.gnucash]
             [clj-money.import.edn]))
 
 (use-fixtures :each reset-db)
 
 (defn- nil-chan []
-  (let [c (chan)]
-    (go-loop [_ (<! c)]
-      (recur (<! c)))
+  (let [c (a/chan)]
+    (a/go-loop [x (a/<! c)]
+      (when x (recur (a/<! c))))
     c))
 
 (def ^:private base-context
@@ -107,16 +107,9 @@
 
 (defn- execute-import
   [imp]
-  (let [updates (atom [])
-        progress-chan (chan)
-        _ (go-loop [p (<! progress-chan)]
-                   (when p
-                     (swap! updates #(conj % p))
-                     (recur (<! progress-chan))))
-        {:keys [entity wait-chan]} (import-data imp :progress-chan progress-chan)]
+  (let [{:keys [entity wait-chan]} (import-data imp)]
     (a/alts!! [wait-chan (a/timeout 5000)])
-    {:entity entity
-     :updates @updates}))
+    entity))
 
 (defmethod assert-expr 'includes-progress-notification?
   [msg form]
@@ -137,65 +130,13 @@
                                           (map #(get-in % [~k]))
                                           (filter identity))}))))))
 
-(defn- includes-progress-records
-  [updates]
-  (is (includes-progress-notification?
-        :commodity
-        {:total 2
-         :completed 0}
-        updates)
-      "The initial commodity progress is reported")
-  (is (includes-progress-notification?
-        :commodity
-        {:total 2
-         :completed 2}
-        updates)
-      "The final commodity progress is reported")
-  (is (includes-progress-notification?
-        :account
-        {:total 9
-         :completed 0}
-        updates)
-      "The initial account progress is reported")
-  (is (includes-progress-notification?
-        :account
-        {:total 9
-         :completed 9}
-        updates)
-      "The final account progress is reported")
-  (is (includes-progress-notification?
-        :transaction
-        {:total 6
-         :completed 0}
-        updates)
-      "The initial transaction progress is reported")
-  (is (includes-progress-notification?
-        :transaction
-        {:total 6
-         :completed 6}
-        updates)
-      "The final transaction progress is reported")
-  (is (includes-progress-notification?
-        :propagation
-        {:total 4
-         :completed 0}
-        updates)
-      "The initial propagation progress is reported")
-  (is (includes-progress-notification?
-        :propagation
-        {:total 4
-         :completed 4}
-        updates)
-      "The final propagation progress is reported"))
-
 (defn- test-import []
   (let [imp (find-import "Personal")
-        {:keys [entity] :as result} (execute-import imp)]
+        entity (execute-import imp)]
     (testing "the return value"
       (is (comparable? {:entity/name "Personal"}
                        entity)
-          "It returns the new entity")
-      (includes-progress-records (:updates result)))
+          "It returns the new entity"))
     (testing "models"
       (is (comparable? #:entity{:name "Personal"
                                 :settings #:settings{:default-commodity (util/->model-ref (models/find-by #:commodity{:symbol "USD"
@@ -245,6 +186,66 @@
   (with-context gnucash-context
     (test-import)))
 
+(deftest track-import-progress
+  (with-context gnucash-context
+    (let [state (atom [])
+          progress-chan (a/chan 1 (imp/progress-xf))
+          _ (a/go-loop [p (a/<! progress-chan)]
+                       (when p
+                         (swap! state #(conj % p))
+                         (recur (a/<! progress-chan))))
+          {:keys [wait-chan]} (import-data (find-import "Personal") :out-chan progress-chan)]
+      (a/alts!! [wait-chan (a/timeout 5000)])
+      (let [updates @state]
+        (is (includes-progress-notification?
+              :commodity
+              {:total 2
+               :completed 0}
+              updates)
+            "The initial commodity progress is reported")
+        (is (includes-progress-notification?
+              :commodity
+              {:total 2
+               :completed 2}
+              updates)
+            "The final commodity progress is reported")
+        (is (includes-progress-notification?
+              :account
+              {:total 9
+               :completed 0}
+              updates)
+            "The initial account progress is reported")
+        (is (includes-progress-notification?
+              :account
+              {:total 9
+               :completed 9}
+              updates)
+            "The final account progress is reported")
+        (is (includes-progress-notification?
+              :transaction
+              {:total 6
+               :completed 0}
+              updates)
+            "The initial transaction progress is reported")
+        (is (includes-progress-notification?
+              :transaction
+              {:total 6
+               :completed 6}
+              updates)
+            "The final transaction progress is reported")
+        (is (includes-progress-notification?
+              :propagation
+              {:total 4
+               :completed 0}
+              updates)
+            "The initial propagation progress is reported")
+        (is (includes-progress-notification?
+              :propagation
+              {:total 4
+               :completed 4}
+              updates)
+            "The final propagation progress is reported")))))
+
 (def ^:private edn-context
   (conj base-context
         #:image{:body (-> "resources/fixtures/sample_0.edn.gz"
@@ -284,8 +285,7 @@
 (deftest import-with-entity-settings
   (with-context ext-context
     (let [imp (find-import "Personal")
-          result (execute-import imp)
-          entity (models/find (:entity result))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
+          entity (models/find (execute-import imp))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
       (is (util/model-ref? (get-in entity [:entity/settings
                                            :settings/lt-capital-gains-account]))
           "The long-term capital gains account id is set")
@@ -477,9 +477,9 @@
 (deftest import-scheduled-transactions
   (with-context sched-context
     (let [imp (find-import "Personal")
-          {:keys [entity updates]} (execute-import imp)]
+          entity (execute-import imp)]
       (is (= {:total 1 :completed 1}
-             (:scheduled-transaction (last updates)))
+             {} #_(:scheduled-transaction (last updates)))
           "The progress is updated for the scheduled transactions")
       (let [retrieved (models/select #:scheduled-transaction{:entity entity})]
         (is (seq-of-maps-like?

@@ -608,8 +608,9 @@
    {:pre [entity]}
    (let [accounts (models/select {:account/entity entity})
          _ (when progress-chan
-             (a/go (a/>! progress-chan {:total (count accounts)
-                                        :completed 0})))
+             (a/go (a/>! progress-chan {:declaration/record-type :propagation
+                                        :declaration/record-count (count accounts)
+                                        :import/record-type :declaration})))
          {:keys [entity models]}
          (->> accounts
               apply-commodities
@@ -617,9 +618,7 @@
                               (when progress-chan
                                 (a/go
                                   (a/>! progress-chan
-                                        {:total (count accounts)
-                                         :completed (inc (:completed ctx))})))
-
+                                        {:import/record-type :propagation})))
                               (update-in ctx [:completed] inc))
                             propagate-account-from-start)
                       {:entity entity
