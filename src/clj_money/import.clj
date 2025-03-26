@@ -567,37 +567,6 @@
         (fn [acc v]
           (xf acc v))))))
 
-(defmulti update-progress-state
-  (fn [_state record]
-    (if (= ::finished record)
-      :finish
-      (case (:import/record-type record)
-        (:propagation :process-reconciliation) :direct ; this comes from models/transactions or here and is basically ready to go
-        :declaration :init ; this comes from a declaration in the import source indicating the number or records to expect
-        :imported)))) ; this is an imported record
-
-(defmethod update-progress-state :finish
-  [state _record]
-  (assoc state :finished true))
-
-(defmethod update-progress-state :direct
-  [state record]
-  (assoc state (:import/record-type record) (dissoc record :import/record-type)))
-
-(defmethod update-progress-state :init
-  [state {:declaration/keys [record-count record-type]}]
-  (assoc state
-         record-type
-         {:total record-count
-          :completed 0}))
-
-(defmethod update-progress-state :imported
-  [state record]
-  (update-in state
-             [(:import/record-type record)
-              :completed]
-             (fnil inc 0)))
-
 (defn progress-xf []
   (let [progress (atom {})]
     (map (fn [{:as r :declaration/keys [record-type record-count]}]
