@@ -23,7 +23,7 @@
   (log/warn msg)
   (update-in ctx
              [:progress :warnings]
-             (fnil conj [])
+             conj
              {:message msg
               :data data}))
 
@@ -486,9 +486,14 @@
          (xf (import-record* context record)
              record)
          (catch Exception e
-           (xf context {:import/record-type :error
-                        :error/message (ex-message e)
-                        :error/data (ex-data e)})))))))
+           (let [msg {:import/record-type :error
+                      :error/message (ex-message e)
+                      :error/data (ex-data e)}]
+             (xf (update-in context
+                            [:errors]
+                            conj
+                            msg)
+                 msg))))))))
 
 (defn- fetch-reconciled-items
   [{:reconciliation/keys [account]
@@ -679,6 +684,8 @@
                             (completing (fn [acc _] acc))
                             {:import import-spec
                              :account-ids {}
+                             :errors []
+                             :warnings []
                              :entity entity})
                           a/<!!)]
           (-> entity
@@ -686,7 +693,8 @@
               (prop/propagate-all :progress-chan out-chan))
           (a/alts!! [(process-reconciliations result
                                               out-chan)
-                     (a/timeout 5000)]))
+                     (a/timeout 5000)])
+          (a/>! wait-chan (select-keys result [:errors :warnings :entity])))
         (finally
           (a/close! wait-chan))))
     {:entity entity

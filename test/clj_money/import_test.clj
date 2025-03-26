@@ -101,9 +101,8 @@
 
 (defn- execute-import
   [imp]
-  (let [{:keys [entity wait-chan]} (import-data imp)]
-    (a/alts!! [wait-chan (a/timeout 5000)])
-    entity))
+  (let [{:keys [wait-chan]} (import-data imp)]
+    (first (a/alts!! [wait-chan (a/timeout 5000)]))))
 
 (defmethod assert-expr 'includes-progress-notification?
   [msg form]
@@ -126,7 +125,9 @@
 
 (defn- test-import []
   (let [imp (find-import "Personal")
-        entity (execute-import imp)]
+        {:keys [entity errors warnings]} (execute-import imp)]
+    (is (empty? errors) "No errors are reported")
+    (is (empty? warnings) "No errors are reported")
     (testing "the return value"
       (is (comparable? {:entity/name "Personal"}
                        entity)
@@ -303,18 +304,20 @@
 (deftest import-with-entity-settings
   (with-context ext-context
     (let [imp (find-import "Personal")
-          entity (models/find (execute-import imp))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
-      (is (util/model-ref? (get-in entity [:entity/settings
-                                           :settings/lt-capital-gains-account]))
+          {:keys [entity errors warnings]} (execute-import imp)
+          {{:settings/keys [lt-capital-gains-account
+                            st-capital-gains-account
+                            lt-capital-loss-account
+                            st-capital-loss-account]} :entity/settings} (models/find entity)]
+      (is (empty? errors) "No errors are reported")
+      (is (empty? warnings) "No warnings are reported")
+      (is (util/model-ref? lt-capital-gains-account)
           "The long-term capital gains account id is set")
-      (is (util/model-ref? (get-in entity [:entity/settings
-                                           :settings/st-capital-gains-account]))
+      (is (util/model-ref? st-capital-gains-account)
           "The short-term capital gains account id is set")
-      (is (util/model-ref? (get-in entity [:entity/settings
-                                           :settings/lt-capital-loss-account]))
+      (is (util/model-ref? lt-capital-loss-account)
           "The long-term capital losses account id is set")
-      (is (util/model-ref? (get-in entity [:entity/settings
-                                           :settings/lt-capital-loss-account]))
+      (is (util/model-ref? st-capital-loss-account)
           "The short-term capital losses account id is set"))))
 
 (defn- gnucash-budget-sample []
@@ -377,8 +380,10 @@
 (deftest import-commodities
   (with-context commodities-context
     (let [imp (find-import "Personal")
-          {:keys [wait-chan]} (import-data imp)]
-      (a/alts!! [wait-chan (a/timeout 5000)])
+          {:keys [wait-chan]} (import-data imp)
+          {:keys [errors warnings]} (a/alts!! [wait-chan (a/timeout 5000)])]
+      (is (empty? errors) "No errors are reported")
+      (is (empty? warnings) "No warnings are reported")
       (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 1 17)
                                     :shares-purchased 100M
                                     :shares-owned 100M
@@ -494,8 +499,10 @@
 (deftest import-scheduled-transactions
   (with-context sched-context
     (let [imp (find-import "Personal")
-          entity (execute-import imp)
+          {:keys [entity errors warnings]} (execute-import imp)
           retrieved (models/select #:scheduled-transaction{:entity entity})]
+      (is (empty? errors) "No errors are reported")
+      (is (empty? warnings) "No warnings are reported")
       (is (seq-of-maps-like?
             [#:scheduled-transaction{:entity (util/->model-ref entity)
                                      :description "Paycheck"
