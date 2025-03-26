@@ -26,12 +26,6 @@
 
 (use-fixtures :each reset-db)
 
-(defn- nil-chan []
-  (let [c (a/chan)]
-    (a/go-loop [x (a/<! c)]
-      (when x (recur (a/<! c))))
-    c))
-
 (def ^:private base-context
   [(factory :user, {:user/email "john@doe.com"})])
 
@@ -339,7 +333,7 @@
 (deftest import-a-budget
   (with-context import-budget-context
     (let [imp (find-import "Personal")
-          {:keys [entity wait-chan]} (import-data imp :progress-chan (nil-chan))]
+          {:keys [entity wait-chan]} (import-data imp)]
       (a/alts!! [wait-chan (a/timeout 5000)])
       (let [retrieved (models/select {:budget/entity entity})]
         (is (seq-of-maps-like? [#:budget{:name "2017"
@@ -382,7 +376,7 @@
 (deftest import-commodities
   (with-context commodities-context
     (let [imp (find-import "Personal")
-          {:keys [wait-chan]} (import-data imp :progress-chan (nil-chan))]
+          {:keys [wait-chan]} (import-data imp)]
       (a/alts!! [wait-chan (a/timeout 5000)])
       (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 1 17)
                                     :shares-purchased 100M
@@ -406,8 +400,7 @@
 
 (deftest import-commodities-with-extended-actions
   (with-context ext-context
-    (let [{:keys [entity wait-chan]} (import-data (find-import "Personal")
-                                             :progress-chan (nil-chan))
+    (let [{:keys [entity wait-chan]} (import-data (find-import "Personal"))
           _ (a/alts!! [wait-chan (a/timeout 5000)])
           four-oh-one-k (models/find-by {:account/name "401k"})
           ira (models/find-by {:account/name "IRA"
