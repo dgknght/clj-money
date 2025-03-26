@@ -249,18 +249,19 @@
                                                                  :reconciliation))
                                         (throw (ex-info "Induced error" {:one 1}))
                                         (apply og-put-many args)))]
-        (let [state (atom [])
+        (let [state (atom nil)
               progress-chan (a/chan 1 (imp/progress-xf))
               _ (a/go-loop [p (a/<! progress-chan)]
                            (when p
-                             (swap! state #(conj % p))
+                             (reset! state p)
                              (recur (a/<! progress-chan))))
               {:keys [wait-chan]} (import-data (find-import "Personal") :out-chan progress-chan)]
           (a/alts!! [wait-chan (a/timeout 5000)])
           (let [{:keys [errors]} @state]
-            (is (= [{:error/message "Induced error"
-                     :error/data {:one 1}}]
-                   errors)
+            (is (seq-of-maps-like?
+                  [{:error/message "Induced error"
+                    :error/data {:one 1}}]
+                  errors)
                 "Errors are reported and aggregated")))))))
 
 (def ^:private edn-context
