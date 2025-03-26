@@ -482,8 +482,13 @@
     ([context record]
      (if (ignore? record)
        (xf context record)
-       (xf (import-record* context record)
-           record)))))
+       (try
+         (xf (import-record* context record)
+             record)
+         (catch Exception e
+           (xf context {:import/record-type :error
+                        :error/message (ex-message e)
+                        :error/data (ex-data e)})))))))
 
 (defn- fetch-reconciled-items
   [{:reconciliation/keys [account]
@@ -591,6 +596,11 @@
                                  record-type
                                  {:total record-count
                                   :completed 0})
+             :error (swap! progress
+                           update-in
+                           [:errors]
+                           (fnil conj [])
+                           r)
              (swap! progress
                     update-in
                     [(:import/record-type r) :completed]

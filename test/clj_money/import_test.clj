@@ -246,6 +246,29 @@
               updates)
             "The final propagation progress is reported")))))
 
+(deftest report-an-error
+  (with-context gnucash-context
+    (let [og-put-many models/put-many]
+      (with-redefs [models/put-many (fn [& args]
+                                      (if (and (= 2 (count args))
+                                               (util/model-type? (first (second args))
+                                                                 :reconciliation))
+                                        (throw (ex-info "Induced error" {:one 1}))
+                                        (apply og-put-many args)))]
+        (let [state (atom [])
+              progress-chan (a/chan 1 (imp/progress-xf))
+              _ (a/go-loop [p (a/<! progress-chan)]
+                           (when p
+                             (swap! state #(conj % p))
+                             (recur (a/<! progress-chan))))
+              {:keys [wait-chan]} (import-data (find-import "Personal") :out-chan progress-chan)]
+          (a/alts!! [wait-chan (a/timeout 5000)])
+          (let [{:keys [errors]} @state]
+            (is (= [{:error/message "Induced error"
+                     :error/data {:one 1}}]
+                   errors)
+                "Errors are reported and aggregated")))))))
+
 (def ^:private edn-context
   (conj base-context
         #:image{:body (-> "resources/fixtures/sample_0.edn.gz"
