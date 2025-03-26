@@ -107,13 +107,11 @@
 
 (defn- receive-import
   ([page-state] (partial receive-import page-state))
-  ([page-state {{:keys [errors finished]} :import/progress
+  ([page-state {{:keys [finished]} :import/progress
                 :as received}]
-   (when (seq errors)
-     (pprint {::errors errors}))
+   (when finished
+     (reset! auto-refresh false))
    (when @auto-refresh
-     (when finished
-       (reset! auto-refresh false))
      (go
        (<! (timeout 1000))
        (load-import page-state)))
@@ -211,16 +209,28 @@
 
 (defn- errors-card
   [page-state]
-  (let [errors (r/cursor page-state [:active :import/progress :errors])]
+  (let [errors (r/cursor page-state [:active :import/progress :errors])
+        warnings (r/cursor page-state [:active :import/progress :warnings])]
     (fn []
-      (when (seq @errors)
+      (when (or (seq @errors)
+                (seq @warnings))
         [:div.card
-         [:div.card-header "Errors"]
+         [:div.card-header "Alerts"]
          [:div.card-body
           (->> @errors
+               (take 5)
                (map-indexed (fn [index error]
                               ^{:key (str "import-error-" index)}
-                              [:div.alert.alert-danger (:message error)])))]]))))
+                              [:div.alert.alert-danger
+                               {:role :alert}
+                               (:error/message error)])))
+          (->> @warnings
+               (take 5)
+               (map-indexed (fn [index warning]
+                              ^{:key (str "import-warning-" index)}
+                              [:div.alert.alert-warning
+                               {:role :alert}
+                               (:message warning)])))]]))))
 
 (defn- import-activity
   [page-state]

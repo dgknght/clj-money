@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.async :refer [go-loop <! chan]]
+            [clojure.core.async :as a]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [cheshire.core :as json]
@@ -14,22 +14,34 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.images :as images]
-            [clj-money.import :refer [import-data]]
+            [clj-money.import :refer [import-data progress-xf]]
             [clj-money.import.gnucash]
             [clj-money.import.edn]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.authorization.imports]))
 
+(defn- report-progress
+  [imp progress-chan]
+  (a/go-loop [progress (a/<! progress-chan)]
+    (when progress
+      (log/debugf "import progress for %s: %s" (:import/entity-name imp) progress)
+      (models/put (assoc imp :import/progress progress))
+      (recur (a/<! progress-chan)))))
+
+(defn- finalize
+  [imp wait-chan]
+  (a/go
+    (a/<! wait-chan)
+    (log/debugf "import finished for %s" (:import/entity-name imp))
+    (models/put (assoc-in imp [:import/progress :finished] true))))
+
 (defn- launch-and-track-import
   [imp]
-  (let [progress-chan (chan)]
-    (go-loop [progress (<! progress-chan)]
-      (when progress
-        (log/debugf "import progress for %s: %s" (:import/entity-name imp) progress)
-        (models/put (assoc imp :import/progress progress))
-        (recur (<! progress-chan))))
-    (let [{:keys [entity]} (import-data imp
-                                        :progress-chan progress-chan)]
+  (let [out-chan (a/chan 10 (progress-xf))]
+    (report-progress imp out-chan)
+    (let [{:keys [entity wait-chan]} (import-data imp
+                                                  :out-chan out-chan)]
+      (finalize imp wait-chan)
       {:entity entity
        :import imp})))
 
