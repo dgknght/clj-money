@@ -38,8 +38,13 @@
                   :on-success #(load-imports page-state)))
 
 (defn- append-dropped-files
-  [event import-data]
-  (update-in import-data [:files] #(concat % (dnd/files event))))
+  [event]
+  (fn
+    [import-data]
+    (update-in import-data
+               [:files]
+               (fnil concat [])
+               (dnd/data-files event))))
 
 (defn- file-list
   [import-data]
@@ -264,12 +269,13 @@
       (notify/danger (str "Unable to start the import: " (.-name e) " - " (.-message e))))))
 
 (defn- file-drop
-  [import-data event]
-  (.preventDefault event)
-  (try
-    (swap! import-data #(append-dropped-files event %))
-    (catch js/Error err
-      (.log js/console "Error: " (prn-str err)))))
+  [import-data]
+  (fn [event]
+    (.preventDefault event)
+    (try
+      (swap! import-data (append-dropped-files event))
+      (catch js/Error err
+        (.error js/console err)))))
 
 (defn- present?
   [{:keys [user-id]}]
@@ -291,9 +297,9 @@
          [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]
          [:div#import-source.drop-zone.bg-primary.text-light
           {:on-drag-over #(.preventDefault %)
-           :on-drop #(file-drop import-data %)}
+           :on-drop (file-drop import-data)}
           [:div "Drop files here"]]]
-        [file-list import-data]
+        (file-list @import-data)
         [:div.card-footer
          [button {:html {:type :submit
                          :class "btn-success"

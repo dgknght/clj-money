@@ -170,7 +170,7 @@
   (.preventDefault e)
   (att/create {:transaction-id (:transaction-id item) ; TODO: use transaction-ref to combine these?
                :transaction-date (:transaction-date item)
-               :file (first (dnd/files e))}
+               :file (first (dnd/data-files e))}
               (map (partial post-item-row-drop page-state item))))
 
 (defn- item-row
