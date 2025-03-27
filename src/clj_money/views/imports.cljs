@@ -48,9 +48,9 @@
 
 (defn- file-list
   [import-data]
-  (when (seq (:files @import-data))
+  (when (seq (:files import-data))
     [:ul.list-group.list-group-flush
-     (for [file (:files @import-data)]
+     (for [file (:files import-data)]
        ^{:key (.-name file)}
        [:li.list-group-item (.-name file)])]))
 
@@ -214,28 +214,23 @@
 
 (defn- errors-card
   [page-state]
-  (let [errors (r/cursor page-state [:active :import/progress :errors])
-        warnings (r/cursor page-state [:active :import/progress :warnings])]
+  (let [notifications (r/cursor page-state [:active :import/progress :notifications])]
     (fn []
-      (when (or (seq @errors)
-                (seq @warnings))
+      (when (seq @notifications)
         [:div.card
          [:div.card-header "Alerts"]
          [:div.card-body
-          (->> @errors
-               (take 5)
-               (map-indexed (fn [index error]
+          (->> @notifications
+               (take 20)
+               (map-indexed (fn [index n]
                               ^{:key (str "import-error-" index)}
-                              [:div.alert.alert-danger
-                               {:role :alert}
-                               (:error/message error)])))
-          (->> @warnings
-               (take 5)
-               (map-indexed (fn [index warning]
-                              ^{:key (str "import-warning-" index)}
-                              [:div.alert.alert-warning
-                               {:role :alert}
-                               (:message warning)])))]]))))
+                              [:div.alert
+                               {:role :alert
+                                :class (case (:notification/severity n)
+                                        "error" "alert-danger"
+                                         "warning" "alert-warning"
+                                         "alert-info")}
+                               (:notification/message n)]))) ]]))))
 
 (defn- import-activity
   [page-state]
