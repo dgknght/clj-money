@@ -255,13 +255,10 @@
   [event page-state]
   (.preventDefault event)
   (+busy)
-  (try
-    (imports/create (dissoc (get-in @page-state [:import-data]) ::v/validation)
-                    :callback -busy
-                    :on-success (start-after-save page-state))
-    (catch js/Error e
-      (.dir js/console e)
-      (notify/danger (str "Unable to start the import: " (.-name e) " - " (.-message e))))))
+  (imports/create (dissoc (get-in @page-state [:import-data]) ::v/validation)
+                  :callback -busy
+                  :on-failure (notify/danger "Unable to start the import: %s")
+                  :on-success (start-after-save page-state)))
 
 (defn- file-drop
   [import-data]
