@@ -404,7 +404,7 @@
                                       items)))
                     purge-import-keys
                     models/put)]
-    (log/infof "Imported scheduled transaction %s"
+    (log/infof "imported scheduled transaction %s"
                (:scheduled-transaction/description created)))
   context)
 
