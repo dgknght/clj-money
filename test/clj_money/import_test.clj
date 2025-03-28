@@ -265,6 +265,29 @@
                   notifications)
                 "Errors are reported and aggregated")))))))
 
+(deftest halt-on-failure
+  (with-context gnucash-context
+    (let [og-put-many models/put-many]
+      (with-redefs [models/put-many (fn [& args]
+                                      (if (and (= 2 (count args))
+                                               (util/model-type? (first (second args))
+                                                                 :commodity))
+                                        (throw (ex-info "Induced error" {:one 1}))
+                                        (apply og-put-many args)))]
+        (let [imp (find-import "Personal")
+              records (atom [])
+              out-chan (a/chan)
+              _ (a/go-loop [x (a/<! out-chan)]
+                           (when x
+                             (swap! records conj x)
+                             (recur (a/<! out-chan))))
+              {:keys [wait-chan]} (import-data imp :out-chan out-chan)
+              [result] (a/alts!! [wait-chan (a/timeout 5000)])]
+          (is (seq-of-maps-like? {:notification/severity :fatal
+                                  :notification/message "Unable to save commodity"
+                                  :notification/data {}}
+                                 (:notifications result))))))))
+
 (def ^:private edn-context
   (conj base-context
         #:image{:body (-> "resources/fixtures/sample_0.edn.gz"

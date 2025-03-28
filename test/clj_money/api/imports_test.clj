@@ -200,3 +200,8 @@
 
 (deftest a-user-cannot-start-anothers-import
   (assert-blocked-start (start-import "jane@doe.com")))
+
+(deftest halt-on-fatal-error
+  (with-context list-context
+    (let [_imp (find-import "Personal")])
+    ))
