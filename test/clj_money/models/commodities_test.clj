@@ -138,13 +138,6 @@
     (assert-invalid (dissoc (attributes) :commodity/exchange)
                     {:commodity/exchange ["Exchange is required"]})))
 
-(deftest exchange-is-required-for-funds
-  (with-context commodity-context
-    (assert-invalid (-> (attributes)
-                        (assoc :commodity/type :fund)
-                        (dissoc :commodity/exchange))
-                    {:commodity/exchange ["Exchange is required"]})))
-
 (deftest exchange-is-not-required-for-currencies
   (with-context commodity-context
     (assert-created #:commodity{:entity (find-entity "Personal")

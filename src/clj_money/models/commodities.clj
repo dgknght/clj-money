@@ -41,7 +41,7 @@
 
 (defn- exchange-is-satisfied?
   [{:commodity/keys [type exchange]}]
-  (or (= :currency type)
+  (or (#{:fund :currency} type)
       exchange))
 (v/reg-spec exchange-is-satisfied? {:message "%s is required"
                                     :path [:commodity/exchange]})
