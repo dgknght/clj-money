@@ -12,6 +12,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
+            [clj-money.models.transactions :refer [with-delayed-propagation]]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
 
@@ -79,7 +80,7 @@
 
 (defn- put-many
   [models]
-  (prop/with-propagation [out-chan ctrl-chan]
+  (with-delayed-propagation [out-chan ctrl-chan]
     (models/put-many {:out-chan out-chan
                       :ctrl-chan ctrl-chan}
                      models)))
