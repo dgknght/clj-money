@@ -32,7 +32,7 @@
   [imp wait-chan]
   (a/go
     (a/<! wait-chan)
-    (log/debugf "import finished for %s" (:import/entity-name imp))
+    (log/infof "import finished for %s" (:import/entity-name imp))
     (models/put (assoc-in imp [:import/progress :finished] true))))
 
 (defn- launch-and-track-import
@@ -41,6 +41,7 @@
     (report-progress imp out-chan)
     (let [{:keys [entity wait-chan]} (import-data imp
                                                   :out-chan out-chan)]
+      (log/infof "import started for %s" (:import/entity-name imp))
       (finalize imp wait-chan)
       {:entity entity
        :import imp})))
