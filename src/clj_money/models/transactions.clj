@@ -343,19 +343,18 @@
   based on the most recent price of the tracked commodity. This price may be
   supplied in the account at :account/commodity-price, or it will be searched
   and will default to 1M if not found."
-  [{:as account :account/keys [commodity]} items]
+  [{:as account :account/keys [commodity]} basis items]
   (let [updated-items (->> items
-                           rest
                            (reduce (fn [output item]
                                      (let [updated (apply-prev item (last output))]
                                        (if (= item updated)
                                          (reduced output)
                                          (conj output updated))))
-                                   [(first items)])
-                           (drop 1) ; the 1st is the basis and is not updated
+                                   [basis])
+                           (drop 1)
                            (map #(dissoc % ::polarized-quantity)))
         final-qty (or (:transaction-item/balance (last updated-items))
-                      (:transaction-item/balance (first items)))
+                      (:transaction-item/balance basis))
         ; TODO: Shortcut this by checking if the commodity is the entity default
         price (or (:account/commodity-price account)
                   (:price/price
@@ -367,15 +366,16 @@
                       {:sort [[:price/trade-date :desc]]}))
                   1M)]
     (if (= (count updated-items)
-           (- (count items)
-              1))  ; this means a short-circuit did not take place
+           (count items))
       (cons (-> account
                 (update-in [:account/latest-transaction-date]
                            dates/latest
                            (:transaction-item/transaction-date (last items)))
                 (update-in [:account/earliest-transaction-date]
                            dates/earliest
-                           (some :transaction-item/transaction-date items))
+                           (some :transaction-item/transaction-date
+                                 (cons basis
+                                       items)))
                 (assoc :account/quantity final-qty
                        :account/value (* final-qty price)))
             updated-items)
@@ -413,11 +413,11 @@
                         as-of
                         [:account/earliest-transaction-date]
                         [:account/latest-transaction-date])))
-                (cons (propagation-basis account as-of)
-                      (->> (cond->> affected-items
-                             (not delete?) (concat items))
-                           (sort-by :transaction-item/transaction-date t/before?)
-                           (map polarize)))))))
+                (propagation-basis account as-of)
+                (->> (cond->> affected-items
+                       (not delete?) (concat items))
+                     (sort-by :transaction-item/transaction-date t/before?)
+                     (map polarize))))))
 
 (defn- account-model-ref-ids
   "Extracts and returns the account ids from references from the transaction
@@ -584,7 +584,8 @@
                          latest-transaction-date]}
          :as updated] (when items
                         (->> (re-index account
-                                       (cons initial-basis items))
+                                       initial-basis
+                                       items)
                              (map (comp #(dissoc % ::polarized-quantity)
                                         #(update-in-if % [:transaction-item/account] util/->model-ref)))))]
     (-> ctx
@@ -653,7 +654,7 @@
                                            #(assoc % :transaction-item/account account))
                                      (models/select {:transaction-item/account account}))})))
                (mapcat (fn [{:keys [account items basis]}]
-                         (re-index account (cons basis items))))))))
+                         (re-index account basis items)))))))
 
 (def extract-dates
   (comp (mapcat identity)
