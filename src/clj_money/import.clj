@@ -489,9 +489,12 @@
              record)
          (catch Exception e
            (let [msg {:import/record-type :notification
-                      :notification/severity :error
-                      :notification/message (ex-message e)
-                      :notification/data (ex-data e)}]
+                      :notification/severity :fatal
+                      :notification/message (format "An error occurred while trying to save record of type \"%s\": %s"
+                                                    (name (:import/record-type record))
+                                                    (ex-message e))
+                      :notification/data {:record record
+                                          :ex-data (ex-data e)}}]
              (xf (update-in context
                             [:notifications]
                             conj
@@ -655,23 +658,23 @@
                                   (forward out-chan))
                             (completing
                               (fn [acc {:import/keys [record-type]
-                                        :notification/keys [severity]
-                                        :as r}]
+                                        :notification/keys [severity]}]
                                 (if (and (= :notification record-type)
                                          (= :fatal severity))
-                                  (reduced acc)
+                                  (reduced (assoc acc :abend? true))
                                   acc)))
                             {:import import-spec
                              :account-ids {}
                              :notivications []
                              :entity entity})
                           a/<!!)]
-          (-> entity
-              models/find
-              (prop/propagate-all :progress-chan out-chan))
-          (a/alts!! [(process-reconciliations result
-                                              out-chan)
-                     (a/timeout 5000)])
+          (when-not (:abend? result)
+            (-> entity
+                models/find
+                (prop/propagate-all :progress-chan out-chan))
+            (a/alts!! [(process-reconciliations result
+                                                out-chan)
+                       (a/timeout 5000)]))
           (a/>! wait-chan (select-keys result [:notifications :entity])))
         (finally
           (a/close! wait-chan))))

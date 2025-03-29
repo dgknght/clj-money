@@ -278,21 +278,24 @@
               records (atom [])
               out-chan (a/chan)
               _ (a/go-loop [x (a/<! out-chan)]
-                           (when x
-                             (swap! records conj x)
-                             (recur (a/<! out-chan))))
+                  (when x
+                    (swap! records conj x)
+                    (recur (a/<! out-chan))))
               {:keys [wait-chan]} (import-data imp :out-chan out-chan)
               [result] (a/alts!! [wait-chan (a/timeout 5000)])]
-          (is (seq-of-maps-like? {:notification/severity :fatal
-                                  :notification/message "Unable to save commodity"
-                                  :notification/data {}}
+          (is (seq-of-maps-like? [{:notification/severity :fatal
+                                   :notification/message "An error occurred while trying to save record of type \"commodity\": Induced error"
+                                   :notification/data {}}]
                                  (:notifications result))
               "The error notification is included in the final result")
-          (is (seq-of-maps-like? {:notification/severity :fatal
-                                  :notification/message "Unable to save commodity"
-                                  :notification/data {}}
-                                 @records)
-              "The error notification is sent to the out-chan"))))))
+          (is (seq-of-maps-like? [{:import/record-type :declaration}
+                                  {:import/record-type :declaration}
+                                  {:import/record-type :declaration}
+                                  {:notification/severity :fatal
+                                   :notification/message "An error occurred while trying to save record of type \"commodity\": Induced error"
+                                   :notification/data {:record {:import/record-type :commodity}}}]
+                                   @records)
+                "The error notification is sent to the out-chan"))))))
 
 (def ^:private edn-context
   (conj base-context
