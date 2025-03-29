@@ -15,7 +15,7 @@
                  [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.11" :exclusions [org.clojure/tools.reader]]
-                 [com.github.seancorfield/next.jdbc "1.3.939"]
+                 [com.github.seancorfield/next.jdbc "1.3.1002"]
                  [org.postgresql/postgresql "42.7.4" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
@@ -62,7 +62,7 @@
                  [reagent-utils "0.3.1"]
                  [org.clojure/clojurescript "1.11.4" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "31.0.1-jre" :exclusions [com.google.code.findbugs/jsr305
-                                                             org.clojure/tools.reader]]
+                                                                   org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
                                                      org.clojure/tools.reader]]
@@ -95,7 +95,48 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
-                 [com.github.dgknght/app-lib "0.3.35" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server com.google.javascript/closure-compiler-externs com.cognitect/transit-cljs cljs-http camel-snake-kebab cheshire noencore commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core lein-doo]]
+                 [com.github.dgknght/app-lib
+                  "0.3.35"
+                  :exclusions
+                  [stowaway
+                   com.cognitect/transit-java
+                   com.google.protobuf/protobuf-java
+                   com.google.errorprone/error_prone_annotations
+                   org.clojure/google-closure-library-third-party
+                   com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                   ring/ring-core
+                   org.apache.httpcomponents/httpasyncclient
+                   com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
+                   org.eclipse.jetty/jetty-http
+                   ring/ring-codec
+                   org.apache.httpcomponents/httpmime
+                   org.eclipse.jetty/jetty-io
+                   org.eclipse.jetty/jetty-server
+                   com.google.javascript/closure-compiler-externs
+                   com.cognitect/transit-cljs
+                   cljs-http
+                   camel-snake-kebab
+                   cheshire
+                   noencore
+                   commons-io
+                   commons-codec
+                   clj-http
+                   joda-time
+                   clj-time
+                   com.google.jsinterop/jsinterop-annotations
+                   org.apache.httpcomponents/httpclient
+                   com.google.code.findbugs/jsr305
+                   com.cognitect/transit-clj
+                   org.clojure/google-closure-library
+                   org.apache.httpcomponents/httpcore-nio
+                   ring/ring-servlet
+                   com.google.javascript/closure-compiler-unshaded
+                   org.clojure/clojurescript
+                   org.apache.httpcomponents/httpclient-cache
+                   org.apache.httpcomponents/httpcore
+                   ring/ring-jetty-adapter
+                   com.fasterxml.jackson.core/jackson-core
+                   lein-doo]]
                  [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.29" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
   :repl-options {:init-ns clj-money.repl
