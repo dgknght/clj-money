@@ -653,7 +653,14 @@
                             (comp (filter-import)
                                   import-record
                                   (forward out-chan))
-                            (completing (fn [acc _] acc))
+                            (completing
+                              (fn [acc {:import/keys [record-type]
+                                        :notification/keys [severity]
+                                        :as r}]
+                                (if (and (= :notification record-type)
+                                         (= :fatal severity))
+                                  (reduced acc)
+                                  acc)))
                             {:import import-spec
                              :account-ids {}
                              :notivications []

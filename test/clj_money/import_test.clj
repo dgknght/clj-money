@@ -286,7 +286,13 @@
           (is (seq-of-maps-like? {:notification/severity :fatal
                                   :notification/message "Unable to save commodity"
                                   :notification/data {}}
-                                 (:notifications result))))))))
+                                 (:notifications result))
+              "The error notification is included in the final result")
+          (is (seq-of-maps-like? {:notification/severity :fatal
+                                  :notification/message "Unable to save commodity"
+                                  :notification/data {}}
+                                 @records)
+              "The error notification is sent to the out-chan"))))))
 
 (def ^:private edn-context
   (conj base-context
@@ -447,7 +453,7 @@
       (testing "accounts are tagged correctly"
         (is (system-tagged? ira :trading)
             "The IRA account is tagged as a trading account")
-        (is (system-tagged? four-oh-one-k :trading) 
+        (is (system-tagged? four-oh-one-k :trading)
             "The 401k account is tagged as a trading account"))
 
       (testing "transactions"
