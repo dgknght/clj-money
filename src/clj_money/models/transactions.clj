@@ -307,7 +307,11 @@
   update the index and balance attributes of the item."
   [{:as item ::keys [polarized-quantity]}
    {prev-index :transaction-item/index
-    prev-balance :transaction-item/balance}]
+    prev-balance :transaction-item/balance
+    :as prev-item}]
+  {:pre [(::polarized-quantity item)
+         (:transaction-item/balance prev-item)
+         (:transaction-item/index prev-item)]}
   (assoc item
          :transaction-item/index (inc prev-index)
          :transaction-item/balance (+ polarized-quantity prev-balance)))
