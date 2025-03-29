@@ -11,7 +11,6 @@
              :as authorization]
             [clj-money.util :as util]
             [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
             [clj-money.models.transactions :refer [with-delayed-propagation]]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
