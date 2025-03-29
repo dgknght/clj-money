@@ -678,6 +678,10 @@
       (update-in [:entity 1] dates/latest date)))
 
 (defmacro with-delayed-propagation
+  "Delays propagation for transactions that are put inside the body. Binds two
+  positional vars:
+    - the output channel to be passed as the option :out-chan to the put-many function
+    - the control channel to be passed as the option :ctrl-chan to the put-many function"
   [bindings & body]
   `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
          out# (a/chan 10)
