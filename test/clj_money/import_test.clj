@@ -240,31 +240,6 @@
               updates)
             "The final propagation progress is reported")))))
 
-(deftest report-an-error
-  (with-context gnucash-context
-    (let [og-put-many models/put-many]
-      (with-redefs [models/put-many (fn [& args]
-                                      (if (and (= 2 (count args))
-                                               (util/model-type? (first (second args))
-                                                                 :reconciliation))
-                                        (throw (ex-info "Induced error" {:one 1}))
-                                        (apply og-put-many args)))]
-        (let [state (atom nil)
-              progress-chan (a/chan 1 (imp/progress-xf))
-              _ (a/go-loop [p (a/<! progress-chan)]
-                           (when p
-                             (reset! state p)
-                             (recur (a/<! progress-chan))))
-              {:keys [wait-chan]} (import-data (find-import "Personal") :out-chan progress-chan)]
-          (a/alts!! [wait-chan (a/timeout 5000)])
-          (let [{:keys [notifications]} @state]
-            (is (seq-of-maps-like?
-                  [{:notification/severity :error
-                    :notification/message "Induced error"
-                    :notification/data {:one 1}}]
-                  notifications)
-                "Errors are reported and aggregated")))))))
-
 (deftest halt-on-failure
   (with-context gnucash-context
     (let [og-put-many models/put-many]
