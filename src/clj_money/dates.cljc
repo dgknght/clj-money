@@ -8,7 +8,7 @@
             [dgknght.app-lib.core :refer [parse-int]]
             [clj-money.util :as util])
   #?(:clj (:import [org.threeten.extra Interval]
-                   [java.time ZoneOffset LocalDate Instant]
+                   [java.time ZoneId ZoneOffset LocalDate Instant]
                    [java.time.temporal ChronoUnit])
      :cljs (:import [goog.date Date DateTime])))
 
@@ -411,3 +411,18 @@
 (defn range-boundaries
   [ds]
   (first-and-last (sort t/before? ds)))
+
+#?(:clj (defn zone-id
+          [zone-name]
+          (ZoneId/of zone-name)))
+
+#?(:clj (defn at-zone
+          [instant zone]
+          (.atZone instant
+                   (if (string? zone)
+                     (zone-id zone)
+                     zone))))
+
+#?(:clj (defn of-epoch-second
+          [second]
+          (Instant/ofEpochSecond second)))
