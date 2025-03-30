@@ -284,44 +284,35 @@
             (peek child-content)))
 
 (defn- match-tag-stack?
-  [tag-stack & ks]
-  (= ks
-     (take-last (count ks) tag-stack)))
+  [& ks]
+  (fn [tag-stack]
+    (= ks
+       (take-last (count ks) tag-stack))))
 
-(defn- budget-period-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/budget
+(def ^:private budget-period-stack?
+  (match-tag-stack? ::gnc/budget
                     ::bgt/slots
                     :slot
                     ::slot/value))
 
-(defn- budget-item-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/budget
+(def ^:private budget-item-stack?
+  (match-tag-stack? ::gnc/budget
                     ::bgt/slots
                     :slot))
 
-(defn- reconciliation-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/account
+(def ^:private reconciliation-stack?
+  (match-tag-stack? ::gnc/account
                     ::act/slots
                     :slot
                     ::slot/value))
 
-(defn- reconcile-info-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/account
+(def ^:private reconcile-info-stack?
+  (match-tag-stack? ::gnc/account
                     ::act/slots
                     :slot))
 
-(defn- template-quantity-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/template-transactions
+(def ^:private template-quantity-stack?
+  (match-tag-stack? ::gnc/template-transactions
                     ::gnc/transaction
                     ::trn/splits
                     ::trn/split
@@ -331,10 +322,8 @@
                     :slot
                     ::slot/value))
 
-(defn- template-detail-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/template-transactions
+(def ^:private template-detail-stack?
+  (match-tag-stack? ::gnc/template-transactions
                     ::gnc/transaction
                     ::trn/splits
                     ::trn/split
@@ -342,20 +331,16 @@
                     :slot
                     ::slot/value))
 
-(defn- template-details-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/template-transactions
+(def ^:private template-details-stack?
+  (match-tag-stack? ::gnc/template-transactions
                     ::gnc/transaction
                     ::trn/splits
                     ::trn/split
                     ::split/slots
                     :slot))
 
-(defn- stock-split-stack?
-  [tag-stack]
-  (match-tag-stack? tag-stack
-                    ::gnc/transaction
+(def ^:private stock-split-stack?
+  (match-tag-stack? ::gnc/transaction
                     ::trn/splits
                     ::trn/split
                     ::split/slots
