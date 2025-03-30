@@ -268,7 +268,8 @@
                                   {:import/record-type :declaration}
                                   {:notification/severity :fatal
                                    :notification/message "An error occurred while trying to save record of type \"commodity\": Induced error"
-                                   :notification/data {:record {:import/record-type :commodity}}}]
+                                   :notification/data {:record {:import/record-type :commodity}}}
+                                  {:import/record-type :termination-signal}]
                                    @records)
                 "The error notification is sent to the out-chan"))))))
 
