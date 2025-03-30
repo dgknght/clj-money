@@ -677,8 +677,9 @@
             (a/alts!! [(process-reconciliations result
                                                 out-chan)
                        (a/timeout 5000)]))
-          (a/go
-            (a/>! out-chan {:import/record-type :termination-signal}))
+          (when out-chan
+            (a/go
+              (a/>! out-chan {:import/record-type :termination-signal})))
           (a/>! wait-chan (select-keys result [:notifications :entity])))
         (finally
           (a/close! wait-chan))))
