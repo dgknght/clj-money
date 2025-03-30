@@ -439,12 +439,18 @@
   (let [to-create (prepare-budget budget context)]
     (try
       (let [imported (models/put to-create)]
-        (log/infof "[import] imported budget %s" (:budget/name imported)))
+        (log/infof "[import] imported budget %s" (:budget/name imported))
+        context)
       (catch Exception e
         (log/errorf "[import] error importing budget %s - %s: %s"
                     (.getClass e)
                     (ex-message e)
-                    (prn-str to-create))))))
+                    (prn-str to-create))
+        (update-in context [:notifications] conj {:import/record-type :notification
+                                                  :notification/severity :error
+                                                  :notification/message (format "Error importing the budget: %s"
+                                                                                (ex-message e))
+                                                  :notification/data (ex-data e)})))))
 
 (defmethod import-record* :price
   [ctx price]
