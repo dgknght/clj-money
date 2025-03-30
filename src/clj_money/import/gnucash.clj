@@ -546,7 +546,7 @@
         type (if (= "currency" quote_source)
                :currency
                (or (#{:fund :currency} space)
-                 :stock))]
+                   :stock))]
     (cond-> {:import/record-type :commodity
              :import/ignore? (= "template" id)
              :commodity/name (or name id)
