@@ -28,13 +28,6 @@
       (models/put (assoc imp :import/progress progress))
       (recur (a/<! progress-chan)))))
 
-(defn- finalize
-  [imp wait-chan]
-  (a/go
-    (a/<! wait-chan)
-    (log/infof "import finished for %s" (:import/entity-name imp))
-    (models/put (assoc-in imp [:import/progress :finished] true))))
-
 (defn- launch-and-track-import
   [imp]
   (let [out-chan (a/chan 10 (progress-xf))]
@@ -42,7 +35,9 @@
     (let [{:keys [entity wait-chan]} (import-data imp
                                                   :out-chan out-chan)]
       (log/infof "import started for %s" (:import/entity-name imp))
-      (finalize imp wait-chan)
+      (a/go
+        (a/<! wait-chan)
+        (log/infof "import finished for %s" (:import/entity-name imp)))
       {:entity entity
        :import imp})))
 
