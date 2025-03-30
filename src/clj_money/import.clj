@@ -20,7 +20,7 @@
 
 (defn- assoc-warning
   [ctx msg data]
-  (log/warn msg)
+  (log/warnf "[import] %s" msg)
   (update-in ctx
              [:progress :notifications]
              conj
@@ -120,11 +120,12 @@
 
 (defmulti ^:private import-transaction
   (fn [_ transaction]
+    (log/debugf "import-transaction %s" (:trade/action transaction :default))
     (:trade/action transaction)))
 
 (defn- log-transaction
   [transaction transaction-type]
-  (log/infof "imported %s transaction on %s: \"%s\""
+  (log/infof "[import] imported %s transaction on %s: \"%s\""
              transaction-type
              (:transaction/transaction-date transaction)
              (:transaction/description transaction)))
@@ -302,7 +303,7 @@
                    purge-import-keys
                    (validate ::models/account)
                    models/put)]
-    (log/infof "imported account \"%s\": %s -> %s"
+    (log/infof "[import] imported account \"%s\": %s -> %s"
                (:account/name result)
                id
                (:id result))
@@ -404,7 +405,7 @@
                                       items)))
                     purge-import-keys
                     models/put)]
-    (log/infof "imported scheduled transaction %s"
+    (log/infof "[import] imported scheduled transaction %s"
                (:scheduled-transaction/description created)))
   context)
 
@@ -438,9 +439,9 @@
   (let [to-create (prepare-budget budget context)]
     (try
       (let [imported (models/put to-create)]
-        (log/infof "imported budget %s" (:budget/name imported)))
+        (log/infof "[import] imported budget %s" (:budget/name imported)))
       (catch Exception e
-        (log/errorf "error importing budget %s - %s: %s"
+        (log/errorf "[import] error importing budget %s - %s: %s"
                     (.getClass e)
                     (ex-message e)
                     (prn-str to-create))))))
@@ -464,7 +465,7 @@
                           purge-import-keys
                           (validate ::models/commodity)
                           models/put)]
-    (log/infof "imported commodity %s (%s)"
+    (log/infof "[import] imported commodity %s (%s)"
                (:commodity/name created)
                symbol)
     (-> context

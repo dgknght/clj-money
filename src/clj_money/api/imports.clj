@@ -24,7 +24,6 @@
   [imp progress-chan]
   (a/go-loop [progress (a/<! progress-chan)]
     (when progress
-      (log/debugf "import progress for %s: %s" (:import/entity-name imp) progress)
       (models/put (assoc imp :import/progress progress))
       (recur (a/<! progress-chan)))))
 
@@ -34,10 +33,10 @@
     (report-progress imp out-chan)
     (let [{:keys [entity wait-chan]} (import-data imp
                                                   :out-chan out-chan)]
-      (log/infof "import started for %s" (:import/entity-name imp))
+      (log/infof "[import] started for %s" (:import/entity-name imp))
       (a/go
         (a/<! wait-chan)
-        (log/infof "import finished for %s" (:import/entity-name imp)))
+        (log/infof "[import] finished for %s" (:import/entity-name imp)))
       {:entity entity
        :import imp})))
 
