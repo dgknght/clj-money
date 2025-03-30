@@ -189,7 +189,7 @@
                    account-id           (assoc :trade/account {:id (account-ids account-id)})
                    fee                  (assoc :trade/fee fee
                                                :trade/fee-account {:id fee-account-id}))
-        {result :transaction} (trading/buy purchase)]
+        {result :trade/transaction} (trading/buy purchase)]
     (log-transaction result "commodity purchase"))
   context)
 
@@ -215,7 +215,7 @@
                              :value value}
                fee (assoc :trade/fee fee
                           :trade/fee-account {:id fee-account-id}))
-        {result :transaction} (trading/sell sale)]
+        {result :trading/transaction} (trading/sell sale)]
     (log-transaction result "commodity sale"))
   context)
 
@@ -229,7 +229,7 @@
         to-commodity-account-id (account-ids to-account-id)
         to-account {:id (account-parents to-commodity-account-id)}
         commodity (:account/commodity (models/find from-commodity-account-id :account)) ; TODO: save this relationship in the context instead
-        {result :transaction} (trading/transfer #:transfer{:date transaction-date
+        {result :transfer/transaction} (trading/transfer #:transfer{:date transaction-date
                                                            :from-account from-account
                                                            :to-account to-account
                                                            :commodity commodity
@@ -244,16 +244,16 @@
    {:as transaction
     :import/keys [commodity-account-id]}]
   ; this logic to adjust accounts may be specific to gnucash
-  (let  [{result :transaction} (-> transaction
-                                   (select-keys [:split/date :split/shares-gained])
-                                   (assoc :split/account {:id (-> commodity-account-id
-                                                                  account-ids
-                                                                  account-parents)}
-                                          :split/commodity (-> commodity-account-id
-                                                               account-ids
-                                                               (models/find :account)
-                                                               :account/commodity))
-                                   trading/split)]
+  (let  [{result :split/transaction} (-> transaction
+                                         (select-keys [:split/date :split/shares-gained])
+                                         (assoc :split/account {:id (-> commodity-account-id
+                                                                        account-ids
+                                                                        account-parents)}
+                                                :split/commodity (-> commodity-account-id
+                                                                     account-ids
+                                                                     (models/find :account)
+                                                                     :account/commodity))
+                                         trading/split)]
     (log-transaction result "commodity split"))
   context)
 
