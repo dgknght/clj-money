@@ -257,7 +257,7 @@
   (+busy)
   (imports/create (dissoc (get-in @page-state [:import-data]) ::v/validation)
                   :callback -busy
-                  :on-failure (notify/danger "Unable to start the import: %s")
+                  :on-failure (notify/dangerf "Unable to start the import: %s")
                   :on-success (start-after-save page-state)))
 
 (defn- file-drop
