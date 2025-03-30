@@ -801,25 +801,21 @@
   (let [state (atom {})]
     (map #(process-record % state))))
 
-(def ^:private reporting-types
-  #{})
-
 (defn- log-records
   [xf]
   (completing
-   (fn [acc record]
-     (let [record-type (-> record meta :record-type)]
-       (when (reporting-types record-type)
-         (log/debugf "reporting %s: %s"
-                     (name record-type)
-                     (prn-str record))))
-     (xf acc record))))
+    (fn [acc {:import/keys [record-type] :as record}]
+      (log/debugf "[import] [gnucash] reporting %s: %s"
+                  (name record-type)
+                  (prn-str record))
+      (xf acc record))))
 
 (defmethod read-source :gnucash
   [_ inputs]
   (let [out-chan (a/chan)
         records-chan (a/chan 100 (comp (filter emit-record?)
                                        (process-records)
+                                       (filter identity)
                                        log-records))]
     (a/pipe records-chan out-chan)
     (a/go
