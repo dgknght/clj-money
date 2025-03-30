@@ -12,6 +12,7 @@
             [dgknght.app-lib.core :refer [uuid
                                           parse-int
                                           parse-bool]]
+            [clj-money.dates :as dates]
             [clj-money.util :as util :refer [presence]]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
@@ -21,7 +22,6 @@
             File
             FileInputStream
             FileOutputStream]
-           [java.time Instant ZoneId]
            [clojure.data.xml.event StartElementEvent
             CharsEvent
             EndElementEvent]))
@@ -602,16 +602,22 @@
 
 (defn- parse-reconciliation-date
   [d]
-  (t/local-date (.atZone (Instant/ofEpochSecond (parse-int d))
-                         (ZoneId/of "America/Chicago"))))
+  (some-> d
+          parse-int
+          dates/of-epoch-second
+          (dates/at-zone "America/Chicago")
+          t/local-date))
 
 (defmethod ^:private process-record :reconciliation
   [record _]
-  {:import/record-type :reconciliation
-   :import/id (s/replace (str (uuid)) #"-" "")
-   :import/include-children? (parse-bool (:include-children record))
-   :import/account-id (:account-id record)
-   :reconciliation/end-of-period (parse-reconciliation-date (:last-date record))})
+  (let [end-of-period (parse-reconciliation-date (:last-date record))]
+    (if end-of-period
+      {:import/record-type :reconciliation
+       :import/id (s/replace (str (uuid)) #"-" "")
+       :import/include-children? (parse-bool (:include-children record))
+       :import/account-id (:account-id record)
+       :reconciliation/end-of-period end-of-period}
+      (log/warnf "[import] Unable to parse reconciliation date: %s" record))))
 
 (defmulti ^:private refine-trading-transaction
   (fn [transaction]
