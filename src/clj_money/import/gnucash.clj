@@ -723,16 +723,22 @@
            :import/reconciled? (= "y" (:reconciled-state item))}
     (:memo item) (assoc :transaction-item/memo (:memo item))))
 
-(def ^:private ignore-transaction-patterns
-  [#"(?i)^closing( year)? \d{4}"]) ; TODO: Maybe this should be entered in the UI?
+(defn- re-find-any
+  [& patterns]
+  (fn [v]
+    (boolean
+      (some (fn [p]
+              (re-find p v))
+            patterns))))
+
+(def ^:private ignore-trx?
+  (re-find-any #"(?i)^closing( year)? \d{4}"))
 
 (defmethod ^:private process-record :transaction
   [record _]
   (refine-trading-transaction
     {:import/record-type :transaction
-     :import/ignore? (boolean
-                       (some #(re-find % (get-in record [:description] ""))
-                             ignore-transaction-patterns))
+     :import/ignore? (ignore-trx? (:description record))
      :transaction/description (util/presence-or (:description record)
                                                 "*unspecified*")
      :transaction/items (map process-transaction-item
