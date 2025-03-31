@@ -12,6 +12,7 @@
   </appender>
 
   <logger name="clj-money" level="DEBUG"/>
+  <logger name="org.eclipse" level="WARN"/>
 
   <root level="DEBUG">
     <!-- appender-ref ref="CONSOLE"/ -->
