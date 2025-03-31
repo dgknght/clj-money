@@ -233,8 +233,9 @@
 (defn- sign-in-from-cookie []
   (if @current-user
     (do
-      (when (util/model-ref? @current-user)
-        (users/me :on-success #(reset! current-user %)))
+      (if (util/model-ref? @current-user)
+        (users/me :on-success #(reset! current-user %))
+        (fetch-entities))
       (fetch-entities))
     (when-let [auth-token (cookies/get :auth-token)]
       (swap! app-state assoc :auth-token auth-token)
