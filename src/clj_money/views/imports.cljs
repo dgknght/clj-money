@@ -217,28 +217,27 @@
   (let [notifications (r/cursor page-state [:active :import/progress :notifications])]
     (fn []
       (when (seq @notifications)
-        [:div.card
+        [:div.card.mt-2
          [:div.card-header "Alerts"]
          [:div.card-body
           (->> @notifications
                (take 20)
-               (map-indexed (fn [index n]
-                              ^{:key (str "import-error-" index)}
-                              [:div.alert
-                               {:role :alert
-                                :class (case (:notification/severity n)
-                                        "error" "alert-danger"
-                                         "warning" "alert-warning"
-                                         "alert-info")}
-                               (:notification/message n)]))) ]]))))
+               (map (fn [{:notification/keys [message severity id]}]
+                      ^{:key (str "import-error-" id)}
+                      [:div.alert
+                       {:role :alert
+                        :class (case severity
+                                 "error" "alert-danger"
+                                 "warning" "alert-warning"
+                                 "alert-info")}
+                       message]))) ]]))))
 
 (defn- import-activity
   [page-state]
   (fn []
     [:div
      [progress-card page-state]
-     [:div.mt-2
-      [errors-card page-state]]]))
+     [errors-card page-state]]))
 
 (defn- start-after-save
   [page-state]
