@@ -276,34 +276,35 @@
 (defn- import-form
   [page-state]
   (let [import-data (r/cursor page-state [:import-data])]
-    (when (present? @import-data)
-      [:form {:no-validate true
-              :on-submit #(save-and-start-import % page-state)}
-       [:div.card
-        [:div.card-header [:strong "Import Entity"]]
-        [:div.card-body
-         [text-field import-data [:entity-name] {:validate [:required]}]
-         [text-field import-data [:options :lt-capital-gains-account-id] {:caption "Long-term Capital Gains Account"}]
-         [text-field import-data [:options :st-capital-gains-account-id] {:caption "Short-term Capital Gains Account"}]
-         [text-field import-data [:options :lt-capital-loss-account-id] {:caption "Long-term Capital Loss Account"}]
-         [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]
-         [:div#import-source.drop-zone.bg-primary.text-light
-          {:on-drag-over #(.preventDefault %)
-           :on-drop (file-drop import-data)}
-          [:div "Drop files here"]]]
-        (file-list @import-data)
-        [:div.card-footer
-         [button {:html {:type :submit
-                         :class "btn-success"
-                         :title "Click here to begin the import."}
-                  :icon :upload
-                  :caption "Import"}]
-         [button {:html {:on-click #(swap! page-state dissoc :import-data)
-                         :class "btn-secondary ms-2"
-                         :type :button
-                         :title "Click here to discard this import."}
-                  :icon :x
-                  :caption "Cancel"}]]]])))
+    (fn []
+      (when (present? @import-data)
+        [:form {:no-validate true
+                :on-submit #(save-and-start-import % page-state)}
+         [:div.card
+          [:div.card-header [:strong "Import Entity"]]
+          [:div.card-body
+           [text-field import-data [:entity-name] {:validate [:required]}]
+           [text-field import-data [:options :lt-capital-gains-account-id] {:caption "Long-term Capital Gains Account"}]
+           [text-field import-data [:options :st-capital-gains-account-id] {:caption "Short-term Capital Gains Account"}]
+           [text-field import-data [:options :lt-capital-loss-account-id] {:caption "Long-term Capital Loss Account"}]
+           [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]
+           [:div#import-source.drop-zone.bg-primary.text-light
+            {:on-drag-over #(.preventDefault %)
+             :on-drop (file-drop import-data)}
+            [:div "Drop files here"]]]
+          (file-list @import-data)
+          [:div.card-footer
+           [button {:html {:type :submit
+                           :class "btn-success"
+                           :title "Click here to begin the import."}
+                    :icon :upload
+                    :caption "Import"}]
+           [button {:html {:on-click #(swap! page-state dissoc :import-data)
+                           :class "btn-secondary ms-2"
+                           :type :button
+                           :title "Click here to discard this import."}
+                    :icon :x
+                    :caption "Cancel"}]]]]))))
 
 (defn- import-list []
   (let [page-state (r/atom {:import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
