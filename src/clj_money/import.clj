@@ -6,6 +6,7 @@
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
             [java-time.api :as t]
+            [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
@@ -25,6 +26,7 @@
              [:progress :notifications]
              conj
              {:import/record-type :notification
+              :notification/id (uuid)
               :notification/severity :warning
               :notification/message msg
               :notification/data data}))
@@ -120,7 +122,7 @@
 
 (defmulti ^:private import-transaction
   (fn [_ transaction]
-    (log/debugf "import-transaction %s" (:trade/action transaction :default))
+    (log/debugf "[import] import-transaction %s" (:trade/action transaction :default))
     (:trade/action transaction)))
 
 (defn- log-transaction
@@ -215,8 +217,8 @@
                              :value value}
                fee (assoc :trade/fee fee
                           :trade/fee-account {:id fee-account-id}))
-        {result :trading/transaction} (trading/sell sale)]
-    (log-transaction result "commodity sale"))
+        {:trade/keys [transaction]} (trading/sell sale)]
+    (log-transaction transaction "commodity sale"))
   context)
 
 (defmethod ^:private import-transaction :transfer
@@ -436,21 +438,11 @@
 
 (defmethod import-record* :budget
   [context budget]
-  (let [to-create (prepare-budget budget context)]
-    (try
-      (let [imported (models/put to-create)]
-        (log/infof "[import] imported budget %s" (:budget/name imported))
-        context)
-      (catch Exception e
-        (log/errorf "[import] error importing budget %s - %s: %s"
-                    (.getClass e)
-                    (ex-message e)
-                    (prn-str to-create))
-        (update-in context [:notifications] conj {:import/record-type :notification
-                                                  :notification/severity :error
-                                                  :notification/message (format "Error importing the budget: %s"
-                                                                                (ex-message e))
-                                                  :notification/data (ex-data e)})))))
+  (let [imported (-> budget
+                     (prepare-budget context)
+                     models/put)]
+    (log/infof "[import] imported budget %s" (:budget/name imported))
+    context))
 
 (defmethod import-record* :price
   [ctx price]
@@ -496,6 +488,7 @@
              record)
          (catch Exception e
            (let [msg {:import/record-type :notification
+                      :notification/id (uuid)
                       :notification/severity :fatal
                       :notification/message (format "An error occurred while trying to save record of type \"%s\": %s"
                                                     (name (:import/record-type record))
