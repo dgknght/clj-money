@@ -18,7 +18,6 @@
             [clj-money.components :refer [button]]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
-                                               current-user
                                                +busy
                                                -busy
                                                busy?]]
@@ -270,10 +269,6 @@
       (swap! import-data (append-dropped-files event))
       (catch js/Error err
         (.error js/console err)))))
-
-(defn- present?
-  [{:keys [user-id]}]
-  (not (nil? user-id)))
 
 (defn- import-form
   [page-state]
