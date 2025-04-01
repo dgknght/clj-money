@@ -103,6 +103,7 @@
          [:th.text-center "Progress"]]
         (->> @progress
              (filter (comp map? second))
+             (sort-by (comp name first))
              (map progress-row)
              doall)]])))
 
