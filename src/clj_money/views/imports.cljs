@@ -212,7 +212,19 @@
                :caption "Cancel"}]
       [refresh-button page-state]]]))
 
-(defn- errors-card
+(defn- notification-elem
+  [{:notification/keys [message severity id]}]
+  ^{:key (str "simple-notification-" id)}
+  [:div.alert
+   {:role :alert
+    :class (case severity
+             ("fatal" :fatal)     "alert-danger"
+             ("error" :error)     "alert-warning"
+             ("warning" :warning) "alert-secondary"
+             "alert-info")}
+   message])
+
+(defn- notifications-card
   [page-state]
   (let [notifications (r/cursor page-state [:active :import/progress :notifications])]
     (fn []
@@ -222,22 +234,15 @@
          [:div.card-body
           (->> @notifications
                (take 20)
-               (map (fn [{:notification/keys [message severity id]}]
-                      ^{:key (str "import-error-" id)}
-                      [:div.alert
-                       {:role :alert
-                        :class (case severity
-                                 "error" "alert-danger"
-                                 "warning" "alert-warning"
-                                 "alert-info")}
-                       message]))) ]]))))
+               (map notification-elem)
+               doall)]]))))
 
 (defn- import-activity
   [page-state]
   (fn []
     [:div
      [progress-card page-state]
-     [errors-card page-state]]))
+     [notifications-card page-state]]))
 
 (defn- start-after-save
   [page-state]
