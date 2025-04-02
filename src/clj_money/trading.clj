@@ -575,7 +575,7 @@
     (update-in trade
                [trade-key]
                (fn [account]
-                 (or account
+                 (or (when account (models/find account :account))
                      (get-in entity [:entity/settings settings-key])
                      (find-or-create-gains-account trade term result))))))
 
