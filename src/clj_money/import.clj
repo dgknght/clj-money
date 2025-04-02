@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
+            [clojure.data :refer [diff]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
@@ -75,7 +76,7 @@
                           (filter #(= path (second %)))
                           ffirst)]
       (assoc-in entity
-                [:entity/settings setting]
+                [:entity/settings (keyword "settings" (name setting))]
                 (util/->model-ref account))
       entity)))
 
