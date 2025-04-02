@@ -174,7 +174,10 @@
         #:import{:entity-name "Personal"
                  :user "john@doe.com"
                  :images ["sample.gnucash"]
-                 :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}))
+                 :options {:lt-capital-gains-account "Investment/Long-Term Gains"
+                           :st-capital-gains-account "Investment/Short-Term Gains"
+                           :lt-capital-loss-account "Investment/Long-Term Losses"
+                           :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
 (deftest import-a-simple-gnucash-file
   (with-context gnucash-context
@@ -290,7 +293,7 @@
         #:import{:entity-name "Personal"
                  :user "john@doe.com"
                  :images ["sample_0.edn.gz" "sample_1.edn.gz"]
-                 :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}))
+                 :options {:lt-capital-gains-account "Investment/Long-Term Gains"}}))
 
 (deftest import-a-simple-edn-file
   (with-context edn-context
@@ -307,7 +310,10 @@
         #:import{:entity-name "Personal"
                  :user "john@doe.com"
                  :images ["sample_with_commodities_ext.gnucash"]
-                 :options {:lt-capital-gains-account "Investment/Long-Term Gains"}}))
+                 :options {:lt-capital-gains-account "Investment/Long-Term Gains"
+                           :st-capital-gains-account "Investment/Short-Term Gains"
+                           :lt-capital-loss-account "Investment/Long-Term Losses"
+                           :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
 (deftest import-with-entity-settings
   (with-context ext-context
@@ -419,21 +425,45 @@
                                :account/entity entity})
           aapl (models/find-by {:commodity/symbol "AAPL"
                                 :commodity/entity entity})]
-      (is (seq-of-maps-like?
-            [#:lot{:purchase-date (t/local-date 2015 1 17)
-                   :shares-purchased 200M
-                   :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
-                   :purchase-price 5M ; originally purchased 100 shares at $10/share
-                   :commodity (util/->model-ref aapl)
-                   :account (util/->model-ref ira)}]
-            (models/select {:lot/commodity aapl}))
-          "The shares lost due to reverse split are subtracted from the lot")
+      (testing "entity"
+        (let [entity (models/find entity)
+              lt-gains (models/find-by {:account/name "Long-Term Gains"})
+              st-gains (models/find-by {:account/name "Short-Term Gains"})
+              lt-loss (models/find-by {:account/name "Long-Term Losses"})
+              st-loss (models/find-by {:account/name "Short-Term Losses"})]
+          (is (empty? (select-keys (:entity/settings entity)
+                                   [:lt-capital-gains-account
+                                    :st-capital-gains-account
+                                    :lt-capital-loss-account
+                                    :st-capital-loss-account]))
+              "The naken keys are not set")
+          (is (comparable? {:settings/lt-capital-gains-account (util/->model-ref lt-gains)
+                            :settings/st-capital-gains-account (util/->model-ref st-gains)
+                            :settings/lt-capital-loss-account (util/->model-ref lt-loss)
+                            :settings/st-capital-loss-account (util/->model-ref st-loss)}
+                           (:entity/settings entity))
+              "The entity settings are updated with specified gains accounts")))
 
-      (testing "accounts are tagged correctly"
+      (testing "lots"
+        (is (seq-of-maps-like?
+              [#:lot{:purchase-date (t/local-date 2015 1 17)
+                     :shares-purchased 200M
+                     :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
+                     :purchase-price 5M ; originally purchased 100 shares at $10/share
+                     :commodity (util/->model-ref aapl)
+                     :account (util/->model-ref ira)}]
+              (models/select {:lot/commodity aapl}))
+            "The shares lost due to reverse split are subtracted from the lot"))
+
+      (testing "accounts"
         (is (system-tagged? ira :trading)
             "The IRA account is tagged as a trading account")
         (is (system-tagged? four-oh-one-k :trading)
-            "The 401k account is tagged as a trading account"))
+            "The 401k account is tagged as a trading account")
+        (is (= 0M (:account/quantity four-oh-one-k))
+            "All shares have been transfered out of 401k")
+        (is (= 590M (:account/quantity ira))
+            "Shares have been transfered into IRA"))
 
       (testing "transactions"
         (let [ira-aapl (models/find-by #:account{:parent ira
@@ -482,13 +512,7 @@
                                                         (t/local-date 2015 1 1)
                                                         (t/local-date 2016 1 1)]}
                   {:sort [:transaction-item/index]}))
-              "The IRA account receives items for the transfer, split and sale actions")))
-
-      (testing "accounts"
-        (is (= 0M (:account/quantity four-oh-one-k))
-            "All shares have been transfered out of 401k")
-        (is (= 590M (:account/quantity ira))
-            "Shares have been transfered into IRA")))))
+              "The IRA account receives items for the transfer, split and sale actions"))))))
 
 (def ^:private sched-context
   (conj base-context
