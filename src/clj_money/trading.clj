@@ -576,8 +576,8 @@
                [trade-key]
                (fn [account]
                  (or (when account (models/find account :account))
-                     (models/find (get-in entity [:entity/settings settings-key])
-                                  :account)
+                     (when-let [act (get-in entity [:entity/settings settings-key])]
+                       (models/find act :account))
                      (find-or-create-gains-account trade term result))))))
 
 (defn- ensure-gains-accounts
