@@ -487,14 +487,18 @@
          (xf (import-record* context record)
              record)
          (catch Exception e
-           (let [msg {:import/record-type :notification
+           (let [data (ex-data e)
+                 msg {:import/record-type :notification
                       :notification/id (uuid)
                       :notification/severity :fatal
                       :notification/message (format "An error occurred while trying to save record of type \"%s\": %s"
                                                     (name (:import/record-type record))
                                                     (ex-message e))
                       :notification/data {:record record
-                                          :ex-data (ex-data e)}}]
+                                          :ex-data data}}]
+             (log/errorf e "[import] errors saving record %s: %s"
+                         (pr-str record)
+                         (pr-str data))
              (xf (update-in context
                             [:notifications]
                             conj
