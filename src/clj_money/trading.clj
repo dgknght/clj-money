@@ -7,6 +7,7 @@
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
+            [clj-money.decimal :as d]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
@@ -297,13 +298,16 @@
         account (account-key trade)]
     #:transaction-item{:action action
                        :account account
-                       :quantity (.abs quantity)
-                       :value (.abs quantity)
+                       :quantity (d/abs quantity)
+                       :value (d/abs quantity)
                        :memo description}))
 
 (defn- create-capital-gains-items
   [{:trade/keys [gains] :as trade}]
-  (mapv #(create-capital-gains-item % trade) gains))
+  (->> gains
+       (map #(create-capital-gains-item % trade))
+       (remove (comp zero?
+                     :transaction-item/quantity))))
 
 (defn- create-sale-transaction-items
   [{:trade/keys [shares
@@ -317,7 +321,7 @@
     :as trade}]
   (let [total-gains (->> gains
                          (map :quantity)
-                         (reduce +))]
+                         (reduce + 0M))]
     (cond-> (conj (create-capital-gains-items trade)
                   #:transaction-item{:action :debit
                                      :account account
@@ -336,17 +340,15 @@
   "Given a trade map, creates the general currency
   transaction"
   [{:trade/keys [date account lot-items] :as trade}]
-  (let [items (create-sale-transaction-items trade)
-        transaction #:transaction{:entity (:account/entity account)
-                                  :transaction-date date
-                                  :description (sale-transaction-description trade)
-                                  :items items
-                                  :lot-items lot-items}]
-    (if (v/has-error? transaction)
-      (do
-        (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
-        (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
-      (update-in trade [:trade/transactions] (fnil conj []) transaction))))
+  (let [items (create-sale-transaction-items trade)]
+    (update-in trade
+               [:trade/transactions]
+               (fnil conj [])
+               #:transaction{:entity (:account/entity account)
+                             :transaction-date date
+                             :description (sale-transaction-description trade)
+                             :items (vec items)
+                             :lot-items lot-items})))
 
 (defn- create-lot
   "Given a trade map, creates and appends the commodity lot"
@@ -733,7 +735,7 @@
   (when-not most-recent-price
     (throw (ex-info "Unable to process transfer without most recent commodity price"
                     {:transfer transfer})))
-  (let [value (* shares (:price/price most-recent-price))]
+  (let [value (d/* shares (:price/price most-recent-price))]
       (assoc transfer
              :transfer/transaction
              #:transaction{:entity (:commodity/entity commodity)
