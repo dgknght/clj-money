@@ -232,10 +232,10 @@
         to-account {:id (account-parents to-commodity-account-id)}
         commodity (:account/commodity (models/find from-commodity-account-id :account)) ; TODO: save this relationship in the context instead
         {result :transfer/transaction} (trading/transfer #:transfer{:date transaction-date
-                                                           :from-account from-account
-                                                           :to-account to-account
-                                                           :commodity commodity
-                                                           :shares shares})]
+                                                                    :from-account from-account
+                                                                    :to-account to-account
+                                                                    :commodity commodity
+                                                                    :shares shares})]
     (log-transaction result "commodity transfer"))
   context)
 
