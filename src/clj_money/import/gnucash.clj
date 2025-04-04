@@ -208,8 +208,7 @@
         record-count (parse-int (agg-text-content (peek content)))
         record {:import/record-type :declaration
                 :declaration/record-type record-type
-                :declaration/record-count (+ record-count
-                                             (if (= :commodity record-type) 1 0))}]
+                :declaration/record-count record-count}]
     (a/>!! out-chan record))
   (pop-elem state))
 
