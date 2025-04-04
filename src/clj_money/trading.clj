@@ -730,7 +730,9 @@
                     date
                     shares]
     :as transfer}]
-  (assert most-recent-price)
+  (when-not most-recent-price
+    (throw (ex-info "Unable to process transfer without most recent commodity price"
+                    {:transfer transfer})))
   (let [value (* shares (:price/price most-recent-price))]
       (assoc transfer
              :transfer/transaction
