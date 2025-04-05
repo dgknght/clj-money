@@ -7,6 +7,7 @@
             [cljs.core.async :refer [timeout
                                      <!]]
             [dgknght.app-lib.web :refer [format-percent
+                                         format-decimal
                                          format-date
                                          format-date-time]]
             [dgknght.app-lib.dom :refer [set-focus]]
@@ -90,7 +91,12 @@
           (format-percent (/ perc 100) {:fraction-digits 2}))]
        (when (> 50 perc)
          [:span.ps-1
-          (format-percent (/ perc 100) {:fraction-digits 2})])])]])
+          (format-percent (/ perc 100){:fraction-digits 2})])])
+    [:span.text-body-secondary.fw-lighter
+     {:style {:font-size "0.8em"}}
+     (str (format-decimal completed {:fraction-digits 0})
+          "/"
+          (format-decimal total {:fraction-digits 0}))]]])
 
 (defn- progress-table
   [page-state]
