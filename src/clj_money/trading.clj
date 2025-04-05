@@ -512,7 +512,7 @@
 (defn- process-lot-sales
   "Given a trade map, processes the lot changes and appends
   the new lot transactions and the affected lots"
-  [{:trade/keys [lots shares] :as trade}]
+  [{:trade/keys [lots shares commodity] :as trade}]
 
   (when (< (total-shares-owned lots) shares)
     (log/warnf "Attempt to sell more shares when owned: %s" trade))
@@ -535,9 +535,12 @@
                  unsold-shares
                  (first remaining-lots)
                  (rest remaining-lots))))
-      (do
-        (log/errorf "Unable to find a lot to sell shares %s" trd)
-        (throw (ex-info "Unable to find a lot to sell the shares" trd))))))
+      (let [msg (format "Unable to find a lot to sell %s shares of %s (%s) "
+                        shares-remaining
+                        (:commodity/name commodity)
+                        (:commodity/symbol commodity))]
+        (log/errorf "%s - %s" msg trd)
+        (throw (ex-info msg trd))))))
  
 (defn- update-entity-settings
   [trade]
