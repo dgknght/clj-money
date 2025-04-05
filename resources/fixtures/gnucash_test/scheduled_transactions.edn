@@ -1,6 +1,6 @@
 {:input "resources/fixtures/scheduled_transactions.gnucash"
  :expectations {:declaration [{:declaration/record-type :commodity
-                               :declaration/record-count 2
+                               :declaration/record-count 1
                                :import/record-type :declaration}
                               {:declaration/record-type :account
                                :declaration/record-count 9

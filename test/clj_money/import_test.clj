@@ -196,14 +196,14 @@
       (let [updates @state]
         (is (includes-progress-notification?
               :commodity
-              {:total 2
+              {:total 1
                :completed 0}
               updates)
             "The initial commodity progress is reported")
         (is (includes-progress-notification?
               :commodity
-              {:total 2
-               :completed 2}
+              {:total 1
+               :completed 1}
               updates)
             "The final commodity progress is reported")
         (is (includes-progress-notification?

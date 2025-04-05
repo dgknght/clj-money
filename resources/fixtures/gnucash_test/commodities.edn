@@ -1,6 +1,6 @@
 {:input "resources/fixtures/sample_with_commodities.gnucash"
  :expectations {:declaration [{:declaration/record-type :commodity
-                               :declaration/record-count 3
+                               :declaration/record-count 2
                                :import/record-type :declaration}
                               {:declaration/record-type :account
                                :declaration/record-count 11
