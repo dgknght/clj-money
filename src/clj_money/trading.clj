@@ -858,7 +858,8 @@
   (let [[n d] (cond->> [ratio 1]
                 (< ratio 1)
                 (map (comp int
-                           #(/ % ratio))))]
+                           #(with-precision 1
+                              (/ % ratio)))))]
     (format "%s for %s" n d)))
 
 (defn- create-split-transaction
