@@ -358,12 +358,17 @@
           items)
     items))
 
+(defn- remove-zero-quantity-items
+  [items]
+  (remove #(zero? (:transaction-item/quantity %)) items))
+
 (defmethod import-record* :transaction
   [context transaction]
   (import-transaction context
                       (update-in transaction
                                  [:transaction/items]
-                                 #(refine-recon-info context %))))
+                                 (comp #(refine-recon-info context %)
+                                       remove-zero-quantity-items))))
 
 (def ^:private day-keys
   [:sunday
