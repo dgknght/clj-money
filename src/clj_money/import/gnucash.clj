@@ -527,7 +527,8 @@
   [{:keys [id name quote_source] :as record} _]
   (let [space (-> record :space s/lower-case keyword)
         exchange (#{:nasdaq :nyse :amex} space)
-        type (if (= "currency" quote_source)
+        type (if (or (#{:crypto} space) ; TODO This is a custom namespace I created. we probably need to be able to map this in the UI
+                     (#{"currency"} quote_source))
                :currency
                (or (#{:fund :currency} space)
                    :stock))]
