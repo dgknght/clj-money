@@ -87,10 +87,10 @@
                                 perc)
                               "%")}}
         (when (<= 50 perc)
-          (format-percent (/ perc 100)))]
+          (format-percent (/ perc 100) {:fraction-digits 2}))]
        (when (> 50 perc)
          [:span.ps-1
-          (format-percent (/ perc 100))])])]])
+          (format-percent (/ perc 100) {:fraction-digits 2})])])]])
 
 (defn- progress-table
   [page-state]
