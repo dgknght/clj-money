@@ -22,6 +22,7 @@
             File
             FileInputStream
             FileOutputStream]
+           java.math.BigDecimal
            [clojure.data.xml.event StartElementEvent
             CharsEvent
             EndElementEvent]))
@@ -47,13 +48,21 @@
                              rest
                              (map parse-int)))))
 
+(defn- round-decimal
+  ([places]
+   #(round-decimal % places))
+  ([^BigDecimal d places]
+   (.setScale d places BigDecimal/ROUND_HALF_UP)))
+
 (defn- parse-decimal
   [string-decimal]
   (when-let [match (re-find #"(-?\d+)\/(\d+)" string-decimal)]
-    (with-precision 12
-      (apply / (->> match
-                    rest
-                    (map bigdec))))))
+    (with-precision 19
+      (round-decimal
+        (apply / (->> match
+                      rest
+                      (map bigdec)))
+        6))))
 
 (def ^:private account-types-map
   {"ASSET"      :asset
