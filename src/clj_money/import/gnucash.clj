@@ -726,10 +726,11 @@
 (defn- re-find-any
   [& patterns]
   (fn [v]
-    (boolean
-      (some (fn [p]
-              (re-find p v))
-            patterns))))
+    (when v
+      (boolean
+        (some (fn [p]
+                (re-find p v))
+              patterns)))))
 
 (def ^:private ignore-trx?
   (re-find-any #"(?i)^closing( year)? \d{4}"))
