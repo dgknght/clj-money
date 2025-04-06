@@ -364,11 +364,15 @@
 
 (defmethod import-record* :transaction
   [context transaction]
-  (import-transaction context
-                      (update-in transaction
-                                 [:transaction/items]
-                                 (comp #(refine-recon-info context %)
-                                       remove-zero-quantity-items))))
+  (let [trx (update-in transaction
+                       [:transaction/items]
+                       (comp #(refine-recon-info context %)
+                             remove-zero-quantity-items))]
+    (if (empty? (:transaction/items trx))
+      (do
+        (log/warnf "[import] Transaction with no items: %s" trx)
+        (assoc-warning context "Transaction with no items" trx))
+      (import-transaction context trx))))
 
 (def ^:private day-keys
   [:sunday
