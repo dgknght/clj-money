@@ -65,8 +65,8 @@
   [[progress-type {:keys [total completed]}]]
   ^{:key (str "progress-" (name progress-type))}
   [:tr
-   [:td (name progress-type)]
-   [:td.text-center
+   [:td.col-sm-6 (name progress-type)]
+   [:td.col-sm-6.text-center
     (let [perc (if (< 0 total)
                  (* 100 (/ completed total))
                  0)]
