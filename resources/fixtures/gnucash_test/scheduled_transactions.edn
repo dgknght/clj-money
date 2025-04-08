@@ -51,6 +51,7 @@
                                          :scheduled-transaction/last-occurrence nil
                                          :scheduled-transaction/interval-type :week
                                          :scheduled-transaction/interval-count 2
+                                         :scheduled-transaction/date-spec {:days #{:friday}}
                                          :scheduled-transaction/items [{:scheduled-transaction-item/action :debit
                                                                         :scheduled-transaction-item/quantity 1000M
                                                                         :import/account-id "3f83204db3ed4cb8998cee6de8edbf01"}

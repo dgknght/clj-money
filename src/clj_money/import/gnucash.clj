@@ -794,6 +794,39 @@
    :scheduled-transaction-item/action action
    :import/account-id account-id})
 
+(def ^:private weekdays
+  [:monday
+   :tuesday
+   :wednesday
+   :thursday
+   :friday
+   :saturday
+   :sunday])
+
+(defn- day-of-week
+  [date]
+  (let [day (t/day-of-week date)
+        index-base-1 (.getValue day)
+        index (- index-base-1 1)]
+    (nth weekdays index)))
+
+(defn- day-of-month
+  [date]
+  (.getValue (t/day-of-month date)))
+
+(defn- month
+  [date]
+  (.getValue (t/month date)))
+
+(defn- infer-date-spec
+  [{{{:keys [period_type start]} :recurrence} :schedule}]
+  (let [date (dates/unserialize-local-date (:gdate start))]
+    (case period_type
+      "year"  {:day (day-of-month date)
+               :month (month date)}
+      "month" {:day (day-of-month date)}
+      "week"  {:days #{(day-of-week date)}})))
+
 (defmethod ^:private process-record :scheduled-transaction
   [{:keys [schedule] :as record} _]
   {:scheduled-transaction/start-date (parse-date (:start record))
@@ -811,6 +844,7 @@
    :scheduled-transaction/interval-count (-> schedule
                                              (get-in [:recurrence :mult])
                                              parse-int)
+   :scheduled-transaction/date-spec (infer-date-spec record)
    :import/record-type :scheduled-transaction})
 
 (defn- process-records []
