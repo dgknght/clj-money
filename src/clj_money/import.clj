@@ -10,7 +10,6 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
-            [clj-money.dates :as dates]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria]]
             [clj-money.transactions :refer [polarize-item-quantity]]))
@@ -374,38 +373,12 @@
         (assoc-warning context "Transaction with no items" trx))
       (import-transaction context trx))))
 
-(def ^:private day-keys
-  [:sunday
-   :monday
-   :tuesday
-   :wednesday
-   :thursday
-   :friday
-   :saturday])
-
-(defn- infer-date-spec-day
-  [date]
-  (if (dates/last-day-of-the-month? date)
-    :last
-    (t/day-of-month date)))
-
-; TODO: This should probably be moved to the gnucash ns
-(defn- infer-date-spec
-  [{:scheduled-transaction/keys [start-date last-occurrence interval-type]}]
-  (let [date (or last-occurrence start-date)]
-    (case interval-type
-      :year {:day (infer-date-spec-day date)
-             :month (dates/month date)}
-      :month {:day (infer-date-spec-day date)}
-      :week {:days #{(nth day-keys (dates/day-of-week date))}})))
-
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity account-ids]
     :as context}
    sched-tran]
   (let [created (-> sched-tran
-                    (assoc :scheduled-transaction/entity entity
-                           :scheduled-transaction/date-spec (infer-date-spec sched-tran))
+                    (assoc :scheduled-transaction/entity entity)
                     (update-in [:scheduled-transaction/items]
                                (fn [items]
                                  (map (fn [{:import/keys [account-id] :as i}]
@@ -426,11 +399,7 @@
     (-> item
         (assoc :budget-item/account {:id account-id})
         purge-import-keys)
-    (throw
-      (ex-info
-        (format "Unable to resolve account id %s for the budget item."
-                (:import/account-id item))
-        {:item item}))))
+    (log/warnf "Unable to resolve account id for budget item %s" item)))
 
 (defn- prepare-budget
   [budget {:keys [entity] :as context}]
