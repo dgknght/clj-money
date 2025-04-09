@@ -1,6 +1,8 @@
 (ns clj-money.decimal
    (:refer-clojure :exclude [* + - / zero? abs decimal?])
    (:require [clojure.walk :refer [postwalk]]
+             [clojure.string :as string]
+             [dgknght.app-lib.math :as math]
              #?(:cljs [dgknght.app-lib.decimal :as decimal]))
    #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
 
@@ -77,3 +79,19 @@
 
 #?(:cljs (defn abs [n] (decimal/abs n))
    :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))
+
+(def ^:private parsers
+   [{:pattern #".*"
+     :eval math/eval}
+    {:pattern #"(\d+)(?:,(\d+))*"
+     :eval #(->> %
+                 (drop 1)
+                 (string/join "")
+                 (d))}])
+
+(defn parse
+   [s]
+   (some (fn [{:keys [pattern eval]}]
+            (when-let [match (re-find pattern s)]
+               (eval match)))
+         parsers))
