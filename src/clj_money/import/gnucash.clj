@@ -12,8 +12,9 @@
             [dgknght.app-lib.core :refer [uuid
                                           parse-int
                                           parse-bool]]
+            [clj-money.decimal :as d]
             [clj-money.dates :as dates]
-            [clj-money.util :as util :refer [presence]]
+            [clj-money.util :as util]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream
@@ -781,16 +782,9 @@
      :budget/items (map #(process-budget-item % period-count)
                         (:budget/items record))}))
 
-(defn- parse-readable-number
-  [value]
-  (when (presence value)
-    (-> value
-        (s/replace "," "")
-        bigdec)))
-
 (defn- ->scheduled-transaction-item
   [{:keys [quantity action account-id]}]
-  {:scheduled-transaction-item/quantity (parse-readable-number quantity)
+  {:scheduled-transaction-item/quantity (d/parse quantity)
    :scheduled-transaction-item/action action
    :import/account-id account-id})
 
@@ -822,10 +816,11 @@
   [{{{:keys [period_type start]} :recurrence} :schedule}]
   (let [date (dates/unserialize-local-date (:gdate start))]
     (case period_type
-      "year"  {:day (day-of-month date)
-               :month (month date)}
-      "month" {:day (day-of-month date)}
-      "week"  {:days #{(day-of-week date)}})))
+      "year"         {:day (day-of-month date)
+                      :month (month date)}
+      "month"        {:day (day-of-month date)}
+      "week"         {:days #{(day-of-week date)}}
+      "end of month" {:day :last})))
 
 (defmethod ^:private process-record :scheduled-transaction
   [{:keys [schedule] :as record} _]
