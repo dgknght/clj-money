@@ -7,6 +7,8 @@ ALTER TABLE lots ALTER COLUMN purchase_price TYPE NUMERIC(19, 6);
 
 ALTER TABLE prices ALTER COLUMN price TYPE NUMERIC(19, 6);
 
+ALTER TABLE cached_prices ALTER COLUMN price TYPE NUMERIC(19, 6);
+
 ALTER TABLE reconciliations ALTER COLUMN balance TYPE NUMERIC(19, 6);
 
 ALTER TABLE scheduled_transaction_items ALTER COLUMN quantity TYPE NUMERIC(19, 6);
