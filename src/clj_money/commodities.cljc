@@ -14,3 +14,17 @@
 (defn description
   [{:commodity/keys [name symbol]}]
   (str name " (" symbol ")"))
+
+(defn matches-search?
+  [term]
+  (if (< 2 (count term))
+    (let [pattern (re-pattern (str "(?i)" term))]
+      (fn [commodity]
+        (some #(re-find pattern (% commodity))
+              [:commodity/name
+               :commodity/symbol])))
+    (constantly true)))
+
+(defn has-shares?
+  [{:lot/keys [shares-owned]}]
+  (< 0M shares-owned))

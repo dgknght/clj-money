@@ -20,6 +20,7 @@
             [clj-money.components :refer [button
                                           load-in-chunks
                                           load-on-scroll]]
+            [clj-money.commodities :as cmm]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.prices :as prices]
             [clj-money.state :refer [app-state
@@ -230,10 +231,6 @@
                        :on-click #(swap! page-state assoc :page-index @max-index)}
          (icon :chevron-bar-right :size :small)]]])))
 
-(defn- has-shares?
-  [{:lot/keys [shares-owned]}]
-  (< 0M shares-owned))
-
 (defn- price-download-enabled?
   [{:commodity/keys [price-config]}]
   (:price-config/enabled price-config))
@@ -241,7 +238,7 @@
 (defn- download-prices
   [page-state]
   (when-let [commodity-ids (->> (:commodities @page-state)
-                                (filter (every-pred has-shares? price-download-enabled?))
+                                (filter (every-pred cmm/has-shares? price-download-enabled?))
                                 (map :id)
                                 seq)]
     (+busy)
@@ -255,21 +252,11 @@
     (fn [{:commodity/keys [created-at]}]
       (t/before? an-hour-ago created-at))))
 
-(defn- matches-search?
-  [term]
-  (if (< 2 (count term))
-    (let [pattern (re-pattern term)]
-      (fn [commodity]
-        (some #(re-find pattern (% commodity))
-              [:commodity/name
-               :commodity/symbol])))
-    (constantly true)))
-
 (defn- match-fn
   [hide-zero-shares? search-term]
   (apply every-pred
-         (cond-> [(matches-search? search-term)]
-           hide-zero-shares? (conj (some-fn has-shares?
+         (cond-> [(cmm/matches-search? search-term)]
+           hide-zero-shares? (conj (some-fn cmm/has-shares?
                                             (recent?))))))
 
 (defn- commodities-table
