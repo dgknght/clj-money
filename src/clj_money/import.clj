@@ -14,6 +14,15 @@
             [clj-money.accounts :refer [->>criteria]]
             [clj-money.transactions :refer [polarize-item-quantity]]))
 
+(defmacro with-fatal-exceptions
+  [& body]
+  `(try
+    ~@body
+    (catch Exception e#
+      (throw (ex-info (ex-message e#)
+                      (assoc (ex-data e#) ::fatal? true)
+                      e#)))))
+
 (defmulti read-source
   (fn [source-type & _]
     source-type))
@@ -297,21 +306,22 @@
 (defmethod import-record* :account
   [{:keys [entity] :as context}
    {:import/keys [commodity id] :as account}]
-  (let [result (-> account
-                   (assoc :account/entity entity
-                          :account/commodity (find-commodity context commodity)
-                          :account/parent (account-parent account context))
-                   purge-import-keys
-                   (validate ::models/account)
-                   models/put)]
-    (log/infof "[import] imported account \"%s\": %s -> %s"
-               (:account/name result)
-               id
-               (:id result))
-    (-> context
-        (assoc-in [:account-ids id] (:id result))
-        (update-account-relationships result)
-        (update-entity-settings result))))
+  (with-fatal-exceptions
+    (let [result (-> account
+                     (assoc :account/entity entity
+                            :account/commodity (find-commodity context commodity)
+                            :account/parent (account-parent account context))
+                     purge-import-keys
+                     (validate ::models/account)
+                     models/put)]
+      (log/infof "[import] imported account \"%s\": %s -> %s"
+                 (:account/name result)
+                 id
+                 (:id result))
+      (-> context
+          (assoc-in [:account-ids id] (:id result))
+          (update-account-relationships result)
+          (update-entity-settings result)))))
 
 (defmethod import-record* :reconciliation
   [{:keys [account-ids] :as context} {:import/keys [account-id] :as reconciliation}]
@@ -363,15 +373,16 @@
 
 (defmethod import-record* :transaction
   [context transaction]
-  (let [trx (update-in transaction
-                       [:transaction/items]
-                       (comp #(refine-recon-info context %)
-                             remove-zero-quantity-items))]
-    (if (empty? (:transaction/items trx))
-      (do
-        (log/warnf "[import] Transaction with no items: %s" trx)
-        (assoc-warning context "Transaction with no items" trx))
-      (import-transaction context trx))))
+  (with-fatal-exceptions
+    (let [trx (update-in transaction
+                         [:transaction/items]
+                         (comp #(refine-recon-info context %)
+                               remove-zero-quantity-items))]
+      (if (empty? (:transaction/items trx))
+        (do
+          (log/warnf "[import] Transaction with no items: %s" trx)
+          (assoc-warning context "Transaction with no items" trx))
+        (import-transaction context trx)))))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity account-ids]
@@ -434,24 +445,45 @@
 
 (defmethod import-record* :commodity
   [{:keys [entity] :as context} commodity]
-  (let [{:commodity/keys [exchange symbol]
-         :as created} (-> commodity
-                          (assoc :commodity/entity entity
-                                 :commodity/price-config {:price-config/enabled true}) ; TODO: read this from import source
-                          purge-import-keys
-                          (validate ::models/commodity)
-                          models/put)]
-    (log/infof "[import] imported commodity %s (%s)"
-               (:commodity/name created)
-               symbol)
-    (-> context
-        (update-in [:commodities] (fnil conj []) created)
-        (update-in [:commodities-by-symbol] (fnil assoc {}) symbol created)
-        (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) [exchange symbol] created))))
+  (with-fatal-exceptions "commodity"
+    (let [{:commodity/keys [exchange symbol]
+           :as created} (-> commodity
+                            (assoc :commodity/entity entity
+                                   :commodity/price-config {:price-config/enabled true}) ; TODO: read this from import source
+                            purge-import-keys
+                            (validate ::models/commodity)
+                            models/put)]
+      (log/infof "[import] imported commodity %s (%s)"
+                 (:commodity/name created)
+                 symbol)
+      (-> context
+          (update-in [:commodities] (fnil conj []) created)
+          (update-in [:commodities-by-symbol] (fnil assoc {}) symbol created)
+          (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) [exchange symbol] created)))))
 
 (defn- ignore?
   [{:import/keys [ignore?]}]
   ignore?)
+
+(defn- handle-ex
+  [e record context]
+  (let [data (ex-data e)
+        msg {:import/record-type :notification
+             :notification/id (uuid)
+             :notification/severity (if (::fatal? data) :fatal :error)
+             :notification/message (format "An error occurred while trying to save record of type \"%s\": %s"
+                                           (name (:import/record-type record))
+                                           (ex-message e))
+             :notification/data {:record record
+                                 :ex-data data}}]
+    (log/errorf e "[import] errors saving record %s: %s"
+                (pr-str record)
+                (pr-str data))
+    [(update-in context
+                [:notifications]
+                conj
+                msg)
+     msg]))
 
 (defn- import-record
   [xf]
@@ -465,23 +497,7 @@
          (xf (import-record* context record)
              record)
          (catch Exception e
-           (let [data (ex-data e)
-                 msg {:import/record-type :notification
-                      :notification/id (uuid)
-                      :notification/severity :fatal
-                      :notification/message (format "An error occurred while trying to save record of type \"%s\": %s"
-                                                    (name (:import/record-type record))
-                                                    (ex-message e))
-                      :notification/data {:record record
-                                          :ex-data data}}]
-             (log/errorf e "[import] errors saving record %s: %s"
-                         (pr-str record)
-                         (pr-str data))
-             (xf (update-in context
-                            [:notifications]
-                            conj
-                            msg)
-                 msg))))))))
+           (apply xf (handle-ex e record context))))))))
 
 (defn- fetch-reconciled-items
   [{:reconciliation/keys [account]
