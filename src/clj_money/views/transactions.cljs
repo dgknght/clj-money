@@ -78,9 +78,9 @@
   [page-state]
   (+busy)
   (let [account (:view-account @page-state)
-        criteria {:account-id (:id account)
-                  :transaction-date [(:earliest-transaction-date account)
-                                     (:latest-transaction-date account)]
+        criteria {:transaction-item/account account
+                  :transaction-item/transaction-date [(:account/earliest-transaction-date account)
+                                                      (:account/latest-transaction-date account)]
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
     (transaction-items/select
