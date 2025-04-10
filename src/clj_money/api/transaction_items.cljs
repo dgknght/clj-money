@@ -15,7 +15,10 @@
 
 (defn- prepare-criteria
   [criteria]
-  (let [[_ start end] (transaction-date criteria)]
+  (let [criterion (transaction-date criteria)
+        [start end] (if (= 2 (count criterion))
+                      criterion
+                      (rest criterion))]
     (-> criteria
         (dissoc :transaction-item/account
                 :transaction-item/transaction-date
