@@ -12,7 +12,6 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.util :as util :refer [id=]]
@@ -200,14 +199,6 @@
          :on-click #(delete commodity page-state)}
         (icon :x-circle :size :small)]]]]))
 
-(defn- match-commodity
-  [pattern]
-  (if pattern
-    (fn [commodity]
-      (some #(re-find pattern (% commodity))
-            [:name :symbol]))
-    (constantly true)))
-
 (defn- pagination
   [page-state collection]
   (let [com-count (make-reaction #(count @collection))
@@ -239,9 +230,9 @@
                        :on-click #(swap! page-state assoc :page-index @max-index)}
          (icon :chevron-bar-right :size :small)]]])))
 
-(defn- shares-owned?
-  [{:keys [shares-owned]}]
-  (not (decimal/zero? shares-owned)))
+(defn- has-shares?
+  [{:lot/keys [shares-owned]}]
+  (< 0M shares-owned))
 
 (defn- price-download-enabled?
   [{:commodity/keys [price-config]}]
@@ -250,7 +241,7 @@
 (defn- download-prices
   [page-state]
   (when-let [commodity-ids (->> (:commodities @page-state)
-                                (filter (every-pred shares-owned? price-download-enabled?))
+                                (filter (every-pred has-shares? price-download-enabled?))
                                 (map :id)
                                 seq)]
     (+busy)
@@ -258,26 +249,43 @@
                   :callback -busy
                   :on-success #(load-commodities page-state))))
 
+(defn- recent? []
+  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
+    (constantly false)
+    (fn [{:commodity/keys [created-at]}]
+      (t/before? an-hour-ago created-at))))
+
+(defn- matches-search?
+  [term]
+  (if (< 2 (count term))
+    (let [pattern (re-pattern term)]
+      (fn [commodity]
+        (some #(re-find pattern (% commodity))
+              [:commodity/name
+               :commodity/symbol])))
+    (constantly true)))
+
+(defn- match-fn
+  [hide-zero-shares? search-term]
+  (apply every-pred
+         (cond-> [(matches-search? search-term)]
+           hide-zero-shares? (conj (some-fn has-shares?
+                                            (recent?))))))
+
 (defn- commodities-table
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
-        remove? (make-reaction #(if @hide-zero-shares?
-                                  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
-                                    (fn [{:commodity/keys [shares-owned created-at]}]
-                                      (or (t/before? created-at
-                                                     an-hour-ago)
-                                          (zero? shares-owned))))
-                                  (constantly false)))
-        filtered (make-reaction #(remove @remove? @commodities))
+        search-term (r/cursor page-state [:search-term])
+        match? (make-reaction #(match-fn @hide-zero-shares?
+                                        @search-term))
+        filtered (make-reaction #(filter @match? @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
-        search-term (r/cursor page-state [:search-term])
+        current-page (make-reaction #(->> @filtered
+                                          (drop (* @page-size @page-index))
+                                          (take @page-size)))
         selected (r/cursor page-state [:selected])
-        pattern (make-reaction #(when (and @search-term
-                                           (< 2
-                                              (count @search-term)))
-                                  (re-pattern @search-term)))
         prices-selected (r/cursor page-state [:prices-commodity])
         hide? (make-reaction #(or @selected @prices-selected))]
     (fn []
@@ -287,10 +295,9 @@
          [:span.input-group-text
           (icon :search :size :small)]
          [forms/text-input page-state [:search-term]]
-         [:div.input-group-append {:class (when-not @search-term "d-none")
-                                   :on-click #(swap! page-state dissoc :search-term)}
-          [:button.btn.btn-secondary
-           (icon :x :size :small)]]]]
+         [:button.btn.btn-secondary
+          {:class (when-not @search-term "d-none")
+           :on-click #(swap! page-state dissoc :search-term)}(icon :x)]]]
        [:table.table.table-striped.table-hover
         [:thead
          [:tr
@@ -302,10 +309,7 @@
           [:th (html/space)]]]
         [:tbody
          (if @commodities
-           (->> @filtered
-                (filter (match-commodity @pattern))
-                (drop (* @page-size @page-index))
-                (take @page-size)
+           (->> @current-page
                 (map #(commodity-row % page-state))
                 doall)
            [:tr
