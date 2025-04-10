@@ -41,7 +41,7 @@
   (if (seq commodities)
     (let [lots (->> (models/select #:lot{:commodity {:id [:in (map :id commodities)]}
                                          :shares-owned [:> 0]})
-                    (group-by (comp :lot/commodity :id))
+                    (group-by (comp :id :lot/commodity))
                     (map #(update-in % [1] (fn [lots]
                                              (->> lots
                                                   (map :lot/shares-owned)
