@@ -29,7 +29,7 @@
 
 (defn- launch-and-track-import
   [imp]
-  (let [out-chan (a/chan (a/sliding-buffer 100)
+  (let [out-chan (a/chan (a/sliding-buffer 10)
                          (progress-xf))]
     (report-progress imp out-chan)
     (let [{:keys [entity wait-chan]} (import-data imp
