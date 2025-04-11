@@ -68,7 +68,8 @@
   [page-state]
   (+busy)
   (recs/select (-> (get-in @page-state [:view-account])
-                   (accounts/->criteria {:date-field :end-of-period})
+                   (accounts/->criteria {:account-attribute :reconciliation/account
+                                         :date-attribute :reconciliation/end-of-period})
                    (assoc :desc :end-of-period
                           :status :completed))
                :callback -busy
