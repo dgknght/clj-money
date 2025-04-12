@@ -325,3 +325,15 @@
                :account/balance 100M
                :account/type :asset}))
         "When only options are specified, a simplifying function is returned")))
+
+(deftest make-a-keyword-safe-for-urls
+  (is (= :account_name (util/url-safe-keyword :account/name))
+      "A keyword with a namespace is separated with an underscore")
+  (is (= :name (util/url-safe-keyword :name))
+      "A keyword without a namespace is returned as-is"))
+
+(deftest convert-a-url-safe-keyword-into-a-regular-keyword
+  (is (= :account/name (util/<-url-safe-keyword :account_name))
+      "An underscore is used to separate the namespace from the name")
+  (is (= :name (util/<-url-safe-keyword :name))
+      "A value without underscore returned left as-is"))

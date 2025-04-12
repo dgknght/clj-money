@@ -610,3 +610,17 @@
                          k))
                  ks)]
     (apply some-fn fns)))
+
+(defn url-safe-keyword
+  [k]
+  (let [[space nom] ((juxt namespace name) k)]
+    (if space
+      (keyword (str space "_" nom))
+      k)))
+
+(defn <-url-safe-keyword
+  [k]
+  (let [m (re-find #"^([^_]+)_([^_]+)$" (name k))]
+    (if m
+      (keyword (nth m 1) (nth m 2))
+      k)))
