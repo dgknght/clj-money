@@ -23,8 +23,8 @@
                     :reconciliation/end-of-period-on-or-before
                     :reconciliation/end-of-period-on-or-after)
       (and upper lower) (assoc :reconciliation/end-of-period [:between lower upper])
-      upper (assoc :reconciliation/end-of-period [:>= upper])
-      lower (assoc :reconciliation/end-of-period [:<= lower]))))
+      upper (assoc :reconciliation/end-of-period [:<= upper])
+      lower (assoc :reconciliation/end-of-period [:>= lower]))))
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
