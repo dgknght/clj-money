@@ -5,23 +5,38 @@
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-int
                                           uuid]]
-            [dgknght.app-lib.dates :refer [symbolic-comparatives]]
             [clj-money.authorization
              :as auth
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
+            [clj-money.dates :as dates]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.authorization.reconciliations]))
+
+(defn- symbolic-comparatives
+  [m]
+  (let [lower (get-in m [:reconciliation/end-of-period-on-or-after])
+        upper (get-in m [:reconciliation/end-of-period-on-or-before])]
+    (cond-> (dissoc m
+                    :reconciliation/end-of-period-on-or-before
+                    :reconciliation/end-of-period-on-or-after)
+      (and upper lower) (assoc :reconciliation/end-of-period [:between lower upper])
+      upper (assoc :reconciliation/end-of-period [:>= upper])
+      lower (assoc :reconciliation/end-of-period [:<= lower]))))
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
-      (symbolic-comparatives :end-of-period)
-      (select-keys [:account-id :status :end-of-period])
-      (rename-keys {:account-id :reconciliation/account
-                    :status :reconciliation/status
-                    :end-of-period :reconciliation/end-of-period})
+      (update-keys util/<-url-safe-keyword)
+      (update-in-if [:reconciliation/end-of-period-on-or-before] dates/unserialize-local-date)
+      (update-in-if [:reconciliation/end-of-period-on-or-after] dates/unserialize-local-date)
+      (symbolic-comparatives)
+      (rename-keys {:account-id :reconciliation/account})
+      (select-keys [:reconciliation/account
+                    :reconciliation/status
+                    :reconciliation/end-of-period])
       (+scope :reconciliation authenticated)))
 
 (defn- translate-sort
