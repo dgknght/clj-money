@@ -78,12 +78,14 @@
   (recs/select (-> (get-in @page-state [:view-account])
                    ->criteria
                    (assoc :desc :reconciliation/end-of-period
-                          :reconciliation/status :completed))
+                          :reconciliation/status :completed
+                          :limit 1))
                :callback -busy
-               :on-success #(swap! page-state assoc
+               :on-success (fn [[r]]
+                             (swap! page-state assoc
                                    :previous-reconciliation
-                                   (or %
-                                       {:balance 0M}))))
+                                   (or r
+                                       {:reconciliation/balance 0M})))))
 
 (defn- finish-reconciliation
   [page-state]
