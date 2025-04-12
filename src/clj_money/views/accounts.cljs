@@ -552,23 +552,25 @@
            {:href "#"
             :on-click #(new-dividend page-state)}
            "Dividend"]]]]
-       [:button.btn.btn-secondary.ms-2.d-none.d-md-block
-        {:on-click (fn []
-                     (trns/stop-item-loading page-state)
-                     (swap! page-state dissoc :items)
-                     (recs/load-working-reconciliation page-state)
-                     (trns/load-unreconciled-items page-state)
-                     (set-focus "end-of-period"))
-         :title "Click here to reconcile this account"}
-        (icon-with-text :list-check "Reconcile")]
-       [:button.btn.btn-secondary.ms-2 {:on-click (fn []
-                                                    (trns/stop-item-loading page-state)
-                                                    (swap! page-state dissoc
-                                                           :view-account
-                                                           :items
-                                                           :all-items-fetched?))
-                                        :title "Click here to return to the account list."}
-        (icon-with-text :arrow-left-short "Back")]])))
+       [button {:html {:class "btn-primary btn-secondary ms-2 d-none d-md-block"
+                       :on-click (fn []
+                                   (trns/stop-item-loading page-state)
+                                   (recs/load-working-reconciliation page-state)
+                                   (trns/load-unreconciled-items page-state)
+                                   (set-focus "end-of-period"))
+                       :disabled @busy?}
+                :caption "Reconcile"
+                :icon :list-check}]
+       [button {:html {:class "btn-secondary ms-2"
+                       :on-click (fn []
+                                   (trns/stop-item-loading page-state)
+                                   (swap! page-state dissoc
+                                          :view-account
+                                          :items
+                                          :all-items-fetched?))
+                       :title "Click here to return to the account list."}
+                :caption "Back"
+                :icon :arrow-left-short}]])))
 
 (defn- refresh-accounts
   [page-state]
@@ -667,7 +669,7 @@
   ([page-state checked?]
   (swap! page-state
          update-in
-         [:reconciliation :item-refs]
+         [:reconciliation :reconciliation/item-refs]
          merge
          (->> (:items @page-state)
               (map (comp #(vector % checked?)
@@ -686,12 +688,14 @@
     (fn []
       [:<>
        [:div.d-flex.flex-row-reverse {:class (when-not @reconciliation "d-none")}
-        [:button.btn.btn-secondary {:on-click #(check-all-items page-state)
-                                :title "Click here to mark all items as reconciled"}
-         (icon :check-box :size :small)]
-        [:button.btn.btn-secondary.ms-2 {:on-click #(uncheck-all-items page-state)
-                                     :title "Click here to mark all items as unreconciled"}
-         (icon :unchecked-box :size :small)]]
+        [:button.btn.btn-dark.ms-2
+         {:on-click #(uncheck-all-items page-state)
+          :title "Click here to mark all items as unreconciled"}
+         (icon :square :size :small)]
+        [:button.btn.btn-dark.ms-2
+         {:on-click #(check-all-items page-state)
+          :title "Click here to mark all items as reconciled"}
+         (icon :check-square :size :small)]]
 
        [:div.d-flex.flex-column.h-75
         [:div#items-container.flex-grow-1.overflow-auto {:style {:height "0"}}

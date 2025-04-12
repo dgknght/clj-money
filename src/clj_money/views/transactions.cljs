@@ -220,13 +220,13 @@
       (if @reconciliation
         [forms/checkbox-input
          reconciliation
-         [:transaction-item/item-refs (:id item)]
+         [:reconciliation/item-refs (:id item)]
          {::forms/decoration ::forms/none}]
         (icon
           (case reconciliation-status
-            :completed :check-box
-            :new       :dot
-            :unchecked-box)
+            :completed :check-square
+            :new       :dash-sqaure
+            :square)
           :size :small))]
      (when-not @reconciliation
        [:td.text-end.d-none.d-md-table-cell (format-quantity balance

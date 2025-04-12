@@ -94,20 +94,20 @@
   [page-state]
   (let [reconciliation (r/cursor page-state [:reconciliation])
         account (r/cursor page-state [:view-account])
-        previous-balance (r/cursor page-state [:previous-reconciliation :balance])
-        item-ids (make-reaction #(->> (:item-refs @reconciliation)
+        previous-balance (r/cursor page-state [:previous-reconciliation :reconciliation/balance])
+        item-ids (make-reaction #(->> (:reconciliation/item-refs @reconciliation)
                                       (filter second)
                                       (map first)
                                       set))
         items (r/cursor page-state [:items])
         reconciled-total (make-reaction (fn []
                                           (->> @items
-                                               (filter #(@item-ids (:id %)))
-                                               (map :polarized-quantity)
-                                               (reduce decimal/+ 0))))
+                                               (filter (comp @item-ids :id))
+                                               (map :transaction-item/polarized-quantity)
+                                               (reduce decimal/+ 0M))))
         working-balance (make-reaction #(decimal/+ @previous-balance
                                                    @reconciled-total))
-        difference (make-reaction #(decimal/- (:balance @reconciliation)
+        difference (make-reaction #(decimal/- (:reconciliation/balance @reconciliation)
                                               @working-balance))
         balanced? (make-reaction #(and (decimal/zero? @difference)
                                        (seq @item-ids)))]
@@ -116,8 +116,8 @@
       [:div.card
        [:div.card-header [:strong "Reconcile"]]
        [:div.card-body
-        [forms/date-field reconciliation [:end-of-period]]
-        [forms/decimal-field reconciliation [:balance]]
+        [forms/date-field reconciliation [:reconciliation/end-of-period]]
+        [forms/decimal-field reconciliation [:reconciliation/balance]]
         [forms/checkbox-field
          page-state
          [:include-children?]
