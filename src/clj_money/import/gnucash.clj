@@ -543,7 +543,7 @@
                (or (#{:fund :currency} space)
                    :stock))]
     (cond-> {:import/record-type :commodity
-             :import/ignore? (= "template" id)
+             :import/ignore? (= :template space)
              :commodity/name (or name id)
              :commodity/symbol id
              :commodity/type type}
