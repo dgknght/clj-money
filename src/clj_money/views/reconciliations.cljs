@@ -27,12 +27,20 @@
                              {:reconciliation/account (get-in @page-state
                                                               [:view-account])}))))
 
+(defn- ->criteria
+  [recon]
+  (accounts/->criteria recon
+                       {:account-attribute :reconciliation/account
+                        :date-attribute :reconciliation/end-of-period}))
+
 (defn load-working-reconciliation
   [page-state]
   (+busy)
-  (recs/select {:reconciliation/account (get-in @page-state [:view-account])
-                :reconciliation/status :new
-                :limit 1}
+  (recs/select (-> (get-in @page-state [:view-account])
+                   ->criteria
+                   (assoc :desc :reconciliation/end-of-period
+                          :limit 1
+                          :reconciliation/status :new))
                :callback -busy
                :on-success (comp (receive-reconciliation page-state)
                                  first)))
@@ -68,10 +76,9 @@
   [page-state]
   (+busy)
   (recs/select (-> (get-in @page-state [:view-account])
-                   (accounts/->criteria {:account-attribute :reconciliation/account
-                                         :date-attribute :reconciliation/end-of-period})
-                   (assoc :desc :end-of-period
-                          :status :completed))
+                   ->criteria
+                   (assoc :desc :reconciliation/end-of-period
+                          :reconciliation/status :completed))
                :callback -busy
                :on-success #(swap! page-state assoc
                                    :previous-reconciliation
