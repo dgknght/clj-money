@@ -36,7 +36,7 @@
    [:td.text-end (format-decimal value)]])
 
 (defmethod ^:private report-row :data
-  [{:report/keys [id caption value depth]} hide-zeros?]
+  [{:report/keys [caption value depth] :keys [id]} hide-zeros?]
   ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (when (and hide-zeros?
                           (zero? value))
