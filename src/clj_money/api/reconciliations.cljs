@@ -35,18 +35,18 @@
            (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
 
 (defn create
-  [{:keys [account-id] :as reconciliation} opts]
+  [{:reconciliation/keys [account] :as reconciliation} opts]
   (api/post (api/path :accounts
-                      account-id
+                      account
                       :reconciliations)
-            (dissoc reconciliation :account-id)
+            (dissoc reconciliation :reconciliation/account)
             (add-error-handler opts "Unable to create the reconciliation: %s")))
 
 (defn update
-  [{:keys [id] :as reconciliation} opts]
+  [recon opts]
   (api/patch (api/path :reconciliations
-                       id)
-             (dissoc reconciliation :id :account-id)
+                       recon)
+             (dissoc recon :id :reconciliation/account)
              (add-error-handler opts "Unable to update the reconciliation: %s")))
 
 (defn save

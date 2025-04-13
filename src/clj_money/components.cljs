@@ -1,5 +1,6 @@
 (ns clj-money.components
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
             [clj-money.icons :as icons]
             [clj-money.state :refer [busy?]]
@@ -124,9 +125,10 @@
    [:span.visually-hidden "Loading..."]])
 
 (defn button
-  [{:keys [html icon caption]}]
+  [{:keys [html icon caption disabled?]}]
   (fn []
-    [:button.btn html
+    [:button.btn (merge html
+                        {:disabled (when disabled? @disabled?)})
      [:span.d-flex.align-items-center
       (if @busy?
         [spinner :size :small]
