@@ -9,7 +9,6 @@
             [clj-money.components :refer [button]]
             [clj-money.state :refer [+busy
                                      -busy]]
-            [clj-money.icons :refer [icon-with-text]]
             [clj-money.accounts :as accounts]
             [clj-money.views.transactions :as trns]
             [clj-money.api.reconciliations :as recs]))
