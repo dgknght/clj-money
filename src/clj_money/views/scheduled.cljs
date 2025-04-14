@@ -43,7 +43,7 @@
 (defn- load-sched-trans
   [page-state]
   (+busy)
-  (sched-trans/search {}
+  (sched-trans/select {}
                       :callback -busy
                       :on-success #(swap! page-state
                                           assoc
@@ -449,7 +449,8 @@
 
 (defn- autorun []
   (+busy)
-  (sched-trans/search {}
+  (sched-trans/select {:scheduled-transaction/enabled true
+                       :scheduled-transaction/end-date [:> (t/today)]}
                       :callback -busy
                       :on-success (fn [results]
                                     (let [r (map-next-occurrence results)

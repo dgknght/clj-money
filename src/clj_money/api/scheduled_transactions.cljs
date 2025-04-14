@@ -21,7 +21,7 @@
              :scheduled-transactions
              extras))))
 
-(defn search
+(defn select
   [criteria & {:as opts}]
   (api/get (path)
            criteria
