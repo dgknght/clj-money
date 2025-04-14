@@ -11,11 +11,24 @@
                                              allowed?
                                              +scope]
              :as authorization]
+            [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.transactions :refer [with-delayed-propagation]]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
+
+(defmulti^:private parse-date-param type)
+
+(defmethod parse-date-param ::util/string
+  [s]
+  (dates/unserialize-local-date s))
+
+(defmethod parse-date-param ::util/vector
+  [[start end]]
+  [:between
+   (parse-date-param start)
+   (parse-date-param end)])
 
 (defn- ->criteria
   [{:keys [params authenticated]}]
@@ -24,6 +37,10 @@
       (util/qualify-keys :scheduled-transaction)
       (update-in [:scheduled-transaction/entity] util/->model-ref)
       (update-in-if [:scheduled-transaction/enabled] parse-bool)
+      (util/symbolic-comparatives :scheduled-transaction/end-date)
+      (util/symbolic-comparatives :scheduled-transaction/start-date)
+      (update-in-if [:scheduled-transaction/end-date] parse-date-param)
+      (update-in-if [:scheduled-transaction/start-date] parse-date-param)
       (select-keys [:scheduled-transaction/entity
                     :scheduled-transaction/enabled
                     :scheduled-transaction/end-date

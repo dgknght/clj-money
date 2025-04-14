@@ -1,6 +1,7 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
+            [clj-money.util :as util]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -24,7 +25,10 @@
 (defn select
   [criteria & {:as opts}]
   (api/get (path)
-           criteria
+           (-> criteria
+             (util/nominal-comparatives :scheduled-transaction/start-date)
+             (util/nominal-comparatives :scheduled-transaction/end-date)
+             (util/pp-> ::prepared-criteria))
            (add-error-handler
              opts
              "Unable to retrieve the scheduled transactions: %s")))
