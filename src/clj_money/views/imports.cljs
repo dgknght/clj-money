@@ -264,8 +264,7 @@
     (load-import page-state)))
 
 (defn- save-and-start-import
-  [event page-state]
-  (.preventDefault event)
+  [page-state]
   (+busy)
   (-> (:import-data @page-state)
       (dissoc ::v/validation)
@@ -287,7 +286,9 @@
   (let [import-data (r/cursor page-state [:import-data])]
     (fn []
       [:form {:no-validate true
-              :on-submit #(save-and-start-import % page-state)}
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           (save-and-start-import page-state))}
        [:div.card
         [:div.card-header [:strong "Import Entity"]]
         [:div.card-body
