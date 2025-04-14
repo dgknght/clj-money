@@ -69,7 +69,8 @@
    [:td.col-sm-6.text-center
     (let [perc (if (< 0 total)
                  (* 100 (/ completed total))
-                 0)]
+                 0)
+          formatted-perc (format-percent (/ perc 100) {:fraction-digits 0})]
       [:div.progress
        [:div.progress-bar
         {:aria-valuenow completed
@@ -88,10 +89,10 @@
                                 perc)
                               "%")}}
         (when (<= 50 perc)
-          (format-percent (/ perc 100) {:fraction-digits 2}))]
+          formatted-perc)]
        (when (> 50 perc)
          [:span.ps-1
-          (format-percent (/ perc 100){:fraction-digits 2})])])
+          formatted-perc])])
     [:span.text-body-secondary.fw-lighter
      {:style {:font-size "0.8em"}}
      (str (format-decimal completed {:fraction-digits 0})
