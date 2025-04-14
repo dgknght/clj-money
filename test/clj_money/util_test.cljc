@@ -37,18 +37,32 @@
     (is (= {:start-on [:> date]}
            (util/symbolic-comparatives {:start-after date}
                                        :start)))
+    (is (= {:scheduled-transaction/start-on [:> date]}
+           (util/symbolic-comparatives {:scheduled-transaction/start-after date}
+                                       :scheduled-transaction/start)))
     (is (= {:transaction-date [:> date]}
            (util/symbolic-comparatives {:transaction-date-after date}
                                        :transaction-date))
         "Keys that end with -date don't receive -on or -at")
-    (is (= {:transaction-date [:between date other-date]}
-           (util/symbolic-comparatives {:transaction-date-on-or-after date
-                                        :transaction-date-on-or-before other-date}
-                                       :transaction-date)))
+    (is (= {:transaction-item/transaction-date [:> date]}
+           (util/symbolic-comparatives {:transaction-item/transaction-date-after date}
+                                       :transaction-item/transaction-date))
+        "Namespaced keys that end with -date don't receive -on or -at")
+    (is (= {:transaction-item/transaction-date [:>= date]}
+           (util/symbolic-comparatives {:transaction-item/transaction-date-on-or-after date}
+                                       :transaction-item/transaction-date)))
+    (is (= {:transaction-item/transaction-date [:between date other-date]}
+           (util/symbolic-comparatives #:transaction-item{:transaction-date-on-or-after date
+                                                          :transaction-date-on-or-before other-date}
+                                       :transaction-item/transaction-date)))
     (is (= {:start-on [:between date other-date]}
            (util/symbolic-comparatives {:start-on-or-after date
                                         :start-on-or-before other-date}
-                                       :start-on)))))
+                                       :start-on)))
+    (is (= {:scheduled-transaction/start-on [:between date other-date]}
+           (util/symbolic-comparatives #:scheduled-transaction{:start-on-or-after date
+                                                               :start-on-or-before other-date}
+                                       :scheduled-transaction/start-on)))))
 
 (deftest convert-symbolic-comparatives-to-nominal
   (let [date (t/local-date 2015 1 1)
@@ -58,6 +72,10 @@
          :start
          {:start-on date}
 
+         {:scheduled-transaction/start-on date}
+         :scheduled-transaction/start
+         {:scheduled-transaction/start-on date}
+
          {:transaction-date date}
          :transaction-date
          {:transaction-date date}
@@ -65,6 +83,10 @@
          {:start-on [:> date]}
          :start
          {:start-after date}
+
+         {:scheduled-transaction/start-on [:> date]}
+         :scheduled-transaction/start
+         {:scheduled-transaction/start-after date}
 
          {:transaction-date [:> date]}
          :transaction-date
@@ -74,6 +96,11 @@
          :transaction-date
          {:transaction-date-on-or-after date
           :transaction-date-on-or-before other-date}
+
+         {:transaction-item/transaction-date [:between date other-date]}
+         :transaction-item/transaction-date
+         {:transaction-item/transaction-date-on-or-after date
+          :transaction-item/transaction-date-on-or-before other-date}
 
          {:start-on [:between date other-date]}
          :start-on

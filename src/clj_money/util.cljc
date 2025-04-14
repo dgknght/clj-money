@@ -203,16 +203,17 @@
      :cljs (instance? goog.date.DateTime date)))
 
 (defn- nominal-key
-  [key-base value]
+  [str-ns str-key-base value]
   (let [[oper value] (if (sequential? value)
                        value
                        [:= value])
-        prep (when-not (string/ends-with? key-base "date") (if (includes-time? value)
+        prep (when-not (string/ends-with? str-key-base "date") (if (includes-time? value)
                                                              "at"
                                                              "on"))]
     (keyword
+      str-ns
       (str
-        key-base
+        str-key-base
         (case oper
           := (when prep (str "-" prep))
           :>  "-after"
@@ -222,14 +223,15 @@
 
 (defn- apply-to-dynamic-keys
   [m {:keys [key-base suffixes update-fn]}]
-  (let [str-k (name key-base)]
+  (let [str-ns (namespace key-base)
+        str-k (name key-base)]
     (->> suffixes
-         (mapv #(keyword (str str-k %)))
+         (map #(keyword str-ns (str str-k %)))
          (reduce (fn [result k]
                    (if-let [value (get-in m [k])]
                      (-> result
                          (dissoc k)
-                         (update-fn str-k k value))
+                         (update-fn str-ns str-k k value))
                      result))
                  m))))
 
@@ -238,17 +240,20 @@
   (let [value (get-in m [key-base])]
     (if (and (sequential? value)
              (= :between (first value)))
-      (let [[start end] (drop 1 value)]
+      (let [[_oper start end] value]
         (if (and start end)
-          (let [str-key (name key-base)
+          (let [str-ns (namespace key-base)
+                str-key (name key-base)
                 prefix (if (string/ends-with? str-key "date")
                          "-on"
                          "")]
             (-> m
-                (assoc (keyword (str str-key
+                (assoc (keyword str-ns
+                                (str str-key
                                      prefix
                                      "-or-after")) start
-                       (keyword (str str-key
+                       (keyword str-ns
+                                (str str-key
                                      prefix
                                      "-or-before")) end)
                 (dissoc key-base)))
@@ -267,8 +272,8 @@
       (apply-to-dynamic-keys
         {:key-base key-base
          :suffixes ["-on" "-at" nil]
-         :update-fn (fn [result str-k _original-key value]
-                      (assoc result (nominal-key str-k value)
+         :update-fn (fn [result str-ns str-k _original-key value]
+                      (assoc result (nominal-key str-ns str-k value)
                              (if (sequential? value)
                                (second value)
                                value)))})))
@@ -283,33 +288,37 @@
 
 (defn nominative-variations
   [key-base]
-  (let [str-key (name key-base)]
-    (map #(keyword (str str-key %))
+  (let [str-ns (namespace key-base)
+        str-key (name key-base)]
+    (map #(keyword str-ns (str str-key %))
          [""
           "-before"
           "-on-or-before"
           "-at-or-before"
           "-after"
-          "-on-or-after"])))
+          "-on-or-after"
+          "-at-or-after"])))
 
 (defn- symbolic-key
-  [key-base k value]
-  (let [key-suffix (string/replace (name k) (str key-base "-") "")
+  [str-ns str-key-base k value]
+  (let [key-suffix (string/replace (name k) (str str-key-base "-") "")
         final-key (keyword
-                   (str key-base
-                        (when-not (string/ends-with? key-base "-date")
-                          (if (includes-time? value) "-at" "-on"))))
+                    str-ns
+                    (str str-key-base
+                         (when-not (string/ends-with? str-key-base "-date")
+                           (if (includes-time? value) "-at" "-on"))))
         oper (get-in suffix-keys [key-suffix])]
     [final-key [oper value]]))
 
 (defn nominal->between
   [m key-base]
-  (let [str-key (name key-base)
+  (let [str-ns (namespace key-base)
+        str-key (name key-base)
         prefix (if (string/ends-with? str-key "date")
                  "-on"
                  "")
-        start-key (keyword (str (name key-base) prefix "-or-after"))
-        end-key (keyword (str (name key-base) prefix "-or-before"))
+        start-key (keyword str-ns (str (name key-base) prefix "-or-after"))
+        end-key (keyword str-ns (str (name key-base) prefix "-or-before"))
         start (get-in m [start-key])
         end (get-in m [end-key])]
     (if (and start end)
@@ -334,8 +343,8 @@
                    "-after"
                    "-on-or-after"
                    "-at-or-after"]
-        :update-fn (fn [result str-k k value]
-                     (let [[new-key value-with-oper] (symbolic-key str-k k value)]
+        :update-fn (fn [result str-ns str-k k value]
+                     (let [[new-key value-with-oper] (symbolic-key str-ns str-k k value)]
                        (assoc result new-key value-with-oper)))})))
 
 #?(:cljs
