@@ -5,6 +5,8 @@
             [java-time.api :as t]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.core :refer [parse-bool
+                                          update-in-if]]
             [clj-money.authorization :refer [authorize
                                              allowed?
                                              +scope]
@@ -18,9 +20,14 @@
 (defn- ->criteria
   [{:keys [params authenticated]}]
   (-> params
-      (select-keys [:entity-id])
-      (rename-keys {:entity-id :scheduled-transaction/entity})
+      (rename-keys {:entity-id :entity})
+      (util/qualify-keys :scheduled-transaction)
       (update-in [:scheduled-transaction/entity] util/->model-ref)
+      (update-in-if [:scheduled-transaction/enabled] parse-bool)
+      (select-keys [:scheduled-transaction/entity
+                    :scheduled-transaction/enabled
+                    :scheduled-transaction/end-date
+                    :scheduled-transaction/start-date])
       (+scope :scheduled-transaction authenticated)))
 
 (defn- index
