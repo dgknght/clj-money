@@ -6,6 +6,7 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [timeout
                                      <!]]
+            [dgknght.app-lib.core :refer [present?]]
             [dgknght.app-lib.web :refer [format-percent
                                          format-decimal
                                          format-date
@@ -263,11 +264,22 @@
                            (assoc :active (:import result))))
     (load-import page-state)))
 
+(defn- remove-empty-vals
+  [m]
+  (->> m
+       (filter (fn [[k v]]
+                 (pprint {::k k
+                          ::present? v
+                          ::result (present? v)})
+                 (present? v)))
+       (into {})))
+
 (defn- save-and-start-import
   [page-state]
   (+busy)
   (-> (:import-data @page-state)
       (dissoc ::v/validation)
+      (update-in [:options] remove-empty-vals)
       (imports/create :callback -busy
                       :on-failure (notify/danger-fn "Unable to start the import: %s")
                       :on-success (start-after-save page-state))))
