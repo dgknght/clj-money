@@ -9,5 +9,5 @@ sed "$(grep -n \<gnc:pricedb target/sample-data.xml | cut -d ':' -f 1),$(grep -n
 echo 'Zipping the file...'
 gzip target/sample-data-without-prices.xml
 mv target/sample-data-without-prices.xml.gz target/sample-data-without-prices.gnucash
-echo 'Chunking the file...'
-lein chunk-file target/sample-data-without-prices.gnucash
+# echo 'Chunking the file...'
+# lein chunk-file target/sample-data-without-prices.gnucash
