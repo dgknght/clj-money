@@ -25,10 +25,8 @@
   (dates/unserialize-local-date s))
 
 (defmethod parse-date-param ::util/vector
-  [[start end]]
-  [:between
-   (parse-date-param start)
-   (parse-date-param end)])
+  [[oper & vs]]
+  (apply vector oper (map parse-date-param vs)))
 
 (defn- ->criteria
   [{:keys [params authenticated]}]

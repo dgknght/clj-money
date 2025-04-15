@@ -450,6 +450,7 @@
 (defn- autorun []
   (+busy)
   (sched-trans/select {:scheduled-transaction/enabled true
+                       :scheduled-transaction/start-date [:<= (t/today)]
                        :scheduled-transaction/end-date [:> (t/today)]}
                       :callback -busy
                       :on-success (fn [results]

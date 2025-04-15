@@ -1,6 +1,8 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
@@ -22,13 +24,24 @@
              :scheduled-transactions
              extras))))
 
+(defmulti ^:private serialize-date-param type)
+
+(defmethod serialize-date-param ::util/vector
+  [[oper & vs]]
+  (apply vector oper (map dates/serialize-local-date vs)))
+
+(defmethod serialize-date-param ::util/string
+  [d]
+  (dates/serialize-local-date d))
+
 (defn select
   [criteria & {:as opts}]
   (api/get (path)
            (-> criteria
-             (util/nominal-comparatives :scheduled-transaction/start-date)
-             (util/nominal-comparatives :scheduled-transaction/end-date)
-             (util/pp-> ::prepared-criteria))
+               (update-in-if [:scheduled-transaction/start-date] serialize-date-param)
+               (update-in-if [:scheduled-transaction/end-date] serialize-date-param)
+               (util/nominal-comparatives :scheduled-transaction/start-date)
+               (util/nominal-comparatives :scheduled-transaction/end-date))
            (add-error-handler
              opts
              "Unable to retrieve the scheduled transactions: %s")))
