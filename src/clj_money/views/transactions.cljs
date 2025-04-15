@@ -42,7 +42,7 @@
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]
-            [clj-money.api.attachments :as att]
+            [clj-money.api.attachments :as atts]
             [clj-money.api.trading :as trading]))
 
 (defn- fullify-trx
@@ -93,8 +93,10 @@
   (let [{:keys [attachments-item]} @page-state
         criteria {:transaction-id (:transaction-id attachments-item)
                   :transaction-date (:transaction-date attachments-item)}]
-    (att/search criteria
-                (map #(swap! page-state assoc :attachments %)))))
+    (+busy)
+    (atts/search criteria
+                 :callback -busy
+                 :on-success #(swap! page-state assoc :attachments %))))
 
 (defn- fetch-items
   [xf]
@@ -149,29 +151,32 @@
                          :on-success #(reset-item-loading page-state))))
 
 (defn- post-item-row-drop
-  [page-state item {:keys [body]}]
-  (swap! page-state
-         (fn [state]
-           (-> state
-               (update-in [:item-row-styles]
-                          dissoc
-                          (:id item))
-               (update-in [:items] (fn [items]
-                                     (map (fn [item]
-                                            (if (= (:transaction-id body)
-                                                   (:transaction-id item))
-                                              (update-in item [:attachment-count] inc)
-                                              item))
-                                          items))))))
+  [page-state item]
+  (fn [{:keys [body]}]
+    (swap! page-state
+           (fn [state]
+             (-> state
+                 (update-in [:item-row-styles]
+                            dissoc
+                            (:id item))
+                 (update-in [:items] (fn [items]
+                                       (map (fn [item]
+                                              (if (util/id= (:attachment/transaction body)
+                                                            (:attachment/transaction item))
+                                                (update-in item [:transaction-item/attachment-count] inc)
+                                                item))
+                                            items)))))))
   (notify/toast "Success" "The attachment was saved successfully."))
 
 (defn- handle-item-row-drop
   [item e page-state]
   (.preventDefault e)
-  (att/create {:transaction-id (:transaction-id item) ; TODO: use transaction-ref to combine these?
-               :transaction-date (:transaction-date item)
-               :file (first (dnd/data-files e))}
-              (map (partial post-item-row-drop page-state item))))
+  (+busy)
+  (atts/create {:transaction-id (:transaction-id item) ; TODO: use transaction-ref to combine these?
+                :transaction-date (:transaction-date item)
+                :file (first (dnd/data-files e))}
+               :callback -busy
+               :on-success (post-item-row-drop page-state item)))
 
 (defn- item-row
   [{:transaction-item/keys [attachment-count
