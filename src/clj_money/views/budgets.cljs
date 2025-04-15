@@ -297,7 +297,7 @@
         detail-flag? (r/cursor page-state [:show-period-detail?])
         detail? (make-reaction #(and @detail-flag?
                                      (not @selected-item)))
-        period-count (r/cursor page-state [:detailed-budget :period-count])]
+        period-count (r/cursor page-state [:detailed-budget :budget/period-count])]
     (fn []
       [:table.table.table-hover.table-borderless
        {:style (when-not @detail? {:max-width "20em"})}
@@ -471,7 +471,7 @@
   [:div.mt-2
    (case entry-mode
      :per-period
-     [period-fields-per-period item budget]
+     (period-fields-per-period item budget)
      :per-total
      (period-fields-per-total item)
      :per-average
@@ -481,8 +481,7 @@
      :historical
      (period-fields-historical item)
 
-     [:div.alert.alert-danger
-      (str "Unknown entry mode " @entry-mode)])])
+     (period-fields-per-period item budget))])
 
 (defn- period-entry
   [item page-state]
@@ -533,7 +532,7 @@
          :caption "Account"
          :value-fn :id
          :find-fn (fn [id callback]
-                    (callback @accounts-by-id id))}]
+                    (callback (@accounts-by-id id)))}]
        [period-entry item page-state]
        [:div.mt-3
         [button {:html {:class "btn-primary"
@@ -628,7 +627,7 @@
                  "Edit"
                  "New")])
          (when @detailed-budget
-           [:h2 (:name @detailed-budget)])]
+           [:h2 (:budget/name @detailed-budget)])]
         [budget-details page-state]
         [:div.row
          [:div.col-md-6
