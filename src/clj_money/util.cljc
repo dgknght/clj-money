@@ -204,29 +204,32 @@
 
 (defn- nominal-key
   [str-ns str-key-base value]
-  (let [[oper value] (if (sequential? value)
+  (let [[oper value] (if (vector? value)
                        value
                        [:= value])
-        prep (when-not (string/ends-with? str-key-base "date") (if (includes-time? value)
-                                                             "at"
-                                                             "on"))]
+        prep (if (string/ends-with? str-key-base "-date")
+               (when-not (= := oper) "-on")
+               (if (includes-time? value)
+                 "-at"
+                 "-on"))]
     (keyword
       str-ns
       (str
         str-key-base
         (case oper
-          := (when prep (str "-" prep))
+          := prep
           :>  "-after"
-          :>= (str "-" prep "-or-after")
+          :>= (str prep "-or-after")
           :<  "-before"
-          :<= (str "-" prep "-or-before"))))))
+          :<= (str prep "-or-before"))))))
 
 (defn- apply-to-dynamic-keys
   [m {:keys [key-base suffixes update-fn]}]
   (let [str-ns (namespace key-base)
         str-k (name key-base)]
     (->> suffixes
-         (map #(keyword str-ns (str str-k %)))
+         (map #(keyword str-ns
+                        (str str-k %)))
          (reduce (fn [result k]
                    (if-let [value (get-in m [k])]
                      (-> result
@@ -274,7 +277,7 @@
          :suffixes ["-on" "-at" nil]
          :update-fn (fn [result str-ns str-k _original-key value]
                       (assoc result (nominal-key str-ns str-k value)
-                             (if (sequential? value)
+                             (if (vector? value)
                                (second value)
                                value)))})))
 

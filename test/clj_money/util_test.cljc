@@ -65,47 +65,88 @@
                                        :scheduled-transaction/start-on)))))
 
 (deftest convert-symbolic-comparatives-to-nominal
-  (let [date (t/local-date 2015 1 1)
-        other-date (t/local-date 2015 1 31)]
-    (are [m k expected] (= expected (util/nominal-comparatives m k))
-         {:start-on date}
-         :start
-         {:start-on date}
-
-         {:scheduled-transaction/start-on date}
-         :scheduled-transaction/start
-         {:scheduled-transaction/start-on date}
-
-         {:transaction-date date}
-         :transaction-date
-         {:transaction-date date}
-
-         {:start-on [:> date]}
-         :start
-         {:start-after date}
-
-         {:scheduled-transaction/start-on [:> date]}
-         :scheduled-transaction/start
-         {:scheduled-transaction/start-after date}
-
-         {:transaction-date [:> date]}
-         :transaction-date
-         {:transaction-date-after date}
-
-         {:transaction-date [:between date other-date]}
-         :transaction-date
-         {:transaction-date-on-or-after date
-          :transaction-date-on-or-before other-date}
-
-         {:transaction-item/transaction-date [:between date other-date]}
-         :transaction-item/transaction-date
-         {:transaction-item/transaction-date-on-or-after date
-          :transaction-item/transaction-date-on-or-before other-date}
-
-         {:start-on [:between date other-date]}
-         :start-on
-         {:start-on-or-after date
-          :start-on-or-before other-date})))
+  (testing "simple keys"
+    (is (= {:start-on "2015-01-01"}
+           (util/nominal-comparatives {:start-on "2015-01-01"}
+                                      :start))
+        "A scalar value is unchanged when the base has a suffix")
+    (is (= {:transaction-date "2015-01-01"}
+           (util/nominal-comparatives {:transaction-date "2015-01-01"}
+                                      :transaction-date))
+        "A scalar value is unchanged when the base ends with the -date")
+    (is (= {:start-after "2015-01-01"}
+           (util/nominal-comparatives {:start-on [:> "2015-01-01"]}
+                                      :start))
+        "A greater-than operator translates to the key base with the suffix -after")
+    (is (= {:transaction-date-after "2015-01-01"}
+           (util/nominal-comparatives {:transaction-date [:> "2015-01-01"]}
+                                      :transaction-date))
+        "A greater-than operator translates to the key base with the suffix -after when the base ends with -date")
+    (is (= {:start-on-or-after "2015-01-01"}
+           (util/nominal-comparatives {:start-on [:>= "2015-01-01"]}
+                                      :start))
+        "A greater-than-or-equal-to operator translates to the key base with the suffix -on-or-after")
+    (is (= {:transaction-date-on-or-after "2015-01-01"}
+           (util/nominal-comparatives {:transaction-date [:>= "2015-01-01"]}
+                                      :transaction-date))
+        "A greater-than-or-equal-to operator translates to the key base with the suffix -on-or-after when the base ends with -date")
+    (is (= {:start-before "2015-01-01"}
+           (util/nominal-comparatives {:start-on [:< "2015-01-01"]}
+                                      :start))
+        "A less-than operator translates to the key base with the suffix -before")
+    (is (= {:transaction-date-before "2015-01-01"}
+           (util/nominal-comparatives {:transaction-date [:< "2015-01-01"]}
+                                      :transaction-date))
+        "A less-than operator translates to the key base with the suffix -before when the base ends with -date")
+    (is (= {:start-on-or-before "2015-01-01"}
+           (util/nominal-comparatives {:start-on [:<= "2015-01-01"]}
+                                      :start))
+        "A less-than-or-equal-to operator translates to the key base with the suffix -on-or-before")
+    (is (= {:transaction-date-on-or-before "2015-01-01"}
+           (util/nominal-comparatives {:transaction-date [:<= "2015-01-01"]}
+                                      :transaction-date))
+        "A less-than-or-equal-to operator translates to the key base with the suffix -on-or-before when the base ends with -date"))
+  (testing "namespaced keys"
+    (is (= {:scheduled-transaction/start-on "2015-01-01"}
+           (util/nominal-comparatives {:scheduled-transaction/start-on "2015-01-01"}
+                                      :scheduled-transaction/start))
+        "A scalar value is unchanged")
+    (is (= {:transaction-item/transaction-date "2015-01-01"}
+           (util/nominal-comparatives {:transaction-item/transaction-date "2015-01-01"}
+                                      :transaction-item/transaction-date))
+        "A scalar value is unchanged when the base ends with the -date")
+    (is (= {:scheduled-transaction/start-after "2015-01-01"}
+           (util/nominal-comparatives {:scheduled-transaction/start-on [:> "2015-01-01"]}
+                                      :scheduled-transaction/start))
+        "A greater-than operator translates to the key base with the suffix -after")
+    (is (= {:transaction-item/transaction-date-after "2015-01-01"}
+           (util/nominal-comparatives {:transaction-item/transaction-date [:> "2015-01-01"]}
+                                      :transaction-item/transaction-date))
+        "A greater-than operator translates to the key base with the suffix -after when the base ends with -date")
+    (is (= {:scheduled-transaction/start-on-or-after "2015-01-01"}
+           (util/nominal-comparatives {:scheduled-transaction/start-on [:>= "2015-01-01"]}
+                                      :scheduled-transaction/start))
+        "A greater-than-or-equal-to operator translates to the key base with the suffix -on-or-after")
+    (is (= {:transaction-item/transaction-date-on-or-after "2015-01-01"}
+           (util/nominal-comparatives {:transaction-item/transaction-date [:>= "2015-01-01"]}
+                                      :transaction-item/transaction-date))
+        "A greater-than-or-equal-to operator translates to the key base with the suffix -on-or-after when the base ends with -date")
+    (is (= {:scheduled-transaction/start-before "2015-01-01"}
+           (util/nominal-comparatives {:scheduled-transaction/start-on [:< "2015-01-01"]}
+                                      :scheduled-transaction/start))
+        "A less-than operator translates to the key base with the suffix -before")
+    (is (= {:transaction-item/transaction-date-before "2015-01-01"}
+           (util/nominal-comparatives {:transaction-item/transaction-date [:< "2015-01-01"]}
+                                      :transaction-item/transaction-date))
+        "A less-than operator translates to the key base with the suffix -before when the base ends with -date")
+    (is (= {:scheduled-transaction/start-on-or-before "2015-01-01"}
+           (util/nominal-comparatives {:scheduled-transaction/start-on [:<= "2015-01-01"]}
+                                      :scheduled-transaction/start))
+        "A less-than-or-equal-to operator translates to the key base with the suffix -on-or-before")
+    (is (= {:transaction-item/transaction-date-on-or-before "2015-01-01"}
+           (util/nominal-comparatives {:transaction-item/transaction-date [:<= "2015-01-01"]}
+                                      :transaction-item/transaction-date))
+        "A less-than-or-equal-to operator translates to the key base with the suffix -on-or-before when the base ends with -date")))
 
 (deftest extract-a-qualifier
   (is (= "user" (util/qualifier {:user/name "John"}))
