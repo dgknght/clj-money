@@ -36,7 +36,8 @@
            [m]
            (postwalk (fn [x]
                         (if (decimal? x)
-                           (->Decimal x)
+                           #?(:clj (->Decimal x)
+                              :cljs (js/Decimal. x))
                            x))
                      m))
 
