@@ -118,7 +118,6 @@
   (-> (:selected @page-state)
       (dissoc :budget/items)
       (update-in [:budget/period] keyword)
-      (util/pp-> ::to-save)
       (api/save :callback -busy
                 :on-success (fn []
                               (load-budgets page-state)
