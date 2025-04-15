@@ -74,7 +74,7 @@
 }
 
 .report-header td, .report-header th {
-  border-bottom: 1px solid black;
+  border-bottom: 1px solid $gray-300;
 }
 
 .report-condensed-summary td, .report-condensed-summary th {
@@ -83,11 +83,11 @@
 }
 
 .report-footer td, .report-footer th {
-  border-top: 1px solid black;
+  border-top: 1px solid $gray-300;
 }
 
 .report-summary {
-  border-top: 1px solid black;
+  border-top: 1px solid $gray-300;
   font-weight: bold;
   font-size: 105%;
 }
@@ -122,7 +122,7 @@
 }
 
 .typeahead-list {
-  border: 1px solid black;
+  border: 1px solid $gray-300;
   background-color: #fff;
   list-style-type: none;
   margin: 0;
