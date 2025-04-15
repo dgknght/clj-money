@@ -15,6 +15,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.decimal :as d]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.state :refer [app-state
@@ -39,7 +40,7 @@
   [{:report/keys [caption value depth] :keys [id]} hide-zeros?]
   ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (when (and hide-zeros?
-                          (zero? value))
+                          (d/zero? value))
                  "d-none")}
    [:td
     [:span {:class (str "account-depth-" depth)}
