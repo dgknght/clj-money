@@ -27,7 +27,8 @@
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
             [clj-money.api.transaction-items :as trx-items]
-            [clj-money.api.budgets :as api]))
+            [clj-money.api.budgets :as api]
+            [cljs.core :as c]))
 
 (defn- load-budgets
   [page-state]
@@ -54,23 +55,24 @@
                           (set-focus "account-id"))))
 
 (defn- budget-row
-  [budget page-state]
-  ^{:key (str "budget-row-" (:id budget))}
-  [:tr
-   [:td (:budget/name budget)]
-   [:td
-    [:div.btn-group
-     [:button.btn.btn-sm.btn-secondary {:on-click (fn []
-                                               (swap! page-state assoc :selected budget)
-                                               (set-focus "name"))
-                                   :title "Click here to edit this budget"}
-      (icon :pencil :size :small)]
-     [:button.btn.btn-sm.btn-secondary {:on-click #(load-budget-details budget page-state)
-                                   :title "Click here to fill out details for this budget."}
-      (icon :collection :size :small)]
-     [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget budget page-state)
-                                     :title "Click here to remove this budget."}
-      (icon :x-circle :size :small)]]]])
+  [page-state]
+  (fn [budget]
+    ^{:key (str "budget-row-" (:id budget))}
+    [:tr
+     [:td (:budget/name budget)]
+     [:td
+      [:div.btn-group
+       [:button.btn.btn-sm.btn-secondary {:on-click (fn []
+                                                      (swap! page-state assoc :selected budget)
+                                                      (set-focus "name"))
+                                          :title "Click here to edit this budget"}
+        (icon :pencil :size :small)]
+       [:button.btn.btn-sm.btn-secondary {:on-click #(load-budget-details budget page-state)
+                                          :title "Click here to fill out details for this budget."}
+        (icon :collection :size :small)]
+       [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget budget page-state)
+                                       :title "Click here to remove this budget."}
+        (icon :x-circle :size :small)]]]]))
 
 (defn- budgets-table
   [page-state]
@@ -82,11 +84,17 @@
          [:th.w-75 "Name"]
          [:th.w-25 (html/space)]]]
        [:tbody
-        (if budgets
-          (if (seq @budgets)
-            (doall (map #(budget-row % page-state) @budgets))
-            [:tr
-             [:td {:col-span 2} [:span.inline-status "No budgets."]]])
+        (cond
+          (seq @budgets)
+          (->> @budgets
+               (map (budget-row page-state))
+               doall)
+
+          @budgets
+          [:tr
+           [:td {:col-span 2} [:span.inline-status "No budgets."]]]
+
+          :else
           [:tr
            [:td {:col-span 2} [:span.inline-status "Loading..."]]])]])))
 
@@ -174,9 +182,8 @@
 (defn- infer-spec
   [{:budget-item/keys [periods]}]
   (if (apply = periods)
-    {:entry-mode :per-average
-     :average (first periods)}
-    {:entry-mode :per-period}))
+    [:per-average {:average (first periods)}]
+    [:per-period nil]))
 
 (defn- derive-entry-mode
   [spec]
@@ -187,9 +194,12 @@
 
 (defn- ensure-spec
   [{:as item :budget-item/keys [spec]}]
-  (if (:budget-item/spec item)
+  (if spec
     (assoc item :entry-mode (derive-entry-mode spec))
-    (assoc item :budget-item/spec (infer-spec item))))
+    (let [[entry-mode spec] (infer-spec item)]
+      (assoc item
+             :budget-item/spec spec
+             :entry-mode entry-mode))))
 
 (defn- select-budget-item
   [item page-state]
@@ -359,7 +369,7 @@
      [:td (html/space)]
      [:td (format-decimal (reduce decimal/+ (:budget-item/periods @item)))]]]
    [:tbody
-    (->> (range (:period-count budget))
+    (->> (range (:budget/period-count budget))
          (map #(period-row % item budget))
          (doall))]])
 
@@ -481,7 +491,7 @@
      :historical
      (period-fields-historical item)
 
-     (period-fields-per-period item budget))])
+     [:div.alert.alert-danger "Unrecognized entry mode " entry-mode])])
 
 (defn- period-entry
   [item page-state]
