@@ -2,6 +2,8 @@
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.edn :as edn]
             [clojure.java.shell :refer [sh]]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
             [clj-money.models :as models]
             [clj-money.accounts :refer [nest unnest]]
             [clj-money.models.transactions :as transactions]))
