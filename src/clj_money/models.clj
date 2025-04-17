@@ -265,6 +265,10 @@
   [model & {:as opts}]
   (first (put-many opts [model])))
 
+(defn update
+  [changes criteria]
+  (db/update (db/storage) changes criteria))
+
 (defn delete-many
   ([models] (delete-many {} models))
   ([{:keys [out-chan]} models]

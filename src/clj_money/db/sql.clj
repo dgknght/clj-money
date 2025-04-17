@@ -17,7 +17,8 @@
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.util :as util :refer [temp-id?]]
             [clj-money.db :as db]
-            [clj-money.db.sql.queries :refer [criteria->query]]
+            [clj-money.db.sql.queries :refer [criteria->query
+                                              ->update]]
             [clj-money.db.sql.types :refer [coerce-id]]))
 
 (defmulti deconstruct (fn [x]
@@ -328,6 +329,12 @@
                             query
                             jdbc/snake-kebab-opts))))))
 
+(defn- update*
+  [ds changes criteria]
+  (let [sql (->update (->sql-refs changes)
+                      (->sql-refs criteria))]
+    (jdbc/execute! ds sql jdbc/snake-kebab-opts)))
+
 (defn- delete*
   [ds models]
   {:pre [(s/valid? (s/coll-of map?) models)]}
@@ -349,4 +356,5 @@
       (put [_ models] (put* ds models))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ models] (delete* ds models))
+      (update [_ changes criteria] (update* ds changes criteria))
       (reset [_] (reset* ds)))))
