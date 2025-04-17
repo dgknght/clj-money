@@ -8,7 +8,7 @@
                                           index-by
                                           update-in-if]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.util :as util]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.transactions :as trxs]
             [clj-money.models :as models]
@@ -229,31 +229,6 @@
       (* (:price price) balance)
       0M)))
 
-(defn migrate-account
-  "Moves all transaction items from from-account to to-account and recalculates the accounts"
-  [from-account to-account]
-  {:pre [(= (:entity-id from-account)
-            (:entity-id to-account))]}
-  (throw (Exception. "Not yet implemented"))
-  #_(let [entity (models/find (:entity from-account) :entity)
-        as-of (or (->> [from-account to-account]
-                       (map :earliest-transaction-date)
-                       (filter identity)
-                       sort
-                       first)
-                  (get-in entity [:settings :earliest-transaction-date])
-                  (settings/get :earliest-partition-date))]
-    (assert as-of "Unable to find the earliest transaction date.")
-    (with-transacted-storage (env :db)
-      (storage/update (tag {:account-id (:id to-account)
-                            :index 0
-                            :balance nil}
-                           ::models/transaction-item)
-                      {:account-id (:id from-account)
-                       :transaction-date [:>= as-of]})
-      (doseq [account [from-account to-account]]
-        (recalculate-account account as-of {:force true})))))
-
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [account & {:as options}]
@@ -384,6 +359,33 @@
                        :account/value (* final-qty price)))
             updated-items)
       updated-items)))
+
+(defn- propagate-account
+  "Given an account and a starting date, recalculate items"
+  [account as-of]
+  (re-index account
+            (propagation-basis account as-of)
+            (models/select {:transaction-item/account account
+                       :transaction-date/transaction-date [:<= as-of]}
+                      {:sort [:transaction-item/transaction-date
+                              :transaction-item/index]})))
+
+(defn migrate-account
+  "Moves all transaction items from from-account to to-account and recalculates the accounts"
+  [from-account to-account]
+  {:pre [(id= (:account/entity from-account)
+              (:account/entity to-account))]}
+  (let [entity (models/find (:account/entity from-account) :entity)
+        as-of (or (:account/earliest-transaction-date from-account)
+                  (get-in entity [:entity/settings :settings/earliest-transaction-date]))]
+    (assert as-of "Unable to find the earliest transaction date.")
+    (models/update {:transaction-item/account (util/->model-ref to-account)
+                    :transaction-item/index 0
+                    :transaction-item/balance nil}
+                   {:transaction-item/account (util/->model-ref from-account)
+                    :transaction-item/transaction-date [:>= as-of]})
+    (doseq [account [from-account to-account]]
+      (propagate-account account as-of))))
 
 (defn- account-items-on-or-after
   [account as-of]
