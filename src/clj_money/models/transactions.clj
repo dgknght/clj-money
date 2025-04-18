@@ -363,12 +363,13 @@
 (defn- propagate-account
   "Given an account and a starting date, recalculate items"
   [account as-of]
-  (re-index account
-            (propagation-basis account as-of)
-            (models/select {:transaction-item/account account
-                       :transaction-date/transaction-date [:<= as-of]}
+  (->> (models/select {:transaction-item/account account
+                       :transaction-item/transaction-date [:<= as-of]}
                       {:sort [:transaction-item/transaction-date
-                              :transaction-item/index]})))
+                              :transaction-item/index]})
+       (map (comp polarize
+                  #(assoc % :transaction-item/account account)))
+       (re-index account (propagation-basis account as-of))))
 
 (defn migrate-account
   "Moves all transaction items from from-account to to-account and recalculates the accounts"
