@@ -580,7 +580,7 @@
          accounts)))
 
 (defn propagate-account-from-start
-  [ctx account]
+  [entity account]
   (let [items (->> (models/select {:transaction-item/account account}
                                   {:sort [:transaction-item/transaction-date
                                           :transaction-item/index]})
@@ -594,19 +594,21 @@
                                        initial-basis
                                        items)
                              (map (comp #(dissoc % ::polarized-quantity)
-                                        #(update-in-if % [:transaction-item/account] util/->model-ref)))))]
-    (-> ctx
-        (update-in [:models] concat updated)
-        (update-in [:entity
-                    :entity/settings
-                    :settings/earliest-transaction-date]
-                   dates/earliest
-                   earliest-transaction-date)
-        (update-in [:entity
-                    :entity/settings
-                    :settings/latest-transaction-date]
-                   dates/latest
-                   latest-transaction-date))))
+                                        #(update-in-if %
+                                                       [:transaction-item/account]
+                                                       util/->model-ref)))))
+        [saved-entity] (models/put-many
+                         (cons (-> entity
+                                   (update-in [:entity/settings
+                                               :settings/earliest-transaction-date]
+                                              dates/earliest
+                                              earliest-transaction-date)
+                                   (update-in [:entity/settings
+                                               :settings/latest-transaction-date]
+                                              dates/latest
+                                              latest-transaction-date))
+                               updated))]
+    saved-entity))
 
 (defn propagate-all
   ([opts]
@@ -618,21 +620,17 @@
          _ (when progress-chan
              (a/go (a/>! progress-chan {:declaration/record-type :propagation
                                         :declaration/record-count (count accounts)
-                                        :import/record-type :declaration})))
-         {:keys [entity models]}
-         (->> accounts
-              apply-commodities
-              (reduce (comp (fn [ctx]
-                              (when progress-chan
-                                (a/go
-                                  (a/>! progress-chan
-                                        {:import/record-type :propagation})))
-                              (update-in ctx [:completed] inc))
-                            propagate-account-from-start)
-                      {:entity entity
-                       :models []
-                       :completed 0}))]
-     (models/put-many (cons entity models)))))
+                                        :import/record-type :declaration})))]
+     (->> accounts
+          apply-commodities
+          (reduce (comp (fn [entity]
+                          (when progress-chan
+                            (a/go
+                              (a/>! progress-chan
+                                    {:import/record-type :propagation})))
+                          entity)
+                        propagate-account-from-start)
+                  entity)))))
 
 (prop/add-full-propagation propagate-all :priority 5)
 
