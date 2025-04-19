@@ -616,21 +616,21 @@
      (propagate-all entity opts)))
   ([entity {:keys [progress-chan]}]
    {:pre [entity]}
-   (let [accounts (models/select {:account/entity entity})
-         _ (when progress-chan
-             (a/go (a/>! progress-chan {:declaration/record-type :propagation
-                                        :declaration/record-count (count accounts)
-                                        :import/record-type :declaration})))]
-     (->> accounts
-          apply-commodities
-          (reduce (comp (fn [entity]
-                          (when progress-chan
-                            (a/go
-                              (a/>! progress-chan
-                                    {:import/record-type :propagation})))
-                          entity)
-                        propagate-account-from-start)
-                  entity)))))
+   (let [accounts (models/select {:account/entity entity})]
+     (when progress-chan
+       (a/go (a/>! progress-chan {:declaration/record-type :propagation
+                                  :declaration/record-count (count accounts)
+                                  :import/record-type :declaration})))
+     [(->> accounts
+           apply-commodities
+           (reduce (comp (fn [entity]
+                           (when progress-chan
+                             (a/go
+                               (a/>! progress-chan
+                                     {:import/record-type :propagation})))
+                           entity)
+                         propagate-account-from-start)
+                   entity))])))
 
 (prop/add-full-propagation propagate-all :priority 5)
 
