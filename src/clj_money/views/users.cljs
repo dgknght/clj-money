@@ -21,8 +21,9 @@
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
-  (entities/select
-    (map receive-entities)))
+  (+busy)
+  (entities/select :callback -busy
+                   :on-success receive-entities))
 
 (defn- authenticate
   [page-state]
