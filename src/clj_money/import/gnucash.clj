@@ -225,7 +225,7 @@
 (defmethod ^:private process-elem ::gnc/commodity
   [{:keys [out-chan child-content] :as state} _]
   (a/>!! out-chan (into {:import/record-type :commodity}
-                      (peek child-content)))
+                        (peek child-content)))
   (pop-elem state))
 
 (defmethod ^:private process-elem :price
