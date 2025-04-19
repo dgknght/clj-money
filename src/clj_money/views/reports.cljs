@@ -180,16 +180,19 @@
   [page-state]
   (+busy)
   (swap! page-state update-in [:budget] dissoc :report)
-  (rpt/budget (dissoc (get-in @page-state [:budget :options]) :depth)
-              :callback -busy
-              :on-success (receive-budget-report page-state)))
+  (let [opts (get-in @page-state [:budget :options])]
+    (if (:budget-id opts)
+      (rpt/budget (dissoc opts :depth)
+                  :callback -busy
+                  :on-success (receive-budget-report page-state))
+      (swap! page-state assoc-in [:budget :report] []))))
 
 (defn- budget-options
   [options page-state]
   (let [budgets (r/cursor page-state [:budgets])
         budget-items (make-reaction #(->> (vals @budgets)
-                                          (sort-by :start-date t/after?)
-                                          (map (juxt :id :name))))]
+                                          (sort-by :budget/start-date t/after?)
+                                          (map (juxt :id :budget/name))))]
     (fn []
       (when (seq @budget-items)
         [:<>
