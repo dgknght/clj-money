@@ -319,10 +319,12 @@
   (with-context ext-context
     (let [imp (find-import "Personal")
           {:keys [entity notifications]} (execute-import imp)
+          _ (assert entity "No entity was returned from the import")
           {{:settings/keys [lt-capital-gains-account
                             st-capital-gains-account
                             lt-capital-loss-account
-                            st-capital-loss-account]} :entity/settings} (models/find entity)]
+                            st-capital-loss-account]} :entity/settings}
+          (models/find entity)]
       (is (empty? notifications) "No errors or warnings are reported")
       (is (util/model-ref? lt-capital-gains-account)
           "The long-term capital gains account id is set")
