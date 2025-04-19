@@ -79,4 +79,9 @@
                         (assoc :current-entity entity))))
 
 (defn logout []
-  (swap! app-state dissoc :auth-token :current-user :entities :current-entity))
+  (swap! app-state
+         dissoc
+         :auth-token
+         :current-user
+         :entities
+         :current-entity))
