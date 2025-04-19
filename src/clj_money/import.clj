@@ -660,14 +660,14 @@
                                         :notification/keys [severity]}]
                                 (if (and (= :notification record-type)
                                          (= :fatal severity))
-                                  (reduced (assoc acc :abend? true))
+                                  (reduced (assoc acc ::abend? true))
                                   acc)))
                             {:import import-spec
                              :account-ids {}
-                             :notivications []
+                             :notifications []
                              :entity entity})
                           a/<!!)]
-          (when-not (:abend? result)
+          (when-not (::abend? result)
             (-> entity
                 models/find
                 (prop/propagate-all :progress-chan out-chan))
