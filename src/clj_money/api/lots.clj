@@ -1,5 +1,6 @@
 (ns clj-money.api.lots
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
@@ -8,25 +9,24 @@
             [clj-money.authorization.lots]))
 
 (defn- extract-criteria
-  [{:keys [params authenticated]}]
-  (-> (:criteria params)
-      (merge (dissoc params :criteria))
-      (select-keys [:account-id :commodity-id :shares-owned])
-      (update-in-if [:account-id] (fn [x]
-                                    (if (sequential? x)
-                                      [:in x] ; TODO: should these be model refs also?
-                                      (util/->model-ref x))))
-      (update-in-if [:commodity-id] util/->model-ref)
-      (update-in-if [:shares-owned 0] keyword)
-      (update-in-if [:shares-owned 1] bigdec)
-      (util/qualify-keys :lot)
-      (+scope :lot authenticated)
-      (util/model-type :lot)))
+  [{:keys [params]}]
+  (cond-> (-> (:criteria params)
+              (merge (dissoc params :criteria))
+              (select-keys [:account-id :commodity-id])
+              (update-in-if [:account-id] (fn [x]
+                                            (if (sequential? x)
+                                              [:in (map util/->model-ref x)]
+                                              (util/->model-ref x))))
+              (update-in-if [:commodity-id] util/->model-ref)
+              (rename-keys {:account-id :lot/account
+                            :commodity-id :lot/commodity}))
+    (:non-zero-shares params) (assoc :lot/shares-owned [:!= 0M])))
 
 (defn index
-  [req]
+  [{:as req :keys [authenticated]}]
   (-> req
       extract-criteria
+      (+scope :lot authenticated)
       (models/select {:sort [[:lot/purchase-date :asc]]})
       api/response))
 
