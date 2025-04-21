@@ -1,7 +1,6 @@
 (ns clj-money.authorization
   (:require [clojure.pprint :refer [pprint]]
-            [clj-money.util :as util]
-            [clj-money.db :as db]))
+            [clj-money.util :as util]))
 
 (derive ::create ::manage)
 (derive ::show ::manage)
@@ -63,5 +62,5 @@
        s
        (with-meta [:and criteria s]
                   (or (meta s)
-                      {::db/type model-type})))
+                      {:clj-money/model-type model-type})))
      criteria)))
