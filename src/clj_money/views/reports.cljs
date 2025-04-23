@@ -76,21 +76,22 @@
 
 (defn- income-statement-options
   [options]
-  [:<>
-   [forms/date-field
-    options
-    [:start-date]
-    {:placeholder "Start date"
-     :validate [:required]}]
-   [forms/date-field
-    options
-    [:end-date]
-    {:placeholder "End date"
-     :validate [:required]}]
-   [forms/checkbox-field
-    options
-    [:hide-zeros?]
-    {:caption "Hide Zero-Balance Accounts"}]])
+  (fn []
+    [:<>
+     [forms/date-field
+      options
+      [:start-date]
+      {:placeholder "Start date"
+       :validate [:required]}]
+     [forms/date-field
+      options
+      [:end-date]
+      {:placeholder "End date"
+       :validate [:required]}]
+     [forms/checkbox-field
+      options
+      [:hide-zeros?]
+      {:caption "Hide Zero-Balance Accounts"}]]))
 
 (defn- income-statement-header
   [page-state]
@@ -131,16 +132,17 @@
 
 (defn- balance-sheet-options
   [options]
-  [:<>
-   [forms/date-field
-    options
-    [:as-of]
-    {:placeholder "As Of"
-     :validate [:required]}]
-   [forms/checkbox-field
-    options
-    [:hide-zeros?]
-    {:caption "Hide Zero-Balance Accounts"}]])
+  (fn []
+    [:<>
+     [forms/date-field
+      options
+      [:as-of]
+      {:placeholder "As Of"
+       :validate [:required]}]
+     [forms/checkbox-field
+      options
+      [:hide-zeros?]
+      {:caption "Hide Zero-Balance Accounts"}]]))
 
 (defn- balance-sheet-header
   [page-state]
@@ -544,31 +546,35 @@
 
 (defn- filter-form
   [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        options (r/cursor page-state [@selected :options])]
+    [:form {:no-validate true
+            :on-submit (fn [e]
+                         (.preventDefault e)
+                         (v/validate options)
+                         (when (v/valid? options)
+                           (load-report page-state)))}
+     (case @selected
+       :income-statement [income-statement-options options]
+       :balance-sheet    [balance-sheet-options options]
+       :budget           [budget-options options page-state]
+       :portfolio        [portfolio-options options page-state])
+     [:div.mt-3
+      [:button.btn.btn-primary
+       {:type :submit
+        :data-bs-dismiss :offcanvas
+        :title "Click here to show the report with the specified parameters"}
+       (icon-with-text :arrow-repeat "Show")]]]))
+
+(defn- filter-elem
+  [page-state]
   (fn []
-    (let [selected (r/cursor page-state [:selected])
-          options (r/cursor page-state [@selected :options])]
-      [:div#report-options.offcanvas.offcanvas-end {:tab-index -1}
-       [:div.offcanvas-header.d-flex.justify-content-between
-        [:h3 "Options"]
-        [:button.btn-close.text-reset {:data-bs-dismiss :offcanvas}]]
-       [:div.offcanvas-body
-        [:form {:no-validate true
-                :on-submit (fn [e]
-                             (.preventDefault e)
-                             (v/validate options)
-                             (when (v/valid? options)
-                               (load-report page-state)))}
-         (case @selected
-           :income-statement (income-statement-options options)
-           :balance-sheet    (balance-sheet-options options)
-           :budget           [budget-options options page-state]
-           :portfolio        [portfolio-options options page-state])
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]]]])))
+    [:div#report-options.offcanvas.offcanvas-end {:tab-index -1}
+     [:div.offcanvas-header.d-flex.justify-content-between
+      [:h3 "Options"]
+      [:button.btn-close.text-reset {:data-bs-dismiss :offcanvas}]]
+     [:div.offcanvas-body
+      [filter-form page-state]]]))
 
 (defn- init-state []
   (r/atom {:selected :balance-sheet
@@ -627,7 +633,7 @@
         (bs/nav-tabs {:class "d-none d-md-flex"}
                      (map (report-nav-item-fn page-state)
                           report-types))]
-       [filter-form page-state] 
+       [filter-elem page-state] 
        [:div.mt-3
         [income-statement page-state]
         [balance-sheet page-state]
