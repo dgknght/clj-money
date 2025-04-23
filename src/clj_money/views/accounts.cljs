@@ -11,8 +11,7 @@
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
             [dgknght.app-lib.core :refer [index-by]]
-            [dgknght.app-lib.web :refer [serialize-date
-                                         format-percent
+            [dgknght.app-lib.web :refer [format-percent
                                          format-date
                                          format-decimal]]
             [dgknght.app-lib.inflection :refer [humanize]]
@@ -23,6 +22,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.util :as util :refer [model= id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -758,7 +758,7 @@
          [:th.text-end "Gn/Ls"]
          [:th.text-end "Gn/Ls %"]]]
        [:tbody
-        (doall (for [lot (sort-by (comp serialize-date :lot/purchase-date) @lots)]
+        (doall (for [lot (sort-by (comp serialize-local-date :lot/purchase-date) @lots)]
                  (let [g-l (- (* (:price/price @latest-price)
                                  (:lot/shares-owned lot))
                               (* (:lot/purchase-price lot)

@@ -1,8 +1,8 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update])
   (:require [cljs-http.client :as http]
-            [dgknght.app-lib.web :refer [serialize-date]]
             [dgknght.app-lib.api-async :as lib-api]
+            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [app-state]]
             [clj-money.util :as util]))
@@ -14,7 +14,7 @@
 
   (http/post (api/path :transactions
                        transaction-id
-                       (serialize-date transaction-date)
+                       (serialize-local-date transaction-date)
                        :attachments)
              (-> (lib-api/request opts)
                  (lib-api/multipart-params (dissoc attachment
