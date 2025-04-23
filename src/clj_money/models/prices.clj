@@ -83,45 +83,88 @@
   (map (apply-to-account price)
        (models/select {:account/commodity commodity})))
 
-(defn- update-entity
+(defn- push-entity-bounds
   [{:price/keys [trade-date commodity]}]
   (-> (models/find (:commodity/entity commodity) :entity)
       (update-in [:entity/settings :settings/earliest-price-date] dates/earliest trade-date)
       (update-in [:entity/settings :settings/latest-price-date] dates/latest trade-date)))
 
-(defn- update-commodity
-  [{:price/keys [commodity trade-date]}]
-  (-> commodity
-      (update-in [:commodity/earliest-price] dates/earliest trade-date)
-      (update-in [:commodity/latest-price] dates/latest trade-date)))
+(defn- before-earliest?
+  [{:price/keys [trade-date commodity]}]
+  (if-let [earliest (:commodity/earliest-price commodity)]
+    (t/before? trade-date earliest)
+    true))
 
-(defn- latest-price?
-  [{:price/keys [commodity trade-date]}]
-  (= 0
-     (models/count #:price{:commodity commodity
-                           :trade-date [:> trade-date]})))
+(defn- after-latest?
+  [{:price/keys [trade-date commodity]}]
+  (if-let [latest (:commodity/latest-price commodity)]
+    (t/before? latest trade-date)
+    true))
 
-(defn- new-latest-price
-  [{:price/keys [commodity trade-date] :keys [id]}]
-  (let [price (models/find-by {:price/commodity commodity
-                               :id [:!= id]}
-                              {:sort [[:price/trade-date :desc]]})]
-    (when (and price
-               (t/before? (:price/trade-date price)
-                          trade-date))
-      price)))
+(def ^:private out-of-bounds?
+  (some-fn before-earliest? after-latest?))
+
+(defn- push-commodity-bounds
+  [{:price/keys [commodity trade-date] :as price}]
+  (when (out-of-bounds? price)
+    (-> commodity
+        (update-in [:commodity/earliest-price] dates/earliest trade-date)
+        (update-in [:commodity/latest-price] dates/latest trade-date))))
+
+(defn- push-bounds
+  [price]
+  (let [commodity (push-commodity-bounds price)
+        entity (push-entity-bounds price)
+        accounts (when (after-latest? price)
+                   (apply-to-accounts price))]
+    (->> [commodity
+          entity]
+         (concat accounts)
+         (filter identity))))
+
+(defn- first-price?
+  [{:price/keys [trade-date commodity]}]
+  (= (:commodity/earliest-price commodity)
+     trade-date))
+
+(defn- last-price?
+  [{:price/keys [trade-date commodity]}]
+  (= (:commodity/latest-price commodity)
+     trade-date))
+
+(defn- ->criteria
+  [{:as commodity :commodity/keys [earliest-price latest-price]}]
+  (cond-> {:price/commodity commodity}
+    earliest-price (assoc :price/trade-date
+                          [:between earliest-price latest-price])))
+
+(defn- pull-bounds
+  [{:as price :price/keys [commodity]}]
+  (cond
+    (first-price? price)
+    (let [new-earliest-price (models/find-by (->criteria commodity)
+                                             {:sort [:price/trade-date]})]
+      (assoc commodity
+             :commodity/earliest-price
+             (:price/trade-date new-earliest-price)))
+
+    (last-price? price)
+    (let [new-latest-price (models/find-by (->criteria commodity)
+                                           {:sort [[:price/trade-date :desc]]})]
+      (cons (assoc commodity
+                   :commodity/latest-price
+                   (:price/trade-date new-latest-price))
+            (apply-to-accounts new-latest-price)))))
 
 (defmethod prop/propagate :price
   [[before after]]
-  (when-let [latest (if after
-                      (when (latest-price? after)
-                        after)
-                      (new-latest-price before))]
-    ; TODO: contract the date boundaries on delete on update the moves the date
-    (let [price (update-in latest [:price/commodity] (models/find :commodity))]
-      (cons (update-commodity price)
-            (cons (update-entity price)
-                  (apply-to-accounts latest))))))
+  (if after
+    (-> after
+        (update-in [:price/commodity] (models/find :commodity))
+        push-bounds)
+    (-> before
+        (update-in [:price/commodity] (models/find :commodity))
+        pull-bounds)))
 
 (defn- aggregate
   [prices]
