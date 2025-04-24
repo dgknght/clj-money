@@ -8,7 +8,7 @@
             [clj-money.decimal :as d]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [clj-money.util :as util :refer [id= format]]))
+            [clj-money.util :as util :refer [id=]]))
 
 (defprotocol ValuationData
   "Provides data need by the valuate function.
@@ -47,6 +47,7 @@
   ([attr coll]
    (sum attr {} coll))
   ([attr opts coll]
+  {:pre [coll]}
    (aggr attr opts coll)))
 
 (defn- eval-children
@@ -263,35 +264,42 @@
   (map #(assoc % :account/value (fetch-balance data %))
          accounts))
 
+(defn- append-lot-items
+  [data commodity]
+  (fn [lot]
+    (if-let [[purchase & sales :as items] (fetch-lot-items data lot)]
+      (let [shares-owned (d/- (:lot-item/shares purchase)
+                              (sum :lot-item/shares (or sales [])))]
+        (if (< 0M shares-owned)
+          (let [price (fetch-price data commodity)
+                cost-basis (d/* (:lot-item/price purchase)
+                                shares-owned)
+                current-value (d/* price shares-owned)]
+            (assoc lot
+                   :lot/items items
+                   :lot/cost-basis cost-basis
+                   :lot/shares-owned shares-owned
+                   :lot/current-price price
+                   :lot/value current-value
+                   :lot/gain (d/- current-value cost-basis)))
+          lot))
+      lot)))
+
 (defn- valuate-commodity-account
   [{:as account :account/keys [commodity]} data]
-  (let [price (fetch-price data commodity)
-        lots (->> (fetch-lots data account)
-                  (sort-by :lot/purchase-date t/after?)
-                  (mapv (fn [lot]
-                          (let [[purchase & sales :as items] (fetch-lot-items data lot)
-                                _ (assert (seq items) (format "No lot items found for %s" lot))
-                                shares-owned (d/- (:lot-item/shares purchase)
-                                                  (sum :lot-item/shares sales))
-                                cost-basis (d/* (:lot-item/price purchase)
-                                                shares-owned)
-                                current-value (d/* price shares-owned)]
-                            (assoc lot
-                                   :lot/items items
-                                   :lot/cost-basis cost-basis
-                                   :lot/shares-owned shares-owned
-                                   :lot/current-price price
-                                   :lot/value current-value
-                                   :lot/gain (d/- current-value cost-basis))))))]
-    (if (seq lots)
-      (assoc account
-             :account/lots lots
-             :account/shares-owned (sum :lot/shares-owned lots)
-             :account/cost-basis (sum :lot/cost-basis lots)
-             :account/value (sum :lot/value lots)
-             :account/gain (sum :lot/gain lots)
-             :account/current-price price)
-      account)))
+  (if-let [lots (->> (fetch-lots data account)
+                     (sort-by :lot/purchase-date t/after?)
+                     (map (append-lot-items data commodity))
+                     (filter :lot/items)
+                     seq)]
+    (assoc account
+           :account/lots lots
+           :account/shares-owned (sum :lot/shares-owned lots)
+           :account/cost-basis (sum :lot/cost-basis lots)
+           :account/value (sum :lot/value lots)
+           :account/gain (sum :lot/gain lots)
+           :account/current-price (:lot/current-price (first lots)))
+    account))
 
 (defn- valuate-commodity-accounts
   [opts accounts]
