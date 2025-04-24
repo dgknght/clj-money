@@ -286,24 +286,25 @@
       lot)))
 
 (defn- valuate-commodity-account
-  [{:as account :account/keys [commodity]} data]
-  (if-let [lots (->> (fetch-lots data account)
-                     (sort-by :lot/purchase-date t/after?)
-                     (map (append-lot-items data commodity))
-                     (filter :lot/items)
-                     seq)]
-    (assoc account
-           :account/lots lots
-           :account/shares-owned (sum :lot/shares-owned lots)
-           :account/cost-basis (sum :lot/cost-basis lots)
-           :account/value (sum :lot/value lots)
-           :account/gain (sum :lot/gain lots)
-           :account/current-price (:lot/current-price (first lots)))
-    account))
+  [data]
+  (fn [{:as account :account/keys [commodity]} ]
+    (if-let [lots (->> (fetch-lots data account)
+                       (sort-by :lot/purchase-date t/after?)
+                       (map (append-lot-items data commodity))
+                       (filter :lot/items)
+                       seq)]
+      (assoc account
+             :account/lots lots
+             :account/shares-owned (sum :lot/shares-owned lots)
+             :account/cost-basis (sum :lot/cost-basis lots)
+             :account/value (sum :lot/value lots)
+             :account/gain (sum :lot/gain lots)
+             :account/current-price (:lot/current-price (first lots)))
+      account)))
 
 (defn- valuate-commodity-accounts
-  [opts accounts]
-  (map #(valuate-commodity-account % opts)
+  [data accounts]
+  (map (valuate-commodity-account data)
        accounts))
 
 (defn- default-commodity?
