@@ -15,7 +15,8 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.util :as util]
-            [clj-money.components :refer [button]]
+            [clj-money.components :refer [button
+                                          spinner]]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [app-state
                                      current-entity
@@ -96,7 +97,7 @@
 
           :else
           [:tr
-           [:td {:col-span 2} [:span.inline-status "Loading..."]]])]])))
+           [:td.text-center {:col-span 2} [spinner]]])]])))
 
 (defn- budgets-list
   [page-state]
