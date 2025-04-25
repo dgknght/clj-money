@@ -311,8 +311,7 @@
     (a/go
       (a/pipeline 1
                   out-chan
-                  (map (fn [periods]
-                         (map :quantity periods)))
+                  (map #(map :quantity %))
                   (fetch-item-summaries
                     {:transaction-item/transaction-date [start-date end-date]
                      :transaction-item/account account
