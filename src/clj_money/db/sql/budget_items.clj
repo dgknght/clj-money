@@ -40,5 +40,8 @@
       (update-in-if [:budget-item/spec :total] bigdec)
       (update-in-if [:budget-item/spec :per-week] bigdec)
       (update-in-if [:budget-item/spec :amount] bigdec)
-      (update-in-if [:budget-item/spec :start-date] unserialize-local-date)
+      (update-in-if [:budget-item/spec :start-date] (fn [d]
+                                                      (if (string? d)
+                                                        (unserialize-local-date d)
+                                                        d)))
       (dissoc :budget-item/budget-id)))
