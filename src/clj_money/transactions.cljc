@@ -1,6 +1,8 @@
 (ns clj-money.transactions
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])
             [clj-money.util :as util :refer [->model-ref model=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
@@ -187,7 +189,8 @@
   (->> (dates/ranges since
                      (dates/period interval-type interval-count)
                      :inclusive true)
-       (take-while #(apply dates/overlaps? since as-of %))
+       (take-while (fn [[start _]]
+                     (t/before? start as-of)))
        (map #(summarize-period % items))))
 
 (defn expand

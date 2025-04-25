@@ -5,6 +5,7 @@
             [clojure.core.async :as a]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
+            #?(:clj [clojure.math :as math])
             [dgknght.app-lib.inflection :refer [title-case]]
             [clj-money.decimal :as d]
             [clj-money.util :as util]
@@ -235,9 +236,12 @@
        (filter #(within-period? % date))
        first))
 
-#?(:cljs (defn- round
-           [number places]
-           (let [factor (Math/pow 10 places)]
+(defn- round
+  [number places]
+  #?(:clj (let [factor (math/pow 10 places)]
+            (/ (math/round (* factor number))
+               factor))
+     :cljs (let [factor (Math/pow 10 places)]
              (/ (Math/round (* factor number))
                 factor))))
 
@@ -300,7 +304,7 @@
 
 (defmethod calc-periods :historical
   [{:budget-item/keys [account]
-    {:keys [start-date _round-to]} :budget-item/spec}
+    {:keys [start-date round-to]} :budget-item/spec}
    {:budget/keys [_period-count period] :as budget}
    & {:keys [fetch-item-summaries]}]
   (let [end-date (t/plus (end-date (assoc budget
@@ -311,7 +315,9 @@
     (a/go
       (a/pipeline 1
                   out-chan
-                  (map #(map :quantity %))
+                  (map (fn [s] (map (comp #(d/round % round-to)
+                                          :quantity)
+                                    s)))
                   (fetch-item-summaries
                     {:transaction-item/transaction-date [start-date end-date]
                      :transaction-item/account account
