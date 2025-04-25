@@ -70,6 +70,7 @@
   (when-let [user (models/find-by {:user/email username} {:include-password? true})]
     (when (hashers/check password (:user/password user))
       (-> user
+          (dissoc :user/password)
           (assoc :type :cemerick.friend/auth
                  :identity (:id user)
                  :roles #{:user})))))

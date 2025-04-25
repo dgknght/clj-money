@@ -77,11 +77,13 @@
                     :roles #{:user}
                     :user/email "john@doe.com"
                     :user/first-name "John"
-                    :user/last-name "Doe"}]
-      (is (comparable? expected
-                       (users/authenticate {:username "john@doe.com"
-                                            :password "please01"}))
-          "The returned value should be the user information"))))
+                    :user/last-name "Doe"}
+          authenticated (users/authenticate {:username "john@doe.com"
+                                            :password "please01"})]
+      (is (comparable? expected authenticated)
+          "The returned value should be the user information")
+      (is (nil? (:user/password authenticated))
+          "The password is excluded from the return value."))))
 
 (deftest set-a-password-reset-token
   (with-context existing-user-ctx
