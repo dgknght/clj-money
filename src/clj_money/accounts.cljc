@@ -35,6 +35,10 @@
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
+(defn expense?
+  [{:account/keys [type]}]
+  (= :expense type))
+
 (defn- aggr
   [attr {:keys [oper initial allow-nil?] :or {oper d/+ initial 0M allow-nil? false}} coll]
   (let [f (if allow-nil? identity (constantly true))]
