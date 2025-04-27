@@ -438,7 +438,7 @@
                                     :st-capital-gains-account
                                     :lt-capital-loss-account
                                     :st-capital-loss-account]))
-              "The naken keys are not set")
+              "The naked keys are not set")
           (is (comparable? {:settings/lt-capital-gains-account (util/->model-ref lt-gains)
                             :settings/st-capital-gains-account (util/->model-ref st-gains)
                             :settings/lt-capital-loss-account (util/->model-ref lt-loss)
@@ -451,7 +451,7 @@
               [#:lot{:purchase-date (t/local-date 2015 1 17)
                      :shares-purchased 200M
                      :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
-                     :purchase-price 5M ; originally purchased 100 shares at $10/share
+                     :purchase-price 4.975M ; originally purchased 100 shares at $9.95/share
                      :commodity (util/->model-ref aapl)
                      :account (util/->model-ref ira)}]
               (models/select {:lot/commodity aapl}))
@@ -473,13 +473,20 @@
               inv-exp (models/find-by #:account{:name "Investment Expenses"
                                                 :entity entity})]
           (is (seq-of-maps-like?
-                [#:transaction-item{:transaction-date (t/local-date 2015 5 1)
+                [#:transaction-item{:transaction-date (t/local-date 2015 1 17)
+                                    ;:description "Purchase 100 shares of AAPL at 9.95"
+                                    :value 5M
+                                    :quantity 5M
+                                    :balance 5M
+                                    :action :debit
+                                    :index 0}
+                 #:transaction-item{:transaction-date (t/local-date 2015 5 1)
                                     ;:description "Sell 100 shares of AAPL at 6.000"
                                     :value 10M
                                     :quantity 10M
-                                    :balance 10M
+                                    :balance 15M
                                     :action :debit
-                                    :index 0}]
+                                    :index 1}]
                 (models/select
                   #:transaction-item{:account inv-exp
                                      :transaction-date [:between>
@@ -506,7 +513,7 @@
                                     :index 2
                                     :action :credit
                                     :quantity 100M
-                                    :value 500M ; this is reflecting the original value, not the sale value...is that right?
+                                    :value 497.5M ; this is reflecting the original value, not the sale value...is that right?
                                     :balance 100M}]
                 (models/select
                   #:transaction-item{:account ira-aapl

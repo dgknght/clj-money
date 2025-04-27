@@ -11,7 +11,8 @@
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
             [clj-money.trading :as trading]
-            [clj-money.accounts :refer [->>criteria]]
+            [clj-money.accounts :refer [->>criteria
+                                        expense?]]
             [clj-money.transactions :refer [polarize-item-quantity]]))
 
 (defmacro with-fatal-exceptions
@@ -150,31 +151,25 @@
   context)
 
 (defn- inv-transaction-fee-info
-  [{:keys [account-ids]} {:transaction/keys [items]} trans-type]
-  (when-not (= 2 (count items))
-    (let [non-commodity-items (filter #(= (if (= :buy trans-type)
-                                            :credit
-                                            :debit)
-                                          (:transaction-item/action %))
-                                      items)
-          item-account-ids (map #(get-in account-ids [(:import/account-id %)])
-                                non-commodity-items)
-          accounts-map (->> (models/select
-                              (util/model-type
-                                {:id [:in item-account-ids]}
-                                :account))
-                            (map (juxt :id identity))
-                            (into {}))
-          fee-items (filter #(= :expense
-                                (get-in accounts-map
-                                        [(account-ids (:import/account-id %))
-                                         :account/type]))
-                            non-commodity-items)]
-      (when (seq fee-items)
-        [(->> fee-items
-              (map :transaction-item/quantity)
-              (reduce + 0M))
-         (account-ids (:import/account-id (first fee-items)))]))))
+  [{:keys [account-ids accounts]} {:transaction/keys [items]}]
+  ; For a purchase
+  ; - credit the cash account for the amount paid
+  ; - debit the commodity account for the quantity of shares and the value of product of the shares and the price
+  ; - debit the expense account the amount of the expense
+  ; For a sale
+  ; - credit the commodity account for the quantity of shares and the value of the product of the shares and the price
+  ; - debit the cash account for the amount received
+  ; - debit the expense account for the amount of the expense
+  (when-let [exp-items (->> items
+                            (filter (comp expense?
+                                          accounts
+                                          account-ids
+                                          :import/account-id))
+                            seq)]
+    [(->> exp-items
+          (map :transaction-item/quantity)
+          (reduce + 0M))
+     (account-ids (:import/account-id (first exp-items)))]))
 
 (defmethod ^:private import-transaction :buy
   [{:keys [account-ids] :as context}
@@ -182,7 +177,7 @@
     :transaction/keys [transaction-date]
     :import/keys [commodity-account-id account-id]
     :as transaction}]
-  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :buy)
+  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction)
         commodity-id (->> context
                           :commodities
                           (filter #(and (= (:commodity/symbol %)
@@ -218,7 +213,7 @@
     :import/keys [commodity-account-id]
     :transaction/keys [transaction-date]
     :trade/keys [shares value]}]
-  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
+  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction)
         sale (cond-> #:trade{:commodity-account {:id (account-ids commodity-account-id)}
                              :date transaction-date
                              :shares shares
@@ -320,6 +315,7 @@
                  (:id result))
       (-> context
           (assoc-in [:account-ids id] (:id result))
+          (assoc-in [:accounts (:id result)] result)
           (update-account-relationships result)
           (update-entity-settings result)))))
 
