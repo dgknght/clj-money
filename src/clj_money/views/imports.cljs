@@ -222,7 +222,7 @@
       [refresh-button page-state]]]))
 
 (defn- notification-elem
-  [{:notification/keys [message severity id]}]
+  [[{:notification/keys [message severity id]} count]]
   ^{:key (str "simple-notification-" id)}
   [:div.alert
    {:role :alert
@@ -231,19 +231,24 @@
              ("error" :error)     "alert-warning"
              ("warning" :warning) "alert-secondary"
              "alert-info")}
-   message])
+   message
+   (when-not (= 0 count)
+     [:span.badge.position-absolute.top-0.start-100.translate-middle.rounded-pill.text-bg-secondary
+      count])])
 
 (defn- notifications-card
   [page-state]
-  (let [notifications (r/cursor page-state [:active :import/progress :notifications])]
+  (let [notifications (r/cursor page-state [:active :import/progress :notifications])
+        grouped (make-reaction #(group-by :notification/message @notifications))]
     (fn []
       (when (seq @notifications)
         [:div.card.mt-2
          [:div.card-header "Alerts"]
          [:div.card-body
-          (->> @notifications
-               (take 20)
-               (map notification-elem)
+          (->> @grouped
+               (map (comp notification-elem
+                          (juxt first count)
+                          second))
                doall)]]))))
 
 (defn- import-activity
