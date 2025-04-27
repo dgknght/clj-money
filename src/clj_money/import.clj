@@ -225,7 +225,7 @@
   context)
 
 (defmethod ^:private import-transaction :transfer
-  [{:keys [account-ids account-parents] :as context}
+  [{:keys [account-ids accounts account-parents] :as context}
    {:import/keys [from-account-id to-account-id]
     :transaction/keys [transaction-date]
     :transfer/keys [shares]}]
@@ -233,7 +233,7 @@
         from-account {:id (account-parents from-commodity-account-id)}
         to-commodity-account-id (account-ids to-account-id)
         to-account {:id (account-parents to-commodity-account-id)}
-        commodity (:account/commodity (models/find from-commodity-account-id :account)) ; TODO: save this relationship in the context instead
+        commodity (:account/commodity (accounts from-commodity-account-id))
         {result :transfer/transaction} (trading/transfer #:transfer{:date transaction-date
                                                                     :from-account from-account
                                                                     :to-account to-account
@@ -245,7 +245,8 @@
 (defmethod ^:private import-transaction :split
   [{:as context
     :keys [account-parents
-           account-ids]}
+           account-ids
+           accounts]}
    {:as transaction
     :import/keys [commodity-account-id]}]
   ; this logic to adjust accounts may be specific to gnucash
@@ -256,7 +257,7 @@
                                                                         account-parents)}
                                                 :split/commodity (-> commodity-account-id
                                                                      account-ids
-                                                                     (models/find :account)
+                                                                     accounts
                                                                      :account/commodity))
                                          trading/split)]
     (log-transaction result "commodity split"))
