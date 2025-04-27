@@ -267,10 +267,7 @@
 (defn- remove-empty-vals
   [m]
   (->> m
-       (filter (fn [[k v]]
-                 (pprint {::k k
-                          ::present? v
-                          ::result (present? v)})
+       (filter (fn [[_ v]]
                  (present? v)))
        (into {})))
 
