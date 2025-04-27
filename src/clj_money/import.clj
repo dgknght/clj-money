@@ -69,17 +69,17 @@
     context))
 
 (defn- build-path
-  [account]
+  [account accounts]
   (loop [a account
          path (:account/name account)]
     (if-let [parent (when-let [p (:account/parent a)]
-                      (models/find p :account))]
+                      (accounts (:id p)))]
       (recur parent (str (:account/name parent) "/" path))
       path)))
 
 (defn- update-entity-investing-account
-  [entity account context]
-  (let [path (build-path account)]
+  [entity account {:as context :keys [accounts]}]
+  (let [path (build-path account accounts)]
     (if-let [setting (->> (get-in context [:import :import/options])
                           (filter #(= path (second %)))
                           ffirst)]
@@ -515,8 +515,8 @@
             :transaction-item/reconciliation (util/->model-ref id)))))
 
 (defn- process-reconciliation
-  [{:reconciliation/keys [account] :as recon} ctx]
-  (let [account (models/find account :account)
+  [{:reconciliation/keys [account] :as recon} {:as ctx :keys [accounts]}]
+  (let [account (accounts (:id account))
         balance (->> (fetch-reconciled-items recon ctx)
                      (map (comp :transaction-item/polarized-quantity
                                 polarize-item-quantity
