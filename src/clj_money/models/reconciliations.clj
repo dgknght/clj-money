@@ -162,16 +162,27 @@
          :transaction-item/polarized-quantity
          (acts/polarize-quantity quantity action account)))
 
-(defn- resolve-account
-  [item]
-  (update-in item [:transaction-item/account]
-             #(if (util/model-ref? %)
-                (models/find % :account)
-                %)))
+; TODO: This can be improved, but this should fix the problem for now.
+(defn- find-account []
+  (let [cache (atom {})]
+    (fn [{:keys [id]}]
+      (if-let [account (@cache id)]
+        account
+        (let [account (models/find id :account)]
+          (swap! cache assoc id account)
+          account)))))
 
-(def ^:private prepare-item
+(defn- resolve-account []
+  (let [find (find-account)]
+    (fn [item]
+      (update-in item [:transaction-item/account]
+                 #(if (util/model-ref? %)
+                    (find %)
+                    %)))))
+
+(defn- prepare-item []
   (comp polarize-item
-        resolve-account))
+        (resolve-account)))
 
 (defn- find-last-completed
   "Returns the last completed reconciliation for an account"
@@ -203,7 +214,8 @@
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [item-refs] :as reconciliation}]
   {:pre [(every? item-or-ref? item-refs)]}
-  (let [existing-items (map prepare-item
+  (let [prep (prepare-item)
+        existing-items (map prep
                             (fetch-items reconciliation))
         ignore? (->> existing-items
                      (map :id)
@@ -212,7 +224,7 @@
                        (map ->item-ref)
                        (remove #(ignore? (first %)))
                        resolve-item-refs
-                       (mapv prepare-item))
+                       (mapv prep))
         all-items (concat existing-items new-items)]
     (-> reconciliation
         (update-in [:reconciliation/status] (fnil identity :new))
