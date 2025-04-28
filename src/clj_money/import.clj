@@ -501,19 +501,19 @@
     :keys [id]}
    {:keys [entity]}]
   (let [accounts (models/select
-                  (util/model-type
-                   {:id (:id account)}
-                   :account)
-                  {:include-children? true})]
+                   (util/model-type
+                     {:id (:id account)}
+                     :account)
+                   {:include-children? true})]
     (models/select
-     (assoc (->>criteria {:earliest-date (-> entity
-                                             :entity/settings
-                                             :settings/earliest-transaction-date)
-                          :latest-date (-> entity
-                                           :entity/settings
-                                           :settings/latest-transaction-date)}
-                         accounts)
-            :transaction-item/reconciliation (util/->model-ref id)))))
+      (assoc (->>criteria {:earliest-date (-> entity
+                                              :entity/settings
+                                              :settings/earliest-transaction-date)
+                           :latest-date (-> entity
+                                            :entity/settings
+                                            :settings/latest-transaction-date)}
+                          accounts)
+             :transaction-item/reconciliation (util/->model-ref id)))))
 
 (defn- process-reconciliation
   [{:reconciliation/keys [account] :as recon} {:as ctx :keys [accounts]}]
@@ -661,6 +661,8 @@
                                   acc)))
                             {:import import-spec
                              :account-ids {}
+                             :account-children {}
+                             :account-parents {}
                              :notifications []
                              :entity entity})
                           a/<!!)]
