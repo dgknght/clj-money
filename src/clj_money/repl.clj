@@ -2,6 +2,7 @@
   (:require [clj-money.web.server :as s]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
+            [clj-money.models.transactions :as trx]
             [clj-money.models.prices :as prices]))
 
 (def server (atom nil))
@@ -24,6 +25,15 @@
 (defn propagate-all
   [entity-name]
   (prop/propagate-all (models/find-by {:entity/name entity-name})))
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn propagate-account
+  [entity-name account-name]
+  (let [entity (models/find-by {:entity/name entity-name})]
+    (trx/propagate-account-from-start
+      entity
+      (models/find-by {:account/name account-name
+                       :account/entity entity}))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn propagate-prices

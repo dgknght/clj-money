@@ -322,11 +322,12 @@
   based on the most recent price of the tracked commodity. This price may be
   supplied in the account at :account/commodity-price, or it will be searched
   and will default to 1M if not found."
-  [{:as account :account/keys [commodity]} basis items]
+  [{:as account :account/keys [commodity]} basis items & {:keys [force?] :or {force? false}}]
   (let [updated-items (->> items
                            (reduce (fn [output item]
                                      (let [updated (apply-prev item (last output))]
-                                       (if (= item updated)
+                                       (if (and (= item updated)
+                                                (not force?))
                                          (reduced output)
                                          (conj output updated))))
                                    [basis])
@@ -589,14 +590,20 @@
                    seq)
         [{:account/keys [earliest-transaction-date
                          latest-transaction-date]}
-         :as updated] (when items
+         :as updated] (if items
                         (->> (re-index account
                                        initial-basis
-                                       items)
+                                       items
+                                       :force? true)
                              (map (comp #(dissoc % ::polarized-quantity)
                                         #(update-in-if %
                                                        [:transaction-item/account]
-                                                       util/->model-ref)))))
+                                                       util/->model-ref))))
+                        [(assoc account
+                                :account/earliest-transaction-date nil
+                                :account/latest-transaction-date nil
+                                :account/quantity 0M
+                                :account/value 0M)])
         [saved-entity] (models/put-many
                          (cons (-> entity
                                    (update-in [:entity/settings
