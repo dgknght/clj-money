@@ -516,12 +516,11 @@
              :transaction-item/reconciliation (util/->model-ref id)))))
 
 (defn- process-reconciliation
-  [{:reconciliation/keys [account] :as recon} {:as ctx :keys [accounts]}]
-  (let [account (accounts (:id account))
-        balance (->> (fetch-reconciled-items recon ctx)
+  [recon {:as ctx :keys [accounts]}]
+  (let [balance (->> (fetch-reconciled-items recon ctx)
                      (map (comp :transaction-item/polarized-quantity
                                 polarize-item-quantity
-                                #(assoc % :transaction-item/account account)))
+                                #(update-in % [:transaction-item/account] (comp accounts :id))))
                      (reduce + 0M))]
     (-> recon
         (assoc :reconciliation/balance balance
