@@ -266,7 +266,7 @@
   [data accounts]
   {:pre [(seq accounts)]}
   (map #(assoc % :account/value (fetch-balance data %))
-         accounts))
+       accounts))
 
 (defn- append-lot-items
   [data commodity]
