@@ -322,44 +322,46 @@
   based on the most recent price of the tracked commodity. This price may be
   supplied in the account at :account/commodity-price, or it will be searched
   and will default to 1M if not found."
-  [{:as account :account/keys [commodity]} basis items & {:keys [force?] :or {force? false}}]
-  (let [updated-items (->> items
-                           (reduce (fn [output item]
-                                     (let [updated (apply-prev item (last output))]
-                                       (if (and (= item updated)
-                                                (not force?))
-                                         (reduced output)
-                                         (conj output updated))))
-                                   [basis])
-                           (drop 1)
-                           (map #(dissoc % ::polarized-quantity)))
-        final-qty (or (:transaction-item/balance (last updated-items))
-                      (:transaction-item/balance basis))
-        ; TODO: Shortcut this by checking if the commodity is the entity default
-        price (or (:account/commodity-price account)
-                  (:price/price
-                    (models/find-by
-                      {:price/commodity (:account/commodity account)
-                       :price/trade-date [:between
-                                          (:commodity/earliest-price commodity)
-                                          (:commodity/latest-price commodity)]}
-                      {:sort [[:price/trade-date :desc]]}))
-                  1M)]
-    (if (= (count updated-items)
-           (count items))
-      (cons (-> account
-                (update-in [:account/latest-transaction-date]
-                           dates/latest
-                           (:transaction-item/transaction-date (last items)))
-                (update-in [:account/earliest-transaction-date]
-                           dates/earliest
-                           (some :transaction-item/transaction-date
-                                 (cons basis
-                                       items)))
-                (assoc :account/quantity final-qty
-                       :account/value (* final-qty price)))
-            updated-items)
-      updated-items)))
+  ([account basis items]
+   (re-index account basis {} items))
+  ([{:as account :account/keys [commodity]} basis {:keys [force?] :or {force? false}} items]
+   (let [updated-items (->> items
+                            (reduce (fn [output item]
+                                      (let [updated (apply-prev item (last output))]
+                                        (if (and (= item updated)
+                                                 (not force?))
+                                          (reduced output)
+                                          (conj output updated))))
+                                    [basis])
+                            (drop 1)
+                            (map #(dissoc % ::polarized-quantity)))
+         final-qty (or (:transaction-item/balance (last updated-items))
+                       (:transaction-item/balance basis))
+         ; TODO: Shortcut this by checking if the commodity is the entity default
+         price (or (:account/commodity-price account)
+                   (:price/price
+                     (models/find-by
+                       {:price/commodity (:account/commodity account)
+                        :price/trade-date [:between
+                                           (:commodity/earliest-price commodity)
+                                           (:commodity/latest-price commodity)]}
+                       {:sort [[:price/trade-date :desc]]}))
+                   1M)]
+     (if (= (count updated-items)
+            (count items))
+       (cons (-> account
+                 (update-in [:account/latest-transaction-date]
+                            dates/latest
+                            (:transaction-item/transaction-date (last items)))
+                 (update-in [:account/earliest-transaction-date]
+                            dates/earliest
+                            (some :transaction-item/transaction-date
+                                  (cons basis
+                                        items)))
+                 (assoc :account/quantity final-qty
+                        :account/value (* final-qty price)))
+             updated-items)
+       updated-items))))
 
 (defn- propagate-account
   "Given an account and a starting date, recalculate items"
@@ -370,7 +372,7 @@
                               :transaction-item/index]})
        (map (comp polarize
                   #(assoc % :transaction-item/account account)))
-       (re-index account (propagation-basis account as-of))))
+       (re-index account (propagation-basis account as-of) {:force? true})))
 
 (defn migrate-account
   "Moves all transaction items from from-account to to-account and recalculates the accounts"
@@ -591,10 +593,10 @@
         [{:account/keys [earliest-transaction-date
                          latest-transaction-date]}
          :as updated] (if items
-                        (->> (re-index account
+                        (->> items
+                             (re-index account
                                        initial-basis
-                                       items
-                                       :force? true)
+                                       {:force? true})
                              (map (comp #(dissoc % ::polarized-quantity)
                                         #(update-in-if %
                                                        [:transaction-item/account]
