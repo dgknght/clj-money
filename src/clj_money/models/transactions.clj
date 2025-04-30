@@ -363,34 +363,6 @@
              updated-items)
        updated-items))))
 
-(defn- propagate-account
-  "Given an account and a starting date, recalculate items"
-  [account as-of]
-  (->> (models/select {:transaction-item/account account
-                       :transaction-item/transaction-date [:<= as-of]}
-                      {:sort [:transaction-item/transaction-date
-                              :transaction-item/index]})
-       (map (comp polarize
-                  #(assoc % :transaction-item/account account)))
-       (re-index account (propagation-basis account as-of) {:force? true})))
-
-(defn migrate-account
-  "Moves all transaction items from from-account to to-account and recalculates the accounts"
-  [from-account to-account]
-  {:pre [(id= (:account/entity from-account)
-              (:account/entity to-account))]}
-  (let [entity (models/find (:account/entity from-account) :entity)
-        as-of (or (:account/earliest-transaction-date from-account)
-                  (get-in entity [:entity/settings :settings/earliest-transaction-date]))]
-    (assert as-of "Unable to find the earliest transaction date.")
-    (models/update {:transaction-item/account (util/->model-ref to-account)
-                    :transaction-item/index 0
-                    :transaction-item/balance nil}
-                   {:transaction-item/account (util/->model-ref from-account)
-                    :transaction-item/transaction-date [:>= as-of]})
-    (doseq [account [from-account to-account]]
-      (propagate-account account as-of))))
-
 (defn- account-items-on-or-after
   [account as-of]
   (models/select (util/model-type
@@ -642,6 +614,23 @@
                    entity))])))
 
 (prop/add-full-propagation propagate-all :priority 5)
+
+(defn migrate-account
+  "Moves all transaction items from from-account to to-account and recalculates the accounts"
+  [from-account to-account]
+  {:pre [(id= (:account/entity from-account)
+              (:account/entity to-account))]}
+  (let [entity (models/find (:account/entity from-account) :entity)
+        as-of (or (:account/earliest-transaction-date from-account)
+                  (get-in entity [:entity/settings :settings/earliest-transaction-date]))]
+    (assert as-of "Unable to find the earliest transaction date.")
+    (models/update {:transaction-item/account (util/->model-ref to-account)
+                    :transaction-item/index 0
+                    :transaction-item/balance nil}
+                   {:transaction-item/account (util/->model-ref from-account)
+                    :transaction-item/transaction-date [:>= as-of]})
+    (doseq [account [from-account to-account]]
+      (propagate-account-from-start entity account))))
 
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
