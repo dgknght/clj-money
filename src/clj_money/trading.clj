@@ -828,7 +828,7 @@
   [lot ratio]
   (mapv #(apply-ratio-to-lot-item % ratio)
         (models/select #:lot-item{:lot lot
-                                  :transaction-date (:lot/purchase-date lot)})))
+                                  :transaction-date [:<= (:lot/purchase-date lot)]})))
 
 (defn- apply-ratio-to-lot
   [lot ratio]
