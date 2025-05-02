@@ -84,7 +84,9 @@
          fetch-ch (chan 2 ; accepts incoming ranges from the sequence that have passed the gate
                         (comp fetch-xf
                               (assess-reload count-sought ctl-ch))
-                        #(.error js/console %))]
+                        (fn [error]
+                          (.error js/console "Error fetching for load-in-chunks" error)
+                          []))]
 
      ; Setting the buffer size on the fetch-ch to 1 resulted in the range being passed
      ; directly to the receiver, bypassing the xform. Setting it to 2 resolves that.
