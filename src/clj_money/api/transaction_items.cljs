@@ -4,33 +4,30 @@
             [cljs.pprint :refer [pprint]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [cljs-time.core :as t]
-            [clj-money.dates :refer [serialize-local-date]]
+            [clj-money.util :as util]
+            [clj-money.dates :refer [serialize-local-date
+                                     local-date?]]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
-(def ^:private transaction-date
-  (some-fn :transaction/transaction-date
-           :transaction-item/transaction-date))
+(defn- serialize-date
+  [x]
+  (cond
+    (vector? x)     (mapv serialize-date x)
+    (local-date? x) (serialize-local-date x)
+    :else           x))
 
 (defn- prepare-criteria
   [criteria]
-  (let [criterion (transaction-date criteria)
-        [start end] (if (= 2 (count criterion))
-                      criterion
-                      (rest criterion))]
-    (-> criteria
-        (dissoc :transaction-item/account
-                :transaction-item/transaction-date
-                :transaction/transaction-date)
-        (assoc :transaction-item/transaction-date [(serialize-local-date start)
-                                                   (serialize-local-date (t/plus end (t/days 1)))]))))
+  {:pre [(:transaction-item/transaction-date criteria)]}
+  (-> criteria
+      (update-in [:transaction-item/transaction-date] serialize-date)
+      (util/nominal-comparatives :transaction-item/transaction-date)
+      (dissoc :transaction-item/account)))
 
 (defn select
   [criteria & {:as opts}]
-  {:pre [(:transaction-item/account criteria)
-         (transaction-date criteria)]}
-
+  {:pre [(:transaction-item/account criteria)]}
   (api/get (api/path :accounts
                      (:transaction-item/account criteria)
                      :transaction-items)

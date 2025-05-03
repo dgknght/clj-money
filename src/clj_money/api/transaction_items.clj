@@ -18,17 +18,6 @@
             [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.transactions]))
 
-(defn- translate-dates
-  [criteria]
-  (update-in-if criteria
-                [:transaction-date]
-                (fn [v]
-                  (if (vector? v)
-                    [:between>
-                     (dates/unserialize-local-date (first v))
-                     (dates/unserialize-local-date (second v))]
-                    (dates/unserialize-local-date v)))))
-
 (defn- apply-account-recursion
   [{:keys [include-children] :as criteria}]
   (if (parse-bool include-children)
@@ -77,7 +66,7 @@
                   (:end-date params))
              (:account-id params))]}
   (-> params
-      translate-dates
+      (util/symbolic-comparatives :transaction-date)
       ensure-dates
       (rename-keys {:transaction-date :transaction-item/transaction-date
                     :account-id :transaction-item/account
