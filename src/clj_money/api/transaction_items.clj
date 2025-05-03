@@ -60,14 +60,20 @@
       items)
     items))
 
+(defn- unserialize-date
+  [x]
+  (cond
+    (vector? x) (mapv unserialize-date x)
+    (string? x) (dates/unserialize-local-date x)
+    :else x))
+
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   {:pre [(or (:transaction-date params)
-             (and (:start-date params)
-                  (:end-date params))
              (:account-id params))]}
   (-> params
       comparatives/symbolize
+      (update-in-if [:transaction-date] unserialize-date)
       ensure-dates
       (rename-keys {:transaction-date :transaction-item/transaction-date
                     :account-id :transaction-item/account
