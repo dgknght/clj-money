@@ -1,5 +1,5 @@
 (ns clj-money.util
-  (:refer-clojure :exclude [abs format])
+  (:refer-clojure :exclude [abs format group-by])
   (:require [clojure.string :as string]
             [clojure.set :refer [union]]
             #?(:cljs [goog.string])
@@ -32,6 +32,19 @@
 (derive #?(:clj clojure.lang.MapEntry
            :cljs cljs.core/MapEntry)
         ::map-entry)
+
+(defn pp->
+  [v m & {:keys [meta? transform]
+          :or {transform identity}}]
+  (binding [*print-meta* meta?]
+    (pprint {m (transform v)}))
+  v)
+
+(defn pp->>
+  ([m v] (pp->> m {} v))
+  ([m {:keys [transform] :or {transform identity}} v]
+   (pprint {m (transform v)})
+   v))
 
 (defn- namespaces
   "Given a criteria (map or vector containing an operator an maps) return
@@ -242,23 +255,23 @@
   [m key-base]
   (let [value (get-in m [key-base])]
     (if (and (sequential? value)
-             (= :between (first value)))
-      (let [[_oper start end] value]
+             (#{:between :<between :between> :<between>}
+               (first value)))
+      (let [[oper start end] value]
         (if (and start end)
           (let [str-ns (namespace key-base)
-                str-key (name key-base)
-                prefix (if (string/ends-with? str-key "date")
-                         "-on"
-                         "")]
+                str-key (name key-base)]
             (-> m
                 (assoc (keyword str-ns
                                 (str str-key
-                                     prefix
-                                     "-or-after")) start
+                                     (if (#{:<between :<between>} oper)
+                                       "-after"
+                                       "-on-or-after"))) start ; TODO: should be at-or-before for datetime values
                        (keyword str-ns
                                 (str str-key
-                                     prefix
-                                     "-or-before")) end)
+                                     (if (#{:between> :<between>} oper)
+                                       "-before"
+                                       "-on-or-before"))) end)
                 (dissoc key-base)))
           m))
       m)))
@@ -303,15 +316,16 @@
           "-at-or-after"])))
 
 (defn- symbolic-key
-  [str-ns str-key-base k value]
-  (let [key-suffix (string/replace (name k) (str str-key-base "-") "")
+  [[k v] key-base]
+  (let [str-key-base (name key-base)
+        key-suffix (string/replace (name k) (str str-key-base "-") "")
         final-key (keyword
-                    str-ns
+                    (namespace k)
                     (str str-key-base
                          (when-not (string/ends-with? str-key-base "-date")
-                           (if (includes-time? value) "-at" "-on"))))
+                           (if (includes-time? v) "-at" "-on"))))
         oper (get-in suffix-keys [key-suffix])]
-    [final-key [oper value]]))
+    [final-key [oper v]]))
 
 (defn nominal->between
   [m key-base]
@@ -330,25 +344,55 @@
           (assoc key-base [:between start end]))
       m)))
 
+(defn- nominal-comparative-key?
+  [k]
+  (let [str-k (name k)]
+    (some #(string/ends-with? str-k %)
+          ["-before"
+           "-on-or-before"
+           "-at-or-before"
+           "-after"
+           "-on-or-after"
+           "-at-or-after"])))
+
+(defn- group-by
+  ([key-fn coll]
+   (group-by key-fn identity coll))
+  ([key-fn val-fn coll]
+   (reduce (fn [result x]
+             (update-in result [(key-fn x)] (fnil conj []) (val-fn x)))
+           {}
+           coll)))
+
+(defn- merge-opers
+  [vs]
+  (if (= 1 (count vs))
+    (first vs)
+    (let [oper (case (->> vs (map first) set)
+                 #{:< :>}   :<between>
+                 #{:<= :>}  :<between
+                 #{:< :>=}  :between>
+                 #{:<= :>=} :between
+                 #{nil}     :between)
+          vals (into {} vs)]
+      [oper
+       ((some-fn :> :>=) vals)
+       ((some-fn :< :<=) vals)])))
+
 (defn symbolic-comparatives
   "Accepts a map with comparative keys and updates the
   values with symbolic operators.
 
   (symbolic-comparatives {:end-after some-date} :end) => {:end-on [:> some-date]}"
   [m key-base]
-  (-> m
-      (nominal->between key-base)
-      (apply-to-dynamic-keys
-       {:key-base key-base
-        :suffixes ["-before"
-                   "-on-or-before"
-                   "-at-or-before"
-                   "-after"
-                   "-on-or-after"
-                   "-at-or-after"]
-        :update-fn (fn [result str-ns str-k k value]
-                     (let [[new-key value-with-oper] (symbolic-key str-ns str-k k value)]
-                       (assoc result new-key value-with-oper)))})))
+  (->> m
+       (map (fn [[k :as entry]]
+              (if (nominal-comparative-key? k)
+                (symbolic-key entry key-base)
+                entry)))
+       (group-by first second)
+       (map #(update-in % [1] merge-opers))
+       (into {})))
 
 #?(:cljs
    (defn debounce
@@ -366,19 +410,6 @@
   of the template merged with each map in the list"
   [template & series]
   (map #(merge template %) series))
-
-(defn pp->
-  [v m & {:keys [meta? transform]
-          :or {transform identity}}]
-  (binding [*print-meta* meta?]
-    (pprint {m (transform v)}))
-  v)
-
-(defn pp->>
-  ([m v] (pp->> m {} v))
-  ([m {:keys [transform] :or {transform identity}} v]
-   (pprint {m (transform v)})
-   v))
 
 (defn qualifier
   "Given a map, returns the namespace from the keys. If there is more than one
