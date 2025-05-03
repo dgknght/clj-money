@@ -238,7 +238,7 @@
 
 (defn- round
   [number places]
-  #?(:clj (let [factor (math/pow 10 places)]
+  #?(:clj (let [factor (math/pow 10.0 places)]
             (/ (math/round (* factor number))
                factor))
      :cljs (let [factor (Math/pow 10 places)]
