@@ -5,7 +5,7 @@
             [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [app-state]]
-            [clj-money.util :as util]))
+            [clj-money.comparatives :as comparatives]))
 
 (defn create
   [{:keys [transaction-id transaction-date] :as attachment} & {:as opts}]
@@ -25,7 +25,7 @@
 
 (defn- prepare-criteria
   [criteria]
-  (util/nominal-comparatives criteria :transaction-date))
+  (comparatives/nominalize criteria))
 
 (defn search
   [criteria & {:as opts}]

@@ -11,6 +11,7 @@
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
+            [clj-money.comparatives :as comparatives]
             [clj-money.transactions :refer [summarize-items
                                             polarize-item-quantity]]
             [clj-money.models :as models]
@@ -66,7 +67,7 @@
                   (:end-date params))
              (:account-id params))]}
   (-> params
-      (util/symbolic-comparatives :transaction-date)
+      comparatives/symbolize
       ensure-dates
       (rename-keys {:transaction-date :transaction-item/transaction-date
                     :account-id :transaction-item/account

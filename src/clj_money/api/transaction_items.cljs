@@ -4,7 +4,7 @@
             [cljs.pprint :refer [pprint]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.util :as util]
+            [clj-money.comparatives :as comparatives]
             [clj-money.dates :refer [serialize-local-date
                                      local-date?]]
             [clj-money.state :refer [current-entity]]
@@ -22,7 +22,7 @@
   {:pre [(:transaction-item/transaction-date criteria)]}
   (-> criteria
       (update-in [:transaction-item/transaction-date] serialize-date)
-      (util/nominal-comparatives :transaction-item/transaction-date)
+      comparatives/nominalize
       (dissoc :transaction-item/account)))
 
 (defn select

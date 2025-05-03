@@ -10,8 +10,8 @@
              :refer [+scope
                      authorize]]
             [clj-money.dates :as dates]
-            [clj-money.util :as util :refer [nominative-variations
-                                             symbolic-comparatives]]
+            [clj-money.util :as util]
+            [clj-money.comparatives :as comparatives :refer [nominative-variations] ]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.images :as img]
@@ -27,7 +27,7 @@
   [{:keys [params authenticated]}]
   (-> params
       unserialize-transaction-date
-      (symbolic-comparatives :transaction-date)
+      comparatives/symbolize
       (rename-keys {"transaction-id[]" :transaction/id
                     :transaction-id :transaction/id
                     :transaction-date :transaction/transaction-date})

@@ -4,6 +4,7 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
+            [clj-money.comparatives :as comparatives]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -40,8 +41,7 @@
            (-> criteria
                (update-in-if [:scheduled-transaction/start-date] serialize-date-param)
                (update-in-if [:scheduled-transaction/end-date] serialize-date-param)
-               (util/nominal-comparatives :scheduled-transaction/start-date)
-               (util/nominal-comparatives :scheduled-transaction/end-date))
+               comparatives/nominalize)
            (add-error-handler
              opts
              "Unable to retrieve the scheduled transactions: %s")))

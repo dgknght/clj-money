@@ -13,6 +13,7 @@
              :as authorization]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
+            [clj-money.comparatives :as comparatives]
             [clj-money.models :as models]
             [clj-money.models.transactions :refer [with-delayed-propagation]]
             [clj-money.scheduled-transactions :as sched-trans]
@@ -35,8 +36,7 @@
       (util/qualify-keys :scheduled-transaction)
       (update-in [:scheduled-transaction/entity] util/->model-ref)
       (update-in-if [:scheduled-transaction/enabled] parse-bool)
-      (util/symbolic-comparatives :scheduled-transaction/end-date)
-      (util/symbolic-comparatives :scheduled-transaction/start-date)
+      comparatives/symbolize
       (update-in-if [:scheduled-transaction/end-date] parse-date-param)
       (update-in-if [:scheduled-transaction/start-date] parse-date-param)
       (select-keys [:scheduled-transaction/entity
