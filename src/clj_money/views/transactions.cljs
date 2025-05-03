@@ -113,11 +113,13 @@
     (if (and start end)
       (do (swap! page-state dissoc :items :all-items-fetched?)
           (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges start end (t/months 6))
-                                               (map vec)
-                                               (load-in-chunks {:fetch-xf (comp (map #(hash-map :transaction-item/account account
-                                                                                                :transaction-item/transaction-date %))
-                                                                                fetch-items)
-                                                                :chunk-size 100}))]
+                                               (load-in-chunks
+                                                 {:fetch-xf (comp
+                                                              (map (fn [[start end]]
+                                                                     {:transaction-item/account (util/->model-ref account)
+                                                                      :transaction-item/transaction-date [:between> start end]}))
+                                                              fetch-items)
+                                                  :chunk-size 500}))]
             (go-loop [items (<! items-ch)]
                      (if items
                        (do
