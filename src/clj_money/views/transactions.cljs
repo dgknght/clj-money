@@ -102,8 +102,10 @@
   [xf]
   (completing
     (fn [ch criteria]
-      (transaction-items/select criteria
-                                :on-success #(xf ch %)))))
+      (if criteria
+        (transaction-items/select criteria
+                                  :on-success #(xf ch %))
+        (xf ch [])))))
 
 (defn init-item-loading
   [page-state]
@@ -115,9 +117,10 @@
           (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges start end (t/months 6))
                                                (load-in-chunks
                                                  {:fetch-xf (comp
-                                                              (map (fn [[start end]]
-                                                                     {:transaction-item/account (util/->model-ref account)
-                                                                      :transaction-item/transaction-date [:between> start end]}))
+                                                              (map (fn [[start end :as range]]
+                                                                     (when (seq range)
+                                                                       {:transaction-item/account (util/->model-ref account)
+                                                                        :transaction-item/transaction-date [:between> start end]})))
                                                               fetch-items)
                                                   :chunk-size 100}))]
             (go-loop [items (<! items-ch)]

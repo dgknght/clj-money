@@ -1,6 +1,7 @@
 (ns clj-money.dates
   (:require #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
+            [clojure.walk :refer [postwalk]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.format :as tf])
@@ -426,3 +427,11 @@
 #?(:clj (defn of-epoch-second
           [second]
           (Instant/ofEpochSecond second)))
+
+(defn serialize-criteria-dates
+  [criteria]
+  (postwalk (fn [x]
+              (if (local-date? x)
+                (serialize-local-date x)
+                x))
+            criteria))

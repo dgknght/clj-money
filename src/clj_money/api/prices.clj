@@ -8,6 +8,7 @@
                                           index-by]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util :refer [model=]]
+            [clj-money.comparatives :as comparatives]
             [clj-money.dates :as dates]
             [clj-money.prices :as p]
             [clj-money.prices.yahoo :as yahoo]
@@ -20,21 +21,18 @@
              :as authorization]
             [clj-money.authorization.prices]))
 
-(defn- parse-trade-date
-  [v]
-  (if (vector? v)
-    (let [[d1 d2] (map dates/unserialize-local-date v)]
-      (if (= d1 d2)
-        d1
-        [:between> d1 d2]))
-    (dates/unserialize-local-date v)))
+(defn- unserialize-date
+  [x]
+  (cond
+    (vector? x) (mapv unserialize-date x)
+    (string? x) (dates/unserialize-local-date x)
+    :else x))
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
-  {:pre [(:trade-date params)]}
-
   (->  params
-      (update-in [:trade-date] parse-trade-date)
+      comparatives/symbolize
+      (update-in [:trade-date] unserialize-date)
       (select-keys [:commodity-id :entity-id :trade-date])
       (rename-keys {:commodity-id :price/commodity
                     :entity-id :commodity/entity

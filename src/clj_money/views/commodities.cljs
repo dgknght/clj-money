@@ -114,20 +114,26 @@
   [xf]
   (completing
     (fn [ch criteria]
-      (prices/select criteria :post-xf (map #(xf ch %))))))
+      (if criteria
+        (prices/select criteria :on-success #(xf ch %))
+        (xf ch [])))))
 
 (defn- init-price-loading
   [page-state]
   (let [{:as commodity
          :commodity/keys [earliest-price
-                          latest-price]} (:prices-commodity @page-state)
-        {:keys [items-ch ctl-ch]} (->> (dates/desc-ranges earliest-price
-                                                          latest-price
-                                                          (t/years 1))
-                                       (map vec)
-                                       (load-in-chunks {:fetch-xf (comp (map #(hash-map :price/commodity commodity
-                                                                                        :price/trade-date %))
-                                                                        fetch-prices)}))]
+                          latest-price]}
+        (:prices-commodity @page-state)
+
+        {:keys [items-ch ctl-ch]}
+        (->> (dates/desc-ranges earliest-price
+                                latest-price
+                                (t/years 1))
+             (load-in-chunks {:fetch-xf (comp (map (fn [[start end :as range]]
+                                                     (when (seq range)
+                                                       {:price/commodity (util/->model-ref commodity)
+                                                        :price/trade-date [:between> start end]})))
+                                              fetch-prices)}))]
     (swap! page-state assoc :ctl-chan ctl-ch)
     (go-loop [prices (<! items-ch)]
              (if prices

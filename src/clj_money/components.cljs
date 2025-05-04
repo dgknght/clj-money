@@ -68,12 +68,11 @@
   (fn [xf]
     (completing
       (fn [ch items]
-        (when (> (swap! count-sought - (count items))
-                 0)
-          (go (>! ctl-ch :fetch-more)))
-        ; When the first call returns more than the count sought,
-        ; we put the items here, but they aren't received on the
-        ; other end until the :quit command forces it through
+        (when (seq items)
+          (let [still-seeking (swap! count-sought - (count items))]
+            (go (>! ctl-ch (if (< 0 still-seeking)
+                             :fetch-more
+                             :force)))))
         (xf ch items)))))
 
 (defn load-in-chunks
@@ -105,6 +104,7 @@
                              (reset! count-sought chunk-size)
                              (go (>! fetch-ch rng)))
                     :fetch-more (go (>! fetch-ch rng))
+                    :force (go (>! fetch-ch []))
                     :quit (close! fetch-ch))
                   (recur (first remaining) (rest remaining)))
                 (do

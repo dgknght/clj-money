@@ -1,8 +1,9 @@
 (ns clj-money.api.prices
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
-            [clj-money.dates :refer [serialize-local-date]]
+            [clj-money.dates :as dates]
             [clj-money.util :as util :refer [update-keys]]
+            [clj-money.comparatives :as comparatives]
             [clj-money.models :as models]
             [clj-money.api :as api :refer [add-error-handler]]))
 
@@ -10,7 +11,8 @@
   [criteria]
   (-> criteria
       (dissoc :price/commodity)
-      (update-in [:price/trade-date] #(map serialize-local-date %))
+      dates/serialize-criteria-dates
+      comparatives/nominalize
       (update-keys (comp keyword name))))
 
 (defn select
@@ -34,7 +36,7 @@
 (defn update
   [price opts]
   (api/patch (api/path :prices
-                       (serialize-local-date (:price/original-trade-date price))
+                       (dates/serialize-local-date (:price/original-trade-date price))
                        price)
              (dissoc price :price/commodity)
              (add-error-handler opts "Unable to update the price: %s")))
@@ -48,7 +50,7 @@
 (defn delete
   [price & {:as opts}]
   (api/delete (api/path :prices
-                        (serialize-local-date (:price/trade-date price))
+                        (dates/serialize-local-date (:price/trade-date price))
                         price)
               (add-error-handler opts "Unable to remove the price: %s")))
 
