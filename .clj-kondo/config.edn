@@ -58,6 +58,8 @@
            :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
                                                       clj-money.db.sql.tasks/create-partitions
                                                       clj-money.db.sql.tasks/check-transaction-balances
+                                                      clj-money.decimal/>=
+                                                      clj-money.decimal/<=
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.util/simplify

@@ -280,17 +280,17 @@
 (defn- refine-items
   [depth items]
   (->> items
-       (remove #(< depth (:depth %)))
-       (map #(if (= depth (:depth %))
-               (merge % (:roll-up %))
+       (remove #(< depth (:report/depth %)))
+       (map #(if (= depth (:report/depth %))
+               (merge % (:report/roll-up %))
                %))
-       (remove #(= 0 (:actual %) (:budget %)))
-       (sort-by :difference)))
+       (remove #(= 0M (:report/actual %) (:report/budget %)))
+       (sort-by :report/difference d/<)))
 
 (defn- refine-and-flatten
   [depth groups]
   (mapcat #(concat [%]
-                   (refine-items depth (:items %)))
+                   (refine-items depth (:report/items %)))
           groups))
 
 (defn- save-budget
@@ -390,13 +390,21 @@
           [:th.text-end.d-none.d-md-table-cell "% Diff"]
           [:th.text-end.d-none.d-md-table-cell "Act/Mo"]]]
         [:tbody
-         (if @report
+         (cond
+           (seq @report)
            (->> (:items @report)
                 (refine-and-flatten @depth)
                 (map (comp
                        #(budget-report-row % page-state)
                        #(assoc % :account (get-in @accounts-by-id [(:id %)]))))
                 doall)
+
+           @report
+           [:tr
+            [:td.text-center {:col-span 6}
+             [:span.text-secondary-ephasis "No data."]]]
+
+           :else
            [:tr
             [:td.text-center {:col-span 6}
              [bs/spinner]]])]]])))

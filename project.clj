@@ -96,7 +96,7 @@
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.35"
+                  "0.3.36"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java

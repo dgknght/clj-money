@@ -1,7 +1,8 @@
 (ns clj-money.decimal
-   (:refer-clojure :exclude [* + - / zero? abs decimal?])
+   (:refer-clojure :exclude [* + - / < <= > >= zero? abs decimal?])
    (:require [clojure.walk :refer [postwalk]]
              [clojure.string :as string]
+             #?(:clj [clojure.core :as core])
              [dgknght.app-lib.math :as math]
              #?(:cljs [dgknght.app-lib.decimal :as decimal]))
    #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
@@ -27,7 +28,7 @@
      :cljs decimal/->decimal))
 
 (def decimal?
-   #?(:clj clojure.core/decimal?
+   #?(:clj core/decimal?
       :cljs decimal/decimal?))
 
 (defn wrap-decimals
@@ -64,6 +65,21 @@
    :clj  (defn / [^java.math.BigDecimal n1
                   ^java.math.BigDecimal n2]
            (.divide n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+
+#?(:cljs (defn < [n1 n2] (decimal/< n1 n2))
+   :clj  (defn < [^java.math.BigDecimal n1
+                  ^java.math.BigDecimal n2]
+           (core/< n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+
+#?(:cljs (defn <= [n1 n2] (decimal/< n1 n2))
+   :clj  (defn <= [^java.math.BigDecimal n1
+                  ^java.math.BigDecimal n2]
+           (core/<= n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+
+#?(:cljs (defn >= [n1 n2] (decimal/> n1 n2))
+   :clj  (defn >= [^java.math.BigDecimal n1
+                  ^java.math.BigDecimal n2]
+           (core/>= n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
 
 #?(:cljs (defn round
            ([n]
