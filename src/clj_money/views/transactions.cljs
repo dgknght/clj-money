@@ -103,7 +103,7 @@
   (completing
     (fn [ch criteria]
       (transaction-items/select criteria
-                                :post-xf (map #(xf ch %))))))
+                                :on-success #(xf ch %)))))
 
 (defn init-item-loading
   [page-state]
@@ -119,7 +119,7 @@
                                                                      {:transaction-item/account (util/->model-ref account)
                                                                       :transaction-item/transaction-date [:between> start end]}))
                                                               fetch-items)
-                                                  :chunk-size 500}))]
+                                                  :chunk-size 100}))]
             (go-loop [items (<! items-ch)]
                      (if items
                        (do
