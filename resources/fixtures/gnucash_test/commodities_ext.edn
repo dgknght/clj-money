@@ -47,7 +47,7 @@
                          :import/record-type :price
                          :import/ignore? false}
                         {:price/trade-date #clj-money/local-date "2015-01-17"
-                         :price/price 10M
+                         :price/price 9.95M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
@@ -272,8 +272,13 @@
                                :transaction/description "Purchase shares AAPL"
                                :transaction/items [{:transaction-item/action :debit
                                                     :transaction-item/quantity 100M
-                                                    :transaction-item/value 1000M
+                                                    :transaction-item/value 995M
                                                     :import/account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :debit
+                                                    :transaction-item/quantity 5M
+                                                    :transaction-item/value 5M
+                                                    :import/account-id "2b8b986602a346dc833125c86ef89f72" ; investment expenses
                                                     :import/reconciled? false}
                                                    {:transaction-item/action :credit
                                                     :transaction-item/quantity 1000M
@@ -282,7 +287,7 @@
                                                     :import/reconciled? false}]
                                :trade/action :buy
                                :trade/shares 100M
-                               :trade/value 1000M
+                               :trade/value 995M
                                :import/commodity-account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
                                :import/record-type :transaction
                                :import/ignore? false}
