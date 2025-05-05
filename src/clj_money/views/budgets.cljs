@@ -101,11 +101,9 @@
 
 (defn- budgets-list
   [page-state]
-  (let [selected (r/cursor page-state [:selected])
-        details (r/cursor page-state [:detailed-budget])
-        hide? (make-reaction #(or @selected @details))]
+  (let [details (r/cursor page-state [:detailed-budget])]
     (fn []
-      [:div {:class (when @hide? "d-none")}
+      [:div {:class (when @details "d-none")}
        [budgets-table page-state]
        [:div.mt-2
         [button {:html {:class "btn-primary"
@@ -582,7 +580,7 @@
                          "resize"
                          capture-window-height))
     (fn []
-      [:div.h-100 {:class (when-not @budget "d-none")}
+      [:div.h-100
        [:div.d-none.d-lg-block
         [forms/checkbox-field page-state [:show-period-detail?]]]
        [:div.row.h-100
@@ -639,12 +637,14 @@
                  "New")])
          (when @detailed-budget
            [:h2 (:budget/name @detailed-budget)])]
-        [budget-details page-state]
-        [:div.row
-         [:div.col-md-6
-          [budgets-list page-state]]
-         [:div.col-md-6
-          [budget-form page-state]]]]])))
+        (when @detailed-budget
+          [budget-details page-state])
+        (when-not @detailed-budget
+          [:div.row
+           [:div.col-md-6
+            [budgets-list page-state]]
+           [:div.col-md-6
+            [budget-form page-state]]])]])))
 
 (secretary/defroute "/budgets" []
   (swap! app-state assoc :page #'index))
