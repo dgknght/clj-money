@@ -762,12 +762,13 @@
 (defn- process-budget-item
   [item period-count]
   (let [periods (->> (:periods item)
-                     (map (comp #(update-in % [1] parse-decimal)
-                                #(update-in % [0] parse-int)
-                                (juxt :key :value)))
+                     (map (juxt (comp parse-int
+                                      :key)
+                                (comp parse-decimal
+                                      :value)))
                      (into {}))]
     {:budget-item/periods (map #(get-in periods [%] 0M)
-                             (range period-count))
+                               (range period-count))
      :import/account-id (:key item)}))
 
 (defmethod ^:private process-record :budget
