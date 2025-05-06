@@ -95,7 +95,7 @@
       (assoc :budget/entity {:id (:entity-id params)} )
       (authorize ::auth/create authenticated)
       models/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (append-items (:auto-create-start-date params))
+      (append-items (:budget/auto-create-start-date params))
       api/creation-response))
 
 (defn- find-and-auth
