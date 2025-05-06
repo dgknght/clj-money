@@ -578,20 +578,22 @@
                  space)}))
 
 (defmethod ^:private process-record :account
-  [{:as record :keys [commodity]} _]
+  [{:as record :keys [commodity]} state]
   (if-let [account-type (account-types-map (:type record))]
-    (cond-> {:import/record-type :account
-             :import/id (:id record)
-             :import/parent-id (:parent record)
-             :import/ignore? (contains? ignored-accounts (:name record))
-             :account/type account-type
-             :account/name (:name record)}
-      commodity (assoc :import/commodity
-                       (let [{:keys [type exchange]} (account-commodity-type record)]
-                         (cond-> {:commodity/symbol (-> record :commodity :id)
-                                  :commodity/type type}
-                           exchange
-                           (assoc :commodity/exchange exchange)))))
+    (do
+      (swap! state assoc-in [:accounts (:id record)] account-type)
+      (cond-> {:import/record-type :account
+               :import/id (:id record)
+               :import/parent-id (:parent record)
+               :import/ignore? (contains? ignored-accounts (:name record))
+               :account/type account-type
+               :account/name (:name record)}
+        commodity (assoc :import/commodity
+                         (let [{:keys [type exchange]} (account-commodity-type record)]
+                           (cond-> {:commodity/symbol (-> record :commodity :id)
+                                    :commodity/type type}
+                             exchange
+                             (assoc :commodity/exchange exchange))))))
     (throw (ex-info (format "Unrecognized account type \"%s\"" (:type record))
                     {:account record}))))
 
@@ -760,11 +762,16 @@
                                        parse-date)}))
 
 (defn- process-budget-item
-  [item period-count]
-  (let [periods (->> (:periods item)
+  [item period-count {:keys [accounts]}]
+  (let [type (accounts (:key item))
+        multiplier (if (#{:expense :asset} type)
+                     1M
+                     -1M)
+        periods (->> (:periods item)
                      (map (juxt (comp parse-int
                                       :key)
-                                (comp parse-decimal
+                                (comp #(d/* multiplier %)
+                                      parse-decimal
                                       :value)))
                      (into {}))]
     {:budget-item/periods (map #(get-in periods [%] 0M)
@@ -772,7 +779,7 @@
      :import/account-id (:key item)}))
 
 (defmethod ^:private process-record :budget
-  [{:keys [num-periods] :as record} _]
+  [{:keys [num-periods] :as record} state]
   (let [period-count (parse-int num-periods)]
     {:import/id (:id record)
      :import/record-type :budget
@@ -780,7 +787,7 @@
      :budget/period (-> record :recurrence :period_type keyword)
      :budget/start-date (-> record :recurrence :start :gdate parse-date)
      :budget/period-count period-count
-     :budget/items (map #(process-budget-item % period-count)
+     :budget/items (mapv #(process-budget-item % period-count @state)
                         (:budget/items record))}))
 
 (defn- ->scheduled-transaction-item
