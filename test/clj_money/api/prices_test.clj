@@ -100,8 +100,10 @@
                              :commodities
                              (:id commodity)
                              :prices))
-                  (assoc :query (map->query-string
-                                   {:trade-date [(t/local-date 2016 1 1) (t/local-date 2016 12 31)]}))
+                  (assoc :query
+                         (map->query-string
+                           {:trade-date-on-or-after "2016-01-01"
+                            :trade-date-before "2017-01-01"}))
                   str)]
       (-> (req/request :get url)
           (req/header "Accept" "application/edn")

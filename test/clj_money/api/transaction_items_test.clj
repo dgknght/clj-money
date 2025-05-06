@@ -121,9 +121,11 @@
                                        (:id account)
                                        :transaction-items)
                                  "?"
-                                 (map->query-string {:limit 5
-                                                     :unreconciled true
-                                                     :transaction-date [(t/local-date 2017 01 01) (t/local-date 2017 02 01)]})))
+                                 (map->query-string
+                                   {:limit 5
+                                    :unreconciled true
+                                    :transaction-date-on-or-after "2017-01-01"
+                                    :transaction-date-before "2017-02-01"})))
           (add-auth (find-user email))
           app
           parse-edn-body))))
