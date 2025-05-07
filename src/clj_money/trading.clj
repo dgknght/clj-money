@@ -825,10 +825,10 @@
       (update-in [:lot-item/shares] #(* % ratio))))
 
 (defn- fetch-and-adjust-lot-items
-  [lot ratio]
+  [lot ratio date]
   (mapv #(apply-ratio-to-lot-item % ratio)
         (models/select #:lot-item{:lot lot
-                                  :transaction-date [:<= (:lot/purchase-date lot)]})))
+                                  :transaction-date [:<= date]})))
 
 (defn- apply-ratio-to-lot
   [lot ratio]
@@ -837,19 +837,19 @@
       (update-in [:lot/shares-owned] #(* % ratio))
       (update-in [:lot/purchase-price] #(with-precision 4 (/ % ratio)))))
 
-(defn- adjust-lot-and-fetch-lot-items
-  [ratio lots]
+(defn- adjust-lot-and-lot-items
+  [ratio lots date]
   (reduce (fn [acc lot]
             (-> acc
                 (update-in [:lots] conj (apply-ratio-to-lot lot ratio))
-                (update-in [:lot-items] concat (fetch-and-adjust-lot-items lot ratio))))
+                (update-in [:lot-items] concat (fetch-and-adjust-lot-items lot ratio date))))
           {:lots []
            :lot-items []}
           lots))
 
 (defn- adjust-split-lots
-  [{:split/keys [lots ratio] :as split}]
-  (let [{:keys [lots lot-items]} (adjust-lot-and-fetch-lot-items ratio lots)]
+  [{:split/keys [lots ratio date] :as split}]
+  (let [{:keys [lots lot-items]} (adjust-lot-and-lot-items ratio lots date)]
     (assoc split
            :split/lots lots
            :split/lot-items lot-items)))
