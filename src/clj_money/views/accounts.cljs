@@ -814,9 +814,9 @@
     (when (and earliest-transaction-date
                latest-transaction-date)
       (prices/select #:price{:commodity commodity
-                             :trade-date [earliest-transaction-date
-                                          (t/plus latest-transaction-date
-                                                  (t/days 1))]}
+                             :trade-date [:between
+                                          earliest-transaction-date
+                                          latest-transaction-date]}
                      :on-success #(swap! page-state assoc :prices %)))
     (fn []
       [:section
