@@ -155,7 +155,7 @@
             latest-date
             model-type]
      :or {account-attribute :transaction-item/account
-          date-attribute :transaction/transaction-date
+          date-attribute :transaction-item/transaction-date
           model-type :transaction-item}}
     accounts]
    (util/model-type
