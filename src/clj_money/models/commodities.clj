@@ -18,6 +18,7 @@
     (= 0 (models/count
            (-> commodity
                (select-keys [:commodity/name
+                             :commodity/type
                              :commodity/exchange
                              :commodity/entity])
                (assoc-if :id (when id [:!= id])))))
@@ -28,10 +29,11 @@
 
 (defn- symbol-is-unique?
   [{:keys [id] :as commodity}]
-  (nil?
-    (models/find-by
+  (zero?
+    (models/count
       (-> commodity
           (select-keys [:commodity/symbol
+                        :commodity/type
                         :commodity/exchange
                         :commodity/entity])
           (assoc-if :id (when id [:!= id]))))))
