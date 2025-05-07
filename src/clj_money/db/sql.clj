@@ -333,6 +333,10 @@
   [ds changes criteria]
   (let [sql (->update (->sql-refs changes)
                       (->sql-refs criteria))]
+    (log/debugf "database bulk update: change %s for %s -> %s"
+                (pr-str changes)
+                (pr-str criteria)
+                sql)
     (jdbc/execute! ds sql jdbc/snake-kebab-opts)))
 
 (defn- delete*
