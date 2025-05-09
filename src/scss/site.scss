@@ -193,9 +193,11 @@ td.status {
 }
 
 @media print {
-  #side-bar, .btn-group, .btn, .nav, #report-settings {
-    display: none;
+  body {
+    background-color: #fff !important;
+    color: #000 !important;
   }
+  h1, h2, h3, h4, h5, h6, p, table, tr, td, th, .text-primary, .text-secondary, .text-body, .text-body-emphasis { color: #000 !important; }
 }
 
 table tfoot td {
