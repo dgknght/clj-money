@@ -94,7 +94,7 @@
   (js/alert "Not implemented"))
 
 (defn- expired?
-  [{:keys [end-date]}]
+  [{:scheduled-transaction/keys [end-date]}]
   (and end-date (t/after? (t/today) end-date)))
 
 (def ^:private disabled? (complement :scheduled-transaction/enabled))
