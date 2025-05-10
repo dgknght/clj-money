@@ -38,11 +38,11 @@
 
 (defmulti items-by-account type)
 
-(defmethod items-by-account clojure.lang.PersistentVector
+(defmethod items-by-account ::util/vector
   [accounts]
   (map items-by-account accounts))
 
-(defmethod items-by-account java.lang.String
+(defmethod items-by-account ::util/string
   [account-name]
   (items-by-account (find-account account-name)))
 

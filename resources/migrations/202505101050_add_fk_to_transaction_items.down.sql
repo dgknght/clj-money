@@ -1,0 +1,2 @@
+alter table transaction_items
+drop constraint transaction_items_transaction_id_fkey;
