@@ -6,7 +6,9 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [timeout
                                      <!]]
+            [dgknght.app-lib.core :refer [present?]]
             [dgknght.app-lib.web :refer [format-percent
+                                         format-decimal
                                          format-date
                                          format-date-time]]
             [dgknght.app-lib.dom :refer [set-focus]]
@@ -14,7 +16,7 @@
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
-            [clj-money.icons :refer [icon]]
+            [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.components :refer [button]]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
@@ -38,14 +40,19 @@
                   :on-success #(load-imports page-state)))
 
 (defn- append-dropped-files
-  [event import-data]
-  (update-in import-data [:files] #(concat % (dnd/files event))))
+  [event]
+  (fn
+    [import-data]
+    (update-in import-data
+               [:files]
+               (fnil concat [])
+               (dnd/data-files event))))
 
 (defn- file-list
   [import-data]
-  (when (seq (:files @import-data))
+  (when (seq (:files import-data))
     [:ul.list-group.list-group-flush
-     (for [file (:files @import-data)]
+     (for [file (:files import-data)]
        ^{:key (.-name file)}
        [:li.list-group-item (.-name file)])]))
 
@@ -53,15 +60,18 @@
   [page-state]
   (let [imp (r/cursor page-state [:active])]
     (fn []
-      [:strong (str "Import " (:entity-name @imp))])))
+      [:strong (str "Import: " (:import/entity-name @imp))])))
 
 (defn- progress-row
   [[progress-type {:keys [total completed]}]]
   ^{:key (str "progress-" (name progress-type))}
   [:tr
-   [:td (name progress-type)]
-   [:td.text-center
-    (let [perc (* 100 (/ completed total))]
+   [:td.col-sm-6 (name progress-type)]
+   [:td.col-sm-6.text-center
+    (let [perc (if (< 0 total)
+                 (* 100 (/ completed total))
+                 0)
+          formatted-perc (format-percent (/ perc 100) {:fraction-digits 0})]
       [:div.progress
        [:div.progress-bar
         {:aria-valuenow completed
@@ -80,14 +90,19 @@
                                 perc)
                               "%")}}
         (when (<= 50 perc)
-          (format-percent (/ perc 100)))]
+          formatted-perc)]
        (when (> 50 perc)
          [:span.ps-1
-          (format-percent (/ perc 100))])])]])
+          formatted-perc])])
+    [:span.text-body-secondary.fw-lighter
+     {:style {:font-size "0.8em"}}
+     (str (format-decimal completed {:fraction-digits 0})
+          "/"
+          (format-decimal total {:fraction-digits 0}))]]])
 
 (defn- progress-table
   [page-state]
-  (let [progress (r/cursor page-state [:active :progress])]
+  (let [progress (r/cursor page-state [:active :import/progress])]
     (fn []
       [:table.table.table-hover
        [:tbody
@@ -95,7 +110,8 @@
          [:th "Record Type"]
          [:th.text-center "Progress"]]
         (->> @progress
-             (filter #(map? (second %)))
+             (filter (comp map? second))
+             (sort-by (comp name first))
              (map progress-row)
              doall)]])))
 
@@ -104,43 +120,46 @@
 (declare load-import)
 
 (defn- receive-import
-  [{{:keys [errors finished]} :progress :as received} page-state]
-  (when (seq errors)
-    (pprint {::errors errors}))
-  (when finished
-    (reset! auto-refresh false))
-  (when @auto-refresh
-    (go
-      (<! (timeout 1000))
-      (load-import page-state)))
-  (swap! page-state assoc :active received))
+  ([page-state] (partial receive-import page-state))
+  ([page-state {{:keys [finished]} :import/progress
+                :as received}]
+   (when finished
+     (reset! auto-refresh false))
+   (when @auto-refresh
+     (go
+       (<! (timeout 1000))
+       (load-import page-state)))
+   (swap! page-state assoc :active received)))
 
 (defn- load-import
   [page-state]
   ; Don't set busy because this happens constantly during import
   (imports/get (get-in @page-state [:active :id])
-               :on-success #(receive-import % page-state)))
+               :on-success (receive-import page-state)))
 
 (defn- start-import
   [imp page-state]
+  (swap! page-state assoc :active imp)
   (+busy)
   (imports/start imp
                  :callback -busy
-                 :on-success (fn [result]
+                 :on-failure (fn [& args]
+                               (pprint {::failure args}))
+                 :on-success (fn [{:keys [import]}]
                                (reset! auto-refresh true)
-                               (receive-import result page-state))))
+                               (receive-import page-state import))))
 
 (defn- import-row
-  [imp page-state busy?]
+  [{:import/keys [created-at entity-name entity-exists?] :as imp} page-state busy?]
   ^{:key (str "import-row-" (:id imp))}
   [:tr
-   [:td (:entity-name imp)]
+   [:td entity-name]
    [:td
-    [:span.d-none.d-md-inline (format-date-time (:created-at imp))]
+    [:span.d-none.d-md-inline (format-date-time created-at)]
     [:span.d-md-none (format-date (:created-at imp) "M/d")]]
    [:td
     [:div.btn-group
-     [:button.btn.btn-success.btn-sm {:disable (str (:entity-exists? imp))
+     [:button.btn.btn-success.btn-sm {:disabled entity-exists?
                                       :on-click #(start-import imp page-state)
                                       :title "Click here to start the import."}
       (icon :play :size :small)]
@@ -180,15 +199,13 @@
         caption (make-reaction #(if @auto-refresh "Stop" "Auto Refresh"))
         icon-image (make-reaction #(if @auto-refresh :stop :arrow-repeat))]
     (fn []
-      [button {:html {:type :button
-                      :class @css-class
-                      :title @title
-                      :on-click (fn []
-                                  (swap! auto-refresh not)
-                                  (when @auto-refresh
-                                    (load-import page-state)))}
-               :icon @icon-image
-               :caption @caption}])))
+      [:button.btn
+       {:type :button
+        :class @css-class
+        :title @title
+        :on-click #(when (swap! auto-refresh not)
+                     (load-import page-state))}
+       (icon-with-text @icon-image @caption)])))
 
 (defn- progress-card
   [page-state]
@@ -204,31 +221,47 @@
                :caption "Cancel"}]
       [refresh-button page-state]]]))
 
-(defn- errors-card
+(defn- notification-elem
+  [[{:notification/keys [message severity id]} count]]
+  ^{:key (str "simple-notification-" id)}
+  [:div.alert
+   {:role :alert
+    :class (case severity
+             ("fatal" :fatal)     "alert-danger"
+             ("error" :error)     "alert-warning"
+             ("warning" :warning) "alert-secondary"
+             "alert-info")}
+   message
+   (when-not (= 0 count)
+     [:span.badge.position-absolute.top-0.start-100.translate-middle.rounded-pill.text-bg-secondary
+      count])])
+
+(defn- notifications-card
   [page-state]
-  (let [errors (r/cursor page-state [:active :progress :errors])]
+  (let [notifications (r/cursor page-state [:active :import/progress :notifications])
+        grouped (make-reaction #(group-by :notification/message @notifications))]
     (fn []
-      (when (seq @errors)
-        [:div.card
-         [:div.card-header "Errors"]
+      (when (seq @notifications)
+        [:div.card.mt-2
+         [:div.card-header "Alerts"]
          [:div.card-body
-          (->> @errors
-               (map-indexed (fn [index error]
-                              ^{:key (str "import-error-" index)}
-                              [:div.alert.alert-danger (:message error)])))]]))))
+          (->> @grouped
+               (map (comp notification-elem
+                          (juxt first count)
+                          second))
+               doall)]]))))
 
 (defn- import-activity
   [page-state]
   (fn []
     [:div
      [progress-card page-state]
-     [:div.mt-2
-      [errors-card page-state]]]))
+     [notifications-card page-state]]))
 
 (defn- start-after-save
   [page-state]
   (fn [result]
-    (state/add-entity (:entity result))
+    (state/add-entity (:import/entity result))
     (reset! auto-refresh true)
     (swap! page-state #(-> %
                            (dissoc :import-data)
@@ -236,37 +269,40 @@
                            (assoc :active (:import result))))
     (load-import page-state)))
 
+(defn- remove-empty-vals
+  [m]
+  (->> m
+       (filter (fn [[_ v]]
+                 (present? v)))
+       (into {})))
+
 (defn- save-and-start-import
-  [event page-state]
-  (.preventDefault event)
+  [page-state]
   (+busy)
-  (try
-    (imports/create (dissoc (get-in @page-state [:import-data]) ::v/validation)
-                    :callback -busy
-                    :on-success (start-after-save page-state))
-    (catch js/Error e
-      (-busy)
-      (.dir js/console e)
-      (notify/danger (str "Unable to start the import: " (.-name e) " - " (.-message e))))))
+  (-> (:import-data @page-state)
+      (dissoc ::v/validation)
+      (update-in [:options] remove-empty-vals)
+      (imports/create :callback -busy
+                      :on-failure (notify/danger-fn "Unable to start the import: %s")
+                      :on-success (start-after-save page-state))))
 
 (defn- file-drop
-  [import-data event]
-  (.preventDefault event)
-  (try
-    (swap! import-data #(append-dropped-files event %))
-    (catch js/Error err
-      (.log js/console "Error: " (prn-str err)))))
-
-(defn- present?
-  [{:keys [user-id]}]
-  (not (nil? user-id)))
+  [import-data]
+  (fn [event]
+    (.preventDefault event)
+    (try
+      (swap! import-data (append-dropped-files event))
+      (catch js/Error err
+        (.error js/console err)))))
 
 (defn- import-form
   [page-state]
   (let [import-data (r/cursor page-state [:import-data])]
-    (when (present? @import-data)
+    (fn []
       [:form {:no-validate true
-              :on-submit #(save-and-start-import % page-state)}
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           (save-and-start-import page-state))}
        [:div.card
         [:div.card-header [:strong "Import Entity"]]
         [:div.card-body
@@ -277,9 +313,9 @@
          [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]
          [:div#import-source.drop-zone.bg-primary.text-light
           {:on-drag-over #(.preventDefault %)
-           :on-drop #(file-drop import-data %)}
+           :on-drop (file-drop import-data)}
           [:div "Drop files here"]]]
-        [file-list import-data]
+        (file-list @import-data)
         [:div.card-footer
          [button {:html {:type :submit
                          :class "btn-success"
@@ -294,8 +330,7 @@
                   :caption "Cancel"}]]]])))
 
 (defn- import-list []
-  (let [page-state (r/atom {:import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
-                                                    :st-capital-gains-account-id "Investment Income/Short Term Gains"}}})
+  (let [page-state (r/atom {})
         import-data (r/cursor page-state [:import-data])
         active (r/cursor page-state [:active])]
     (load-imports page-state)
@@ -310,13 +345,12 @@
                   :class "btn-primary"
                   :on-click (fn []
                               (swap! page-state assoc
-                                     :import-data {:user-id (:id @state/current-user)
-                                                   :options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
+                                     :import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
                                                              :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
                               (set-focus "entity-name"))}
            :icon :plus
            :caption "Add"}]]
-        (when (present? @import-data)
+        (when @import-data
           [:div.col-md-6
            [import-form page-state]])
         (when @active

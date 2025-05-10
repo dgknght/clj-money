@@ -1,186 +1,224 @@
 (ns clj-money.transactions
   (:require [clojure.set :refer [rename-keys]]
-            [clj-money.util :as util]
+            [clojure.pprint :refer [pprint]]
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])
+            [clj-money.util :as util :refer [->model-ref model=]]
             [clj-money.dates :as dates]
+            [clj-money.decimal :as d]
             [clj-money.accounts :refer [polarize-quantity
-                                        derive-item]]))
+                                        ->transaction-item]]))
 
-(defn can-simplify?
+(defn accountified?
+  "Returns true if the accountify fn has been applied to the transaction."
+  [{:transaction/keys [account]}]
+  (not (not account)))
+
+(defn can-accountify?
   "Returns true if the transaction can be simplified (which
   means it has two items) or false if not (which means it
   has more). It assumes a valid transaction."
-  [{:keys [items]}]
-  (= 2 (count items)))
+  [{:transaction/keys [items]}]
+  (= 2
+     (count (remove empty? items))))
 
-(defn simplify
-  "Accepts a standard transaction (with line items) and
-  returns a simplified transaction (with one quantity, one
-  debit account and one credit account). Note that the
-  transaction must have only two items."
-  [{:keys [items] :as transaction} ref-account]
-  {:pre [(can-simplify? transaction)]}
-  (let [[account-item
-         other-item] (sort-by #(if (= (:id ref-account)
-                                      (:account-id %))
-                                 0
-                                 1)
-                              items)]
-    (-> transaction
-            (assoc :other-account-id (:account-id other-item)
-                   :other-item-id (:id other-item)
-                   :account-id (:account-id account-item)
-                   :item-id (:id account-item)
-                   :quantity (polarize-quantity account-item ref-account))
-            (dissoc :items))))
+(defn accountify
+  "Accepts a standard transaction with two line items and
+  returns a simplified transaction vis a vis the specified
+  account, with the amount polarized.
 
-(defn fullify
+  If the transaction contains more or less than two items, an
+  exception is thrown."
+  [{:transaction/keys [items] :as trx} ref-account]
+  {:pre [(can-accountify? trx)
+         ref-account]}
+  (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
+         [other-item] false} (group-by #(model= ref-account
+                                                (:transaction-item/account %))
+                                       items)]
+    (-> trx
+        (assoc :transaction/other-account (:transaction-item/account other-item)
+               :transaction/other-item (->model-ref other-item)
+               :transaction/account (:transaction-item/account account-item)
+               :transaction/item (->model-ref account-item)
+               :transaction/quantity (polarize-quantity quantity action ref-account))
+        (dissoc :transaction/items))))
+
+(defn unaccountify
   "Accepts a simplified transaction (with one quantity, one debit
   account, and one credit account) and returns a standard
   transaction (with line items)"
-  [{:keys [quantity account-id other-account-id item-id other-item-id] :as transaction} find-account-fn]
-  {:pre [(:account-id transaction)]}
-  (let [account (find-account-fn account-id)
-        other-account (find-account-fn other-account-id)
-        item-1 (assoc (derive-item quantity account)
-                      :id item-id)]
-    (-> transaction
-        (assoc :items [item-1
-                       {:id other-item-id
-                        :quantity (util/abs quantity)
-                        :action (if (= :credit
-                                       (:action item-1))
-                                  :debit
-                                  :credit)
-                        :account-id (:id other-account)}])
-        (dissoc :quantity
-                :account-id
-                :other-account-id
-                :item-id
-                :other-item-id))))
+  [{:transaction/keys [quantity account other-account item other-item] :as trx} find-account]
+  {:pre [(:transaction/account trx)]}
+  (let [item-1 (merge item
+                      (->transaction-item
+                        {:quantity quantity
+                         :account (find-account account)}))
+        item-2 (when other-account
+                 #:transaction-item{:quantity (d/abs quantity)
+                                    :action (if (= :credit (:transaction-item/action item-1))
+                                              :debit
+                                              :credit)
+                                    :account other-account})]
+    (cond-> (-> trx
+                (dissoc :transaction/quantity
+                        :transaction/account
+                        :transaction/other-account
+                        :transaction/item
+                        :transaction/other-item)
+                (assoc :transaction/items [item-1]))
+      item-2 (update-in [:transaction/items] conj (merge other-item item-2)))))
 
 (defn- entryfy-item
-  [{:keys [quantity action] :as item}]
+  [{:transaction-item/keys [quantity action] :as item}]
   (-> item
-      (assoc :debit-quantity (when (= :debit action)
+      (assoc :transaction-item/debit-quantity (when (= :debit action)
                                quantity)
-             :credit-quantity (when (= :credit action)
+             :transaction-item/credit-quantity (when (= :credit action)
                                 quantity))
-      (dissoc :action :quantity)))
+      (dissoc :transaction-item/action
+              :transaction-item/quantity)))
 
 (defn entryfy
   "Accepts a standard transaction and returns the transaction
   with line items adjusted for easy entry, with no :action
   attribute, one :credit-quantity and one :debit-quantity"
   [transaction]
-  (update-in transaction [:items] #(conj (mapv entryfy-item %)
-                                         {})))
+  (update-in transaction [:transaction/items] #(conj (mapv entryfy-item %)
+                                                     {})))
+
+(def ^:private has-quantity?
+  (some-fn :transaction-item/debit-quantity
+            :transaction-item/credit-quantity))
 
 (def ^:private empty-item?
-  (complement
-   (some-fn :debit-quantity
-            :credit-quantity)))
+  (complement has-quantity?))
 
 (defn- unentryfy-item
-  [{:keys [debit-quantity credit-quantity] :as item}]
+  [{:transaction-item/keys [debit-quantity credit-quantity] :as item}]
   (let [quantity (or debit-quantity credit-quantity)]
     (-> item
-        (assoc :action (if debit-quantity
-                         :debit
-                         :credit)
-               :quantity quantity
-               :value quantity)
-        (dissoc :debit-quantity :credit-quantity))))
+        (assoc :transaction-item/action (if debit-quantity
+                                          :debit
+                                          :credit)
+               :transaction-item/quantity quantity
+               :transaction-item/value quantity)
+        (dissoc :transaction-item/debit-quantity
+                :transaction-item/credit-quantity))))
 
 (defn unentryfy
   "Reverses an entryfy operation"
-  [transaction]
-  (update-in transaction [:items] #(->> %
-                                        (remove empty-item?)
-                                        (mapv unentryfy-item))))
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             #(->> %
+                   (remove empty-item?)
+                   (mapv unentryfy-item))))
 
 (defn ensure-empty-item
   "Given an entryfied transaction, ensures that there is
   exactly one empty row"
   [transaction]
-  (update-in transaction [:items] #(conj (vec (remove empty? %)) {})))
+  (update-in transaction [:transaction/items] #(conj (vec (remove empty? %)) {})))
 
 (defn tradify
-  [{:keys [items] :as transaction} {:keys [find-account find-commodity]}]
+  [{:transaction/keys [items] :as trx} {:keys [find-account find-commodity]}]
   (let [{:keys [trading tradable]} (->> items
-                                        (map #(assoc % :account (find-account (:account-id %))))
+                                        (map #(update-in % [:transaction-item/account] find-account))
                                         (mapcat (fn [item]
                                                   (map #(vector % item)
-                                                       (:system-tags (:account item)))))
+                                                       (-> item
+                                                           :transaction-item/account
+                                                           :account/system-tags))))
                                         (into {}))]
-    (-> transaction
-        (rename-keys {:transaction-date :trade-date})
-        (assoc :account-id (:account-id trading)
-               :commodity-id (when tradable
-                               (-> tradable
-                                   :account
-                                   :commodity-id
-                                   find-commodity
-                                   :id))
-               :shares (some :quantity [tradable trading])
-               :action (if (= :credit (:action trading))
-                         :buy
-                         :sell))
-        (dissoc :items))))
+    (-> trx
+        (rename-keys {:transaction/transaction-date :trade/trade-date})
+        (assoc :trade/account (:transaction-item/account trading)
+               :trade/commodity (when tradable
+                                  (-> tradable
+                                      :transaction-item/account
+                                      :account/commodity
+                                      find-commodity))
+               :trade/shares (some :transaction-item/quantity [tradable trading])
+               :trade/action (if (= :credit (:transaction-item/action trading))
+                               :buy
+                               :sell))
+        (dissoc :transaction/items))))
 
 (defn untradify
-  [{:keys [shares action account-id] :as transaction}
-   {:keys [find-account-by-commodity-id]}]
-  (let [tradable-id (-> transaction
-                        :commodity-id
-                        find-account-by-commodity-id
-                        :id)
+  [{:trade/keys [shares action account commodity] :as trade}
+   {:keys [find-account-with-commodity]}]
+  (let [tradable (find-account-with-commodity commodity)
         items (->> [:credit :debit]
                    (interleave (if (= :buy action)
-                                 [account-id tradable-id]
-                                 [tradable-id account-id]))
+                                 [account tradable]
+                                 [tradable account]))
                    (partition 2)
-                   (map #(hash-map :account-id (first %)
-                                   :action (second %)
-                                   :quantity shares)))]
-    (-> transaction
-        (rename-keys {:trade-date :transaction-date})
-        (assoc :items items)
-        (dissoc :account-id :shares :action :commodity-id))))
+                   (map #(hash-map :transaction-item/account (first %)
+                                   :transaction-item/action (second %)
+                                   :transaction-item/quantity shares)))]
+    (-> trade
+        (rename-keys {:trade/trade-date :transaction/transaction-date})
+        (assoc :transaction/items items)
+        (dissoc :trade/account :trade/shares :trade/action :trade/commodity))))
+
+(defn polarize-item-quantity
+  [{:transaction-item/keys [account quantity action polarized-quantity] :as item}]
+  (if polarized-quantity
+    item
+    (assoc item
+         :transaction-item/polarized-quantity
+         (polarize-quantity quantity action account))))
 
 (defn- summarize-period
   [[start-date end-date] items]
   {:start-date start-date
    :end-date end-date
    :quantity (->> items
-                  (filter #(dates/within? (:transaction-date %) start-date end-date))
-                  (map :polarized-quantity)
-                  (reduce + 0M))})
+                  (filter #(dates/within? (:transaction-item/transaction-date %) start-date end-date))
+                  (map (comp :transaction-item/polarized-quantity
+                             polarize-item-quantity))
+                  (reduce d/+ 0M))})
 
 (defn summarize-items
-  [{:keys [interval-type interval-count start-date end-date]
-    :or {interval-count 1}}
+  [{:keys [interval-type interval-count since as-of]
+    :or {interval-count 1}
+    :as opts}
    items]
-  (->> (dates/ranges start-date
+  {:pre [(:as-of opts)]}
+  (->> (dates/ranges since
                      (dates/period interval-type interval-count)
                      :inclusive true)
-       (take-while #(apply dates/overlaps? start-date end-date %))
+       (take-while (fn [[start _]]
+                     (t/before? start as-of)))
        (map #(summarize-period % items))))
 
-(defn change-date
-  [trx new-date]
-  (-> trx
-      (rename-keys {:transaction-date :original-transaction-date})
-      (assoc :transaction-date new-date)))
-
 (defn expand
-  [trx]
-  (if (:items trx)
+  "Given a transaction with a quantity, debit account and credit acount, return
+  a transaction with two items, one for each account"
+  [{:as trx :transaction/keys [debit-account credit-account quantity]}]
+  (if (:transaction/items trx)
     trx
     (-> trx
-        (assoc :items [{:action :debit
-                        :quantity (:quantity trx)
-                        :account-id (:debit-account-id trx)}
-                       {:action :credit
-                        :quantity (:quantity trx)
-                        :account-id (:credit-account-id trx)}])
-        (dissoc :quantity :debit-account-id :credit-account-id))))
+        (assoc :transaction/items [#:transaction-item{:action :debit
+                                                      :quantity quantity
+                                                      :account debit-account}
+                                   #:transaction-item{:action :credit
+                                                      :quantity quantity
+                                                      :account credit-account}])
+        (dissoc :transaction/quantity
+                :transaction/debit-account
+                :transaction/credit-account))))
+
+(defn value
+  [{:transaction/keys [items]}]
+  (let [sums (->> items
+                  (filter :transaction-item/value)
+                  (group-by :transaction-item/action)
+                  (map (fn [[_ items]]
+                         (->> items
+                              (map :transaction-item/value)
+                              (reduce + 0M))))
+                  set)]
+    (when (= 1 (count sums))
+      (first sums))))

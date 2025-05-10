@@ -1,6 +1,7 @@
 (ns clj-money.web.apps
   (:refer-clojure :exclude [update])
-  (:require [config.core :refer [env]]
+  (:require [clojure.tools.logging :as log]
+            [config.core :refer [env]]
             [hiccup.page :refer [html5 include-js]]))
 
 (defn- head []
@@ -15,7 +16,8 @@
    [:link  {:rel "icon" :href "images/logo.svg"}]
    [:title "clj-money"]
 
-   [:script {:src "/js/bootstrap.min.js"}]
+   (include-js "https://unpkg.com/@popperjs/core@2")
+   (include-js "js/bootstrap.min.js")
 
    [:link {:rel "stylesheet" :href "/css/site.css"}]])
 
@@ -43,5 +45,16 @@
                            "/cljs-out/dev-main.js"
                            "/js/app/main.js"))]])})
 
+(defn- wrap-request-logging
+  [handler]
+  (fn [{:keys [request-method uri query-string] :as req}]
+    (if query-string
+      (log/infof "Request %s \"%s?%s\"" request-method uri query-string)
+      (log/infof "Request %s \"%s\"" request-method uri))
+    (let [res (handler req)]
+      (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
+      res)))
+
 (def routes
-  ["" {:get {:handler index}}])
+  ["" {:get {:handler index
+             :middleware [wrap-request-logging]}}])

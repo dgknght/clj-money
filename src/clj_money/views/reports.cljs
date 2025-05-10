@@ -1,5 +1,6 @@
 (ns clj-money.views.reports
   (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -14,6 +15,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.decimal :as d]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.state :refer [app-state
@@ -25,20 +27,20 @@
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
 
-(defmulti ^:private report-row :style)
+(defmulti ^:private report-row :report/style)
 
 (defmethod ^:private report-row :header
-  [{:keys [caption value]} _]
+  [{:report/keys [caption value]} _]
   ^{:key (str "report-row-" caption)}
   [:tr.report-header
    [:th {:scope :row} caption]
    [:td.text-end (format-decimal value)]])
 
 (defmethod ^:private report-row :data
-  [{:keys [id caption value depth]} hide-zeros?]
+  [{:report/keys [caption value depth] :keys [id]} hide-zeros?]
   ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (when (and hide-zeros?
-                          (zero? value))
+                          (d/zero? value))
                  "d-none")}
    [:td
     [:span {:class (str "account-depth-" depth)}
@@ -47,7 +49,7 @@
     [:span {:class (str "value-depth-" depth)} (format-decimal value)]]])
 
 (defmethod ^:private report-row :summary
-  [{:keys [caption value]} _]
+  [{:report/keys [caption value]} _]
   ^{:key (str "report-row-" caption)}
   [:tr.report-summary
    [:th {:scope :row} caption]
@@ -74,21 +76,22 @@
 
 (defn- income-statement-options
   [options]
-  [:<>
-   [forms/date-field
-    options
-    [:start-date]
-    {:placeholder "Start date"
-     :validate [:required]}]
-   [forms/date-field
-    options
-    [:end-date]
-    {:placeholder "End date"
-     :validate [:required]}]
-   [forms/checkbox-field
-    options
-    [:hide-zeros?]
-    {:caption "Hide Zero-Balance Accounts"}]])
+  (fn []
+    [:<>
+     [forms/date-field
+      options
+      [:start-date]
+      {:placeholder "Start date"
+       :validate [:required]}]
+     [forms/date-field
+      options
+      [:end-date]
+      {:placeholder "End date"
+       :validate [:required]}]
+     [forms/checkbox-field
+      options
+      [:hide-zeros?]
+      {:caption "Hide Zero-Balance Accounts"}]]))
 
 (defn- income-statement-header
   [page-state]
@@ -129,16 +132,17 @@
 
 (defn- balance-sheet-options
   [options]
-  [:<>
-   [forms/date-field
-    options
-    [:as-of]
-    {:placeholder "As Of"
-     :validate [:required]}]
-   [forms/checkbox-field
-    options
-    [:hide-zeros?]
-    {:caption "Hide Zero-Balance Accounts"}]])
+  (fn []
+    [:<>
+     [forms/date-field
+      options
+      [:as-of]
+      {:placeholder "As Of"
+       :validate [:required]}]
+     [forms/checkbox-field
+      options
+      [:hide-zeros?]
+      {:caption "Hide Zero-Balance Accounts"}]]))
 
 (defn- balance-sheet-header
   [page-state]
@@ -178,16 +182,19 @@
   [page-state]
   (+busy)
   (swap! page-state update-in [:budget] dissoc :report)
-  (rpt/budget (dissoc (get-in @page-state [:budget :options]) :depth)
-              :callback -busy
-              :on-success (receive-budget-report page-state)))
+  (let [opts (get-in @page-state [:budget :options])]
+    (if (:budget-id opts)
+      (rpt/budget (dissoc opts :depth)
+                  :callback -busy
+                  :on-success (receive-budget-report page-state))
+      (swap! page-state assoc-in [:budget :report] []))))
 
 (defn- budget-options
   [options page-state]
   (let [budgets (r/cursor page-state [:budgets])
         budget-items (make-reaction #(->> (vals @budgets)
-                                          (sort-by :start-date t/after?)
-                                          (map (juxt :id :name))))]
+                                          (sort-by :budget/start-date t/after?)
+                                          (map (juxt :id :budget/name))))]
     (fn []
       (when (seq @budget-items)
         [:<>
@@ -226,14 +233,14 @@
               :on-success #(receive-budget % report-item page-state))))
 
 (defn- budget-report-row
-  [{:keys [id
-           caption
-           style
-           budget
-           actual
-           difference
-           percent-difference
-           actual-per-period]
+  [{:report/keys [id
+                  caption
+                  style
+                  budget
+                  actual
+                  difference
+                  percent-difference
+                  actual-per-period]
     :as item}
    page-state]
   ^{:key (str "report-row-" (or id caption))}
@@ -273,17 +280,17 @@
 (defn- refine-items
   [depth items]
   (->> items
-       (remove #(< depth (:depth %)))
-       (map #(if (= depth (:depth %))
-               (merge % (:roll-up %))
+       (remove #(< depth (:report/depth %)))
+       (map #(if (= depth (:report/depth %))
+               (merge % (:report/roll-up %))
                %))
-       (remove #(= 0 (:actual %) (:budget %)))
-       (sort-by :difference)))
+       (remove #(= 0M (:report/actual %) (:report/budget %)))
+       (sort-by :report/difference d/<)))
 
 (defn- refine-and-flatten
   [depth groups]
   (mapcat #(concat [%]
-                   (refine-items depth (:items %)))
+                   (refine-items depth (:report/items %)))
           groups))
 
 (defn- save-budget
@@ -383,13 +390,21 @@
           [:th.text-end.d-none.d-md-table-cell "% Diff"]
           [:th.text-end.d-none.d-md-table-cell "Act/Mo"]]]
         [:tbody
-         (if @report
+         (cond
+           (seq @report)
            (->> (:items @report)
                 (refine-and-flatten @depth)
                 (map (comp
                        #(budget-report-row % page-state)
                        #(assoc % :account (get-in @accounts-by-id [(:id %)]))))
                 doall)
+
+           @report
+           [:tr
+            [:td.text-center {:col-span 6}
+             [:span.text-secondary-ephasis "No data."]]]
+
+           :else
            [:tr
             [:td.text-center {:col-span 6}
              [bs/spinner]]])]]])))
@@ -433,27 +448,28 @@
     (format-decimal shares {:fraction-digits 4})))
 
 (defn- portfolio-report-row
-  [{:keys [id
-           parents
-           style
-           caption
-           shares-owned
-           shares-purchased
-           cost-basis
-           current-value
-           gain-loss
-           gain-loss-percent]
+  [{:report/keys [style
+                  depth
+                  caption
+                  shares-owned
+                  shares-purchased
+                  cost-basis
+                  current-value
+                  gain-loss
+                  gain-loss-percent]
+    :keys [id]
     :as record}
    visible-ids
    page-state]
-  ^{:key (str "report-row-" (string/join "-" (cons id parents)))}
+  ^{:key (str "report-row-" caption)}
   [:tr {:class (cond-> [(str "report-" style)]
-                   (not (visible? record visible-ids))
-                   (conj "d-none"))
+                 (not (visible? record visible-ids))
+                 (conj "d-none"))
         :on-click (when-not (= "data" style)
                     #(swap! page-state toggle-visibility id))}
-   [:td {:class (when (= "data" style)
-                  "text-end")}
+   [:td {:class [(when (= "data" style)
+                  "text-end")
+                 (str "account-depth-" depth)]}
     caption]
    [:td.text-end.d-none.d-md-table-cell (format-shares shares-purchased)]
    [:td.text-end.d-none.d-md-table-cell (format-shares shares-owned)]
@@ -538,31 +554,35 @@
 
 (defn- filter-form
   [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        options (r/cursor page-state [@selected :options])]
+    [:form {:no-validate true
+            :on-submit (fn [e]
+                         (.preventDefault e)
+                         (v/validate options)
+                         (when (v/valid? options)
+                           (load-report page-state)))}
+     (case @selected
+       :income-statement [income-statement-options options]
+       :balance-sheet    [balance-sheet-options options]
+       :budget           [budget-options options page-state]
+       :portfolio        [portfolio-options options page-state])
+     [:div.mt-3
+      [:button.btn.btn-primary
+       {:type :submit
+        :data-bs-dismiss :offcanvas
+        :title "Click here to show the report with the specified parameters"}
+       (icon-with-text :arrow-repeat "Show")]]]))
+
+(defn- filter-elem
+  [page-state]
   (fn []
-    (let [selected (r/cursor page-state [:selected])
-          options (r/cursor page-state [@selected :options])]
-      [:div#report-options.offcanvas.offcanvas-end {:tab-index -1}
-       [:div.offcanvas-header.d-flex.justify-content-between
-        [:h3 "Options"]
-        [:button.btn-close.text-reset {:data-bs-dismiss :offcanvas}]]
-       [:div.offcanvas-body
-        [:form {:no-validate true
-                :on-submit (fn [e]
-                             (.preventDefault e)
-                             (v/validate options)
-                             (when (v/valid? options)
-                               (load-report page-state)))}
-         (case @selected
-           :income-statement (income-statement-options options)
-           :balance-sheet    (balance-sheet-options options)
-           :budget           [budget-options options page-state]
-           :portfolio        [portfolio-options options page-state])
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]]]])))
+    [:div#report-options.offcanvas.offcanvas-end {:tab-index -1}
+     [:div.offcanvas-header.d-flex.justify-content-between
+      [:h3 "Options"]
+      [:button.btn-close.text-reset {:data-bs-dismiss :offcanvas}]]
+     [:div.offcanvas-body
+      [filter-form page-state]]]))
 
 (defn- init-state []
   (r/atom {:selected :balance-sheet
@@ -621,7 +641,7 @@
         (bs/nav-tabs {:class "d-none d-md-flex"}
                      (map (report-nav-item-fn page-state)
                           report-types))]
-       [filter-form page-state] 
+       [filter-elem page-state] 
        [:div.mt-3
         [income-statement page-state]
         [balance-sheet page-state]

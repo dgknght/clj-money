@@ -5,25 +5,27 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.dom :as dom]
             [dgknght.app-lib.forms :as forms]
+            [clj-money.util :as util]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [+busy
                                      -busy]]
-            [clj-money.api.attachments :as attachments]))
+            [clj-money.api.attachments :as atts]))
 
 (defn- post-delete
-  [page-state {:keys [transaction-id id]}]
-  (-busy)
-  (swap! page-state
-         update-in
-         [:attachments transaction-id]
-         (fn [a] (remove #(= id (:id %)) a))))
+  [page-state]
+  (fn [{:keys [id] :attachment/keys [transaction]}]
+    (swap! page-state
+           update-in
+           [:attachments (:id transaction)]
+           (fn [a] (remove #(= id (:id %)) a)))))
 
 (defn- delete-attachment
   [attachment page-state]
   (when (js/confirm "Are you sure you want to delete the attachment?")
     (+busy)
-    (attachments/delete attachment
-                        (map (partial post-delete page-state)))))
+    (atts/delete attachment
+                 :callback -busy
+                 :on-success (post-delete page-state))))
 
 (defn- attachment-row
   [attachment page-state]
@@ -35,7 +37,7 @@
     [:div.btn-group
      [:a.btn.btn-sm.btn-primary {:title "Click here to view this attachment."
                                  :href (path :images
-                                             (:image-id attachment))
+                                             (:id (:attachment/image attachment)))
                                  :target "_blank"}
       (icon :eye {:size :small})]
      [:button.btn.btn-sm.btn-secondary {:title "Click here to edit this attachment"
@@ -82,23 +84,21 @@
          "Close"]]])))
 
 (defn- post-save
-  [page-state attachment]
-  (-busy)
-  (swap! page-state (fn [state]
-                      (-> state
-                          (dissoc :selected-attachment)
-                          (update-in [:attachments]
-                                     (fn [attachments]
-                                       (map #(if (= (:id attachment) (:id %))
-                                               attachment
-                                               %)
-                                            attachments)))))))
+  [page-state]
+  (fn [attachment]
+    (swap! page-state (fn [state]
+                        (-> state
+                            (dissoc :selected-attachment)
+                            (update-in [:attachments]
+                                       util/upsert-into
+                                       attachment))))))
 
 (defn- save-attachment
   [page-state]
   (+busy)
-  (attachments/update (get-in @page-state [:selected-attachment])
-                      (map (partial post-save page-state))))
+  (atts/update (get-in @page-state [:selected-attachment])
+               :callback -busy
+               :on-success (post-save page-state)))
 
 (defn attachment-form
   [page-state]

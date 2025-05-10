@@ -1,47 +1,52 @@
 (ns clj-money.api.reconciliations
-  (:refer-clojure :exclude [find update])
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.dates :refer [nominal-comparatives]]
-            [dgknght.app-lib.web :refer [serialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [add-error-handler]]))
+  (:refer-clojure :exclude [update])
+  (:require [cljs.pprint :refer [pprint]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.dates :as dates]
+            [clj-money.util :as util :refer [update-keys]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
+(defn- nominal-comparatives
+  [m]
+  (let [[oper v1 v2] (get-in m [:reconciliation/end-of-period])]
+    (cond-> (dissoc m :reconciliation/end-of-period)
+      (= oper :between) (assoc :reconciliation/end-of-period-on-or-after v1
+                               :reconciliation/end-of-period-on-or-before v2))))
 
-(defn search
-  [{:keys [account-id] :as criteria} & {:as opts}]
-  {:pre [account-id]}
-  (let [prepared-criteria (-> criteria
-                              (update-in-if [:status] name)
-                              (update-in-if [:desc] name)
-                              (nominal-comparatives :end-of-period)
-                              (update-in-if [:end-of-period-or-after] serialize-date)
-                              (update-in-if [:end-of-period-or-before] serialize-date)
-                              (dissoc account-id))]
-    (api/get (api/path :accounts
-                       account-id
-                       :reconciliations)
-             prepared-criteria
-             (add-error-handler opts "Unable to retrieve the reconciliations: %s"))))
+(defn- prepare-criteria
+  [criteria]
+  (-> criteria
+      (dissoc :reconciliation/account)
+      (nominal-comparatives)
+      (update-in-if [:reconciliation/status] name)
+      (update-in-if [:reconciliation/end-of-period-on-or-before] dates/serialize-local-date)
+      (update-in-if [:reconciliation/end-of-period-on-or-after] dates/serialize-local-date)
+      (update-in-if [:desc] name)
+      (update-keys util/url-safe-keyword)))
 
-(defn find
-  [criteria & {:as opts}]
-  (apply search
-         (assoc criteria :limit 1)
-         (mapcat identity opts)))
+(defn select
+  [{:reconciliation/keys [account] :as criteria} & {:as opts}]
+  {:pre [(:reconciliation/account criteria)
+         (:reconciliation/end-of-period criteria)]}
+  (api/get (api/path :accounts
+                     account
+                     :reconciliations)
+           (prepare-criteria criteria)
+           (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
 
 (defn create
-  [{:keys [account-id] :as reconciliation} opts]
+  [{:reconciliation/keys [account] :as reconciliation} opts]
   (api/post (api/path :accounts
-                      account-id
+                      account
                       :reconciliations)
-            (dissoc reconciliation :account-id)
+            (dissoc reconciliation :reconciliation/account)
             (add-error-handler opts "Unable to create the reconciliation: %s")))
 
 (defn update
-  [{:keys [id] :as reconciliation} opts]
+  [recon opts]
   (api/patch (api/path :reconciliations
-                       id)
-             (dissoc reconciliation :id :account-id)
+                       recon)
+             (dissoc recon :id :reconciliation/account)
              (add-error-handler opts "Unable to update the reconciliation: %s")))
 
 (defn save

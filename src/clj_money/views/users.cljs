@@ -6,7 +6,9 @@
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.html :refer [google-g]]
-            [clj-money.state :as state :refer [app-state]]
+            [clj-money.state :as state :refer [app-state
+                                               +busy
+                                               -busy]]
             [clj-money.api.users :as users]
             [clj-money.api.entities :as entities]))
 
@@ -19,17 +21,20 @@
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
-  (entities/select
-    (map receive-entities)))
+  (+busy)
+  (entities/select :callback -busy
+                   :on-success receive-entities))
 
 (defn- authenticate
   [page-state]
+  (+busy)
   (users/authenticate (:credentials @page-state)
-                      (map (fn [{:keys [user auth-token]}]
-                             (swap! app-state assoc
-                                    :current-user user
-                                    :auth-token auth-token)
-                             (fetch-entities)))))
+                      :callback -busy
+                      :on-success (fn [{:keys [user auth-token]}]
+                                    (swap! app-state assoc
+                                           :current-user user
+                                           :auth-token auth-token)
+                                    (fetch-entities))))
 
 (defn- login []
   (let [page-state (r/atom {:credentials {}})

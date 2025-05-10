@@ -1,12 +1,12 @@
 (ns clj-money.authorization.imports
   (:refer-clojure :exclude [update])
-  (:require [clj-money.models :as models]
-            [dgknght.app-lib.authorization :as authorization]))
+  (:require [clj-money.util :refer [model=]]
+            [clj-money.authorization :as authorization]))
 
-(defmethod authorization/allowed? [::models/import ::authorization/manage]
+(defmethod authorization/allowed? [:import ::authorization/manage]
   [imp _ user]
-  (= (:id user) (:user-id imp)))
+  (model= user (:import/user imp)))
 
-(defmethod authorization/scope ::models/import
+(defmethod authorization/scope :import
   [_ user]
-  {:user-id (:id user)})
+  {:import/user user})

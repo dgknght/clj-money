@@ -12,14 +12,15 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.icons :refer [icon]]
             [clj-money.dates :as dates]
             [clj-money.components :refer [button
                                           load-in-chunks
                                           load-on-scroll]]
+            [clj-money.commodities :as cmm]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.prices :as prices]
             [clj-money.state :refer [app-state
@@ -27,31 +28,38 @@
                                      +busy
                                      -busy]]))
 
+(defn- receive-commodities
+  [page-state]
+  (fn [commodities]
+    (swap! page-state
+           #(-> %
+                (dissoc :prices-commodity)
+                (assoc :commodities (sort-by :commodity/name commodities))))))
+
 (defn- load-commodities
   [page-state]
   (+busy)
   (commodities/select {}
-                      :callback -busy
-                      :on-success (fn [result]
-                                    (swap! page-state #(-> %
-                                                           (dissoc :prices-commodity)
-                                                           (assoc :commodities (sort-by :name result)))))))
+    :callback -busy
+    :on-success (receive-commodities page-state)))
 
 (defn- save-commodity
   [page-state]
   (+busy)
-  (commodities/save (get-in @page-state [:selected])
-                    :callback -busy
-                    :on-success (fn [_]
-                                  (swap! page-state dissoc :selected)
-                                  (load-commodities page-state))))
+  (-> (get-in @page-state [:selected])
+      (update-in [:commodity/type] keyword)
+      (update-in [:commodity/exchange] keyword)
+      (commodities/save :callback -busy
+                        :on-success (fn []
+                                      (swap! page-state dissoc :selected)
+                                      (load-commodities page-state)))))
 
 (defn- commodity-form
   [page-state]
   (let [commodity (r/cursor page-state [:selected])
         types (make-reaction #(if (and (:id @commodity)
                                        (= (:id @commodity)
-                                          (get-in @current-entity [:settings :default-commodity-id])))
+                                          (get-in @current-entity [:entity/settings :settings/default-commodity-id])))
                                 ["currency"]
                                 ["currency" "stock" "fund"]))]
     (fn []
@@ -65,11 +73,11 @@
          [:div#commodity-form.card {:class (when-not @commodity "d-none")}
           [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
           [:div.card-body
-           [forms/select-field commodity [:type] @types {:validations #{::v/required}}]
-           [forms/select-field commodity [:exchange] ["" "nyse" "nasdaq" "otc"]]
-           [forms/text-field commodity [:symbol] {:validations #{::v/required}}]
-           [forms/text-field commodity [:name] {:validations #{::v/required}}]
-           [forms/checkbox-field commodity [:price-config :enabled] {:caption "Download prices"}]]
+           [forms/select-field commodity [:commodity/type] @types {:validations #{::v/required}}]
+           [forms/select-field commodity [:commodity/exchange] ["" "amex" "nasdaq" "nyse" "otc"]]
+           [forms/text-field commodity [:commodity/symbol] {:validations #{::v/required}}]
+           [forms/text-field commodity [:commodity/name] {:validations #{::v/required}}]
+           [forms/checkbox-field commodity [:commodity/price-config :price-config/enabled] {:caption "Download prices"}]]
           [:div.card-footer
            [button {:html {:class "btn-primary"
                            :type :submit
@@ -85,11 +93,12 @@
 
 (defn- delete
   [commodity page-state]
-  (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
+  (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:commodity/name commodity) "\"?"))
     (+busy)
-    (commodities/delete commodity
-                        :callback -busy
-                        :on-success #(load-commodities page-state))))
+    (commodities/delete
+      commodity
+      :callback -busy
+      :on-success #(load-commodities page-state))))
 
 (defn- truncate
   ([value] (truncate value 20))
@@ -105,18 +114,26 @@
   [xf]
   (completing
     (fn [ch criteria]
-      (prices/select criteria :post-xf (map #(xf ch %))))))
+      (if criteria
+        (prices/select criteria :on-success #(xf ch %))
+        (xf ch [])))))
 
 (defn- init-price-loading
   [page-state]
-  (let [commodity (:prices-commodity @page-state)
-        {:keys [items-ch ctl-ch]} (->> (dates/desc-ranges (:earliest-price commodity)
-                                                          (:latest-price commodity)
-                                                          (t/years 1))
-                                       (map vec)
-                                       (load-in-chunks {:fetch-xf (comp (map #(hash-map :commodity-id (:id commodity)
-                                                                                        :trade-date %))
-                                                                        fetch-prices)}))]
+  (let [{:as commodity
+         :commodity/keys [earliest-price
+                          latest-price]}
+        (:prices-commodity @page-state)
+
+        {:keys [items-ch ctl-ch]}
+        (->> (dates/desc-ranges earliest-price
+                                latest-price
+                                (t/years 1))
+             (load-in-chunks {:fetch-xf (comp (map (fn [[start end :as range]]
+                                                     (when (seq range)
+                                                       {:price/commodity (util/->model-ref commodity)
+                                                        :price/trade-date [:between> start end]})))
+                                              fetch-prices)}))]
     (swap! page-state assoc :ctl-chan ctl-ch)
     (go-loop [prices (<! items-ch)]
              (if prices
@@ -128,59 +145,66 @@
                                       (assoc :all-prices-fetched? true)))))
     (go (>! ctl-ch :fetch))))
 
+(def ^:private bounded?
+  (every-pred :commodity/earliest-price :commodity/latest-price))
+
 (defn- select-prices-commodity
   [page-state commodity]
   (+busy)
-  (swap! page-state dissoc
-         :selected
-         :prices
-         :prices-commodity
-         :all-prices-fetched?)
+  (swap! page-state
+         #(-> %
+              (dissoc :selected
+                      :prices
+                      :all-prices-fetched?)
+              (assoc :prices-commodity commodity)))
   (js/setTimeout
     (fn []
-      (swap! page-state assoc :prices-commodity commodity)
-      (when (every? commodity [:earliest-price :latest-price])
-        (init-price-loading page-state))
+      (if (bounded? commodity)
+        (init-price-loading page-state)
+        (swap! page-state assoc
+               :prices []
+               :all-prices-fetched? true))
       (-busy))
     100))
 
 (defn- commodity-row
-  [{:keys [latest-price most-recent-price] :as commodity} page-state]
+  [{:commodity/keys [latest-price
+                     most-recent-price
+                     symbol
+                     exchange]
+    :as commodity}
+   page-state]
   (let  [default? (= (:id commodity)
-                     (get-in @current-entity [:settings :default-commodity-id]))]
+                     (get-in @current-entity [:entity/settings
+                                              :settings/default-commodity-id]))]
     ^{:key (:id commodity)}
     [:tr
-     [:td (truncate (:name commodity))]
-     [:td.d-lg-table-cell.d-none (:symbol commodity)]
-     [:td.d-lg-table-cell.d-none (:exchange commodity)]
+     [:td (truncate (:commodity/name commodity))]
+     [:td.d-lg-table-cell.d-none symbol]
+     [:td.d-lg-table-cell.d-none exchange]
      [:td.d-lg-table-cell.d-none.text-end (currency-format (:price most-recent-price))]
      [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
-       [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this commodity."
-                                     :on-click (fn []
-                                                 (swap! page-state #(-> %
-                                                                        (dissoc :prices-commodity)
-                                                                        (assoc :selected commodity)))
-                                                 (set-focus "type"))}
+       [:button.btn.btn-secondary.btn-sm
+        {:title "Click here to edit this commodity."
+         :on-click (fn []
+                     (swap! page-state #(-> %
+                                            (dissoc :prices-commodity)
+                                            (assoc :selected commodity)))
+                     (set-focus "type"))}
         (icon :pencil :size :small)]
-       [:button.btn.btn-secondary.btn-sm {:title "Click here to view prices for this commodity."
-                                     :disabled default?
-                                     :on-click #(select-prices-commodity page-state
-                                                                         commodity)}
+       [:button.btn.btn-secondary.btn-sm
+        {:title "Click here to view prices for this commodity."
+         :disabled default?
+         :on-click #(select-prices-commodity page-state
+                                             commodity)}
         (icon :collection :size :small)]
-       [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
-                                       :disabled default?
-                                       :on-click #(delete commodity page-state)}
+       [:button.btn.btn-danger.btn-sm
+        {:title "Click here to delete this commodity."
+         :disabled default?
+         :on-click #(delete commodity page-state)}
         (icon :x-circle :size :small)]]]]))
-
-(defn- match-commodity
-  [pattern]
-  (if pattern
-    (fn [commodity]
-      (some #(re-find pattern (% commodity))
-            [:name :symbol]))
-    (constantly true)))
 
 (defn- pagination
   [page-state collection]
@@ -213,18 +237,14 @@
                        :on-click #(swap! page-state assoc :page-index @max-index)}
          (icon :chevron-bar-right :size :small)]]])))
 
-(defn- shares-owned?
-  [{:keys [shares-owned]}]
-  (not (decimal/zero? shares-owned)))
-
 (defn- price-download-enabled?
-  [{:keys [price-config]}]
-  (:enabled price-config))
+  [{:commodity/keys [price-config]}]
+  (:price-config/enabled price-config))
 
 (defn- download-prices
   [page-state]
   (when-let [commodity-ids (->> (:commodities @page-state)
-                                (filter (every-pred shares-owned? price-download-enabled?))
+                                (filter (every-pred cmm/has-shares? price-download-enabled?))
                                 (map :id)
                                 seq)]
     (+busy)
@@ -232,26 +252,33 @@
                   :callback -busy
                   :on-success #(load-commodities page-state))))
 
+(defn- recent? []
+  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
+    (constantly false)
+    (fn [{:commodity/keys [created-at]}]
+      (t/before? an-hour-ago created-at))))
+
+(defn- match-fn
+  [hide-zero-shares? search-term]
+  (apply every-pred
+         (cond-> [(cmm/matches-search? search-term)]
+           hide-zero-shares? (conj (some-fn cmm/has-shares?
+                                            (recent?))))))
+
 (defn- commodities-table
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
-        remove? (make-reaction #(if @hide-zero-shares?
-                                  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
-                                    (fn [{:keys [shares-owned created-at]}]
-                                      (or (t/before? created-at
-                                                     an-hour-ago)
-                                          (zero? shares-owned))))
-                                  (constantly false)))
-        filtered (make-reaction #(remove @remove? @commodities))
+        search-term (r/cursor page-state [:search-term])
+        match? (make-reaction #(match-fn @hide-zero-shares?
+                                        @search-term))
+        filtered (make-reaction #(filter @match? @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
-        search-term (r/cursor page-state [:search-term])
+        current-page (make-reaction #(->> @filtered
+                                          (drop (* @page-size @page-index))
+                                          (take @page-size)))
         selected (r/cursor page-state [:selected])
-        pattern (make-reaction #(when (and @search-term
-                                           (< 2
-                                              (count @search-term)))
-                                  (re-pattern @search-term)))
         prices-selected (r/cursor page-state [:prices-commodity])
         hide? (make-reaction #(or @selected @prices-selected))]
     (fn []
@@ -261,10 +288,9 @@
          [:span.input-group-text
           (icon :search :size :small)]
          [forms/text-input page-state [:search-term]]
-         [:div.input-group-append {:class (when-not @search-term "d-none")
-                                   :on-click #(swap! page-state dissoc :search-term)}
-          [:button.btn.btn-secondary
-           (icon :x :size :small)]]]]
+         [:button.btn.btn-secondary
+          {:class (when-not @search-term "d-none")
+           :on-click #(swap! page-state dissoc :search-term)}(icon :x)]]]
        [:table.table.table-striped.table-hover
         [:thead
          [:tr
@@ -276,10 +302,7 @@
           [:th (html/space)]]]
         [:tbody
          (if @commodities
-           (->> @filtered
-                (filter (match-commodity @pattern))
-                (drop (* @page-size @page-index))
-                (take @page-size)
+           (->> @current-page
                 (map #(commodity-row % page-state))
                 doall)
            [:tr
@@ -291,10 +314,10 @@
                                    (swap! page-state
                                           assoc
                                           :selected
-                                          {:entity-id (:id @current-entity)
-                                           :type "stock"
-                                           :exchange "nyse"
-                                           :price-config {:enabled true}})
+                                          #:commodity{:entity @current-entity
+                                                      :type "stock"
+                                                      :exchange "nyse"
+                                                      :price-config {:price-config/enabled true}})
                                    (set-focus "type"))}
                 :icon :plus
                 :caption "Add"
@@ -306,111 +329,124 @@
                 :disabled? selected
                 :caption "Fetch Prices"}]])))
 
+(defn- post-delete-price
+  [page-state]
+  (fn [price]
+    (swap! page-state
+           update-in
+           [:prices]
+           (fn [prices]
+             (remove #(id= price %) prices)))))
+
 (defn- delete-price
   [price page-state]
   (when (js/confirm (str "Are you sure you want to delete the price from " (format-date (:trade-date price)) "?"))
     (+busy)
     (prices/delete price
                    :callback -busy
-                   :on-success #(swap! page-state
-                                       update-in
-                                       [:prices]
-                                       (fn [prices]
-                                         (remove (fn [p] (= (:id %) (:id p)))
-                                                 prices))))))
+                   :on-success (post-delete-price page-state))))
 
 (defn- price-row
-  [price page-state]
-  ^{:key (str "price-row-" (:id price))}
+  [{:as p :price/keys [trade-date price]} page-state]
+  ^{:key (str "price-row-" (:id p))}
   [:tr
-   [:td.text-end (format-date (:trade-date price))]
-   [:td.text-end (currency-format (:price price))]
+   [:td.text-end (format-date trade-date)]
+   [:td.text-end (currency-format price)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-secondary.btn-sm {:title "Click here to edit this price."
-                                   :on-click (fn []
-                                               (swap! page-state assoc :selected-price price)
-                                               (set-focus "trade-date"))}
+     [:button.btn.btn-secondary.btn-sm
+      {:title "Click here to edit this price."
+       :on-click (fn []
+                   (swap! page-state assoc :selected-price p)
+                   (set-focus "trade-date"))}
       (icon :pencil :size :small)]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
-                                     :on-click #(delete-price price page-state)}
+                                     :on-click #(delete-price p page-state)}
       (icon :x-circle :size :small)]]]])
+
+(defn- prices-table
+  [page-state]
+  (let [prices (r/cursor page-state [:prices])]
+    (fn []
+      [:table.table.table-striped.table-hover
+       [:thead
+        [:tr
+         [:th.text-end "Trade Date"]
+         [:th.text-end "Price"]
+         [:th (html/space)]]]
+       [:tbody
+        (cond
+          (nil? @prices)
+          [:tr
+           [:td.text-center
+            {:col-span 3}
+            (bs/spinner {:size :small})]]
+
+          (empty? @prices)
+          [:tr
+           [:td
+            {:col-span 3}
+            [:span.inline-status "No prices found."]]]
+
+          :else
+          (doall (map #(price-row % page-state) @prices)))]])))
 
 (defn- price-list
   [page-state]
-  (let [prices (r/cursor page-state [:prices])
-        commodity (r/cursor page-state [:prices-commodity])
+  (let [commodity (r/cursor page-state [:prices-commodity])
+        price (r/cursor page-state [:selected-price])
         all-prices-fetched? (r/cursor page-state [:all-prices-fetched?])
         ctl-chan (r/cursor page-state [:prices-ctl-chan])]
     (fn []
-      [:div.card {:class (when-not @commodity "d-none")}
+      [:div.card {:class (cond
+                           (nil? @commodity) "d-none"
+                           @price "d-none d-lg-block")}
        [:div.card-header [:strong (str (:name @commodity) " Prices")]]
        [:div#prices-container {:style {:max-height "40em" :overflow "auto"}}
-        [:table.table.table-striped.table-hover
-         [:thead
-          [:tr
-           [:th.text-end "Trade Date"]
-           [:th.text-end "Price"]
-           [:th (html/space)]]]
-         [:tbody
-          (if @prices
-            (doall (map #(price-row % page-state) @prices))
-            [:tr [:td {:col-span 3} [:span.inline-status "Loading..."]]])]]]
+        [prices-table page-state]]
        [:div.card-footer.d-flex.align-items-center
-        [button {:html {:class "btn-primary"
-                        :title "Click here to add a new price for this commodity."
-                        :on-click (fn []
-                                    (swap! page-state
-                                           assoc
-                                           :selected-price
-                                           {:commodity-id (:id @commodity)
-                                            :trade-date (t/today)})
-                                    (set-focus "trade-date"))}
-                 :icon :plus
-                 :caption "Add"}]
-        [button {:html {:class "btn-secondary ms-2"
-                        :on-click #(swap! page-state dissoc :prices-commodity)}
-                 :icon :x
-                 :caption "Close"}]
-        [:span.ms-auto
-         [load-on-scroll {:target "prices-container"
-                          :all-items-fetched? @all-prices-fetched?
-                          :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
-
-(defn- comp-prices
-  [{d1 :trade-date} {d2 :trade-date}]
-  (cond
-    (= d1 d2) 0
-    (t/before? d1 d2) -1
-    :else 1))
-
-(defn- comp-prices-rev
-  [p1 p2]
-  (comp-prices p2 p1))
+        [:div.row
+         [:div.col-auto
+          [button {:html {:class "btn-primary"
+                          :title "Click here to add a new price for this commodity."
+                          :on-click (fn []
+                                      (swap! page-state
+                                             assoc
+                                             :selected-price
+                                             #:price{:commodity @commodity
+                                                     :trade-date (t/today)})
+                                      (set-focus "trade-date"))}
+                   :icon :plus
+                   :caption "Add"}]
+          [button {:html {:class "btn-secondary ms-2"
+                          :on-click #(swap! page-state dissoc :prices-commodity)}
+                   :icon :x
+                   :caption "Close"}]]
+         [:div.col-auto
+          [:span.ms-auto
+           [load-on-scroll {:target "prices-container"
+                            :all-items-fetched? @all-prices-fetched?
+                            :load-fn #(go (>! @ctl-chan :fetch))}]]]]]])))
 
 (defn- post-save-price
-  [page-state new?]
-  (fn [{:keys [id] :as price}]
-    (let [update-fn (if new?
-                      (fn [prices]
-                        (->> (conj prices price)
-                             (sort comp-prices-rev)
-                             vec))
-                      (fn [prices]
-                        (mapv #(if (= (:id %) id)
-                                 price
-                                 %)
-                              prices)))]
-      (swap! page-state #(-> %
-                             (dissoc :selected-price)
-                             (update-in [:prices] update-fn))))))
+  [page-state]
+  (fn [price]
+    (swap! page-state
+           #(-> %
+                (dissoc :selected-price)
+                (update-in [:prices]
+                           (fn [prices]
+                             (util/upsert-into price
+                                               {:sort-key :price/trade-date
+                                                :comp t/after?}
+                                               prices)))))))
 (defn- save-price
   [page-state]
-  (let [price (get-in @page-state [:selected-price])]
+  (let [price (:selected-price @page-state)]
     (+busy)
     (prices/save price
                  :callback -busy
-                 :on-success (post-save-price page-state (not (:id price))))))
+                 :on-success (post-save-price page-state))))
 
 (defn- price-form
   [page-state]
@@ -426,8 +462,8 @@
          [:div.card.mt-2 {:class (when-not @price "d-none")}
           [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
           [:div.card-body
-           [forms/date-field price [:trade-date] {:validations #{::v/required}}]
-           [forms/decimal-field price [:price] {:validations #{::v/required}}]]
+           [forms/date-field price [:price/trade-date] {:validations #{::v/required}}]
+           [forms/decimal-field price [:price/price] {:validations #{::v/required}}]]
           [:div.card-footer
            [button {:html {:class "btn-primary"
                                    :title "Click here to save this price."

@@ -1,35 +1,53 @@
 (ns clj-money.models.settings-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [clojure.java.jdbc :as jdbc]
+            [java-time.api :as t]
+            [next.jdbc :as jdbc]
+            [next.jdbc.sql :refer [delete!]]
             [config.core :refer [env]]
+            [dgknght.app-lib.test-assertions]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
             [clj-money.models.settings :as settings]))
 
 (defn- clear-settings
   [f]
-  (jdbc/delete! (env :db)
-                :settings
-                ["name in (?)" "My Info"])
+  (let [ds (jdbc/get-datasource (get-in env [:db :strategies :sql]))]
+    (delete! ds
+             :settings
+             {:name "my-info"}))
   (f))
 
 (use-fixtures :each clear-settings)
 
-(deftest create-a-setting
-  (let [created (settings/put "My Info" 24)
-        retrieved (settings/get "My Info")]
-    (is (comparable? {:name "My Info"
-                      :value 24}
-                     created)
-        "put returns the created value")
-    (is (= 24 retrieved)
-        "The value can be retrieved")))
+(deftest save-a-string-setting
+  (settings/put :my-info "testing 1, 2, 3")
+  (is (= "testing 1, 2, 3"
+         (settings/get :my-info))
+      "A new setting can be inserted")
+  (settings/put :my-info "another")
+  (is (= "another"
+         (settings/get :my-info))
+      "An existing setting can be updated"))
 
-(deftest update-a-setting
-  (let [_ (settings/put "My Info" 24)
-        updated (settings/put "My Info" 25)
-        retrieved (settings/get "My Info")]
-    (is (comparable? {:name "My Info"
-                      :value 25}
-                     updated)
-        "put returns the created record")
-    (is (= 25 retrieved)
-        "The value can be retrieved")))
+(deftest save-a-number-setting
+  (settings/put :my-info 25)
+  (is (= 25
+         (settings/get :my-info))
+      "A new setting can be inserted")
+  (settings/put :my-info 50)
+  (is (= 50
+         (settings/get :my-info))
+      "An existing setting can be updated"))
+
+(deftest save-a-date-setting
+  (settings/put :my-info (t/local-date 2020 3 2))
+  (is (= (t/local-date 2020 3 2)
+         (settings/get :my-info))
+      "A new setting can be inserted")
+  (settings/put :my-info (t/local-date 2020 2 27))
+  (is (= (t/local-date 2020 2 27)
+         (settings/get :my-info))
+      "An existing setting can be updated"))
+
+(deftest request-a-settings-that-does-not-exist
+  (is (nil? (settings/get :does-not-exist))))

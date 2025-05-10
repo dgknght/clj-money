@@ -3,832 +3,764 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.validation :as v]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-account
-                                            find-accounts
-                                            find-commodity]]
+                                            find-commodity
+                                            find-transaction]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.lots :as lots]
-            [clj-money.models.prices :as prices]
-            [clj-money.models.transactions :as transactions]
+            [clj-money.util :as util :refer [model= id=]]
+            [clj-money.models :as models]
             [clj-money.trading :as trading]))
 
 (use-fixtures :each reset-db)
 
-(defn- items-by-account
-  [account-id]
-  (map #(dissoc %
-                :id
-                :polarized-amount
-                :entity-id
-                :transaction-id
-                :reconciled?
-                :reconciliation-id
-                :created-at
-                :updated-at
-                :reconciliation-status)
-       (transactions/items-by-account
-        account-id
-        [(t/local-date 2015 1 1)
-         (t/local-date 2017 12 31)])))
-
 (defn- item-by-account
-  [acc-or-id transaction]
-  {:pre [acc-or-id transaction]}
+  [acc transaction]
+  {:pre [acc transaction]}
 
-  (let [id (->id acc-or-id)]
-    (->> (:items transaction)
-         (filter #(= id (:account-id %)))
-         first)))
+  (->> (:transaction/items transaction)
+         (filter #(model= acc (:transaction-item/account %)))
+         first))
+
+(def ^:private base-context
+  [(factory :user {:user/email "john@doe.com"})
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:commodity{:name "US Dollar"
+               :entity "Personal"
+               :symbol "USD"
+               :type :currency}
+   #:commodity{:name "Apple, Inc."
+               :entity "Personal"
+               :symbol "AAPL"
+               :type :stock
+               :exchange :nasdaq}
+   #:account{:name "IRA"
+             :entity "Personal"
+             :type :asset}
+   #:account{:name "Opening balances"
+             :entity "Personal"
+             :type :income}
+   #:account{:name "Investment Expenses"
+             :entity "Personal"
+             :type :expense}
+   #:account{:name "Checking"
+             :entity "Personal"
+             :type :asset}
+   #:account {:name "Dividends"
+              :entity "Personal"
+              :type :income}
+   #:transaction{:transaction-date (t/local-date 2016 1 1)
+                 :entity "Personal"
+                 :description "Opening balance"
+                 :debit-account "IRA"
+                 :credit-account "Opening balances"
+                 :quantity 2000M}])
 
 (def ^:private purchase-context
-  {:users [(factory :user)]
-   :entities [{:name "Personal"}]
-   :accounts [{:name "IRA"
-               :type :asset}
-              {:name "Opening balances"
-               :type :income}
-              {:name "Long-term Capital Gains"
-               :type :income}
-              {:name "Long-term Capital Losses"
-               :type :expense}
-              {:name "Short-term Capital Gains"
-               :type :income}
-              {:name "Short-term Capital Losses"
-               :type :expense}
-              {:name "Investment Expenses"
-               :type :expense}
-              {:name "Checking"
-               :type :asset}]
-   :commodities [{:name "US Dollar"
-                  :symbol "USD"
-                  :type :currency}
-                 {:name "Apple, Inc."
-                  :symbol "AAPL"
-                  :type :stock
-                  :exchange :nasdaq}]
-   :transactions [{:transaction-date (t/local-date 2016 1 1)
-                   :description "Opening balance"
-                   :items [{:action :debit
-                            :account-id "IRA"
-                            :quantity 2000M}
-                           {:action :credit
-                            :account-id "Opening balances"
-                            :quantity 2000M}]}]})
+  (conj base-context
+        #:account{:name "Long-term Capital Gains"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "Long-term Capital Losses"
+                  :entity "Personal"
+                  :type :expense}
+        #:account{:name "Short-term Capital Gains"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "Short-term Capital Losses"
+                  :entity "Personal"
+                  :type :expense}))
 
-(defn- purchase-attributes
-  [context]
-  {:commodity-id (:id (find-commodity context "AAPL"))
-   :account-id (:id (find-account context "IRA"))
-   :trade-date (t/local-date 2016 1 2)
-   :shares 100M
-   :value 1000M})
+(defn- purchase-attributes []
+  #:trade{:commodity (find-commodity "AAPL")
+          :account (find-account "IRA")
+          :date (t/local-date 2016 1 2)
+          :shares 100M
+          :value 1000M})
 
 (deftest purchase-a-commodity
-  (let [context (realize purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        result (trading/buy (purchase-attributes context))
-        apple-account (accounts/find-by {:commodity-id (:id commodity)
-                                         :entity-id (-> context :entities first :id)})
-        expected-transaction {:entity-id (-> context :entities first :id)
-                              :transaction-date (t/local-date 2016 1 2)
-                              :description "Purchase 100 shares of AAPL at 10.000"
-                              :memo nil
-                              :value 1000M
-                              :lot-items [{:lot-action :buy
-                                           :transaction-date (t/local-date 2016 1 2)
-                                           :shares 100M
-                                           :price 10M}]
-                              :items [{:action :credit
-                                       :quantity 1000M
-                                       :negative true
-                                       :polarized-quantity -1000M
-                                       :balance 1000M
-                                       :value 1000M
-                                       :account-id (:id ira)
-                                       :description "Purchase 100 shares of AAPL at 10.000"
-                                       :index 1
-                                       :memo nil
-                                       :transaction-date (t/local-date 2016 1 2)
-                                       :reconciliation-status nil
-                                       :reconciled? false
-                                       :reconciliation-id nil}
-                                      {:action :debit
-                                       :quantity 100M
-                                       :negative false
-                                       :polarized-quantity 100M
-                                       :balance 100M
-                                       :value 1000M
-                                       :account-id (:id apple-account)
-                                       :description "Purchase 100 shares of AAPL at 10.000"
-                                       :memo nil
-                                       :transaction-date (t/local-date 2016 1 2)
-                                       :index 0
-                                       :reconciliation-status nil
-                                       :reconciled? false
-                                       :reconciliation-id nil}]}
-        expected-commodity-account {:name "AAPL"
-                                    :commodity-id (:id commodity)
-                                    :entity-id (-> context :entities first :id)
-                                    :type :asset
-                                    :parent-id (:id ira)
-                                    :system-tags #{:tradable}
-                                    :quantity 100M
-                                    :price-as-of (t/local-date 2016 1 2)
-                                    :value 1000M}]
-    (is (:transaction result)
-        "The result contains the transaction associated with the purchase")
-    (is (comparable? expected-transaction (:transaction result))
-        "The resulting transaction has the correct attributes")
-    (is (valid? (:transaction result)))
-    (is (= "Purchase 100 shares of AAPL at 10.000"
-           (-> result :transaction :description))
-        "The transaction description describes the purchase")
-    (is (:lot result)
-        "The result contains a lot representing the purchased shares")
-    (is (valid? (:lot result)))
-    (is (valid? (:lot-transaction result)))
-    (is (comparable? expected-commodity-account
-                     (accounts/reload apple-account))
-        "The commodity account is created")
-    (is ((-> ira accounts/reload :system-tags) :trading)
-        "The specified account is tagged as a trading account")))
+  (with-context purchase-context
+    (let [personal (find-entity "Personal")
+          ira (find-account "IRA")
+          commodity (find-commodity "AAPL")
+          result (trading/buy (purchase-attributes))]
+      (testing "The transaction"
+        (is (seq-of-maps-like?
+              [#:transaction{:entity (util/->model-ref personal)
+                             :transaction-date (t/local-date 2016 1 2)
+                             :description "Purchase 100.000 shares of AAPL at 10.000"
+                             :value 1000M
+                             :lot-items [#:lot-item{:lot-action :buy
+                                                    :transaction-date (t/local-date 2016 1 2)
+                                                    :shares 100M
+                                                    :price 10M}]
+                             :items [#:transaction-item{:action :credit
+                                                        :quantity 1000M
+                                                        :value 1000M
+                                                        :account (util/->model-ref ira)}
+                                     #:transaction-item{:action :debit
+                                                        :quantity 100M
+                                                        :value 1000M
+                                                        :account (util/->model-ref (:trade/commodity-account result))}]}]
+
+              (:trade/transactions result))
+            "A transaction is created and returned"))
+      (testing "The commodity account"
+        (is (comparable? #:account{:name "AAPL"
+                                   :commodity (util/->model-ref commodity)
+                                   :entity (util/->model-ref personal)
+                                   :type :asset
+                                   :parent (util/->model-ref ira)
+                                   :system-tags #{:tradable}
+                                   :price-as-of (t/local-date 2016 1 2)}
+                         (models/find-by #:account{:commodity commodity
+                                                   :entity personal}))
+            "An account to track shares of the commodity is created"))
+      (testing "The lot"
+        (is (comparable? #:lot{:shares-purchased 100M
+                               :shares-owned 100M
+                               :purchase-price 10M
+                               :purchase-date (t/local-date 2016 1 2)}
+                         (:trade/lot result))))
+      (testing "The trading account"
+        (is (contains? (:account/system-tags (models/find ira))
+                       :trading)
+            "The :trading tag is added to the trading account"))
+      (testing "The price"
+        (is (comparable? #:price{:price 10M
+                                 :trade-date (t/local-date 2016 1 2)}
+                         (:trade/price result))
+            "The price is returned")))))
+
+(deftest propagate-a-purchase
+  (with-context purchase-context
+    (let [personal (find-entity "Personal")
+          ira (find-account "IRA")
+          commodity (find-commodity "AAPL")]
+      (trading/buy-and-propagate (purchase-attributes))
+      (testing "The commodity account"
+        (is (comparable? #:account{:name "AAPL"
+                                   :quantity 100M
+                                   :value 1000M}
+                         (models/find-by #:account{:commodity commodity
+                                                   :entity personal}))
+            "An account to track shares of the commodity is has propagated values"))
+      (testing "The trading account"
+        (is (comparable? #:account{:name "IRA"
+                                   :quantity 1000M
+                                   :value 1000M}
+                         (models/find ira))
+            "The trading account balance is updated to reflect money paid out")))))
 
 (deftest purchase-a-commodity-with-a-fee
-  (let [context (realize purchase-context)
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        inv-exp (->> context
-                     :accounts
-                     (filter #(= "Investment Expenses" (:name %)))
-                     first)]
-    (trading/buy (-> context
-                     purchase-attributes
-                     (assoc :fee 5M
-                            :fee-account-id (:id inv-exp))))
-    (is (= 995M (:quantity (accounts/reload ira)))
-        "The investment account balance reflects the fee")
-    (is (= 5M (:quantity (accounts/reload inv-exp)))
-        "The investment expense account reflects the fee")))
+  (with-context purchase-context
+    (let [ira (find-account "IRA")
+          inv-exp (find-account "Investment Expenses")]
+      (-> (purchase-attributes)
+          (assoc :trade/fee 5M
+                 :trade/fee-account inv-exp)
+          (trading/buy-and-propagate))
+      (is (= 995M (:account/quantity (models/find ira)))
+          "The investment account balance reflects the fee")
+      (is (= 5M (:account/quantity (models/find inv-exp)))
+          "The investment expense account reflects the fee"))))
+
+(deftest reinvest-a-dividend
+  (with-context purchase-context
+    (let [dividends (find-account "Dividends")
+          ira (models/find (find-account "IRA"))
+          [{:trade/keys [transactions]}] (-> #:trade{:commodity (find-commodity "AAPL")
+                                                     :account (find-account "IRA")
+                                                     :date (t/local-date 2016 2 2)
+                                                     :shares 4.5M
+                                                     :value 50M}
+                                             (assoc :trade/dividend? true
+                                                    :trade/dividend-account dividends)
+                                             (trading/buy-and-propagate))]
+      (is (comparable? #:transaction{:description "Dividend received from AAPL"}
+                       (first transactions))
+          "The transaction for the receipt of the dividend is returned")
+      (is (comparable? #:transaction{:description "Reinvest dividend of 50.00: purchase 4.500 shares of AAPL at 11.110"}
+                       (second transactions))
+          "The transaction for the purchase of shares with dividend is returned")
+      (is (comparable? #:account{:quantity 50M
+                                 :value 50M}
+                       (models/find dividends))
+          "The dividend account is debited for the amount of the purchase")
+      (is (= (:account/quantity ira)
+             (:account/quantity (models/find ira)))
+          "The trading account balance is unchanged."))))
+
+(defn- assert-invalid-purchase
+  [attr errors]
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors errors}
+        (trading/buy attr))))
 
 (deftest purchase-requires-a-trade-date
-  (let [context (realize purchase-context)
-        result (trading/buy  (-> context
-                                 (purchase-attributes)
-                                 (dissoc :trade-date)))]
-    (is (invalid? result [:trade-date] "Trade date is required"))))
+  (with-context purchase-context
+    (assert-invalid-purchase
+      (dissoc (purchase-attributes) :trade/date)
+      {:trade/date ["Date is required"]})))
 
 (deftest purchase-requires-a-number-of-shares
-  (let [context (realize purchase-context)
-        result (trading/buy (-> context
-                                (purchase-attributes)
-                                (dissoc :shares)))]
-    (is (invalid? result [:shares] "Shares is required"))))
+  (with-context purchase-context
+    (assert-invalid-purchase
+      (dissoc (purchase-attributes) :trade/shares)
+      {:trade/shares ["Shares is required"]})))
 
 (deftest purchase-requires-a-value
-  (let [context (realize purchase-context)
-        result (trading/buy (-> context
-                                (purchase-attributes)
-                                (dissoc :value)))]
-    (is (invalid? result [:value] "Value is required"))))
+  (with-context purchase-context
+    (assert-invalid-purchase
+      (dissoc (purchase-attributes) :trade/value)
+      {:trade/value ["Value is required"]})))
 
-(deftest a-purchase-creates-a-lot-record
-  (let [context (realize purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        _ (trading/buy {:commodity-id (:id commodity)
-                        :account-id (:id ira)
-                        :trade-date (t/local-date 2016 1 2)
-                        :shares 100M
-                        :value 1000M})
-        expected [{:purchase-date (t/local-date 2016 1 2)
-                   :commodity-id (:id commodity)
-                   :account-id (:id ira)
-                   :shares-purchased 100M
-                   :shares-owned 100M}]
-        actual (map #(select-keys % [:purchase-date
-                                     :commodity-id
-                                     :account-id
-                                     :shares-purchased
-                                     :shares-owned])
-                    (lots/select-by-commodity-id (:id commodity)))]
-    (is (= expected actual) "The lot can be retrieved from the database")))
-
-(deftest a-purchase-creates-a-price-record
-  (let [context (realize purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        _ (trading/buy {:commodity-id (:id commodity)
-                        :account-id (:id ira)
-                        :trade-date (t/local-date 2016 1 2)
-                        :shares 100M
-                        :value 1000M})
-        expected [{:commodity-id (:id commodity)
-                   :trade-date (t/local-date 2016 1 2)
-                   :price 10M}]
-        actual (map #(select-keys % [:commodity-id :trade-date :price])
-                    (prices/search {:commodity-id (:id commodity)
-                                    :trade-date (t/local-date 2016 1 2)}))]
-    (is (= expected actual) "The price can be retrieved from the database")))
-
-(deftest buying-a-commodity-reduces-the-balance-of-the-account
-  (let [context (realize purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        _ (trading/buy {:commodity-id (:id commodity)
-                        :account-id (:id ira)
-                        :trade-date (t/local-date 2016 1 2)
-                        :shares 100M
-                        :value 999M})
-        new-balance (:quantity (accounts/reload ira))]
-    (is (= 1001M new-balance) "The account balance decreases by the amount of the purchase")))
-
-(defn- sale-attributes
-  [context]
-  (let [[ira
-         lt-gains
-         st-gains
-         lt-loss
-         st-loss] (find-accounts context
-                                 "IRA"
-                                 "Long-term Capital Gains"
-                                 "Short-term Capital Gains"
-                                 "Long-term Capital Losses"
-                                 "Short-term Capital Losses")]
-    {:commodity-id (:id (find-commodity context "AAPL"))
-     :account-id (:id ira)
-     :lt-capital-gains-account-id (:id lt-gains)
-     :lt-capital-loss-account-id (:id lt-loss)
-     :st-capital-gains-account-id (:id st-gains)
-     :st-capital-loss-account-id (:id st-loss)
-     :inventory-method :fifo
-     :trade-date (t/local-date 2017 3 2)
-     :shares 25M
-     :value 375M})) ; Sell at $15/share or $125 gain
+; Sell 25 shares at $15/share and $125 gain
+; value before sale: 1,500
+; value after sale:  1,125
+;
+; The trading account:
+; quantity before: 1,000
+; quantity after: 1,375
+(defn- sale-attributes []
+  #:trade{:commodity (find-commodity "AAPL")
+          :account (find-account "IRA")
+          :lt-capital-gains-account (find-account "Long-term Capital Gains")
+          :lt-capital-loss-account (find-account "Long-term Capital Losses")
+          :st-capital-gains-account (find-account "Short-term Capital Gains")
+          :st-capital-loss-account (find-account "Short-term Capital Losses")
+          :inventory-method :fifo
+          :date (t/local-date 2017 3 2)
+          :shares 25M
+          :value 375M})
 
 (def ^:private sale-context
-  (assoc purchase-context
-         :trades [{:type :purchase
-                   :account-id "IRA"
-                   :commodity-id "AAPL"
-                   :trade-date (t/local-date 2016 3 2)
-                   :shares 100M
-                   :value 1000M}]))
+  (conj purchase-context
+        #:trade{:type :purchase
+                :entity "Personal"
+                :account "IRA"
+                :commodity "AAPL"
+                :date (t/local-date 2016 3 2)
+                :shares 100M
+                :value 1000M}))
 
-(deftest sell-a-commodity-for-a-gain
-  (let [context (realize sale-context)
-        entity (find-entity context "Personal")
-        aapl (find-commodity context "AAPL")
-        {:keys [transaction
-                price
-                lots]
-         :as result} (trading/sell (sale-attributes context))
-        ira (find-account context "IRA")
-        ltcg (find-account context "Long-term Capital Gains")
-        aapl-acc (accounts/find-by {:entity-id (:id entity)
-                                    :commodity-id (:id aapl)})
-        lot (lots/find-by {:commodity-id (:id aapl)
-                           :account-id (:id ira)
-                           :purchase-date (t/local-date 2016 3 2)})]
-    (is price "The result contains a price")
-    (is (valid? price) "The price is valid")
-    (is lots "The result contains the lots affected")
-    (doseq [lot lots]
-      (is (valid? lot) "Each lot is valid"))
-    (is (= 75M (:shares-owned lot))
-        "The shares-owned value of the original lot is updated")
-    (is transaction "The result contains the transaction record")
-    (is (valid? transaction) "The transaction is valid")
-    (is (comparable? {:name "AAPL"
-                      :value 1125M
-                      :price-as-of (t/local-date 2017 3 2)}
-                     (accounts/reload aapl-acc))
-        "The commodity account is updated wth new value and price date")
-    (is (comparable? {:action :debit
-                      :value 375M
-                      :quantity 375M}
-                     (item-by-account ira transaction))
-        "The trading account is debited the total proceeds from the purchase")
-    (is (comparable? {:action :credit
-                      :value 125M
-                      :quantity 125M}
-                     (item-by-account ltcg transaction))
-        "The capital gains account is credited the amount received above the original cost of the shares.")
-    (is (comparable? {:action :credit
-                      :value 250M
-                      :quantity 25M}
-                     (item-by-account aapl-acc transaction))
-        "The commodity account is credited the number of shares and purchase value of the shares.")
-    (testing "entity settings"
-      (let [expected (select-keys result [:lt-capital-gains-account-id
-                                          :st-capital-gains-account-id
-                                          :lt-capital-loss-account-id
-                                          :st-capital-loss-account-id
-                                          :inventory-method])]
-        (is (comparable? expected (:settings (entities/find entity)))
-            "The entity settings are updated with default account ids")))))
+(deftest sell-a-commodity-for-a-gain-after-1-year
+  (with-context sale-context
+    (let [result (trading/sell (sale-attributes))
+          ltcg (find-account "Long-term Capital Gains")
+          aapl-acc (models/find-by #:account{:entity (find-entity "Personal")
+                                             :commodity (find-commodity "AAPL")})]
+      (testing "The price"
+        (is (comparable? #:price{:price 15M
+                                 :trade-date (t/local-date 2017 3 2)}
+                         (:trade/price result))
+            "The price is created and returned"))
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:shares-purchased 100M
+                                      :shares-owned 75M}]
+                               (:trade/updated-lots result))
+            "The affected lots are returned"))
+      (testing "The transaction"
+        (is (seq-of-maps-like?
+              [#:transaction{:transaction-date (t/local-date 2017 3 2)
+                             :description "Sell 25.000 shares of AAPL at 15.000"}]
+              (:trade/transactions result))
+            "The transaction is created and returned")
+        (is (comparable?
+              #:transaction-item{:action :debit
+                                 :value 375M
+                                 :quantity 375M}
+              (item-by-account (find-account "IRA")
+                               (first (:trade/transactions result))))
+            "The trading account is debited the total proceeds from the purchase")
+        (is (comparable? #:transaction-item{:action :credit
+                                            :value 250M
+                                            :quantity 25M}
+                         (item-by-account aapl-acc (first (:trade/transactions result))))
+            "The commodity account is credited the number of shares and purchase value of the shares."))
+      (testing "The capital gains account"
+        (is (comparable? #:transaction-item{:action :credit
+                                            :value 125M
+                                            :quantity 125M}
+                         (item-by-account ltcg (first (:trade/transactions result))))
+            "The capital gains account is credited the amount received above the original cost of the shares."))
+      (testing "The entity"
+        (let [entity (models/find-by {:entity/name "Personal"})]
+          (is (model= ltcg
+                      (get-in entity [:entity/settings :settings/lt-capital-gains-account]))
+              "The long-term capital gains account is saved")
+          (is (model= (find-account "Short-term Capital Gains")
+                      (get-in entity [:entity/settings :settings/st-capital-gains-account]))
+              "The short-term capital gains account is saved")
+          (is (model= (find-account "Long-term Capital Losses")
+                      (get-in entity [:entity/settings :settings/lt-capital-loss-account]))
+              "The long-term capital losses account is saved")
+          (is (model= (find-account "Short-term Capital Losses")
+                      (get-in entity [:entity/settings :settings/st-capital-loss-account]))
+              "The short-term capital losses account is saved"))))))
 
-(deftest sell-a-commodity-for-a-loss
-  (let [context (realize sale-context)
-        entity (find-entity context "Personal")
-        aapl (find-commodity context "AAPL")
-        attr (assoc (sale-attributes context) :value 200M) ; 25 shares, $50 loss
-        {:keys [lots transaction price]} (trading/sell attr)
-        ira (find-account context "IRA")
-        ltcl (find-account context "Long-term Capital Losses")
-        aapl-acc (accounts/find-by {:entity-id (:id entity)
-                                    :commodity-id (:id aapl)})
-        lot (lots/find-by {:commodity-id (:id aapl)
-                           :account-id (:id ira)
-                           :purchase-date (t/local-date 2016 3 2)})]
-    (is (= 8M (:price price))
-        "The result contains the correct price")
-    (is (valid? price) "The price is valid")
-    (is lots "The result contains the lots affected")
-    (doseq [lot lots]
-      (is (valid? lot) "Each lot is valid"))
-    (is (= 75M (:shares-owned lot))
-        "The shares-owned value of the original lot is updated")
-    (is transaction "The result contains the transaction record")
-    (is (valid? transaction) "The transaction is valid")
-    (is (comparable? {:action :debit
-                      :value 200M
-                      :quantity 200M}
-                     (item-by-account ira transaction))
-        "The trading account is debited the total proceeds from the purchase")
-    (is (comparable? {:action :debit
-                      :value 50M
-                      :quantity 50M}
-                     (item-by-account ltcl transaction))
-        "The capital loss account is debited the cost the shares less the sale proceeds")
-    (is (comparable? {:action :credit
-                      :value 250M
-                      :quantity 25M}
-                     (item-by-account aapl-acc transaction))
-        "The commodity account is credited the number of shares and purchase value of the shares.")))
+(deftest propagate-a-sale
+  (with-context sale-context
+    (trading/sell-and-propagate (sale-attributes))
+    (testing "The commodity account"
+      (is (comparable? #:account{:name "AAPL"
+                                 :quantity 75M
+                                 :value 1125M
+                                 :price-as-of (t/local-date 2017 3 2)}
+                       (models/find-by {:account/name "AAPL"}))
+          "The commodity account is updated wth new value and price date"))
+    (testing "The trading account"
+      (is (comparable? #:account{:name "IRA"
+                                 :quantity 1375M
+                                 :value 1375M}
+                       (models/find-by {:account/name "IRA"}))
+          "The trading account is updated wth new value"))))
+
+(deftest sell-a-commodity-for-a-gain-before-1-year
+  (with-context sale-context
+    (let [result (-> (sale-attributes)
+                     (assoc :trade/date (t/local-date 2016 4 2))
+                     trading/sell)]
+      (testing "The capital gains account"
+        (is (comparable? #:transaction-item{:action :credit
+                                            :value 125M
+                                            :quantity 125M}
+                         (item-by-account (find-account "Short-term Capital Gains")
+                                          (first (:trade/transactions result))))
+            "The capital gains account is credited the amount received above the original cost of the shares.")))))
+
+; sell 25 shares at $8.00 per share and $50 loss
+; value before sale: $800.00
+; value after sale: $600.00
+(deftest sell-a-commodity-for-a-loss-after-1-year
+  (with-context sale-context
+    (let [result (-> (sale-attributes)
+                     (assoc :trade/value 200M)
+                     trading/sell)]
+      (testing "The price"
+        (is (comparable? #:price{:price 8M
+                                 :trade-date (t/local-date 2017 3 2)}
+                         (:trade/price result))
+            "The result contains the new price"))
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:shares-owned 75M}]
+                               (:trade/updated-lots result))
+            "The result contains the updated lots"))
+
+      (testing "The transaction"
+        (is (seq-of-maps-like?
+              [#:transaction{:transaction-date (t/local-date 2017 3 2)
+                             :description "Sell 25.000 shares of AAPL at 8.000"}]
+              (:trade/transactions result))
+            "The result contains the transaction")
+        (is (comparable? #:transaction-item{:action :debit
+                                            :value 200M
+                                            :quantity 200M}
+                         (item-by-account (find-account "IRA")
+                                          (first (:trade/transactions result))))
+            "The trading account is debited the total proceeds from the purchase")
+        (is (comparable? #:transaction-item{:action :debit
+                                            :value 50M
+                                            :quantity 50M}
+                         (item-by-account (find-account "Long-term Capital Losses")
+                                          (first (:trade/transactions result))))
+            "The capital loss account is debited the cost the shares less the sale proceeds")
+        (is (comparable? #:transaction-item{:action :credit
+                                            :value 250M
+                                            :quantity 25M}
+                         (item-by-account (models/find-by #:account{:entity (find-entity "Personal")
+                                                                    :commodity (find-commodity "AAPL")})
+                                          (first (:trade/transactions result))))
+            "The commodity account is credited the number of shares and purchase value of the shares.")))))
+
+(deftest sell-a-commodity-for-a-loss-before-1-year
+  (with-context sale-context
+    (let [result (-> (sale-attributes)
+                     (assoc :trade/value 200M
+                            :trade/date (t/local-date 2016 4 2))
+                     trading/sell)]
+      (is (comparable? #:transaction-item{:action :debit
+                                          :value 50M
+                                          :quantity 50M}
+                       (item-by-account (find-account "Short-term Capital Losses")
+                                        (first (:trade/transactions result))))
+          "The capital loss account is debited the cost the shares less the sale proceeds"))))
 
 (def ^:private auto-create-context
-  (update-in sale-context [:accounts] (fn [accounts]
-                                        (remove #(re-find #"Capital" (:name %)) accounts))))
+  (conj base-context
+        #:trade{:type :purchase
+                :entity "Personal"
+                :account "IRA"
+                :commodity "AAPL"
+                :date (t/local-date 2016 3 2)
+                :shares 100M
+                :value 1000M}))
 
 (deftest auto-create-gains-accounts
-  (let [context (realize auto-create-context)
-        _ (trading/sell (sale-attributes context))
-        entity (entities/find (find-entity context "Personal"))
-        ltcg (accounts/find-by {:entity-id (:id entity)
-                                :name "Long-term Capital Gains"})
-        stcg (accounts/find-by {:entity-id (:id entity)
-                                :name "Short-term Capital Gains"})
-        ltcl (accounts/find-by {:entity-id (:id entity)
-                                :name "Long-term Capital Losses"})
-        stcl (accounts/find-by {:entity-id (:id entity)
-                                :name "Short-term Capital Losses"})]
-    (is (comparable? {:type :income}
-                     ltcg)
-        "The long-term capital gains account is an income account")
-    (is (= (get-in entity [:settings :lt-capital-gains-account-id])
-           (:id ltcg))
-        "The Long-term Capital Gains account id is placed in the entity settings")
-    (is (comparable? {:type :income}
-                     stcg)
-        "The short-term capital gains account is an income account")
-    (is (= (get-in entity [:settings :st-capital-gains-account-id])
-           (:id stcg))
-        "The Short-term Capital Gains account id is placed in the entity settings")
-    (is (comparable? {:type :expense}
-                     ltcl)
-        "The long-term capital losses account is an expense account")
-    (is (= (get-in entity [:settings :lt-capital-loss-account-id])
-           (:id ltcl))
-        "The Long-term Capital Losses account id is placed in the entity settings")
-    (is (comparable? {:type :expense}
-                     stcl)
-        "The short-term capital losses account is an expense account")
-    (is (= (get-in entity [:settings :st-capital-loss-account-id])
-           (:id stcl))
-        "The Short-term Capital Losses account id is placed in the entity settings")))
+  (with-context auto-create-context
+    (trading/sell #:trade{:commodity (find-commodity "AAPL")
+                          :account (find-account "IRA")
+                          :inventory-method :fifo
+                          :date (t/local-date 2017 3 2)
+                          :shares 25M
+                          :value 375M})
+    (let [entity (models/find-by {:entity/name "Personal"})]
+      (testing "Long-term capital gains"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Long-term Capital Gains"})]
+          (is (comparable? {:account/type :income}
+                           account)
+              "The long-term capital gains account is an income account")
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/lt-capital-gains-account])
+                   account)
+              "The Long-term Capital Gains account is specified in the entity settings")))
+      (testing "Short-term capital gains"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Short-term Capital Gains"})]
+          (is (comparable? {:account/type :income}
+                           account)
+              "The short-term capital gains account is an income account")
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/st-capital-gains-account])
+                   account)
+              "The Short-term Capital Gains account id is placed in the entity settings")))
+      (testing "Long-term capital losses"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Long-term Capital Losses"})]
+          (is (comparable? {:account/type :expense}
+                           account)
+              "The long-term capital losses account is an expense account")
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/lt-capital-loss-account])
+                   account)
+              "The Long-term Capital Losses account id is placed in the entity settings")))
+      (testing "Short-term capital losses"
+        (let [account (models/find-by #:account{:entity entity
+                                                :name "Short-term Capital Losses"})]
+          (is (comparable? {:account/type :expense}
+                           account)
+              "The short-term capital losses account is an expense account")
+          (is (id= (get-in entity
+                           [:entity/settings
+                            :settings/st-capital-loss-account])
+                   account)
+              "The Short-term Capital Losses account id is placed in the entity settings"))))))
 
 (deftest sell-a-commodity-with-a-fee
-  (let [context (realize sale-context)
-        ira (find-account context "IRA")
-        inv-exp (->> context
-                     :accounts
-                     (filter #(= "Investment Expenses" (:name %)))
-                     first)]
-    (trading/sell (-> context
-                      sale-attributes
-                      (assoc :fee 5M
-                             :fee-account-id (:id inv-exp))))
-    (is (= 1370M (:quantity (accounts/reload ira)))
+  (with-context sale-context
+    (trading/sell-and-propagate
+      (assoc (sale-attributes)
+             :trade/fee 5M
+             :trade/fee-account (find-account "Investment Expenses")))
+    ; Opening balance             $2,000
+    ; Purchase AAPL     -1,000 -> $1,000
+    ; Sell AAPL          + 375 -> $1,375
+    ; less the fee        -  5 -> $1,370
+    (is (comparable? {:account/quantity 1370M}
+                     (models/find (find-account "IRA")))
         "The investment account balance reflects the fee")
-    (is (= 5M (:quantity (accounts/reload inv-exp)))
+    (is (comparable? {:account/quantity 5M}
+                     (models/find (find-account "Investment Expenses")))
         "The investment fee account balance reflects the fee")))
 
-(deftest sales-requires-a-trade-date
-  (let [context (realize sale-context)
-        result (trading/sell (-> context
-                                 sale-attributes
-                                 (dissoc :trade-date)))]
-    (is (invalid? result [:trade-date] "Trade date is required"))))
+(defn- assert-invalid-sale
+  [attr errors]
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors errors}
+        (trading/sell attr))))
 
-(deftest sales-requires-a-number-of-shares
-  (let [context (realize sale-context)
-        result (trading/sell (-> context
-                                 sale-attributes
-                                 (dissoc :shares)))]
-    (is (invalid? result [:shares] "Shares is required"))))
+(deftest sale-requires-a-trade-date
+  (with-context sale-context
+    (assert-invalid-sale
+      (dissoc (sale-attributes) :trade/date)
+      {:trade/date ["Date is required"]})))
 
-(deftest sales-requires-a-value
-  (let [context (realize sale-context)
-        result (trading/sell (-> context
-                                 sale-attributes
-                                 (dissoc :value)))]
-    (is (invalid? result [:value] "Value is required"))))
+(deftest sale-requires-a-number-of-shares
+  (with-context sale-context
+    (assert-invalid-sale
+      (dissoc (sale-attributes) :trade/shares)
+      {:trade/shares ["Shares is required"]})))
 
-(deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
-  (let [context (realize purchase-context)
-        [ira] (:accounts context)
-        commodity (find-commodity context "AAPL")
-        _ (trading/buy {:commodity-id (:id commodity)
-                        :account-id (:id ira)
-                        :trade-date (t/local-date 2016 1 2)
-                        :shares 100M
-                        :value 1000M})
-        _ (trading/sell (-> context
-                            sale-attributes
-                            (assoc :shares 50M :value 560M)))
-        new-balance (:quantity (accounts/reload ira))]
-    (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
+(deftest sale-requires-a-value
+  (with-context sale-context
+    (assert-invalid-sale
+      (dissoc (sale-attributes) :trade/value)
+      {:trade/value ["Value is required"]})))
+ 
+; Selling a commodity updates a lot record
+; (FILO updates the most recent, FIFO updates the oldest)
 
-(deftest selling-a-commodity-updates-a-lot-record
-  (let [context (realize sale-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        _ (trading/sell (-> context
-                            sale-attributes
-                            (assoc :shares 25M :value 375M)))
-        lots (map #(dissoc % :id :created-at :updated-at)
-                  (lots/search {:account-id (:id ira)
-                                :commodity-id (:id commodity)}))
-        expected [{:purchase-date (t/local-date 2016 3 2)
-                   :account-id (:id ira)
-                   :commodity-id (:id commodity)
-                   :shares-purchased 100M
-                   :shares-owned 75M
-                   :purchase-price 10M}]]
-    (is (= expected lots) "The lot is updated to reflect the sale")))
+(def ^:private multi-lot-context
+  (conj purchase-context
+        #:trade{:type :purchase
+                :entity "Personal"
+                :date (t/local-date 2015 3 2)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 1000M}
+        #:trade{:type :purchase
+                :entity "Personal"
+                :date (t/local-date 2016 3 2)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 2000M}))
 
-(deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
-  (let [context (realize sale-context)
-        lt-capital-gains (find-account context "Long-term Capital Gains")
-        _ (trading/sell (-> context
-                            sale-attributes
-                            (assoc :shares 25M :value 375M)))
-        gains-items (items-by-account (:id lt-capital-gains))
-        expected [{:transaction-date (t/local-date 2017 3 2)
-                   :description "Sell 25 shares of AAPL at 15.000"
-                   :action :credit
-                   :account-id (:id lt-capital-gains)
-                   :quantity 125M
-                   :memo "Sell 25 shares of AAPL at 15.000"}]]
-    (is (seq-of-maps-like? expected gains-items) "The capital gains account is credited the correct amount")))
-
-(deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
-  (let [context (realize sale-context)
-        st-capital-gains (find-account context "Short-term Capital Gains")
-        _ (trading/sell (-> context
-                            sale-attributes
-                            (assoc :shares 25M
-                                   :value 375M
-                                   :trade-date (t/local-date 2017 3 1))))
-        gains-items (items-by-account (:id st-capital-gains))
-        expected [{:transaction-date (t/local-date 2017 3 1)
-                   :description "Sell 25 shares of AAPL at 15.000"
-                   :action :credit
-                   :account-id (:id st-capital-gains)
-                   :quantity 125M
-                   :memo "Sell 25 shares of AAPL at 15.000"}]]
-    (is (seq-of-maps-like? expected gains-items) "The capital gains account is credited the correct amount")))
-
-; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
-
-(defn- map-accounts
-  [context & account-names]
-  (map (fn [account-name]
-         (->> context
-              :accounts
-              (filter #(= account-name (:name %)))
-              first))
-       account-names))
+(defn- multi-lot-sale-attributes
+  [account commodity]
+  #:trade{:date (t/local-date 2017 3 2)
+          :account account
+          :commodity commodity
+          :shares 50M
+          :value 1500M
+          :lt-capital-gains-account (find-account "Long-term Capital Gains")
+          :st-capital-gains-account (find-account "Short-term Capital Gains")
+          :lt-capital-loss-account (find-account "Long-term Capital Losses")
+          :st-capital-loss-account (find-account "Short-term Capital Losses")})
 
 (deftest lifo-sale
-  (let [context (realize purchase-context)
-        commodity (find-commodity context "AAPL")
-        [ira
-         lt-gains
-         st-gains
-         lt-loss
-         st-loss] (map-accounts context
-                                "IRA"
-                                "Long-term Capital Gains"
-                                "Short-term Capital Gains"
-                                "Long-term Capital Losses"
-                                "Short-term Capital Losses")
-        _ (trading/buy {:trade-date (t/local-date 2015 3 2)
-                        :account-id (:id ira)
-                        :commodity-id (:id commodity)
-                        :shares 100M
-                        :value 1000M})
-        _ (trading/buy {:trade-date (t/local-date 2016 3 2)
-                        :account-id (:id ira)
-                        :commodity-id (:id commodity)
-                        :shares 100M
-                        :value 2000M})
-        _ (trading/sell {:trade-date (t/local-date 2017 3 2)
-                         :account-id (:id ira)
-                         :commodity-id (:id commodity)
-                         :shares 50M
-                         :value 1500M
-                         :inventory-method :lifo
-                         :lt-capital-gains-account-id (:id lt-gains)
-                         :st-capital-gains-account-id (:id st-gains)
-                         :lt-capital-loss-account-id (:id lt-loss)
-                         :st-capital-loss-account-id (:id st-loss)})
-        actual (->> (lots/search {:commodity-id (:id commodity)
-                                  :account-id (:id ira)})
-                    (sort-by :purchase-date)
-                    (map #(dissoc %
-                                  :id
-                                  :created-at
-                                  :updated-at
-                                  :commodity-id
-                                  :account-id)))
-        expected [{:purchase-date (t/local-date 2015 3 2)
-                   :shares-purchased 100M
-                   :shares-owned 100M
-                   :purchase-price 10M}
-                  {:purchase-date (t/local-date 2016 3 2)
-                   :shares-purchased 100M
-                   :shares-owned 50M
-                   :purchase-price 20M}]]
-    (is (= expected actual) "Shares are sold from the most recent lot")))
+  (with-context multi-lot-context
+    (let [commodity (find-commodity "AAPL")
+          ira (find-account "IRA")]
+      (-> (multi-lot-sale-attributes ira commodity)
+          (assoc :trade/inventory-method :lifo)
+          trading/sell)
+      (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 100M
+                                    :purchase-price 10M}
+                              #:lot{:purchase-date (t/local-date 2016 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 50M
+                                    :purchase-price 20M}]
+                             (models/select #:lot{:commodity commodity
+                                                  :account ira}
+                                            {:sort [[:lot/purchase-date :asc]]}))
+          "Shares are sold from the most recent lot"))))
 
 (deftest fifo-sale
-  (let [context (realize
-                 (update-in purchase-context
-                            [:entities 0]
-                            #(assoc-in % [:settings :inventory-method] :fifo)))
-        commodity (find-commodity context "AAPL")
-        [ira
-         lt-gains
-         st-gains
-         lt-loss
-         st-loss] (map-accounts context
-                                "IRA"
-                                "Long-term Capital Gains"
-                                "Short-term Capital Gains"
-                                "Long-term Capital Gains"
-                                "Short-term Capital Gains")
-        _ (trading/buy {:trade-date (t/local-date 2015 3 2)
-                        :account-id (:id ira)
-                        :commodity-id (:id commodity)
-                        :shares 100M
-                        :value 1000M})
-        _ (trading/buy {:trade-date (t/local-date 2016 3 2)
-                        :account-id (:id ira)
-                        :commodity-id (:id commodity)
-                        :shares 100M
-                        :value 2000M})
-        _ (trading/sell {:trade-date (t/local-date 2017 3 2)
-                         :account-id (:id ira)
-                         :commodity-id (:id commodity)
-                         :shares 50M
-                         :value 1500M
-                         :lt-capital-gains-account-id (:id lt-gains)
-                         :st-capital-gains-account-id (:id st-gains)
-                         :lt-capital-loss-account-id (:id lt-loss)
-                         :st-capital-loss-account-id (:id st-loss)})
-        actual (->> (lots/search {:commodity-id (:id commodity)
-                                  :account-id (:id ira)})
-                    (sort-by :purchase-date)
-                    (map #(dissoc %
-                                  :id
-                                  :created-at
-                                  :updated-at
-                                  :commodity-id
-                                  :account-id)))
-        expected [{:purchase-date (t/local-date 2015 3 2)
-                   :shares-purchased 100M
-                   :shares-owned 50M
-                   :purchase-price 10M}
-                  {:purchase-date (t/local-date 2016 3 2)
-                   :shares-purchased 100M
-                   :shares-owned 100M
-                   :purchase-price 20M}]]
-    (is (= expected actual) "Shares are sold from the most recent lot")))
+  (with-context multi-lot-context
+    (let [commodity (find-commodity "AAPL")
+          ira (find-account "IRA")]
+      (-> (multi-lot-sale-attributes ira commodity)
+          (assoc :trade/inventory-method :fifo)
+          trading/sell)
+      (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 50M
+                                    :purchase-price 10M}
+                              #:lot{:purchase-date (t/local-date 2016 3 2)
+                                    :shares-purchased 100M
+                                    :shares-owned 100M
+                                    :purchase-price 20M}]
+                             (models/select #:lot{:commodity commodity
+                                                  :account ira}
+                                            {:sort [[:lot/purchase-date :asc]]}))
+          "Shares are sold from the earliest lot"))))
 
 (deftest undo-a-purchase
-  (let [context (realize purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        purchase (trading/buy {:trade-date (t/local-date 2017 3 2)
-                               :shares 100M
-                               :commodity-id (:id commodity)
-                               :account-id (:id ira)
-                               :value 1000M})]
-    (trading/unbuy (:transaction purchase))
+  (with-context sale-context
+    (trading/unbuy-and-propagate
+      (find-transaction [(t/local-date 2016 3 2)
+                         "Purchase 100.000 shares of AAPL at 10.000"] ))
     ; TODO Should we delete the price that was created?
-    (testing "the account balance"
-      (is (= 2000M (:quantity (accounts/reload ira)))
-          "The account balance is restored"))
-    (testing "the affected lots"
-      (is (= [] (lots/search {:account-id (:id ira)}))
+    (testing "The trading account"
+      (is (comparable? {:account/quantity 2000M}
+                       (models/find (find-account "IRA")))
+          "The trading account balance is restored"))
+    (testing "The commodity account"
+      (is (comparable? {:account/quantity 0M}
+                       (models/find (find-account "AAPL")))
+          "The commodity account balance is restored"))
+    (testing "The lot"
+      (is (= 0 (models/count {:lot/account (find-account "IRA")}))
           "The lot is deleted"))))
 
 (deftest cannot-undo-a-purchase-if-shares-have-been-sold
-  (let [context (realize purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        purchase (trading/buy {:trade-date (t/local-date 2017 3 2)
-                               :shares 100M
-                               :commodity-id (:id commodity)
-                               :account-id (:id ira)
-                               :value 1000M})
-        _ (trading/sell (sale-attributes context))]
+  (with-context sale-context
+    (trading/sell (sale-attributes))
     (is (thrown-with-msg? IllegalStateException #"Cannot undo"
-                          (trading/unbuy (:transaction purchase))))))
+                          (trading/unbuy
+                            (find-transaction [(t/local-date 2016 3 2)
+                                               "Purchase 100.000 shares of AAPL at 10.000"]))))))
 
+(def ^:privat existing-sale-context
+  (conj sale-context
+        #:trade{:type :sale
+                :entity "Personal"
+                :commodity "AAPL"
+                :account "IRA"
+                :inventory-method :fifo
+                :date (t/local-date 2017 3 2)
+                :shares 25M
+                :value 375M}))
+
+; IRA balance balance before purchase: $2,000
+;                      after purchase: $1,000
+;                          after sale: $1,375
+;                        after unsale: $1,000
 (deftest undo-a-sale
-  (let [context (realize purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        _ (trading/buy {:trade-date (t/local-date 2017 3 2)
-                        :shares 100M
-                        :commodity-id (:id commodity)
-                        :account-id (:id ira)
-                        :value 1000M})
-        sale (trading/sell (sale-attributes context))
-        _ (trading/unsell (:transaction sale))]
-    ; IRA balance balance before purchase: $2,000
-    ;                      after purchase: $1,000
-    ;                          after sale: $1,375
-    ;                        after unsale: $1,000
-    (is (= 1000M (:quantity (accounts/reload ira)))
-        "The account balance is restored")
-    (testing "the affected lots"
-      (doseq [lot (map lots/find (:lots sale))]
-        (is (= (:shares-owned lot) (:shares-purchased lot))
-            "The shares-owned should be restored")))))
+  (with-context existing-sale-context
+    (let [trx (find-transaction [(t/local-date 2017 3 2)
+                                 "Sell 25.000 shares of AAPL at 15.000"])
+          ira (find-account "IRA")]
+      (trading/unsell-and-propagate trx)
+      (testing "The transaction"
+        (is (nil? (models/find trx))
+            "The transaction cannot be retrieved after unsell"))
+      (testing "The trading account"
+        (is (comparable? {:account/quantity 1000M}
+                         (models/find ira))
+            "The account balance is restored"))
+      (testing "The affected lots"
+        (is (seq-of-maps-like? [#:lot{:shares-purchased 100M
+                                      :shares-owned 100M}]
+                               (models/select {:lot/account ira}))
+            "The shares owned are restored")))))
 
 (def ^:private transfer-context
-  (update-in sale-context [:accounts] conj {:name "IRA 2"
-                                            :type :asset}))
+  (conj sale-context
+        #:account{:name "IRA 2"
+                  :entity "Personal"
+                  :type :asset}))
 
 (deftest transfer-a-commodity
-  (let [context (realize transfer-context)
-        [ira ira-2] (find-accounts context "IRA" "IRA 2")
-        commodity (find-commodity context "AAPL")
-        result (trading/transfer {:commodity-id (:id commodity)
-                                  :from-account-id (:id ira)
-                                  :to-account-id (:id ira-2)
-                                  :shares 100M
-                                  :transfer-date (t/local-date 2016 4 2)})
-        [ira-commodity-account
-         ira-2-commodity-account] (->> [ira ira-2]
-                                       (map :id)
-                                       (map #(accounts/search
-                                              {:parent-id %
-                                               :commodity-id (:id commodity)}))
-                                       (map first))
-        actual-lots (map #(dissoc % :created-at :updated-at :id)
-                         (lots/search {:commodity-id (:id commodity)}))
-        expected-lots [{:commodity-id (:id commodity)
-                        :account-id (:id ira-2)
-                        :shares-owned 100M
-                        :purchase-price 10M
-                        :shares-purchased 100M
-                        :purchase-date (t/local-date 2016 3 2)}]
-        expected-transaction {:transaction-date (t/local-date 2016 4 2)
-                              :description "Transfer 100 shares of AAPL"
-                              :entity-id (:entity-id commodity)
-                              :items [{:action :credit
-                                       :quantity 100M
-                                       :value 1000M
-                                       :balance 0M
-                                       :account-id (:id ira-commodity-account)}
-                                      {:action :debit
-                                       :quantity 100M
-                                       :value 1000M
-                                       :balance 100M
-                                       :account-id (:id ira-2-commodity-account)}]}
-        actual-transaction (-> (:transaction result)
-                               (select-keys [:entity-id
-                                             :transaction-date
-                                             :description
-                                             :items])
-                               (update-in [:items]
-                                          (fn [items]
-                                            (map #(select-keys
-                                                   %
-                                                   [:action
-                                                    :account-id
-                                                    :quantity
-                                                    :action
-                                                    :value
-                                                    :balance])
-                                                 items))))]
-    (is result "A non-nil result is returned")
-    (is (valid? result) "The result is valid")
-    (is (= expected-transaction actual-transaction)
-        "The correct transaction is returned")
-    (is (= expected-lots actual-lots)
-        "The lots are adjusted correctly.")
-    ; Original account balance was 2,000, we bought 1,000 worth of
-    ; shares of AAPL, then transfered those shares out of the account
-    ; leaving 1,000 in cash
-    (is (= 1000M (:quantity (accounts/reload ira)))
-        "The balance in the 'from' account is updated correctly")
-    ; No money was ever addedto the second account, so the balance
-    ; is still 0
-    (is (= 0M (:quantity (accounts/reload ira-2)))
-        "The balance in the 'to' account is updated correclty")))
+  (with-context transfer-context
+    (let [from-account (find-account "IRA")
+          to-account (find-account "IRA 2")
+          commodity (models/find (find-commodity "AAPL")) ; reload to get the date boundaries
+          [result] (trading/transfer-and-propagate
+                   #:transfer{:commodity commodity
+                              :from-account from-account
+                              :to-account to-account
+                              :shares 100M
+                              :date (t/local-date 2016 4 2)})]
+      (testing "The transaction"
+        (is (comparable?
+              #:transaction{:transaction-date (t/local-date 2016 4 2)
+                            :description "Transfer 100 shares of AAPL"
+                            :entity (util/->model-ref (find-entity "Personal"))
+                            :items [#:transaction-item{:action :credit
+                                                       :quantity 100M
+                                                       :value 1000M
+                                                       :balance 0M
+                                                       :account (util/->model-ref
+                                                                  (models/find-by #:account{:name "AAPL"
+                                                                                            :parent from-account}))}
+                                    #:transaction-item{:action :debit
+                                                       :quantity 100M
+                                                       :value 1000M
+                                                       :balance 100M
+                                                       :account (util/->model-ref
+                                                                  (models/find-by #:account{:name "AAPL"
+                                                                                            :parent to-account}))}]}
+              (models/find (:transfer/transaction result)))
+            "A transaction is created and returned"))
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:commodity (util/->model-ref commodity)
+                                      :account (util/->model-ref to-account)
+                                      :shares-owned 100M
+                                      :purchase-price 10M
+                                      :shares-purchased 100M
+                                      :purchase-date (t/local-date 2016 3 2)}]
+                               (models/select {:lot/commodity commodity}))
+            "The lot is updated to reflect the new account"))
+      (testing "The originating account"
+        ; Original account balance was 2,000, we bought 1,000 worth of
+        ; shares of AAPL, then transfered those shares out of the account
+        ; leaving 1,000 in cash
+        (is (comparable? #:account{:quantity 1000M
+                                   :name "IRA"}
+                         (models/find from-account))
+            "The account balance reflects the cash before the transfer"))
+      (testing "The destination account"
+        ; No money was ever addedto the second account, so the balance
+        ; is still 0
+        (is (comparable? #:account{:quantity 0M
+                                   :name "IRA 2"}
+                         (models/find to-account))
+            "The account balance reflects the cash on hand before the transfer")))))
 
 (deftest split-a-commodity
-  (let [context (realize sale-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        commodity-account (accounts/find-by {:commodity-id (:id commodity)
-                                             :entity-id (:entity-id commodity)})
-        result (trading/split {:commodity-id (:id commodity)
-                               :account-id (:id ira)
-                               :shares-gained 100M
-                               :split-date (t/local-date 2016 3 3)})
-        lots (lots/search {:commodity-id (:id commodity)})
-        actual-lots (map #(dissoc % :id :created-at :updated-at :commodity-id) lots)
-        expected-lots [{:purchase-date (t/local-date 2016 3 2)
-                        :account-id (:id ira)
-                        :purchase-price 5M
-                        :shares-purchased 200M
-                        :shares-owned 200M}]
-        expected-transaction {:entity-id (:entity-id commodity)
-                              :transaction-date (t/local-date 2016 3 3)
-                              :description "Split shares of AAPL 2 for 1"
-                              :value 0M
-                              :items [{:action :debit
-                                       :account-id (:id commodity-account)
-                                       :quantity 100M
-                                       :polarized-quantity 100M
-                                       :balance 200M
+  (with-context sale-context
+    (let [ira (find-account "IRA")
+          commodity (find-commodity "AAPL")
+          commodity-account (models/find-by #:account{:name "AAPL"
+                                                      :parent ira})
+          [result] (trading/split-and-propagate
+                     #:split{:commodity commodity
+                             :account ira
+                             :shares-gained 100M
+                             :date (t/local-date 2016 3 3)})]
+      (is (= 2M (:split/ratio result))
+          "The split ratio is returned")
+      (testing "The transaction"
+        (is (comparable? #:transaction{:entity (:commodity/entity commodity)
+                                       :transaction-date (t/local-date 2016 3 3)
+                                       :description "Split shares of AAPL 2 for 1"
                                        :value 0M
-                                       :description "Split shares of AAPL 2 for 1"}]}]
-    (is (valid? result) "The result has no validation errors")
-    (is (= 2M (:ratio result))
-        "The correct split ratio is returned")
-    (is (comparable? expected-transaction (:transaction result))
-        "The result contains the transaction that was created")
-    (is (= expected-lots actual-lots)
-        "The lots are adjusted correctly")
-    (is (= 1000M (:quantity (accounts/reload ira)))
-          "The account has the correct balance after the transfer.")))
+                                       :items [#:transaction-item{:action :debit
+                                                                  :account (util/->model-ref commodity-account)
+                                                                  :quantity 100M
+                                                                  :balance 200M
+                                                                  :value 0M}]}
+                         (models/find (:split/transaction result)))
+            "The result contains the transaction that was created"))
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)
+                                      :account (util/->model-ref ira)
+                                      :purchase-price 5M
+                                      :shares-purchased 200M
+                                      :shares-owned 200M}]
+                               (models/select #:lot{:commodity commodity}))
+            "The lots are adjusted correctly"))
+      (testing "The trading account"
+        (is (comparable? {:account/quantity 1000M}
+                         (models/find ira))
+            "The account balance is unchanged")))))
 
 (def ^:private rev-split-context
-  (assoc purchase-context :trades [{:type :purchase
-                                    :trade-date (t/local-date 2016 3 2)
-                                    :entity-id "Personal"
-                                    :account-id "IRA"
-                                    :commodity-id "AAPL"
-                                    :shares 1500M
-                                    :value 30000M}]))
+  (conj purchase-context
+        #:trade{:type :purchase
+                :entity "Personal"
+                :date (t/local-date 2016 3 2)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 1500M
+                :value 30000M}))
 
 (deftest reverse-split-a-commodity
-  (let  [ctx (realize rev-split-context)
-         account (find-account ctx "IRA")
-         commodity (find-commodity ctx "AAPL")
-         result (trading/split {:split-date (t/local-date 2016 4 1)
-                                :account-id (:id account)
-                                :commodity-id (:id commodity)
-                                :shares-gained -1350M})
-         lots (lots/search {:account-id (:id account)
-                            :commodity-id (:id commodity)})]
-    (is (= "Split shares of AAPL 1 for 10"
-           (get-in result [:transaction :description]))
-        "The transaction has the correct description")
-    (is (= :credit (get-in result [:transaction :items 0 :action]))
-        "The transaction item has the correct action")
-    (is (= [{:purchase-date (t/local-date 2016 3 2)
-             :shares-owned 150M
-             :purchase-price 200M}]
-           (map #(select-keys % [:purchase-date
-                                 :shares-owned
-                                 :purchase-price])
-                lots))
-        "The lot is updated correctly.")))
+  (with-context rev-split-context
+    (let [account (find-account "IRA")
+          commodity (find-commodity "AAPL")
+          result (trading/split #:split{:date (t/local-date 2016 4 1)
+                                        :account account
+                                        :commodity commodity
+                                        :shares-gained -1350M})]
+      (testing "The transaction"
+        (is (comparable? #:transaction{:description "Split shares of AAPL 1 for 10"
+                                       :items [#:transaction-item{:action :credit
+                                                                  :quantity 1350M}]}
+                         (:split/transaction result))))
+
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)
+                                      :shares-purchased 150M
+                                      :shares-owned 150M
+                                      :purchase-price 200M}]
+                               (models/select #:lot{:account account
+                                                    :commodity commodity})))))))

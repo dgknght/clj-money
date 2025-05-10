@@ -7,49 +7,54 @@
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
             [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
                                             parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
-            [clj-money.test-context :refer [basic-context
-                                            realize
+            [clj-money.test-context :refer [with-context
+                                            basic-context
                                             find-user
                                             find-transaction
                                             find-attachment]]
-            [clj-money.models.attachments :as att]
+            [clj-money.models :as models]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private att-context
-  (assoc basic-context :transactions [{:transaction-date (t/local-date 2015 1 1)
-                                       :description "Paycheck"
-                                       :quantity 1000M
-                                       :debit-account-id "Checking"
-                                       :credit-account-id "Salary"}]))
+  (conj basic-context
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :quantity 1000M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}))
 
 (defn- create-attachment
   [email]
-  (let [ctx (realize att-context)
-        transaction (find-transaction ctx (t/local-date 2015 1 1) "Paycheck")
-        user (find-user ctx email)
-        file (io/file (io/resource "fixtures/attachment.jpg"))
-        response (-> (req/request :post (path :api
-                                              :transactions
-                                              (:id transaction)
-                                              (dates/serialize-local-date (:transaction-date transaction))
-                                              :attachments))
-                     (merge (build-multipart-request {:file {:file file
-                                                             :content-type "image/jpg"}}))
-                     (add-auth user)
-                     (req/header "Accept" "application/edn")
-                     app
-                     parse-edn-body)
-        retrieved (when-let [id (get-in response [:edn-body :id])]
-                    (att/find id))]
-    [response retrieved]))
+  (with-context att-context
+    (let [transaction (find-transaction [(t/local-date 2015 1 1) "Paycheck"])
+          file (io/file (io/resource "fixtures/attachment.jpg"))
+          response (-> (req/request :post (path :api
+                                                :transactions
+                                                (:id transaction)
+                                                (dates/serialize-local-date
+                                                  (:transaction/transaction-date transaction))
+                                                :attachments))
+                       (merge (build-multipart-request {:file {:file file
+                                                               :content-type "image/jpg"}
+                                                        :attachment/caption "receipt"}))
+                       (add-auth (find-user email))
+                       (req/header "Accept" "application/edn")
+                       app
+                       parse-edn-body)]
+      [response
+       (when-let [id (get-in response [:edn-body :id])]
+         (models/find id :attachment))])))
 
 (defn- assert-successful-create
   [[{:keys [edn-body] :as response} retrieved]]
@@ -57,7 +62,7 @@
   (is (empty? (::v/errors edn-body))
       "There are no validation errors")
   (is (:id edn-body) "An ID is assigned to the new record")
-  (is (comparable? {:transaction-date (t/local-date 2015 1 1)}
+  (is (comparable? {:attachment/transaction-date (t/local-date 2015 1 1)}
                    retrieved) 
       "The created attachment can be retrieved"))
 
@@ -73,38 +78,38 @@
   (assert-blocked-create (create-attachment "jane@doe.com")))
 
 (def ^:private list-context
-  (assoc att-context
-         :images [{:user-id "john@doe.com"
-                   :original-filename "receipt.jpg"
-                   :content-type "image/jpg"
-                   :body (io/file (io/resource "fixtures/attachment.jpg"))}]
-         :attachments [{:caption "Receipt"
-                        :transaction-id {:transaction-date (t/local-date 2015 1 1)
-                                         :description "Paycheck"}
-                        :image-id "receipt.jpg"}]))
+  (conj att-context
+        #:image{:user "john@doe.com"
+                :original-filename "receipt.jpg"
+                :content-type "image/jpg"
+                :body (io/file (io/resource "fixtures/attachment.jpg"))}
+        #:attachment{:caption "Receipt"
+                     :transaction [(t/local-date 2015 1 1)
+                                   "Paycheck"]
+                     :image "receipt.jpg"}))
 
 (defn- list-attachments
   [email]
-  (let [ctx (realize list-context)
-        user (find-user ctx email)
-        transaction (find-transaction ctx (t/local-date 2015 1 1) "Paycheck")]
-    (-> (req/request :get (str (path :api
-                                     :attachments)
-                               "?"
-                               (map->query-string
-                                 {:transaction-date-on-or-after "2015-01-01"
-                                  :transaction-date-on-or-before "2015-01-31"
-                                  :transaction-id (:id transaction)})))
-        (add-auth user)
-        app
-        parse-edn-body)))
+  (with-context list-context
+    (let [transaction (find-transaction [(t/local-date 2015 1 1)
+                                         "Paycheck"])]
+      (-> (req/request :get (str (path :api
+                                       :attachments)
+                                 "?"
+                                 (map->query-string
+                                   {:transaction-date-on-or-after "2015-01-01"
+                                    :transaction-date-on-or-before "2015-01-31"
+                                    :transaction-id (:id transaction)})))
+          (add-auth (find-user email))
+          app
+          parse-edn-body))))
 
 (defn- assert-successful-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:caption "Receipt"}]
+  (is (seq-of-maps-like? [{:attachment/caption "Receipt"}]
                          edn-body)
-      "The list of attachments is returned"))
+      "The list of attachments is returned."))
 
 (defn- assert-blocked-list
   [{:as response :keys [edn-body]}]
@@ -119,35 +124,34 @@
 
 (defn- update-attachment
   [email]
-  (let [ctx (realize list-context)
-        attachment (find-attachment ctx "Receipt")
-        user (find-user ctx email)
-        response (-> (req/request :patch (path :api
-                                               :attachments
-                                               (:id attachment)))
-                     (edn-body (assoc attachment :caption "Updated caption"))
-                     (add-auth user)
-                     app
-                     parse-edn-body)
-        retrieved (att/find attachment)]
-    [response retrieved]))
+  (with-context list-context
+    (let [attachment (find-attachment "Receipt")
+          response (-> (req/request :patch (path :api
+                                                 :attachments
+                                                 (:id attachment)))
+                       (edn-body (assoc attachment
+                                        :attachment/caption "Updated caption"))
+                       (add-auth (find-user email))
+                       app
+                       parse-edn-body)]
+      [response (models/find attachment)])))
 
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? {:caption "Updated caption"}
+  (is (comparable? {:attachment/caption "Updated caption"}
                    edn-body)
       "The updated attachment is returned")
-  (is (comparable? {:caption "Updated caption"}
+  (is (comparable? {:attachment/caption "Updated caption"}
                    retrieved)
       "The database is updated"))
 
 (defn- assert-blocked-update
   [[response retrieved]]
   (is (http-not-found? response))
-  (is (comparable? {:caption "Receipt"}
+  (is (comparable? {:attachment/caption "Receipt"}
                    retrieved)
-      "The database is not updated"))
+      "The retrieved attachment has the original values"))
 
 (deftest a-user-can-update-an-attachment-in-his-entity
   (assert-successful-update (update-attachment "john@doe.com")))
@@ -157,17 +161,15 @@
 
 (defn- delete-attachment
   [email]
-  (let [ctx (realize list-context)
-        attachment (find-attachment ctx "Receipt")
-        user (find-user ctx email)
-        response (-> (req/request :delete (path :api
-                                                :attachments
-                                                (:id attachment)))
-                     (edn-body (assoc attachment :caption "Updated caption"))
-                     (add-auth user)
-                     app)
-        retrieved (att/find attachment)]
-    [response retrieved]))
+  (with-context list-context
+    (let [attachment (find-attachment "Receipt")
+          response (-> (req/request :delete (path :api
+                                                  :attachments
+                                                  (:id attachment)))
+                       (edn-body (assoc attachment :caption "Updated caption"))
+                       (add-auth (find-user email))
+                       app)]
+      [response (models/find attachment)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]

@@ -1,13 +1,19 @@
 (ns clj-money.authorization.images
   (:refer-clojure :exclude [update])
-  (:require [clj-money.models :as models]
-            [dgknght.app-lib.authorization :as authorization]
-            [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
+  (:require [clj-money.util :refer [model=] :as util]
+            [clj-money.models :as models]
+            [clj-money.authorization :as authorization]
+            [clj-money.models.auth-helpers :refer [user-granted-access?]]))
 
-(defmethod authorization/allowed? [::models/image ::authorization/manage]
+(defmethod authorization/allowed? [:image ::authorization/manage]
   [image action user]
-  (owner-or-granted? image user action))
+  (or (model= user (:image/user image))
+      (let [entity (models/find-by
+                     (util/model-type
+                       {:attachment/image image}
+                       :entity))]
+        (user-granted-access? image entity user action))))
 
-(defmethod authorization/scope ::models/image
+(defmethod authorization/scope :image
   [_ user]
-  {:user-id (:id user)})
+  {:image/user user})

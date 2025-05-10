@@ -176,6 +176,22 @@
     (is (dates/equal? feb (dates/latest jan feb)))
     (is (dates/equal? feb (dates/latest feb jan)))))
 
+(deftest get-the-first-day-of-the-year
+  (is (= (t/local-date 2020 1 1)
+         (dates/first-day-of-the-year 2020))
+      "It returns the first day of the specified year when given a number")
+  (is (= (t/local-date 2020 1 1)
+         (dates/first-day-of-the-year (t/local-date 2020 3 2)))
+      "It returns the first day of the same year when given a date"))
+
+(deftest get-the-last-day-of-the-year
+  (is (= (t/local-date 2020 12 31)
+         (dates/last-day-of-the-year 2020))
+      "It returns the last day of the specified year when given a number")
+  (is (= (t/local-date 2020 12 31)
+         (dates/last-day-of-the-year (t/local-date 2020 3 2)))
+      "It returns the last day of the same year when given a date"))
+
 (deftest get-the-first-day-of-a-month
   (is (dates/equal? (t/local-date 2015 4 1)
                     (dates/first-day-of-the-month 2015 4))))
@@ -300,3 +316,12 @@
     (is (dates/equal? (t/local-date 2000 1 31)
                       end)
         "The range end date is in the second position of the return value.")))
+
+#?(:clj (deftest parse-a-second-to-an-instant
+          (is (= (t/instant "2025-02-21T05:59:59Z")
+                 (dates/of-epoch-second 1740117599)))))
+
+#?(:clj (deftest get-an-instance-in-a-specific-time-zone
+          (is (= (t/zoned-date-time 2020 1 1 12 0 0 0 (dates/zone-id "America/Chicago"))
+                 (dates/at-zone (t/instant "2020-01-01T18:00:00Z")
+                                "America/Chicago")))))

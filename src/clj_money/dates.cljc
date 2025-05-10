@@ -1,6 +1,7 @@
 (ns clj-money.dates
   (:require #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
+            [clojure.walk :refer [postwalk]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.format :as tf])
@@ -8,7 +9,7 @@
             [dgknght.app-lib.core :refer [parse-int]]
             [clj-money.util :as util])
   #?(:clj (:import [org.threeten.extra Interval]
-                   [java.time ZoneOffset LocalDate Instant]
+                   [java.time ZoneId ZoneOffset LocalDate Instant]
                    [java.time.temporal ChronoUnit])
      :cljs (:import [goog.date Date DateTime])))
 
@@ -17,7 +18,14 @@
            (-equiv [this other]
              (and (= (type this)
                      (type other))
-                  (t/equal? this other)))))
+                  (t/equal? this other)))
+
+           IComparable
+           (-compare [d1 d2]
+             (cond
+               (t/before? d1 d2) -1
+               (t/after? d1 d2)   1
+               :else 0))))
 
 (declare serialize-local-date)
 (declare serialize-local-date-time)
@@ -25,10 +33,10 @@
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
            (-pr-writer [date writer _]
-             (write-all writer "#local-date \"" (serialize-local-date date) "\""))
+             (write-all writer "#clj-money/local-date \"" (serialize-local-date date) "\""))
            DateTime
            (-pr-writer [date writer _]
-             (write-all writer "#local-date-time \"" (serialize-local-date-time date) "\""))))
+             (write-all writer "#clj-money/local-date-time \"" (serialize-local-date-time date) "\""))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn local-date
@@ -126,6 +134,24 @@
 (defn today []
   #?(:clj (t/local-date)
      :cljs (t/today)))
+
+(defn first-day-of-the-year
+  ([] (first-day-of-the-year (today)))
+  ([date-or-year]
+   (let [year (if (local-date? date-or-year)
+                (t/year date-or-year)
+                date-or-year)]
+     (t/local-date year 1 1))))
+
+(defn last-day-of-the-year
+  ([] (last-day-of-the-year (today)))
+  ([date-or-year]
+   (let [year (if (local-date? date-or-year)
+                (t/year date-or-year)
+                date-or-year)]
+     (t/minus (t/plus (t/local-date year 1 1)
+                      (t/years 1))
+              (t/days 1)))))
 
 (defn first-day-of-the-month
   ([] (first-day-of-the-month (today)))
@@ -386,3 +412,26 @@
 (defn range-boundaries
   [ds]
   (first-and-last (sort t/before? ds)))
+
+#?(:clj (defn zone-id
+          [zone-name]
+          (ZoneId/of zone-name)))
+
+#?(:clj (defn at-zone
+          [instant zone]
+          (.atZone instant
+                   (if (string? zone)
+                     (zone-id zone)
+                     zone))))
+
+#?(:clj (defn of-epoch-second
+          [second]
+          (Instant/ofEpochSecond second)))
+
+(defn serialize-criteria-dates
+  [criteria]
+  (postwalk (fn [x]
+              (if (local-date? x)
+                (serialize-local-date x)
+                x))
+            criteria))

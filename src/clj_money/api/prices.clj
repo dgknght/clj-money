@@ -1,136 +1,163 @@
 (ns clj-money.api.prices
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [stowaway.core :as storage]
-            [dgknght.app-lib.core :refer [uuid
-                                          update-in-if
-                                          parse-int]]
-            [dgknght.app-lib.authorization :refer [+scope
-                                             authorize]
-             :as authorization]
+            [clojure.set :refer [rename-keys]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          uuid
+                                          parse-int
+                                          index-by]]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util :refer [model=]]
+            [clj-money.comparatives :as comparatives]
             [clj-money.dates :as dates]
             [clj-money.prices :as p]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.prices.alpha-vantage :as alpha-vantage]
             [clj-money.prices.cache :as cache]
             [clj-money.models :as models]
-            [clj-money.models.commodities :as commodities]
-            [clj-money.models.prices :as prices]
+            [clj-money.models.propagation :as prop]
+            [clj-money.authorization :refer [+scope
+                                             authorize]
+             :as authorization]
             [clj-money.authorization.prices]))
+
+(defn- unserialize-date
+  [x]
+  (cond
+    (vector? x) (mapv unserialize-date x)
+    (string? x) (dates/unserialize-local-date x)
+    :else x))
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
-  {:pre [(:trade-date params)]}
-
   (->  params
-      (update-in [:trade-date] #(apply vector :between> (map dates/unserialize-local-date %)))
+      comparatives/symbolize
+      (update-in [:trade-date] unserialize-date)
       (select-keys [:commodity-id :entity-id :trade-date])
-      (+scope ::models/price authenticated)))
+      (rename-keys {:commodity-id :price/commodity
+                    :entity-id :commodity/entity
+                    :trade-date :price/trade-date})
+      (update-in-if [:price/commodity] util/->model-ref)
+      (update-in-if [:commodity/entity] util/->model-ref)
+      (+scope :price authenticated)
+      (util/model-type :price)))
 
 (defn- index
   [req]
-  (api/response
-    (prices/search (extract-criteria req)
-                   {:sort [[:trade-date :desc]]})))
-
-(defn- ensure-local-date
-  [d]
-  (if (string? d)
-    (dates/unserialize-local-date d)
-    d))
-
-(defn- extract-price
-  [{:keys [params]}]
-  (-> params
-      (select-keys [:commodity-id :trade-date :price])
-      (update-in-if [:trade-date] ensure-local-date)
-      (storage/tag ::models/price)))
+  (-> req
+      extract-criteria
+      (models/select {:sort [[:price/trade-date :desc]]})
+      api/response))
 
 (defn- create
-  [{:keys [authenticated] :as req}]
-  (-> req
-      extract-price
+  [{:keys [authenticated params]}]
+  (-> params
+      (select-keys [:price/trade-date
+                    :price/price])
+      (assoc :price/commodity {:id (:commodity-id params)})
       (authorize ::authorization/create authenticated)
-      prices/create
+      prop/put-and-propagate
       api/creation-response))
 
-(defn- scoped-find
+(defn- find-and-authorize
   [{:keys [params authenticated]} action]
-  (authorize (prices/find (uuid (:id params))
-                          (:trade-date params))
+  (authorize (models/find-by {:id (uuid (:id params))
+                              :price/trade-date (dates/unserialize-local-date (:trade-date params))})
              action
              authenticated))
 
 (defn- update
-  [req]
-  (or (some-> (scoped-find req ::authorization/update)
-              (merge (extract-price req))
-              prices/update
+  [{:as req :keys [params]}]
+  (or (some-> (find-and-authorize req ::authorization/update)
+              (merge (select-keys params [:price/price
+                                          :price/trade-date]))
+              prop/put-and-propagate
               api/update-response)
       api/not-found))
 
 (defn- delete
   [req]
-  (if-let [price (scoped-find req ::authorization/destroy)]
+  (if-let [price (find-and-authorize req ::authorization/destroy)]
     (do
-      (prices/delete price)
+      (models/delete price)
       (api/response))
     api/not-found))
 
-(defn- fetch*
-  "Accepts a list of commodities and returns a map mapping
-  exchange/symbol to a map containing the commodity and the price"
-  [commodities]
-  (let [key-fn (juxt (some-fn :exchange :type)
-                     :symbol)
-        price-map (->> commodities
-                       (map (juxt key-fn
-                                  #(hash-map :commodity %)))
-                       (into {}))]
-    (reduce (fn [m {:keys [provider types]}]
-              (let [symbols (->> (vals m)
-                                 (remove :price)
-                                 (filter #(types (get-in % [:commodity :type])))
-                                 (map (comp :symbol :commodity)))]
-                (if (seq symbols)
-                  (reduce #(update-in %1 [(key-fn %2)] assoc :price %2)
-                          m
-                          (p/fetch-prices provider symbols))
-                  (reduced m))))
-            price-map
-            [{:provider (cache/->CacheProvider)
-              :types #{:fund :stock :currency}}
-             {:provider (yahoo/->YahooProvider)
-              :types #{:fund :stock}}
-             {:provider (alpha-vantage/->AlphaVantageProvider)
-              :types #{:currency}}])))
+(defn- commodity-type?
+  [types]
+  (fn [{:commodity/keys [type]}]
+    (types type)))
 
-(defn- save-prices
-  [prices]
-  (doseq [{:keys [commodity price]} (filter :price (vals prices))]
-    (-> price
-        (assoc :commodity-id (:id commodity))
-        prices/create)
-    (when-not (:exchange commodity)
-      (commodities/update (assoc commodity :exchange (:exchange price)))))
-  prices)
+; TODO: Move this to a better place
+(defn- fetch*
+  "Given a sequence of commodity models, fetches prices from external services
+  and returns the price models."
+  [commodities]
+  (let [->key (juxt :commodity/exchange
+                    :commodity/symbol)
+        mapped-commodities (index-by ->key commodities)
+        with-cache-writes (fn [p]
+                            (reify p/PriceProvider
+                              (fetch-prices [_ symbols]
+                                (let [prices (p/fetch-prices p symbols)]
+                                  (->> prices
+                                       (map (fn [{:price/keys [price trade-date]
+                                                  :commodity/keys [symbol exchange]}]
+                                              {:cached-price/price price
+                                               :cached-price/trade-date trade-date
+                                               :cached-price/symbol symbol
+                                               :cached-price/exchange exchange}))
+                                       models/put-many
+                                       doall)
+                                  prices))))]
+    (:prices (reduce (fn [{:keys [commodities] :as m}
+                          {:keys [provider types]}]
+                       (if (empty? commodities)
+                         (reduced m)
+                         (let [prices (->> commodities
+                                           (filter (commodity-type? types))
+                                           (map :commodity/symbol)
+                                           (p/fetch-prices provider)
+                                           (mapv (fn [p]
+                                                   (let [c (mapped-commodities (->key p))]
+                                                     (-> p
+                                                         (assoc :price/commodity c)
+                                                         (dissoc :commodity/exchange
+                                                                 :commodity/symbol))))))]
+                           (-> m
+                               (update-in [:prices] concat prices)
+                               (update-in [:commodities] (fn [cs]
+                                                           (remove (fn [c]
+                                                                     (some #(model= (:price/commodity %)
+                                                                                    c)
+                                                                           prices))
+                                                                   cs)))))))
+                     {:commodities commodities
+                      :prices []}
+                     [{:provider (cache/->CacheProvider)
+                       :types #{:fund :stock :currency}}
+                      {:provider (with-cache-writes
+                                   (yahoo/->YahooProvider))
+                       :types #{:fund :stock}}
+                      {:provider (with-cache-writes
+                                   (alpha-vantage/->AlphaVantageProvider))
+                       :types #{:currency}}]))))
 
 (defn- fetch
   "Return prices for a specified list of commodities"
   [{:keys [params]}]
   (->> (:commodity-id params)
-       (map (comp commodities/find
+       (map (comp (models/find :commodity)
                   parse-int)
             (:commodity-id params))
        fetch*
-       save-prices
-       vals
-       (map :price)
+       models/put-many
+       (map #(update-in % [:price/commodity] util/->model-ref))
        api/response))
 
 (def routes
-  [["commodities/:commodity-id/prices" {:post {:handler create}}]
+  [["commodities/:commodity-id/prices" {:post {:handler create}
+                                        :get {:handler index}}]
    ["prices"
     ["" {:get {:handler index}}]
     ["/fetch" {:get {:handler fetch}}]
