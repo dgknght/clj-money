@@ -116,10 +116,17 @@
 (def ^:private model->sql-ref-map
   (zipmap model-ref-keys sql-ref-keys))
 
+(defn- extract-ref-id
+  [x]
+  (cond
+    (sequential? x) (mapv extract-ref-id x) ; TODO: this should really only ever be a vector
+    (keyword? x) x
+    :else (coerce-id (->id x))))
+
 (defn- ->sql-refs
   [m]
   (reduce (fn [m k]
-            (update-in-if m [k] (comp coerce-id ->id)))
+            (update-in-if m [k] extract-ref-id))
           (rename-keys m model->sql-ref-map)
           sql-ref-keys))
 
