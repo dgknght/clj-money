@@ -26,14 +26,20 @@
   [entity-name]
   (prop/propagate-all (models/find-by {:entity/name entity-name})))
 
+(defn- find-account
+  [names entity]
+  (models/find-by (cond-> {:account/name (last names)
+                           :account/entity entity}
+                    (< 1 (count names)) (assoc :account/parent
+                                               (find-account (butlast names) entity)))))
+
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn propagate-account
-  [entity-name account-name]
+  [entity-name  & account-names]
   (let [entity (models/find-by {:entity/name entity-name})]
     (trx/propagate-account-from-start
       entity
-      (models/find-by {:account/name account-name
-                       :account/entity entity}))))
+      (find-account account-names entity))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn propagate-prices
