@@ -79,7 +79,7 @@
                   :child? :transaction-item/action
                   :children-key :transaction/items}
                  {:parent? :transaction/description
-                  :child? :lot-item/lot-action
+                  :child? :lot-item/action
                   :children-key :transaction/lot-items}]})
 
 (defn- reconstruct
