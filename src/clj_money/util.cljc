@@ -29,6 +29,9 @@
 (derive #?(:clj clojure.lang.PersistentHashMap
            :cljs cljs.core/PersistentHashMap)
         ::map)
+(derive #?(:clj clojure.lang.PersistentHashSet
+           :cljs cljs.core/PersistentHashSet)
+        ::set)
 (derive #?(:clj clojure.lang.MapEntry
            :cljs cljs.core/MapEntry)
         ::map-entry)

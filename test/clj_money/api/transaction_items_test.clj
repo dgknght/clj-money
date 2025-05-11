@@ -218,7 +218,9 @@
                                                     (:id account)
                                                     :transaction-items)
                                               "?"
-                                              (map->query-string {:include-children true})))
+                                              (map->query-string {:include-children true
+                                                                  :transaction-date-on-or-after "2015-01-01"
+                                                                  :transaction-date-before "2015-02-01"})))
                        (add-auth (find-user "john@doe.com"))
                        app
                        parse-edn-body)]

@@ -8,6 +8,7 @@
                                           index-by
                                           update-in-if]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.db :as db]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.transactions :as trxs]
@@ -520,10 +521,12 @@
             others)))
 
 (defmethod prop/propagate :transaction
-  [[_ after :as change]]
+  [[before after :as change]]
   (if after
     (propagate-transaction change)
-    (propagate-dereferenced-account-items change)))
+    (concat (propagate-dereferenced-account-items change)
+            (map (fn [i] [::db/delete i])
+                 (:transaction/items before)))))
 
 (defmethod models/before-delete :transaction
   [trx]

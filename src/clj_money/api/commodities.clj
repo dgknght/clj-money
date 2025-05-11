@@ -53,7 +53,8 @@
 
 (defn- index
   [req]
-  (->> (models/select (extract-criteria req))
+  (->> (models/select (extract-criteria req)
+                      {:sort [:commodity/symbol]})
        append-current-prices
        append-shares-owned
        api/response))

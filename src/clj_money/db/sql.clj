@@ -116,10 +116,25 @@
 (def ^:private model->sql-ref-map
   (zipmap model-ref-keys sql-ref-keys))
 
+(defn- extract-ref-id
+  [x]
+  (cond
+    ; An operation, like [:between start end] or [:in '(1 2 3)]
+    (vector? x) (apply vector (first x) (map extract-ref-id (rest x)))
+
+    ; A model or model reference, like {:id 1}
+    (map? x)    (if-let [id (:id x)] id x)
+
+    ; A list of values in an :in clause, like [:in #{1 2 3}]
+    (coll? x)    (set (map extract-ref-id x))
+
+    ; a value that can be used as-is
+    :else x))
+
 (defn- ->sql-refs
   [m]
   (reduce (fn [m k]
-            (update-in-if m [k] (comp coerce-id ->id)))
+            (update-in-if m [k] extract-ref-id))
           (rename-keys m model->sql-ref-map)
           sql-ref-keys))
 
