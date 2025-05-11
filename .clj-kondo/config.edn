@@ -107,5 +107,6 @@
            :unused-namespace {:exclude [dgknght.app-lib.validation-tests
                                         clj-http.core
                                         clojure.pprint
-                                        cljs.pprint]}}
+                                        cljs.pprint]}
+           :missing-protocol-method {:level :off}}
  :output {:exclude-files ["data_readers.clj"]}}
