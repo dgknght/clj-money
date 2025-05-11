@@ -4,17 +4,16 @@
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.predicates :as tp])
-            [clojure.set :refer [rename-keys]]
             [clj-money.dates :as dates]))
 
-(defmulti ^:private period :interval-type)
+(defmulti ^:private period :scheduled-transaction/interval-type)
 
 (defmethod period :year
-  [{:keys [interval-count]}]
+  [{:scheduled-transaction/keys [interval-count]}]
   (t/years interval-count))
 
 (defmethod period :month
-  [{:keys [interval-count]}]
+  [{:scheduled-transaction/keys [interval-count]}]
   (t/months interval-count))
 
 (defmethod period :week
@@ -22,18 +21,20 @@
   (t/days 1))
 
 (defn- seq-start
-  [{:keys [start-date last-occurrence] :as sched-tran}]
+  [{:scheduled-transaction/keys [start-date last-occurrence] :as sched-trx}]
   (or (when last-occurrence
-        (t/plus last-occurrence (period sched-tran)))
+        (t/plus last-occurrence (period sched-trx)))
       start-date))
 
-(defmulti ^:private date-seq :interval-type)
+(defmulti ^:private date-seq :scheduled-transaction/interval-type)
 
 ; spec - {:month m :day d}
 (defmethod date-seq :year
-  [{:keys [interval-count] {:keys [month day]} :date-spec :as sched-tran}]
-  (let [first-date (->> (dates/periodic-seq (seq-start sched-tran)
-                                      (t/days 1))
+  [{:scheduled-transaction/keys [interval-count]
+    {:keys [month day]} :scheduled-transaction/date-spec
+    :as sched-trx}]
+  (let [first-date (->> (dates/periodic-seq (seq-start sched-trx)
+                                            (t/days 1))
                         (take 366)
                         (filter #(and (= month (dates/month %))
                                       (= day (dates/day-of-month %))))
@@ -42,9 +43,11 @@
 
 ; spec - {:day 1}, {:day :last}
 (defmethod date-seq :month
-  [{:keys [interval-count] {:keys [day]} :date-spec :as sched-tran}]
-  (let [first-date (->> (dates/periodic-seq (seq-start sched-tran)
-                                      (t/days 1))
+  [{:scheduled-transaction/keys [interval-count]
+    {:keys [day]} :scheduled-transaction/date-spec
+    :as sched-trx}]
+  (let [first-date (->> (dates/periodic-seq (seq-start sched-trx)
+                                            (t/days 1))
                         (take 31)
                         (filter #(if (or (= :last day)
                                          (< (dates/day-of-month (dates/last-day-of-the-month %))
@@ -73,9 +76,11 @@
             :saturday tp/saturday?}))
 
 (defmethod date-seq :week
-  [{:keys [interval-count] {:keys [days]} :date-spec :as sched-tran}]
+  [{:scheduled-transaction/keys [interval-count]
+    {:keys [days]} :scheduled-transaction/date-spec
+    :as sched-trx}]
   (let [pred (apply some-fn (map weekday-predicates days))]
-    (->> (dates/periodic-seq (seq-start sched-tran) (t/days 1))
+    (->> (dates/periodic-seq (seq-start sched-trx) (t/days 1))
          (take 7)
          (filter pred) ; get one start date for each specified day of the week
          (map #(dates/periodic-seq % (t/weeks interval-count))) ; each start date generates a sequence
@@ -83,9 +88,9 @@
 
 (defn next-transaction-dates
   "Returns dates in the transaction date sequence for the next x number of days (default 7)"
-  ([sched-tran]
-   (next-transaction-dates sched-tran 7))
-  ([{:keys [last-occurrence end-date] :as sched-tran} days-out]
+  ([sched-trx]
+   (next-transaction-dates sched-trx 7))
+  ([{:scheduled-transaction/keys [last-occurrence end-date] :as sched-trx} days-out]
    (let [lower-bound (or last-occurrence
                          (t/local-date 1900 1 1))
          upper-bound (->> [end-date
@@ -93,31 +98,80 @@
                           (filter identity)
                           (sort t/before?)
                           first)]
-     (->> (date-seq sched-tran)
+     (->> (date-seq sched-trx)
           (take-while #(not (t/after? % upper-bound)))
           (filter #(t/after? % lower-bound))))))
 
 (defn next-transaction-date
   "Returns the next time the scheduled transaction would be created"
-  [sched-tran]
-  (first (next-transaction-dates sched-tran 365)))
+  [sched-trx]
+  (first (next-transaction-dates sched-trx 365)))
+
+(defn- ->transaction-item
+  [{:scheduled-transaction-item/keys [account
+                                      action
+                                      quantity
+                                      memo]}]
+  #:transaction-item{:account account
+                     :action action
+                     :quantity quantity
+                     :memo memo})
 
 (defn ->transaction
-  [sched-tran transaction-date]
-  (-> sched-tran
-      (rename-keys {:id :scheduled-transaction-id})
-      (select-keys [:description
-                    :memo
-                    :entity-id
-                    :items
-                    :scheduled-transaction-id])
-      (assoc :transaction-date transaction-date)))
+  ([sched-trx]
+   (partial ->transaction sched-trx))
+  ([{:as sched-trx
+     :scheduled-transaction/keys [description
+                                  memo
+                                  entity
+                                  items]}
+    transaction-date]
+   #:transaction{:transaction-date transaction-date
+                 :description description
+                 :memo memo
+                 :entity entity
+                 :items (map ->transaction-item items)
+                 :scheduled-transaction sched-trx}))
 
-(defn pending?
-  [{:keys [enabled start-date end-date next-occurrence]}]
-  (and enabled
-       (t/after? (dates/today) start-date)
-       (or (nil? end-date)
-           (t/before? (dates/today) end-date))
-       (t/before? next-occurrence
-                  (t/plus (dates/today) (t/days 7)))))
+(defn realize
+  "Creates new transactions based on the scheduled transaction,
+  if the date of the new transactions would be within one week
+  of the current date"
+  [sched-trx]
+  (when-let [created (->> (next-transaction-dates sched-trx)
+                          (map (->transaction sched-trx))
+                          seq)]
+    (cons (assoc sched-trx
+                 :scheduled-transaction/last-occurrence
+                 (->> created
+                      (map :transaction/transaction-date)
+                      (sort t/after?)
+                      first))
+          created)))
+
+(def ^:private max-date (dates/local-date "9999-12-31"))
+
+(defn started?
+  [{:scheduled-transaction/keys [start-date]}]
+  (t/before? start-date (dates/today)))
+
+(defn ended?
+  [{:scheduled-transaction/keys [end-date]}]
+  (t/before? (or end-date max-date)
+             (dates/today)))
+
+(def not-ended? (complement ended?))
+
+(defn enabled?
+  [{:scheduled-transaction/keys [enabled]}]
+  enabled)
+
+(defn occurring-soon?
+  [{:scheduled-transaction/keys [next-occurrence]}]
+  (t/before? next-occurrence (t/plus (dates/today) (t/days 7))))
+
+(def pending?
+  (every-pred started?
+              not-ended?
+              enabled?
+              occurring-soon?))

@@ -1,31 +1,45 @@
 (ns clj-money.api.imports
   (:refer-clojure :exclude [update])
   (:require [clojure.string :as string]
-            [clojure.core.async :refer [go-loop <! chan]]
+            [clojure.pprint :refer [pprint]]
+            [clojure.core.async :as a]
             [clojure.tools.logging :as log]
+            [clojure.set :refer [rename-keys]]
             [cheshire.core :as json]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.images :as images]
-            [clj-money.import :refer [import-data]]
+            [clj-money.import :refer [import-data progress-xf]]
             [clj-money.import.gnucash]
             [clj-money.import.edn]
-            [clj-money.models.imports :as imports]
-            [dgknght.app-lib.authorization :refer [authorize +scope] :as authorization]
+            [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.authorization.imports]))
+
+(defn- report-progress
+  [imp progress-chan]
+  (a/go-loop [progress (a/<! progress-chan)]
+    (when progress
+      (models/put (assoc imp :import/progress progress))
+      (recur (a/<! progress-chan)))))
 
 (defn- launch-and-track-import
   [imp]
-  (let [progress-chan (chan)]
-    (go-loop [progress (<! progress-chan)]
-      (when progress
-        (log/debugf "import progress for %s: %s" (:entity-name imp) progress)
-        (imports/update (assoc imp :progress progress))
-        (recur (<! progress-chan))))
-    (import-data imp progress-chan)))
+  (let [out-chan (a/chan (a/sliding-buffer 10)
+                         (progress-xf))]
+    (report-progress imp out-chan)
+    (let [{:keys [entity wait-chan]} (import-data imp
+                                                  :out-chan out-chan)]
+      (log/infof "[import] started for %s" (:import/entity-name imp))
+      (a/go
+        (a/<! wait-chan)
+        (log/infof "[import] finished for %s" (:import/entity-name imp)))
+      {:entity entity
+       :import imp})))
 
 (defn- infer-content-type
   [source-file]
@@ -42,55 +56,54 @@
                       {:extension ext
                        :source-file source-file})))))
 
+(defn- ->source-file-key
+  [index]
+  (let [k (format "source-file-%s" index)]
+    (some-fn (keyword "import" k)
+             (keyword k))))
+
+(defn- source-files
+  [params]
+  (->> (range)
+       (map (comp #(% params)
+                  ->source-file-key))
+       (take-while map?)))
+
 (defn- create-images
-  [params user]
-  (let [content-type (infer-content-type (:source-file-0 params))]
-    (->> (range)
-         (map (comp params
-                    keyword
-                    #(format "source-file-%s" %)))
-         (take-while map?)
-         (map #(images/find-or-create {:user-id (:id user)
-                                       :content-type content-type
-                                       :original-filename (:filename %)
-                                       :body (read-bytes (:tempfile %))})))))
+  [user source-files]
+  (let [content-type (infer-content-type (first source-files))]
+    (->> source-files
+         (map #(images/find-or-create #:image{:user user
+                                              :content-type content-type
+                                              :original-filename (:filename %)
+                                              :body (read-bytes (:tempfile %))}))
+         (mapv util/->model-ref))))
 
 (defn- extract-import
   [{:keys [params authenticated]}]
   (-> params
-      (select-keys [:entity-name :options])
-      (update-in-if [:options] #(json/parse-string % true))
-      (assoc :user-id (:id authenticated))))
+      (select-keys [:entity-name
+                    :options
+                    :import/entity-name
+                    :import/options])
+      (rename-keys {:entity-name :import/entity-name
+                    :options :import/options})
+      (update-in-if [:import/options] #(json/parse-string % true)); TODO: Why is this not parsed with the rest of the body?
+      (assoc :import/user authenticated)))
 
 (defn- step-2
   [req images]
   (let [imp (-> req
                 extract-import
-                (assoc :image-ids (mapv :id images))
-                imports/create)]
-    (if-let [errors  (-> imp
-                         v/flat-error-messages
-                         seq)]
-      (api/response {:error (format "Unable to save the import record. %s"
-                                    (string/join ", " errors))}
-                    422)
-      (let [{:keys [entity]} (launch-and-track-import imp)]
-        (api/response {:entity entity
-                       :import imp}
-                      201)))))
+                (assoc :import/images images)
+                models/put)]
+    (api/response (launch-and-track-import imp)
+                  201)))
 
 (defn- step-1
   [{:keys [params authenticated] :as req}]
-  (let [images (create-images params authenticated)]
-    (if-let [errors (->> images
-                         (mapcat v/error-messages)
-                         seq)]
-      (api/response {:error (format "Unable to save the source file(s). %s"
-                                    (->> errors
-                                         (mapcat vals)
-                                         (string/join ", ")))}
-                    422)
-      (step-2 req images))))
+  (step-2 req (create-images authenticated
+                             (source-files params))))
 
 (defn- create
   [req]
@@ -100,37 +113,37 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (+scope ::models/import authenticated)
-          imports/find-by
+          (util/model-type :import)
+          (+scope :import authenticated)
+          models/find-by
           (authorize action authenticated)))
 
 (defn- show
   [req]
-  (if-let [imp (find-and-authorize req ::authorization/show)]
-    (api/response imp)
-    api/not-found))
+  (or (some-> (find-and-authorize req ::authorization/show)
+              api/response)
+      api/not-found))
 
 (defn- index
   [{:keys [authenticated params]}]
-  (api/response (imports/search (-> params
-                                    (select-keys [:entity-name])
-                                    (+scope ::models/import authenticated)))))
+  (api/response (models/select (-> params
+                                   (select-keys [:import/entity-name])
+                                   (+scope :import authenticated)))))
 
 (defn- delete
   [req]
   (if-let [imp (find-and-authorize req ::authorization/show)]
     (do
-      (imports/delete imp)
+      (models/delete imp)
       (api/response))
     api/not-found))
 
 (defn- start
-  [{:keys [params authenticated]}]
-  (let [imp (authorize (imports/find (:id params))
-                       ::authorization/update
-                       authenticated)]
-    (launch-and-track-import imp)
-    (api/response imp)))
+  [req]
+  (or (some-> (find-and-authorize req ::authorization/update)
+              launch-and-track-import
+              api/response)
+      api/not-found))
 
 (def routes
   [["imports"

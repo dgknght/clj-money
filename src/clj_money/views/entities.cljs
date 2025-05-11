@@ -1,13 +1,19 @@
 (ns clj-money.views.entities
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
+            [dgknght.app-lib.core :refer [parse-int]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
-            [dgknght.app-lib.forms :refer [text-field]]
+            [dgknght.app-lib.forms :refer [text-field
+                                           select-field]]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.util :as util :refer [model=]]
             [clj-money.components :refer [button]]
             [clj-money.icons :refer  [icon]]
             [clj-money.api.entities :as entities]
+            [clj-money.api.commodities :as commodities]
             [clj-money.state :as state :refer [app-state
                                                +busy
                                                -busy]]))
@@ -20,16 +26,27 @@
                      :callback -busy
                      :on-success #(state/remove-entity entity))))
 
+(defn- relay-updated-entity*
+  [entity]
+  (fn [state]
+    (-> state
+        (update-in [:entities]
+                   #(util/upsert-into
+                      entity
+                      {}
+                      %))
+        (update-in [:currenty-entity]
+                   (fn [e]
+                     (if (or (nil? e)
+                             (model= e entity))
+                       entity
+                       e))))))
+
 (defn- relay-updated-entity
   "Accepts an entity and replaces the corresponding enty
   in state/entities"
   [entity]
-  (swap! app-state update-in [:entities]
-         #(map (fn [e]
-                 (if (= (:id e) (:id entity))
-                   entity
-                   e))
-               %)))
+  (swap! app-state (relay-updated-entity* entity)))
 
 (defn- save-entity
   [page-state]
@@ -45,7 +62,13 @@
 
 (defn- entity-form
   [page-state]
-  (let [entity (r/cursor page-state [:selected])]
+  (let [entity (r/cursor page-state [:selected])
+        commodities (r/cursor page-state [:commodities])
+        comm-opts (make-reaction
+                    (fn []
+                      (->> @commodities
+                           (filter #(= :currency (:commodity/type %)))
+                           (mapv (juxt :id :commodity/name)))))]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -56,9 +79,15 @@
        [:div.card
         [:div.card-header [:strong (str (if (:id @entity) "Edit" "New") " Entity")]]
         [:div.card-body
-
-         [text-field entity [:name] {:validations #{::v/required}}]
-         #_[radio-buttons [:settings :inventory-method] ["fifo" "lifo"]]]
+         [text-field entity [:entity/name] {:validations #{::v/required}}]
+         [select-field
+          entity
+          [:entity/settings
+           :settings/default-commodity
+           :id]
+          comm-opts
+          {:transform-fn parse-int}]
+         #_[radio-buttons [:entity/settings :settings/inventory-method] ["fifo" "lifo"]]]
         [:div.card-footer
          [button {:html {:title "Click here to save this entity."
                          :class "btn btn-primary"
@@ -72,25 +101,41 @@
                   :caption "Cancel"
                   :icon :x}]]]])))
 
+(defn- load-commodities
+  [page-state]
+  (if-let [selected (:selected @page-state)]
+    (do (+busy)
+        (commodities/select
+          {:commodity/entity selected}
+          :callback -busy
+          :on-success (fn [c]
+                        (swap! page-state
+                               assoc
+                               :commodities
+                               (sort-by :commodity/name c)))))
+    (swap! page-state dissoc :commodities)))
+
 (defn- entity-row
   [entity page-state busy?]
-  ^{:key entity}
+  ^{:key (str "entity-row-" (:id entity))}
   [:tr
-   [:td (:name entity)]
+   [:td (:entity/name entity)]
    [:td.text-end
     [:div.btn-group
-     [:button.btn.btn-sm.btn-secondary {:on-click (fn []
-                                                (swap! page-state assoc :selected entity)
-                                                (set-focus "name"))
-                                    :disabled busy?
-                                    :title "Click here to edit this entity."}
+     [:button.btn.btn-sm.btn-secondary
+      {:on-click (fn []
+                   (swap! page-state assoc :selected entity)
+                   (load-commodities page-state)
+                   (set-focus "name"))
+       :disabled busy?
+       :title "Click here to edit this entity."}
       (icon :pencil :size :small)]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete entity)
                                      :disabled busy?
                                      :title "Click here to remove this entity."}
       (icon :x-circle :size :small)]]]])
 
-(defn- entity-table
+(defn- entities-table
   [page-state]
   (let [entities (r/cursor state/app-state [:entities])
         busy? (r/cursor page-state [:busy?])]
@@ -104,16 +149,15 @@
          (doall (map #(entity-row % page-state @busy?)
                      @entities))]]])))
 
-(defn- entities-page []
+(defn- index []
   (let [page-state (r/atom {})
-        current-entity (r/cursor app-state [:current-entity])
         selected (r/cursor page-state [:selected])]
     (fn []
       [:<>
        [:h1.mt-3 "Entities"]
        [:div.row
         [:div.col-md-6 {:class (when @selected "d-none d-md-block")}
-         [entity-table page-state]
+         [entities-table page-state]
          [button
           {:html {:title "Click here to create a new entity."
                   :class "btn-primary"
@@ -121,7 +165,7 @@
                               (swap! page-state
                                      assoc
                                      :selected
-                                     {:entity-id (:id @current-entity)})
+                                     {})
                               (set-focus "name"))}
            :caption "Add"
            :icon :plus}]
@@ -136,4 +180,4 @@
            [entity-form page-state]])]])))
 
 (secretary/defroute "/entities" []
-  (swap! app-state assoc :page #'entities-page))
+  (swap! app-state assoc :page #'index))

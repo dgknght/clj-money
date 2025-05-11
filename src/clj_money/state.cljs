@@ -1,8 +1,22 @@
 (ns clj-money.state
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
-            [dgknght.app-lib.core :as lib]))
+            [dgknght.app-lib.core :as lib]
+            [clj-money.util :as util]))
+
+(defn- serialize
+  "Minimize the data in the state cookie and also avoid writing
+  anything that requires a custom tag reader (like dates) to avoid
+  race conditions with the tag reader registration"
+  [state]
+  (-> state
+      (lib/update-in-if [:current-user] util/->model-ref)
+      (lib/update-in-if [:current-entity] util/->model-ref)
+      (select-keys [:auth-token
+                    :current-user
+                    :current-entity])))
 
 (defonce app-state (r/atom (merge {:mounted? false
                                    :bg-proc-count 0}
@@ -11,7 +25,7 @@
 (add-watch app-state
            ::init
            (fn [_ _ _ state]
-             (cookies/set! :state (select-keys state [:auth-token]))))
+             (cookies/set! :state (serialize state))))
 
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
@@ -43,11 +57,14 @@
 
 (defn set-entities
   [[entity :as entities]]
-  (swap! app-state #(assoc (if entity
-                             (assoc % :current-entity entity)
-                             (dissoc % :current-entity))
-                           :entities
-                           entities)))
+  (let [current (if-let [c @current-entity]
+                  (->> entities
+                       (filter #(util/model= c %))
+                       first)
+                  entity)]
+    (swap! app-state assoc
+           :entities entities
+           :current-entity current)))
 
 (defn remove-entity
   [entity]
@@ -62,4 +79,9 @@
                         (assoc :current-entity entity))))
 
 (defn logout []
-  (swap! app-state dissoc :auth-token :current-user :entities :current-entity))
+  (swap! app-state
+         dissoc
+         :auth-token
+         :current-user
+         :entities
+         :current-entity))

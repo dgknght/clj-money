@@ -1,159 +1,187 @@
 {:input "resources/fixtures/budget_sample.gnucash"
- :expectations {:declaration [{:record-type :commodity
-                               :record-count 2}
-                              {:record-type :account
-                               :record-count 10}
-                              {:record-type :transaction
-                               :record-count 6}
-                              {:record-type :budget
-                               :record-count 1}]
-                :account [{:name "Checking"
-                           :id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                           :parent-id "d005a139a1aaab6899867923509b96ca"
-                           :type :asset
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Salary"
-                           :id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
-                           :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
-                           :type :income
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Bonus"
-                           :id "fafe8f4b3b9c4592bb73e6889a42eefb" ; bonus
-                           :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
-                           :type :income
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Groceries"
-                           :id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                           :parent-id "abff103816fb2e5cb93778b1ea51ca45"
-                           :type :expense
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}
-                          {:name "Credit Card"
-                           :id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
-                           :parent-id "9ee0484c7788656a0800e28ec8cefaff"
-                           :type :liability
-                           :commodity {:exchange :currency
-                                       :symbol "USD"}}]
-                :transaction [{:transaction-date #local-date "2015-01-01"
-                               :description "Paycheck"
-                               :items [{:action :debit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled true}
-                                       {:action :credit
-                                        :account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-04"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                        :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled true}]}
-                              {:transaction-date #local-date "2015-01-11"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                        :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled true}]}
-                              {:transaction-date #local-date "2015-01-12"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 10M
-                                        :value 10M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                        :quantity 10M
-                                        :value 10M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-15"
-                               :description "Paycheck"
-                               :items [{:action :debit
-                                        :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
-                                        :quantity 1000M
-                                        :value 1000M
-                                        :reconciled false}]}
-                              {:transaction-date #local-date "2015-01-18"
-                               :description "Kroger"
-                               :items [{:action :debit
-                                        :account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}
-                                       {:action :credit
-                                        :account-id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
-                                        :quantity 100M
-                                        :value 100M
-                                        :reconciled false}]}]
-:reconciliation [{:id "00000000000000000000000000000001"
-                  :include-children false
-                  :account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
-                  :end-of-period #local-date "2015-01-15"}]
-:budget [{:id "61ed60ec54ff4ece8837ca18d5897162"
-          :name "2017"
-          :start-date #local-date "2017-01-01"
-          :period :month
-          :period-count 12
-          :items [{:account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
-                   :periods [1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M
-                             1000M]}
-                  {:account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                   :periods [200M
-                             200M
-                             250M
-                             250M
-                             275M
-                             275M
-                             200M
-                             200M
-                             250M
-                             250M
-                             275M
-                             275M]}
-                  {:account-id "fafe8f4b3b9c4592bb73e6889a42eefb" ; bonus
-                   :periods [0M
-                             0M
-                             0M
-                             0M
-                             0M
-                             0M
-                             0M
-                             0M
-                             0M
-                             0M
-                             0M
-                             800M]}]}]}}
+ :expectations {:declaration [{:declaration/record-type :commodity
+                               :declaration/record-count 1
+                               :import/record-type :declaration}
+                              {:declaration/record-type :account
+                               :declaration/record-count 10
+                               :import/record-type :declaration}
+                              {:declaration/record-type :transaction
+                               :declaration/record-count 6
+                               :import/record-type :declaration}
+                              {:declaration/record-type :budget
+                               :declaration/record-count 1
+                               :import/record-type :declaration}]
+                :account [{:account/name "Checking"
+                           :account/type :asset
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                           :import/parent-id "d005a139a1aaab6899867923509b96ca"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Salary"
+                           :account/type :income
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
+                           :import/parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Bonus"
+                           :account/type :income
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/id "fafe8f4b3b9c4592bb73e6889a42eefb" ; bonus
+                           :import/parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Groceries"
+                           :account/type :expense
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                           :import/parent-id "abff103816fb2e5cb93778b1ea51ca45"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}
+                          {:account/name "Credit Card"
+                           :account/type :liability
+                           :import/record-type :account
+                           :import/ignore? false
+                           :import/id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
+                           :import/parent-id "9ee0484c7788656a0800e28ec8cefaff"
+                           :import/commodity {:commodity/type :currency
+                                              :commodity/symbol "USD"}}]
+                :transaction [{:import/record-type :transaction
+                               :import/ignore? false
+                               :transaction/transaction-date #clj-money/local-date "2015-01-01"
+                               :transaction/description "Paycheck"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? true}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
+                                                    :import/reconciled? false}]}
+                              {:import/record-type :transaction
+                               :import/ignore? false
+                               :transaction/transaction-date #clj-money/local-date "2015-01-04"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? true}]}
+                              {:import/record-type :transaction
+                               :import/ignore? false
+                               :transaction/transaction-date #clj-money/local-date "2015-01-11"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? true}]}
+                              {:import/record-type :transaction
+                               :import/ignore? false
+                               :transaction/transaction-date #clj-money/local-date "2015-01-12"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 10M
+                                                    :transaction-item/value 10M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 10M
+                                                    :transaction-item/value 10M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}]}
+                              {:import/record-type :transaction
+                               :import/ignore? false
+                               :transaction/transaction-date #clj-money/local-date "2015-01-15"
+                               :transaction/description "Paycheck"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 1000M
+                                                    :transaction-item/value 1000M
+                                                    :import/account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
+                                                    :import/reconciled? false}]}
+                              {:import/record-type :transaction
+                               :import/ignore? false
+                               :transaction/transaction-date #clj-money/local-date "2015-01-18"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
+                                                    :import/reconciled? false}]}]
+                :reconciliation [{:import/id "00000000000000000000000000000001"
+                                  :import/record-type :reconciliation
+                                  :import/include-children? false
+                                  :import/account-id "ed92489659ab879fb9354a3a050fb65d" ; checking
+                                  :reconciliation/end-of-period #clj-money/local-date "2015-01-15"}]
+                :budget [{:import/id "61ed60ec54ff4ece8837ca18d5897162"
+                          :import/record-type :budget
+                          :budget/name "2017"
+                          :budget/start-date #clj-money/local-date "2017-01-01"
+                          :budget/period :month
+                          :budget/period-count 12
+                          :budget/items [{:import/account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
+                                          :budget-item/periods [1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M
+                                                                1000M]}
+                                         {:import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                          :budget-item/periods [200M
+                                                                200M
+                                                                250M
+                                                                250M
+                                                                275M
+                                                                275M
+                                                                200M
+                                                                200M
+                                                                250M
+                                                                250M
+                                                                275M
+                                                                275M]}
+                                         {:import/account-id "fafe8f4b3b9c4592bb73e6889a42eefb" ; bonus
+                                          :budget-item/periods [0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                0M
+                                                                800M]}]}]}}

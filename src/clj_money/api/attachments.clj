@@ -2,21 +2,19 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [stowaway.core :refer [tag]]
             [dgknght.app-lib.core :refer [uuid
                                           update-in-if]]
-            [dgknght.app-lib.authorization
+            [dgknght.app-lib.api :as api]
+            [clj-money.authorization
              :as auth
              :refer [+scope
                      authorize]]
-            [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
-            [clj-money.util :refer [nominative-variations
-                                    symbolic-comparatives]]
+            [clj-money.util :as util]
+            [clj-money.comparatives :as comparatives :refer [nominative-variations] ]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.images :as img]
-            [clj-money.models.attachments :as att]
             [clj-money.authorization.attachments]))
 
 (defn- unserialize-transaction-date
@@ -29,41 +27,46 @@
   [{:keys [params authenticated]}]
   (-> params
       unserialize-transaction-date
-      (symbolic-comparatives :transaction-date)
-      (rename-keys {"transaction-id[]" :transaction-id})
-      (update-in-if [:transaction-id] #(if (coll? %)
+      comparatives/symbolize
+      (rename-keys {"transaction-id[]" :transaction/id
+                    :transaction-id :transaction/id
+                    :transaction-date :transaction/transaction-date})
+      (update-in-if [:transaction/id] #(if (coll? %)
                                          (map uuid %)
                                          (uuid %)))
-      (+scope ::models/attachment authenticated)))
+      (+scope :attachment authenticated)))
 
 (defn- index
   [req]
   (api/response
-    (att/search (extract-criteria req))))
+    (models/select (extract-criteria req))))
 
 (defn- extract-attachment
   [{:keys [params]}]
   (-> params
       (select-keys [:transaction-id :transaction-date])
-      (update-in [:transaction-id] uuid)
-      (update-in [:transaction-date] dates/unserialize-local-date)
-      (tag ::models/attachment)))
+      (util/qualify-keys :attachment)
+      (update-in [:attachment/transaction-id] (comp util/->model-ref
+                                                    uuid))
+      (update-in [:attachment/transaction-date] dates/unserialize-local-date)
+      (rename-keys {:attachment/transaction-id :attachment/transaction})))
 
-(defn- create-image
+(defn- find-or-create-image
   [{{:keys [file]} :params
     :keys [authenticated]}]
   (-> file
       (select-keys [:content-type :filename :tempfile])
       (update-in [:tempfile] read-bytes)
-      (rename-keys {:filename :original-filename
-                    :tempfile :body})
-      (assoc :user-id (:id authenticated))
+      (rename-keys {:filename :image/original-filename
+                    :tempfile :image/body
+                    :content-type :image/content-type})
+      (assoc :image/user authenticated)
       img/find-or-create))
 
 (defn- assoc-image
   [att req]
-  (if-let [image (create-image req)]
-    (assoc att :image-id (:id image))
+  (if-let [image (find-or-create-image req)]
+    (assoc att :attachment/image image)
     att))
 
 (defn- create
@@ -71,25 +74,25 @@
   (-> (extract-attachment req)
       (authorize ::auth/create authenticated)
       (assoc-image req)
-      att/create
+      models/put
       api/creation-response))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (when-let [attachment (att/find-by (-> params
-                                         (select-keys [:id])
-                                         (+scope ::models/attachment authenticated)))]
+  (when-let [attachment (models/find-by (-> params
+                                            (select-keys [:id])
+                                            (+scope :attachment authenticated)))]
     (authorize
      attachment
      action
      authenticated)))
 
 (defn- update
-  [{:keys [params] :as req}]
+  [{:keys [body-params] :as req}]
   (if-let [attachment (find-and-auth req ::auth/update)]
     (-> attachment
-        (merge (select-keys params [:caption]))
-        att/update
+        (merge (select-keys body-params [:attachment/caption]))
+        models/put
         api/update-response)
     api/not-found))
 
@@ -97,7 +100,7 @@
   [req]
   (if-let [attachment (find-and-auth req ::auth/destroy)]
     (do
-      (att/delete attachment)
+      (models/delete attachment)
       (api/response))
     api/not-found))
 

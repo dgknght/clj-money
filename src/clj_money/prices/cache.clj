@@ -1,10 +1,16 @@
 (ns clj-money.prices.cache
-  (:require [java-time.api :as t]
+  (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [clj-money.prices :as prices]
-            [clj-money.models.cached-prices :as cached-prices]))
+            [clj-money.models :as models]))
 
 (deftype CacheProvider []
   prices/PriceProvider
   (fetch-prices [_ symbols]
-    (cached-prices/search {:trade-date (t/local-date)
-                           :symbol symbols})))
+    (map (fn [{:cached-price/keys [price trade-date exchange symbol]}]
+           {:price/price price
+            :price/trade-date trade-date
+            :commodity/exchange exchange
+            :commodity/symbol symbol})
+         (models/select #:cached-price{:trade-date (t/local-date)
+                                       :symbol [:in symbols]}))))

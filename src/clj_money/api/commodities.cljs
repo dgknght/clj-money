@@ -19,8 +19,8 @@
              "Unable to retrieve the commodities: %s")))
 
 (defn create
-  [commodity opts]
-  (api/post (api/path :entities (:commodity/entity commodity) :commodities)
+  [{:as commodity :commodity/keys [entity]} opts]
+  (api/post (api/path :entities entity :commodities)
             commodity
             (add-error-handler
               opts
@@ -43,7 +43,7 @@
 
 (defn delete
   [commodity & {:as opts}]
-  (api/delete (api/path :commodities (:id commodity))
+  (api/delete (api/path :commodities commodity)
               (add-error-handler
                 opts
                 "Unable to remove the commodity: %s")))

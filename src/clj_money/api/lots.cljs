@@ -1,27 +1,30 @@
 (ns clj-money.api.lots
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [add-error-handler]]))
+  (:require [cljs.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- prepare-criteria
-  [criteria]
-  (update-in-if criteria [:shares-owned] (fn [v]
-                                           (if (and (sequential? v)
-                                                    (= :!= (first v)))
-                                             (update-in v [0] name)
-                                             v))))
+  [{:lot/keys [shares-owned] :as criteria}]
+  (cond-> (-> criteria
+              (dissoc :lot/shares-owned)
+              (update-in-if [:lot/account] #(map :id %))
+              (update-in-if [:lot/commodity] :id)
+              (rename-keys {:lot/account :account-id
+                            :lot/commodity :commodity-id}))
+    (= [:!= 0M] shares-owned) (assoc :non-zero-shares true)))
 
 (defn select
-  [criteria & {:as opts}]
-  {:pre (contains? criteria :account-id)}
+  [{:lot/keys [account] :as criteria} & {:as opts}]
+  {:pre (contains? criteria :lot/account)}
 
-  (let [[path criteria] (if (coll? (:account-id criteria))
-                          [(api/path :lots)
-                           criteria]
-                          [(api/path :accounts
-                                     (:account-id criteria)
-                                     :lots)
-                           (dissoc criteria :account-id)])]
+  (let [[path c] (if (sequential? account)
+                   [(api/path :lots)
+                    criteria]
+                   [(api/path :accounts
+                              account
+                              :lots)
+                    (dissoc criteria :lot/account)])]
     (api/get path
-             (prepare-criteria criteria)
+             (prepare-criteria c)
              (add-error-handler opts "Unable to retrieve the lots: %s"))))

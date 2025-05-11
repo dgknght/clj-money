@@ -1,12 +1,14 @@
 (ns clj-money.authorization.reconciliations
-  (:require [clj-money.models :as models]
-            [dgknght.app-lib.authorization :as authorization]
+  (:require [clj-money.authorization :as authorization]
+            [clj-money.util :as util]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
-(defmethod authorization/allowed? [::models/reconciliation ::authorization/manage]
+(defmethod authorization/allowed? [:reconciliation ::authorization/manage]
   [reconciliation action user]
   (owner-or-granted? reconciliation user action))
 
-(defmethod authorization/scope ::models/reconciliation
+(defmethod authorization/scope :reconciliation
   [_ user]
-  {[:account :entity :user-id] (:id user)})
+  (util/model-type
+    {:entity/user user}
+    :reconciliation))

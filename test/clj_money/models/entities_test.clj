@@ -1,108 +1,102 @@
 (ns clj-money.models.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
-            [dgknght.app-lib.test]
-            [clj-money.test-context :refer [realize
+            [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
+            [dgknght.app-lib.test-assertions]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
+            [clj-money.test-context :refer [with-context
                                             find-user
                                             find-entity]]
-            [clj-money.models.entities :as entities]
             [clj-factory.core :refer [factory]]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid
+                                                         assert-updated
+                                                         assert-deleted]]
+            [clj-money.models :as models]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private entity-context
-  {:users [(factory :user {:email "john@doe.com"})
-           (factory :user {:email "jane@doe.com"})]})
-
-(defn- attributes
-  [context]
-  {:name "Personal"
-   :user-id (-> context :users first :id)})
-
-(deftest create-an-entity
-  (testing "An entity can be created with valid attributes"
-    (let [context (realize entity-context)
-          [user other-user] (:users context)
-          actual (entities/create (attributes context))
-          expected {:name "Personal"
-                    :user-id (:id user)}]
-      (testing "The new entity is returned"
-        (is (= expected
-               (select-keys actual [:name :user-id]))
-            "The returned map should have the correct content."))
-      (testing "The name can be duplicated between two different users"
-        (let [other-entity (entities/create (assoc (attributes context) :user-id (:id other-user)))]
-          (is (number? (:id other-entity))))))))
-
-(deftest attempt-to-create-an-invalid-entity
-  (let [context (realize entity-context)]
-    (testing "Name is required"
-      (is (invalid? (entities/create (dissoc (attributes context) :name))
-                    [:name]
-                    "Name is required")))
-    (testing "Name must be unique"
-      (entities/create (attributes context))
-      (is (invalid? (entities/create (attributes context))
-          [:name]
-          "Name is already in use")))))
+  [(factory :user {:user/email "john@doe.com"})
+   (factory :user {:user/email "jane@doe.com"})])
 
 (def ^:private list-context
-  (-> entity-context
-      (assoc :entities [{:name "Personal"
-                         :user-id "john@doe.com"}
-                        {:name "Business"
-                         :user-id "john@doe.com"}])))
+  (conj entity-context
+        #:entity{:name "Personal"
+                 :user "john@doe.com"}
+        #:entity{:name "Business"
+                 :user "john@doe.com"}))
+
+(defn- attributes []
+  #:entity{:name "Personal"
+           :user (find-user "john@doe.com")})
+
+(defn- assert-created
+  [attr]
+  (helpers/assert-created attr :refs [:entity/user]))
+
+(deftest create-an-entity
+  (with-context entity-context
+    (testing "An entity can be created with minimal attributes"
+      (assert-created (attributes)))
+    (testing "An entity can be created with all attributes"
+      (assert-created
+        #:entity{:name "Business"
+                 :user (find-user "john@doe.com")
+                 :settings #:settings{:inventory-method :fifo
+                                      :monitored-account-ids #{1 2 3}
+                                      :earliest-transaction-date (t/local-date 2020 1 1)
+                                      :latest-transaction-date (t/local-date 2020 12 31)
+                                      :earliest-price-date (t/local-date 2020 1 1)
+                                      :latest-price-date (t/local-date 2020 12 31)}}))))
+
+(deftest name-is-required
+  (with-context entity-context
+    (assert-invalid (dissoc (attributes) :entity/name)
+                    {:entity/name ["Name is required"]})))
+
+(deftest name-is-unique-for-a-user
+  (with-context list-context
+    (assert-invalid (attributes)
+                    {:entity/name ["Name is already in use"]})))
+
+(deftest name-can-be-duplicated-between-users
+  (with-context list-context
+    (let [user (find-user "jane@doe.com") ]
+      (assert-created (assoc (attributes)
+                             :entity/user user)))))
 
 (deftest get-a-list-of-entities
-  (let [context (realize list-context)
-        john (find-user context "john@doe.com")
-        actual (entities/select {:user-id (:id john)})]
-    (is (= #{"Personal" "Business"} (->> actual
-                                         (map :name)
-                                         set))
-        "The correct entities are returned")))
-
-(deftest find-an-entity-by-id
-  (let [ctx (realize list-context)
-        entity (find-entity ctx "Personal")
-        retrieved (entities/find (:id entity))]
-    (is (= entity retrieved))))
+  (with-context list-context
+    (let [user (find-user "john@doe.com")]
+      (is (seq-of-maps-like? [{:entity/name "Business"}
+                              {:entity/name "Personal"}]
+                             (models/select {:entity/user user}
+                                            {:order-by [[:entity/name :asc]]}))
+          "Entities matching the criteria are returned"))))
 
 (deftest update-an-entity
-  (let [context (realize list-context)
-        user (-> context :users first)
-        entity (find-entity context "Personal")
-        updated (-> entity
-                    (assoc :name "Entity Y")
-                    (assoc-in [:settings :monitored-account-ids] #{1 2}))
-        result (entities/update updated)
-        retrieved (entities/find entity)
-        expected {:id (:id entity)
-                  :name "Entity Y"
-                  :user-id (:id user)
-                  :settings {:monitored-account-ids #{1 2}}}
-        actual (dissoc retrieved :updated-at :created-at)]
-    (is (= "Entity Y" (:name result)) "The result contains the correct values")
-    (is (= expected actual) "The retreived value has the correct values")))
+  (with-context list-context
+    (assert-updated (find-entity "Personal")
+                    #:entity{:name "Entity Y"
+                             :settings {:settings/monitored-account-ids #{1 2}}})))
 
 (deftest delete-an-entity
-  (let [context (realize entity-context)
-        entity (entities/create (attributes context))
-        _ (entities/delete entity)
-        retrieved (entities/find entity)]
-    (is (nil? retrieved) "The entity is not returned after delete")))
+  (with-context list-context
+    (assert-deleted (find-entity "Personal"))))
 
 (deftest inventory-method-can-be-lifo
-  (let [context (realize entity-context)]
-    (is (valid? (entities/create (-> context
-                                     attributes
-                                     (assoc :settings {:inventory-method :lifo})))))))
+  (with-context entity-context
+    (is (comparable? {:entity/settings {:settings/inventory-method :lifo}}
+                     (models/put (assoc (attributes)
+                                        :entity/settings {:settings/inventory-method :lifo}))))))
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
-  (let [context (realize entity-context)]
-    (is (invalid? (entities/create (-> context
-                                       attributes
-                                       (assoc :settings {:inventory-method :not-valid})))
-                  [:settings :inventory-method]
-                  "Inventory method must be fifo or lifo"))))
+  (with-context entity-context
+    (assert-invalid (assoc (attributes)
+                           :entity/settings {:settings/inventory-method :not-valid})
+                    {:entity/settings
+                     {:settings/inventory-method
+                      ["Inventory method must be fifo or lifo"]}})))

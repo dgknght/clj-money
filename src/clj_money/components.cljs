@@ -1,5 +1,6 @@
 (ns clj-money.components
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
             [clj-money.icons :as icons]
             [clj-money.state :refer [busy?]]
@@ -67,12 +68,11 @@
   (fn [xf]
     (completing
       (fn [ch items]
-        (when (> (swap! count-sought - (count items))
-                 0)
-          (go (>! ctl-ch :fetch-more)))
-        ; When the first call returns more than the count sought,
-        ; we put the items here, but they aren't received on the
-        ; other end until the :quit command forces it through
+        (when (seq items)
+          (let [still-seeking (swap! count-sought - (count items))]
+            (go (>! ctl-ch (if (< 0 still-seeking)
+                             :fetch-more
+                             :force)))))
         (xf ch items)))))
 
 (defn load-in-chunks
@@ -83,7 +83,9 @@
          fetch-ch (chan 2 ; accepts incoming ranges from the sequence that have passed the gate
                         (comp fetch-xf
                               (assess-reload count-sought ctl-ch))
-                        #(.error js/console %))]
+                        (fn [error]
+                          (.error js/console "Error fetching for load-in-chunks" error)
+                          []))]
 
      ; Setting the buffer size on the fetch-ch to 1 resulted in the range being passed
      ; directly to the receiver, bypassing the xform. Setting it to 2 resolves that.
@@ -102,6 +104,7 @@
                              (reset! count-sought chunk-size)
                              (go (>! fetch-ch rng)))
                     :fetch-more (go (>! fetch-ch rng))
+                    :force (go (>! fetch-ch []))
                     :quit (close! fetch-ch))
                   (recur (first remaining) (rest remaining)))
                 (do
@@ -124,11 +127,12 @@
    [:span.visually-hidden "Loading..."]])
 
 (defn button
-  [{:keys [html icon caption]}]
+  [{:keys [html icon caption disabled?]}]
   (fn []
-    [:button.btn html
+    [:button.btn (merge html
+                        {:disabled (when disabled? @disabled?)})
      [:span.d-flex.align-items-center
       (if @busy?
         [spinner :size :small]
-        (icons/icon icon :size :small))
+        (icons/icon icon))
       [:span.ms-2 caption]]]))

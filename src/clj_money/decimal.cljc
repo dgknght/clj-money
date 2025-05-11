@@ -1,17 +1,46 @@
 (ns clj-money.decimal
-  (:refer-clojure :exclude [* + - / zero? abs])
-  #?(:cljs (:require[dgknght.app-lib.decimal :as decimal]))
-  #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
+   (:refer-clojure :exclude [* + - / < <= > >= zero? abs decimal?])
+   (:require [clojure.walk :refer [postwalk]]
+             [clojure.string :as string]
+             #?(:clj [clojure.core :as core])
+             [dgknght.app-lib.math :as math]
+             #?(:cljs [dgknght.app-lib.decimal :as decimal]))
+   #?(:clj (:import [java.math BigDecimal MathContext RoundingMode])))
 
 #?(:cljs (extend-protocol IPrintWithWriter
             js/Decimal
             (-pr-writer [d writer _]
-               (write-all writer d "M"))))
+               (write-all writer "#clj-money/decimal \"" d "\""))))
+
+#?(:clj (deftype Decimal [d]
+           Object
+           (toString [_] (.toString d))))
+
+#?(:clj (defmethod print-method Decimal [this ^java.io.Writer w]
+           (doto w
+              (.write "#clj-money/decimal \"")
+              (.write (.toString this))
+              (.write "\""))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (def d
   #?(:clj bigdec
      :cljs decimal/->decimal))
+
+(def decimal?
+   #?(:clj core/decimal?
+      :cljs decimal/decimal?))
+
+(defn wrap-decimals
+           "Given a data structure, find all instances of java.Math.BigDecimal and
+           replace them with clj-money.decimal/Decimal"
+           [m]
+           (postwalk (fn [x]
+                        (if (decimal? x)
+                           #?(:clj (->Decimal x)
+                              :cljs (js/Decimal. x))
+                           x))
+                     m))
 
 #?(:cljs (defn zero? [n] (decimal/zero? n))
    :clj  (defn zero? [^java.math.BigDecimal n]
@@ -37,6 +66,21 @@
                   ^java.math.BigDecimal n2]
            (.divide n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
 
+#?(:cljs (defn < [n1 n2] (decimal/< n1 n2))
+   :clj  (defn < [^java.math.BigDecimal n1
+                  ^java.math.BigDecimal n2]
+           (core/< n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+
+#?(:cljs (defn <= [n1 n2] (decimal/< n1 n2))
+   :clj  (defn <= [^java.math.BigDecimal n1
+                  ^java.math.BigDecimal n2]
+           (core/<= n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+
+#?(:cljs (defn >= [n1 n2] (decimal/> n1 n2))
+   :clj  (defn >= [^java.math.BigDecimal n1
+                  ^java.math.BigDecimal n2]
+           (core/>= n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+
 #?(:cljs (defn round
            ([n]
             (decimal/round n))
@@ -52,3 +96,19 @@
 
 #?(:cljs (defn abs [n] (decimal/abs n))
    :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))
+
+(def ^:private parsers
+   [{:pattern #".*"
+     :eval math/eval}
+    {:pattern #"(\d+)(?:,(\d+))*"
+     :eval #(->> %
+                 (drop 1)
+                 (string/join "")
+                 (d))}])
+
+(defn parse
+   [s]
+   (some (fn [{:keys [pattern eval]}]
+            (when-let [match (re-find pattern s)]
+               (eval match)))
+         parsers))

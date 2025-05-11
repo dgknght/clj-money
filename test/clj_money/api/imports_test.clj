@@ -1,26 +1,29 @@
 (ns clj-money.api.imports-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
+            [clj-money.io :refer [read-bytes]]
+            [clj-money.util :as util]
+            [clj-money.models :as models]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
                                             parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             find-user
                                             find-import]]
             [clj-money.web.server :refer [app]]
-            [clj-money.models.imports :as imports]
             [clj-money.api.imports :as imports-api]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private create-context
-  {:users [(factory :user {:email "john@doe.com"})]})
+  [(factory :user {:user/email "john@doe.com"})])
 
 (defn- mock-launch-and-track
   [calls]
@@ -28,71 +31,80 @@
     [imp]
     (swap! calls conj imp)
     {:import imp
-     :entity {:name (:entity-name imp)
-              :user-id (:user-id imp)}}))
+     :entity #:entity{:name (:import/entity-name imp)
+                      :user (:import/user imp)}}))
 
 (deftest a-user-can-create-an-import
-  (let [ctx (realize create-context)
-        user (find-user ctx "john@doe.com")
-        source-file (io/file (io/resource "fixtures/sample.gnucash"))
-        calls (atom [])
-        {:as response
-         :keys [edn-body]} (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
-                             (-> (req/request :post (path :api :imports))
-                                 (merge (build-multipart-request {:entity-name "Personal"
-                                                                  :source-file-0 {:file source-file
-                                                                                  :content-type "application/gnucash"}}))
-                                 (add-auth user)
-                                 (req/header "Accept" "application/edn")
-                                 app
-                                 parse-edn-body))
-        retrieved (imports/search {:user-id (:id user)})]
-    (is (http-created? response))
-    (is (comparable? {:name "Personal"
-                      :user-id (:id user)}
-                     (:entity edn-body))
-        "The newly created entity is returned in the response")
-    (is (comparable? {:entity-name "Personal"
-                      :user-id (:id user)}
-                     (:import edn-body))
-        "The newly created import is returned in the response")
-    (is (comparable? {:entity-name "Personal"}
-                     (first retrieved))
-        "The new record can be retrieved from the database")
-    (is (some #(= "Personal" (:entity-name %)) @calls)
-        "The import is started")))
+  (with-context create-context
+    (let [source-file (io/file (io/resource "fixtures/sample.gnucash"))
+          user (find-user "john@doe.com")
+          calls (atom [])
+
+          {:as response
+           {:keys [entity import]} :edn-body}
+          (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
+            (-> (req/request :post (path :api :imports))
+                (merge (build-multipart-request {:import/entity-name "Personal"
+                                                 :import/source-file-0 {:file source-file
+                                                                        :content-type "application/gnucash"}}))
+                (add-auth user)
+                (req/header "Accept" "application/edn")
+                app
+                parse-edn-body))]
+      (is (http-success? response))
+      (is (comparable? #:entity{:name "Personal"
+                                :user (util/->model-ref user)}
+                       entity)
+          "The newly created entity is returned in the response")
+      (is (comparable? #:import{:entity-name "Personal"
+                                :user (util/->model-ref user)}
+                       import)
+          "The newly created import is returned in the response")
+      (is (seq-of-maps-like? [{:import/entity-name "Personal"}]
+                             (models/select {:import/user user}))
+          "The new record can be retrieved from the database")
+      (let [[c :as cs] @calls]
+        (is (= 1 (count cs))
+            "launch-and-track-import is called once")
+        (is (comparable? {:import/entity-name "Personal"}
+                         c)
+          "The newly created import is passed to launch-and-track-import")))))
 
 (def ^:private list-context
-  (-> create-context
-      (update-in [:users] conj (factory :user {:email "jane@doe.com"}))
-      (assoc :imports [{:entity-name "Personal"}
-                       {:entity-name "Business"}])))
+  (conj create-context
+        (factory :user {:user/email "jane@doe.com"})
+        #:image{:user "john@doe.com"
+                :original-filename "sample.gnucash"
+                :content-type "application/gnucash"
+                :body (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["sample.gnucash"]}
+        #:import{:entity-name "Business"
+                 :user "john@doe.com"
+                 :images ["sample.gnucash"]}))
 
 (defn- get-a-list
   [email]
-  (let [ctx (realize list-context)
-        user (find-user ctx email)]
+  (with-context list-context
     (-> (req/request :get (path :api :imports))
-                     (add-auth user)
-                     app
-                     parse-edn-body)))
+        (add-auth (find-user email))
+        app
+        parse-edn-body)))
 
 (defn- assert-successful-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (= #{"Personal" "Business"}
-         (->> edn-body
-              (map :entity-name)
-              set))
+  (is (seq-of-maps-like? [#:import{:entity-name "Personal"}
+                          #:import{:entity-name "Business"}]
+                         edn-body)
       "The response contains the user's imports"))
 
 (defn- assert-other-user-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (not (some #(= "Personal" (:entity-name %)) edn-body))
-      "The Personal import is not included in the result")
-  (is (not (some #(= "Business" (:entity-name %)) edn-body))
-      "The Business import is not included in the result"))
+  (is (empty? edn-body)
+      "No imports are included in the response"))
 
 (deftest a-user-can-get-a-list-of-his-imports
   (assert-successful-list (get-a-list "john@doe.com")))
@@ -102,19 +114,18 @@
 
 (defn- get-an-import
   [email]
-  (let [ctx (realize list-context)
-        user (find-user ctx email)
-        imp (find-import ctx "Personal")]
-    (-> (req/request :get (path :api :imports (:id imp)))
-        (add-auth user)
+  (with-context list-context
+    (-> (req/request :get (path :api
+                                :imports
+                                (:id (find-import "Personal"))))
+        (add-auth (find-user email))
         app
         parse-edn-body)))
 
 (defn- assert-successful-get
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (comparable? {:entity-name "Personal"}
-                   edn-body)
+  (is (comparable? {:import/entity-name "Personal"} edn-body)
       "The import is returned in the response"))
 
 (defn- assert-blocked-get
@@ -129,14 +140,12 @@
 
 (defn- delete-import
   [email]
-  (let [ctx (realize list-context)
-        user (find-user ctx email)
-        imp (find-import ctx "Personal")
-        response (-> (req/request :delete (path :api :imports (:id imp)))
-                     (add-auth user)
-                     app)
-        retrieved (imports/find imp)]
-    [response retrieved]))
+  (with-context list-context
+    (let [imp (find-import "Personal")]
+      [(-> (req/request :delete (path :api :imports (:id imp)))
+           (add-auth (find-user email))
+           app)
+       (models/find imp)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]
@@ -158,30 +167,41 @@
 
 (defn- start-import
   [email]
-  (let [ctx (realize list-context)
-        user (find-user ctx email)
-        imp (find-import ctx "Personal")
-        calls (atom [])
-        response (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
-                   (-> (req/request :patch (path :api :imports (:id imp)))
-                       (add-auth user)
-                       app))]
-    [response calls]))
+  (with-context list-context
+    (let [imp (find-import "Personal")
+          calls (atom [])
+          response (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
+                     (-> (req/request :patch (path :api :imports (:id imp)))
+                         (add-auth (find-user email))
+                         app
+                         parse-edn-body))]
+      [response calls])))
 
 (defn- assert-successful-start
-  [[response calls]]
+  [[{:as response :keys [edn-body]} calls]]
   (is (http-success? response))
-  (is (some #(= "Personal" (:entity-name %)) @calls)
-      "The import is started"))
+  (is (= #{:entity :import} (-> edn-body keys set))
+      "The response contains the relevant entity and import")
+  (let [[c :as cs] @calls]
+    (is (= 1 (count cs))
+        "Exactly one call is made to launch-and-track-import")
+    (is (comparable? {:import/entity-name "Personal"}
+                     c)
+        "The specified import is started")))
 
 (defn- assert-blocked-start
   [[response calls]]
   (is (http-not-found? response))
-  (is (not-any? #(= "Personal" (:entity-name %)) @calls)
-      "The import is not started"))
+  (is (= 0 (count @calls))
+      "No imports are started"))
 
 (deftest a-user-can-start-his-import
   (assert-successful-start (start-import "john@doe.com")))
 
 (deftest a-user-cannot-start-anothers-import
   (assert-blocked-start (start-import "jane@doe.com")))
+
+(deftest halt-on-fatal-error
+  (with-context list-context
+    (let [_imp (find-import "Personal")])
+    ))

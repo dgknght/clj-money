@@ -1,85 +1,70 @@
 (ns clj-money.models.settings
-  (:refer-clojure :exclude [update get])
-  (:require [config.core :refer [env]]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.models.sql-storage-ref]
-            [clj-money.models :as models]))
-
-(defn- after-read
-  [setting]
-  (-> setting
-      (update-in [:value] read-string)
-      (tag ::models/setting)))
-
-(defn search
-  [criteria options]
-  (with-storage (env :db)
-    (map after-read
-         (storage/select (tag criteria ::models/setting)
-                         options))))
-
-(defn find-by
-  ([criteria]
-   (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (assoc options :limit 1)))))
-
-(defn- before-save
-  [setting]
-  (-> setting
-      (update-in [:value] pr-str)
-      (tag ::models/setting)))
-
-(defn create
-  [setting]
-  {:pre [(:name setting) (:value setting)]}
-  (with-storage (env :db)
-    (-> setting
-        before-save
-        storage/create
-        after-read)))
-
-(defn update
-  [setting]
-  {:pre [(:name setting) (:value setting)]}
-  (with-storage (env :db)
-    (storage/update (before-save setting))
-    (find-by {:name (:name setting)})))
+  (:refer-clojure :exclude [get])
+  (:require [clojure.pprint :refer [pprint]]
+            [config.core :refer [env]]
+            [honey.sql :as sql]
+            [honey.sql.helpers :refer [select from where]]
+            [next.jdbc :as jdbc]
+            [next.jdbc.sql :refer [insert! update!]]
+            [clj-money.core]))
 
 (def ^:private settings-cache (atom {}))
+
+(defn- db-config []
+  (get-in env [:db :strategies :sql]))
+
+(defn- ds []
+  (jdbc/get-datasource (db-config)))
 
 (defn- same-as-cached?
   [setting-name value]
   (when-let [retrieved (get-in @settings-cache [setting-name])]
     (= value retrieved)))
 
+(defn- get*
+  [setting-name]
+  (jdbc/execute-one! (ds)
+                     (-> (select :value)
+                         (from :settings)
+                         (where [:= :name setting-name])
+                         sql/format)
+                     jdbc/unqualified-snake-kebab-opts))
+
 (defn- put*
   [setting-name value]
-  (with-storage (env :db)
-    (if-let [existing (find-by {:name setting-name})]
-      (update (assoc existing :value value))
-      (create {:name setting-name
-               :value value}))))
+  (let [ds (ds)
+        {::jdbc/keys [update-count]} (update! ds
+                                              :settings
+                                              {:value value}
+                                              {:name setting-name})]
+    (when (= 0 update-count)
+      (insert! ds
+               :settings
+               {:name setting-name
+                :value value}))))
 
 (defn put
   [setting-name value]
+  {:pre [(keyword? setting-name)]}
+
   (when-not (same-as-cached? setting-name value)
     (swap! settings-cache dissoc setting-name)
-    (put* setting-name value)))
+    (put* (name setting-name)
+          (pr-str value))))
 
-(defn- get*
-  [setting-name]
-  (:value (find-by {:name setting-name})))
-
-(defn- encache
-  [v k]
-  (swap! settings-cache assoc k v)
-  v)
+(defmacro with-caching
+  [k & body]
+  `(let [f# (fn* [] (do ~@body))]
+     (or (@settings-cache ~k)
+         (when-let [v# (f#)]
+           (swap! settings-cache assoc ~k v#)
+           v#))))
 
 (defn get
   [setting-name]
-  (if-let [value (get-in @settings-cache [setting-name])]
-    value
-    (-> (get* setting-name)
-        (encache setting-name))))
+  {:pre [(keyword? setting-name)]}
+
+  (with-caching setting-name
+    (some-> (get* (name setting-name))
+            :value
+            read-string)))

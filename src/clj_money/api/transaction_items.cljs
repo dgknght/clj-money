@@ -1,37 +1,56 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require [dgknght.app-lib.web :refer [serialize-date]]
+  (:require [clojure.set :refer [rename-keys]]
+            [cljs.pprint :refer [pprint]]
             [lambdaisland.uri :refer [map->query-string]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.comparatives :as comparatives]
+            [clj-money.dates :refer [serialize-local-date
+                                     local-date?]]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
+(defn- serialize-date
+  [x]
+  (cond
+    (vector? x)     (mapv serialize-date x)
+    (local-date? x) (serialize-local-date x)
+    :else           x))
+
 (defn- prepare-criteria
   [criteria]
+  {:pre [(:transaction-item/transaction-date criteria)]}
   (-> criteria
-      (dissoc :account-id)
-      (update-in [:transaction-date] #(map serialize-date %))))
+      (update-in [:transaction-item/transaction-date] serialize-date)
+      comparatives/nominalize
+      (dissoc :transaction-item/account)))
 
-(defn search
+(defn select
   [criteria & {:as opts}]
-  {:pre [(:account-id criteria)
-         (:transaction-date criteria)]}
-
+  {:pre [(:transaction-item/account criteria)]}
   (api/get (api/path :accounts
-                     (:account-id criteria)
+                     (:transaction-item/account criteria)
                      :transaction-items)
            (prepare-criteria criteria)
            (add-error-handler opts "Unable to retrieve the transaction items: %s")))
 
+(defn- prepare-summary-criteria
+  [criteria]
+  (-> criteria
+      (update-in [:transaction-item/transaction-date 0] serialize-local-date)
+      (update-in [:transaction-item/transaction-date 1] serialize-local-date)
+      (update-in-if [:transaction-item/account] :id)
+      (rename-keys {:transaction-item/transaction-date :transaction-date
+                    :transaction-item/account :account-id})
+      (update-in [:interval-type] name)
+      map->query-string))
+
 (defn summarize
   [criteria & {:as opts}]
   (api/get (str (api/path :entities
-                          (:id @current-entity)
+                          @current-entity
                           :transaction-items
                           :summarize)
                 "?"
-                (-> criteria
-                    (update-in [:transaction-date 0] serialize-date)
-                    (update-in [:transaction-date 1] serialize-date)
-                    (update-in [:interval-type] name)
-                    map->query-string))
+                (prepare-summary-criteria criteria))
            (add-error-handler opts "Unable to retrieve the transaction item summary: %s")))

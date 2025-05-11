@@ -1,13 +1,13 @@
 (ns clj-money.authorization.commodities
   (:refer-clojure :exclude [update])
-  (:require [clj-money.models :as models]
-            [dgknght.app-lib.authorization :as authorization]
+  (:require [clj-money.authorization :as authorization]
+            [clj-money.util :as util]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
-(defmethod authorization/allowed? [::models/commodity ::authorization/manage]
+(defmethod authorization/allowed? [:commodity ::authorization/manage]
   [commodity action user]
   (owner-or-granted? commodity user action))
 
-(defmethod authorization/scope ::models/commodity
+(defmethod authorization/scope :commodity
   [_ user]
-  {[:entity :user-id] (:id user)})
+  (util/model-type {:entity/user user} :commodity))

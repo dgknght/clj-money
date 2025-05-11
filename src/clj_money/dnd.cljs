@@ -1,7 +1,24 @@
-(ns clj-money.dnd)
+(ns clj-money.dnd
+  (:require [cljs.pprint :refer [pprint]]))
 
-(defn files
+(defn- data-transfer
+  [e]
+  (.-dataTransfer e))
+
+(defn- files
+  [dt]
+  (.-files dt))
+
+(defn- length
+  [list]
+  (.-length list))
+
+(defn- item
+  [list index]
+  (.item list index))
+
+(defn data-files
   [event]
-  (let [file-list (-> event .-dataTransfer .-files)
-        file-count (.-length file-list)]
-    (mapv #(.item file-list %) (range file-count))))
+  (let [file-list (-> event data-transfer files)
+        file-count (length file-list)]
+    (mapv #(item file-list %) (range file-count))))

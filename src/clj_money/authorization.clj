@@ -1,6 +1,6 @@
 (ns clj-money.authorization
-  (:require [stowaway.core :as storage]
-            [slingshot.slingshot :refer [throw+]]))
+  (:require [clojure.pprint :refer [pprint]]
+            [clj-money.util :as util]))
 
 (derive ::create ::manage)
 (derive ::show ::manage)
@@ -12,7 +12,23 @@
   authenticated user is allowed to perform the specified
   action on the specified model"
   (fn [model action _user]
-    [(storage/tag model) action]))
+    (let [model-type (util/model-type model)]
+      (assert model-type (prn-str model))
+      [model-type action])))
+
+(defn opaque?
+  [error]
+  (::opaque? (ex-data error)))
+
+(defn- auth-error
+  [model action opaque?]
+  (let [[msg err-type] (if opaque?
+                         ["not found" ::not-found]
+                         ["forbidden" ::forbidden])]
+    (ex-info msg {:type err-type
+                  :action action
+                  :model (util/model-type model)
+                  ::opaque? opaque?})))
 
 (defn authorize
   "Raises an error if the current user does not have
@@ -21,12 +37,11 @@
   This function returns the model so that it can be threaded together
   with other left-threadable operations"
   [model action user]
-  {:pre [model action user]}
-  (if (allowed? model action user)
-    model
-    (throw+ {:type ::unauthorized
-             :action action
-             :model (storage/tag model)})))
+  {:pre [action user]}
+  (when model
+    (if (allowed? model action user)
+      model
+      (throw (auth-error model action (not (allowed? model ::show user)))))))
 
 (defmulti scope
   "Returns a criteria structure limiting the scope
@@ -38,10 +53,14 @@
 
 (defn +scope
   ([criteria user]
-   (+scope criteria (storage/tag criteria) user))
+   (+scope criteria (util/model-type criteria) user))
   ([criteria model-type user]
+   {:pre [model-type user]}
+
    (if-let [s (scope model-type user)]
      (if (empty? criteria)
        s
-       [:and criteria s])
+       (with-meta [:and criteria s]
+                  (or (meta s)
+                      {:clj-money/model-type model-type})))
      criteria)))

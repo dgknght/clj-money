@@ -1,7 +1,7 @@
 (ns clj-money.api.reports
   (:require [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [serialize-date]]
+            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -11,8 +11,8 @@
                      (:id @current-entity)
                      :reports
                      :income-statement
-                     (serialize-date start-date)
-                     (serialize-date end-date))
+                     (serialize-local-date start-date)
+                     (serialize-local-date end-date))
            {}
            (add-error-handler opts "Unable to retrieve the income statement: %s")))
 
@@ -22,7 +22,7 @@
                      (:id @current-entity)
                      :reports
                      :balance-sheet
-                     (serialize-date as-of))
+                     (serialize-local-date as-of))
            {}
            (add-error-handler opts "Unable to retrieve the balance sheet: %s")))
 
@@ -64,7 +64,7 @@
                  :portfolio)
        "?"
        (-> report
-           (update-in-if [:as-of] serialize-date)
+           (update-in-if [:as-of] serialize-local-date)
            (update-in-if [:aggregate] name)
            map->query-string)))
 

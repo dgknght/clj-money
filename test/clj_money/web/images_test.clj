@@ -5,7 +5,7 @@
             [dgknght.app-lib.web :refer [path]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [basic-context
-                                            realize
+                                            with-context
                                             find-image
                                             find-user]]
             [clj-money.web.auth :as auth]
@@ -14,33 +14,36 @@
 (use-fixtures :each reset-db)
 
 (def image-context
-  (assoc basic-context
-         :transactions [{:transaction-date (t/local-date 2015 1 1)
-                         :description "Paycheck"
-                         :debit-account-id "Checking"
-                         :credit-account-id "Salary"
-                         :quantity 1000M}]
-         :images [{:original-filename "attachment.jpg"
-                   :content-type "image/jpg"
-                   :body "resources/fixtures/attachment.jpg"}]
-         :attachments [{:image-id "attachment.jpg"
-                        :transaction-id {:transaction-date (t/local-date 2015 1 1)
-                                         :description "Paycheck"}}]))
+  (conj basic-context
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:image{:original-filename "attachment.jpg"
+                :user "john@doe.com"
+                :content-type "image/jpg"
+                :body "resources/fixtures/attachment.jpg"}
+        #:attachment{:image "attachment.jpg"
+                     :transaction [(t/local-date 2015 1 1) "Paycheck"]}))
 
 (defn- add-auth-cookie
   [req user]
-  (req/cookie req :auth-token (auth/make-token user)))
+  (if user
+    (req/cookie req :auth-token (auth/make-token user))
+    req))
 
 (defn- get-image
   [email]
-  (let [ctx (realize image-context)
-        image (find-image ctx "attachment.jpg")
-        user (when email (find-user ctx email))]
-    (-> (req/request :get (path :app
-                                :images
-                                (:id image)))
-        (add-auth-cookie user)
-        app)))
+  (with-context image-context
+    (let [image (find-image "attachment.jpg")]
+      (-> (req/request :get (path :app
+                                  :images
+                                  (:id image)))
+          (add-auth-cookie (when email
+                             (find-user email)))
+          app))))
 
 (defn- assert-successful-get
   [response]

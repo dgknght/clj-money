@@ -7,6 +7,7 @@
                                                            http-forbidden?
                                                            http-redirect-to?
                                                            http-response-with-cookie?
+                                                           thrown-with-ex-data?
                                                            valid?
                                                            invalid?
                                                            comparable?
@@ -14,14 +15,54 @@
                                                            seq-with-no-map-like?
                                                            seq-of-maps-like?
                                                            includes-progress-notification?])
+                                         (cljs.test/is [http-success?
+                                                        http-created?
+                                                        http-no-content?
+                                                        http-bad-request?
+                                                        http-not-found?
+                                                        http-unauthorized?
+                                                        http-forbidden?
+                                                        http-redirect-to?
+                                                        http-response-with-cookie?
+                                                        thrown-with-ex-data?
+                                                        valid?
+                                                        invalid?
+                                                        comparable?
+                                                        seq-with-map-like?
+                                                        seq-with-no-map-like?
+                                                        seq-of-maps-like?
+                                                        includes-progress-notification?
+                                                        dgknght.app-lib.test-assertions/http-success?
+                                                        dgknght.app-lib.test-assertions/http-created?
+                                                        dgknght.app-lib.test-assertions/http-no-content?
+                                                        dgknght.app-lib.test-assertions/http-bad-request?
+                                                        dgknght.app-lib.test-assertions/http-not-found?
+                                                        dgknght.app-lib.test-assertions/http-unauthorized?
+                                                        dgknght.app-lib.test-assertions/http-forbidden?
+                                                        dgknght.app-lib.test-assertions/http-redirect-to?
+                                                        dgknght.app-lib.test-assertions/http-response-with-cookie?
+                                                        dgknght.app-lib.test-assertions/thrown-with-ex-data?
+                                                        dgknght.app-lib.test-assertions/valid?
+                                                        dgknght.app-lib.test-assertions/invalid?
+                                                        dgknght.app-lib.test-assertions/comparable?
+                                                        dgknght.app-lib.test-assertions/seq-with-map-like?
+                                                        dgknght.app-lib.test-assertions/seq-with-no-map-like?
+                                                        dgknght.app-lib.test-assertions/seq-of-maps-like?
+                                                        dgknght.app-lib.test-assertions/includes-progress-notification?])
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
+                                         (clj-money.models.transactions/with-delayed-propagation)
+                                         (clj-money.models.propagation/with-propagation)
                                          (clj-money.tasks/with-options)]}
-           :clojure-lsp/unused-public-var {:exclude #{clj-money.db/remigrate
-                                                      clj-money.db/create-partitions
-                                                      clj-money.db/check-transaction-balances
+           :unused-private-var {:exclude #{clj-money.models.transactions/simplify}}
+           :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
+                                                      clj-money.db.sql.tasks/create-partitions
+                                                      clj-money.db.sql.tasks/check-transaction-balances
+                                                      clj-money.decimal/>=
+                                                      clj-money.decimal/<=
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
+                                                      clj-money.util/simplify
                                                       clj-money.accounts/format-quantity
                                                       clj-money.repl/start-server
                                                       clj-money.repl/stop-server
@@ -46,6 +87,8 @@
                                       honeysql.helpers/limit
                                       honeysql.helpers/with-recursive
                                       honeysql.core/format
+                                      dgknght.app-lib.test-assertions/comparable?
+                                      dgknght.app-lib.test-assertions/seq-of-maps-like?
                                       digest/sha-1]}
            :unresolved-namespace {:exclude [act
                                             cmdty
@@ -64,5 +107,6 @@
            :unused-namespace {:exclude [dgknght.app-lib.validation-tests
                                         clj-http.core
                                         clojure.pprint
-                                        cljs.pprint]}}
+                                        cljs.pprint]}
+           :missing-protocol-method {:level :off}}
  :output {:exclude-files ["data_readers.clj"]}}
