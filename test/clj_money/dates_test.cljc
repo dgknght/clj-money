@@ -317,6 +317,43 @@
                       end)
         "The range end date is in the second position of the return value.")))
 
+(deftest push-a-models-date-boundary
+  (is (= [(dates/local-date "2020-02-01")
+          (dates/local-date "2020-02-01")]
+         (:commodity/price-date-range
+           (dates/push-boundary
+             {}
+             :commodity/price-date-range
+             (dates/local-date "2020-02-01"))))
+      "When no range is present, once is created from the given date")
+  (is (= [(dates/local-date "2020-02-01")
+          (dates/local-date "2020-02-02")]
+         (:commodity/price-date-range
+           (dates/push-boundary
+             {:commodity/price-date-range [(dates/local-date "2020-02-01")
+                                           (dates/local-date "2020-02-01")]}
+             :commodity/price-date-range
+             (dates/local-date "2020-02-02"))))
+      "A date after the range moves the end date")
+  (is (= [(dates/local-date "2020-01-31")
+          (dates/local-date "2020-02-01")]
+         (:commodity/price-date-range
+           (dates/push-boundary
+             {:commodity/price-date-range [(dates/local-date "2020-02-01")
+                                           (dates/local-date "2020-02-01")]}
+             :commodity/price-date-range
+             (dates/local-date "2020-01-31"))))
+      "A date before the range moves the end start")
+  (is (= [(dates/local-date "2020-02-01")
+          (dates/local-date "2020-02-02")]
+         (:commodity/price-date-range
+           (dates/push-boundary
+             {:commodity/price-date-range [(dates/local-date "2020-02-01")
+                                           (dates/local-date "2020-02-02")]}
+             :commodity/price-date-range
+             (dates/local-date "2020-02-01"))))
+      "A date within the range does not change the range"))
+
 #?(:clj (deftest parse-a-second-to-an-instant
           (is (= (t/instant "2025-02-21T05:59:59Z")
                  (dates/of-epoch-second 1740117599)))))

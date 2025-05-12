@@ -320,6 +320,8 @@
    (not (or (t/before? date start)
             (t/before? end date)))))
 
+(def outside? (complement within?))
+
 (defn overlaps?
   "Returns true if the two intervals overlap. Date ranges are inclusive on both ends"
   ([[s1 e1] [s2 e2]]
@@ -412,6 +414,13 @@
 (defn range-boundaries
   [ds]
   (first-and-last (sort t/before? ds)))
+
+; TODO: add an option for exclusive end?
+(defn push-boundary
+  "Given a model and a key, push the date range value at that key
+  to include the specified date"
+  [m k d]
+  (update-in m [k] #(range-boundaries (conj % d))))
 
 #?(:clj (defn zone-id
           [zone-name]
