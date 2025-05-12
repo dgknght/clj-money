@@ -907,11 +907,11 @@
                             :current-value 1900M
                             :gain 1425M
                             :items [#:lot-item{:transaction-date (t/local-date 2016 3 2)
-                                               :lot-action :buy
+                                               :action :buy
                                                :price 5M
                                                :shares 100M}
                                     #:lot-item{:transaction-date (t/local-date 2017 1 31)
-                                               :lot-action :sell
+                                               :action :sell
                                                :price 11M
                                                :shares 5M}]}
                       #:lot{:purchase-date (t/local-date 2017 1 15)
@@ -922,7 +922,7 @@
                             :current-value 200M
                             :gain 100M
                             :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                               :lot-action :buy
+                                               :action :buy
                                                :price 10M
                                                :shares 10M}]}]}
    #:commodity{:name"General Electric Co."
@@ -939,7 +939,7 @@
                             :current-value 100M
                             :gain 0M
                             :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                               :lot-action :buy
+                                               :action :buy
                                                :shares 10M
                                                :price 10M}]}]}
    #:commodity{:name "Microsoft Corp"
@@ -956,7 +956,7 @@
                             :current-value 50M
                             :gain -50M
                             :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                               :lot-action :buy
+                                               :action :buy
                                                :shares 10M
                                                :price 10M}]}]}])
 (def portfolio-context

@@ -106,11 +106,11 @@
 (s/def :transaction/transaction-date t/local-date?)
 (s/def :transaction/entity ::models/model-ref)
 (s/def :lot-item/lot ::models/model-ref)
-(s/def :lot-item/lot-action #{:buy :sell})
+(s/def :lot-item/action #{:buy :sell})
 (s/def :lot-item/shares decimal?)
 (s/def ::models/lot-item (s/keys :req [:lot-item/lot
                                        :lot-item/shares
-                                       :lot-item/lot-action
+                                       :lot-item/action
                                        :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::models/lot-item))
 

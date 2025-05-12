@@ -281,7 +281,7 @@
                          :description (purchase-transaction-description trade)
                          :items items
                          :lot-items [#:lot-item{:lot lot
-                                                :lot-action :buy
+                                                :action :buy
                                                 :price (with-precision 4 (/ value shares))
                                                 :shares shares}]})))
 
@@ -489,7 +489,7 @@
     [(-> trade
          (update-in [:trade/lot-items]
                     #(conj % #:lot-item{:lot lot
-                                        :lot-action :sell
+                                        :action :sell
                                         :shares shares-sold
                                         :price sale-price}))
          (update-in [:trade/updated-lots]
