@@ -26,13 +26,11 @@
 (defn- append-current-prices
   [commodities]
   ; TODO: performance tuning opportunity - reduces the number of queries here
-  (map (fn [{:as comm :commodity/keys [earliest-price latest-price]}]
+  (map (fn [{:as comm :commodity/keys [price-date-range]}]
          (assoc comm
                 :commodity/most-recent-price
                 (models/find-by {:price/commodity comm
-                                 :price/trade-date [:between
-                                                    earliest-price
-                                                    latest-price]}
+                                 :price/trade-date (apply vector :between price-date-range)}
                                 {:sort [[:price/trade-date :desc]]})))
        commodities))
 

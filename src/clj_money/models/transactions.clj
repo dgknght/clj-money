@@ -343,9 +343,7 @@
                    (:price/price
                      (models/find-by
                        {:price/commodity (:account/commodity account)
-                        :price/trade-date [:between
-                                           (:commodity/earliest-price commodity)
-                                           (:commodity/latest-price commodity)]}
+                        :price/trade-date (apply vector :between (:commodity/price-date-range commodity))}
                        {:sort [[:price/trade-date :desc]]}))
                    1M)]
      (if (= (count updated-items)

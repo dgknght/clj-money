@@ -206,7 +206,8 @@
          :price/price 15M,
          :id #uuid "015c6cce-aa00-4270-8387-47c4e800ddc5",
          :price/commodity
-         {:commodity/earliest-price #clj-money/local-date "2016-03-02",
+         {:commodity/price-date-range [#clj-money/local-date "2016-03-02"
+                                       #clj-money/local-date "2016-03-02"],
           :commodity/entity {:id 18028},
           :commodity/updated-at
           #object[java.time.LocalDateTime 0x6ae47c1e "2024-12-07T17:35:51.015756"],
@@ -216,7 +217,6 @@
           #object[java.time.LocalDateTime 0x7be55279 "2024-12-07T17:35:51.015756"],
           :id 16998,
           :commodity/type :stock,
-          :commodity/latest-price #clj-money/local-date "2016-03-02",
           :commodity/symbol "AAPL",
           :commodity/name "Apple, Inc."}},
         :lots [],

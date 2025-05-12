@@ -40,12 +40,13 @@
   ([commodity as-of]
    {:pre [(map? commodity)]}
 
-   (let [{:commodity/keys [earliest-price
-                           latest-price]} (if (util/model-ref? commodity)
-                                            (models/find commodity :commodity)
-                                            commodity)]
+   (let [[earliest
+          latest] (:commodity/price-date-range
+                    (if (util/model-ref? commodity)
+                      (models/find commodity :commodity)
+                      commodity))]
      (cond
-       (every? nil? [earliest-price latest-price])
+       (every? nil? [earliest latest])
        (do
          (log/warnf
            "No price bounding for commodity %s %s"
@@ -57,20 +58,20 @@
                            {:sort [[:price/trade-date :desc]]})))
 
        (and as-of
-            (t/after? earliest-price as-of))
+            (t/after? earliest as-of))
        (log/warnf
          "Unable to find %s price for commodity %s %s before first available date %s"
          as-of
          (:id commodity)
          (:commodity/symbol commodity)
-         earliest-price)
+         earliest)
 
        :else
        (models/find-by #:price{:commodity commodity
                                :trade-date [:between
-                                            earliest-price
+                                            earliest
                                             (or as-of
-                                                latest-price)]}
+                                                latest)]}
                        {:sort [[:price/trade-date :desc]]})))))
 
 (defn- apply-to-account
@@ -89,31 +90,22 @@
       (update-in [:entity/settings :settings/earliest-price-date] dates/earliest trade-date)
       (update-in [:entity/settings :settings/latest-price-date] dates/latest trade-date)))
 
-(defn- before-earliest?
-  [{:price/keys [trade-date commodity]}]
-  (if-let [earliest (:commodity/earliest-price commodity)]
-    (t/before? trade-date earliest)
-    true))
-
 (defn- after-latest?
   [{:price/keys [trade-date commodity]}]
   (if-let [latest (:commodity/latest-price commodity)]
     (t/before? latest trade-date)
     true))
 
-(def ^:private out-of-bounds?
-  (some-fn before-earliest? after-latest?))
-
-(defn- push-commodity-bounds
-  [{:price/keys [commodity trade-date] :as price}]
-  (when (out-of-bounds? price)
-    (-> commodity
-        (update-in [:commodity/earliest-price] dates/earliest trade-date)
-        (update-in [:commodity/latest-price] dates/latest trade-date))))
+(defn- push-commodity-boundaries
+  [{:price/keys [commodity trade-date]}]
+  (when (dates/outside? trade-date (:commodity/price-date-range commodity))
+    (dates/push-boundary commodity :commodity/price-date-range trade-date)))
 
 (defn- push-bounds
   [price]
-  (let [commodity (push-commodity-bounds price)
+  (let [commodity (-> price
+                      (update-in [:price/commodity] models/resolve-ref :commodity)
+                      push-commodity-boundaries)
         entity (push-entity-bounds price)
         accounts (when (after-latest? price)
                    (apply-to-accounts price))]
@@ -122,39 +114,34 @@
          (concat accounts)
          (filter identity))))
 
-(defn- first-price?
-  [{:price/keys [trade-date commodity]}]
-  (= (:commodity/earliest-price commodity)
-     trade-date))
-
-(defn- last-price?
-  [{:price/keys [trade-date commodity]}]
-  (= (:commodity/latest-price commodity)
-     trade-date))
-
 (defn- ->criteria
-  [{:as commodity :commodity/keys [earliest-price latest-price]}]
+  [{:as commodity :commodity/keys [price-date-range]}]
   (cond-> {:price/commodity commodity}
-    earliest-price (assoc :price/trade-date
-                          [:between earliest-price latest-price])))
+    price-date-range (assoc :price/trade-date
+                            (apply vector :between price-date-range))))
 
-(defn- pull-bounds
-  [{:as price :price/keys [commodity]}]
+(defn- pull-boundaries
+  [{:price/keys [trade-date]
+    {[start end] :commodity/price-date-range
+     :as commodity} :price/commodity}]
   (cond
-    (first-price? price)
-    (let [new-earliest-price (models/find-by (->criteria commodity)
-                                             {:sort [:price/trade-date]})]
-      (assoc commodity
-             :commodity/earliest-price
-             (:price/trade-date new-earliest-price)))
+    (= start trade-date)
+    (assoc commodity
+           :commodity/price-date-range
+           (if-let [new-start (models/find-by (->criteria commodity)
+                                              {:sort [:price/trade-date]})]
+             [new-start end]
+             nil))
 
-    (last-price? price)
-    (let [new-latest-price (models/find-by (->criteria commodity)
-                                           {:sort [[:price/trade-date :desc]]})]
+    (= end trade-date)
+    (let [new-end (models/find-by (->criteria commodity)
+                                  {:sort [[:price/trade-date :desc]]})]
       (cons (assoc commodity
-                   :commodity/latest-price
-                   (:price/trade-date new-latest-price))
-            (apply-to-accounts new-latest-price)))))
+                   :commodity/price-date-range
+                   (if new-end
+                     [start new-end]
+                     nil))
+            (apply-to-accounts new-end)))))
 
 (defmethod prop/propagate :price
   [[before after]]
@@ -164,7 +151,7 @@
         push-bounds)
     (-> before
         (update-in [:price/commodity] (models/find :commodity))
-        pull-bounds)))
+        pull-boundaries)))
 
 (defn- aggregate
   [prices]
@@ -192,8 +179,7 @@
   [agg]
   (mapcat (fn [[commodity {:keys [current earliest latest]}]]
             (cons (-> (models/find commodity :commodity)
-                      (assoc :commodity/earliest-price earliest
-                             :commodity/latest-price latest))
+                      (assoc :commodity/price-date-range [earliest latest]))
                   (apply-to-accounts current)))
           (:commodities agg)))
 
