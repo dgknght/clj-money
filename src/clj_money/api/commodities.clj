@@ -23,21 +23,25 @@
   (api/response
     {:count (models/count (extract-criteria req))}))
 
+(defn- fetch-current-price
+  [{:as commodity :commodity/keys [price-date-range]}]
+  (when price-date-range
+    (models/find-by #:price{:commodity commodity
+                            :trade-date (apply vector :between price-date-range)}
+                    {:sort [[:price/trade-date :desc]]})))
+
 (defn- append-current-prices
   [commodities]
   ; TODO: performance tuning opportunity - reduces the number of queries here
-  (map (fn [{:as comm :commodity/keys [price-date-range]}]
-         (assoc comm
-                :commodity/most-recent-price
-                (models/find-by {:price/commodity comm
-                                 :price/trade-date (apply vector :between price-date-range)}
-                                {:sort [[:price/trade-date :desc]]})))
+  (map #(assoc %
+               :commodity/most-recent-price
+               (fetch-current-price %))
        commodities))
 
 (defn- append-shares-owned
   [commodities]
   (if (seq commodities)
-    (let [lots (->> (models/select #:lot{:commodity {:id [:in (map :id commodities)]}
+    (let [lots (->> (models/select #:lot{:commodity [:in commodities]
                                          :shares-owned [:> 0]})
                     (group-by (comp :id :lot/commodity))
                     (map #(update-in % [1] (fn [lots]

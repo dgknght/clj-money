@@ -53,7 +53,7 @@
 (s/def :commodity/name string?)
 (s/def :commodity/symbol string?)
 (s/def :commodity/type #{:currency :stock :fund})
-(s/def :commodity/price-date-range (s/tuple dates/local-date? dates/local-date?))
+(s/def :commodity/price-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
 (s/def :commodity/exchange (s/nilable #{:amex :nasdaq :nyse :otc}))
 
 (s/def :price-config/enabled boolean?)

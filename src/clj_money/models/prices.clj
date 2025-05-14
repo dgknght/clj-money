@@ -98,7 +98,8 @@
 
 (defn- push-commodity-boundaries
   [{:price/keys [commodity trade-date]}]
-  (when (dates/outside? trade-date (:commodity/price-date-range commodity))
+  (when (or (nil? (:commodity/price-date-range commodity))
+            (dates/outside? trade-date (:commodity/price-date-range commodity)))
     (dates/push-boundary commodity :commodity/price-date-range trade-date)))
 
 (defn- push-bounds
@@ -196,4 +197,4 @@
        (models/put-many (cons (apply-agg-to-entity entity agg)
                               (apply-agg-to-commodities agg)))))))
 
-(prop/add-full-propagation propagate-all)
+(prop/add-full-propagation propagate-all :priority 1)
