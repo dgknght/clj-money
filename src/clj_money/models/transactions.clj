@@ -313,6 +313,19 @@
                                  action
                                  account)))
 
+(defn- default-commodity?
+  [{:account/keys [commodity] {{:settings/keys [default-commodity]} :entity/settings} :account/entity}]
+  (id= commodity default-commodity))
+
+(defn- fetch-latest-price
+  [{:commodity/keys [price-date-range] :as commodity}]
+  (when price-date-range
+    (:price/price
+      (models/find-by
+        {:price/commodity commodity
+         :price/trade-date (apply vector :between price-date-range)}
+        {:sort [[:price/trade-date :desc]]}))))
+
 (defn- re-index
   "Given an account and a list of items, take the index and balance
   of the 1st item and calculate indices and balances forward, then
@@ -338,18 +351,9 @@
                             (map #(dissoc % ::polarized-quantity)))
          final-qty (or (:transaction-item/balance (last updated-items))
                        (:transaction-item/balance basis))
-         price (or (when (id= (get-in account [:account/entity
-                                               :entity/settings
-                                               :settings/default-commodity])
-                              commodity)
-                     1M)
+         price (or (when (default-commodity? account) 1M)
                    (:account/commodity-price account)
-                   (when-let [price-date-range (:commodity/price-date-range commodity)]
-                     (:price/price
-                       (models/find-by
-                         {:price/commodity (:account/commodity account)
-                          :price/trade-date (apply vector :between price-date-range)}
-                         {:sort [[:price/trade-date :desc]]})))
+                   (fetch-latest-price commodity)
                    (throw (ex-info "No price found for commodity" {:commodity commodity})))]
      (if (= (count updated-items)
             (count items))
@@ -475,12 +479,12 @@
                    :delete? false)))))
 
 (defn- propagate-dereferenced-account-items
-  [[before {:transaction/keys [items]}]]
+  [[before {:transaction/keys [items] :as after}]]
   (let [act-ids (->> items
                      (map (comp :id
                                 :transaction-item/account))
                      set)
-        entity (models/find (:transaction/entity before) :entity)]
+        entity (models/find (:transaction/entity (or after before)) :entity)]
     (->> (:transaction/items before)
          (remove (comp act-ids
                        :id
