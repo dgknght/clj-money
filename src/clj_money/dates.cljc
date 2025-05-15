@@ -300,7 +300,8 @@
   ([date [start end]]
    (within? date start end))
   ([date start end]
-   {:pre [(t/before? start end)]}
+   {:pre [(or (= start end)
+              (t/before? start end))]}
    ; false
    ; x
    ;  |---|
