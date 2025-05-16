@@ -392,13 +392,15 @@
                            []
                            (->> (account-items-on-or-after account as-of)
                                 (remove #(ids (:id %)))
-                                (map #(assoc % :transaction-item/account account))))]
+                                (map #(assoc % :transaction-item/account account))))
+          account (update-in (:transaction-item/account (first items))
+                             [:account/commodity]
+                             #(if (util/model-ref? %)
+                                (models/find % :commodity)
+                                %))]
       (re-index (if delete?
                   account
                   (-> account
-                      (update-in [:account/commodity] #(if (util/model-ref? %)
-                                                         (models/find % :commodity)
-                                                         %))
                       (push-date-boundaries
                         as-of
                         [:account/earliest-transaction-date]
