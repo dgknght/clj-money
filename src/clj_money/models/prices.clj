@@ -91,7 +91,7 @@
 
 (defn- after-latest?
   [{:price/keys [trade-date commodity]}]
-  (if-let [latest (:commodity/latest-price commodity)]
+  (if-let [latest (last (:commodity/price-date-range commodity))]
     (t/before? latest trade-date)
     true))
 
@@ -123,11 +123,15 @@
     {[start end] :commodity/price-date-range
      :as commodity} :price/commodity}]
   (cond
+    (= start end trade-date)
+    nil
+
     (= start trade-date)
     (assoc commodity
            :commodity/price-date-range
-           (if-let [new-start (models/find-by (->criteria commodity)
-                                              {:sort [:price/trade-date]})]
+           (if-let [new-start (-> (->criteria commodity)
+                                  (models/find-by {:sort [:price/trade-date]})
+                                  :price/trade-date)]
              [new-start end]
              nil))
 
@@ -137,7 +141,7 @@
       (cons (assoc commodity
                    :commodity/price-date-range
                    (if new-end
-                     [start new-end]
+                     [start (:price/trade-date new-end)]
                      nil))
             (apply-to-accounts new-end)))))
 
