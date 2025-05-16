@@ -41,10 +41,9 @@
    {:pre [(map? commodity)]}
 
    (let [[earliest
-          latest] (:commodity/price-date-range
-                    (if (util/model-ref? commodity)
-                      (models/find commodity :commodity)
-                      commodity))]
+          latest] (-> commodity
+                      (models/resolve-ref :commodity)
+                      (:commodity/price-date-range))]
      (cond
        (every? nil? [earliest latest])
        (do
@@ -102,11 +101,9 @@
             (dates/outside? trade-date (:commodity/price-date-range commodity)))
     (dates/push-boundary commodity :commodity/price-date-range trade-date)))
 
-(defn- push-bounds
+(defn- push-boundaries
   [price]
-  (let [commodity (-> price
-                      (update-in [:price/commodity] models/resolve-ref :commodity)
-                      push-commodity-boundaries)
+  (let [commodity (push-commodity-boundaries price)
         entity (push-entity-bounds price)
         accounts (when (after-latest? price)
                    (apply-to-accounts price))]
@@ -149,7 +146,7 @@
   (if after
     (-> after
         (update-in [:price/commodity] (models/find :commodity))
-        push-bounds)
+        push-boundaries)
     (-> before
         (update-in [:price/commodity] (models/find :commodity))
         pull-boundaries)))
