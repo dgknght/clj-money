@@ -672,7 +672,7 @@
                              :items (map (comp polarize
                                                #(assoc % :transaction-item/account account))
                                          (models/select {:transaction-item/account account}))})
-                          #(update-in % [:account/commodity] models/resolve-ref :account)
+                          #(update-in % [0 :account/commodity] models/resolve-ref :commodity)
                           #(update-in % [0] models/find :account)))
                (mapcat (fn [{:keys [account items basis]}]
                          (re-index account basis items)))))))
