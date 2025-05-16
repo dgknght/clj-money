@@ -395,9 +395,8 @@
                                 (map #(assoc % :transaction-item/account account))))
           account (update-in (:transaction-item/account (first items))
                              [:account/commodity]
-                             #(if (util/model-ref? %)
-                                (models/find % :commodity)
-                                %))]
+                             models/resolve-ref
+                             :commodity)]
       (re-index (if delete?
                   account
                   (-> account
@@ -665,15 +664,16 @@
                          dates/latest
                          (second entity)))
           (->> accounts
-               (map (fn [[id date]]
-                      (let [account (models/find id :account)]
-                        {:account account
-                         :date date
-                         :basis (or (last-account-item-before account date)
-                                    initial-basis)
-                         :items (map (comp polarize
-                                           #(assoc % :transaction-item/account account))
-                                     (models/select {:transaction-item/account account}))})))
+               (map (comp (fn [[account date]]
+                            {:account account
+                             :date date
+                             :basis (or (last-account-item-before account date)
+                                        initial-basis)
+                             :items (map (comp polarize
+                                               #(assoc % :transaction-item/account account))
+                                         (models/select {:transaction-item/account account}))})
+                          #(update-in % [:account/commodity] models/resolve-ref :account)
+                          #(update-in % [0] models/find :account)))
                (mapcat (fn [{:keys [account items basis]}]
                          (re-index account basis items)))))))
 
