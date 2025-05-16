@@ -652,17 +652,18 @@
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
   accounts as of the associated dates."
-  [{:keys [accounts entity entity-id]}]
-  (models/put-many
-    (cons (-> (models/find entity-id :entity)
+  [{:keys [accounts entity-id] :as x}]
+  (let [entity (models/find entity-id :entity)]
+    (models/put-many
+    (cons (-> entity
               (update-in [:entity/settings
                           :settings/earliest-transaction-date]
                          dates/earliest
-                         (first entity))
+                         (-> x :entity first))
               (update-in [:entity/settings
                           :settings/latest-transaction-date]
                          dates/latest
-                         (second entity)))
+                         (-> x :entity second)))
           (->> accounts
                (map (comp (fn [[account date]]
                             {:account account
@@ -672,10 +673,11 @@
                              :items (map (comp polarize
                                                #(assoc % :transaction-item/account account))
                                          (models/select {:transaction-item/account account}))})
+                          #(assoc-in % [0 :account/entity] entity)
                           #(update-in % [0 :account/commodity] models/resolve-ref :commodity)
                           #(update-in % [0] models/find :account)))
                (mapcat (fn [{:keys [account items basis]}]
-                         (re-index account basis items)))))))
+                         (re-index account basis items))))))))
 
 (def extract-dates
   (comp (mapcat identity)
