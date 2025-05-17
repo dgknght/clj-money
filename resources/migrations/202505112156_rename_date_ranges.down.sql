@@ -16,7 +16,7 @@ from commodities s
 where t.id = s.id
 and s.price_date_range is not null;
 
-alter table commodities drop column price_date_range;
+alter table commodities drop column if exists price_date_range;
 
 -- Accounts
 --------------
@@ -30,4 +30,4 @@ from accounts s
 where t.id = s.id
 and s.transaction_date_range is not null;
 
-alter table accounts drop column transaction_date_range;
+alter table accounts drop column if exists transaction_date_range;
