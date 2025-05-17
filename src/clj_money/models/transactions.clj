@@ -273,10 +273,10 @@
       0M))
 
 (defn- push-date-boundaries
-  [model date early-ks late-ks]
-  (-> model
-      (update-in early-ks dates/earliest date)
-      (update-in late-ks dates/latest date)))
+  ([model date early-ks late-ks]
+   (-> model
+       (update-in early-ks dates/earliest date)
+       (update-in late-ks dates/latest date))))
 
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,

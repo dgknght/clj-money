@@ -1,3 +1,11 @@
+-- Entities
+-----------
+/* The up migration does not remove the data from settings, so I'm not addressing it here */
+alter table entities drop column if exists price_date_range;
+alter table entities drop column if exists transaction_date_range;
+
+-- Commodities
+--------------
 alter table commodities add column if not exists earliest_price date;
 alter table commodities add column if not exists latest_price date;
 
