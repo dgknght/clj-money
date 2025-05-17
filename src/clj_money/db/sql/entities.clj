@@ -10,10 +10,10 @@
   (-> entity
       (update-in-if [:entity/settings :settings/monitored-account-ids] set)
       (update-in-if [:entity/settings :settings/inventory-method] keyword)
-      (update-in-if [:entity/settings :settings/earliest-transaction-date] t/local-date)
-      (update-in-if [:entity/settings :settings/latest-transaction-date] t/local-date)
-      (update-in-if [:entity/settings :settings/earliest-price-date] t/local-date)
-      (update-in-if [:entity/settings :settings/latest-price-date] t/local-date)))
+      (update-in-if [:entity/transaction-date-range 0] t/local-date)
+      (update-in-if [:entity/transaction-date-range 1] t/local-date)
+      (update-in-if [:entity/price-date-range 0] t/local-date)
+      (update-in-if [:entity/price-date-range 1] t/local-date)))
 
 (defn- resolve-temp-id
   [id-map]

@@ -1,12 +1,13 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :as str]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
             [next.jdbc.date-time]
             [clj-money.util :refer [temp-id?]])
   (:import org.postgresql.util.PGobject
-           [java.sql Array PreparedStatement]))
+           [java.sql Array Connection ParameterMetaData PreparedStatement]))
 
 (derive java.lang.Integer ::integer)
 (derive java.lang.Long ::integer)
@@ -47,10 +48,38 @@
   (read-column-by-label [^PGobject v _] (<-pg-object v))
   (read-column-by-index [^PGobject v _ _] (<-pg-object v)))
 
+(defn- parameter-meta
+  [^PreparedStatement stmt]
+  (.getParameterMetaData stmt))
+
+(defn- get-parameter-type-name
+  [^ParameterMetaData meta ^long index]
+  (.getParameterTypeName meta index))
+
+(defn- extract-parameter-type
+  [^PreparedStatement stmt
+   ^long index]
+  (let [meta (parameter-meta stmt)
+        type-name (get-parameter-type-name meta index)]
+    (when (str/starts-with? type-name "_")
+      (apply str (rest type-name)))))
+
+(defn- ->array
+  [^clojure.lang.PersistentVector value
+   ^PreparedStatement stmt
+   ^long index]
+  (when-let [type-name (extract-parameter-type stmt index)]
+    (let [^Connection conn (.getConnection stmt)]
+      (.createArrayOf conn type-name (to-array value)))))
+
 (extend-protocol p/SettableParameter
   clojure.lang.Keyword
   (set-parameter [^clojure.lang.Keyword k ^PreparedStatement s ^long i]
     (.setObject s i (name k)))
+
+  clojure.lang.PersistentVector
+  (set-parameter [^clojure.lang.PersistentVector v ^PreparedStatement s ^long i]
+    (.setObject s i (or (->array v s i) v)))
 
   clojure.lang.PersistentArrayMap
   (set-parameter [^clojure.lang.PersistentArrayMap m ^PreparedStatement s ^long i]

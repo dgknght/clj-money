@@ -133,10 +133,9 @@
           "It returns the new entity"))
     (testing "models"
       (is (comparable? #:entity{:name "Personal"
-                                :settings #:settings{:default-commodity (util/->model-ref (models/find-by #:commodity{:symbol "USD"
-                                                                                                                      :entity entity}))
-                                                     :earliest-transaction-date (t/local-date 2015 1 1)
-                                                     :latest-transaction-date (t/local-date 2015 1 18)}}
+                                :transaction-date-range [(t/local-date 2015 1 1)
+                                                         (t/local-date 2015 1 18)]
+                                :settings #:settings{:default-commodity (util/->model-ref (models/find-by #:commodity{:symbol "USD" :entity entity}))}}
                        (models/find entity)))
       "The entity can be retrieved"
       (is (seq-of-maps-like? (expected-accounts)

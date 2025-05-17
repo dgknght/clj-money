@@ -5,6 +5,7 @@
             [dgknght.app-lib.core :refer [assoc-if
                                           present?]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]))
 
 (defn- name-is-unique?
@@ -20,6 +21,8 @@
 (s/def :entity/name (s/and string?
                      present?))
 (s/def :entity/user ::models/model-ref)
+(s/def :entity/price-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
+(s/def :entity/transaction-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
 (s/def :settings/monitored-account-ids (s/coll-of ::models/id :kind set?))
 (s/def :settings/inventory-method #{:fifo :lifo})
 (s/def :settings/default-commodity ::models/model-ref)
@@ -30,7 +33,9 @@
 
 (s/def ::models/entity (s/and (s/keys :req [:entity/name
                                             :entity/user]
-                                      :opt [:entity/settings])
+                                      :opt [:entity/settings
+                                            :entity/price-date-range
+                                            :entity/transaction-date-range])
                               name-is-unique?))
 
 (def ^:private find-or-create*

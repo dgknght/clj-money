@@ -61,14 +61,12 @@
           out-chan (a/chan 1 propagation-xf)]
       (models/put attr :out-chan out-chan)
       (a/alts!! [out-chan (a/timeout 1000)])
-      (is (comparable? #:commodity{:earliest-price trade-date 
-                                   :latest-price trade-date}
+      (is (comparable? #:commodity{:price-date-range [trade-date trade-date]}
                        (models/find-by {:commodity/symbol "AAPL"
                                         :commodity/entity entity}))
           "The commodity price date range is updated")
-      (is (comparable? #:settings{:earliest-price-date trade-date
-                                  :latest-price-date trade-date}
-                       (:entity/settings (models/find entity)))
+      (is (comparable? #:entity{:price-date-range [trade-date trade-date]}
+                       (models/find entity))
           "The entity price date range is updated"))))
 
 (deftest commodity-id-is-required

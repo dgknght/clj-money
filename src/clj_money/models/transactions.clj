@@ -273,10 +273,10 @@
       0M))
 
 (defn- push-date-boundaries
-  [model date early-ks late-ks]
-  (-> model
-      (update-in early-ks dates/earliest date)
-      (update-in late-ks dates/latest date)))
+  ([model date early-ks late-ks]
+   (-> model
+       (update-in early-ks dates/earliest date)
+       (update-in late-ks dates/latest date))))
 
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,
@@ -313,6 +313,19 @@
                                  action
                                  account)))
 
+(defn- default-commodity?
+  [{:account/keys [commodity] {{:settings/keys [default-commodity]} :entity/settings} :account/entity}]
+  (id= commodity default-commodity))
+
+(defn- fetch-latest-price
+  [{:commodity/keys [price-date-range] :as commodity}]
+  (when price-date-range
+    (:price/price
+      (models/find-by
+        {:price/commodity commodity
+         :price/trade-date (apply vector :between price-date-range)}
+        {:sort [[:price/trade-date :desc]]}))))
+
 (defn- re-index
   "Given an account and a list of items, take the index and balance
   of the 1st item and calculate indices and balances forward, then
@@ -338,16 +351,10 @@
                             (map #(dissoc % ::polarized-quantity)))
          final-qty (or (:transaction-item/balance (last updated-items))
                        (:transaction-item/balance basis))
-         ; TODO: Shortcut this by checking if the commodity is the entity default
-         price (or (:account/commodity-price account)
-                   (:price/price
-                     (models/find-by
-                       {:price/commodity (:account/commodity account)
-                        :price/trade-date [:between
-                                           (:commodity/earliest-price commodity)
-                                           (:commodity/latest-price commodity)]}
-                       {:sort [[:price/trade-date :desc]]}))
-                   1M)]
+         price (or (when (default-commodity? account) 1M)
+                   (:account/commodity-price account)
+                   (fetch-latest-price commodity)
+                   (throw (ex-info "No price found for commodity" {:commodity commodity})))]
      (if (= (count updated-items)
             (count items))
        (cons (-> account
@@ -385,13 +392,14 @@
                            []
                            (->> (account-items-on-or-after account as-of)
                                 (remove #(ids (:id %)))
-                                (map #(assoc % :transaction-item/account account))))]
+                                (map #(assoc % :transaction-item/account account))))
+          account (update-in (:transaction-item/account (first items))
+                             [:account/commodity]
+                             models/resolve-ref
+                             :commodity)]
       (re-index (if delete?
                   account
                   (-> account
-                      (update-in [:account/commodity] #(if (util/model-ref? %)
-                                                         (models/find % :commodity)
-                                                         %))
                       (push-date-boundaries
                         as-of
                         [:account/earliest-transaction-date]
@@ -422,17 +430,18 @@
 (defn- realize-accounts
   "Given a list of items, lookup the associated account and assoc
   it into the item, if the item has only a model reference."
-  [items]
+  [entity items]
   (if-let [account-ids (account-model-ref-ids items)]
     (let [accounts (index-by :id
                              (models/select
                                (util/model-type
                                  {:id [:in account-ids]}
                                  :account)))]
-      (map #(update-in % [:transaction-item/account] (fn [act]
-                                                       (or (accounts (:id act))
-                                                           act)))
-           items))
+      (->> items
+           (map #(update-in % [:transaction-item/account] (fn [act]
+                                                            (or (accounts (:id act))
+                                                                act))))
+           (map #(assoc-in % [:transaction-item/account :account/entity] entity))))
     items))
 
 (def ^:private transaction-item?
@@ -456,30 +465,32 @@
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
   [[before {:transaction/keys [transaction-date] :keys [id] :as after}]]
-  (->> (:transaction/items after)
-       (map #(cond-> %
-               true (assoc :transaction-item/transaction-date transaction-date)
-               id   (assoc :transaction-item/transaction {:id id})))
-       realize-accounts
-       (group-by (comp util/->model-ref
-                       :transaction-item/account))
-       (mapcat (propagate-account-items
-                 :as-of (dates/earliest
-                          transaction-date
-                          (:transaction/transaction-date before))
-                 :delete? false))))
+  (let [entity (models/find (:transaction/entity after) :entity)]
+    (->> (:transaction/items after)
+         (map #(cond-> %
+                 true (assoc :transaction-item/transaction-date transaction-date)
+                 id   (assoc :transaction-item/transaction {:id id})))
+         (realize-accounts entity)
+         (group-by (comp util/->model-ref
+                         :transaction-item/account))
+         (mapcat (propagate-account-items
+                   :as-of (dates/earliest
+                            transaction-date
+                            (:transaction/transaction-date before))
+                   :delete? false)))))
 
 (defn- propagate-dereferenced-account-items
-  [[before {:transaction/keys [items]}]]
+  [[before {:transaction/keys [items] :as after}]]
   (let [act-ids (->> items
                      (map (comp :id
                                 :transaction-item/account))
-                     set)]
+                     set)
+        entity (models/find (:transaction/entity (or after before)) :entity)]
     (->> (:transaction/items before)
          (remove (comp act-ids
                        :id
                        :transaction-item/account))
-         realize-accounts
+         (realize-accounts entity)
          (group-by (comp util/->model-ref
                          :transaction-item/account))
          (mapcat (propagate-account-items
@@ -508,11 +519,9 @@
                                  (propagate-items change))
         entity (-> (:transaction/entity trx)
                    (models/find :entity)
-                   (push-date-boundaries transaction-date
-                                         [:entity/settings
-                                          :settings/earliest-transaction-date]
-                                         [:entity/settings
-                                          :settings/latest-transaction-date]))
+                   (dates/push-model-boundary
+                     :entity/transaction-date-range
+                     transaction-date))
         updated-sched (propagate-scheduled-transaction trx)]
     (concat (filter identity
                     [entity
@@ -569,7 +578,10 @@
                          latest-transaction-date]}
          :as updated] (if items
                         (->> items
-                             (re-index account
+                             (re-index (update-in account
+                                                  [:account/entity]
+                                                  models/resolve-ref
+                                                  :entity)
                                        initial-basis
                                        {:force? true})
                              (map (comp #(dissoc % ::polarized-quantity)
@@ -581,17 +593,13 @@
                                 :account/latest-transaction-date nil
                                 :account/quantity 0M
                                 :account/value 0M)])
-        [saved-entity] (models/put-many
-                         (cons (-> entity
-                                   (update-in [:entity/settings
-                                               :settings/earliest-transaction-date]
-                                              dates/earliest
-                                              earliest-transaction-date)
-                                   (update-in [:entity/settings
-                                               :settings/latest-transaction-date]
-                                              dates/latest
-                                              latest-transaction-date))
-                               updated))]
+        [saved-entity] (-> entity
+                           (dates/push-model-boundary
+                             :entity/transaction-date-range
+                             earliest-transaction-date
+                             latest-transaction-date)
+                           (cons updated)
+                           models/put-many)]
     saved-entity))
 
 (defn propagate-all
@@ -638,29 +646,26 @@
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
   accounts as of the associated dates."
-  [{:keys [accounts entity entity-id]}]
-  (models/put-many
-    (cons (-> (models/find entity-id :entity)
-              (update-in [:entity/settings
-                          :settings/earliest-transaction-date]
-                         dates/earliest
-                         (first entity))
-              (update-in [:entity/settings
-                          :settings/latest-transaction-date]
-                         dates/latest
-                         (second entity)))
-          (->> accounts
-               (map (fn [[id date]]
-                      (let [account (models/find id :account)]
-                        {:account account
-                         :date date
-                         :basis (or (last-account-item-before account date)
-                                    initial-basis)
-                         :items (map (comp polarize
-                                           #(assoc % :transaction-item/account account))
-                                     (models/select {:transaction-item/account account}))})))
-               (mapcat (fn [{:keys [account items basis]}]
-                         (re-index account basis items)))))))
+  [{:keys [accounts entity-id] :as x}]
+  (let [entity (models/find entity-id :entity)]
+    (models/put-many
+      (cons (update-in entity
+                       [:entity/transaction-date-range]
+                       #(apply dates/push-boundary % (:entity x)))
+            (->> accounts
+                 (map (comp (fn [[account date]]
+                              {:account account
+                               :date date
+                               :basis (or (last-account-item-before account date)
+                                          initial-basis)
+                               :items (map (comp polarize
+                                                 #(assoc % :transaction-item/account account))
+                                           (models/select {:transaction-item/account account}))})
+                            #(assoc-in % [0 :account/entity] entity)
+                            #(update-in % [0 :account/commodity] models/resolve-ref :commodity)
+                            #(update-in % [0] models/find :account)))
+                 (mapcat (fn [{:keys [account items basis]}]
+                           (re-index account basis items))))))))
 
 (def extract-dates
   (comp (mapcat identity)

@@ -9,5 +9,5 @@
   (-> commodity
       (update-in-if [:commodity/exchange] keyword)
       (update-in [:commodity/type] keyword)
-      (update-in-if [:commodity/earliest-price] t/local-date)
-      (update-in-if [:commodity/latest-price] t/local-date)))
+      (update-in-if [:commodity/price-date-range 0] t/local-date)
+      (update-in-if [:commodity/price-date-range 1] t/local-date)))
