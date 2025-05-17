@@ -506,14 +506,12 @@
                      :account)
                    {:include-children? true})]
     (models/select
-      (assoc (->>criteria {:earliest-date (-> entity
-                                              :entity/settings
-                                              :settings/earliest-transaction-date)
-                           :latest-date (-> entity
-                                            :entity/settings
-                                            :settings/latest-transaction-date)}
-                          accounts)
-             :transaction-item/reconciliation (util/->model-ref id)))))
+      (assoc
+        (->>criteria
+          {:earliest-date (get-in entity [:entity/transaction-date-range 0])
+           :latest-date (get-in entity [:entity/transaction-date-range 1])}
+          accounts)
+        :transaction-item/reconciliation (util/->model-ref id)))))
 
 (defn- process-reconciliation
   [recon {:as ctx :keys [accounts]}]

@@ -121,13 +121,12 @@
 (defn- init-price-loading
   [page-state]
   (let [{:as commodity
-         :commodity/keys [earliest-price
-                          latest-price]}
+         [start end] :commodity/price-date-range}
         (:prices-commodity @page-state)
 
         {:keys [items-ch ctl-ch]}
-        (->> (dates/desc-ranges earliest-price
-                                latest-price
+        (->> (dates/desc-ranges start
+                                end
                                 (t/years 1))
              (load-in-chunks {:fetch-xf (comp (map (fn [[start end :as range]]
                                                      (when (seq range)
@@ -145,9 +144,6 @@
                                       (assoc :all-prices-fetched? true)))))
     (go (>! ctl-ch :fetch))))
 
-(def ^:private bounded?
-  (every-pred :commodity/earliest-price :commodity/latest-price))
-
 (defn- select-prices-commodity
   [page-state commodity]
   (+busy)
@@ -159,7 +155,7 @@
               (assoc :prices-commodity commodity)))
   (js/setTimeout
     (fn []
-      (if (bounded? commodity)
+      (if (:commodity/price-date-range commodity)
         (init-price-loading page-state)
         (swap! page-state assoc
                :prices []

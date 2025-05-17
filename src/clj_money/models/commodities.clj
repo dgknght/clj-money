@@ -6,6 +6,7 @@
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
 
@@ -52,6 +53,7 @@
 (s/def :commodity/name string?)
 (s/def :commodity/symbol string?)
 (s/def :commodity/type #{:currency :stock :fund})
+(s/def :commodity/price-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
 (s/def :commodity/exchange (s/nilable #{:amex :nasdaq :nyse :otc}))
 
 (s/def :price-config/enabled boolean?)
@@ -62,7 +64,8 @@
                                                :commodity/symbol
                                                :commodity/entity]
                                          :opt [:commodity/price-config
-                                               :commodity/exchange])
+                                               :commodity/exchange
+                                               :commodity/price-date-range])
                                  name-is-unique?
                                  symbol-is-unique?
                                  exchange-is-satisfied?))

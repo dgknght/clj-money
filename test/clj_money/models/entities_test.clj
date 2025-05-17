@@ -45,12 +45,12 @@
       (assert-created
         #:entity{:name "Business"
                  :user (find-user "john@doe.com")
+                 :transaction-date-range [(t/local-date 2020 1 1)
+                                          (t/local-date 2020 12 31)]
+                 :price-date-range [(t/local-date 2020 1 1)
+                                    (t/local-date 2020 12 31)]
                  :settings #:settings{:inventory-method :fifo
-                                      :monitored-account-ids #{1 2 3}
-                                      :earliest-transaction-date (t/local-date 2020 1 1)
-                                      :latest-transaction-date (t/local-date 2020 12 31)
-                                      :earliest-price-date (t/local-date 2020 1 1)
-                                      :latest-price-date (t/local-date 2020 12 31)}}))))
+                                      :monitored-account-ids #{1 2 3}}}))))
 
 (deftest name-is-required
   (with-context entity-context
