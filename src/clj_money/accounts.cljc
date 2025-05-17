@@ -8,6 +8,7 @@
             [clj-money.decimal :as d]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clj-money.dates :as dates]
             [clj-money.util :as util :refer [id=]]))
 
 (defprotocol ValuationData
@@ -158,28 +159,22 @@
           date-attribute :transaction-item/transaction-date
           model-type :transaction-item}}
     accounts]
-   (util/model-type
-     {account-attribute (if (= 1 (count accounts))
-                          (util/->model-ref (first accounts))
-                          {:id [:in (->> accounts
-                                         (map :id)
-                                         set)]})
-      date-attribute [:between
-                      (or (->> accounts
-                               (map :account/transaction-date-range)
-                               (filter identity)
-                               (map first)
-                               (sort t/before?)
-                               first)
-                          earliest-date)
-                      (or (->> accounts
-                               (map :account/transaction-date-range)
-                               (filter identity)
-                               (map first)
-                               (sort t/after?)
-                               first)
-                          latest-date)]}
-     model-type)))
+   (let [range (->> accounts
+                    (map :account/transaction-date-range)
+                    (filter identity)
+                    (reduce (fn [m r]
+                              (apply dates/push-boundary m r))
+                            []))]
+     (util/model-type
+       {account-attribute (if (= 1 (count accounts))
+                            (util/->model-ref (first accounts))
+                            {:id [:in (->> accounts
+                                           (map :id)
+                                           set)]})
+        date-attribute [:between
+                        (or (first range) earliest-date)
+                        (or (last range) latest-date)]}
+       model-type))))
 
 (defn ->criteria
   [account & [opts]]
