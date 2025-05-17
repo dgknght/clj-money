@@ -100,9 +100,8 @@
     (let [date (t/local-date 2016 3 2)]
       (prop/put-and-propagate (attributes))
       (testing "entity updates"
-        (is (comparable? #:settings{:earliest-transaction-date date
-                                    :latest-transaction-date date}
-                         (:entity/settings (models/find (find-entity "Personal"))))
+        (is (comparable? #:entity{:transaction-date-range [date date]}
+                         (models/find (find-entity "Personal")))
             "The entity is updated with the transaction dates"))
       (testing "account updates"
         (is (comparable? #:account{:earliest-transaction-date date
@@ -902,9 +901,9 @@
                              :quantity 1000M}]))
       (is (= 1900M (:account/quantity (reload-account "Checking")))
           "The account balance is recalculated after the form exits")
-      (is (comparable? {:settings/earliest-transaction-date (t/local-date 2017 1 1)
-                        :settings/latest-transaction-date (t/local-date 2017 2 1)}
-                       (:entity/settings (models/find entity)))
+      (is (comparable? {:entity/transaction-date-range [(t/local-date 2017 1 1)
+                                                        (t/local-date 2017 2 1)]}
+                       (models/find entity))
           "The entity transaction date boundaries are updated"))))
 
 (deftest use-simplified-items

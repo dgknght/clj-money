@@ -649,29 +649,23 @@
   [{:keys [accounts entity-id] :as x}]
   (let [entity (models/find entity-id :entity)]
     (models/put-many
-    (cons (-> entity
-              (update-in [:entity/settings
-                          :settings/earliest-transaction-date]
-                         dates/earliest
-                         (-> x :entity first))
-              (update-in [:entity/settings
-                          :settings/latest-transaction-date]
-                         dates/latest
-                         (-> x :entity second)))
-          (->> accounts
-               (map (comp (fn [[account date]]
-                            {:account account
-                             :date date
-                             :basis (or (last-account-item-before account date)
-                                        initial-basis)
-                             :items (map (comp polarize
-                                               #(assoc % :transaction-item/account account))
-                                         (models/select {:transaction-item/account account}))})
-                          #(assoc-in % [0 :account/entity] entity)
-                          #(update-in % [0 :account/commodity] models/resolve-ref :commodity)
-                          #(update-in % [0] models/find :account)))
-               (mapcat (fn [{:keys [account items basis]}]
-                         (re-index account basis items))))))))
+      (cons (update-in entity
+                       [:entity/transaction-date-range]
+                       #(apply dates/push-boundary % (:entity x)))
+            (->> accounts
+                 (map (comp (fn [[account date]]
+                              {:account account
+                               :date date
+                               :basis (or (last-account-item-before account date)
+                                          initial-basis)
+                               :items (map (comp polarize
+                                                 #(assoc % :transaction-item/account account))
+                                           (models/select {:transaction-item/account account}))})
+                            #(assoc-in % [0 :account/entity] entity)
+                            #(update-in % [0 :account/commodity] models/resolve-ref :commodity)
+                            #(update-in % [0] models/find :account)))
+                 (mapcat (fn [{:keys [account items basis]}]
+                           (re-index account basis items))))))))
 
 (def extract-dates
   (comp (mapcat identity)
