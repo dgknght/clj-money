@@ -805,19 +805,16 @@
         {:account/keys [parent
                         entity
                         commodity
-                        earliest-transaction-date
-                        latest-transaction-date]} @account]
+                        transaction-date-range]} @account]
     (lots/select #:lot{:account parent
                        :commodity commodity
                        :shares-owned [:!= 0]}
                  :on-success #(swap! page-state assoc :lots %))
-    (when (and earliest-transaction-date
-               latest-transaction-date)
-      (prices/select #:price{:commodity commodity
-                             :trade-date [:between
-                                          earliest-transaction-date
-                                          latest-transaction-date]}
-                     :on-success #(swap! page-state assoc :prices %)))
+    (when transaction-date-range
+      (prices/select
+        #:price{:commodity commodity
+                :trade-date (apply vector :between transaction-date-range)}
+        :on-success #(swap! page-state assoc :prices %)))
     (fn []
       [:section
        (bs/nav-tabs [{:id :lots-nav

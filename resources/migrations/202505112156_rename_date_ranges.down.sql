@@ -17,3 +17,17 @@ where t.id = s.id
 and s.price_date_range is not null;
 
 alter table commodities drop column price_date_range;
+
+-- Accounts
+--------------
+alter table accounts add column if not exists earliest_transaction_date date;
+alter table accounts add column if not exists latest_transaction_date date;
+
+update accounts t
+set earliest_transaction_date = s.transaction_date_range[1],
+    latest_transaction_date   = s.transaction_date_range[2]
+from accounts s
+where t.id = s.id
+and s.transaction_date_range is not null;
+
+alter table accounts drop column transaction_date_range;

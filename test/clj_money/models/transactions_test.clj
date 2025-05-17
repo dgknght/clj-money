@@ -104,12 +104,10 @@
                          (models/find (find-entity "Personal")))
             "The entity is updated with the transaction dates"))
       (testing "account updates"
-        (is (comparable? #:account{:earliest-transaction-date date
-                                   :latest-transaction-date date}
+        (is (comparable? #:account{:transaction-date-range [date date]}
                          (reload-account "Checking"))
             "The debited account is updated with transaction dates")
-        (is (comparable? #:account{:earliest-transaction-date date
-                                   :latest-transaction-date date}
+        (is (comparable? #:account{:transaction-date-range [date date]}
                          (reload-account "Salary"))
             "The credited account is updated with transaction dates"))
       (testing "item updates"
@@ -274,8 +272,8 @@
                             #:transaction-item{:action :credit
                                                :account (find-account "Bonus")
                                                :quantity 100M}]})
-    (is (comparable? {:account/earliest-transaction-date (t/local-date 2016 3 2)
-                      :account/latest-transaction-date (t/local-date 2016 3 2)}
+    (is (comparable? {:account/transaction-date-range [(t/local-date 2016 3 2)
+                                                       (t/local-date 2016 3 2)]}
                      (reload-account "Checking"))
         "The checking account transaction date boundaries reflect all transactions")
     (is (seq-of-maps-like? [{:transaction-item/index 1

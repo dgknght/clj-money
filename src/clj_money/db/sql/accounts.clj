@@ -37,8 +37,7 @@
    :account/user-tags
    :account/allocations
    :account/price-as-of
-   :account/earliest-transaction-date
-   :account/latest-transaction-date
+   :account/transaction-date-range
    :account/created-at
    :account/updated-at])
 
@@ -62,5 +61,5 @@
       (update-in [:account/system-tags] ->keyword-set)
       (update-in [:account/user-tags] ->keyword-set)
       (update-in [:account/allocations] parse-allocations)
-      (update-in-if [:account/earliest-transaction-date] t/local-date)
-      (update-in-if [:account/latest-transaction-date] t/local-date)))
+      (update-in-if [:account/transaction-date-range 0] t/local-date)
+      (update-in-if [:account/transaction-date-range 1] t/local-date)))

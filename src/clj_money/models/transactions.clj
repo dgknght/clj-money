@@ -209,27 +209,6 @@
       (dissoc :transaction/original-transaction-date)
       (assoc :transaction/value (trxs/value trx))))
 
-(defmulti ^:private account-value
-  (fn [_balance {:keys [system-tags]}]
-    (system-tags :tradable)))
-
-(defmethod ^:private account-value :default
-  [balance _account]
-  balance)
-
-(defmethod ^:private account-value :tradable
-  [balance {:keys [commodity-id
-                   earliest-transaction-date
-                   latest-transaction-date]}]
-  (when (and earliest-transaction-date latest-transaction-date)
-    (if-let [price (models/find-by #:price{:commodity commodity-id
-                                           :trade-date [:between
-                                                        earliest-transaction-date
-                                                        latest-transaction-date]}
-                                   {:sort [[:price/trade-date :desc]]})]
-      (* (:price price) balance)
-      0M)))
-
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [account & {:as options}]
@@ -247,11 +226,11 @@
     {:sort [[:transaction-item/index :desc]]}))
 
 (defn- last-account-item-on-or-before
-  [{:as account :account/keys [earliest-transaction-date]} date]
+  [{:as account :account/keys [transaction-date-range]} date]
   (models/find-by (util/model-type
                     {:transaction-item/account account
                      :transaction/transaction-date [:between
-                                                    earliest-transaction-date
+                                                    (first transaction-date-range)
                                                     date]}
                     :transaction-item)
                   {:sort [[:transaction/transaction-date :desc]
@@ -271,12 +250,6 @@
   (or (:transaction-item/balance
        (last-account-item-on-or-before account as-of))
       0M))
-
-(defn- push-date-boundaries
-  ([model date early-ks late-ks]
-   (-> model
-       (update-in early-ks dates/earliest date)
-       (update-in late-ks dates/latest date))))
 
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,
@@ -358,14 +331,11 @@
      (if (= (count updated-items)
             (count items))
        (cons (-> account
-                 (update-in [:account/latest-transaction-date]
-                            dates/latest
-                            (:transaction-item/transaction-date (last items)))
-                 (update-in [:account/earliest-transaction-date]
-                            dates/earliest
-                            (some :transaction-item/transaction-date
-                                  (cons basis
-                                        items)))
+                 (dates/push-model-boundary :account/transaction-date-range
+                                            (:transaction-item/transaction-date (last items))
+                                            (some :transaction-item/transaction-date
+                                                  (cons basis
+                                                        items)))
                  (assoc :account/quantity final-qty
                         :account/value (* final-qty price)))
              updated-items)
@@ -399,11 +369,10 @@
                              :commodity)]
       (re-index (if delete?
                   account
-                  (-> account
-                      (push-date-boundaries
-                        as-of
-                        [:account/earliest-transaction-date]
-                        [:account/latest-transaction-date])))
+                  (dates/push-model-boundary
+                    account
+                    :account/transaction-date-range
+                    as-of))
                 (propagation-basis account as-of)
                 (->> (cond->> affected-items
                        (not delete?) (concat items))
@@ -574,8 +543,7 @@
                    (map (comp polarize
                               #(assoc % :transaction-item/account account)))
                    seq)
-        [{:account/keys [earliest-transaction-date
-                         latest-transaction-date]}
+        [{:account/keys [transaction-date-range]}
          :as updated] (if items
                         (->> items
                              (re-index (update-in account
@@ -589,15 +557,14 @@
                                                        [:transaction-item/account]
                                                        util/->model-ref))))
                         [(assoc account
-                                :account/earliest-transaction-date nil
-                                :account/latest-transaction-date nil
+                                :account/transaction-date-range nil
                                 :account/quantity 0M
                                 :account/value 0M)])
         [saved-entity] (-> entity
-                           (dates/push-model-boundary
+                           (apply
+                             dates/push-model-boundary
                              :entity/transaction-date-range
-                             earliest-transaction-date
-                             latest-transaction-date)
+                             transaction-date-range)
                            (cons updated)
                            models/put-many)]
     saved-entity))
@@ -632,8 +599,8 @@
   {:pre [(id= (:account/entity from-account)
               (:account/entity to-account))]}
   (let [entity (models/find (:account/entity from-account) :entity)
-        as-of (or (:account/earliest-transaction-date from-account)
-                  (get-in entity [:entity/settings :settings/earliest-transaction-date]))]
+        as-of (or (get-in from-account [:account/transaction-date-range 0])
+                  (get-in entity [:entity/transaction-date-range 0]))]
     (assert as-of "Unable to find the earliest transaction date.")
     (models/update {:transaction-item/account (util/->model-ref to-account)
                     :transaction-item/index 0

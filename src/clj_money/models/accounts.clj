@@ -5,6 +5,7 @@
             [dgknght.app-lib.core :refer [assoc-if
                                           index-by]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.dates :as dates]
             [clj-money.util :refer [live-id
                                     model=]]
             [clj-money.models :as models]))
@@ -40,6 +41,8 @@
 (s/def :account/system-tags (s/nilable (s/coll-of keyword? :kind set?)))
 (s/def :account/user-tags (s/nilable (s/coll-of keyword? :kind set?)))
 (s/def :account/allocations (s/nilable (s/map-of integer? decimal?)))
+(s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
+                                                           dates/local-date?)))
 
 (s/def ::models/account (s/and (s/keys :req [:account/entity
                                              :account/type
@@ -48,7 +51,8 @@
                                          :opt [:account/parent
                                                :account/system-tags
                                                :account/user-tags
-                                               :account/allocations])
+                                               :account/allocations
+                                               :account/transaction-date-range])
                                  name-is-unique?
                                  parent-has-same-type?))
 ; :value and :children-value are not specified because they are always

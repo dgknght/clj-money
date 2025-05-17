@@ -33,3 +33,19 @@ and s.earliest_price is not null;
 
 alter table commodities drop column earliest_price;
 alter table commodities drop column latest_price;
+
+-- Accounts
+-----------
+alter table accounts add column if not exists transaction_date_range date[];
+
+update accounts t
+set transaction_date_range = array[
+  s.earliest_transaction_date,
+  s.latest_transaction_date
+]
+from accounts s
+where t.id = s.id
+and s.earliest_transaction_date is not null;
+
+alter table accounts drop column earliest_transaction_date;
+alter table accounts drop column latest_transaction_date;

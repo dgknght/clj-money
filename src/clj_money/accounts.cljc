@@ -166,14 +166,16 @@
                                          set)]})
       date-attribute [:between
                       (or (->> accounts
-                               (map :account/earliest-transaction-date)
+                               (map :account/transaction-date-range)
                                (filter identity)
+                               (map first)
                                (sort t/before?)
                                first)
                           earliest-date)
                       (or (->> accounts
-                               (map :account/latest-transaction-date)
+                               (map :account/transaction-date-range)
                                (filter identity)
+                               (map first)
                                (sort t/after?)
                                first)
                           latest-date)]}

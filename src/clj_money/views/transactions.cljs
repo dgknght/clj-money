@@ -79,8 +79,9 @@
   (+busy)
   (let [account (:view-account @page-state)
         criteria {:transaction-item/account account
-                  :transaction-item/transaction-date [(:account/earliest-transaction-date account)
-                                                      (:account/latest-transaction-date account)]
+                  :transaction-item/transaction-date (apply vector
+                                                            :between
+                                                            (:account/transaction-date-range account))
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
     (transaction-items/select
@@ -110,11 +111,10 @@
 (defn init-item-loading
   [page-state]
   (let [account (get-in @page-state [:view-account])
-        start (:account/earliest-transaction-date account)
-        end (:account/latest-transaction-date account)]
-    (if (and start end)
+        range (:account/transaction-date-range account)]
+    (if range
       (do (swap! page-state dissoc :items :all-items-fetched?)
-          (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges start end (t/months 6))
+          (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges range (t/months 6))
                                                (load-in-chunks
                                                  {:fetch-xf (comp
                                                               (map (fn [[start end :as range]]
