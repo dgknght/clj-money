@@ -85,9 +85,9 @@
 
 (defn- push-entity-bounds
   [{:price/keys [trade-date commodity]}]
-  (-> (models/find (:commodity/entity commodity) :entity)
-      (update-in [:entity/settings :settings/earliest-price-date] dates/earliest trade-date)
-      (update-in [:entity/settings :settings/latest-price-date] dates/latest trade-date)))
+  (-> (:commodity/entity commodity)
+      (models/find :entity)
+      (dates/push-model-boundary :entity/price-date-range trade-date)))
 
 (defn- after-latest?
   [{:price/keys [trade-date commodity]}]
@@ -99,7 +99,7 @@
   [{:price/keys [commodity trade-date]}]
   (when (or (nil? (:commodity/price-date-range commodity))
             (dates/outside? trade-date (:commodity/price-date-range commodity)))
-    (dates/push-boundary commodity :commodity/price-date-range trade-date)))
+    (dates/push-model-boundary commodity :commodity/price-date-range trade-date)))
 
 (defn- push-boundaries
   [price]
@@ -162,26 +162,20 @@
                   (or (nil? (get-in m [commodity :latest]))
                       (t/after? (get-in m [commodity :latest]) trade-date))
                   (assoc-in [:commodities commodity :current] price))
-                (update-in [:commodities commodity :earliest] dates/earliest trade-date)
-                (update-in [:commodities commodity :latest] dates/latest trade-date)
-                (update-in [:earliest] dates/earliest trade-date)
-                (update-in [:latest] dates/latest trade-date)))
+                (update-in [:commodities commodity :date-range] dates/push-boundary trade-date)
+                (update-in [:date-range] dates/push-boundary trade-date)))
           {}
           prices))
 
 (defn apply-agg-to-entity
-  [entity agg]
-  (-> entity
-      (assoc-in [:entity/settings :settings/earliest-price-date]
-                (:earliest agg))
-      (assoc-in [:entity/settings :settings/latest-price-date]
-                (:latest agg))))
+  [entity {:keys [date-range]}]
+  (apply dates/push-model-boundary entity :entity/price-date-range date-range))
 
 (defn apply-agg-to-commodities
   [agg]
-  (mapcat (fn [[commodity {:keys [current earliest latest]}]]
+  (mapcat (fn [[commodity {:keys [current date-range]}]]
             (cons (-> (models/find commodity :commodity)
-                      (assoc :commodity/price-date-range [earliest latest]))
+                      (assoc :commodity/price-date-range date-range))
                   (apply-to-accounts current)))
           (:commodities agg)))
 

@@ -65,9 +65,8 @@
                        (models/find-by {:commodity/symbol "AAPL"
                                         :commodity/entity entity}))
           "The commodity price date range is updated")
-      (is (comparable? #:settings{:earliest-price-date trade-date
-                                  :latest-price-date trade-date}
-                       (:entity/settings (models/find entity)))
+      (is (comparable? #:entity{:price-date-range [trade-date trade-date]}
+                       (models/find entity))
           "The entity price date range is updated"))))
 
 (deftest commodity-id-is-required

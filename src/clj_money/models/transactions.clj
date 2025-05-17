@@ -519,11 +519,9 @@
                                  (propagate-items change))
         entity (-> (:transaction/entity trx)
                    (models/find :entity)
-                   (push-date-boundaries transaction-date
-                                         [:entity/settings
-                                          :settings/earliest-transaction-date]
-                                         [:entity/settings
-                                          :settings/latest-transaction-date]))
+                   (dates/push-model-boundary
+                     :entity/transaction-date-range
+                     transaction-date))
         updated-sched (propagate-scheduled-transaction trx)]
     (concat (filter identity
                     [entity
@@ -595,17 +593,13 @@
                                 :account/latest-transaction-date nil
                                 :account/quantity 0M
                                 :account/value 0M)])
-        [saved-entity] (models/put-many
-                         (cons (-> entity
-                                   (update-in [:entity/settings
-                                               :settings/earliest-transaction-date]
-                                              dates/earliest
-                                              earliest-transaction-date)
-                                   (update-in [:entity/settings
-                                               :settings/latest-transaction-date]
-                                              dates/latest
-                                              latest-transaction-date))
-                               updated))]
+        [saved-entity] (-> entity
+                           (dates/push-model-boundary
+                             :entity/transaction-date-range
+                             earliest-transaction-date
+                             latest-transaction-date)
+                           (cons updated)
+                           models/put-many)]
     saved-entity))
 
 (defn propagate-all

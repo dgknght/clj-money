@@ -80,7 +80,7 @@
 
 (defn- balance-data
   [{:keys [accounts since as-of entity]}]
-  (let [earliest-date (get-in entity [:entity/settings :settings/earliest-transaction-date])
+  (let [earliest-date (get-in entity [:entity/transaction-date-range 0])
         account-ids (->> accounts
                          (map :id)
                          set)
@@ -145,7 +145,7 @@
   of that commodity held in the account and the most recent price based on the
   specified date."
   [opts accounts]
-  (if (-> opts :entity :entity/settings :settings/earliest-transaction-date)
+  (if (-> opts :entity :entity/transaction-date-range)
     (let [data (valuation-data (-> opts
                                    (assoc :accounts accounts)
                                    (update-in [:as-of] (fnil identity (t/local-date)))))]
