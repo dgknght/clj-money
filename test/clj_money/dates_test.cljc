@@ -321,7 +321,7 @@
   (is (= [(dates/local-date "2020-02-01")
           (dates/local-date "2020-02-01")]
          (:commodity/price-date-range
-           (dates/push-boundary
+           (dates/push-model-boundary
              {}
              :commodity/price-date-range
              (dates/local-date "2020-02-01"))))
@@ -329,7 +329,7 @@
   (is (= [(dates/local-date "2020-02-01")
           (dates/local-date "2020-02-02")]
          (:commodity/price-date-range
-           (dates/push-boundary
+           (dates/push-model-boundary
              {:commodity/price-date-range [(dates/local-date "2020-02-01")
                                            (dates/local-date "2020-02-01")]}
              :commodity/price-date-range
@@ -338,7 +338,7 @@
   (is (= [(dates/local-date "2020-01-31")
           (dates/local-date "2020-02-01")]
          (:commodity/price-date-range
-           (dates/push-boundary
+           (dates/push-model-boundary
              {:commodity/price-date-range [(dates/local-date "2020-02-01")
                                            (dates/local-date "2020-02-01")]}
              :commodity/price-date-range
@@ -347,12 +347,70 @@
   (is (= [(dates/local-date "2020-02-01")
           (dates/local-date "2020-02-02")]
          (:commodity/price-date-range
-           (dates/push-boundary
+           (dates/push-model-boundary
              {:commodity/price-date-range [(dates/local-date "2020-02-01")
                                            (dates/local-date "2020-02-02")]}
              :commodity/price-date-range
              (dates/local-date "2020-02-01"))))
       "A date within the range does not change the range"))
+
+(deftest push-a-date-range-boundary
+  (testing "single date"
+    (is (= [(dates/local-date "2020-02-01")
+            (dates/local-date "2020-02-01")]
+           (dates/push-boundary
+             nil
+             (dates/local-date "2020-02-01")))
+        "When no range is present, once is created from the given date")
+    (is (= [(dates/local-date "2020-02-01")
+            (dates/local-date "2020-02-02")]
+           (dates/push-boundary
+             [(dates/local-date "2020-02-01")
+              (dates/local-date "2020-02-01")]
+             (dates/local-date "2020-02-02")))
+        "A date after the range moves the end date")
+    (is (= [(dates/local-date "2020-01-31")
+            (dates/local-date "2020-02-01")]
+           (dates/push-boundary
+             [(dates/local-date "2020-02-01")
+              (dates/local-date "2020-02-01")]
+             (dates/local-date "2020-01-31")))
+        "A date before the range moves the end start")
+    (is (= [(dates/local-date "2020-02-01")
+            (dates/local-date "2020-02-02")]
+           (dates/push-boundary
+             [(dates/local-date "2020-02-01")
+              (dates/local-date "2020-02-02")]
+             (dates/local-date "2020-02-01")))
+        "A date within the range does not change the range"))
+  (testing "multiple dates"
+    (is (= [(dates/local-date "2020-02-01")
+            (dates/local-date "2020-02-02")]
+           (dates/push-boundary
+             [(dates/local-date "2020-02-01")
+              (dates/local-date "2020-02-02")]
+             (dates/local-date "2020-02-01")
+             (dates/local-date "2020-02-02")))
+        "Multiples dates within the range do not change the range")
+    (is (= [(dates/local-date "2020-02-01")
+            (dates/local-date "2020-02-03")]
+           (dates/push-boundary
+             [(dates/local-date "2020-02-01")
+              (dates/local-date "2020-02-02")]
+             (dates/local-date "2020-02-03")
+             (dates/local-date "2020-02-02")))
+        "One date out of range changes the range")
+    (is (= [(dates/local-date "2020-01-31")
+            (dates/local-date "2020-02-03")]
+           (dates/push-boundary
+             [(dates/local-date "2020-02-01")
+              (dates/local-date "2020-02-02")]
+             (dates/local-date "2020-01-31")
+             (dates/local-date "2020-02-03")))
+        "Multiple dates out of range change the range")
+    (is (= nil
+           (dates/push-boundary nil nil))
+        "Nil is returned when no dates are present")))
 
 #?(:clj (deftest parse-a-second-to-an-instant
           (is (= (t/instant "2025-02-21T05:59:59Z")

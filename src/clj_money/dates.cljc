@@ -414,14 +414,24 @@
 
 (defn range-boundaries
   [ds]
-  (first-and-last (sort t/before? ds)))
+  {:pre [(every? local-date? ds)]}
+  (when (seq ds)
+    (first-and-last (sort t/before? ds))))
 
 ; TODO: add an option for exclusive end?
 (defn push-boundary
-  "Given a model and a key, push the date range value at that key
-  to include the specified date"
-  [m k d]
-  (update-in m [k] #(range-boundaries (conj % d))))
+  "Given a range, adjust the boundary if necessary to include the specified date"
+  [r & ds]
+  (->> ds
+       (concat r)
+       (filter identity)
+       range-boundaries))
+
+(defn push-model-boundary
+  "Given a model and a key where a date range exists, adjust the boundary
+  if necessary to include the specified date"
+  [m k & ds]
+  (apply update-in m [k] push-boundary ds))
 
 #?(:clj (defn zone-id
           [zone-name]
