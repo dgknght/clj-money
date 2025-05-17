@@ -561,10 +561,10 @@
                                 :account/quantity 0M
                                 :account/value 0M)])
         [saved-entity] (-> entity
-                           (apply
-                             dates/push-model-boundary
-                             :entity/transaction-date-range
-                             transaction-date-range)
+                           (update-in [:entity/transaction-date-range]
+                                      #(apply dates/push-boundary
+                                              %
+                                              transaction-date-range))
                            (cons updated)
                            models/put-many)]
     saved-entity))
