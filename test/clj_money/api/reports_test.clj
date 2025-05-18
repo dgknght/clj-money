@@ -103,8 +103,7 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :start-date (t/local-date 2016 1 1)
-                 :period :month
-                 :period-count 12}))
+                 :period [12 :month]}))
 
 (defn- get-budget-report
   [email]
@@ -145,8 +144,7 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :start-date (t/local-date 2016 1 1)
-                 :period :month
-                 :period-count 12
+                 :period [12 :month]
                  :items [#:budget-item{:account "Groceries"
                                        :periods (repeat 12 200M)}]}
         #:transaction{:transaction-date (t/local-date 2016 1 1)

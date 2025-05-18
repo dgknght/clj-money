@@ -9,6 +9,7 @@
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
+            [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.budgets :refer [create-items-from-history]]
@@ -34,20 +35,15 @@
       (select-keys [:budget/name
                     :budget/start-date
                     :budget/period
-                    :budget/period-count
                     :budget/items])
       (update-in-if [:budget/items] (fn [items]
                                       (mapv #(update-in % [:budget-item/periods] vec)
                                             items)))))
 
 (defn- historical-items
-  [{:budget/keys [entity period period-count]} start-date]
+  [{:budget/keys [entity period]} start-date]
   (let [end-date (t/plus start-date
-                         ((case period
-                            :month t/months
-                            :year t/years
-                            :week t/weeks)
-                          period-count))]
+                         (dates/period period))]
     (models/select (util/model-type
                      #:transaction-item{:transaction/entity entity
                                         :transaction/transaction-date [:between> start-date end-date]
@@ -55,13 +51,11 @@
                      :transaction-item))))
 
 (defn- auto-create-items
-  [{:budget/keys [period period-count] :as budget} start-date]
+  [{:budget/keys [period]
+    :as budget}
+   start-date]
   (let [end-date (t/plus start-date
-                         ((case period
-                            :month t/months
-                            :year t/years
-                            :week t/weeks)
-                          period-count))]
+                         (dates/period period))]
     (->> (historical-items budget start-date)
          (trx-items/realize-accounts)
          (create-items-from-history

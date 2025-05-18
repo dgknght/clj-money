@@ -454,8 +454,7 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :start-date (t/local-date 2016 01 01)
-                 :period :month
-                 :period-count 12
+                 :period [12 :month]
                  :items [#:budget-item{:account "Salary"
                                        :periods (repeat 12 2000M)}
                          #:budget-item{:account "FIT"

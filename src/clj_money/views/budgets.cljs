@@ -112,8 +112,7 @@
                                     (swap! page-state
                                            assoc
                                            :selected
-                                           #:budget{:period :month
-                                                    :period-count 12})
+                                           #:budget{:period [12 :month]})
                                     (set-focus "name"))}
                  :icon :plus
                  :disabled busy?
@@ -124,7 +123,7 @@
   (+busy)
   (-> (:selected @page-state)
       (dissoc :budget/items)
-      (update-in [:budget/period] keyword)
+      (update-in [:budget/period 1] keyword)
       (api/save :callback -busy
                 :on-success (fn []
                               (load-budgets page-state)
@@ -135,6 +134,7 @@
   (let [selected (r/cursor page-state [:selected])
         auto-create (r/cursor selected [:auto-create-items])]
     (fn []
+      (pprint {::budget-form @selected})
       (when @selected
         [:form {:on-submit (fn [e]
                              (.preventDefault e)
@@ -144,10 +144,12 @@
                 :no-validate true}
          [forms/text-field selected [:budget/name] {:validations #{::v/required}}]
          [forms/date-field selected [:budget/start-date] {:validations #{::v/required}}]
-         [forms/select-field selected [:budget/period] (->> budgets/periods
+         [forms/select-field selected [:budget/period 1] (->> budgets/periods
                                                             (map name)
-                                                            sort)]
-         [forms/integer-field selected [:budget/period-count] {:validations #{::v/required}}]
+                                                            sort)
+          {:caption "Period"}]
+         [forms/integer-field selected [:budget/period 0] {:validations #{::v/required}
+                                                           :caption "Period Count"}]
          [forms/checkbox-field selected [:auto-create-items]]
          [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]
          [:div.mt-3
@@ -306,7 +308,7 @@
         detail-flag? (r/cursor page-state [:show-period-detail?])
         detail? (make-reaction #(and @detail-flag?
                                      (not @selected-item)))
-        period-count (r/cursor page-state [:detailed-budget :budget/period-count])]
+        period-count (r/cursor page-state [:detailed-budget :budget/period 0])]
     (fn []
       [:table.table.table-hover.table-borderless
        {:style (when-not @detail? {:max-width "20em"})}
@@ -361,14 +363,14 @@
   [:table.table
    [:thead
     [:tr
-     [:th "Period"]
-     [:th "Amount"]]]
+     [:th.col-sm-6 "Period"]
+     [:th.col-sm-6 "Amount"]]]
    [:tfoot
     [:tr
      [:td (html/space)]
      [:td (format-decimal (reduce decimal/+ (:budget-item/periods @item)))]]]
    [:tbody
-    (->> (range (:budget/period-count budget))
+    (->> (range (get-in budget [:budget/period 0]))
          (map #(period-row % item budget))
          (doall))]])
 
@@ -594,7 +596,7 @@
                                       (swap! page-state
                                              assoc
                                              :selected-item {:id (util/temp-id)
-                                                             :budget-item/periods (->> (range (:period-count @budget))
+                                                             :budget-item/periods (->> (range (get-in @budget [:budget/period 0]))
                                                                                        (map (constantly 0M))
                                                                                        (into []))
                                                              :entry-mode :per-total})

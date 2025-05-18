@@ -784,9 +784,9 @@
     {:import/id (:id record)
      :import/record-type :budget
      :budget/name (:name record)
-     :budget/period (-> record :recurrence :period_type keyword)
+     :budget/period [period-count
+                     (-> record :recurrence :period_type keyword)]
      :budget/start-date (-> record :recurrence :start :gdate parse-date)
-     :budget/period-count period-count
      :budget/items (mapv #(process-budget-item % period-count @state)
                         (:budget/items record))}))
 

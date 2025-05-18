@@ -38,8 +38,7 @@
                                                 :budgets))
                        (edn-body #:budget{:name "2020"
                                           :start-date (t/local-date 2020 1 1)
-                                          :period :month
-                                          :period-count 12})
+                                          :period [12 :month]})
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
@@ -51,8 +50,7 @@
   (is (nil? (::v/errors edn-body)) "There are no validation errors")
   (let [expected #:budget{:name "2020"
                           :start-date (t/local-date 2020 1 1)
-                          :period :month
-                          :period-count 12}]
+                          :period [12 :month]}]
     (is (comparable? expected edn-body)
         "The response contains the newly created budget")
     (is (comparable? expected retrieved)
@@ -107,8 +105,7 @@
                                                       :budgets))
                              (edn-body #:budget{:name "2020"
                                                      :start-date (t/local-date 2017 1 1)
-                                                     :period :month
-                                                     :period-count 12
+                                                     :period [12 :month]
                                                      :auto-create-start-date (t/local-date 2016 1 1)})
                              (add-auth (find-user "john@doe.com"))
                              app
@@ -139,16 +136,14 @@
   (conj create-context
         #:budget{:name "2015"
                  :entity "Personal"
-                 :period :month
-                 :period-count 12
+                 :period [12 :month]
                  :start-date (t/local-date 2015 1 1)
                  :items [#:budget-item{:account "Salary"    :periods (repeat 12 1000M)}
                          #:budget-item{:account "Rent"      :periods (repeat 12 500M)}
                          #:budget-item{:account "Groceries" :periods (repeat 12 200M)}]}
         #:budget{:name "2016"
                  :entity "Personal"
-                 :period :month
-                 :period-count 12
+                 :period [12 :month]
                  :start-date (t/local-date 2016 1 1)
                  :items [#:budget-item{:account "Salary"    :periods (repeat 12 1001M)}
                          #:budget-item{:account "Rent"      :periods (repeat 12 501M)}

@@ -92,8 +92,9 @@
           "The after value passed to the output channel is nil"))))
 
 (defn assert-invalid
-  [attr errors]
+  [attr errors & {:keys [message]}]
   (is (thrown-with-ex-data?
         "Validation failed"
         {::v/errors errors}
-        (models/put attr))))
+        (models/put attr))
+      (or message "Expected a validation error, but found none.")))
