@@ -1,6 +1,7 @@
 (ns clj-money.dates
   (:require #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
+            [clojure.spec.alpha :as s]
             [clojure.walk :refer [postwalk]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
@@ -12,6 +13,9 @@
                    [java.time ZoneId ZoneOffset LocalDate Instant]
                    [java.time.temporal ChronoUnit])
      :cljs (:import [goog.date Date DateTime])))
+
+(s/def ::positive-integer (s/and integer? pos?))
+(s/def ::period (s/tuple ::positive-integer #{:week :month :quarter}))
 
 #?(:cljs (extend-type Date
            IEquiv
@@ -273,13 +277,14 @@
                  (desc-ranges end period-like)))))
 
 (defn period
-  [interval-type interval-count]
-  {:pre [(#{:year :month :week} interval-type)]}
+  ([c t] (period [c t]))
+  ([[period-count period-type :as period]]
+   {:pre [(s/valid? ::period period)]}
 
-  (case interval-type
-    :year (t/years interval-count)
-    :month (t/months interval-count)
-    :week (t/weeks interval-count)))
+   (case period-type
+     :year (t/years period-count)
+     :month (t/months period-count)
+     :week (t/weeks period-count))))
 
 (defn earliest
   [& ds]
