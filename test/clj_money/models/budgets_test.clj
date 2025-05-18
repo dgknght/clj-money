@@ -85,12 +85,12 @@
 (deftest period-count-is-required
   (with-context
     (assert-invalid (assoc (attributes) :budget/period [nil :month])
-                    {:budget/period {0 ["Value must be greater than zero"]}})))
+                    {:budget/period {0 ["Value must be an integer"]}})))
 
 (deftest period-count-must-be-greater-than-zero
   (with-context
     (assert-invalid (assoc (attributes) :budget/period [0 :month])
-                    {:budget/period {0 ["Value must be greater than zero"]}})))
+                    {:budget/period {0 ["Value is invalid"]}})))
 
 (def existing-context
   (conj basic-context
