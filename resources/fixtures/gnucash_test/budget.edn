@@ -144,8 +144,7 @@
                           :import/record-type :budget
                           :budget/name "2017"
                           :budget/start-date #clj-money/local-date "2017-01-01"
-                          :budget/period :month
-                          :budget/period-count 12
+                          :budget/period [12 :month]
                           :budget/items [{:import/account-id "1b71fd298aeca1a18d35b04a7618e76e" ; salary
                                           :budget-item/periods [1000M
                                                                 1000M

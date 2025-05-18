@@ -181,13 +181,13 @@
                   (reduce d/+ 0M))})
 
 (defn summarize-items
-  [{:keys [interval-type interval-count since as-of]
-    :or {interval-count 1}
+  [{:keys [period since as-of]
+    :or {period [1 :month]}
     :as opts}
    items]
   {:pre [(:as-of opts)]}
   (->> (dates/ranges since
-                     (dates/period interval-type interval-count)
+                     (dates/period period)
                      :inclusive true)
        (take-while (fn [[start _]]
                      (t/before? start as-of)))

@@ -13,13 +13,13 @@
 
 (deftest get-a-period-description
   (testing "monthly periods"
-    (let [budget #:budget{:period :month
+    (let [budget #:budget{:period [12 :month]
                           :start-date (t/local-date 2020 1 1)}]
       (is (= "Jan 2020" (budgets/period-description 0 budget)))
       (is (= "Feb 2020" (budgets/period-description 1 budget)))
       (is (= "Dec 2020" (budgets/period-description 11 budget)))))
   (testing "quarterly periods"
-    (let [budget #:budget{:period :quarter
+    (let [budget #:budget{:period [4 :quarter]
                           :start-date (t/local-date 2020 1 1)}]
       (is (= "Q1 2020" (budgets/period-description 0 budget)))
       (is (= "Q2 2020" (budgets/period-description 1 budget)))
@@ -52,8 +52,7 @@
 
 (def budget
   #:budget{:start-date (t/local-date 2020 1 1)
-           :period :month
-           :period-count 12
+           :period [12 :month]
            :items [#:budget-item{:account {:id :salary}
                                  :periods (repeat 12 1000M)}
                    #:budget-item{:account {:id :bonus}
@@ -172,19 +171,17 @@
 (deftest get-a-budget-end-date
   (testing "a monthly budget"
     (is (dates/equal? (t/local-date 2017 12 31)
-                      (budgets/end-date #:budget{:period :month
-                                                 :period-count 12
+                      (budgets/end-date #:budget{:period [12 :month]
                                                  :start-date (t/local-date 2017 1 1)}))
         "It returns the last date of the last month"))
   (testing "a weekly budget"
     (is (dates/equal? (t/local-date 2017 2 4)
-                      (budgets/end-date #:budget{:period :week
-                                                 :period-count 5
+                      (budgets/end-date #:budget{:period [5 :week]
                                                  :start-date (t/local-date 2017 1 1)}))
         "It returns the last date of the last week")))
 
 (deftest get-the-index-of-the-period-containing-a-date
-  (let [all-tests [{:period :month
+  (let [all-tests [{:period [12 :month]
                     :tests [{:date (t/local-date 2017 1 1)
                              :expected 0}
                             {:date (t/local-date 2017 1 31)
@@ -201,7 +198,7 @@
                              :expected nil}
                             {:date (t/local-date 2018 1 1)
                              :expected nil}]}
-                   {:period :week
+                   {:period [12 :week]
                     :tests [{:date (t/local-date 2017 1 1)
                              :expected 0}
                             {:date (t/local-date 2017 1 7)
@@ -215,7 +212,7 @@
                             {:date (t/local-date 2017 3 26)
                              :expected nil}]}]
         budget #:budget{:start-date (t/local-date 2017 1 1)
-                        :period-count 12}]
+                        :period [12 :month]}]
     (doseq [{:keys [period tests]} all-tests]
       (testing (util/format "period %s" period)
         (doseq [{:keys [date expected]} tests]
@@ -226,12 +223,12 @@
 
     (testing "monthly budget"
       (is (= 3 (:index (budgets/period-containing
-                         (assoc budget :budget/period :month)
+                         (assoc budget :budget/period [12 :month])
                          (t/local-date 2017 4 3))))
           "It returns the index of the period containing the date"))
     (testing "weekly budget"
       (is (= 3 (:index (budgets/period-containing
-                         (assoc budget :budget/period :week)
+                         (assoc budget :budget/period [8 :week])
                          (t/local-date 2017 1 25))))
           "It returns the index of the period containing the date"))))
 
@@ -242,64 +239,55 @@
 
 (deftest calculate-a-percent-of-a-period
   (let [tests [{:description "the first day of a month"
-                :budget #:budget{:period :month
-                                 :period-count 12
+                :budget #:budget{:period [12 :month]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 1)
                 :expected #?(:clj 1/31
                              :cljs 0.032)}
                {:description "the 15th day of a month"
-                :budget #:budget{:period :month
-                                 :period-count 12
+                :budget #:budget{:period [12 :month]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 4 15)
                 :expected #?(:clj 1/2
                              :cljs 0.5)}
                {:description "the last day of a month"
-                :budget #:budget{:period :month
-                                 :period-count 12
+                :budget #:budget{:period [12 :month]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 31)
                 :expected #?(:clj 1/1
                              :cljs 1.0)}
                {:description "the first day of a week"
-                :budget #:budget{:period :week
-                                 :period-count 8
+                :budget #:budget{:period [8 :week]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 1)
                 :expected #?(:clj 1/7
                              :cljs 0.143)}
                {:description "the 4th day of a week"
-                :budget #:budget{:period :week
-                                 :period-count 8
+                :budget #:budget{:period [8 :week]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 4)
                 :expected #?(:clj 4/7
                              :cljs 0.571)}
                {:description "the last day of a week"
-                :budget #:budget{:period :week
-                                 :period-count 8
+                :budget #:budget{:period [8 :week]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 7)
                 :expected #?(:clj 1/1
                              :cljs 1.0)}
                {:description "the 1st day of a quarter"
-                :budget #:budget{:period :quarter
-                                 :period-count 4
+                :budget #:budget{:period [4 :quarter]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 1 1)
                 :expected #?(:clj 1/91
                              :cljs 0.011)}
                {:description "the 1st day of the 2nd month of a quarter"
-                :budget #:budget{:period :quarter
-                                 :period-count 4
+                :budget #:budget{:period [4 :quarter]
                                  :start-date (t/local-date 2015 1 1)}
                 :date (t/local-date 2015 2 1)
                 :expected #?(:clj 16/45
                              :cljs 0.356)}
                {:description "the last day of a quarter"
-                :budget #:budget{:period :quarter
-                                 :period-count 4
+                :budget #:budget{:period [4 :quarter]
                                  :start-date (t/local-date 2016 1 1)}
                 :date (t/local-date 2016 3 31)
                 :expected #?(:clj 1/1
@@ -370,7 +358,7 @@
        (a/go
          (is (= (:simple expected-periods)
                 (first (a/alts! [(budgets/calc-periods #:budget-item{:spec {:average (d 100)}}
-                                                       #:budget{:period-count 4})
+                                                       #:budget{:period [4 :month]})
                                  (a/timeout 1000)])))
              "An avarage is applied to each period")
          (done)))))
@@ -382,7 +370,7 @@
        (a/go
          (is (= (:simple expected-periods)
                 (first (a/alts! [(budgets/calc-periods #:budget-item{:spec {:total (d 400)}}
-                                                       #:budget{:period-count 4})
+                                                       #:budget{:period [4 :month]})
                                  (a/timeout 1000)])))
              "A total is evently distributed across the periods")
          (done)))))
@@ -397,7 +385,7 @@
                                    #:budget-item{:spec {:start-date (t/local-date 2025 1 1)
                                                         :week-count 2
                                                         :amount (d 100)}}
-                                   #:budget{:period-count 4
+                                   #:budget{:period [4 :month]
                                             :end-date (t/local-date 2025 12 31)})
                                  (a/timeout 1000)])))
              "A weekly amount is calculated based on occurrences in each month of the specified year")
@@ -412,8 +400,7 @@
                 (first (a/alts! [(budgets/calc-periods
                                     #:budget-item{:spec {:start-date (t/local-date 2024 1 1)
                                                          :round-to 0}}
-                                    #:budget{:period-count 4
-                                             :period :quarterly}
+                                    #:budget{:period [4 :quarter]}
                                     :fetch-item-summaries fetch-item-summaries)
                                   (a/timeout 1000)])))
              "Historical amounts are calculated from queried data")
@@ -423,12 +410,12 @@
    (deftest calculate-periods
      (is (= (:simple expected-periods)
             (first (a/alts!! [(budgets/calc-periods #:budget-item{:spec {:average 100M}}
-                                                    #:budget{:period-count 4})
+                                                    #:budget{:period [4 :month]})
                               (a/timeout 1000)])))
          "An avarage is applied to each period")
      (is (= (:simple expected-periods)
             (first (a/alts!! [(budgets/calc-periods #:budget-item{:spec {:total 400M}}
-                                                    #:budget{:period-count 4})
+                                                    #:budget{:period [4 :month]})
                               (a/timeout 1000)])))
          "A total is evently distributed across the periods")
      (is (= (:weekly expected-periods)
@@ -436,7 +423,7 @@
                                 #:budget-item{:spec {:start-date (t/local-date 2025 1 1)
                                                      :week-count 2
                                                      :amount 100M}}
-                                #:budget{:period-count 4
+                                #:budget{:period [4 :month]
                                          :end-date (t/local-date 2025 12 31)})
                               (a/timeout 1000)])))
          "A weekly amount is calculated based on occurrences in each month of the specified year")
@@ -444,8 +431,7 @@
             (first (a/alts!! [(budgets/calc-periods
                                 #:budget-item{:spec {:start-date (t/local-date 2024 1 1)
                                                      :round-to 0}}
-                                #:budget{:period-count 4
-                                         :period :quarterly}
+                                #:budget{:period [4 :quarter]}
                                 :fetch-item-summaries fetch-item-summaries)
                               (a/timeout 1000)])))
          "Historical amounts are calculated from queried data")))

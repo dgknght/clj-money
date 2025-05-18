@@ -356,8 +356,7 @@
       (let [retrieved (models/select {:budget/entity entity})]
         (is (seq-of-maps-like? [#:budget{:name "2017"
                                          :entity (util/->model-ref entity)
-                                         :period :month
-                                         :period-count 12
+                                         :period [12 :month]
                                          :start-date (t/local-date 2017 1 1)
                                          :end-date (t/local-date 2017 12 31)}]
                                retrieved)

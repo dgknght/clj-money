@@ -35,7 +35,7 @@
 
 (defmulti period-description
   (fn [_ budget]
-    (:budget/period budget)))
+    (get-in budget [:budget/period 1])))
 
 (defmethod period-description :month
   [index {:budget/keys [start-date]}]
@@ -163,14 +163,13 @@
       (render-untagged items))))
 
 (defn- trx-items->budget-item
-  [{:budget/keys [period]}
+  [{[_ period-type] :budget/period}
    since
    as-of]
   (fn [[account trx-items]]
     #:budget-item{:account account
                   :periods (->> trx-items
-                                (txns/summarize-items {:interval-type period
-                                                       :interval-count 1
+                                (txns/summarize-items {:period [1 period-type]
                                                        :since since
                                                        :as-of as-of})
                                 (mapv :quantity))}))
@@ -192,15 +191,16 @@
 (defn- period-seq
   "Returns a sequence of the java.time.Period instances in the budget based on
   :start-date, :period, :period-count"
-  [{:as budget :budget/keys [start-date period-count period]}]
+  [{:as budget
+    :budget/keys [start-date]
+    [period-count period-type] :budget/period}]
   {:pre [(:budget/start-date budget)
-         (:budget/period-count budget)
          (:budget/period budget)]}
 
   (when budget
     (->> (dates/periodic-seq start-date
                              (get-in period-map
-                                     [period]
+                                     [period-type]
                                      (t/months 1)))
          (partition 2 1)
          (map-indexed (fn [index [start next-start]]
@@ -277,11 +277,11 @@
         (first conformed)))))
 
 (defmethod calc-periods :per-average
-  [{{:keys [average]} :budget-item/spec} {:budget/keys [period-count]} & _]
+  [{{:keys [average]} :budget-item/spec} {[period-count] :budget/period} & _]
   (to-chan (repeat period-count average)))
 
 (defmethod calc-periods :per-total
-  [{{:keys [total]} :budget-item/spec} {:budget/keys [period-count]}]
+  [{{:keys [total]} :budget-item/spec} {[period-count] :budget/period}]
   (let [amount (d// total (d/d period-count))]
     (to-chan (repeat period-count amount))))
 
@@ -305,7 +305,7 @@
 (defmethod calc-periods :historical
   [{:budget-item/keys [account]
     {:keys [start-date round-to]} :budget-item/spec}
-   {:budget/keys [_period-count period] :as budget}
+   {:as budget [_ period-type] :budget/period}
    & {:keys [fetch-item-summaries]}]
   (let [end-date (t/plus (end-date (assoc budget
                                           :budget/start-date
@@ -321,6 +321,6 @@
                   (fetch-item-summaries
                     {:transaction-item/transaction-date [start-date end-date]
                      :transaction-item/account account
-                     :interval-type period
+                     :interval-type period-type
                      :interval-count 1})))
     out-chan))

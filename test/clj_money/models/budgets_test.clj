@@ -24,8 +24,7 @@
   #:budget{:entity (find-entity "Personal")
            :name "2016"
            :start-date (t/local-date 2016 1 1)
-           :period :month
-           :period-count 3
+           :period [3 :month]
            :items [#:budget-item{:account (find-account "Salary")
                                  :periods [1000M 1001M 1002M]
                                  :spec nil}
@@ -69,27 +68,35 @@
     (assert-invalid (dissoc (attributes) :budget/period)
                     {:budget/period ["Period is required"]})))
 
-(deftest period-must-be-week-month-or-quarter
+(deftest period-type-is-required
   (with-context
-    (assert-invalid (assoc (attributes) :budget/period :not-a-period)
-                    {:budget/period ["Period must be quarter, week, or month"]})))
+    (assert-invalid (assoc (attributes) :budget/period [12])
+                    {:budget/period ["Period is invalid"]}
+                    :message "An omitted period type is invalid")
+    (assert-invalid (assoc (attributes) :budget/period [12 nil])
+                    {:budget/period {1 ["Value must be quarter, week, or month"]}}
+                    :message "A nil period type is invalid")))
+
+(deftest period-type-must-be-week-month-or-quarter
+  (with-context
+    (assert-invalid (assoc (attributes) :budget/period [12 :not-a-period])
+                    {:budget/period {1 ["Value must be quarter, week, or month"]}})))
 
 (deftest period-count-is-required
   (with-context
-    (assert-invalid (dissoc (attributes) :budget/period-count)
-                    {:budget/period-count ["Period count is required"]})))
+    (assert-invalid (assoc (attributes) :budget/period [nil :month])
+                    {:budget/period {0 ["Value must be greater than zero"]}})))
 
 (deftest period-count-must-be-greater-than-zero
   (with-context
-    (assert-invalid (assoc (attributes) :budget/period-count 0)
-                    {:budget/period-count ["Period count must be greater than zero"]})))
+    (assert-invalid (assoc (attributes) :budget/period [0 :month])
+                    {:budget/period {0 ["Value must be greater than zero"]}})))
 
 (def existing-context
   (conj basic-context
         #:budget{:name "2016"
                  :entity "Personal"
-                 :period :month
-                 :period-count 12
+                 :period [12 :month]
                  :start-date (t/local-date 2016 1 1)
                  :items [#:budget-item{:account "Salary"
                                        :periods (repeat 12 1000M)}
@@ -212,8 +219,7 @@
         #:budget{:entity "Personal"
                  :name "2015"
                  :start-date (t/local-date 2015 1 1)
-                 :period-count 3
-                 :period :month
+                 :period [3 :month]
                  :items [#:budget-item{:account "Food"
                                        :periods (repeat 3 100M)}
                          #:budget-item{:account "Non-food"

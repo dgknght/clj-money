@@ -5,6 +5,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :as budgets]))
 
@@ -28,7 +29,8 @@
              :path [:budget/items]})
 
 (defn- period-counts-match?
-  [{:budget/keys [items period-count]}]
+  [{:budget/keys [items]
+    [period-count] :budget/period}]
   (if (seq items)
     (let [item-period-counts (->> items
                                   (map (comp count :budget-item/periods))
@@ -51,14 +53,12 @@
 (s/def :budget/items (s/coll-of ::models/budget-item))
 (s/def :budget/name v/non-empty-string?)
 (s/def :budget/start-date t/local-date?)
-(s/def :budget/period #{:week :month :quarter})
-(s/def :budget/period-count v/positive-integer?)
+(s/def :budget/period ::dates/period)
 (s/def :budget/entity ::models/model-ref)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/budget (s/and (s/keys :req [:budget/name
                                             :budget/start-date
                                             :budget/period
-                                            :budget/period-count
                                             :budget/entity]
                                       :opt [:budget/items])
                               all-accounts-belong-to-budget-entity?

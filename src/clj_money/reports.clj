@@ -550,7 +550,7 @@
          (if (t/after? (:budget/end-date budget)
                        as-of)
            (inc (:index (budgets/period-containing budget as-of)))
-           (:budget/period-count budget))))
+           (get-in budget [:budget/period 0]))))
 
 (defn- calc-budget-records
   [{:keys [budget as-of entity] :as ctx}]
