@@ -8,6 +8,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
+            [clj-money.images :as images]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
             [clj-money.trading :as trading]
@@ -274,11 +275,13 @@
   "Returns the input data and source type based
   on the specified image"
   [image-refs]
-  ; TODO: Make sure the image body is included here, but not included when not wanted elsewhere
-  (let [images (map #(models/find % :image)
+  (let [images (map (comp #(assoc %
+                                  :image/content
+                                  (images/get (:image/uuid %)))
+                          #(models/find % :image))
                     image-refs)
         source-type (-> images first get-source-type)]
-    [(map #(io/input-stream (byte-array (:image/body %)))
+    [(map #(io/input-stream (byte-array (:image/content %)))
           images)
      source-type]))
 

@@ -1,5 +1,6 @@
 (ns clj-money.images.sql
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert for-query]]
             [clj-money.images :as images])
@@ -12,7 +13,7 @@
                        {:uuid uuid}
                        jdbc/snake-kebab-opts)]
     (log/debugf "Fetching image %s -> %s" uuid sql)
-    (jdbc/execute-one! ds sql jdbc/unqualified-snake-kebab-opts)
+    (:content (jdbc/execute-one! ds sql jdbc/unqualified-snake-kebab-opts))
     uuid))
 
 (defn- duplicate-key-ex?

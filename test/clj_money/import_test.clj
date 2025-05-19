@@ -10,6 +10,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
+            [clj-money.images.sql]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
             [clj-money.test-context :refer [with-context
