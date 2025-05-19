@@ -12,6 +12,13 @@
  :detailed-import-logging? "false"
  :google-client-id "google-id"
  :google-client-secret "google-client-secret"
+ :image-storage {:clj-money.images/strategy :clj-money.images/sql
+                 :host "localhost"
+                 :post 5432
+                 :user "app_user"
+                 :password "please01"
+                 :dbtype "postgresql"
+                 :dbname "money_test"}
  :mailer-host "testmailer.com"
  :mailer-from "no-reply@clj-money.com"
  :partition-period :year

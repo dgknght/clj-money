@@ -7,6 +7,7 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
+            [clj-money.images :as images]
             [clj-money.models.propagation :as prop]
             [clj-money.transactions :refer [expand]]
             [clj-money.trading :as trading]))
@@ -332,8 +333,11 @@
   [image ctx]
   (-> image
       (update-in [:image/user] (find-user ctx))
-      (update-in [:image/body] (comp read-bytes
-                                     io/input-stream))))
+      (assoc :image/uuid (-> (:image/body image)
+                             io/input-stream
+                             read-bytes
+                             images/put))
+      (dissoc :image/body)))
 
 (defmethod prepare :attachment
   [att ctx]

@@ -1,7 +1,9 @@
 (ns clj-money.models.images
   (:refer-clojure :exclude [update find])
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec.alpha :as s]
             [dgknght.app-lib.validation :as v]
+            [clj-money.images :as images]
             [clj-money.models :as models]))
 
 (defn- body-hash-is-unique?
@@ -21,10 +23,14 @@
                              body-hash-is-unique?))
 
 (defn find-or-create
-  [_image]
-  (throw (UnsupportedOperationException. "Not implemented yet"))
-  #_(let [hash (sha-1 body)]
+  [{:image/keys [content user] :as image}]
+  {:pre [(:image/content image)
+         (:image/user image)]}
+  (let [uuid (images/put content)]
     (or
-      (models/find-by {:image/body-hash hash
+      (models/find-by {:image/uuid uuid
                        :image/user user})
-      (models/put image))))
+      (-> image
+          (assoc :image/uuid uuid)
+          (dissoc :image/content)
+          models/put))))
