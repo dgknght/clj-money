@@ -11,6 +11,7 @@
             [clj-money.util :as util]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
+            [clj-money.images.sql]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.images :as images]
@@ -69,15 +70,28 @@
                   ->source-file-key))
        (take-while map?)))
 
+(defn- ->image
+  "Takes an uploaded file and converts it into an image map"
+  [user content-type]
+  (fn [img]
+    (-> img
+        (rename-keys {:filename :image/original-filename
+                      :tempfile :image/content})
+        (update-in [:image/content] read-bytes)
+        (merge #:image{:user user
+                       :content-type content-type})
+        (select-keys [:image/user
+                      :image/content-type
+                      :image/content
+                      :image/original-filename]))))
+
 (defn- create-images
   [user source-files]
   (let [content-type (infer-content-type (first source-files))]
-    (->> source-files
-         (map #(images/find-or-create #:image{:user user
-                                              :content-type content-type
-                                              :original-filename (:filename %)
-                                              :body (read-bytes (:tempfile %))}))
-         (mapv util/->model-ref))))
+    (mapv (comp util/->model-ref
+                images/find-or-create
+                (->image user content-type))
+          source-files)))
 
 (defn- extract-import
   [{:keys [params authenticated]}]

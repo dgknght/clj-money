@@ -8,6 +8,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
+            [clj-money.images :as images]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
             [clj-money.trading :as trading]
@@ -270,17 +271,11 @@
        second
        keyword))
 
-(defn- prepare-input
-  "Returns the input data and source type based
-  on the specified image"
-  [image-refs]
-  ; TODO: Make sure the image body is included here, but not included when not wanted elsewhere
-  (let [images (map #(models/find % :image)
-                    image-refs)
-        source-type (-> images first get-source-type)]
-    [(map #(io/input-stream (byte-array (:image/body %)))
-          images)
-     source-type]))
+(defn- image-content
+  [{:image/keys [uuid]}]
+  (-> (images/get uuid)
+      byte-array
+      io/input-stream))
 
 (defmulti import-record*
   (fn [_ record]
@@ -636,14 +631,17 @@
 (defn- import-data*
   [import-spec {:keys [out-chan]}]
   (let [user (models/find (:import/user import-spec) :user)
-        [inputs source-type] (prepare-input (:import/images import-spec))
+        images (map (models/find :image)
+                    (:import/images import-spec))
+        source-type (get-source-type (first images))
         entity ((some-fn models/find-by models/put)
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
         wait-chan (a/promise-chan)]
     (a/go
       (try
-        (let [result (->> inputs
+        (let [result (->> images
+                          (map image-content)
                           (read-source source-type)
                           (a/transduce
                             (comp (filter-import)

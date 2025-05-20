@@ -58,7 +58,7 @@
       (select-keys [:content-type :filename :tempfile])
       (update-in [:tempfile] read-bytes)
       (rename-keys {:filename :image/original-filename
-                    :tempfile :image/body
+                    :tempfile :image/content
                     :content-type :image/content-type})
       (assoc :image/user authenticated)
       img/find-or-create))

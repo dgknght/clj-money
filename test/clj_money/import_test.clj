@@ -10,6 +10,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
+            [clj-money.images.sql]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
             [clj-money.test-context :refer [with-context
@@ -164,9 +165,9 @@
 
 (def ^:private gnucash-context
   (conj base-context
-        #:image{:body (-> "resources/fixtures/sample.gnucash"
-                          io/input-stream
-                          read-bytes)
+        #:image{:content (-> "resources/fixtures/sample.gnucash"
+                             io/input-stream
+                             read-bytes)
                 :user "john@doe.com"
                 :content-type "application/gnucash"
                 :original-filename "sample.gnucash"}
@@ -277,15 +278,15 @@
 
 (def ^:private edn-context
   (conj base-context
-        #:image{:body (-> "resources/fixtures/sample_0.edn.gz"
-                          io/input-stream
-                          read-bytes)
+        #:image{:content (-> "resources/fixtures/sample_0.edn.gz"
+                             io/input-stream
+                             read-bytes)
                 :user "john@doe.com"
                 :content-type "application/edn"
                 :original-filename "sample_0.edn.gz"}
-        #:image{:body (-> "resources/fixtures/sample_1.edn.gz"
-                          io/input-stream
-                          read-bytes)
+        #:image{:content (-> "resources/fixtures/sample_1.edn.gz"
+                             io/input-stream
+                             read-bytes)
                 :user "john@doe.com"
                 :content-type "application/edn"
                 :original-filename "sample_1.edn.gz"}
@@ -300,9 +301,9 @@
 
 (def ^:private ext-context
   (conj base-context
-        #:image{:body (-> "resources/fixtures/sample_with_commodities_ext.gnucash"
-                          io/input-stream
-                          read-bytes)
+        #:image{:content (-> "resources/fixtures/sample_with_commodities_ext.gnucash"
+                             io/input-stream
+                             read-bytes)
                 :user "john@doe.com"
                 :content-type "application/gnucash"
                 :original-filename "sample_with_commodities_ext.gnucash"}
@@ -340,7 +341,7 @@
 
 (def import-budget-context
   (conj base-context
-        #:image{:body (gnucash-budget-sample)
+        #:image{:content (gnucash-budget-sample)
                 :user "john@doe.com"
                 :content-type "application/gnucash"
                 :original-filename "budget_sample.gnucash"}
@@ -382,7 +383,7 @@
 
 (def ^:private commodities-context
   (conj base-context
-        #:image{:body (gnucash-commodities-sample)
+        #:image{:content (gnucash-commodities-sample)
                 :user "john@doe.com"
                 :content-type "application/gnucash"
                 :original-filename "sample_with_commodities.gnucash"}
@@ -523,9 +524,9 @@
 
 (def ^:private sched-context
   (conj base-context
-        #:image{:body (-> "resources/fixtures/scheduled_transactions.gnucash"
-                          io/input-stream
-                          read-bytes)
+        #:image{:content (-> "resources/fixtures/scheduled_transactions.gnucash"
+                             io/input-stream
+                             read-bytes)
                 :user "john@doe.com"
                 :content-type "application/gnucash"
                 :original-filename "scheduled_transactions.gnucash"}
