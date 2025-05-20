@@ -13,8 +13,7 @@
                        {:uuid uuid}
                        jdbc/snake-kebab-opts)]
     (log/debugf "Fetching image %s -> %s" uuid sql)
-    (:content (jdbc/execute-one! ds sql jdbc/unqualified-snake-kebab-opts))
-    uuid))
+    (:content (jdbc/execute-one! ds sql jdbc/unqualified-snake-kebab-opts))))
 
 (defn- duplicate-key-ex?
   [e]

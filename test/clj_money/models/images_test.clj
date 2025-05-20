@@ -5,8 +5,9 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
+            [clj-money.images.sql]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.models :as models]
+            [clj-money.models.images :as imgs]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-user]]
@@ -25,9 +26,7 @@
   #:image{:user (find-user "john@doe.com")
           :original-filename "sample.gnucash"
           :content-type "application/gnucash"
-          :body (-> "resources/fixtures/sample.gnucash"
-                    io/input-stream
-                    read-bytes)})
+          :uuid "7e3feff7f2dc501a32af044d3ead2f8667649b79"})
 
 (defn- assert-created
   [attr]
@@ -40,7 +39,7 @@
   (with-context image-context
     (assert-created (attributes))))
 
-(deftest user-id-is-required
+(deftest user-is-required
   (with-context image-context
     (assert-invalid (dissoc (attributes) :image/user)
                     {:image/user ["User is required"]})))
@@ -50,32 +49,31 @@
     (assert-invalid (dissoc (attributes) :image/original-filename)
                     {:image/original-filename ["Original filename is required"]})))
 
-(deftest body-hash-is-generated
-  (with-context image-context
-    (let [result (models/put (attributes))]
-      (is (comparable? {:image/body-hash "7e3feff7f2dc501a32af044d3ead2f8667649b79"}
-                       result)
-          "The body-hash value is calculated and saved"))))
-
 (def ^:private existing-image-context
   (conj image-context
         #:image{:user "john@doe.com"
                 :original-filename "sample.gnucash"
                 :content-type "application/gnucash"
-                :body (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}))
+                :content (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}))
 
-(deftest body-hash-is-unique-for-each-user
+(deftest uuid-is-unique-for-each-user
   (with-context existing-image-context
     (assert-invalid (attributes)
-                    {:image/body-hash ["The image has already been added"]})))
-
-(deftest body-is-required
-  (with-context image-context
-    (assert-invalid (dissoc (attributes) :image/body)
-                    {:image/body ["Body is required"]
-                     :image/body-hash ["Body hash must be a string"]})))
+                    {:image/uuid ["The image has already been added"]})))
 
 (deftest content-type-is-required
   (with-context image-context
     (assert-invalid (dissoc (attributes) :image/content-type)
                     {:image/content-type ["Content type is required"]})))
+
+(deftest find-or-create-an-image
+  (with-context image-context
+    (let [image (imgs/find-or-create (-> (attributes)
+                                         (dissoc :image/uuid)
+                                         (assoc :image/content
+                                                (-> "resources/fixtures/sample.gnucash"
+                                                    io/input-stream
+                                                    read-bytes))))]
+      (is (comparable? {:image/uuid "7e3feff7f2dc501a32af044d3ead2f8667649b79"}
+                       image)
+          "A UUID is created an added to the image"))))

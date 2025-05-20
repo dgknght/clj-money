@@ -6,11 +6,11 @@
             [clj-money.images :as images]
             [clj-money.models :as models]))
 
-(defn- body-hash-is-unique?
+(defn- image-is-unique?
   [img]
-  (= 0 (count (models/select (select-keys img [:image/body-hash :image/user])))))
-(v/reg-spec body-hash-is-unique? {:message "The image has already been added"
-                                  :path [:image/body-hash]})
+  (= 0 (count (models/select (select-keys img [:image/uuid :image/user])))))
+(v/reg-spec image-is-unique? {:message "The image has already been added"
+                                  :path [:image/uuid]})
 
 (s/def :image/user ::models/model-ref)
 (s/def :image/original-filename string?)
@@ -20,7 +20,7 @@
                                            :image/original-filename
                                            :image/content-type
                                            :image/uuid])
-                             body-hash-is-unique?))
+                             image-is-unique?))
 
 (defn find-or-create
   [{:image/keys [content user] :as image}]

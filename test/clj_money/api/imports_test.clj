@@ -76,7 +76,7 @@
         #:image{:user "john@doe.com"
                 :original-filename "sample.gnucash"
                 :content-type "application/gnucash"
-                :body (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}
+                :content (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}
         #:import{:entity-name "Personal"
                  :user "john@doe.com"
                  :images ["sample.gnucash"]}

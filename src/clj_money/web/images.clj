@@ -4,6 +4,8 @@
             [ring.util.response :as res]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.util :as util]
+            [clj-money.images :as images]
+            [clj-money.images.sql]
             [clj-money.models :as models]
             [clj-money.authorization.images]))
 
@@ -13,11 +15,12 @@
           (select-keys [:id])
           (util/model-type :image)
           (+scope :image authenticated)
-          (models/find-by {:include-body? true})))
+          models/find-by))
 
 (defn- ->response
-  [{:image/keys [body content-type]}]
-  (-> (io/input-stream body)
+  [{:image/keys [uuid content-type]}]
+  (-> (images/get uuid)
+      io/input-stream
       res/response
       (res/content-type content-type)))
 

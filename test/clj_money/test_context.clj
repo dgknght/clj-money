@@ -333,11 +333,11 @@
   [image ctx]
   (-> image
       (update-in [:image/user] (find-user ctx))
-      (assoc :image/uuid (-> (:image/body image)
+      (assoc :image/uuid (-> (:image/content image)
                              io/input-stream
                              read-bytes
                              images/put))
-      (dissoc :image/body)))
+      (dissoc :image/content)))
 
 (defmethod prepare :attachment
   [att ctx]

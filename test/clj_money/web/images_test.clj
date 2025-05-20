@@ -24,7 +24,7 @@
         #:image{:original-filename "attachment.jpg"
                 :user "john@doe.com"
                 :content-type "image/jpg"
-                :body "resources/fixtures/attachment.jpg"}
+                :content "resources/fixtures/attachment.jpg"}
         #:attachment{:image "attachment.jpg"
                      :transaction [(t/local-date 2015 1 1) "Paycheck"]}))
 
