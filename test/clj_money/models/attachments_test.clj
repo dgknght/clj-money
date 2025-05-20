@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
+            [clj-money.images.sql]
             [clj-money.models :as models]
             [clj-money.models.propagation :refer [put-and-propagate
                                                   delete-and-propagate]]
@@ -31,7 +32,7 @@
                       :quantity 1000M }
         #:image{:user "john@doe.com"
                 :original-filename "sample_receipt.jpg"
-                :body "resources/fixtures/sample_receipt.jpg"
+                :content "resources/fixtures/sample_receipt.jpg"
                 :content-type "image/jpeg"}))
 
 (defn- attributes []
