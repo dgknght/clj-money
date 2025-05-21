@@ -5,6 +5,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
             [clj-money.models :as models]
+            [clj-money.dates :as dates]
             [clj-money.models.transactions :as trans]))
 
 (defn- debit-credit-balanced?
@@ -40,9 +41,7 @@
                                            debit-credit-balanced?))
 (s/def :scheduled-transaction/entity ::models/model-ref)
 (s/def :scheduled-transaction/description string?)
-(s/def :scheduled-transaction/interval-type #{:day :week :month :year})
-(s/def :scheduled-transaction/interval-count (s/and integer?
-                                                    greater-than-zero?))
+(s/def :scheduled-transaction/period ::dates/period)
 (s/def :scheduled-transaction/start-date t/local-date?)
 (s/def :scheduled-transaction/end-date (s/nilable t/local-date?))
 (s/def ::month (s/and integer?
@@ -59,8 +58,7 @@
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/scheduled-transaction (s/keys :req [:scheduled-transaction/entity
                                                     :scheduled-transaction/description
-                                                    :scheduled-transaction/interval-type
-                                                    :scheduled-transaction/interval-count
+                                                    :scheduled-transaction/period
                                                     :scheduled-transaction/start-date
                                                     :scheduled-transaction/date-spec
                                                     :scheduled-transaction/items]
