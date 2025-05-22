@@ -38,16 +38,16 @@
   (t/years interval-count))
 
 (def ^:private tables
-  {:prices {:interval-type :year
-            :interval-count 1}
-   :cached_prices {:interval-type :year
-                   :interval-count 1}
-   :transactions {:interval-type :year
+  {:price {:interval-type :year
+           :interval-count 1}
+   :cached_price {:interval-type :year
                   :interval-count 1}
-   :transaction_items {:interval-type :year
-                       :interval-count 1}
-   :reconciliations {:interval-type :year
-                     :interval-count 5}})
+   :transaction {:interval-type :year
+                 :interval-count 1}
+   :transaction_item {:interval-type :year
+                      :interval-count 1}
+   :reconciliation {:interval-type :year
+                    :interval-count 5}})
 
 (defmulti ^:private period-range :interval-type)
 

@@ -12,8 +12,6 @@
             [next.jdbc.date-time]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.inflection :refer [plural
-                                                singular]]
             [clj-money.util :as util :refer [temp-id?]]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
@@ -163,7 +161,6 @@
 
 (def ^:private infer-table-name
   (comp ->snake_case_keyword
-        plural
         util/model-type))
 
 (defn- insert
@@ -296,21 +293,6 @@
     (cond-> (crt/apply-to m #(update-in-if % [:id] coerce-id))
       k (rename-keys {:id k}))))
 
-(defn- refine-qualifiers
-  "Returns a function that takes a map and singularizes qualifiers based on
-  plural table names and strips the qualifier from the :id attribute. If no
-  qualifier is present, use the specified model type"
-  [model-type]
-  (let [qual (name model-type)]
-    (fn [m]
-      (update-keys m #(let [q (namespace %)
-                            k (name %)]
-                        (if (= "id" k)
-                          :id
-                          (if q
-                            (keyword (singular q) k)
-                            (keyword qual k))))))))
-
 (def ^:private recursions
   {:account [:parent-id :id]})
 
@@ -337,8 +319,7 @@
         (:storage options)
         (map (comp after-read
                    apply-coercions
-                   ->model-refs
-                   (refine-qualifiers model-type))
+                   ->model-refs)
              (jdbc/execute! ds
                             query
                             jdbc/snake-kebab-opts))))))
@@ -365,7 +346,7 @@
 
 (defn- reset*
   [ds]
-  (jdbc/execute! ds ["truncate table cached_prices; truncate table users cascade"]))
+  (jdbc/execute! ds ["truncate table cached_price; truncate table \"user\" cascade"]))
 
 (defmethod db/reify-storage ::db/sql
   [config]
