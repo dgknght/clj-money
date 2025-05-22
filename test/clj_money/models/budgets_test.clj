@@ -74,13 +74,13 @@
                     {:budget/period ["Period is invalid"]}
                     :message "An omitted period type is invalid")
     (assert-invalid (assoc (attributes) :budget/period [12 nil])
-                    {:budget/period {1 ["Value must be quarter, week, or month"]}}
+                    {:budget/period {1 ["Value must be quarter, day, week, month, or year"]}}
                     :message "A nil period type is invalid")))
 
 (deftest period-type-must-be-week-month-or-quarter
   (with-context
     (assert-invalid (assoc (attributes) :budget/period [12 :not-a-period])
-                    {:budget/period {1 ["Value must be quarter, week, or month"]}})))
+                    {:budget/period {1 ["Value must be quarter, day, week, month, or year"]}})))
 
 (deftest period-count-is-required
   (with-context
