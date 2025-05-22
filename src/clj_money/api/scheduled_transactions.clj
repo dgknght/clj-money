@@ -59,8 +59,7 @@
                        :scheduled-transaction/enabled
                        :scheduled-transaction/last-occurrence
                        :scheduled-transaction/date-spec
-                       :scheduled-transaction/interval-type
-                       :scheduled-transaction/interval-count
+                       :scheduled-transaction/period
                        :scheduled-transaction/entity
                        :scheduled-transaction/description
                        :scheduled-transaction/memo

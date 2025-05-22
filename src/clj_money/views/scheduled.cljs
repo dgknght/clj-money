@@ -345,14 +345,14 @@
         [:div.col
          [forms/select-field
           sched-tran
-          [:scheduled-transaction/interval-type]
+          [:scheduled-transaction/period 1]
           [[:year "Yearly"]
            [:month "Monthly"]
            [:week "Weekly"]]
           {:transform-fn keyword}]]
         [:div.col
-         [forms/integer-field sched-tran [:scheduled-transaction/interval-count] {:validation [:required]}]]]
-       (case (:scheduled-transaction/interval-type @sched-tran)
+         [forms/integer-field sched-tran [:scheduled-transaction/period 0] {:validation [:required]}]]]
+       (case (get-in @sched-tran [:scheduled-transaction/period 1])
          :year [:div.row [:div.col [forms/select-field
                                     sched-tran
                                     [:scheduled-transaction/date-spec :month]
@@ -427,7 +427,7 @@
                               assoc
                               :selected
                               #:scheduled-transaction{:entity @current-entity
-                                                      :interval-type :yearly
+                                                      :period [1 :month]
                                                       :enabled true
                                                       :items [{:debit-quantity nil}
                                                               {:credit-quantity nil}]})

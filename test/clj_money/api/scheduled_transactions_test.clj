@@ -32,8 +32,7 @@
                                 :enabled true
                                 :date-spec {:day 2
                                             :month 3}
-                                :interval-type :year
-                                :interval-count 1
+                                :period [1 :year]
                                 :description "Landlord"
                                 :memo "automatically created"
                                 :items [#:scheduled-transaction-item{:action :credit
@@ -64,8 +63,7 @@
         [#:scheduled-transaction{:start-date (t/local-date 2004 03 02)
                                  :description "Landlord"
                                  :memo "automatically created"
-                                 :interval-type :year
-                                 :interval-count 1
+                                 :period [1 :year]
                                  :items [#:scheduled-transaction-item{:action :credit
                                                                       :quantity 50M
                                                                       :memo "checking"}
@@ -90,8 +88,7 @@
   #:scheduled-transaction{:description "Paycheck"
                           :start-date (t/local-date 2021 01 01)
                           :date-spec {:days #{:friday}}
-                          :interval-type :week
-                          :interval-count 2
+                          :period [2 :week]
                           :memo "biweekly"
                           :items [#:scheduled-transaction-item{:action :debit
                                                                :quantity 1000M
@@ -124,8 +121,7 @@
   (let [expected #:scheduled-transaction{:description "Paycheck"
                                          :start-date (t/local-date 2021 1 1)
                                          :date-spec {:days #{:friday}}
-                                         :interval-type :week
-                                         :interval-count 2
+                                         :period [2 :week]
                                          :memo "biweekly"
                                          :items [#:scheduled-transaction-item{:action :debit
                                                                               :quantity 1000M
@@ -155,8 +151,7 @@
   (conj basic-context
         #:scheduled-transaction{:entity "Personal"
                                 :description "Paycheck"
-                                :interval-type :month
-                                :interval-count 1
+                                :period [1 :month]
                                 :last-occurrence (t/local-date 2016 1 1)
                                 :start-date (t/local-date 2015 1 1)
                                 :date-spec {:day 1}
@@ -168,8 +163,7 @@
                                                                      :quantity 1000M}]}))
 
 (def ^:private update-attr
-  #:scheduled-transaction{:interval-type :week
-                          :interval-count 2})
+  #:scheduled-transaction{:period [2 :week]})
 
 (defn- update-sched-tran
   [user-email]
@@ -187,8 +181,7 @@
 (defn- assert-successful-update
   [[{:keys [edn-body] :as response} retrieved]]
   (is (http-success? response))
-  (is (comparable? #:scheduled-transaction{:interval-type :week
-                                           :interval-count 2}
+  (is (comparable? #:scheduled-transaction{:period [2 :week]}
                    edn-body)
       "The updated scheduled transaction is returned")
   (is (comparable? update-attr retrieved)
@@ -197,8 +190,7 @@
 (defn- assert-blocked-update
   [[response retrieved]]
   (is (http-not-found? response))
-  (is (comparable? #:scheduled-transaction{:interval-type :month
-                                 :interval-count 1}
+  (is (comparable? #:scheduled-transaction{:period [1 :month]}
          retrieved)
       "The database is not updated"))
 
@@ -298,8 +290,7 @@
   (conj update-context
         #:scheduled-transaction{:entity "Personal"
                                 :description "Groceries"
-                                :interval-type :week
-                                :interval-count 1
+                                :period [1 :week]
                                 :last-occurrence (t/local-date 2016 1 24)
                                 :start-date (t/local-date 2015 1 1)
                                 :enabled true
@@ -312,8 +303,7 @@
                                                                      :quantity 100M}]}
         #:scheduled-transaction{:entity "Personal"
                                 :description "Groceries disabled"
-                                :interval-type :week
-                                :interval-count 1
+                                :period [1 :week]
                                 :last-occurrence (t/local-date 2016 1 24)
                                 :start-date (t/local-date 2015 1 1)
                                 :enabled false
@@ -326,8 +316,7 @@
                                                                      :quantity 100M}]}
         #:scheduled-transaction{:entity "Personal"
                                 :description "Groceries after end date"
-                                :interval-type :week
-                                :interval-count 1
+                                :period [1 :week]
                                 :last-occurrence (t/local-date 2016 1 24)
                                 :start-date (t/local-date 2015 1 1)
                                 :end-date (t/local-date 2015 12 31)

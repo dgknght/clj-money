@@ -15,7 +15,7 @@
      :cljs (:import [goog.date Date DateTime])))
 
 (s/def ::positive-integer (s/and integer? pos?))
-(s/def ::period (s/tuple ::positive-integer #{:week :month :quarter}))
+(s/def ::period (s/tuple ::positive-integer #{:day :week :month :quarter :year}))
 
 #?(:cljs (extend-type Date
            IEquiv

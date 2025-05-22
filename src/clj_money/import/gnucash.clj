@@ -841,12 +841,12 @@
    :scheduled-transaction/description (:name record)
    :scheduled-transaction/items (map ->scheduled-transaction-item
                                      (:items record))
-   :scheduled-transaction/interval-type (-> schedule
-                                            (get-in [:recurrence :period_type])
-                                            keyword)
-   :scheduled-transaction/interval-count (-> schedule
-                                             (get-in [:recurrence :mult])
-                                             parse-int)
+   :scheduled-transaction/period [(-> schedule
+                                      (get-in [:recurrence :mult])
+                                      parse-int)
+                                  (-> schedule
+                                      (get-in [:recurrence :period_type])
+                                      keyword)]
    :scheduled-transaction/date-spec (infer-date-spec record)
    :import/record-type :scheduled-transaction})
 

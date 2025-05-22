@@ -1,6 +1,8 @@
 (ns clj-money.db.sql.scheduled-transactions
-  (:require [java-time.api :as t]
-            [dgknght.app-lib.core :refer [update-in-if]]
+  (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          parse-int]]
             [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
@@ -17,10 +19,15 @@
     (keyword x)
     x))
 
+(defmethod sql/before-save :scheduled-transaction
+  [trx]
+  (update-in trx [:scheduled-transaction/period 1] name))
+
 (defmethod sql/after-read :scheduled-transaction
   [trx]
   (-> trx
-      (update-in [:scheduled-transaction/interval-type] keyword)
+      (update-in [:scheduled-transaction/period 0] parse-int)
+      (update-in [:scheduled-transaction/period 1] keyword)
       (update-in-if [:scheduled-transaction/start-date] t/local-date)
       (update-in-if [:scheduled-transaction/end-date] t/local-date)
       (update-in-if [:scheduled-transaction/date-spec :day] ->keyword)
