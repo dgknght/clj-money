@@ -22,8 +22,7 @@
                           :end-date (t/local-date 2022 12 31)
                           :enabled true
                           :date-spec {:day :last}
-                          :interval-type :month
-                          :interval-count 1
+                          :period [1 :month]
                           :description "Paycheck"
                           :memo "scheduled"
                           :items [#:scheduled-transaction-item{:action :debit
@@ -52,28 +51,46 @@
     (assert-invalid (dissoc (attributes) :scheduled-transaction/description)
                     {:scheduled-transaction/description ["Description is required"]})))
 
-(deftest interval-type-is-required
+(deftest period-is-required
   (with-context
-    (assert-invalid (dissoc (attributes) :scheduled-transaction/interval-type)
-                    {:scheduled-transaction/interval-type ["Interval type is required"]})))
+    (assert-invalid (dissoc (attributes) :scheduled-transaction/period)
+                    {:scheduled-transaction/period ["Period is required"]})))
 
-(deftest interval-type-can-be-week
+(deftest period-type-is-required
   (with-context
-    (assert-created (assoc (attributes) :scheduled-transaction/interval-type :week))))
+    (assert-invalid (assoc (attributes) :scheduled-transaction/period [1])
+                    {:scheduled-transaction/period ["Period is invalid"]})))
 
-(deftest interval-type-can-be-month
-  (with-context
-    (assert-created (assoc (attributes) :scheduled-transaction/interval-type :month))))
-
-(deftest interval-type-can-be-year
-  (with-context
-    (assert-created (assoc (attributes) :scheduled-transaction/interval-type :year))))
-
-(deftest interval-type-cannot-be-off-list
+(deftest period-type-cannot-be-nil
   (with-context
     (assert-invalid
-      (assoc (attributes) :scheduled-transaction/interval-type :not-valid)
-      {:scheduled-transaction/interval-type ["Interval type must be day, week, month, or year"]})))
+      (assoc (attributes) :scheduled-transaction/period [1 nil])
+      {:scheduled-transaction/period
+       {1 ["Value must be quarter, day, week, month, or year"]}})))
+
+(deftest period-type-can-be-week
+  (with-context
+    (assert-created (assoc-in (attributes) [:scheduled-transaction/period 1] :week))))
+
+(deftest period-type-can-be-month
+  (with-context
+    (assert-created (assoc-in (attributes) [:scheduled-transaction/period 1] :month))))
+
+(deftest period-type-can-be-year
+  (with-context
+    (assert-created (assoc-in (attributes) [:scheduled-transaction/period 1] :year))))
+
+(deftest period-type-cannot-be-off-list
+  (with-context
+    (assert-invalid
+      (assoc-in (attributes) [:scheduled-transaction/period 1] :not-valid)
+      {:scheduled-transaction/period
+       {1 ["Value must be quarter, day, week, month, or year"]}})))
+
+(deftest period-count-is-required
+  (with-context
+    (assert-invalid (assoc (attributes) :scheduled-transaction/period [nil :week])
+                    {:scheduled-transaction/period {0 ["Value must be an integer"]}})))
 
 (deftest start-date-is-required
   (with-context
@@ -84,17 +101,6 @@
   (with-context
     (assert-invalid (dissoc (attributes) :scheduled-transaction/date-spec)
                     {:scheduled-transaction/date-spec ["Date spec is required"]})))
-
-(deftest interval-count-is-required
-  (with-context
-    (assert-invalid (dissoc (attributes) :scheduled-transaction/interval-count)
-                    {:scheduled-transaction/interval-count ["Interval count is required"]})))
-
-(deftest interval-must-be-greater-than-zero
-  (with-context
-    (assert-invalid
-      (assoc (attributes) :scheduled-transaction/interval-count 0)
-      {:scheduled-transaction/interval-count ["Interval count must be greater than zero"]})))
 
 (deftest at-least-two-items-are-required
   (with-context
@@ -182,8 +188,7 @@
                                 :description "Paycheck"
                                 :start-date (t/local-date 2016 1 1)
                                 :date-spec {:day 1}
-                                :interval-type :month
-                                :interval-count 1
+                                :period [1 :month]
                                 :items [#:scheduled-transaction-item{:action :debit
                                                                      :account "Checking"
                                                                      :quantity 900M}
@@ -196,8 +201,7 @@
 
 (deftest update-a-scheduled-transaction
   (with-context update-context
-    (let [attrs #:scheduled-transaction{:interval-type :week
-                                        :interval-count 2}
+    (let [attrs #:scheduled-transaction{:period [2 :week]}
           trx (find-scheduled-transaction "Paycheck")]
       (is (comparable? attrs
                        (models/put

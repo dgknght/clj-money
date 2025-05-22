@@ -49,8 +49,7 @@
                                          :scheduled-transaction/end-date #clj-money/local-date "2018-12-31"
                                          :scheduled-transaction/enabled true
                                          :scheduled-transaction/last-occurrence nil
-                                         :scheduled-transaction/interval-type :week
-                                         :scheduled-transaction/interval-count 2
+                                         :scheduled-transaction/period [2 :week]
                                          :scheduled-transaction/date-spec {:days #{:friday}}
                                          :scheduled-transaction/items [{:scheduled-transaction-item/action :debit
                                                                         :scheduled-transaction-item/quantity 1000M

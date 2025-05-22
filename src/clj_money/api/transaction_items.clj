@@ -168,18 +168,16 @@
                     :transaction/transaction-date
                     :transaction/entity])))
 
-(s/def ::interval-type #{"day" "week" "month" "year"})
-(s/def ::interval-count (partial re-matches #"^\d+$"))
-(s/def ::raw-summary-options (s/keys :req-un [::interval-type
-                                              ::interval-count]))
+(s/def ::period-type #{"day" "week" "month" "year"})
+(s/def ::period-count (partial re-matches #"^\d+$"))
+(s/def ::raw-summary-options (s/keys :req-un [::period-type
+                                              ::period-count]))
 
 (defn- extract-summary-options
-  [{:keys [params]}]
+  [{{:keys [period-type period-count] :as params} :params}]
   {:pre [(s/valid? ::raw-summary-options params)]}
-  (-> params
-      (update-in [:interval-type] keyword)
-      (update-in [:interval-count] parse-int)
-      (select-keys [:interval-type :interval-count])))
+  {:period [(parse-int period-count)
+            (keyword period-type)]})
 
 (defn- summarize
   [{:keys [authenticated] :as req}]

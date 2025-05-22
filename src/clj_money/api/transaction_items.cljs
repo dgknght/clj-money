@@ -35,14 +35,16 @@
            (add-error-handler opts "Unable to retrieve the transaction items: %s")))
 
 (defn- prepare-summary-criteria
-  [criteria]
+  [{:keys [period] :as criteria}]
   (-> criteria
+      (dissoc :period)
       (update-in [:transaction-item/transaction-date 0] serialize-local-date)
       (update-in [:transaction-item/transaction-date 1] serialize-local-date)
       (update-in-if [:transaction-item/account] :id)
       (rename-keys {:transaction-item/transaction-date :transaction-date
                     :transaction-item/account :account-id})
-      (update-in [:interval-type] name)
+      (assoc :period-type (name (second period)))
+      (assoc :period-count (first period))
       map->query-string))
 
 (defn summarize

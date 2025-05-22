@@ -5,8 +5,7 @@
             [clj-money.scheduled-transactions :as st]))
 
 (deftest get-the-next-yearly-transaction-dates
-  (let [sched-trx #:scheduled-transaction{:interval-type :year
-                                          :interval-count 1
+  (let [sched-trx #:scheduled-transaction{:period [1 :year]
                                           :last-occurrence (t/local-date 2020 3 2)
                                           :start-date (t/local-date 2020 3 2)
                                           :date-spec {:month 3
@@ -42,8 +41,7 @@
                                                   (t/local-date 2020 1 1)))))))))
 
 (deftest get-the-next-monthly-transaction-dates
-  (let [sched-trx #:scheduled-transaction{:interval-type :month
-                                          :interval-count 1
+  (let [sched-trx #:scheduled-transaction{:period [1 :month]
                                           :last-occurrence (t/local-date 2021 2 2)
                                           :start-date (t/local-date 2020 3 2)
                                           :date-spec {:day 2}}
@@ -140,8 +138,7 @@
                      #(st/next-transaction-dates sched-tran))))))))))
 
 (deftest get-the-next-weekly-transaction-dates
-  (let [sched-trx #:scheduled-transaction{:interval-type :week
-                                          :interval-count 2
+  (let [sched-trx #:scheduled-transaction{:period [2 :week]
                                           :last-occurrence (t/local-date 2021 2 24)
                                           :start-date (t/local-date 2020 3 2)
                                           :date-spec {:days #{:monday}}}
@@ -192,8 +189,7 @@
          (t/do-at*
            (t/date-time 2020 03 03)
            #(st/next-transaction-date
-              #:scheduled-transaction{:interval-type :month
-                                      :interval-count 6
+              #:scheduled-transaction{:period [6 :month]
                                       :date-spec {:day 2}
                                       :last-occurrence (t/local-date 2020 3 2)
                                       :start-date (t/local-date 2019 9 2)})))))
@@ -232,8 +228,7 @@
                      :scheduled-transaction/description "Paycheck"
                      :scheduled-transaction/start-date (t/local-date 2016 1 1)
                      :scheduled-transaction/date-spec {:day 1}
-                     :scheduled-transaction/interval-type :month
-                     :scheduled-transaction/interval-count 1
+                     :scheduled-transaction/period [1 :month]
                      :scheduled-transaction/items [#:scheduled-transaction-item{:action :debit
                                                                                 :account {:id :checking}
                                                                                 :quantity 900M}

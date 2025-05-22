@@ -335,8 +335,7 @@
     (is (= expected
            (trx/summarize-items {:since (t/local-date 2016 1 1)
                                  :as-of (t/local-date 2016 4 30)
-                                 :interval-type :month
-                                 :interval-count 1}
+                                 :period [1 :month]}
                                 items)))))
 
 (deftest expand-a-transaction

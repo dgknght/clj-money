@@ -267,7 +267,7 @@
   (with-context summary-context
     (let [entity (find-entity "Personal")
           groceries (find-account "Groceries")
-          path (format "%s?account-id=%s&transaction-date=2016-01-01&transaction-date=2016-04-30&interval-type=month&interval-count=1"
+          path (format "%s?account-id=%s&transaction-date=2016-01-01&transaction-date=2016-04-30&period-type=month&period-count=1"
                        (path :api
                              :entities
                              (:id entity)

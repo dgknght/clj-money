@@ -549,8 +549,7 @@
                                      :enabled true
                                      :date-spec {:days #{:friday}}
                                      :last-occurrence nil
-                                     :interval-type :week
-                                     :interval-count 2}]
+                                     :period [2 :week]}]
             retrieved)
           "The scheduled transactions are available after import.")
       (is (seq-of-maps-like? [#:scheduled-transaction-item{:action :debit

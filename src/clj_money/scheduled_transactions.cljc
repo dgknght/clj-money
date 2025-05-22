@@ -6,31 +6,20 @@
             #?(:cljs [cljs-time.predicates :as tp])
             [clj-money.dates :as dates]))
 
-(defmulti ^:private period :scheduled-transaction/interval-type)
-
-(defmethod period :year
-  [{:scheduled-transaction/keys [interval-count]}]
-  (t/years interval-count))
-
-(defmethod period :month
-  [{:scheduled-transaction/keys [interval-count]}]
-  (t/months interval-count))
-
-(defmethod period :week
-  [_]
-  (t/days 1))
-
 (defn- seq-start
-  [{:scheduled-transaction/keys [start-date last-occurrence] :as sched-trx}]
+  [{:scheduled-transaction/keys [start-date last-occurrence]
+    [_ period-type :as period] :scheduled-transaction/period}]
   (or (when last-occurrence
-        (t/plus last-occurrence (period sched-trx)))
+        (t/plus last-occurrence (if (= :week period-type)
+                                  (t/days 1)
+                                  (dates/period period))))
       start-date))
 
-(defmulti ^:private date-seq :scheduled-transaction/interval-type)
+(defmulti ^:private date-seq (comp second :scheduled-transaction/period))
 
 ; spec - {:month m :day d}
 (defmethod date-seq :year
-  [{:scheduled-transaction/keys [interval-count]
+  [{[period-count] :scheduled-transaction/period
     {:keys [month day]} :scheduled-transaction/date-spec
     :as sched-trx}]
   (let [first-date (->> (dates/periodic-seq (seq-start sched-trx)
@@ -39,11 +28,11 @@
                         (filter #(and (= month (dates/month %))
                                       (= day (dates/day-of-month %))))
                         first)]
-    (dates/periodic-seq first-date (t/years interval-count))))
+    (dates/periodic-seq first-date (t/years period-count))))
 
 ; spec - {:day 1}, {:day :last}
 (defmethod date-seq :month
-  [{:scheduled-transaction/keys [interval-count]
+  [{[period-count] :scheduled-transaction/period
     {:keys [day]} :scheduled-transaction/date-spec
     :as sched-trx}]
   (let [first-date (->> (dates/periodic-seq (seq-start sched-trx)
@@ -55,7 +44,7 @@
                                    (dates/last-day-of-the-month? %)
                                    (= day (dates/day-of-month %))))
                         first)]
-    (cond->> (dates/periodic-seq first-date (t/months interval-count))
+    (cond->> (dates/periodic-seq first-date (t/months period-count))
       (= :last day) (map dates/last-day-of-the-month))))
 
 ; spec - {:day [:monday :friday]}
@@ -76,14 +65,14 @@
             :saturday tp/saturday?}))
 
 (defmethod date-seq :week
-  [{:scheduled-transaction/keys [interval-count]
+  [{[period-count] :scheduled-transaction/period
     {:keys [days]} :scheduled-transaction/date-spec
     :as sched-trx}]
   (let [pred (apply some-fn (map weekday-predicates days))]
     (->> (dates/periodic-seq (seq-start sched-trx) (t/days 1))
          (take 7)
          (filter pred) ; get one start date for each specified day of the week
-         (map #(dates/periodic-seq % (t/weeks interval-count))) ; each start date generates a sequence
+         (map #(dates/periodic-seq % (t/weeks period-count))) ; each start date generates a sequence
          (apply interleave)))) ; interleaving the sequences creates on sequence in chronological order
 
 (defn next-transaction-dates
