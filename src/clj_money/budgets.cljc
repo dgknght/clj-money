@@ -321,6 +321,5 @@
                   (fetch-item-summaries
                     {:transaction-item/transaction-date [start-date end-date]
                      :transaction-item/account account
-                     :interval-type period-type
-                     :interval-count 1})))
+                     :period [1 period-type]})))
     out-chan))
