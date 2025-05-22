@@ -14,7 +14,6 @@
             [honey.sql.helpers :refer [select from where limit]]
             [clj-money.core]
             [clj-money.dates :as dates]
-            [clj-money.models.settings :as settings]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
 (defn- db-config []
@@ -40,29 +39,6 @@
   [["-n" "--dry-run" "Dry run"]
    ["-s" "--silent" "Do not output SQL commands"]])
 
-(defn put-partition-date
-  [setting-name date compare-fn]
-  (try
-    (when (if-let [existing (settings/get setting-name)]
-            (when (compare-fn date existing)
-              date)
-            date)
-      (settings/put setting-name date))
-    (catch Exception e
-      (println "Unable to put partition date." e))))
-
-(defn- put-earliest-partition-date
-  [date]
-  (put-partition-date :earliest-partition-date
-                      date
-                      t/before?))
-
-(defn- put-latest-partition-date
-  [date]
-  (put-partition-date :latest-partition-date
-                      date
-                      t/after?))
-
 (defn- parse-date
   [date-str]
   (t/local-date (t/formatter :iso-date) date-str))
@@ -74,9 +50,7 @@
                        (dates/first-day-of-the-year))
         end-date (or (some-> arguments second parse-date)
                      (dates/last-day-of-the-year start-date))]
-    (create-partition-tables start-date end-date options)
-    (put-earliest-partition-date start-date)
-    (put-latest-partition-date end-date)))
+    (create-partition-tables start-date end-date options)))
 
 (def ^:private check-transaction-balances-options
   [["-e" "--entity" "The entity for which balances are to be checked"
