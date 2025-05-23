@@ -9,7 +9,7 @@
 (defn- fetch*
   [ds uuid]
   {:pre [uuid]}
-  (let [sql (for-query :image_contents
+  (let [sql (for-query :image_content
                        {:uuid uuid}
                        jdbc/snake-kebab-opts)]
     (log/debugf "Fetching image %s -> %s" uuid sql)
@@ -23,7 +23,7 @@
   [ds uuid content]
   {:pre [uuid content]}
   (try
-    (let [sql (for-insert :image_contents
+    (let [sql (for-insert :image_content
                           {:uuid uuid
                            :content content}
                           jdbc/snake-kebab-opts)]
