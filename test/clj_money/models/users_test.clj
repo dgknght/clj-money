@@ -96,26 +96,28 @@
           "The user can be retrieved using the token"))))
 
 (deftest cannot-retrieve-a-user-with-an-expired-token
-  (let [user (models/put attributes)
-        token (with-fixed-time "2017-03-02T12:00:00Z"
-                       (users/create-password-reset-token user))
-        retrieved (with-fixed-time "2017-03-03T12:00:00Z"
-                           (users/find-by-token token))]
-    (is (nil? retrieved)
-        "The user is not returned if the token has expired")))
+  (with-context existing-user-ctx
+    (let [user (models/put attributes)
+          token (with-fixed-time "2017-03-02T12:00:00Z"
+                  (users/create-password-reset-token user))
+          retrieved (with-fixed-time "2017-03-03T12:00:00Z"
+                      (users/find-by-token token))]
+      (is (nil? retrieved)
+          "The user is not returned if the token has expired"))))
 
 (deftest reset-a-password
-  (let [user (models/put  attributes)
-        token (users/create-password-reset-token user)
-        _ (users/reset-password token "newpassword")
-        new-auth (users/authenticate {:username "john@doe.com"
-                                      :password "newpassword"})
-        old-auth (users/authenticate {:username "john@doe.com"
-                                      :password "please01"})
-        retrieved (users/find-by-token token)]
-    (is new-auth "The user can be authenticated with the new password")
-    (is (nil? old-auth) "The user cannot be authenticated with the old password")
-    (is (nil? retrieved) "The user cannot be retrieved with a token that has been used")))
+  (with-context existing-user-ctx
+    (let [user (find-user "john@doe.com")
+          token (users/create-password-reset-token user)]
+      (users/reset-password token "newpassword")
+      (is (users/authenticate {:username "john@doe.com"
+                               :password "newpassword"})
+          "The user can be authenticated with the new password")
+      (is (nil? (users/authenticate {:username "john@doe.com"
+                                     :password "please01"}))
+          "The user cannot be authenticated with the old password")
+      (is (nil? (users/find-by-token token))
+          "The user cannot be retrieved with a token that has been used"))))
 
 (def ^:private profile
   {:given_name "John"

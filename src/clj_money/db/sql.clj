@@ -4,12 +4,15 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
-            [camel-snake-kebab.core :refer [->snake_case_keyword]]
+            [camel-snake-kebab.core :refer [->snake_case_keyword
+                                            ->snake_case
+                                            ->kebab-case]]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
                                            for-delete]]
             [next.jdbc.date-time]
+            [next.jdbc.result-set :as result-set]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [temp-id?]]
@@ -163,12 +166,30 @@
   (comp ->snake_case_keyword
         util/model-type))
 
+(defn- quote
+  [x]
+  (str "\"" x "\""))
+
+(defn- peek*
+  [msg]
+  (fn [x]
+    (pprint {msg x})
+    x))
+
+(def ^:private sql-opts
+  {:column-fn (comp quote ->snake_case)
+   :table-fn (comp quote ->snake_case)
+   :label-fn (comp ->kebab-case (peek* :label-fn))
+   :qualifier-fn (comp ->kebab-case :qualifier-fn)
+   :builder-fn #(result-set/as-modified-maps {:qualifier-fn (comp ->kebab-case (peek* :builder-fn-qualifier-fn))
+                                              :label-fn (comp ->kebab-case (peek* :builder-fn-label-fn))})})
+
 (defn- insert
   [db model]
   (let [table (infer-table-name model)
         s (for-insert table
                       model
-                      jdbc/snake-kebab-opts)
+                      sql-opts)
 
         ; TODO: scrub for sensitive data
         _ (log/debugf "database insert %s -> %s" model s)
@@ -182,7 +203,7 @@
         s (for-update table
                       (dissoc model :id)
                       {:id (:id model)}
-                      jdbc/snake-kebab-opts)
+                      sql-opts)
 
         ; TODO: scrub sensitive data
         _ (log/debugf "database update %s -> %s" model s)
@@ -194,7 +215,7 @@
   [ds m]
   (let [s (for-delete (infer-table-name m)
                       {:id (:id m)} ; TODO: find the id attribute
-                      {})]
+                      sql-opts)]
 
     ; TODO: scrub sensitive data
     (log/debugf "database delete %s -> %s" m s)
@@ -304,7 +325,9 @@
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
-                  (criteria->query (cond-> (assoc options :target model-type)
+                  (criteria->query (cond-> (assoc options
+                                                  :quoted? true
+                                                  :target model-type)
                                      include-children? (assoc :recursion (recursions model-type))
                                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
@@ -322,7 +345,7 @@
                    ->model-refs)
              (jdbc/execute! ds
                             query
-                            jdbc/snake-kebab-opts))))))
+                            sql-opts))))))
 
 (defn- update*
   [ds changes criteria]
