@@ -97,7 +97,7 @@
 
 (deftest cannot-retrieve-a-user-with-an-expired-token
   (with-context existing-user-ctx
-    (let [user (models/put attributes)
+    (let [user (find-user "john@doe.com")
           token (with-fixed-time "2017-03-02T12:00:00Z"
                   (users/create-password-reset-token user))
           retrieved (with-fixed-time "2017-03-03T12:00:00Z"
