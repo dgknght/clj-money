@@ -316,7 +316,7 @@
                      k))))
 
 (def ^:private recursions
-  {:account [:parent-id :id]})
+  {:account [:parent_id :id]}) ; This is a bit of a kludge, as :parent-id should be translated to snake case, but it's not
 
 (defn- select*
   [ds criteria {:as options
