@@ -170,19 +170,12 @@
   [x]
   (str "\"" x "\""))
 
-(defn- peek*
-  [msg]
-  (fn [x]
-    (pprint {msg x})
-    x))
-
 (def ^:private sql-opts
   {:column-fn (comp quote ->snake_case)
    :table-fn (comp quote ->snake_case)
-   :label-fn (comp ->kebab-case (peek* :label-fn))
-   :qualifier-fn (comp ->kebab-case :qualifier-fn)
-   :builder-fn #(result-set/as-modified-maps {:qualifier-fn (comp ->kebab-case (peek* :builder-fn-qualifier-fn))
-                                              :label-fn (comp ->kebab-case (peek* :builder-fn-label-fn))})})
+   :label-fn ->kebab-case
+   :qualifier-fn ->kebab-case
+   :builder-fn result-set/as-kebab-maps})
 
 (defn- insert
   [db model]
@@ -314,6 +307,14 @@
     (cond-> (crt/apply-to m #(update-in-if % [:id] coerce-id))
       k (rename-keys {:id k}))))
 
+(defn- refine-qualifiers
+  "Removes the namespace for the id key for a model map"
+  [m]
+  (update-keys m (fn [k]
+                   (if (= "id" (name k))
+                     :id
+                     k))))
+
 (def ^:private recursions
   {:account [:parent-id :id]})
 
@@ -337,11 +338,12 @@
     (if (:count options)
       (jdbc/execute-one! ds
                          query
-                         jdbc/unqualified-snake-kebab-opts)
+                         sql-opts)
       (post-select
         (:storage options)
         (map (comp after-read
                    apply-coercions
+                   refine-qualifiers
                    ->model-refs)
              (jdbc/execute! ds
                             query
@@ -355,7 +357,7 @@
                 (pr-str changes)
                 (pr-str criteria)
                 sql)
-    (jdbc/execute! ds sql jdbc/snake-kebab-opts)))
+    (jdbc/execute! ds sql sql-opts)))
 
 (defn- delete*
   [ds models]
