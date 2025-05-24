@@ -4,6 +4,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
+            [clj-money.images.sql]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.model-helpers :as helpers :refer [assert-invalid]]

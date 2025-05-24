@@ -5,22 +5,22 @@
             [clj-money.util :as util]))
 
 (def ^:private default-options
-  {:relationships #{[:users :identities]
-                    [:users :entities]
-                    [:entities :commodities]
-                    [:entities :accounts]
-                    [:entities :transactions]
-                    [:entities :budgets]
-                    [:accounts :transaction_items]
-                    [:accounts :reconciliations]
-                    [:transactions :transaction_items]
-                    [:transactions :attachments]
-                    [:transactions :lot_items]
-                    [:images :attachments]
-                    [:entities :scheduled_transactions]
-                    [:commodities :lots]
-                    [:commodities :prices]
-                    [:accounts :lots]}})
+  {:relationships #{[:user :identity]
+                    [:user :entity]
+                    [:entity :commodity]
+                    [:entity :account]
+                    [:entity :transaction]
+                    [:entity :budget]
+                    [:account :transaction-item]
+                    [:account :reconciliation]
+                    [:transaction :transaction-item]
+                    [:transaction :attachment]
+                    [:transaction :lot-item]
+                    [:image :attachment]
+                    [:entity :scheduled-transaction]
+                    [:commodity :lot]
+                    [:commodity :price]
+                    [:account :lot]}})
 
 (defn criteria->query
   [criteria & [options]]
