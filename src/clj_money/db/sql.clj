@@ -328,6 +328,8 @@
                   prepare-criteria
                   (criteria->query (cond-> (assoc options
                                                   :quoted? true
+                                                  :column-fn ->snake_case
+                                                  :table-fn ->snake_case
                                                   :target model-type)
                                      include-children? (assoc :recursion (recursions model-type))
                                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
