@@ -308,12 +308,22 @@
       k (rename-keys {:id k}))))
 
 (defn- refine-qualifiers
-  "Removes the namespace for the id key for a model map"
-  [m]
-  (update-keys m (fn [k]
-                   (if (= "id" (name k))
-                     :id
-                     k))))
+  "Removes the namespace for the id key for a model map and corrects
+  missing keyword namespaces.
+
+  The jdbc library doesn't supply the table name as the keyword namespace
+  when a CTE is used to create a recursive query. In these cases, we have to
+  supply the namespace ourselves."
+  [{:keys [include-children? include-parents? model-type]}]
+  (fn [m]
+    (let [+ns (if (or include-children? include-parents?)
+                           #(keyword (name model-type)
+                                     (name %))
+                           identity)]
+      (update-keys m (fn [k]
+                       (if (= "id" (name k))
+                         :id
+                         (+ns k)))))))
 
 (def ^:private recursions
   {:account [:parent_id :id]}) ; This is a bit of a kludge, as :parent-id should be translated to snake case, but it's not
@@ -345,8 +355,8 @@
         (:storage options)
         (map (comp after-read
                    apply-coercions
-                   refine-qualifiers
-                   ->model-refs)
+                   ->model-refs
+                   (refine-qualifiers (assoc options :model-type model-type)))
              (jdbc/execute! ds
                             query
                             sql-opts))))))
