@@ -7,7 +7,7 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.dates :as dates]
             [clj-money.util :refer [live-id
-                                    model=]]
+                                    id=]]
             [clj-money.models :as models]))
 
 (defn- name-is-unique?
@@ -115,7 +115,7 @@
   of ancestors."
   [commodity]
   (let [{ancestors false
-         accounts true} (group-by #(model= commodity (:account/commodity %))
+         accounts true} (group-by #(id= commodity (:account/commodity %))
                                   (models/select {:account/commodity commodity}
                                                  {:include-parents? true}))]
 
