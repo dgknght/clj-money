@@ -12,7 +12,8 @@
   (api/response
     (models/select (-> params
                        (select-keys [:name])
-                       (+scope :entity authenticated)))))
+                       (+scope :entity authenticated))
+                   {:sort [:entity/name]})))
 
 (defn- extract-entity
   [{:keys [params authenticated]}]

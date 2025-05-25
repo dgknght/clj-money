@@ -4,16 +4,17 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
-            [camel-snake-kebab.core :refer [->snake_case_keyword]]
+            [camel-snake-kebab.core :refer [->snake_case_keyword
+                                            ->snake_case
+                                            ->kebab-case]]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
                                            for-delete]]
             [next.jdbc.date-time]
+            [next.jdbc.result-set :as result-set]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.inflection :refer [plural
-                                                singular]]
             [clj-money.util :as util :refer [temp-id?]]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
@@ -163,15 +164,25 @@
 
 (def ^:private infer-table-name
   (comp ->snake_case_keyword
-        plural
         util/model-type))
+
+(defn- quote
+  [x]
+  (str "\"" x "\""))
+
+(def ^:private sql-opts
+  {:column-fn (comp quote ->snake_case)
+   :table-fn (comp quote ->snake_case)
+   :label-fn ->kebab-case
+   :qualifier-fn ->kebab-case
+   :builder-fn result-set/as-kebab-maps})
 
 (defn- insert
   [db model]
   (let [table (infer-table-name model)
         s (for-insert table
                       model
-                      jdbc/snake-kebab-opts)
+                      sql-opts)
 
         ; TODO: scrub for sensitive data
         _ (log/debugf "database insert %s -> %s" model s)
@@ -185,7 +196,7 @@
         s (for-update table
                       (dissoc model :id)
                       {:id (:id model)}
-                      jdbc/snake-kebab-opts)
+                      sql-opts)
 
         ; TODO: scrub sensitive data
         _ (log/debugf "database update %s -> %s" model s)
@@ -197,7 +208,7 @@
   [ds m]
   (let [s (for-delete (infer-table-name m)
                       {:id (:id m)} ; TODO: find the id attribute
-                      {})]
+                      sql-opts)]
 
     ; TODO: scrub sensitive data
     (log/debugf "database delete %s -> %s" m s)
@@ -297,22 +308,25 @@
       k (rename-keys {:id k}))))
 
 (defn- refine-qualifiers
-  "Returns a function that takes a map and singularizes qualifiers based on
-  plural table names and strips the qualifier from the :id attribute. If no
-  qualifier is present, use the specified model type"
-  [model-type]
-  (let [qual (name model-type)]
-    (fn [m]
-      (update-keys m #(let [q (namespace %)
-                            k (name %)]
-                        (if (= "id" k)
-                          :id
-                          (if q
-                            (keyword (singular q) k)
-                            (keyword qual k))))))))
+  "Removes the namespace for the id key for a model map and corrects
+  missing keyword namespaces.
+
+  The jdbc library doesn't supply the table name as the keyword namespace
+  when a CTE is used to create a recursive query. In these cases, we have to
+  supply the namespace ourselves."
+  [{:keys [include-children? include-parents? model-type]}]
+  (fn [m]
+    (let [+ns (if (or include-children? include-parents?)
+                           #(keyword (name model-type)
+                                     (name %))
+                           identity)]
+      (update-keys m (fn [k]
+                       (if (= "id" (name k))
+                         :id
+                         (+ns k)))))))
 
 (def ^:private recursions
-  {:account [:parent-id :id]})
+  {:account [:parent_id :id]}) ; This is a bit of a kludge, as :parent-id should be translated to snake case, but it's not
 
 (defn- select*
   [ds criteria {:as options
@@ -322,7 +336,11 @@
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
-                  (criteria->query (cond-> (assoc options :target model-type)
+                  (criteria->query (cond-> (assoc options
+                                                  :quoted? true
+                                                  :column-fn ->snake_case
+                                                  :table-fn ->snake_case
+                                                  :target model-type)
                                      include-children? (assoc :recursion (recursions model-type))
                                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
@@ -332,16 +350,16 @@
     (if (:count options)
       (jdbc/execute-one! ds
                          query
-                         jdbc/unqualified-snake-kebab-opts)
+                         sql-opts)
       (post-select
         (:storage options)
         (map (comp after-read
                    apply-coercions
                    ->model-refs
-                   (refine-qualifiers model-type))
+                   (refine-qualifiers (assoc options :model-type model-type)))
              (jdbc/execute! ds
                             query
-                            jdbc/snake-kebab-opts))))))
+                            sql-opts))))))
 
 (defn- update*
   [ds changes criteria]
@@ -351,7 +369,7 @@
                 (pr-str changes)
                 (pr-str criteria)
                 sql)
-    (jdbc/execute! ds sql jdbc/snake-kebab-opts)))
+    (jdbc/execute! ds sql sql-opts)))
 
 (defn- delete*
   [ds models]
@@ -365,7 +383,7 @@
 
 (defn- reset*
   [ds]
-  (jdbc/execute! ds ["truncate table cached_prices; truncate table users cascade"]))
+  (jdbc/execute! ds ["truncate table cached_price; truncate table \"user\" cascade"]))
 
 (defmethod db/reify-storage ::db/sql
   [config]
