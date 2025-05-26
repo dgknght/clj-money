@@ -16,7 +16,7 @@
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [temp-id?]]
-            [clj-money.models.schema :refer [schema]]
+            [clj-money.models.schema :as schema]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
                                               ->update]]
@@ -37,7 +37,7 @@
 (defmethod model-keys :default [_] [])
 
 (def ^:private model-ref-keys
-  (->> schema
+  (->> schema/models
        (mapcat (fn [{:keys [refs type]}]
                  (map (fn [ref]
                         (keyword (name type)

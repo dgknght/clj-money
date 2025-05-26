@@ -2,11 +2,11 @@
   (:refer-clojure :exclude [format])
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.sql-qualified :as sql]
-            [clj-money.models.schema :refer [schema]]
+            [clj-money.models.schema :as schema]
             [clj-money.util :as util]))
 
 (def ^:private relationships
-  (->> schema
+  (->> schema/models
        (mapcat (fn [model]
                  (map #(vector % (:type model))
                       (:refs model))))

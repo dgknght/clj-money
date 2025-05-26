@@ -15,7 +15,7 @@
                                 ::fields]
                        :opt-un [::refs
                                 ::transient-fields]))
-(def schema
+(def models
   [{:type :user
     :fields #{:email
               :password
