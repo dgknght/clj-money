@@ -7,7 +7,6 @@
             [clojure.data :refer [diff]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
-            [clj-money.models :as models]
             [clj-money.json] ; to ensure encoders are registered
             [clj-money.util :as util :refer [model=]]
             [clj-money.db :as db]))

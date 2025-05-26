@@ -4,7 +4,8 @@
             [clojure.set :refer [union]]
             #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
-               :cljs [cljs.pprint :refer [pprint]])))
+               :cljs [cljs.pprint :refer [pprint]])
+            [clj-money.models.schema :as schema]))
 
 (derive #?(:clj java.lang.String
            :cljs js/String)
@@ -72,25 +73,9 @@
       (first namespaces))))
 
 (def model-types
-  #{:user
-    :identity
-    :import
-    :image
-    :entity
-    :commodity
-    :price
-    :cached-price
-    :account
-    :transaction
-    :transaction-item
-    :attachment
-    :budget
-    :budget-item
-    :grant
-    :scheduled-transaction
-    :reconciliation
-    :lot
-    :lot-item})
+  (->> schema/models
+       (map :id)
+       set))
 
 (def valid-model-type? model-types)
 

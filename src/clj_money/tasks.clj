@@ -2,6 +2,7 @@
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.edn :as edn]
             [clojure.java.shell :refer [sh]]
+            [clj-money.models.schema :as schema]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.models :as models]
@@ -136,3 +137,20 @@
 
 (defn compile-sass []
   (println (:out (sh "resources/compile-sass.sh"))))
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn er-diagram [& _args]
+  (let [lines (concat ["erDiagram"]
+                      (mapcat (fn [{:keys [id fields]}]
+                                (concat [(str "  " (name id) " {")]
+                                (map (fn [{:keys [id type]}]
+                                         (str "    " (name type) " " (name id)))
+                                     fields)
+                                ["  }"]))
+                              schema/models)
+                      (mapcat (fn [{:keys [refs id]}]
+                                (map (fn [ref]
+                                       (str "  " (name ref) " ||--|{ " (name id) " : \"has many\""))
+                                     refs))
+                              schema/models))]
+    (doseq [l lines] (println l))))
