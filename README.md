@@ -99,8 +99,7 @@ heroku open
 ## Running server tests
 ```bash
 createdb money_test
-lein with-profile test migrate
-lein with-profile test partition 2015-01-01 2017-12-31
+lein with-profile test do migrate, partition 2015-01-01 2017-12-31
 lein test
 ```
 
