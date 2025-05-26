@@ -125,7 +125,7 @@
               :period
               :memo}
     :transient-fields #{:last-occurrence}
-    :refs #{}}
+    :refs #{:entity}}
    {:type :scheduled-transaction-item
     :fields #{:action
               :quantity

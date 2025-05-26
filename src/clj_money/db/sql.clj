@@ -16,6 +16,7 @@
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [temp-id?]]
+            [clj-money.models.schema :refer [schema]]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
                                               ->update]]
@@ -36,35 +37,13 @@
 (defmethod model-keys :default [_] [])
 
 (def ^:private model-ref-keys
-  [:image/user
-   :import/user
-   :identity/user
-   :entity/user
-   :grant/entity
-   :grant/user
-   :commodity/entity
-   :price/commodity
-   :account/entity
-   :account/commodity
-   :account/parent
-   :transaction/entity
-   :transaction/scheduled-transaction
-   :transaction-item/account
-   :transaction-item/reconciliation
-   :transaction-item/transaction
-   :lot-item/transaction
-   :lot-item/lot
-   :scheduled-transaction/entity
-   :scheduled-transaction-item/account
-   :reconciliation/account
-   :budget/entity
-   :budget-item/account
-   :budget-item/budget
-   :attachment/image
-   :attachment/transaction
-   :lot/account
-   :lot/commodity
-   :lot-transaction/transaction])
+  (->> schema
+       (mapcat (fn [{:keys [refs type]}]
+                 (map (fn [ref]
+                        (keyword (name type)
+                                 (name ref)))
+                      refs)))
+       set))
 
 (def ^:private reconstruction-rules
   {:budget [{:parent? :budget/name
