@@ -150,7 +150,7 @@ CREATE SEQUENCE public.imports_id_seq
     CACHE 1;
 ALTER SEQUENCE public.imports_id_seq OWNED BY public.imports.id;
 CREATE TABLE public.images (
-    id integer DEFAULT nextval('public.imports_id_seq'::regclass) NOT NULL,
+    id integer NOT NULL,
     user_id integer NOT NULL,
     original_filename character varying(255) NOT NULL,
     body_hash character(40) NOT NULL,
@@ -267,6 +267,7 @@ ALTER TABLE ONLY public.commodities ALTER COLUMN id SET DEFAULT nextval('public.
 ALTER TABLE ONLY public.entities ALTER COLUMN id SET DEFAULT nextval('public.entities_id_seq'::regclass);
 ALTER TABLE ONLY public.grants ALTER COLUMN id SET DEFAULT nextval('public.grants_id_seq'::regclass);
 ALTER TABLE ONLY public.identities ALTER COLUMN id SET DEFAULT nextval('public.identities_id_seq'::regclass);
+ALTER TABLE ONLY public.images ALTER COLUMN id SET DEFAULT nextval('public.images_id_seq'::regclass);
 ALTER TABLE ONLY public.imports ALTER COLUMN id SET DEFAULT nextval('public.imports_id_seq'::regclass);
 ALTER TABLE ONLY public.lots ALTER COLUMN id SET DEFAULT nextval('public.lots_id_seq'::regclass);
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
@@ -335,7 +336,8 @@ ALTER TABLE ONLY public.accounts
 ALTER TABLE ONLY public.accounts
     ADD CONSTRAINT fk_accounts_entity FOREIGN KEY (entity_id) REFERENCES public.entities(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.attachments
-    ADD CONSTRAINT fk_attachments_image FOREIGN KEY (image_id) REFERENCES public.images(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_attachments_image FOREIGN KEY (image_id) REFERENCES public.images(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_attachments_transaction FOREIGN KEY (transaction_date, transaction_id) REFERENCES public.transactions(transaction_date, id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.budget_items
     ADD CONSTRAINT fk_budget_items_account FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.budget_items

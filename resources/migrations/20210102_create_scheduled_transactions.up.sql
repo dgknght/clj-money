@@ -38,7 +38,8 @@ CREATE TABLE scheduled_transaction_items (
     memo character varying(200),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT fk_scheduled_transaction_items_scheduled_transactions FOREIGN KEY (scheduled_transaction_id) REFERENCES scheduled_transactions (id) ON DELETE CASCADE
+    CONSTRAINT fk_scheduled_transaction_items_scheduled_transactions FOREIGN KEY (scheduled_transaction_id) REFERENCES scheduled_transactions (id) ON DELETE CASCADE,
+    CONSTRAINT fk_scheduled_transaction_items_accounts FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
 );
 ALTER SEQUENCE scheduled_transaction_items_id_seq OWNED BY scheduled_transaction_items.id;
 
