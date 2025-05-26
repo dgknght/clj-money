@@ -38,9 +38,9 @@
 
 (def ^:private model-ref-keys
   (->> schema/models
-       (mapcat (fn [{:keys [refs type]}]
+       (mapcat (fn [{:keys [refs id]}]
                  (map (fn [ref]
-                        (keyword (name type)
+                        (keyword (name id)
                                  (name ref)))
                       refs)))
        set))

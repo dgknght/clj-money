@@ -74,7 +74,7 @@
 
 (def model-types
   (->> schema/models
-       (map :type)
+       (map :id)
        set))
 
 (def valid-model-type? model-types)

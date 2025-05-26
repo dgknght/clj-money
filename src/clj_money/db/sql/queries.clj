@@ -7,9 +7,9 @@
 
 (def ^:private relationships
   (->> schema/models
-       (mapcat (fn [model]
-                 (map #(vector % (:type model))
-                      (:refs model))))
+       (mapcat (fn [{:keys [id refs]}]
+                 (map #(vector % id)
+                      refs)))
        set))
 
 (def ^:private default-options

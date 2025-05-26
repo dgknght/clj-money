@@ -1,7 +1,7 @@
 (ns clj-money.models.schema
   (:require [clojure.spec.alpha :as s]))
 
-(s/def ::type keyword?)
+(s/def ::id keyword?)
 (s/def ::fields (s/coll-of keyword?
                            :min-count 1
                            :kind set?))
@@ -11,43 +11,43 @@
 (s/def ::transient-fields (s/coll-of keyword?
                                      :min-count 1
                                      :kind set?))
-(s/def ::model (s/keys :req-un [::type
+(s/def ::model (s/keys :req-un [::id
                                 ::fields]
                        :opt-un [::refs
                                 ::transient-fields]))
 (def models
-  [{:type :user
+  [{:id :user
     :fields #{:email
               :password
               :first-name
               :last-name
               :password-reset-token
               :token-expires-at}}
-   {:type :identity
+   {:id :identity
     :fields #{:provider
               :provider-id}
     :refs #{:user}}
-   {:type :import
+   {:id :import
     :fields #{:entity-name
               :image-ids
               :options}
     :transient-fields #{:progress}
     :refs #{:user
             :image}}
-   {:type :image
+   {:id :image
     :fields #{:original-filename
               :uuid
               :content-type}
     :refs #{:user}}
-   {:type :entity
+   {:id :entity
     :fields #{:name}
     :transient-fields #{:price-date-range
                         :transaction-date-range}
     :refs #{:user}}
-   {:type :grant
+   {:id :grant
     :fields #{:permissions}
     :refs #{:user :entity}}
-   {:type :commodity
+   {:id :commodity
     :fields #{:type
               :name
               :symbol
@@ -55,11 +55,11 @@
               :price-config}
     :transient-fields #{:price-date-range}
     :refs #{:entity}}
-   {:type :price
+   {:id :price
     :fields #{:trade-date
               :price}
     :refs #{:commodity}}
-   {:type :account
+   {:id :account
     :fields #{:name
               :type
               :allocations
@@ -73,7 +73,7 @@
     :refs #{:entity
             :commodity
             :parent}}
-   {:type :transaction
+   {:id :transaction
     :fields #{:transaction-date
               :description
               :memo}
@@ -81,7 +81,7 @@
                         :attachment-count}
     :refs #{:entity
             :scheduled-transaction}}
-   {:type :transaction-item
+   {:id :transaction-item
     :fields #{:action
               :quantity
               :memo}
@@ -93,31 +93,31 @@
     :refs #{:account
             :transaction
             :reconciliation}}
-   {:type :lot
+   {:id :lot
     :fields #{:shares-purchased
               :purchase-date
               :purchase-price}
     :transient-fields #{:shared-owned}
     :refs #{:account
             :commodity}}
-   {:type :lot-item
+   {:id :lot-item
     :fields #{:action
               :shares
               :price}
     :refs #{:lot
             :transaction}}
-   {:type :budget
+   {:id :budget
     :fields #{:name
               :start-date
               :period}
     :transient-fields #{:end-date}
     :refs #{:entity}}
-   {:type :budget-item
+   {:id :budget-item
     :fields #{:periods
               :spec}
     :refs #{:budget
             :account}}
-   {:type :scheduled-transaction
+   {:id :scheduled-transaction
     :fields #{:description
               :start-date
               :end-date
@@ -126,13 +126,15 @@
               :memo}
     :transient-fields #{:last-occurrence}
     :refs #{:entity}}
-   {:type :scheduled-transaction-item
+   {:id :scheduled-transaction-item
     :fields #{:action
               :quantity
               :memo}
     :refs #{:scheduled-transaction
             :account}}
-   {:type :attachment
+   {:id :attachment
     :fields #{:caption}
     :refs #{:transaction
             :image}}])
+
+(assert (s/valid? (s/coll-of ::model) models))
