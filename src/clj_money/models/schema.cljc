@@ -2,144 +2,249 @@
   (:require [clojure.spec.alpha :as s]))
 
 (s/def ::id keyword?)
-(s/def ::fields (s/coll-of keyword?
+(s/def ::type keyword?)
+(s/def ::transient? boolean?)
+(s/def ::field (s/keys :req-un [::id
+                                ::type]
+                       :opt-un [::transient?]))
+(s/def ::fields (s/coll-of ::field
                            :min-count 1
                            :kind set?))
 (s/def ::refs (s/coll-of keyword?
                             :min-count 1
                             :kind set?))
-(s/def ::transient-fields (s/coll-of keyword?
-                                     :min-count 1
-                                     :kind set?))
 (s/def ::model (s/keys :req-un [::id
                                 ::fields]
-                       :opt-un [::refs
-                                ::transient-fields]))
+                       :opt-un [::refs]))
 (def models
-  [{:id :user
-    :fields #{:email
-              :password
-              :first-name
-              :last-name
-              :password-reset-token
-              :token-expires-at}}
-   {:id :identity
-    :fields #{:provider
-              :provider-id}
-    :refs #{:user}}
-   {:id :import
-    :fields #{:entity-name
-              :image-ids
-              :options}
-    :transient-fields #{:progress}
-    :refs #{:user
-            :image}}
-   {:id :image
-    :fields #{:original-filename
-              :uuid
-              :content-type}
-    :refs #{:user}}
-   {:id :entity
-    :fields #{:name}
-    :transient-fields #{:price-date-range
-                        :transaction-date-range}
-    :refs #{:user}}
-   {:id :grant
-    :fields #{:permissions}
-    :refs #{:user :entity}}
-   {:id :commodity
-    :fields #{:type
-              :name
-              :symbol
-              :exchange
-              :price-config}
-    :transient-fields #{:price-date-range}
-    :refs #{:entity}}
-   {:id :price
-    :fields #{:trade-date
-              :price}
-    :refs #{:commodity}}
-   {:id :account
-    :fields #{:name
-              :type
-              :allocations
-              :user-tags
-              :system-tags
-              :hidden}
-    :transient-fields #{:quantity
-                        :value
-                        :price-as-of
-                        :transaction-date-range}
-    :refs #{:entity
-            :commodity
-            :parent}}
-   {:id :transaction
-    :fields #{:transaction-date
-              :description
-              :memo}
-    :transient-fields #{:value
-                        :attachment-count}
-    :refs #{:entity
-            :scheduled-transaction}}
-   {:id :transaction-item
-    :fields #{:action
-              :quantity
-              :memo}
-    :transient-fields #{:index
-                        :quantity
-                        :balance
-                        :value
-                        :negative}
-    :refs #{:account
-            :transaction
-            :reconciliation}}
-   {:id :lot
-    :fields #{:shares-purchased
-              :purchase-date
-              :purchase-price}
-    :transient-fields #{:shared-owned}
-    :refs #{:account
-            :commodity}}
-   {:id :lot-item
-    :fields #{:action
-              :shares
-              :price}
-    :refs #{:lot
-            :transaction}}
-   {:id :budget
-    :fields #{:name
-              :start-date
-              :period}
-    :transient-fields #{:end-date}
-    :refs #{:entity}}
-   {:id :budget-item
-    :fields #{:periods
-              :spec}
-    :refs #{:budget
-            :account}}
-   {:id :scheduled-transaction
-    :fields #{:description
-              :start-date
-              :end-date
-              :enabled
-              :period
-              :memo}
-    :transient-fields #{:last-occurrence}
-    :refs #{:entity}}
-   {:id :scheduled-transaction-item
-    :fields #{:action
-              :quantity
-              :memo}
-    :refs #{:scheduled-transaction
-            :account}}
-   {:id :attachment
-    :fields #{:caption}
-    :refs #{:transaction
-            :image}}
-   {:id :reconciliation
-    :fields #{:status
-              :balance
-              :end-of-period}
-    :refs #{:account}}])
+        [{:id :user
+          :fields #{{:id :email
+                     :type :string}
+                    {:id :password
+                     :type :string}
+                    {:id :first-name
+                     :type :string}
+                    {:id :last-name
+                     :type :string}
+                    {:id :password-reset-token
+                     :type :string}
+                    {:id :token-expires-at
+                     :type :date-time}}}
+         {:id :identity
+          :fields #{{:id :provider
+                     :type :string}
+                    {:id :provider-id
+                     :type :string}}
+          :refs #{:user}}
+         {:id :import
+          :fields #{{:id :entity-name
+                     :type :string}
+                    {:id :image-ids
+                     :type :string}
+                    {:id :options
+                     :type :map}
+                    {:id :progress
+                     :type :map
+                     :transient? true}}
+          :refs #{:user
+                  :image}}
+         {:id :image
+          :fields #{{:id :original-filename
+                     :type :string}
+                    {:id :uuid
+                     :type :string}
+                    {:id :content-type
+                     :type :string}}
+          :refs #{:user}}
+         {:id :entity
+          :fields #{{:id :name
+                     :type :string}
+                    {:id :price-date-range
+                     :type :tuple
+                     :transient? true}
+                    {:id :transaction-date-range
+                     :type :tuple
+                     :transient? true}}
+          :refs #{:user}}
+         {:id :grant
+          :fields #{{:id :permissions
+                     :type :map}}
+          :refs #{:user :entity}}
+         {:id :commodity
+          :fields #{{:id :type
+                     :type :keyword}
+                    {:id :name
+                     :type :string}
+                    {:id :symbol
+                     :type :string}
+                    {:id :exchange
+                     :type :keyword}
+                    {:id :price-config
+                     :type :map}
+                    {:id :price-date-range
+                     :type :tuple
+                     :transient? true}}
+          :refs #{:entity}}
+         {:id :price
+          :fields #{{:id :trade-date
+                     :type :date}
+                    {:id :price
+                     :type :decimal}}
+          :refs #{:commodity}}
+         {:id :account
+          :fields #{{:id :name
+                     :type :string}
+                    {:id :type
+                     :type :keyword}
+                    {:id :allocations
+                     :type :map}
+                    {:id :user-tags
+                     :type :set}
+                    {:id :system-tags
+                     :type :set}
+                    {:id :hidden
+                     :type :boolean}
+                    {:id :quantity
+                     :type :decimal
+                     :transient? true}
+                    {:id :value
+                     :type :decimal
+                     :transient? true}
+                    {:id :price-as-of
+                     :type :decimal
+                     :transient? true}
+                    {:id :transaction-date-range
+                     :type :tuple
+                     :transient? true}}
+          :refs #{:entity
+                  :commodity
+                  :parent}}
+         {:id :transaction
+          :fields #{{:id :transaction-date
+                     :type :date}
+                    {:id :description
+                     :type :string}
+                    {:id :memo
+                     :type :string}
+                    {:id :value
+                     :type :decimal
+                     :transient? true}
+                    {:id :attachment-count
+                     :type :string
+                     :transient? true}}
+          :refs #{:entity
+                  :scheduled-transaction}}
+         {:id :transaction-item
+          :fields #{{:id :action
+                     :type :keyword}
+                    {:id :quantity
+                     :type :decimal}
+                    {:id :memo
+                     :type :string}
+                    {:id :index
+                     :type :string
+                     :transient? true}
+                    {:id :quantity
+                     :type :string
+                     :transient? true}
+                    {:id :balance
+                     :type :string
+                     :transient? true}
+                    {:id :value
+                     :type :string
+                     :transient? true}
+                    {:id :negative
+                     :type :string
+                     :transient? true}}
+          :refs #{:account
+                  :transaction
+                  :reconciliation}}
+         {:id :lot
+          :fields #{{:id :shares-purchased
+                     :type :decimal}
+                    {:id :purchase-date
+                     :type :date}
+                    {:id :purchase-price
+                     :type :decimal}
+                    {:id :shared-owned
+                     :type :string
+                     :transient? true}}
+          :refs #{:account
+                  :commodity}}
+         {:id :lot-item
+          :fields #{{:id :action
+                     :type :keyword}
+                    {:id :shares
+                     :type :decimal}
+                    {:id :price
+                     :type :decimal}}
+          :refs #{:lot
+                  :transaction}}
+         {:id :budget
+          :fields #{{:id :name
+                     :type :string}
+                    {:id :start-date
+                     :type :date}
+                    {:id :period
+                     :type :tuple}
+                    {:id :end-date
+                     :type :date
+                     :transient? true}}
+          :refs #{:entity}}
+         {:id :budget-item
+          :fields #{{:id :periods
+                     :type :vector}
+                    {:id :spec
+                     :type :map}}
+          :refs #{:budget
+                  :account}}
+         {:id :scheduled-transaction
+          :fields #{{:id :description
+                     :type :string}
+                    {:id :start-date
+                     :type :date}
+                    {:id :end-date
+                     :type :date}
+                    {:id :enabled
+                     :type :boolean}
+                    {:id :period
+                     :type :tuple}
+                    {:id :memo
+                     :type :string}
+                    {:id :last-occurrence
+                     :type :string
+                     :transient? true}}
+          :refs #{:entity}}
+         {:id :scheduled-transaction-item
+          :fields #{{:id :action
+                     :type :keyword}
+                    {:id :quantity
+                     :type :decimal}
+                    {:id :memo
+                     :type :string}}
+          :refs #{:scheduled-transaction
+                  :account}}
+         {:id :attachment
+          :fields #{{:id :caption
+                     :type :string}}
+          :refs #{:transaction
+                  :image}}
+         {:id :reconciliation
+          :fields #{{:id :status
+                     :type :keyword}
+                    {:id :balance
+                     :type :decimal}
+                    {:id :end-of-period
+                     :type :date}}
+          :refs #{:account}}
+         {:id :cached-price
+          :fields #{{:id :trade-date
+                     :type :date}
+                    {:id :symbol
+                     :type :keyword}
+                    {:id :exchange
+                     :type :keyword}
+                    {:id :price
+                     :type :decimal}}}])
 
 (assert (s/valid? (s/coll-of ::model) models))
