@@ -135,6 +135,11 @@
    {:id :attachment
     :fields #{:caption}
     :refs #{:transaction
-            :image}}])
+            :image}}
+   {:id :reconciliation
+    :fields #{:status
+              :balance
+              :end-of-period}
+    :refs #{:account}}])
 
 (assert (s/valid? (s/coll-of ::model) models))
