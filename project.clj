@@ -138,7 +138,7 @@
                    com.fasterxml.jackson.core/jackson-core
                    lein-doo]]
                  [lambdaisland/uri "1.4.54"]
-                 [stowaway "0.2.2" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
+                 [stowaway "0.2.3-SNAPSHOT" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
