@@ -1,5 +1,7 @@
 (ns clj-money.models.schema
-  (:require [clojure.spec.alpha :as s]))
+  (:require [clojure.spec.alpha :as s]
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])))
 
 (s/def ::id keyword?)
 (s/def ::type keyword?)
@@ -10,9 +12,16 @@
 (s/def ::fields (s/coll-of ::field
                            :min-count 1
                            :kind set?))
-(s/def ::refs (s/coll-of keyword?
-                            :min-count 1
-                            :kind set?))
+(s/def ::column-spec (s/or :simple keyword?
+                           :complex (s/tuple keyword? keyword?)))
+(s/def ::columns (s/coll-of ::column-spec))
+(s/def ::join-spec (s/keys :req-un [::id
+                                    ::columns]))
+(s/def ::ref (s/or :simple keyword?
+                   :complex ::join-spec))
+(s/def ::refs (s/coll-of ::ref
+                         :min-count 1
+                         :kind set?))
 (s/def ::model (s/keys :req-un [::id
                                 ::fields]
                        :opt-un [::refs]))
@@ -157,8 +166,10 @@
                      :type :string
                      :transient? true}}
           :refs #{:account
-                  :transaction
-                  :reconciliation}}
+                  :reconciliation
+                  {:id :transaction
+                   :columns #{:transaction-date
+                              [:id :transaction-id]}}}}
          {:id :lot
           :fields #{{:id :shares-purchased
                      :type :decimal}
@@ -179,7 +190,9 @@
                     {:id :price
                      :type :decimal}}
           :refs #{:lot
-                  :transaction}}
+                  {:id :transaction
+                   :columns #{:transaction-date
+                              [:id :transaction-id]}}}}
          {:id :budget
           :fields #{{:id :name
                      :type :string}
@@ -227,8 +240,10 @@
          {:id :attachment
           :fields #{{:id :caption
                      :type :string}}
-          :refs #{:transaction
-                  :image}}
+          :refs #{:image
+                  {:id :transaction
+                   :columns #{:transaction-date
+                              [:id :transaction-id]}}}}
          {:id :reconciliation
           :fields #{{:id :status
                      :type :keyword}
@@ -247,4 +262,7 @@
                     {:id :price
                      :type :decimal}}}])
 
-(assert (s/valid? (s/coll-of ::model) models))
+(assert (s/valid? (s/coll-of ::model) models)
+        "The schema is not valid")
+
+(def ref-id (some-fn :id identity))

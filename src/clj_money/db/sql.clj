@@ -41,7 +41,7 @@
        (mapcat (fn [{:keys [refs id]}]
                  (map (fn [ref]
                         (keyword (name id)
-                                 (name ref)))
+                                 (name (schema/ref-id ref))))
                       refs)))
        set))
 

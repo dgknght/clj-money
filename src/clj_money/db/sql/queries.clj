@@ -8,12 +8,24 @@
 (def ^:private relationships
   (->> schema/models
        (mapcat (fn [{:keys [id refs]}]
-                 (map #(vector % id)
+                 (map #(vector (schema/ref-id %) id)
                       refs)))
        set))
 
+(def ^:private joins
+  (->> schema/models
+       (filter #(some map? (:refs %)))
+       (mapcat (fn [{:keys [refs id]}]
+                 (->> refs
+                      (filter map?)
+                      (map (fn [{:keys [columns] :as ref}]
+                             [[(:id ref) id]
+                              columns])))))
+       (into {})))
+
 (def ^:private default-options
-  {:relationships relationships})
+  {:relationships relationships
+   :joins joins})
 
 (defn criteria->query
   [criteria & [options]]
