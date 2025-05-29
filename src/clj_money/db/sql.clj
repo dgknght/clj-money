@@ -64,10 +64,14 @@
                   :children-key :transaction/lot-items}]})
 
 (defn- scrub-values
-  [m sql]
-  (let [x (map-invert m)]
-    (pprint {::scrub x})
-    sql))
+  [m [stmt & args]]
+  (let [get-key (map-invert m)]
+    (vec (cons stmt
+               (map (fn [arg]
+                      (if (models/sensitive-keys (get-key arg))
+                        "********"
+                        arg))
+                    args)))))
 
 (defn- reconstruct
   [models]
@@ -169,11 +173,9 @@
         s (for-insert table
                       model
                       sql-opts)
-
-        ; TODO: scrub for sensitive data
         _ (log/debugf "database insert %s -> %s"
                       (models/scrub-sensitive-data model)
-                      s)
+                      (scrub-values model s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
     (get-in result [(keyword (name table) "id")])))
 
@@ -185,11 +187,9 @@
                       (dissoc model :id)
                       {:id (:id model)}
                       sql-opts)
-
-        ; TODO: scrub sensitive data
         _ (log/debugf "database update %s -> %s"
                       (models/scrub-sensitive-data model)
-                      s)
+                      (scrub-values model s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
 
     (get-in result [(keyword (name table) "id")])))
@@ -200,7 +200,6 @@
                       {:id (:id m)} ; TODO: find the id attribute
                       sql-opts)]
 
-    ; TODO: scrub sensitive data
     (log/debugf "database delete %s -> %s"
                 (models/scrub-sensitive-data m)
                 s)
@@ -336,11 +335,10 @@
                                      include-children? (assoc :recursion (recursions model-type))
                                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
-    ; TODO: scrub sensitive data
     (log/debugf "database select %s with options %s -> %s"
                 (models/scrub-sensitive-data criteria)
                 options
-                query)
+                (scrub-values criteria query))
 
     (if (:count options)
       (jdbc/execute-one! ds
