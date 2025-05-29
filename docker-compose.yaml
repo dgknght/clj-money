@@ -2,14 +2,15 @@
 name: clj-money
 volumes:
   sql-data:
+  sql-data-17:
 services:
   sql:
-    image: postgres:16
+    image: postgres:17
     restart: on-failure
     ports:
       - 5432:5432
     volumes:
-      - sql-data:/var/lib/postgresql/data
+      - sql-data-17:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: please01
       POSTGRES_USER: app_user
