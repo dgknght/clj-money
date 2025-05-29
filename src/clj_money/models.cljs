@@ -10,7 +10,7 @@
                        :commodity/type
                        :commodity/price-config}
                :references #{:commodity/entity}}
-   :price {:keys #{:price/price
+   :price {:keys #{:price/value
                    :price/trade-date}
            :references #{:price/commodity}}
    :account {:keys #{:id

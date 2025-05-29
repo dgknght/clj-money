@@ -740,7 +740,7 @@
                                           (reduce decimal/+)))
         total-value (make-reaction #(decimal/* (or @total-shares
                                                    (decimal/zero))
-                                               (or (:price/price @latest-price)
+                                               (or (:price/value @latest-price)
                                                    (decimal/zero))))
         total-cost (make-reaction #(->> @lots
                                         (map (fn [{:lot/keys [purchase-price shares-owned]}]
@@ -759,7 +759,7 @@
          [:th.text-end "Gn/Ls %"]]]
        [:tbody
         (doall (for [lot (sort-by (comp serialize-local-date :lot/purchase-date) @lots)]
-                 (let [g-l (- (* (:price/price @latest-price)
+                 (let [g-l (- (* (:price/value @latest-price)
                                  (:lot/shares-owned lot))
                               (* (:lot/purchase-price lot)
                                  (:lot/shares-owned lot)))]
@@ -787,7 +787,7 @@
          [:td.text-end {:col-span 2}
           (when @latest-price
             (gstr/format "(%s as of %s)"
-                         (currency-format (:price/price @latest-price))
+                         (currency-format (:price/value @latest-price))
                          (format-date (:price/trade-date @latest-price))))]
          [:td.text-end (format-decimal @total-shares 4)]
          [:td.text-end (currency-format @total-value)]

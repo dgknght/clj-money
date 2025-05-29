@@ -35,8 +35,8 @@
                   {:cached-price/exchange ["Exchange is required"]}))
 
 (deftest price-is-required
-  (assert-invalid (dissoc attributes :cached-price/price)
-                  {:cached-price/price ["Price is required"]}))
+  (assert-invalid (dissoc attributes :cached-price/value)
+                  {:cached-price/value ["Price is required"]}))
 
 (def ^:private existing-context
   [attributes])

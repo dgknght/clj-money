@@ -26,11 +26,11 @@
 
 (s/def :price/commodity ::models/model-ref)
 (s/def :price/trade-date t/local-date?)
-(s/def :price/price decimal?)
+(s/def :price/value decimal?)
 (s/def ::id uuid?)
 (s/def ::models/price (s/and (s/keys :req [:price/commodity
                                            :price/trade-date
-                                           :price/price]
+                                           :price/value]
                                      :opt [::id])
                              trade-date-unique?))
 
@@ -74,9 +74,9 @@
                        {:sort [[:price/trade-date :desc]]})))))
 
 (defn- apply-to-account
-  [{:price/keys [price]}]
+  [{:price/keys [value]}]
   (fn [{:as account :account/keys [quantity]}]
-    (assoc account :account/value (* quantity price))))
+    (assoc account :account/value (* quantity value))))
 
 (defn- apply-to-accounts
   [{:as price :price/keys [commodity]}]

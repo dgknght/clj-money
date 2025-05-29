@@ -559,7 +559,7 @@
     {:import/record-type :price
      :import/ignore? false
      :price/trade-date trade-date
-     :price/price (-> price :value parse-decimal)
+     :price/value (-> price :value parse-decimal)
      :commodity/symbol symbol
      :commodity/exchange exchange}))
 

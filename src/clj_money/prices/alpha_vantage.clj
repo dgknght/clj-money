@@ -82,7 +82,7 @@
 (defn- transform-quote
   [m]
   (let [trade-date (t/local-date (get-in m [:meta-data :last-refreshed]))]
-    {:price/price (get-in m [:time-series trade-date "USD" :close])
+    {:price/value (get-in m [:time-series trade-date "USD" :close])
      :price/trade-date trade-date
      :commodity/symbol (get-in m [:meta-data :digital-currency-code])
      :commodity/exchange :currency}))

@@ -429,7 +429,7 @@
   [ctx price]
   (-> price
       (select-keys [:price/trade-date
-                    :price/price])
+                    :price/value])
       (assoc :price/commodity (find-commodity ctx price))
       (validate ::models/price)
       models/put)
