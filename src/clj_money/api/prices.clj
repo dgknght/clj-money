@@ -101,9 +101,9 @@
                               (fetch-prices [_ symbols]
                                 (let [prices (p/fetch-prices p symbols)]
                                   (->> prices
-                                       (map (fn [{:price/keys [price trade-date]
+                                       (map (fn [{:price/keys [value trade-date]
                                                   :commodity/keys [symbol exchange]}]
-                                              {:cached-price/value price
+                                              {:cached-price/value value
                                                :cached-price/trade-date trade-date
                                                :cached-price/symbol symbol
                                                :cached-price/exchange exchange}))

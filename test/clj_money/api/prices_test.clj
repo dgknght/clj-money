@@ -48,7 +48,7 @@
                                     :commodities
                                     (:id commodity)
                                     :prices))
-           (edn-body #:price{:price 12.34M
+           (edn-body #:price{:value 12.34M
                              :trade-date (t/local-date 2016 3 2)})
            (add-auth (find-user email))
            app
@@ -59,7 +59,7 @@
 (defn- assert-successful-create
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (let [expected #:price{:price 12.34M
+  (let [expected #:price{:value 12.34M
                          :trade-date (t/local-date 2016 3 2)}]
     (is (comparable? expected edn-body)
         "The created price is returned in the response")
@@ -81,16 +81,16 @@
   (conj context
         #:price{:commodity "AAPL"
                 :trade-date (t/local-date 2016 2 27)
-                :price 10M}
+                :value 10M}
         #:price{:commodity "AAPL"
                 :trade-date (t/local-date 2016 3 2)
-                :price 11M}
+                :value 11M}
         #:price{:commodity "FND"
                 :trade-date (t/local-date 2016 2 27)
-                :price 10.01M}
+                :value 10.01M}
         #:price{:commodity "FND"
                 :trade-date (t/local-date 2016 3 2)
-                :price 9.99M}))
+                :value 9.99M}))
 
 (defn- get-a-list-by-commodity
   [email]
@@ -115,9 +115,9 @@
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2016 3 2)
-                                  :price 11.0M}
+                                  :value 11.0M}
                           #:price{:trade-date (t/local-date 2016 2 27)
-                                  :price 10.0M}]
+                                  :value 10.0M}]
                          edn-body)))
 
 (defn- assert-blocked-list
@@ -139,7 +139,7 @@
                                      :prices
                                      (dates/serialize-local-date (:price/trade-date price))
                                      (:id price)))
-           (edn-body #:price{:price 9.99M})
+           (edn-body #:price{:value 9.99M})
            (add-auth (find-user email))
            app
            parse-edn-body)
@@ -149,7 +149,7 @@
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (let [expected #:price{:trade-date (t/local-date 2016 2 27)
-                         :price 9.99M}]
+                         :value 9.99M}]
     (is (comparable? expected edn-body)
         "The response contains the updated price")
     (is (comparable? expected retrieved)
@@ -159,7 +159,7 @@
   [[response retrieved]]
   (is (http-not-found? response))
   (is (comparable? #:price{:trade-date (t/local-date 2016 2 27)
-                           :price 10M}
+                           :value 10M}
                    retrieved)
       "The database record is not updated"))
 
@@ -246,10 +246,10 @@
   [response]
   (is (http-success? response))
   (let [expected [#:price{:trade-date (t/local-date 2015 3 2)
-                          :price 10.01M
+                          :value 10.01M
                           :commodity (util/->model-ref (find-commodity "AAPL"))}
                   #:price{:trade-date (t/local-date 2015 3 2)
-                          :price 5.01M
+                          :value 5.01M
                           :commodity (util/->model-ref (find-commodity "MSFT"))}]]
     (is (seq-of-maps-like? expected
                            (:edn-body response))
