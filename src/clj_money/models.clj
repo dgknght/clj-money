@@ -295,3 +295,15 @@
    (if (util/model-ref? model-or-ref)
      (find model-or-ref model-type)
      model-or-ref)))
+
+(def sensitive-keys
+  [:user/password
+   :user/password-reset-token
+   :identity/provider-id])
+
+(defn scrub-sensitive-data
+  [m]
+  (reduce (fn [m k]
+            (assoc m k "********"))
+          m
+          sensitive-keys))

@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
+            [clojure.set :refer [rename-keys map-invert]]
             [clojure.spec.alpha :as s]
             [camel-snake-kebab.core :refer [->snake_case_keyword
                                             ->snake_case
@@ -16,6 +16,7 @@
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [temp-id?]]
+            [clj-money.models :as models]
             [clj-money.models.schema :as schema]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
@@ -61,6 +62,12 @@
                  {:parent? :transaction/description
                   :child? :lot-item/action
                   :children-key :transaction/lot-items}]})
+
+(defn- scrub-values
+  [m sql]
+  (let [x (map-invert m)]
+    (pprint {::scrub x})
+    sql))
 
 (defn- reconstruct
   [models]
@@ -164,7 +171,9 @@
                       sql-opts)
 
         ; TODO: scrub for sensitive data
-        _ (log/debugf "database insert %s -> %s" model s)
+        _ (log/debugf "database insert %s -> %s"
+                      (models/scrub-sensitive-data model)
+                      s)
         result (jdbc/execute-one! db s {:return-keys [:id]})]
     (get-in result [(keyword (name table) "id")])))
 
@@ -178,7 +187,9 @@
                       sql-opts)
 
         ; TODO: scrub sensitive data
-        _ (log/debugf "database update %s -> %s" model s)
+        _ (log/debugf "database update %s -> %s"
+                      (models/scrub-sensitive-data model)
+                      s)
         result (jdbc/execute-one! db s {:return-keys [:id]})]
 
     (get-in result [(keyword (name table) "id")])))
@@ -190,7 +201,9 @@
                       sql-opts)]
 
     ; TODO: scrub sensitive data
-    (log/debugf "database delete %s -> %s" m s)
+    (log/debugf "database delete %s -> %s"
+                (models/scrub-sensitive-data m)
+                s)
 
     (jdbc/execute! ds s)
     1))
@@ -324,7 +337,10 @@
                                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
     ; TODO: scrub sensitive data
-    (log/debugf "database select %s with options %s -> %s" criteria options query)
+    (log/debugf "database select %s with options %s -> %s"
+                (models/scrub-sensitive-data criteria)
+                options
+                query)
 
     (if (:count options)
       (jdbc/execute-one! ds
@@ -345,8 +361,8 @@
   (let [sql (->update (->sql-refs changes)
                       (->sql-refs criteria))]
     (log/debugf "database bulk update: change %s for %s -> %s"
-                (pr-str changes)
-                (pr-str criteria)
+                (models/scrub-sensitive-data changes)
+                (models/scrub-sensitive-data criteria)
                 sql)
     (jdbc/execute! ds sql sql-opts)))
 
