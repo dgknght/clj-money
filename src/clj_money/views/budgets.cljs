@@ -29,6 +29,7 @@
             [clj-money.accounts :as accounts]
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.budgets :as api]
+            [clj-money.api.budget-items :as items]
             [cljs.core :as c]))
 
 (defn- load-budgets
@@ -330,26 +331,33 @@
 
 (defn- post-save-budget-item
   [page-state]
-  (fn [budget]
-    (swap! page-state #(-> %
-                           (assoc :detailed-budget budget)
-                           (dissoc :selected-item)))))
+  (fn [updated]
+    (swap! page-state (fn [state]
+                        (-> state
+                            (update-in [:detailed-budget
+                                        :budget/items]
+                                       (fn [items]
+                                         (map (fn [item]
+                                                (if (util/id= item updated)
+                                                  updated
+                                                  item))
+                                              items)))
+                            (dissoc :selected-item))))))
 
 (defn- save-budget-item
   [page-state]
   (+busy)
-  (let [{budget :detailed-budget
-         item :selected-item
+  (let [{item :selected-item
          periods :calculated-periods} @page-state
         item (-> item
-                 (select-keys [:id
-                               :budget-item/account
-                               :budget-item/spec])
-                 (assoc :budget-item/periods periods))]
-    (-> budget
-        (update-in [:budget/items] #(util/upsert-into item {:sort-key (comp :account/name :budget-item/account)} %))
-        (api/save :callback -busy
-                  :on-success (post-save-budget-item page-state)))))
+                 )]
+    (-> item
+        (select-keys [:id
+                      :budget-item/account
+                      :budget-item/spec])
+        (assoc :budget-item/periods periods)
+        (items/save :callback -busy
+                    :on-success (post-save-budget-item page-state)))))
 
 (defn- period-row
   [index item budget]
