@@ -298,10 +298,10 @@
                     :type :stock
                     :exchange :nyse}
         #:price{:trade-date (t/local-date 2017 2 1)
-                :price 20M
+                :value 20M
                 :commodity "AAPL"}
         #:price{:trade-date (t/local-date 2017 2 1)
-                :price 5M
+                :value 5M
                 :commodity "MSFT"}
         #:account{:name "IRA"
                   :entity "Personal"

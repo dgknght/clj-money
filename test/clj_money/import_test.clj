@@ -404,9 +404,9 @@
                              (models/select #:lot{:account (account-ref "401k")}))
           "The lots can be retrieved")
       (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 1 17)
-                                      :price 10M}
+                                      :value 10M}
                               #:price{:trade-date (t/local-date 2015 1 30)
-                                      :price 12M}]
+                                      :value 12M}]
                              (models/select
                                (util/model-type
                                  {:price/trade-date [:between>

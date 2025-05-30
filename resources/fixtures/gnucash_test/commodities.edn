@@ -23,13 +23,13 @@
                              :import/record-type :commodity
                              :import/ignore? false}]
                 :price [{:price/trade-date #clj-money/local-date "2015-01-30"
-                         :price/price 12.00M
+                         :price/value 12.00M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
                          :import/ignore? false}
                         {:price/trade-date #clj-money/local-date "2015-01-17"
-                         :price/price 10.00M
+                         :price/value 10.00M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
