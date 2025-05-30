@@ -5,6 +5,7 @@
             [clojure.core.async :as a]
             [clojure.core :as c]
             [clojure.data :refer [diff]]
+            [clojure.walk :refer [postwalk]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.json] ; to ensure encoders are registered
@@ -295,3 +296,18 @@
    (if (util/model-ref? model-or-ref)
      (find model-or-ref model-type)
      model-or-ref)))
+
+(def sensitive-keys
+  #{:user/email
+    :user/password
+    :user/password-reset-token
+    :identity/provider-id})
+
+(defn scrub-sensitive-data
+  [m]
+  (postwalk (fn [x]
+              (if (and (map-entry? x)
+                       (sensitive-keys (key x)))
+                (assoc-in x [1] "********")
+                x))
+            m))
