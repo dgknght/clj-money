@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
             [clj-money.authorization
              :as auth
@@ -34,11 +33,7 @@
   (-> params
       (select-keys [:budget/name
                     :budget/start-date
-                    :budget/period
-                    :budget/items])
-      (update-in-if [:budget/items] (fn [items]
-                                      (mapv #(update-in % [:budget-item/periods] vec)
-                                            items)))))
+                    :budget/period])))
 
 (defn- historical-items
   [{:budget/keys [entity period]} start-date]

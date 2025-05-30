@@ -16,3 +16,8 @@
   [_ user]
   (util/model-type {:entity/user user}
                  :budget))
+
+(defmethod authorization/scope :budget-item
+  [_ user]
+  (util/model-type {:entity/user user}
+                   :budget-item))

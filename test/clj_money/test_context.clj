@@ -5,7 +5,7 @@
             [clojure.java.io :as io]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util :refer [model= id=]]
             [clj-money.models :as models]
             [clj-money.images :as images]
             [clj-money.models.propagation :as prop]
@@ -172,6 +172,20 @@
   ([budget-name] (find-budget *context* budget-name))
   ([context budget-name]
    (find context :budget/name budget-name)))
+
+(defn find-budget-item
+  ([identifier] (find-budget-item *context* identifier))
+  ([context [budget-name account-name]]
+   (let [{:budget/keys [items] :as budget} (find-budget context budget-name)
+         account (find-account context account-name)]
+     (if-let [item (->> items
+                        (filter #(id= account (:budget-item/account %)))
+                        first)]
+       item
+       (do (pprint context)
+           (throw (ex-info "Unable to find the budget item"
+                           {:budget-name budget-name
+                            :account-name account-name})))))))
 
 (defn find-price
   ([identifier] (find-price *context* identifier))
