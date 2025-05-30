@@ -293,7 +293,7 @@
 (defn- fetch-latest-price
   [{:commodity/keys [price-date-range] :as commodity}]
   (when price-date-range
-    (:price/price
+    (:price/value
       (models/find-by
         {:price/commodity commodity
          :price/trade-date (apply vector :between price-date-range)}

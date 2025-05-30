@@ -53,7 +53,7 @@
   [{:keys [authenticated params]}]
   (-> params
       (select-keys [:price/trade-date
-                    :price/price])
+                    :price/value])
       (assoc :price/commodity {:id (:commodity-id params)})
       (authorize ::authorization/create authenticated)
       prop/put-and-propagate
@@ -69,7 +69,7 @@
 (defn- update
   [{:as req :keys [params]}]
   (or (some-> (find-and-authorize req ::authorization/update)
-              (merge (select-keys params [:price/price
+              (merge (select-keys params [:price/value
                                           :price/trade-date]))
               prop/put-and-propagate
               api/update-response)
@@ -101,9 +101,9 @@
                               (fetch-prices [_ symbols]
                                 (let [prices (p/fetch-prices p symbols)]
                                   (->> prices
-                                       (map (fn [{:price/keys [price trade-date]
+                                       (map (fn [{:price/keys [value trade-date]
                                                   :commodity/keys [symbol exchange]}]
-                                              {:cached-price/price price
+                                              {:cached-price/value value
                                                :cached-price/trade-date trade-date
                                                :cached-price/symbol symbol
                                                :cached-price/exchange exchange}))

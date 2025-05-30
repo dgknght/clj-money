@@ -459,7 +459,7 @@
           [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
           [:div.card-body
            [forms/date-field price [:price/trade-date] {:validations #{::v/required}}]
-           [forms/decimal-field price [:price/price] {:validations #{::v/required}}]]
+           [forms/decimal-field price [:price/value] {:validations #{::v/required}}]]
           [:div.card-footer
            [button {:html {:class "btn-primary"
                                    :title "Click here to save this price."

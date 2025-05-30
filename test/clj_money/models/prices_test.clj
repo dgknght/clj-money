@@ -43,7 +43,7 @@
 
 (defn- attributes []
   #:price{:trade-date (t/local-date 2017 3 2)
-          :price 12.34M
+          :value 12.34M
           :commodity (find-commodity "AAPL")})
 
 (defn- assert-created
@@ -87,27 +87,27 @@
 (def ^:private existing-price-context
   (conj price-context #:price{:commodity "AAPL"
                               :trade-date (t/local-date 2017 3 2)
-                              :price 12.34M}))
+                              :value 12.34M}))
 
 (deftest trade-date-must-be-unique
   (with-context existing-price-context
     (assert-invalid (attributes)
                     {:price/trade-date ["Trade date already exists"]})))
 
-(deftest price-is-required
+(deftest value-is-required
   (with-context price-context
-    (assert-invalid (dissoc (attributes) :price/price)
-                    {:price/price ["Price is required"]})))
+    (assert-invalid (dissoc (attributes) :price/value)
+                    {:price/value ["Value is required"]})))
 
-(deftest price-must-be-a-number
+(deftest value-must-be-a-number
   (with-context price-context
-    (assert-invalid (assoc (attributes) :price/price "notanumber")
-                    {:price/price ["Price must be a number"]})))
+    (assert-invalid (assoc (attributes) :price/value "notanumber")
+                    {:price/value ["Value must be a number"]})))
 
 (deftest update-a-price
   (with-context existing-price-context
     (assert-updated (find-price ["AAPL" (t/local-date 2017 3 2)])
-                    {:price/price 10M})))
+                    {:price/value 10M})))
 
 (deftest delete-a-price
   (with-context existing-price-context
@@ -120,18 +120,18 @@
   (conj price-context
         #:price{:commodity "AAPL"
                 :trade-date (t/local-date 2017 2 27)
-                :price 12.34M}
+                :value 12.34M}
         #:price{:commodity "AAPL"
                 :trade-date (t/local-date 2017 3 2)
-                :price 12.20M}
+                :value 12.20M}
         #:price{:commodity "AAPL"
                 :trade-date (t/local-date 2017 3 1)
-                :price 12.00M}))
+                :value 12.00M}))
 
 (deftest get-the-most-recent-price-for-a-commodity
   (with-context multi-price-context
     (testing "When at least one price exists"
-      (is (comparable? {:price/price 12.20M}
+      (is (comparable? {:price/value 12.20M}
                        (prices/most-recent (models/find-by {:commodity/symbol "AAPL"})))
           "The most recent price is returned"))
     (testing "When no prices exist"
@@ -182,7 +182,7 @@
       (put-and-propagate
         #:price{:commodity (find-commodity "AAPL")
                 :trade-date (t/local-date 2015 1 15)
-                :price 9M})
+                :value 9M})
       (is (comparable? #:account{:value 1000M}
                        (models/find-by {:account/name "AAPL"}))
           "An account tracking the commodity is unchanged after the update")
@@ -193,7 +193,7 @@
       (put-and-propagate
         #:price{:commodity (find-commodity "AAPL")
                 :trade-date (t/local-date 2015 3 1)
-                :price 12M})
+                :value 12M})
       (is (comparable? #:account{:value 1200M}
                        (models/find-by {:account/name "AAPL"}))
           "An account tracking the commodity has an updated value after the update")
@@ -205,7 +205,7 @@
   (conj account-summary-context
         #:price{:trade-date (t/local-date 2015 2 2)
                 :commodity "AAPL"
-                :price 12M}))
+                :value 12M}))
 
 (deftest updating-a-price-updates-account-summary-data
   (with-context account-summary-context-for-update
@@ -214,7 +214,7 @@
           "The account value reflects the price before update"))
 
     (-> (find-price ["AAPL" (t/local-date 2015 2 2)])
-        (assoc :price/price 13M
+        (assoc :price/value 13M
                :price/trade-date (t/local-date 2016 1 1))
         put-and-propagate)
 
@@ -222,9 +222,9 @@
       (is (= 1300M (:account/value (models/find-by {:account/name "AAPL"})))
           "The account value reflects the previous price after update")
       (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 2 1)
-                                      :price 10M}
+                                      :value 10M}
                               #:price{:trade-date (t/local-date 2016 1 1)
-                                      :price 13M}]
+                                      :value 13M}]
                              (models/select {:price/trade-date [:between
                                                                 (t/local-date 2015 1 1)
                                                                 (t/local-date 2016 12 31)]}

@@ -134,7 +134,7 @@
                        :trading)
             "The :trading tag is added to the trading account"))
       (testing "The price"
-        (is (comparable? #:price{:price 10M
+        (is (comparable? #:price{:value 10M
                                  :trade-date (t/local-date 2016 1 2)}
                          (:trade/price result))
             "The price is returned")))))
@@ -259,7 +259,7 @@
           aapl-acc (models/find-by #:account{:entity (find-entity "Personal")
                                              :commodity (find-commodity "AAPL")})]
       (testing "The price"
-        (is (comparable? #:price{:price 15M
+        (is (comparable? #:price{:value 15M
                                  :trade-date (t/local-date 2017 3 2)}
                          (:trade/price result))
             "The price is created and returned"))
@@ -346,7 +346,7 @@
                      (assoc :trade/value 200M)
                      trading/sell)]
       (testing "The price"
-        (is (comparable? #:price{:price 8M
+        (is (comparable? #:price{:value 8M
                                  :trade-date (t/local-date 2017 3 2)}
                          (:trade/price result))
             "The result contains the new price"))

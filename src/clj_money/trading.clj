@@ -104,18 +104,18 @@
                                   :price/trade-date date})
         price-value (with-precision 4 (/ value shares))
         price (if existing
-                (assoc existing :price/price price-value)
+                (assoc existing :price/value price-value)
                 #:price{:commodity commodity
                         :trade-date date
-                        :price price-value})]
+                        :value price-value})]
     ; TODO: We should probably report this back to the user
-    (when-not (= (:price/price price)
-                 (:price/price existing))
+    (when-not (= (:price/value price)
+                 (:price/value existing))
       (log/debugf "Conflicting commodity price for %s on %s: %s vs %s"
                   (:commodity/symbol commodity)
                   date
-                  (:price/price existing)
-                  (:price/price price)))
+                  (:price/value existing)
+                  (:price/value price)))
     (-> trade
         (update-in [:trade/commodity-account :account/price-as-of]
                    #(dates/latest % date))
@@ -191,7 +191,7 @@
   (-> trade
       (update-in [:trade/account] ensure-tag :trading)
       (update-in [:trade/commodity-account] ensure-tag :tradable)
-      (assoc-in [:trade/commodity-account :account/commodity-price] (:price/price price))))
+      (assoc-in [:trade/commodity-account :account/commodity-price] (:price/value price))))
 
 (defn- append-entity
   [{{:account/keys [entity]} :trade/account :as trade}]
@@ -201,26 +201,25 @@
 (defn- sale-transaction-description
   [{:trade/keys [shares]
     {:commodity/keys [symbol]} :trade/commodity
-    {:price/keys [price]} :trade/price}]
+    {:price/keys [value]} :trade/price}]
   (format "Sell %,1.3f shares of %s at %,1.3f"
           shares
           symbol
-          price))
+          value))
 
 (defn- purchase-transaction-description
-  [{:trade/keys [shares dividend? value]
-    {:commodity/keys [symbol]} :trade/commodity
-    {:price/keys [price]} :trade/price}]
+  [{:trade/keys [shares dividend? value price]
+    {:commodity/keys [symbol]} :trade/commodity}]
   (if dividend?
     (format "Reinvest dividend of %,1.2f: purchase %,1.3f shares of %s at %,1.3f"
             value
             shares
             symbol
-            price)
+            (:price/value price))
     (format "Purchase %,1.3f shares of %s at %,1.3f"
             shares
             symbol
-            price)))
+            (:price/value price))))
 
 (defn- dividend-transaction-description
   [{{:commodity/keys [symbol]} :trade/commodity}]
@@ -361,7 +360,7 @@
                            :lot/account account
                            :lot/commodity commodity
                            :lot/purchase-date date
-                           :lot/purchase-price (:price/price price)
+                           :lot/purchase-price (:price/value price)
                            :lot/shares-purchased shares
                            :lot/shares-owned shares}))
 
@@ -477,7 +476,7 @@
                             [shares-owned
                              (- shares-to-sell shares-owned)
                              0M])
-        sale-price (:price/price price)
+        sale-price (:price/value price)
         gain (.setScale
               (- (* shares-sold sale-price)
                  (* shares-sold purchase-price))
@@ -738,7 +737,7 @@
   (when-not most-recent-price
     (throw (ex-info "Unable to process transfer without most recent commodity price"
                     {:transfer transfer})))
-  (let [value (d/* shares (:price/price most-recent-price))]
+  (let [value (d/* shares (:price/value most-recent-price))]
       (assoc transfer
              :transfer/transaction
              #:transaction{:entity (:commodity/entity commodity)

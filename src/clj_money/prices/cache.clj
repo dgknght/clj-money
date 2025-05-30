@@ -8,7 +8,7 @@
   prices/PriceProvider
   (fetch-prices [_ symbols]
     (map (fn [{:cached-price/keys [price trade-date exchange symbol]}]
-           {:price/price price
+           {:price/value price
             :price/trade-date trade-date
             :commodity/exchange exchange
             :commodity/symbol symbol})

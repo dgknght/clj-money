@@ -128,7 +128,7 @@
       (fetch-price [_ {:keys [id] :as commodity}]
         (if-let [cached (get-in @prices [id])]
           cached
-          (let [price (:price/price (prices/most-recent commodity as-of))]
+          (let [price (:price/value (prices/most-recent commodity as-of))]
             (when-not price
               (throw (ex-info "No price found for commodity" {:commodity commodity})))
             (swap! prices assoc id price)
@@ -689,7 +689,7 @@
                   (map #(* (:lot/shares-owned %)
                            (:lot/purchase-price %)))
                   (reduce +))
-        price (:price/price (prices/most-recent commodity))
+        price (:price/value (prices/most-recent commodity))
         value (* price shares)
         gain (- value cost)]
     #:report{:caption (format "%s (%s)"
@@ -747,7 +747,7 @@
 
 (defn- valuate-lots
   [commodity lots]
-  (let [current-price (:price/price (prices/most-recent commodity))
+  (let [current-price (:price/value (prices/most-recent commodity))
         adj-lots (map (valuate-lot current-price) lots)
         shares-owned (sum :lot/shares-owned adj-lots)
         current-value (* shares-owned current-price)

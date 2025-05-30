@@ -58,7 +58,7 @@
                                                    set)]}
                                     :commodity))
                                 (map (juxt :id
-                                           #(:price/price (prices/most-recent % as-of))))
+                                           #(:price/value (prices/most-recent % as-of))))
                                 (into {}))
                            {})]
     (->> lots

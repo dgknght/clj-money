@@ -17,7 +17,7 @@
   #:cached-price{:trade-date (t/local-date 2017 3 2)
                  :symbol "TESLA"
                  :exchange :nasdaq
-                 :price 100M})
+                 :value 100M})
 
 (deftest create-a-cached-price
   (assert-created attributes))
@@ -34,9 +34,9 @@
   (assert-invalid (dissoc attributes :cached-price/exchange)
                   {:cached-price/exchange ["Exchange is required"]}))
 
-(deftest price-is-required
-  (assert-invalid (dissoc attributes :cached-price/price)
-                  {:cached-price/price ["Price is required"]}))
+(deftest value-is-required
+  (assert-invalid (dissoc attributes :cached-price/value)
+                  {:cached-price/value ["Value is required"]}))
 
 (def ^:private existing-context
   [attributes])

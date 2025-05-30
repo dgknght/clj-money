@@ -23,31 +23,31 @@
                              :import/record-type :commodity
                              :import/ignore? false}]
                 :price [{:price/trade-date #clj-money/local-date "2015-05-01"
-                         :price/price 6M
+                         :price/value 6M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
                          :import/ignore? false}
                         {:price/trade-date #clj-money/local-date "2015-04-01"
-                         :price/price 5.5M
+                         :price/value 5.5M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
                          :import/ignore? false}
                         {:price/trade-date #clj-money/local-date "2015-03-02"
-                         :price/price 10M
+                         :price/value 10M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
                          :import/ignore? false}
                         {:price/trade-date #clj-money/local-date "2015-01-30"
-                         :price/price 12M
+                         :price/value 12M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price
                          :import/ignore? false}
                         {:price/trade-date #clj-money/local-date "2015-01-17"
-                         :price/price 9.95M
+                         :price/value 9.95M
                          :commodity/exchange :nasdaq
                          :commodity/symbol "AAPL"
                          :import/record-type :price

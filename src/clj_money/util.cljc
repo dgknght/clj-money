@@ -394,7 +394,7 @@
    :lot/shares-owned
    :lot-item/lot-action
    :lot-item/quantity
-   :price/price
+   :price/value
    :price/trade-date
    :budget/name
    :budget-item/account

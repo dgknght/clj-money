@@ -97,7 +97,7 @@
          {:id :price
           :fields #{{:id :trade-date
                      :type :date}
-                    {:id :price
+                    {:id :value
                      :type :decimal}}
           :refs #{:commodity}}
          {:id :account
@@ -259,7 +259,7 @@
                      :type :keyword}
                     {:id :exchange
                      :type :keyword}
-                    {:id :price
+                    {:id :value
                      :type :decimal}}}])
 
 (assert (s/valid? (s/coll-of ::model) models)
