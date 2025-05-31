@@ -22,9 +22,11 @@
 (s/def ::refs (s/coll-of ::ref
                          :min-count 1
                          :kind set?))
+(s/def ::primary-key (s/coll-of keyword?))
 (s/def ::model (s/keys :req-un [::id
                                 ::fields]
-                       :opt-un [::refs]))
+                       :opt-un [::refs
+                                ::primary-key]))
 (def models
         [{:id :user
           :fields #{{:id :email
@@ -95,6 +97,7 @@
                      :transient? true}}
           :refs #{:entity}}
          {:id :price
+          :primary-key [:trade-date :id]
           :fields #{{:id :trade-date
                      :type :date}
                     {:id :value
@@ -129,6 +132,7 @@
                   :commodity
                   :parent}}
          {:id :transaction
+          :primary-key [:transaction-date :id]
           :fields #{{:id :transaction-date
                      :type :date}
                     {:id :description
@@ -144,6 +148,7 @@
           :refs #{:entity
                   :scheduled-transaction}}
          {:id :transaction-item
+          :primary-key [:transaction-date :id]
           :fields #{{:id :action
                      :type :keyword}
                     {:id :quantity
@@ -245,6 +250,7 @@
                    :columns #{:transaction-date
                               [:id :transaction-id]}}}}
          {:id :reconciliation
+          :primary-key [:end-of-period :id]
           :fields #{{:id :status
                      :type :keyword}
                     {:id :balance
@@ -253,6 +259,7 @@
                      :type :date}}
           :refs #{:account}}
          {:id :cached-price
+          :primary-key [:trade-date :id]
           :fields #{{:id :trade-date
                      :type :date}
                     {:id :symbol

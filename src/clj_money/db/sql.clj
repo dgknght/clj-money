@@ -46,6 +46,23 @@
                       refs)))
        set))
 
+(defn- append-qualifiers
+  [[model-type :as entry]]
+  (update-in entry
+             [1]
+             (partial map (fn [k]
+                            (if (= :id k)
+                              k
+                              (keyword (name model-type)
+                                       (name k)))))))
+
+(def ^:private primary-keys
+  (->> schema/models
+       (filter :primary-key)
+       (map (comp append-qualifiers
+                  (juxt :id :primary-key)))
+       (into {})))
+
 (def ^:private reconstruction-rules
   {:budget [{:parent? :budget/name
              :child? :budget-item/account
@@ -196,8 +213,9 @@
 
 (defn delete-one
   [ds m]
-  (let [s (for-delete (infer-table-name m)
-                      {:id (:id m)} ; TODO: find the id attribute
+  (let [primary-key (primary-keys (util/model-type m) [:id])
+        s (for-delete (infer-table-name m)
+                      (select-keys m primary-key)
                       sql-opts)]
 
     (log/debugf "database delete %s -> %s"
