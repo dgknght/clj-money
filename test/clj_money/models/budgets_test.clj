@@ -6,7 +6,6 @@
             [clj-money.db.sql.ref]
             [clj-money.models :as models]
             [clj-money.models.ref]
-            [clj-money.util :refer [model=]]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
             [clj-money.models.budgets :as budgets]
@@ -14,9 +13,9 @@
                                             basic-context
                                             find-entity
                                             find-account
-                                            find-budget]]
-            [clj-money.test-helpers :refer [reset-db
-                                            account-ref]]))
+                                            find-budget
+                                            find-budget-item]]
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -24,20 +23,15 @@
   #:budget{:entity (find-entity "Personal")
            :name "2016"
            :start-date (t/local-date 2016 1 1)
-           :period [3 :month]
-           :items [#:budget-item{:account (find-account "Salary")
-                                 :periods [1000M 1001M 1002M]
-                                 :spec nil}
-                   #:budget-item{:account (find-account "Rent")
-                                 :periods [500M 500M 500M]
-                                 :spec ^:no-prune {:average 500M}}
-                   #:budget-item{:account (find-account "Groceries")
-                                 :periods [100M 90M 105M]
-                                 :spec nil}]})
+           :period [3 :month]})
 
 (defn- assert-created
   [attr]
-  (helpers/assert-created attr :refs [:budget/entity :budget-item/account]))
+  (helpers/assert-created attr :refs [:budget/entity]))
+
+(defn- assert-created-item
+  [attr]
+  (helpers/assert-created attr :refs [:budget-item/budget :budget-item/account]))
 
 (deftest create-a-budget
   (with-context basic-context
@@ -97,13 +91,22 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :period [12 :month]
-                 :start-date (t/local-date 2016 1 1)
-                 :items [#:budget-item{:account "Salary"
-                                       :periods (repeat 12 1000M)}
-                         #:budget-item{:account "Rent"
-                                       :periods (repeat 12 500M)}
-                         #:budget-item{:account "Groceries"
-                                       :periods (repeat 12 100M)}]}))
+                 :start-date (t/local-date 2016 1 1)}
+        #:budget-item{:budget "2016"
+                      :account "Salary"
+                      :periods (repeat 12 1000M)}
+        #:budget-item{:budget "2016"
+                      :account "Rent"
+                      :periods (repeat 12 500M)}
+        #:budget-item{:budget "2016"
+                      :account "Groceries"
+                      :periods (repeat 12 100M)}))
+
+(deftest create-a-budget-item
+  (with-context existing-context
+    (assert-created-item #:budget-item{:budget (find-budget "2016")
+                                       :account (find-account "FIT")
+                                       :periods (vec (repeat 12 100M))})))
 
 (deftest delete-a-budget
   (with-context existing-context
@@ -118,79 +121,61 @@
 (deftest update-a-budget
   (with-context existing-context
     (let [budget (find-budget "2016")
-          salary (find-account "Salary")
           result (models/put
                    (-> budget
                        (assoc :budget/name "edited")
-                       (assoc :budget/start-date (t/local-date 2015 1 1))
-                       (assoc-in [:budget/items 0 :budget-item/periods] (vec (repeat 12 1100M)))))
+                       (assoc :budget/start-date (t/local-date 2015 1 1))))
           expected #:budget{:name "edited"
                             :start-date (t/local-date 2015 1 1)
                             :end-date (t/local-date 2015 12 31)}
           retrieved (models/find budget)]
       (is (comparable? expected result)
           "The return value has the updated attributes")
-      (is (= (repeat 12 1100M)
-             (:budget-item/periods (find-item-by-account result salary)))
-          "The returned value reflects the updated items")
       (is (comparable? expected retrieved)
-          "The retrieved value has the updated attributes")
-      (is (= (repeat 12 1100M)
-             (:budget-item/periods (find-item-by-account retrieved salary)))
-          "The retrieved value has the updated items"))))
+          "The retrieved value has the updated attributes"))))
 
-(deftest add-an-item
+(deftest update-an-item
   (with-context existing-context
     (let [budget (find-budget "2016")
-          fit (find-account "FIT")
-          result (models/put
-                   (update-in budget
-                              [:budget/items]
-                              conj
-                              #:budget-item{:account fit
-                                            :periods (vec (repeat 12 100M))}))]
-      (is (= 4 (count (:budget/items result)))
-          "The return value has the new item")
-      (is (= 4 (count (:budget/items (models/find budget))))
-          "The retrieved value has the new item"))))
+          salary (find-account "Salary")
+          item (find-item-by-account budget salary)
+          result (-> item
+                     (assoc :budget-item/periods (vec (repeat 12 101M)))
+                     models/put)]
+      (is (= #{101M} (set (:budget-item/periods result)))
+          "The return value reflects the updates")
+      (is (= #{101M} (set (:budget-item/periods (models/find result))))
+          "The retrieved value reflects the updates"))))
 
 (deftest remove-an-item
   (with-context existing-context
-    (let [budget (find-budget "2016")
-          groceries (account-ref "Groceries")]
-      (-> budget
-          (update-in [:budget/items]
-                     (fn [items]
-                       (remove #(model= groceries
-                                   (:budget-item/account %))
-                               items)))
-          budgets/update-items)
-      (is (= 2 (count (:budget/items (models/find budget))))
-          "The retrieved value does not have the removed item"))))
+    (let [item (find-budget-item ["2016" "Groceries"])]
+      (models/delete item)
+      (is (nil? (models/find item))
+          "The item is not retrieved after delete"))))
 
 (deftest budget-item-requires-an-account
-  (with-context
-    (assert-invalid (update-in (attributes)
-                               [:budget/items 0]
-                               dissoc
-                               :budget-item/account)
-                    {:budget/items {0 {:budget-item/account ["Account is required"]}}})))
+  (with-context existing-context
+    (let [budget (find-budget "2016")]
+      (assert-invalid {:budget-item/budget budget
+                       :budget-item/periods (vec (repeat 12 100M))}
+                      {:budget-item/account ["Account is required"]}))))
 
 (deftest budget-item-account-must-belong-to-budget-entity
-  (with-context
-    (assert-invalid (assoc-in (attributes)
-                              [:budget/items 0 :budget-item/account]
-                              (find-account "Sales")) ; Sales is in the Business entity
-                    {:budget/items ["All accounts must belong to the budget entity"]})))
+  (with-context existing-context
+    (let [budget (find-budget "2016")]
+      (assert-invalid {:budget-item/budget budget
+                       :budget-item/account (find-account "Sales")
+                       :budget-item/periods (vec (repeat 12 100M))}
+                      {:budget-item/account ["Account is required"]}))))
 
 (deftest budget-item-has-same-period-count-as-budget
-  (with-context
-    (assert-invalid
-      (assoc-in (attributes)
-                [:budget/items 0 :budget-item/periods]
-                [100M])
-      {:budget/items
-       ["All items must have a number of periods that matches the budget period count"]})))
+  (with-context existing-context
+    (let [budget (find-budget "2016")]
+      (assert-invalid {:budget-item/budget budget
+                       :budget-item/account (find-account "FIT")
+                       :budget-item/periods (vec (repeat 11 100M))}
+                      {:budget-item/periods ["All items must hav ea number of periods that matches the budget period count"]}))))
 
 (deftest find-a-budget-by-date
   (with-context existing-context
