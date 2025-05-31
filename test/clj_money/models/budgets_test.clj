@@ -97,7 +97,7 @@
                     #:budget{:name "edited"
                              :start-date (t/local-date 2015 1 1)})
     (is (= (t/local-date 2015 12 31)
-           (:budget/end-date (models/find {:budget/name "edited"})))
+           (:budget/end-date (models/find-by {:budget/name "edited"})))
         "The end-date is recalculated")))
 
 (deftest find-a-budget-by-date
