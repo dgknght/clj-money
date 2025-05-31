@@ -176,7 +176,7 @@
 (defn find-budget-item
   ([identifier] (find-budget-item *context* identifier))
   ([context [budget-name account-name]]
-   (let [{:budget/keys [items] :as budget} (find-budget context budget-name)
+   (let [{:budget/keys [items] } (find-budget context budget-name)
          account (find-account context account-name)]
      (if-let [item (->> items
                         (filter #(id= account (:budget-item/account %)))
