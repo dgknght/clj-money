@@ -62,7 +62,8 @@
                               :quantity 0M
                               :value 0M
                               :entity (select-keys entity [:id])}]]
-      (is (seq-of-maps-like? expected (models/select #:account{:entity entity}))
+      (is (seq-of-maps-like? expected (models/select #:account{:entity entity}
+                                                     {:sort [:account/name]}))
           "It returns the accounts for the entity"))))
 
 (def ^:private nested-context
