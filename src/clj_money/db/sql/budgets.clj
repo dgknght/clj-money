@@ -21,9 +21,13 @@
       (update-in [:budget/period 1] keyword)))
 
 (defmethod sql/post-select :budget
-  [storage budgets]
-  (map #(assoc %
-               :budget/items
-               (vec (db/select
-                      storage {:budget-item/budget %} {})))
-       budgets))
+  [{:keys [storage include]
+    :or {include #{}}}
+   budgets]
+  (if (include :budget/items)
+    (map #(assoc %
+                 :budget/items
+                 (vec (db/select
+                        storage {:budget-item/budget %} {})))
+         budgets)
+    budgets))

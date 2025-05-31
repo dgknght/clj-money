@@ -164,7 +164,7 @@
   (crt/apply-to criteria ->sql-refs))
 
 (defmulti post-select
-  (fn [_storage ms]
+  (fn [_opts ms]
     (when-let [m1 (first ms)]
       (util/model-type m1))))
 (defmethod post-select :default [_ ms] ms)
@@ -362,15 +362,14 @@
       (jdbc/execute-one! ds
                          query
                          sql-opts)
-      (post-select
-        (:storage options)
-        (map (comp after-read
-                   apply-coercions
-                   ->model-refs
-                   (refine-qualifiers (assoc options :model-type model-type)))
-             (jdbc/execute! ds
-                            query
-                            sql-opts))))))
+      (->> (jdbc/execute! ds
+                          query
+                          sql-opts)
+           (map (comp after-read
+                      apply-coercions
+                      ->model-refs
+                      (refine-qualifiers (assoc options :model-type model-type))))
+           (post-select options)))))
 
 (defn- update*
   [ds changes criteria]

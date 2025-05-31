@@ -354,7 +354,8 @@
     (let [imp (find-import "Personal")
           {:keys [entity wait-chan]} (import-data imp)]
       (a/alts!! [wait-chan (a/timeout 5000)])
-      (let [retrieved (models/select {:budget/entity entity})]
+      (let [retrieved (models/select {:budget/entity entity}
+                                     {:include #{:budget/items}})]
         (is (seq-of-maps-like? [#:budget{:name "2017"
                                          :entity (util/->model-ref entity)
                                          :period [12 :month]

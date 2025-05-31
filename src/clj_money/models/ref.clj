@@ -13,4 +13,5 @@
             clj-money.models.images
             clj-money.models.attachments
             clj-money.models.scheduled-transactions
-            clj-money.models.budgets))
+            clj-money.models.budgets
+            clj-money.models.budget-items))

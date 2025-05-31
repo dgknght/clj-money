@@ -173,6 +173,15 @@
   ([context budget-name]
    (find context :budget/name budget-name)))
 
+(defn find-budget-item
+  ([identifier] (find-budget-item *context* identifier))
+  ([context [budget-name account-name]]
+   (let [budget (find-budget context budget-name)
+         account (find-account context account-name)]
+     (find context
+           :budget-item/budget (util/->model-ref budget)
+           :budget-item/account (util/->model-ref account)))))
+
 (defn find-price
   ([identifier] (find-price *context* identifier))
   ([context [sym trade-date]]
@@ -319,13 +328,12 @@
 
 (defmethod prepare :budget
   [budget ctx]
-  (-> budget
-      (update-in [:budget/entity] (find-entity ctx))
-      (update-in [:budget/items] (prepare-coll ctx))))
+  (update-in budget [:budget/entity] (find-entity ctx)))
 
 (defmethod prepare :budget-item
   [item ctx]
   (-> item
+      (update-in-if [:budget-item/budget] #(find-budget ctx %))
       (update-in-if [:budget-item/periods] vec)
       (update-in [:budget-item/account] #(find-account ctx %))))
 

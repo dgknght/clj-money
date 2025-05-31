@@ -8,10 +8,6 @@
   [budget action user]
   (owner-or-granted? budget user action))
 
-(defmethod authorization/allowed? [:budget-item ::authorization/manage]
-  [budget-item action user]
-  (owner-or-granted? budget-item user action))
-
 (defmethod authorization/scope :budget
   [_ user]
   (util/model-type {:entity/user user}

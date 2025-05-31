@@ -10,7 +10,6 @@
             [clj-money.core]
             [clj-money.test-context :refer [with-context
                                             find-entity
-                                            find-budget
                                             find-account]]
             [clj-money.reports :as reports]
             [clj-money.test-helpers :refer [reset-db]]))
@@ -51,7 +50,8 @@
 
 (deftest create-a-budget-report
   (with-context fixtures/budget-context
-    (let [report (reports/budget (find-budget "2016")
+    (let [report (reports/budget (models/find-by {:budget/name "2016"}
+                                                 {:include #{:budget/items}})
                                  {:as-of (t/local-date 2016 2 29)})]
       (is (= (:title fixtures/expected-budget-report)
              (:title report))
@@ -63,7 +63,8 @@
 
 (deftest create-a-budget-report-grouped-by-tags
   (with-context fixtures/budget-context
-    (let [report (reports/budget (find-budget "2016")
+    (let [report (reports/budget (models/find-by {:budget/name "2016"}
+                                                 {:include #{:budget/items}})
                                  {:as-of (t/local-date 2016 2 29)
                                   :tags [:tax :mandatory :discretionary]})]
       (is (= (:title fixtures/expected-budget-report-by-tag)

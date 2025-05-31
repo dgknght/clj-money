@@ -454,21 +454,28 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :start-date (t/local-date 2016 01 01)
-                 :period [12 :month]
-                 :items [#:budget-item{:account "Salary"
-                                       :periods (repeat 12 2000M)}
-                         #:budget-item{:account "FIT"
-                                       :periods (repeat 12 400M)}
-                         #:budget-item{:account "Social Security"
-                                       :periods (repeat 12 134M)}
-                         #:budget-item{:account "Medicare"
-                                       :periods (repeat 12 30M)}
-                         #:budget-item{:account "Rent"
-                                       :periods (repeat 12 700M)}
-                         #:budget-item{:account "Dining"
-                                       :periods (repeat 12 200M)}
-                         #:budget-item{:account "Groceries"
-                                       :periods (repeat 12 450M)}]}
+                 :period [12 :month]}
+        #:budget-item{:budget "2016"
+                      :account "Salary"
+                      :periods (repeat 12 2000M)}
+        #:budget-item{:budget "2016"
+                      :account "FIT"
+                      :periods (repeat 12 400M)}
+        #:budget-item{:budget "2016"
+                      :account "Social Security"
+                      :periods (repeat 12 134M)}
+        #:budget-item{:budget "2016"
+                      :account "Medicare"
+                      :periods (repeat 12 30M)}
+        #:budget-item{:budget "2016"
+                      :account "Rent"
+                      :periods (repeat 12 700M)}
+        #:budget-item{:budget "2016"
+                      :account "Dining"
+                      :periods (repeat 12 200M)}
+        #:budget-item{:budget "2016"
+                      :account "Groceries"
+                      :periods (repeat 12 450M)}
         ; salary
         #:transaction{:transaction-date (t/local-date 2016 01 01)
                       :entity "Personal"
