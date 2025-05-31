@@ -10,7 +10,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.schema :as schema]
-            [clj-money.authorization.budgets]))
+            [clj-money.authorization.budget-items]))
 
 (defn- extract-criteria
   [{:keys [params]}]

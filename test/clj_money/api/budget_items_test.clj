@@ -76,9 +76,10 @@
         #:budget{:entity "Personal"
                  :name "2016"
                  :period [3 :month]
-                 :start-date (t/local-date 2016 1 1)
-                 :items [#:budget-item{:account "Groceries"
-                                       :periods [100M 101M 102M]}]}))
+                 :start-date (t/local-date 2016 1 1)}
+        #:budget-item{:budget "2016"
+                      :account "Groceries"
+                      :periods [100M 101M 102M]}))
 
 (defn- update-budget-item
   [user-email]

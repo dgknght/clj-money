@@ -328,9 +328,7 @@
 
 (defmethod prepare :budget
   [budget ctx]
-  (-> budget
-      (update-in [:budget/entity] (find-entity ctx))
-      (update-in [:budget/items] (prepare-coll ctx))))
+  (update-in budget [:budget/entity] (find-entity ctx)))
 
 (defmethod prepare :budget-item
   [item ctx]
