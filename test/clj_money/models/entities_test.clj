@@ -74,7 +74,7 @@
       (is (seq-of-maps-like? [{:entity/name "Business"}
                               {:entity/name "Personal"}]
                              (models/select {:entity/user user}
-                                            {:order-by [[:entity/name :asc]]}))
+                                            {:sort [[:entity/name :asc]]}))
           "Entities matching the criteria are returned"))))
 
 (deftest update-an-entity
