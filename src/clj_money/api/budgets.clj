@@ -92,7 +92,7 @@
   (when-let [budget (-> params
                         (select-keys [:id])
                         (+scope :budget authenticated)
-                        models/find-by)]
+                        (models/find-by {:include #{:budget/items}}))]
     (authorize budget action authenticated)))
 
 (defn- show

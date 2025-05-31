@@ -23,7 +23,7 @@
   (update-in trx [:transaction/transaction-date] t/local-date))
 
 (defmethod sql/post-select :transaction
-  [storage trxs]
+  [{:keys [storage]} trxs]
   (map #(assoc %
                :transaction/items
                (vec (db/select storage {:transaction-item/transaction %} {})))

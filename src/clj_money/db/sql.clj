@@ -164,7 +164,7 @@
   (crt/apply-to criteria ->sql-refs))
 
 (defmulti post-select
-  (fn [_storage ms]
+  (fn [_opts ms]
     (when-let [m1 (first ms)]
       (util/model-type m1))))
 (defmethod post-select :default [_ ms] ms)
@@ -363,7 +363,7 @@
                          query
                          sql-opts)
       (post-select
-        (:storage options)
+        options
         (map (comp after-read
                    apply-coercions
                    ->model-refs

@@ -35,7 +35,7 @@
                                                                    #(map ->keyword %)))))
 
 (defmethod sql/post-select :scheduled-transaction
-  [storage trxs]
+  [{:keys [storage]} trxs]
   (map #(assoc %
                :scheduled-transaction/items
                (vec (db/select storage
