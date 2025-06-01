@@ -2,6 +2,7 @@
 name: clj-money
 volumes:
   sql-data-17:
+  maven-data:
 services:
   sql:
     image: postgres:17
@@ -25,3 +26,200 @@ services:
       - 3040:80
     depends_on:
       - sql
+
+  lein-deps:
+    profiles:
+      - sql
+      - datomic-peer
+      - datomic-client
+      - all
+    image: clj-money-util
+    build:
+      target: util
+    command: lein deps
+    volumes:
+      - type: volume
+        source: maven-data
+        target: /root/.m2
+
+  sql-init:
+    profiles:
+      - sql
+      - datomic-peer
+      - datomic-client
+      - all
+    image: clj-money-util
+    build:
+      target: util
+    command: lein with-profile +util,+docker init-sql
+    depends_on:
+      sql:
+        condition: service_healthy
+      lein-deps:
+        condition: service_completed_successfully
+    volumes:
+      - type: bind
+        source: ./docker-compose/config
+        target: /usr/src/clj-money/config
+        read_only: true
+      - type: bind
+        source: ./logs/sql-init-tmp
+        target: /tmp
+        read_only: false
+      - type: volume
+        source: maven-data
+        target: /root/.m2
+    env_file: .env
+
+  memcached:
+    profiles:
+      - datomic-peer # Is this needed in the peer profile?
+      - datomic-client
+      - all
+    image: memcached:1.6-bullseye
+    ports:
+      - 11211:11211
+    restart: on-failure
+    healthcheck:
+      test: echo stats | nc 127.0.0.1 11211
+      interval: 10s
+      retries: 60
+
+  datomic-sql-init:
+    profiles:
+      - datomic-peer
+      - datomic-client
+      - all
+    image: clj-money-util
+    build:
+      target: util
+    command: ./scripts/datomic-init.sh
+    env_file: .env
+    environment:
+      PGPASSWORD: ${SQL_ADM_PASSWORD}
+      PGHOST: sql
+      PGDATABASE: ${SQL_ADM_USER}
+      PGUSER: ${SQL_ADM_USER}
+    depends_on:
+      sql-init:
+        condition: service_completed_successfully
+
+  datomic-transactor:
+    profiles:
+      - datomic-peer
+      - datomic-client
+      - all
+    depends_on:
+      datomic-sql-init:
+        condition: service_completed_successfully
+      memcached:
+        condition: service_started
+    image: dgknght/datomic-pro:1.0.7075
+    volumes:
+      - type: bind
+        source: ./logs/datomic-transactor
+        target: /opt/datomic-pro/log
+        read_only: false
+      - type: bind
+        source: ./docker-compose/datomic-transactor
+        target: /opt/datomic-pro/config
+        read_only: true
+    command:
+      - ./bin/transactor
+      - -Ddatomic.printConnectionInfo=true
+      - ./config/transactor.properties
+    restart: on-failure
+    ports:
+      - 4334:4334
+      - 9999:9999
+    healthcheck:
+      test: wget localhost:9999/health
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  datomic-schema:
+    profiles:
+      - datomic-peer
+      - datomic-client
+      - all
+    image: clj-money-util
+    build:
+      target: util
+    command: lein with-profile +util,+docker datomic-schema
+    volumes:
+      - type: bind
+        source: ./docker-compose/config
+        target: /usr/src/clj-money/config
+        read_only: true
+      - type: bind
+        source: ./logs/datomic-schema-tmp
+        target: /tmp
+        read_only: false
+      - type: volume
+        source: maven-data
+        target: /root/.m2
+    depends_on:
+      datomic-transactor:
+        condition: service_healthy
+      lein-deps:
+        condition: service_completed_successfully
+    env_file: .env
+
+  datomic-console:
+    profiles:
+      - datomic-peer
+      - datomic-client
+      - all
+    image: dgknght/datomic-pro:1.0.7075
+    depends_on:
+      datomic-transactor:
+        condition: service_healthy
+    restart: on-failure
+    ports:
+      - 8080:8080
+    command:
+      - ./bin/console
+      - -p
+      - "8080"
+      - sql
+      - "${DATOMIC_NO_DB_URI}"
+    env_file: .env
+
+  datomic-peer-server:
+    profiles:
+      - datomic-client
+      - all
+    depends_on:
+      datomic-schema:
+        condition: service_completed_successfully
+    image: dgknght/datomic-pro:1.0.7075
+    restart: on-failure
+    volumes:
+      - type: bind
+        source: ./logs/datomic-peer-server
+        target: /opt/datomic-pro/log
+        read_only: false
+    ports:
+      - 8998:8998
+    command:
+      - ./bin/run
+      - -m
+      - datomic.peer-server
+      - -h
+      - "${DATOMIC_PEER_SERVER}"
+      - -p
+      - "8998"
+      - -Ddatomic.memcachedServers=memcached:11211
+      - -a
+      - "${DATOMIC_ACCESS_KEY},${DATOMIC_SECRET}"
+      - -d
+      - "${DATOMIC_DB_NAME},${DATOMIC_STORAGE_URI}"
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "curl", "-k", "https://localhost:8998/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 10s
