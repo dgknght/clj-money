@@ -29,6 +29,7 @@
             [clj-money.accounts :as accounts]
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.budgets :as api]
+            [clj-money.api.budget-items :as items]
             [cljs.core :as c]))
 
 (defn- load-budgets
@@ -330,26 +331,31 @@
 
 (defn- post-save-budget-item
   [page-state]
-  (fn [budget]
-    (swap! page-state #(-> %
-                           (assoc :detailed-budget budget)
-                           (dissoc :selected-item)))))
+  (fn [item]
+    (swap! page-state (fn [state]
+                        (-> state
+                            (update-in [:detailed-budget
+                                        :budget/items]
+                                       (fn [items]
+                                         (util/upsert-into item
+                                                           {:sort-key (comp :account/name
+                                                                            :budget-item/account) }
+                                                           items)))
+                            (dissoc :selected-item))))))
 
 (defn- save-budget-item
   [page-state]
   (+busy)
-  (let [{budget :detailed-budget
-         item :selected-item
-         periods :calculated-periods} @page-state
-        item (-> item
-                 (select-keys [:id
-                               :budget-item/account
-                               :budget-item/spec])
-                 (assoc :budget-item/periods periods))]
-    (-> budget
-        (update-in [:budget/items] #(util/upsert-into item {:sort-key (comp :account/name :budget-item/account)} %))
-        (api/save :callback -busy
-                  :on-success (post-save-budget-item page-state)))))
+  (let [{item :selected-item
+         periods :calculated-periods} @page-state]
+    (-> item
+        (select-keys [:id
+                      :budget-item/budget
+                      :budget-item/account
+                      :budget-item/spec])
+        (assoc :budget-item/periods periods)
+        (items/save :callback -busy
+                    :on-success (post-save-budget-item page-state)))))
 
 (defn- period-row
   [index item budget]
@@ -564,10 +570,23 @@
   [& _]
   (swap! resize-state assoc :window-height (.-innerHeight js/window)))
 
+(defn- new-budget-item
+  [page-state]
+  (fn []
+    (swap! page-state
+           (fn [{:as state budget :detailed-budget}]
+             (assoc state
+                    :selected-item
+                    {:budget-item/budget (util/->model-ref budget)
+                     :budget-item/periods (vec
+                                            (repeat (get-in budget [:budget/period 0])
+                                                    0M))
+                     :entry-mode :per-total})))
+    (set-focus "account-id")))
+
 (defn- budget-details
   [page-state]
-  (let [budget (r/cursor page-state [:detailed-budget])
-        selected-item (r/cursor page-state [:selected-item])
+  (let [selected-item (r/cursor page-state [:selected-item])
         show-periods-table? (make-reaction #(and @selected-item
                                                  (not= :per-period
                                                        (get-in @selected-item [:entry-mode]))))
@@ -592,15 +611,7 @@
           [budget-items-table page-state]]
          [:div.my-2
           [button {:html {:class "btn-primary"
-                          :on-click (fn []
-                                      (swap! page-state
-                                             assoc
-                                             :selected-item {:id (util/temp-id)
-                                                             :budget-item/periods (->> (range (get-in @budget [:budget/period 0]))
-                                                                                       (map (constantly 0M))
-                                                                                       (into []))
-                                                             :entry-mode :per-total})
-                                      (set-focus "account-id"))
+                          :on-click (new-budget-item page-state)
                           :disabled (or @busy?
                                         (boolean @selected-item))
                           :title "Click here to add a new budget line item"}

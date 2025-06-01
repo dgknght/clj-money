@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
             [clj-money.authorization
              :as auth
@@ -34,11 +33,7 @@
   (-> params
       (select-keys [:budget/name
                     :budget/start-date
-                    :budget/period
-                    :budget/items])
-      (update-in-if [:budget/items] (fn [items]
-                                      (mapv #(update-in % [:budget-item/periods] vec)
-                                            items)))))
+                    :budget/period])))
 
 (defn- historical-items
   [{:budget/keys [entity period]} start-date]
@@ -61,26 +56,16 @@
          (create-items-from-history
            budget
            start-date
-           end-date))))
-
-(defn- assoc-auto-created-items
-  [budget start-date]
-  (if-let [items (seq
-                   (auto-create-items
-                     budget
-                     start-date))]
-    (assoc budget
-           :budget/items
-           (vec items))
-    budget))
+           end-date)
+         (map #(assoc % :budget-item/budget budget))
+         models/put-many)))
 
 (defn- append-items
   [budget start-date]
-  (if start-date
-    (-> budget
-        (assoc-auto-created-items start-date)
-        models/put)
-    budget))
+  (cond-> budget
+    start-date (assoc :budget/items
+                      (auto-create-items budget
+                                         start-date))))
 
 (defn- create
   [{:keys [authenticated params] :as req}]
@@ -97,7 +82,7 @@
   (when-let [budget (-> params
                         (select-keys [:id])
                         (+scope :budget authenticated)
-                        models/find-by)]
+                        (models/find-by {:include #{:budget/items}}))]
     (authorize budget action authenticated)))
 
 (defn- show

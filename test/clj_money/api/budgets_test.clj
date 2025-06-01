@@ -137,17 +137,20 @@
         #:budget{:name "2015"
                  :entity "Personal"
                  :period [12 :month]
-                 :start-date (t/local-date 2015 1 1)
-                 :items [#:budget-item{:account "Salary"    :periods (repeat 12 1000M)}
-                         #:budget-item{:account "Rent"      :periods (repeat 12 500M)}
-                         #:budget-item{:account "Groceries" :periods (repeat 12 200M)}]}
+                 :start-date (t/local-date 2015 1 1)}
+        #:budget-item{:budget "2015"
+                      :account "Salary"
+                      :periods (repeat 12 1000M)}
+        #:budget-item{:budget "2015"
+                      :account "Rent"
+                      :periods (repeat 12 500M)}
+        #:budget-item{:budget "2015"
+                      :account "Groceries"
+                      :periods (repeat 12 200M)}
         #:budget{:name "2016"
                  :entity "Personal"
                  :period [12 :month]
-                 :start-date (t/local-date 2016 1 1)
-                 :items [#:budget-item{:account "Salary"    :periods (repeat 12 1001M)}
-                         #:budget-item{:account "Rent"      :periods (repeat 12 501M)}
-                         #:budget-item{:account "Groceries" :periods (repeat 12 201M)}]}))
+                 :start-date (t/local-date 2016 1 1)}))
 
 (defn- get-budgets
   [email]
@@ -185,7 +188,7 @@
   (with-context list-context
     (-> (req/request :get (path :api
                                 :budgets
-                                (:id (find-budget "2016"))))
+                                (:id (find-budget "2015"))))
         (add-auth (find-user email))
         app
         parse-edn-body)))
@@ -195,15 +198,15 @@
   (is (http-success? response))
   (is (= 3 (count (:budget/items edn-body)))
       "The items are included")
-  (is (some #(= 1001.0M (first (:budget-item/periods %)))
-            (:budget/items edn-body))
-      "The salary item is present in the response")
-  (is (some #(= 501.0M (first (:budget-item/periods %)))
-            (:budget/items edn-body))
-      "The rent item is present in the response")
-  (is (some #(= 201.0M (first (:budget-item/periods %)))
-            (:budget/items edn-body))
-      "The groceries item is present in the response"))
+  (is (= #{{:budget-item/periods #{1000M}}
+           {:budget-item/periods #{500M}}
+           {:budget-item/periods #{200M}}}
+         (->> (:budget/items edn-body)
+              (map #(-> %
+                        (select-keys [:budget-item/periods])
+                        (update-in [:budget-item/periods] set)))
+              set))
+      "The budget items are included in the response."))
 
 (defn- assert-blocked-get
   [response]
@@ -222,11 +225,7 @@
           response (-> (req/request :patch (path :api
                                                  :budgets
                                                  (:id budget)))
-                       (edn-body (assoc-in budget
-                                                [:budget/items
-                                                 1
-                                                 :budget-item/periods]
-                                                (repeat 12 502.1M)))
+                       (edn-body (assoc budget :budget/period [6 :month]))
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
@@ -236,18 +235,18 @@
   [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
   (is (empty? (v/error-messages edn-body)))
-  (is (= (repeat 12 502.1M)
-         (get-in edn-body [:budget/items 1 :budget-item/periods]))
-      "The response contains the updated budget")
-  (is (= (repeat 12 502.1M)
-         (get-in retrieved [:budget/items 1 :budget-item/periods]))
-      "The retrieved value contains the update attributes"))
+  (is (comparable? {:budget/period [6 :month]}
+                   edn-body)
+      "The updated budget is returned")
+  (is (comparable? {:budget/period [6 :month]}
+                   retrieved)
+      "The updated budget can be retrieved"))
 
 (defn- assert-blocked-update
   [[response retrieved]]
   (is (http-not-found? response))
-  (is (comparable? {:budget-item/periods [501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M]}
-                   (get-in retrieved [:budget/items 1]))
+  (is (comparable? {:budget/period [12 :month]}
+                   retrieved)
       "The record is not updated"))
 
 (deftest a-user-can-update-a-budget-in-his-entity

@@ -405,23 +405,29 @@
     (log/warnf "Unable to resolve account id for budget item %s" item)))
 
 (defn- prepare-budget
-  [budget {:keys [entity] :as context}]
+  [budget {:keys [entity]}]
   (-> budget
-      (update-in [:budget/items]
-                 (fn [items]
-                   (->> items
-                        (map #(prepare-budget-item % context))
-                        (filter identity)
-                        (remove #(= 0M (reduce + (:budget-item/periods %))))
-                        (map #(update-in % [:budget-item/periods] vec)))))
       purge-import-keys
       (assoc :budget/entity entity)))
 
+(defn- prepare-budget-items
+  [budget context items]
+  (->> items
+       (map (comp #(prepare-budget-item % context)
+                  #(assoc % :budget-item/budget budget)))
+       (filter identity)
+       (remove #(= 0M (reduce + (:budget-item/periods %))))
+       (map #(update-in % [:budget-item/periods] vec))))
+
 (defmethod import-record* :budget
-  [context budget]
+  [context {:as budget :budget/keys [items]}]
   (let [imported (-> budget
                      (prepare-budget context)
+                     (dissoc :budget/items)
                      models/put)]
+    (->> items
+         (prepare-budget-items imported context)
+         models/put-many)
     (log/infof "[import] imported budget %s" (:budget/name imported))
     context))
 

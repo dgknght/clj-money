@@ -28,7 +28,7 @@
                          items)))))
 
 (defmethod sql/post-select :reconciliation
-  [storage reconciliations]
+  [{:keys [storage]} reconciliations]
   (map #(assoc %
                :reconciliation/item-refs
                (mapv (juxt :id :transaction-item/transaction-date)
