@@ -144,9 +144,10 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :start-date (t/local-date 2016 1 1)
-                 :period [12 :month]
-                 :items [#:budget-item{:account "Groceries"
-                                       :periods (repeat 12 200M)}]}
+                 :period [12 :month]}
+        #:budget-item{:budget "2016"
+                      :account "Groceries"
+                      :periods (repeat 12 200M)}
         #:transaction{:transaction-date (t/local-date 2016 1 1)
                       :entity "Personal"
                       :description "Kroger"
