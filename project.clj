@@ -29,11 +29,10 @@
                  [org.eclipse.jetty/jetty-util "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
                  [org.eclipse.jetty/jetty-io "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
                  [org.eclipse.jetty/jetty-server "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
-                 [ring/ring-core "1.8.0" :exclusions [ring/ring-codec]]
-                 [ring/ring-jetty-adapter "1.6.3" :exclusions [joda-time clj-time org.clojure/tools.reader]]
-                 [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
-                 [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
-                 [ring/ring-anti-forgery "1.2.0" :exclusions [org.clojure/tools.reader]]
+                 [commons-io/commons-io "2.16.0"]
+                 [ring "1.13.0"]
+                 [ring/ring-jetty-adapter "1.9.6"]
+                 [ring/ring-defaults "0.6.0"]
                  [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
                                                       com.bhauman/spell-spec
@@ -172,7 +171,27 @@
   :profiles {:test {:dependencies [[ring/ring-mock "0.4.0"]
                                    [peridot "0.5.2"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
-             :dev {:dependencies [[com.bhauman/figwheel-main "0.2.17" :exclusions [ring/ring-anti-forgery ring/ring-devel com.google.errorprone/error_prone_annotations ring/ring-core org.eclipse.jetty/jetty-http ring/ring-codec org.eclipse.jetty/jetty-io com.google.guava/guava org.eclipse.jetty/jetty-server ring commons-codec joda-time clj-time org.slf4j/slf4j-api]]
+             :dev {:dependencies [[com.bhauman/figwheel-main
+                                   "0.2.17"
+                                   :exclusions
+                                   [ring/ring-anti-forgery
+                                    ring/ring-devel
+                                    ring/ring-codec
+                                    ring/ring-default
+                                    com.google.errorprone/error_prone_annotations
+                                    ring/ring-core
+                                    org.eclipse.jetty/jetty-http
+                                    org.eclipse.jetty/jetty-io
+                                    org.eclipse.jetty/jetty-security
+                                    org.eclipse.jetty/jetty-server
+                                    org.eclipse.jetty/jetty-servlet
+                                    org.eclipse.jetty.websocket/websocket-servlet
+                                    com.google.guava/guava
+                                    ring
+                                    commons-codec
+                                    joda-time
+                                    clj-time
+                                    org.slf4j/slf4j-api]]
                                   [com.bhauman/rebel-readline-cljs "0.1.4"]]
                    :resource-paths ^:replace ["env/dev" "resources" "target"]}
              :uberjar {:prep-tasks ["compile"
