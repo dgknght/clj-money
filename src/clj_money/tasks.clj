@@ -135,9 +135,6 @@
               account (get-in accounts [path])]
         (models/put (assoc account :account/user-tags user-tags))))))
 
-(defn compile-sass []
-  (println (:out (sh "resources/compile-sass.sh"))))
-
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn er-diagram [& _args]
   (let [lines (concat ["erDiagram"]

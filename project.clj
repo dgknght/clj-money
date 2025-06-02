@@ -26,12 +26,11 @@
                                                                            org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
-                 [org.eclipse.jetty/jetty-util "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
-                 [org.eclipse.jetty/jetty-io "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
-                 [org.eclipse.jetty/jetty-server "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
                  [commons-io/commons-io "2.16.0"]
-                 [ring "1.13.0"]
+                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M3"]
+                 [ring/ring-core "1.9.6"]
                  [ring/ring-jetty-adapter "1.9.6"]
+                 [ring/ring-json "0.5.1"]
                  [ring/ring-defaults "0.6.0"]
                  [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
@@ -51,7 +50,8 @@
                                                                       com.cognitect/transit-clj
                                                                       ring]]
                  [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
-                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader]]
+                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader
+                                                  org.clojure/tools.namespace]]
                  [selmer "1.11.7" :exclusions [joda-time
                                                com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
@@ -143,7 +143,7 @@
   :min-lein-version "2.0.0"
   :plugins [[lein-cljfmt "0.7.0"]]
   :hooks []
-  :uberjar-name "clj-money-standalone.jar"
+  :uberjar-name "clj-money.jar"
   :aot [clj-money.web.server]
   :clean-targets ^{:protect false} [:target-path]
   :source-paths ["src"]
@@ -184,14 +184,12 @@
                                     org.eclipse.jetty/jetty-security
                                     org.eclipse.jetty/jetty-server
                                     org.eclipse.jetty/jetty-servlet
-                                    org.eclipse.jetty.websocket/websocket-servlet
                                     com.google.guava/guava
                                     ring
                                     commons-codec
                                     joda-time
                                     clj-time
                                     org.slf4j/slf4j-api]]
-                                  [com.bhauman/rebel-readline-cljs "0.1.4"]]
-                   :resource-paths ^:replace ["env/dev" "resources" "target"]}
-             :uberjar {:prep-tasks ["compile"
-                                    "sass"]}})
+                                  [com.bhauman/rebel-readline-cljs "0.1.4"]
+                                  [ring/ring-mock "0.4.0"]]
+                   :resource-paths ^:replace ["env/dev" "resources" "target"]}})
