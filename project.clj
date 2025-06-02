@@ -155,7 +155,6 @@
             "chunk-file"            ["run" "-m" "clj-money.import.gnucash/chunk-file"]
             "seed"                  ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]
-            "sass"                  ["run" "-m" "clj-money.tasks/compile-sass"]
             "recalc"                ["run" "-m" "clj-money.tasks/recalc"]
             "migrate-account"       ["run" "-m" "clj-money.tasks/migrate-account"]
             "export-user-tags"      ["run" "-m" "clj-money.tasks/export-user-tags"]

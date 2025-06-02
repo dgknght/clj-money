@@ -79,6 +79,11 @@ To stop
 (stop-server)
 
 ```
+Compile the sass files with:
+```bash
+npm install -g sass # if not already installed
+sass --watch src/scss/site.scss resources/public/css/site.css
+```
 Start the client with:
 ```bash
 lein fig:build
