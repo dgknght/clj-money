@@ -43,7 +43,7 @@
                   "Loading..."]]]]]
              (include-js (if (env :dev?)
                            "/cljs-out/dev-main.js"
-                           "/js/app/main.js"))]])})
+                           "/cljs-out/clj-money.js"))]])})
 
 (defn- wrap-request-logging
   [handler]

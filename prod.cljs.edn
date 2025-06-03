@@ -3,7 +3,7 @@
   :mode :build-once
   :auto-testing false}
 {:main clj-money.core
- :output-to "resources/public/cljs-out/prod/clj-money.js"
+ :output-to "resources/public/cljs-out/clj-money.js"
  :output-dir "resources/public/cljs-out/prod/clj-money"
  :optimizations :advanced
  :language-in :ecmascript-next
