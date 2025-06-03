@@ -1,7 +1,6 @@
 (ns clj-money.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.edn :as edn]
-            [clojure.java.shell :refer [sh]]
             [clj-money.models.schema :as schema]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
