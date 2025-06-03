@@ -26,12 +26,12 @@
                                                                            org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
-                 [commons-io/commons-io "2.16.0"]
-                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M3"]
-                 [ring/ring-core "1.9.6"]
-                 [ring/ring-jetty-adapter "1.9.6"]
-                 [ring/ring-json "0.5.1"]
-                 [ring/ring-defaults "0.6.0"]
+                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M3" :exclusions [commons-io]]
+                 [ring "1.9.6" :exclusions [commons-codec
+                                            commons-io]]
+                 [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
+                                                          joda-time
+                                                          ring/ring-core]]
                  [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
                                                       com.bhauman/spell-spec
@@ -167,29 +167,30 @@
             "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
-  :profiles {:test {:dependencies [[ring/ring-mock "0.4.0"]
-                                   [peridot "0.5.2"]]
+  :profiles {:test {:dependencies [[peridot "0.5.2"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
              :dev {:dependencies [[com.bhauman/figwheel-main
                                    "0.2.17"
                                    :exclusions
                                    [ring/ring-anti-forgery
-                                    ring/ring-devel
                                     ring/ring-codec
                                     ring/ring-default
                                     com.google.errorprone/error_prone_annotations
-                                    ring/ring-core
                                     org.eclipse.jetty/jetty-http
                                     org.eclipse.jetty/jetty-io
                                     org.eclipse.jetty/jetty-security
                                     org.eclipse.jetty/jetty-server
                                     org.eclipse.jetty/jetty-servlet
+                                    org.eclipse.jetty/jetty-util
                                     com.google.guava/guava
-                                    ring
                                     commons-codec
                                     joda-time
                                     clj-time
                                     org.slf4j/slf4j-api]]
                                   [com.bhauman/rebel-readline-cljs "0.1.4"]
-                                  [ring/ring-mock "0.4.0"]]
+                                  [ring/ring-mock "0.4.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                                                                       com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
+                                                                       ring/ring-codec
+                                                                       cheshire
+                                                                       com.fasterxml.jackson.core/jackson-core]]]
                    :resource-paths ^:replace ["env/dev" "resources" "target"]}})

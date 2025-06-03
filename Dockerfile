@@ -18,7 +18,7 @@ EOF
 RUN <<EOF
 mkdir resources/public/css
 sass src/scss/site.scss resources/public/css/site.css
-lein do fig:prod,uberjar
+lein do fig:prod, uberjar
 EOF
 
 FROM eclipse-temurin:8-jre-noble AS web
