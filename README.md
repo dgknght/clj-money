@@ -43,9 +43,12 @@ See more at [ERD.md](ERD.md)
 
 ## Running locally
 
-### Setup the database:
-You'll need PostgreSQL installed.
+### Running services
+```bash
+docker compose up -d
+```
 
+### Setup the database:
 ```bash
 createdb money_development
 lein migrate
@@ -76,24 +79,18 @@ To stop
 (stop-server)
 
 ```
+Compile the sass files with:
+```bash
+npm install -g sass # if not already installed
+sass --watch src/scss/site.scss resources/public/css/site.css
+```
 Start the client with:
 ```bash
-lein fig:wheel
+lein fig:build
 ```
 Stop the client with:
 ```
 :cljs/quit
-```
-
-## Running on Heroku
-```bash
-heroku create my-app-name
-heroku addons:create heroku-postgres:hobby-dev
-heroku config:set DB=<value of DATABASE_URL> PARTITION_PERIOD=year
-git push heroku master
-heroku run lein migrate
-heroku run lein partition <start-date> <end-date>
-heroku open
 ```
 
 ## Running server tests
