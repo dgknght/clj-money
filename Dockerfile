@@ -21,10 +21,10 @@ sass src/scss/site.scss resources/public/css/site.css
 lein do fig:prod, uberjar
 EOF
 
-FROM eclipse-temurin:8-jre-noble AS web
+FROM eclipse-temurin:17-jre-noble AS web
 WORKDIR /opt/clj-money
 COPY --from=build /usr/src/clj-money/target/clj-money.jar .
-CMD ["java", "-cp", "clj-money.jar", "clojure.main", "-m", "clj-money.server"]
+CMD ["java", "-cp", "clj-money.jar", "clojure.main", "-m", "clj-money.web.server"]
 
 # Default port for the service
 EXPOSE 3000
