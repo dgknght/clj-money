@@ -1,4 +1,4 @@
-FROM clojure:lein-2.10.0-jammy AS psql
+FROM clojure:temurin-17-lein-noble AS psql
 RUN <<EOF
 apt-get update
 apt-get install -y postgresql-client
