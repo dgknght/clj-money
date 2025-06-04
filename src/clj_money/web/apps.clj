@@ -14,7 +14,7 @@
    [:meta  {:name "description" :content "Double-entry accounting system"}]
    [:meta  {:name "author" :content "Doug Knight"}]
    [:link  {:rel "icon" :href "images/logo.svg"}]
-   [:title "clj-money"]
+   [:title (env :application-name "clj-money?")]
 
    (include-js "https://unpkg.com/@popperjs/core@2")
    (include-js "js/bootstrap.min.js")
