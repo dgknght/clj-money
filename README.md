@@ -60,12 +60,18 @@ lein with-profile test partition 2015-01-01 2017-12-31
 ```
 
 ### Start local services
-Create a `env/dev/config.edn` file with the following:
-```clojure
-{:dev? true
- :google-client-id "<look it up>"
- :google-client-secret "<look it up>"}
-```
+Create a `env/dev/config.edn` by copying `env/test/config.edn` and changing
+- The datbase details (should be just the dbname)
+- The image storage details (should be just the dbname)
+- The Google OAuth keys
+  - `:google-client-id`
+  - `:google-client-secret`
+- Add `:dev? true`
+- Remove `:test? true`
+- Change `:site-protocol` to "http"
+
+*To run in a docker container, do the above, but copy to `env/docker/config.edn`*
+
 Start the web server with
 ```bash
 lein repl

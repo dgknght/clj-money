@@ -24,7 +24,7 @@ EOF
 FROM eclipse-temurin:17-jre-noble AS web
 WORKDIR /opt/clj-money
 COPY --from=build /usr/src/clj-money/target/clj-money.jar .
-CMD ["java", "-cp", "clj-money.jar", "clojure.main", "-m", "clj-money.web.server"]
+CMD ["java", "clojure.main", "-m", "clj-money.web.server"]
 
 # Default port for the service
 EXPOSE 3000
