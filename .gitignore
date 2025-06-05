@@ -22,4 +22,5 @@ resources/public/cljs-out
 profiles.clj
 .lsp/
 env/dev/
+env/docker/
 node_modules/
