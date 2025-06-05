@@ -3,7 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]

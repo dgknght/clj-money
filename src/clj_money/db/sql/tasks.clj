@@ -8,7 +8,7 @@
                                   load-resources]]
             [ragtime.repl :as rt]
             [ragtime.strategy :refer [apply-new]]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [honey.sql.helpers :refer [select from where limit]]

@@ -1,7 +1,7 @@
 (ns clj-money.web.apps
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [hiccup.page :refer [html5 include-js]]))
 
 (defn- head []

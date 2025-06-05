@@ -4,8 +4,8 @@
  :db {:strategies {:sql {:clj-money.db/strategy :clj-money.db/sql
                          :host "localhost"
                          :post 5432
-                         :user "app_user"
-                         :password "please01"
+                         :user :config/sql-app-user
+                         :password :config/sql-app-password
                          :dbtype "postgresql"
                          :dbname "money_test"}}
       :active :sql}
@@ -15,8 +15,8 @@
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
                  :host "localhost"
                  :post 5432
-                 :user "app_user"
-                 :password "please01"
+                 :user :config/sql-app-user
+                 :password :config/sql-app-password
                  :dbtype "postgresql"
                  :dbname "money_test"}
  :mailer-host "testmailer.com"
@@ -27,4 +27,10 @@
  :site-host "www.mymoney.com"
  :site-protocol "https"
  :test? true
- :yahoo-api-key "yahoo-api-key"}
+ :yahoo-api-key "yahoo-api-key"
+ :config/sql-app-user "app_user"
+ :config/sql-app-password "please01"
+ :config/sql-ddl-user "ddl_user"
+ :config/sql-ddl-password "please02"
+ :config/sql-admin-user "admin_user"
+ :config/sql-admin-password "please03"}

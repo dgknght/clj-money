@@ -14,7 +14,7 @@
             [ring.adapter.jetty :as jetty]
             [ring.middleware.format :refer [wrap-restful-format]]
             [ring.middleware.session.cookie :refer [cookie-store]]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
             [clj-money.core]

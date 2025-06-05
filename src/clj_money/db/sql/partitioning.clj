@@ -2,7 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [clj-money.dates :as dates]))
 
 (defmulti ^:private suffix :interval-type)
