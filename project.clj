@@ -194,4 +194,5 @@
                                                                        ring/ring-codec
                                                                        cheshire
                                                                        com.fasterxml.jackson.core/jackson-core]]]
-                   :resource-paths ^:replace ["env/dev" "resources" "target"]}})
+                   :resource-paths ^:replace ["env/dev" "resources" "target"]}
+             :util {:resource-paths ^:replace ["resources" "target"]}})
