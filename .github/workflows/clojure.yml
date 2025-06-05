@@ -43,7 +43,7 @@ jobs:
       - name: Run ClojureScript tests
         run: lein fig:test
       - name: Set up the database
-        run: lein with-profile +test do init-sql, migrate, partition 2015-01-01 2017-12-31
+        run: lein with-profile +test do create-sql, migrate, partition 2015-01-01 2017-12-31
       - name: Run tests
         run: lein test
 
