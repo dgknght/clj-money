@@ -24,10 +24,10 @@
          :user (env :sql-ddl-user)
          :password (env :sql-ddl-password)))
 
-(defn- sql-admin-config []
+(defn- sql-adm-config []
   (assoc (sql-config)
-         :user (env :sql-admin-user)
-         :password (env :sql-admin-password)))
+         :user (env :sql-adm-user)
+         :password (env :sql-adm-password)))
 
 (defn ragtime-config []
   {:datastore (sql-database (sql-ddl-config))
@@ -91,7 +91,7 @@
   name as the user. We connect using that database, and then create
   the one that the app is configured to us."
   []
-  (let [{:keys [dbname] :as cfg} (sql-admin-config)
+  (let [{:keys [dbname] :as cfg} (sql-adm-config)
         _ (assert (and (:dbtype cfg)
                        (:dbname cfg)
                        (:user cfg)

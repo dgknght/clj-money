@@ -12,10 +12,10 @@ services:
       - sql-data-17:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: please03
-      POSTGRES_USER: admin_user
-      POSTGRES_DB: admin_user
+      POSTGRES_USER: adm_user
+      POSTGRES_DB: adm_user
     healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=please03 sh -c 'pg_isready -U admin_user -d admin_user'"]
+      test: ["CMD-SHELL", "PGPASSWORD=please03 sh -c 'pg_isready -U adm_user -d adm_user'"]
   pgadmin:
     image: dpage/pgadmin4:latest
     environment:

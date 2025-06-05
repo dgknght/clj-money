@@ -32,5 +32,5 @@
  :sql-app-password "please01"
  :sql-ddl-user "ddl_user"
  :sql-ddl-password "please02"
- :sql-admin-user "admin_user"
- :sql-admin-password "please03"}
+ :sql-adm-user "adm_user"
+ :sql-adm-password "please03"}
