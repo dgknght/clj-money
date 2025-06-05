@@ -7,7 +7,7 @@
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.core.async :as a]
             [clojure.data.xml :as xml]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid
                                           parse-int
