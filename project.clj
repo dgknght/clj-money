@@ -26,14 +26,12 @@
                                                                            org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
-                 [org.eclipse.jetty/jetty-util "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
-                 [org.eclipse.jetty/jetty-io "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
-                 [org.eclipse.jetty/jetty-server "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
-                 [ring/ring-core "1.8.0" :exclusions [ring/ring-codec]]
-                 [ring/ring-jetty-adapter "1.6.3" :exclusions [joda-time clj-time org.clojure/tools.reader]]
-                 [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
-                 [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
-                 [ring/ring-anti-forgery "1.2.0" :exclusions [org.clojure/tools.reader]]
+                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M3" :exclusions [commons-io]]
+                 [ring "1.9.6" :exclusions [commons-codec
+                                            commons-io]]
+                 [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
+                                                          joda-time
+                                                          ring/ring-core]]
                  [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
                                                       com.bhauman/spell-spec
@@ -52,7 +50,8 @@
                                                                       com.cognitect/transit-clj
                                                                       ring]]
                  [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
-                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader]]
+                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader
+                                                  org.clojure/tools.namespace]]
                  [selmer "1.11.7" :exclusions [joda-time
                                                com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
@@ -144,35 +143,56 @@
   :min-lein-version "2.0.0"
   :plugins [[lein-cljfmt "0.7.0"]]
   :hooks []
-  :uberjar-name "clj-money-standalone.jar"
+  :uberjar-name "clj-money.jar"
   :aot [clj-money.web.server]
   :clean-targets ^{:protect false} [:target-path]
   :source-paths ["src"]
-  :aliases {"migrate"                       ["run" "-m" "clj-money.db.sql.tasks/migrate"]
-            "rollback"                      ["run" "-m" "clj-money.db.sql.tasks/rollback"]
-            "remigrate"                     ["run" "-m" "clj-money.db.sql.tasks/remigrate"]
-            "partition"                     ["run" "-m" "clj-money.db.sql.tasks/create-partitions"]
-            "check-trans"                   ["run" "-m" "clj-money.db.sql.tasks/check-transaction-balances"]
-            "chunk-file"                    ["run" "-m" "clj-money.import.gnucash/chunk-file"]
-            "seed"                          ["run" "-m" "clj-money.seed/seed"]
-            "generate-transactions"         ["run" "-m" "clj-money.seed/generate-transactions"]
-            "sass"                          ["run" "-m" "clj-money.tasks/compile-sass"]
-            "recalc"                        ["run" "-m" "clj-money.tasks/recalc"]
-            "migrate-account"               ["run" "-m" "clj-money.tasks/migrate-account"]
-            "export-user-tags"              ["run" "-m" "clj-money.tasks/export-user-tags"]
-            "import-user-tags"              ["run" "-m" "clj-money.tasks/import-user-tags"]
-            "er-diagram"                    ["run" "-m" "clj-money.tasks/er-diagram"]
-            "routes"                        ["run" "-m" "clj-money.web.server/print-routes"]
-            "fig:build"                     ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
-            "fig:min"                       ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
-            "fig:test"                      ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
+  :aliases {"migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]
+            "rollback"              ["run" "-m" "clj-money.db.sql.tasks/rollback"]
+            "remigrate"             ["run" "-m" "clj-money.db.sql.tasks/remigrate"]
+            "create-sql"            ["run" "-m" "clj-money.db.sql.tasks/create"]
+            "partition"             ["run" "-m" "clj-money.db.sql.tasks/create-partitions"]
+            "check-trans"           ["run" "-m" "clj-money.db.sql.tasks/check-transaction-balances"]
+            "chunk-file"            ["run" "-m" "clj-money.import.gnucash/chunk-file"]
+            "seed"                  ["run" "-m" "clj-money.seed/seed"]
+            "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]
+            "recalc"                ["run" "-m" "clj-money.tasks/recalc"]
+            "migrate-account"       ["run" "-m" "clj-money.tasks/migrate-account"]
+            "export-user-tags"      ["run" "-m" "clj-money.tasks/export-user-tags"]
+            "import-user-tags"      ["run" "-m" "clj-money.tasks/import-user-tags"]
+            "er-diagram"            ["run" "-m" "clj-money.tasks/er-diagram"]
+            "routes"                ["run" "-m" "clj-money.web.server/print-routes"]
+            "fig:prod"              ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "prod"]
+            "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
+            "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
+            "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
-  :profiles {:test {:dependencies [[ring/ring-mock "0.4.0"]
-                                   [peridot "0.5.2"]]
+  :profiles {:test {:dependencies [[peridot "0.5.2"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
-             :dev {:dependencies [[com.bhauman/figwheel-main "0.2.17" :exclusions [ring/ring-anti-forgery ring/ring-devel com.google.errorprone/error_prone_annotations ring/ring-core org.eclipse.jetty/jetty-http ring/ring-codec org.eclipse.jetty/jetty-io com.google.guava/guava org.eclipse.jetty/jetty-server ring commons-codec joda-time clj-time org.slf4j/slf4j-api]]
-                                  [com.bhauman/rebel-readline-cljs "0.1.4"]]
+             :dev {:dependencies [[com.bhauman/figwheel-main
+                                   "0.2.17"
+                                   :exclusions
+                                   [ring/ring-anti-forgery
+                                    ring/ring-codec
+                                    ring/ring-default
+                                    com.google.errorprone/error_prone_annotations
+                                    org.eclipse.jetty/jetty-http
+                                    org.eclipse.jetty/jetty-io
+                                    org.eclipse.jetty/jetty-security
+                                    org.eclipse.jetty/jetty-server
+                                    org.eclipse.jetty/jetty-servlet
+                                    org.eclipse.jetty/jetty-util
+                                    com.google.guava/guava
+                                    commons-codec
+                                    joda-time
+                                    clj-time
+                                    org.slf4j/slf4j-api]]
+                                  [com.bhauman/rebel-readline-cljs "0.1.4"]
+                                  [ring/ring-mock "0.4.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                                                                       com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
+                                                                       ring/ring-codec
+                                                                       cheshire
+                                                                       com.fasterxml.jackson.core/jackson-core]]]
                    :resource-paths ^:replace ["env/dev" "resources" "target"]}
-             :uberjar {:prep-tasks ["compile"
-                                    "sass"]}})
+             :util {:resource-paths ^:replace ["resources" "target"]}})

@@ -1,7 +1,6 @@
 (ns clj-money.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.edn :as edn]
-            [clojure.java.shell :refer [sh]]
             [clj-money.models.schema :as schema]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
@@ -134,9 +133,6 @@
       (doseq [{:keys [path user-tags]} tags
               account (get-in accounts [path])]
         (models/put (assoc account :account/user-tags user-tags))))))
-
-(defn compile-sass []
-  (println (:out (sh "resources/compile-sass.sh"))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn er-diagram [& _args]
