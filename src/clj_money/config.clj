@@ -10,11 +10,14 @@
          (and (keyword? v)
               (= "config" (namespace v))))))
 
+(def ^:private naked-key (comp keyword name))
 (defn- resolve-ref
   [entry config]
-  (update-in entry [1] #(if-let [v (config %)]
+  (update-in entry [1] #(if-let [v (config (naked-key %))]
                           v
-                          (throw (ex-info "Unresolvable config reference" {:entry entry})))))
+                          (throw (ex-info (format "Unresolvable config reference: %s"
+                                                  %)
+                                          {:entry entry})))))
 
 (defn process
   [config]

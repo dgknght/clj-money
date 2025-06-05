@@ -19,9 +19,9 @@
                                                        :dbtype "postgresql"
                                                        :dbname "money_test"}}
                                     :active :config/active-db-strategy}
-                               :config/sql-app-user "app_user"
-                               :config/sql-app-password "please01"
-                               :config/active-db-strategy :sql})))))
+                               :sql-app-user "app_user"
+                               :sql-app-password "please01"
+                               :active-db-strategy :sql})))))
 
 (deftest fetch-a-config-with-unresolvable-references
   (is (thrown-with-msg? clojure.lang.ExceptionInfo

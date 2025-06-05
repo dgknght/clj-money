@@ -50,13 +50,9 @@ docker compose up -d
 
 ### Setup the database:
 ```bash
-createdb money_development
-lein migrate
-lein partition <start-date> <end-date>
+lein do create-sql, migrate, <start-date> <end-date>
 
-createdb money_test
-lein with-profile test migrate
-lein with-profile test partition 2015-01-01 2017-12-31
+lein with-profile test do create-sql, migrate, partition 2015-01-01 2017-12-31
 ```
 
 ### Start local services
@@ -101,8 +97,6 @@ Stop the client with:
 
 ## Running server tests
 ```bash
-createdb money_test
-lein with-profile test do migrate, partition 2015-01-01 2017-12-31
 lein test
 ```
 

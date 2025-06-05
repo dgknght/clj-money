@@ -6,3 +6,5 @@ CREATE TABLE public.settings (
 );
 ALTER TABLE ONLY public.settings
     ADD CONSTRAINT settings_pkey PRIMARY KEY (name);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.settings TO app_user;

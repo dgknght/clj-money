@@ -150,6 +150,7 @@
   :aliases {"migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]
             "rollback"              ["run" "-m" "clj-money.db.sql.tasks/rollback"]
             "remigrate"             ["run" "-m" "clj-money.db.sql.tasks/remigrate"]
+            "create-sql"            ["run" "-m" "clj-money.db.sql.tasks/create"]
             "partition"             ["run" "-m" "clj-money.db.sql.tasks/create-partitions"]
             "check-trans"           ["run" "-m" "clj-money.db.sql.tasks/check-transaction-balances"]
             "chunk-file"            ["run" "-m" "clj-money.import.gnucash/chunk-file"]

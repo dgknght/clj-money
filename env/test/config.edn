@@ -28,9 +28,9 @@
  :site-protocol "https"
  :test? true
  :yahoo-api-key "yahoo-api-key"
- :config/sql-app-user "app_user"
- :config/sql-app-password "please01"
- :config/sql-ddl-user "ddl_user"
- :config/sql-ddl-password "please02"
- :config/sql-admin-user "admin_user"
- :config/sql-admin-password "please03"}
+ :sql-app-user "app_user"
+ :sql-app-password "please01"
+ :sql-ddl-user "ddl_user"
+ :sql-ddl-password "please02"
+ :sql-admin-user "admin_user"
+ :sql-admin-password "please03"}

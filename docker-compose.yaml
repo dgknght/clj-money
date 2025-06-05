@@ -1,7 +1,6 @@
 ---
 name: clj-money
 volumes:
-  sql-data:
   sql-data-17:
 services:
   sql:
@@ -12,11 +11,11 @@ services:
     volumes:
       - sql-data-17:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: please01
-      POSTGRES_USER: app_user
-      POSTGRES_DB: app_user
+      POSTGRES_PASSWORD: please03
+      POSTGRES_USER: admin_user
+      POSTGRES_DB: admin_user
     healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=please01 sh -c 'pg_isready -U app_user -d app_user'"]
+      test: ["CMD-SHELL", "PGPASSWORD=please03 sh -c 'pg_isready -U admin_user -d admin_user'"]
   pgadmin:
     image: dpage/pgadmin4:latest
     environment:
