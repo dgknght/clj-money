@@ -15,9 +15,9 @@ jobs:
       postgres:
         image: postgres
         env:
-          POSTGRES_PASSWORD: please01
-          POSTGRES_USER: app_user
-          POSTGRES_DB: money_test
+          POSTGRES_PASSWORD: please03
+          POSTGRES_USER: admin_user
+          POSTGRES_DB: admin_user
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -42,10 +42,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run ClojureScript tests
         run: lein fig:test
-      - name: Run database migrations
-        run: lein with-profile +test migrate
-      - name: Create database partitions
-        run: lein with-profile +test partition 2015-01-01 2017-12-31
+      - name: Set up the database
+        run: lein with-profile +test do init-sql, migrate, partition 2015-01-01 2017-12-31
       - name: Run tests
         run: lein test
 
