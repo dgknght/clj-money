@@ -195,4 +195,4 @@
                                                                        cheshire
                                                                        com.fasterxml.jackson.core/jackson-core]]]
                    :resource-paths ^:replace ["env/dev" "resources" "target"]}
-             :util {:resource-paths ^:replace ["resources" "target"]}})
+             :util {:resource-paths ^:replace ["config" "resources" "target"]}})
