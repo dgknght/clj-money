@@ -92,11 +92,12 @@
   the one that the app is configured to us."
   []
   (let [{:keys [dbname] :as cfg} (sql-adm-config)
-        _ (assert (and (:dbtype cfg)
-                       (:dbname cfg)
-                       (:user cfg)
-                       (:password cfg)
-                       (:host cfg))
+        _ (assert ((every-pred :dbtype
+                               :dbname
+                               :user
+                               :password
+                               :host)
+                   cfg)
                   "The configuration is not valid.")
         ds (jdbc/get-datasource (assoc cfg :dbname (:user cfg)))]
     (doseq [{:keys [exists? create label]} (init-cmds dbname)]
