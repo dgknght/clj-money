@@ -9,7 +9,7 @@
                          :dbtype "postgresql"
                          :dbname "money_test"}}
       :active :sql}
- :detailed-import-logging? "false"
+ :detailed-import-logging "false"
  :google-client-id "google-id"
  :google-client-secret "google-client-secret"
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
@@ -23,7 +23,7 @@
  :mailer-from "no-reply@clj-money.com"
  :partition-period :year
  :secret "test-secret-for-testing"
- :show-error-messages? true
+ :show-error-messages true
  :site-host "www.mymoney.com"
  :site-protocol "https"
  :test? true

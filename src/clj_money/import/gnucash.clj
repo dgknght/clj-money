@@ -184,7 +184,7 @@
 
 (defmethod ^:private process-elem :default
   [state elem]
-  (when (and (env :detailed-import-logging?)
+  (when (and (env :detailed-import-logging)
              (not (known-irrelevant-elements (:tag elem))))
     (log/debug "Encountered unhandled element " (prn-str (:tag elem))))
   (pop-elem state))

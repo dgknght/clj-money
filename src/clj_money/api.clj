@@ -9,7 +9,7 @@
 (defn error->response
   [error safe-error-message]
   (api/response
-   (if (env :show-error-messages?)
+   (if (env :show-error-messages)
      {:message (.getMessage error)
       :type (.getName (.getClass error))
       :stack (.getStackTrace error)}
