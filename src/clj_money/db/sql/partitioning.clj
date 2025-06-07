@@ -2,7 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [clj-money.dates :as dates]))
 
 (defmulti ^:private suffix :interval-type)
@@ -123,6 +123,11 @@
        (map #(assoc % :suffix (suffix %)))
        (map create-table-cmd)))
 
+(defn- sql-config []
+  (assoc (get-in env [:db :strategies :sql])
+         :user (env :sql-ddl-user) 
+         :password (env :sql-ddl-password)))
+
 (defn create-partition-tables
   "Creates the specified partition tables.
 
@@ -134,7 +139,7 @@
     :dry-run   - do not execute the commands that are generated
     :rules     - a map of table names to interval type and count"
     ([start-date end-date options]
-     (let [ds (jdbc/get-datasource (get-in env [:db :strategies :sql]))]
+     (let [ds (jdbc/get-datasource (sql-config))]
        (doseq [cmd (create-table-cmds start-date end-date options)]
          (when-not (:silent options)
            (println cmd))
