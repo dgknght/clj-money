@@ -8,7 +8,7 @@
                                   load-resources]]
             [ragtime.repl :as rt]
             [ragtime.strategy :refer [apply-new]]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [honey.sql.helpers :refer [select from where limit]]
@@ -16,11 +16,21 @@
             [clj-money.dates :as dates]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
-(defn- db-config []
+(defn- sql-config []
   (get-in env [:db :strategies :sql]))
 
+(defn- sql-ddl-config []
+  (assoc (sql-config)
+         :user (env :sql-ddl-user)
+         :password (env :sql-ddl-password)))
+
+(defn- sql-adm-config []
+  (assoc (sql-config)
+         :user (env :sql-adm-user)
+         :password (env :sql-adm-password)))
+
 (defn ragtime-config []
-  {:datastore (sql-database (db-config))
+  {:datastore (sql-database (sql-ddl-config))
    :migrations (load-resources "migrations")
    :strategy apply-new})
 
@@ -51,6 +61,58 @@
         end-date (or (some-> arguments second parse-date)
                      (dates/last-day-of-the-year start-date))]
     (create-partition-tables start-date end-date options)))
+
+(def ^:private create-role-cmd
+  "create role %s with LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD '%s'")
+
+(def ^:private role-exists-cmd
+  "select 1 from pg_roles where rolname = '%s'")
+
+(defn- init-cmds
+  [dbname]
+  [{:label "ddl user"
+    :exists? (format role-exists-cmd (env :sql-ddl-user))
+    :create (format create-role-cmd (env :sql-ddl-user) (env :sql-ddl-password))}
+   {:label "app user"
+    :exists? (format role-exists-cmd (env :sql-app-user))
+    :create (format create-role-cmd (env :sql-app-user) (env :sql-app-password))}
+   {:label "database"
+    :exists? (format "SELECT 1 FROM pg_database WHERE datname = '%s'"
+                     dbname)
+    :create (format "CREATE DATABASE %s WITH OWNER = %s"
+                    dbname
+                    (env :sql-ddl-user))}])
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn create
+  "Creates the database and users specified in the configuration.
+
+  We assume that by default there is a database with the same
+  name as the user. We connect using that database, and then create
+  the one that the app is configured to us."
+  []
+
+  (println "Starting the create db process...")
+
+  (let [{:keys [dbname] :as cfg} (sql-adm-config)
+        _ (assert ((every-pred :dbtype
+                               :dbname
+                               :user
+                               :password
+                               :host)
+                   cfg)
+                  "The configuration is not valid.")
+
+        _ (pprint {::create cfg})
+
+        ds (jdbc/get-datasource (assoc cfg :dbname (:user cfg)))]
+    (doseq [{:keys [exists? create label]} (init-cmds dbname)]
+      (if (empty? (jdbc/execute! ds [exists?]))
+        (do
+          (println (format "Creating %s..." label))
+          (jdbc/execute! ds [create])
+          (println "done."))
+        (println (format "%s already exists." label))))))
 
 (def ^:private check-transaction-balances-options
   [["-e" "--entity" "The entity for which balances are to be checked"
@@ -130,7 +192,7 @@
   [{:keys [user-email entity-name]}]
   {:pre [user-email entity-name]}
   (println "Begin checking transactions...")
-  (let [ds (jdbc/get-datasource (db-config))
+  (let [ds (jdbc/get-datasource (sql-config))
         query #(jdbc/execute! ds (sql/format %))
         _ (println "get the entity")
         entity (first

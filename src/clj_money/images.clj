@@ -1,6 +1,6 @@
 (ns clj-money.images
   (:refer-clojure :exclude [get])
-  (:require [config.core :refer [env]]
+  (:require [clj-money.config :refer [env]]
             [digest :refer [sha-1]]))
 
 (defprotocol Storage
