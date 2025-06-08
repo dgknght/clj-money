@@ -91,6 +91,9 @@
   name as the user. We connect using that database, and then create
   the one that the app is configured to us."
   []
+
+  (println "Starting the create db process...")
+
   (let [{:keys [dbname] :as cfg} (sql-adm-config)
         _ (assert ((every-pred :dbtype
                                :dbname
@@ -99,6 +102,9 @@
                                :host)
                    cfg)
                   "The configuration is not valid.")
+
+        _ (pprint {::create cfg})
+
         ds (jdbc/get-datasource (assoc cfg :dbname (:user cfg)))]
     (doseq [{:keys [exists? create label]} (init-cmds dbname)]
       (if (empty? (jdbc/execute! ds [exists?]))
