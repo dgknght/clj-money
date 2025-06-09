@@ -57,8 +57,10 @@
   [& args]
   (let [{:keys [arguments options]} (parse-opts args create-partitions-options)
         start-date (or (some-> arguments first parse-date)
+                       (some-> env :earliest-sql-partition-date parse-date)
                        (dates/first-day-of-the-year))
         end-date (or (some-> arguments second parse-date)
+                       (some-> env :latest-sql-partition-date parse-date)
                      (dates/last-day-of-the-year start-date))]
     (create-partition-tables start-date end-date options)))
 
