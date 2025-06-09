@@ -60,8 +60,8 @@
                        (some-> env :earliest-sql-partition-date parse-date)
                        (dates/first-day-of-the-year))
         end-date (or (some-> arguments second parse-date)
-                       (some-> env :latest-sql-partition-date parse-date)
-                     (dates/last-day-of-the-year start-date))]
+                     (some-> env :latest-sql-partition-date parse-date)
+                     (dates/last-day-of-the-year (t/local-date)))]
     (create-partition-tables start-date end-date options)))
 
 (def ^:private create-role-cmd
