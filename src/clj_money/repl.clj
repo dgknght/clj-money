@@ -21,6 +21,12 @@
                      :email email
                      :password password}))
 
+(defn set-password
+  [& {:keys [email password]}]
+  (-> (models/find-by {:user/email email})
+      (assoc :user/password password)
+      models/put))
+
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn propagate-all
   [entity-name]

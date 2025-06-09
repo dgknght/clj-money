@@ -1,6 +1,6 @@
 (ns clj-money.web.users
   (:require [clojure.pprint :refer [pprint]]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [buddy.sign.jwt :as jwt]
             [clj-money.models :as models]))
 
