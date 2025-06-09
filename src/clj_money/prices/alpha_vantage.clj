@@ -3,7 +3,7 @@
             [clojure.string :as string]
             [clj-http.client :as http]
             [java-time.api :as t]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [camel-snake-kebab.extras :refer [transform-keys]]
             [lambdaisland.uri :refer [uri

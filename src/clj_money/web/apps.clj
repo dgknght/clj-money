@@ -1,7 +1,7 @@
 (ns clj-money.web.apps
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [hiccup.page :refer [html5 include-js]]))
 
 (defn- head []
@@ -14,7 +14,7 @@
    [:meta  {:name "description" :content "Double-entry accounting system"}]
    [:meta  {:name "author" :content "Doug Knight"}]
    [:link  {:rel "icon" :href "images/logo.svg"}]
-   [:title "clj-money"]
+   [:title (env :application-name "clj-money?")]
 
    (include-js "https://unpkg.com/@popperjs/core@2")
    (include-js "js/bootstrap.min.js")
@@ -43,7 +43,7 @@
                   "Loading..."]]]]]
              (include-js (if (env :dev?)
                            "/cljs-out/dev-main.js"
-                           "/js/app/main.js"))]])})
+                           "/cljs-out/clj-money.js"))]])})
 
 (defn- wrap-request-logging
   [handler]

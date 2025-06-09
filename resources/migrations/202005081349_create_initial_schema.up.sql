@@ -372,3 +372,34 @@ ALTER TABLE public.transaction_items
     ADD CONSTRAINT transaction_items_base_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
 ALTER TABLE public.transactions
     ADD CONSTRAINT transactions_base_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entities(id) ON DELETE CASCADE;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.accounts TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.accounts_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.attachments TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.attachments_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.budget_items_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.budget_items TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.budgets_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.budgets TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.commodities_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.commodities TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.entities_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.entities TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.grants_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.grants TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.identities_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.identities TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.imports_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.imports TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.images_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.images TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.lots_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.lots TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.lots_transactions TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.prices TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.reconciliations TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.settings TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.transaction_items TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.transactions TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.users_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.users TO app_user;
