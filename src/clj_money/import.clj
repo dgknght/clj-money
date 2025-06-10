@@ -235,11 +235,13 @@
         to-commodity-account-id (account-ids to-account-id)
         to-account {:id (account-parents to-commodity-account-id)}
         commodity (:account/commodity (accounts from-commodity-account-id))
-        {result :transfer/transaction} (trading/transfer #:transfer{:date transaction-date
-                                                                    :from-account from-account
-                                                                    :to-account to-account
-                                                                    :commodity commodity
-                                                                    :shares shares})]
+        xfr #:transfer{:date transaction-date
+                       :from-account from-account
+                       :to-account to-account
+                       :commodity commodity
+                       :shares shares}
+        _ (log/debugf "[import] transfer %s" xfr)
+        {result :transfer/transaction} (trading/transfer xfr)]
     (log-transaction result "commodity transfer"))
   context)
 
