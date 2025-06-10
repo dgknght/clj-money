@@ -99,16 +99,16 @@
 
 (def ^:private parsers
    [{:pattern #".*"
-     :eval math/eval}
+     :fn math/eval}
     {:pattern #"(\d+)(?:,(\d+))*"
-     :eval #(->> %
+     :fn #(->> %
                  (drop 1)
                  (string/join "")
                  (d))}])
 
 (defn parse
    [s]
-   (some (fn [{:keys [pattern eval]}]
+   (some (fn [{:keys [pattern fn]}]
             (when-let [match (re-find pattern s)]
-               (eval match)))
+               (fn match)))
          parsers))
