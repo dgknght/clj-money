@@ -1,4 +1,4 @@
-{:allow-unbound-queries true
+{:allow-unbounded-queries true
  :alpha-vantage-api-key "alpha-vantage-api-key"
  :application-name "clj-money"
  :db {:strategies {:sql {:clj-money.db/strategy :clj-money.db/sql

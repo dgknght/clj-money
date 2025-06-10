@@ -51,7 +51,7 @@
            "No price bounding for commodity %s %s"
            (:id commodity)
            (:commodity/symbol commodity))
-         (when (env :allow-unbound-queries)
+         (when (env :allow-unbounded-queries)
            (models/find-by #:price{:commodity commodity
                                    :trade-date [:<= as-of]}
                            {:sort [[:price/trade-date :desc]]})))
