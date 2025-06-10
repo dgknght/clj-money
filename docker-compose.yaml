@@ -22,6 +22,6 @@ services:
       PGADMIN_DEFAULT_EMAIL: test@test.com
       PGADMIN_DEFAULT_PASSWORD: please01
     ports:
-      - 16543:80
+      - 3040:80
     depends_on:
       - sql
