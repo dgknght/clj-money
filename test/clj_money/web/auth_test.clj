@@ -52,7 +52,7 @@
       (let [req-url "https://www.mymoney.com/auth/google/callback?state=abc123&code=4%2F0AVG7fiSLQL3IaL7KvlRvL1aOzG_q8MzSVzgPbT0hIK4vd56n0LqwDKUfdiER1SAUlV2wDg&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&authuser=0&prompt=none"
             res 
             (app (req/request :get req-url))]
-        (is (http-redirect-to? "https://www.mymoney.com/" res)
+        (is (http-redirect-to? "/" res)
             "The site redirects back to the root page")
         (is (http-response-with-cookie? "auth-token" "abc123" res)
             "The redirect contains the auth token")
