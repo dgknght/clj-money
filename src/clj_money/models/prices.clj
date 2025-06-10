@@ -3,7 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
@@ -51,7 +51,7 @@
            "No price bounding for commodity %s %s"
            (:id commodity)
            (:commodity/symbol commodity))
-         (when (env :allow-unbound-queries)
+         (when (env :allow-unbounded-queries)
            (models/find-by #:price{:commodity commodity
                                    :trade-date [:<= as-of]}
                            {:sort [[:price/trade-date :desc]]})))

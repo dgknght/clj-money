@@ -7,7 +7,7 @@
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.core.async :as a]
             [clojure.data.xml :as xml]
-            [config.core :refer [env]]
+            [clj-money.config :refer [env]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid
                                           parse-int
@@ -184,7 +184,7 @@
 
 (defmethod ^:private process-elem :default
   [state elem]
-  (when (and (env :detailed-import-logging?)
+  (when (and (env :detailed-import-logging)
              (not (known-irrelevant-elements (:tag elem))))
     (log/debug "Encountered unhandled element " (prn-str (:tag elem))))
   (pop-elem state))
