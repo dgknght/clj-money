@@ -1,30 +1,36 @@
-{:allow-unbound-queries true
+{:allow-unbounded-queries true
  :alpha-vantage-api-key "alpha-vantage-api-key"
  :application-name "clj-money"
  :db {:strategies {:sql {:clj-money.db/strategy :clj-money.db/sql
                          :host "localhost"
                          :post 5432
-                         :user "app_user"
-                         :password "please01"
+                         :user :config/sql-app-user
+                         :password :config/sql-app-password
                          :dbtype "postgresql"
                          :dbname "money_test"}}
       :active :sql}
- :detailed-import-logging? "false"
+ :detailed-import-logging "false"
  :google-client-id "google-id"
  :google-client-secret "google-client-secret"
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
                  :host "localhost"
                  :post 5432
-                 :user "app_user"
-                 :password "please01"
+                 :user :config/sql-app-user
+                 :password :config/sql-app-password
                  :dbtype "postgresql"
                  :dbname "money_test"}
  :mailer-host "testmailer.com"
  :mailer-from "no-reply@clj-money.com"
  :partition-period :year
  :secret "test-secret-for-testing"
- :show-error-messages? true
+ :show-error-messages true
  :site-host "www.mymoney.com"
  :site-protocol "https"
  :test? true
- :yahoo-api-key "yahoo-api-key"}
+ :yahoo-api-key "yahoo-api-key"
+ :sql-app-user "app_user"
+ :sql-app-password "please01"
+ :sql-ddl-user "ddl_user"
+ :sql-ddl-password "please02"
+ :sql-adm-user "adm_user"
+ :sql-adm-password "please03"}

@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
-            [config.core :refer [env]]))
+            [clj-money.config :refer [env]]))
 
 (s/def ::operation #{::insert ::update ::delete})
 

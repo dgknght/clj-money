@@ -111,10 +111,10 @@
 (defn init-item-loading
   [page-state]
   (let [account (get-in @page-state [:view-account])
-        range (:account/transaction-date-range account)]
+        [first-date last-date] (:account/transaction-date-range account)]
     (if range
       (do (swap! page-state dissoc :items :all-items-fetched?)
-          (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges range (t/months 6))
+          (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges first-date last-date (t/months 6))
                                                (load-in-chunks
                                                  {:fetch-xf (comp
                                                               (map (fn [[start end :as range]]

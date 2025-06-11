@@ -20,3 +20,6 @@ from images;
 
 alter table images drop column if exists body;
 alter table images rename column body_hash to uuid;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.image_contents TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.image_contents_id_seq TO app_user;
