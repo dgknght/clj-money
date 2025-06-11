@@ -393,7 +393,7 @@
 
 (defn- reset*
   [ds]
-  (jdbc/execute! ds ["truncate table cached_price; truncate table \"user\" cascade"]))
+  (jdbc/execute! ds ["delete from cached_price; delete from \"user\" cascade"]))
 
 (defmethod db/reify-storage ::db/sql
   [config]

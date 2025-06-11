@@ -45,3 +45,8 @@ ALTER SEQUENCE scheduled_transaction_items_id_seq OWNED BY scheduled_transaction
 
 ALTER TABLE transactions ADD COLUMN scheduled_transaction_id int references scheduled_transactions (id);
 CREATE INDEX ix_transactions_scheduled_transaction_id ON transactions (scheduled_transaction_id);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.scheduled_transactions TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.scheduled_transactions_id_seq TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.scheduled_transaction_items TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.scheduled_transaction_items_id_seq TO app_user;
