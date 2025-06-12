@@ -232,12 +232,15 @@
 (defn- load-transactions
   [page-state]
   (+busy)
-  (trn/search {:include-items true}
-              :callback -busy
-              :on-success #(swap! page-state
-                                  assoc
-                                  :transactions %
-                                  :receipts (filter (recent?) %))))
+  (let [end (t/plus (t/today) (t/days 1))
+        start (t/minus end (t/days 7))]
+    (trn/search {:include-items true
+                 :transaction/transaction-date [:between> start end]}
+                :callback -busy
+                :on-success #(swap! page-state
+                                    assoc
+                                    :transactions %
+                                    :receipts (filter (recent?) %)))))
 
 (defn- index []
   (let [page-state (r/atom {})]

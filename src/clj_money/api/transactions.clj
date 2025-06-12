@@ -2,8 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [uuid]]
+            [dgknght.app-lib.core :refer [uuid update-in-if]]
             [dgknght.app-lib.api :as api]
+            [clj-money.comparatives :as comparatives]
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
@@ -14,12 +15,20 @@
             [clj-money.authorization.transactions]
             [clj-money.transactions :refer [expand]]))
 
+(defn- unserialize-date
+  [x]
+  (cond
+    (vector? x) (mapv unserialize-date x)
+    (and (string? x)
+         (re-find #"^\d{4}-\d{2}-\d{2}$" x)) (unserialize-local-date x)
+    :else x))
+
 (defn- ->criteria
   [{:keys [params authenticated]}]
   (-> params
-      (assoc :transaction/transaction-date [:between
-                                            (unserialize-local-date (:start params))
-                                            (unserialize-local-date (:end params))])
+      comparatives/symbolize
+      (update-in-if [:transaction-date] unserialize-date)
+      (rename-keys {:transaction-date :transaction/transaction-date})
       (select-keys [:transaction/entity
                     :transaction/transaction-date])
       (+scope :transaction authenticated)))
@@ -122,8 +131,8 @@
 
 (def routes
   [["entities/:entity-id"
-    ["/transactions" {:post {:handler create}}]
-    ["/:start/:end/transactions" {:get {:handler index}}]]
+    ["/transactions" {:post {:handler create}
+                      :get {:handler index}}]]
    ["transactions/:transaction-date/:id" {:get {:handler show}
                                           :patch {:handler update}
                                           :delete {:handler delete}}]])
