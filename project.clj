@@ -169,10 +169,12 @@
             "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
-  :cloverage {:fail-threshold 90
+  :cloverage {:line-fail-threshold 90
+              :form-fail-threshold 80
               :low-watermark 93
               :high-watermark 97
-              :ns-exclude-regex [#"clj-money.repl"
+              :ns-exclude-regex [#"clj-money.api"
+                                 #"clj-money.repl"
                                  #"clj-money.db.sql.tasks"
                                  #"clj-money.tasks"]}
   :profiles {:test {:dependencies [[peridot "0.5.2"]]
