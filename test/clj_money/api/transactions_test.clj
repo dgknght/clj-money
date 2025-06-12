@@ -3,6 +3,7 @@
             [ring.mock.request :as req]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
+            [lambdaisland.uri :refer [uri map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
@@ -57,12 +58,16 @@
 (defn- get-a-list
   [email]
   (with-context context
-    (-> (req/request :get (path :api
-                                :entities
-                                (:id (find-entity "Personal"))
-                                "2016-02-01"
-                                "2016-02-29"
-                                :transactions))
+    (-> (req/request :get (-> (path :api
+                                    :entities
+                                    (:id (find-entity "Personal"))
+                                    :transactions)
+                              uri
+                              (assoc :query
+                                     (map->query-string
+                                       {:transaction-date-on-or-after "2016-02-01"
+                                        :transaction-date-before "2016-03-01"}))
+                              str))
         (add-auth (find-user email))
         app
         parse-edn-body)))

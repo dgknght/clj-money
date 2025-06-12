@@ -1,9 +1,10 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update get])
   (:require [cljs.pprint :refer [pprint]]
-            [cljs-time.core :as t]
+            [clojure.set :refer [rename-keys]]
+            [clj-money.comparatives :as comparatives]
             [clj-money.state :refer [current-entity]]
-            [clj-money.dates :refer [serialize-local-date]]
+            [clj-money.dates :refer [serialize-local-date local-date?]]
             [clj-money.models :refer [prune]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
@@ -17,18 +18,26 @@
             (serialize-local-date (working-date transaction))
             id))
 
+(defn- serialize-date
+  [x]
+  (cond
+    (vector? x) (mapv serialize-date x)
+    (local-date? x) (serialize-local-date x)
+    :else x))
+
 (defn search
   [criteria & {:as opts}]
-  (let [end-date (get-in criteria [:end-date] (t/today))
-        start-date (get-in criteria [:start-date] (t/minus end-date (t/months 6)))]
-    (api/get
-      (api/path :entities
-                @current-entity
-                (serialize-local-date start-date)
-                (serialize-local-date end-date)
-                :transactions)
-      (dissoc criteria :start-date :end-date)
-      (add-error-handler opts "Unable to retrieve the transactions: %s"))))
+  {:pre [(:transaction/transaction-date criteria)]}
+  (api/get
+    (api/path :entities
+              @current-entity
+              :transactions)
+    (-> criteria
+        (update-in [:transaction/transaction-date]
+                   serialize-date)
+        (rename-keys {:transaction/transaction-date :transaction-date})
+        comparatives/nominalize)
+    (add-error-handler opts "Unable to retrieve the transactions: %s")))
 
 (defn create
   [transaction opts]
