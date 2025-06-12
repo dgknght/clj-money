@@ -35,7 +35,7 @@
 (defn- load-budgets
   [page-state]
   (+busy)
-  (api/search {}
+  (api/select {}
               :callback -busy
               :on-success #(swap! page-state assoc :budgets %)))
 

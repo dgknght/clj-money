@@ -27,7 +27,7 @@
   [criteria]
   (comparatives/nominalize criteria))
 
-(defn search
+(defn select
   [criteria & {:as opts}]
   (api/get (api/path :attachments)
            (prepare-criteria criteria)
