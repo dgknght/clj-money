@@ -4,8 +4,7 @@
             [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [dgknght.app-lib.core :refer [uuid
-                                          index-by
+            [dgknght.app-lib.core :refer [index-by
                                           update-in-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
