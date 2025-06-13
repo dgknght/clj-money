@@ -4,7 +4,7 @@
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
-(defn search
+(defn select
   [criteria  & {:as opts}]
   (api/get (api/path :entities
                      (:id @current-entity)

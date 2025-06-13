@@ -25,7 +25,7 @@
     (local-date? x) (serialize-local-date x)
     :else x))
 
-(defn search
+(defn select
   [criteria & {:as opts}]
   {:pre [(:transaction/transaction-date criteria)]}
   (api/get

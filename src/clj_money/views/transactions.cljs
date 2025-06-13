@@ -95,7 +95,7 @@
         criteria {:transaction-id (:transaction-id attachments-item)
                   :transaction-date (:transaction-date attachments-item)}]
     (+busy)
-    (atts/search criteria
+    (atts/select criteria
                  :callback -busy
                  :on-success #(swap! page-state assoc :attachments %))))
 
