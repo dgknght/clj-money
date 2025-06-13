@@ -174,8 +174,9 @@
               :low-watermark 93
               :high-watermark 97
               :ns-exclude-regex [#"clj-money.api"
-                                 #"clj-money.repl"
                                  #"clj-money.db.sql.tasks"
+                                 #"clj-money.json"
+                                 #"clj-money.repl"
                                  #"clj-money.tasks"]}
   :profiles {:test {:dependencies [[peridot "0.5.2"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
