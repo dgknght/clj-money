@@ -1,12 +1,9 @@
 (ns clj-money.models.lots
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [clojure.tools.logging :as log]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.prices :as prices]))
+            [clj-money.models :as models]))
 
 (defn- asset-account?
   [account]
@@ -28,39 +25,3 @@
                                   :lot/purchase-price
                                   :lot/shares-purchased]
                             :opt [:lot/shares-owned]))
-
-(defn- lot-unrealized-gains
-  [{:lot/keys [purchase-price
-               commodity
-               shares-owned]}
-   price-map]
-  (let [cost (* purchase-price shares-owned)
-        price (or (price-map (:id commodity))
-                  0M)
-        value (* price shares-owned)]
-    (when (= 0M price)
-      (log/errorf "Unable to find price for commodity %s to calculate unrealized gains" commodity))
-    (- value cost)))
-
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(defn unrealized-gains
-  [entity as-of]
-  (let [lots (models/select
-               (util/model-type
-                 {:commodity/entity entity
-                  :lot/purchase-date [:<= as-of]}
-                 :lot))
-        commodity-prices (if (seq lots)
-                           (->> (models/select
-                                  (util/model-type
-                                    {:id [:in (->> lots
-                                                   (map (comp :id :lot/commodity))
-                                                   set)]}
-                                    :commodity))
-                                (map (juxt :id
-                                           #(:price/value (prices/most-recent % as-of))))
-                                (into {}))
-                           {})]
-    (->> lots
-         (map #(lot-unrealized-gains % commodity-prices))
-         (reduce + 0M))))

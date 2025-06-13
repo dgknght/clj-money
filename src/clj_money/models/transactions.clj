@@ -4,8 +4,7 @@
             [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [dgknght.app-lib.core :refer [uuid
-                                          index-by
+            [dgknght.app-lib.core :refer [index-by
                                           update-in-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
@@ -154,54 +153,6 @@
                                           (fnil identity quantity)) ; TODO need to calculate the correct value
                                (remove-empty-strings :transaction-item/memo)))
                          items)))))
-
-(defn- before-item-validation
-  [item]
-  (cond->
-   (-> item
-       (update-in [:value] #(or % (:quantity item)))
-       (assoc :balance (bigdec 0))
-       (update-in [:index] (fnil identity Integer/MAX_VALUE)))
-
-    (string? (:account-id item))
-    (update-in [:account-id] #(Integer. %))
-
-    (or (nil? (:id item))
-        (and
-         (string? (:id item))
-         (empty? (:id item))))
-    (dissoc :id)
-
-    (and
-     (string? (:id item))
-     (seq (:id item)))
-    (update-in [:id] uuid)))
-
-(defn- expand-simplified-items
-  [{:keys [items quantity debit-account-id credit-account-id] :as transaction}]
-  (if (and (not items) quantity debit-account-id credit-account-id)
-    (-> transaction
-        (assoc :items [{:action :debit
-                        :quantity quantity
-                        :account-id debit-account-id}
-                       {:action :credit
-                        :quantity quantity
-                        :account-id credit-account-id}])
-        (dissoc :quantity :debit-account-id :credit-account-id))
-    transaction))
-
-(defn- before-validation
-  "Performs operations required before validation"
-  [transaction]
-  (-> transaction
-      expand-simplified-items
-      (update-in [:items] (fn [items]
-                            (->> items
-                                 (map #(merge % (select-keys
-                                                 transaction
-                                                 [:transaction-date
-                                                  :origin-transaction-date])))
-                                 (map before-item-validation))))))
 
 (defmethod models/before-save :transaction
   [trx]

@@ -141,7 +141,8 @@
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
-  :plugins [[lein-cljfmt "0.7.0"]]
+  :plugins [[lein-cljfmt "0.7.0"]
+            [lein-cloverage "1.2.2"]]
   :hooks []
   :uberjar-name "clj-money.jar"
   :aot [clj-money.web.server]
@@ -168,6 +169,15 @@
             "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
+  :cloverage {:line-fail-threshold 90
+              :form-fail-threshold 80
+              :low-watermark 93
+              :high-watermark 97
+              :ns-exclude-regex [#"clj-money.api"
+                                 #"clj-money.db.sql.tasks"
+                                 #"clj-money.json"
+                                 #"clj-money.repl"
+                                 #"clj-money.tasks"]}
   :profiles {:test {:dependencies [[peridot "0.5.2"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
              :dev {:dependencies [[com.bhauman/figwheel-main
