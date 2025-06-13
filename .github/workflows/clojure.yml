@@ -45,7 +45,7 @@ jobs:
       - name: Set up the database
         run: lein with-profile +test do create-sql, migrate, partition 2015-01-01 2017-12-31
       - name: Run tests
-        run: lein test
+        run: lein cloverage
 
   tag:
     needs: build

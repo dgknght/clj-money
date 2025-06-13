@@ -60,7 +60,7 @@
    (if-let [s (scope model-type user)]
      (if (empty? criteria)
        s
-       (with-meta [:and criteria s]
-                  (or (meta s)
-                      {:clj-money/model-type model-type})))
+       (vary-meta [:and criteria s]
+                  #(merge {:clj-money/model-type model-type}
+                          %)))
      criteria)))

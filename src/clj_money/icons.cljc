@@ -3,10 +3,10 @@
 (defn- apply-size
   [attr {:keys [size]}]
   (merge attr (case (or size :medium)
-                :large {:width 40 :height 40}
+                :large        {:width 40 :height 40}
                 :medium-large {:width 32 :height 32}
-                :medium {:width 24 :height 24}
-                :small {:width 16 :height 16})))
+                :medium       {:width 24 :height 24}
+                :small        {:width 16 :height 16})))
 
 (defn- icon*
   [icon-id opts]
