@@ -979,3 +979,33 @@
                    (models/delete transaction)))
       (is (models/find transaction)
           "The transaction can be retrieved after failed delete attempt"))))
+
+(def ^:private migrate-context
+  (conj base-context
+        #:account{:name "Savings"
+                  :entity "Personal"
+                  :type :asset}
+        #:transaction{:entity "Personal"
+                      :transaction-date (t/local-date 2015 1 1)
+                      :description "Paycheck"
+                      :quantity 1000M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}
+        #:transaction{:entity "Personal"
+                      :transaction-date (t/local-date 2015 1 2)
+                      :description "Kroger"
+                      :quantity 100M
+                      :debit-account "Groceries"
+                      :credit-account "Checking"}))
+
+(deftest migrate-items-from-one-account-to-another
+  (with-context migrate-context
+    (let [checking (find-account "Checking")
+          savings (find-account "Savings")]
+      (transactions/migrate-account checking savings)
+      (is (comparable? #:account{:quantity 0M}
+                       (models/find checking))
+          "The from account has a zero balance after the transfer")
+      (is (comparable? #:account{:quantity 900M}
+                       (models/find savings))
+          "The to account has the balance the from account had before the transfer"))))
