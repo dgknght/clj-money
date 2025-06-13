@@ -234,7 +234,7 @@
   (+busy)
   (let [end (t/plus (t/today) (t/days 1))
         start (t/minus end (t/days 7))]
-    (trn/search {:include-items true
+    (trn/select {:include-items true
                  :transaction/transaction-date [:between> start end]}
                 :callback -busy
                 :on-success #(swap! page-state

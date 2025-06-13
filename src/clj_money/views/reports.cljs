@@ -273,7 +273,7 @@
 (defn- load-budgets
   [page-state]
   (+busy)
-  (bdt/search {}
+  (bdt/select {}
               :callback -busy
               :on-success (receive-budgets page-state)))
 
