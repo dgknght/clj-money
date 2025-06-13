@@ -59,25 +59,6 @@
   (fn [request]
     (handler (update-in request [:params] integerize-id-params))))
 
-(defn- normalize-collection-param
-  [param]
-  (update-in param [0] #(if-let [match (re-find #"^(.+)\[\]$" %)]
-                          (keyword (second match))
-                          %)))
-
-(defn- normalize-collection-params
-  [params]
-  (when params
-    (->> params
-         (map normalize-collection-param)
-         (into {}))))
-
-(defn wrap-collection-params
-  "Finds params for collection values normalizes the keys"
-  [handler]
-  (fn [req]
-    (handler (update-in req [:params] normalize-collection-params))))
-
 (defmulti handle-exception
   (fn [e]
     (when-let [data (ex-data e)]
