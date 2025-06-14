@@ -10,8 +10,8 @@
                                                 ->java-dates]]
             [clj-money.db.datomic.queries :as queries]))
 
-(derive :clj-money/datomic-peer   ::service)
-(derive :clj-money/datomic-client ::service)
+(derive ::db/datomic-peer   ::service)
+(derive ::db/datomic-client ::service)
 
 (defprotocol DatomicAPI
   (transact [this tx-data options])
