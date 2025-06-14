@@ -12,20 +12,22 @@ services:
     volumes:
       - sql-data-17:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: please03
-      POSTGRES_USER: adm_user
-      POSTGRES_DB: adm_user
+      POSTGRES_PASSWORD: ${SQL_ADM_PASSWORD}
+      POSTGRES_USER: ${SQL_ADM_USER}
+      POSTGRES_DB: ${SQL_ADM_USER}
     healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=please03 sh -c 'pg_isready -U adm_user -d adm_user'"]
+      test: ["CMD-SHELL", "PGPASSWORD=${SQL_ADM_PASSWORD} sh -c 'pg_isready -U ${SQL_ADM_USER} -d ${SQL_ADM_USER}'"]
+    env_file: .env
   pgadmin:
     image: dpage/pgadmin4:latest
     environment:
       PGADMIN_DEFAULT_EMAIL: test@test.com
       PGADMIN_DEFAULT_PASSWORD: please01
     ports:
-      - 3040:80
+      - 4040:80
     depends_on:
       - sql
+    env_file: .env
 
   lein-deps:
     profiles:
@@ -51,7 +53,7 @@ services:
     image: clj-money-util
     build:
       target: util
-    command: lein with-profile +util,+docker init-sql
+    command: lein with-profile util do create-sql, migrate, partition
     depends_on:
       sql:
         condition: service_healthy
@@ -59,7 +61,7 @@ services:
         condition: service_completed_successfully
     volumes:
       - type: bind
-        source: ./docker-compose/config
+        source: ./env/docker
         target: /usr/src/clj-money/config
         read_only: true
       - type: bind
@@ -93,11 +95,11 @@ services:
     image: clj-money-util
     build:
       target: util
-    command: ./scripts/datomic-init.sh
+    command: ./scripts/datomic/init.sh
     env_file: .env
     environment:
       PGPASSWORD: ${SQL_ADM_PASSWORD}
-      PGHOST: sql
+      PGHOST: ${SQL_HOST}
       PGDATABASE: ${SQL_ADM_USER}
       PGUSER: ${SQL_ADM_USER}
     depends_on:
@@ -127,6 +129,8 @@ services:
     command:
       - ./bin/transactor
       - -Ddatomic.printConnectionInfo=true
+      - -Dsql-user=${SQL_APP_USER}
+      - -Dsql-password=${SQL_APP_PASSWORD}
       - ./config/transactor.properties
     restart: on-failure
     ports:
@@ -138,6 +142,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+    env_file: .env
 
   datomic-schema:
     profiles:
@@ -147,10 +152,10 @@ services:
     image: clj-money-util
     build:
       target: util
-    command: lein with-profile +util,+docker datomic-schema
+    command: lein with-profile util datomic-schema
     volumes:
       - type: bind
-        source: ./docker-compose/config
+        source: ./env/docker
         target: /usr/src/clj-money/config
         read_only: true
       - type: bind
@@ -178,7 +183,7 @@ services:
         condition: service_healthy
     restart: on-failure
     ports:
-      - 8080:8080
+      - 4050:8080
     command:
       - ./bin/console
       - -p
@@ -202,7 +207,7 @@ services:
         target: /opt/datomic-pro/log
         read_only: false
     ports:
-      - 8998:8998
+      - 4060:8998
     command:
       - ./bin/run
       - -m

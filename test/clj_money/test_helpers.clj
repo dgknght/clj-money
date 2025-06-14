@@ -1,7 +1,9 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.test :refer [deftest testing]]
             [java-time.api :as t]
             [ring.mock.request :as req]
+            [clj-money.config :refer [env]]
             [dgknght.app-lib.test :as test]
             [clj-money.decimal :as d]
             [clj-money.db :as db]
@@ -38,3 +40,47 @@
   (test/parse-edn-body res :readers {'clj-money/local-date t/local-date
                                      'clj-money/local-date-time t/local-date-time
                                      'clj-money/decimal d/d}))
+(def ^:dynamic *strategy* nil)
+
+(defn ->set
+  [v]
+  (if (coll? v)
+    (set v)
+    #{v}))
+
+(defn include-strategy
+  [{:keys [only exclude]}]
+  (cond
+    only    (list 'multi-money.helpers/->set only)
+    exclude `(complement ~(->set exclude))
+    :else   '(constantly true)))
+
+(def isolate (when-let [isolate (env :isolate)]
+               #{(if (string? isolate)
+                   (keyword isolate)
+                   isolate)}))
+
+(def ignore-strategy (if isolate
+                       (complement isolate)
+                       (->set (env :ignore-strategy))))
+
+(def honor-strategy (complement ignore-strategy))
+
+(defn extract-opts
+  [args]
+  (if (map? (first args))
+    args
+    (cons {} args)))
+
+(defmacro dbtest
+  [test-name & body-and-opts]
+  (let [[opts & body] (extract-opts body-and-opts)]
+    `(deftest ~test-name
+       (doseq [[name# config#] (filter (comp (every-pred ~(include-strategy opts)
+                                                         honor-strategy)
+                                             first)
+                                       (-> env :db :strategies))]
+         (binding [*strategy* (keyword name#)]
+           (testing (format "database strategy %s" name#)
+             (db/with-storage [config#]
+               ~@body)))))))

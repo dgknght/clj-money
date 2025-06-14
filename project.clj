@@ -80,6 +80,12 @@
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
                  [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
+                 [com.datomic/peer "1.0.7364" :exclusions [com.google.errorprone/error_prone_annotations
+                                                           commons-io
+                                                           commons-codec
+                                                           org.apache.httpcomponents/httpclient
+                                                           org.clojure/tools.cli
+                                                           org.slf4j/slf4j-api]]
                  [crypto-random "1.2.1" :exclusions [commons-codec]] ; added to clarify dependencies
                  [buddy/buddy-sign "3.1.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                         com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
@@ -148,7 +154,8 @@
   :aot [clj-money.web.server]
   :clean-targets ^{:protect false} [:target-path]
   :source-paths ["src"]
-  :aliases {"migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]
+  :aliases {"datomic-schema"        ["run" "-m" "clj-money.db.datomic.tasks/apply-schema"]
+            "migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]
             "rollback"              ["run" "-m" "clj-money.db.sql.tasks/rollback"]
             "remigrate"             ["run" "-m" "clj-money.db.sql.tasks/remigrate"]
             "create-sql"            ["run" "-m" "clj-money.db.sql.tasks/create"]

@@ -14,6 +14,7 @@
   (select [this criteria options] "Retrieves models from the data store")
   (update [this changes criteria] "Performs a batch data update")
   (delete [this models] "Removes models from the data store")
+  (close [this] "Releases an resources held by the instance")
   (reset [this] "Deletes all data in the data store")) ; This is only ever needed for testing. Maybe there's a better way than putting it here?
 
 (defmulti reify-storage 
@@ -27,3 +28,12 @@
             (get-in [:db :strategies active-key])
             #_resolve-config-refs ; TODO: add this back in when we move to k8s
             reify-storage))))
+
+(defmacro with-storage
+  [bindings & body]
+  `(let [storage# (reify-storage ~(first bindings))]
+     (try
+       (binding [*storage* storage#]
+         ~@body)
+       (finally
+         (close storage#)))))
