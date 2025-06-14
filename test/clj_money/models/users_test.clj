@@ -8,11 +8,13 @@
                                              assert-deleted]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
+            [clj-money.db.datomic.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
             [clj-money.test-context :refer [with-context
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db
+                                            dbtest]]))
 
 (use-fixtures :each reset-db)
 
@@ -21,7 +23,7 @@
                        :email "john@doe.com"
                        :password "please01"})
 
-(deftest create-a-user
+(dbtest create-a-user
   (let [user (assert-created attributes
                              :ignore-attributes [:user/password])]
     (is (not (:user/password user))

@@ -434,4 +434,5 @@
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ models] (delete* ds models))
       (update [_ changes criteria] (update* ds changes criteria))
+      (close [_] #_noop)
       (reset [_] (reset* ds)))))
