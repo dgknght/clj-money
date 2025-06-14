@@ -1,0 +1,17 @@
+[{:db/ident :user/email
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user's email address"}
+ {:db/ident :user/given-name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The given name of the user"}
+ {:db/ident :user/surname
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The surname of the user"}
+ {:db/ident :user/identities
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/keyword :db.type/string]
+  :db/cardinality :db.cardinality/many
+  :db/doc "The provider identifier and the provider's ID for the user"}]

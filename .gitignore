@@ -25,4 +25,4 @@ profiles.clj
 env/dev/
 env/docker/
 node_modules/
-/**/.env
+/**/*.env

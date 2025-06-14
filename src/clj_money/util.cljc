@@ -1,6 +1,8 @@
 (ns clj-money.util
   (:refer-clojure :exclude [abs format group-by])
   (:require [clojure.string :as string]
+            [clojure.set :refer [rename-keys]]
+            [clojure.walk :refer [postwalk]]
             #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
@@ -471,3 +473,69 @@
   first in the first position and the last in the second."
   [vs & {:keys [compare] :or {compare <}}]
   ((juxt first last) (sort compare vs)))
+
+(defn split-nils
+  "Given a map, return a tuple containing the map
+  with all nil attributes removed in the first position
+  and a vector containing the keys that had nil values
+  in the second"
+  [m]
+  (reduce (fn [res [k v]]
+            (if v
+              (update-in res [0] assoc k v)
+              (update-in res [1] conj k)))
+          [{} []]
+          m))
+
+(defn +id
+  "Given a map without an :id value, adds one with a random UUID as a value"
+  ([m] (+id m random-uuid))
+  ([m id-fn]
+   (if (:id m)
+     m
+     (assoc m :id (id-fn)))))
+
+(defn deep-rename-keys
+  "Given a data structure, rename keys in all contained maps"
+  [x key-map]
+  (postwalk (fn [x*]
+              (if (map? x*)
+                (rename-keys x* key-map)
+                x*))
+            x))
+
+(defn- normalize-sort-key
+  [x]
+  (if (vector? x)
+    (if (= 1 (count x))
+      (conj x :asc)
+      x)
+    [x :asc]))
+
+(defn- compare-fn
+  [& ms]
+  (fn [_ [k dir]]
+    (let [[v1 v2] (map k ms)
+          f (if (= :desc dir)
+              #(compare %2 %1)
+              compare)
+          res (f v1 v2)]
+      (if (= 0 res)
+        0
+        (reduced res)))))
+
+(defn- sort-fn
+  [order-by]
+  {:pre [(vector? order-by)]}
+  (fn [m1 m2]
+    (->> order-by
+         (map normalize-sort-key)
+         (reduce (compare-fn m1 m2)
+                 0))))
+
+(defn apply-sort
+  "Given a sequence of models, apply the sort specified in the options map"
+  [{:keys [order-by]} models]
+  (if order-by
+    (sort (sort-fn order-by) models)
+    models))
