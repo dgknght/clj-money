@@ -1,5 +1,7 @@
 (ns clj-money.db.datomic
   (:require [clojure.walk :refer [postwalk]]
+            [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
             [stowaway.datalog :refer [apply-options]]
@@ -45,12 +47,12 @@
       (select-keys [:args])
       (assoc :query (dissoc query :args))))
 
-(defn- ->mongo-id-keys
+(defn- ->datomic-id-keys
   "Given a model or criteria, replace all :id keys with :db/id"
   [m]
   (postwalk (fn [x]
-              (if (map-entry? x)
-                (update-in x [0] #(if (= :id %) :db/id %))
+              (if (map? x)
+                (rename-keys x {:id :db/id})
                 x))
             m))
 
@@ -97,7 +99,7 @@
     (cons (-> m*
               before-save
               ->java-dates
-              ->mongo-id-keys)
+              ->datomic-id-keys)
           (->> nils
                (remove #(nil? (-> m meta :original %)))
                (map #(vector :db/retract (:id m) %))))))
@@ -129,8 +131,7 @@
                      (mapcat prep-for-put)
                      vec)
         {:keys [tempids]} (transact api prepped {})]
-    (map #(or (tempids (:db/id %))
-              (:db/id %))
+    (map #(tempids (:db/id %) %)
          prepped)))
 
 ; It seems that after an entire entity has been retracted, the id
