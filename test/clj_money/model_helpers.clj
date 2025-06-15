@@ -44,7 +44,8 @@
                 ignore-attributes []}}]
   (let [out-chan (a/chan)
         result (models/put attr :out-chan out-chan)
-        fetched (models/find result)
+        fetched (when (:id result)
+                  (models/find result))
         expected  (apply dissoc
                          (simplify-refs attr refs)
                          ignore-attributes)]
