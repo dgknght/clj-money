@@ -249,7 +249,7 @@
                                    before-save
                                    validate
                                    before-validation))))
-         {:keys [saved]} (db/put (or storage
+         saved (db/put (or storage
                                      (db/storage))
                                  to-save)
          result (map (comp append-before

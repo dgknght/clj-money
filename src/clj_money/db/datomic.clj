@@ -131,7 +131,10 @@
                      (mapcat prep-for-put)
                      vec)
         {:keys [tempids]} (transact api prepped {})]
-    (map #(tempids (:db/id %) %)
+    ; TODO: relookup the models?
+    ; TODO: handle deleted values
+    (map (comp #(rename-keys % {:db/id :id})
+               (fn [m] (update-in m [:db/id] #(tempids % %))))
          prepped)))
 
 ; It seems that after an entire entity has been retracted, the id
