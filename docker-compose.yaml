@@ -64,10 +64,6 @@ services:
         source: ./env/docker
         target: /usr/src/clj-money/config
         read_only: true
-      - type: bind
-        source: ./logs/sql-init-tmp
-        target: /tmp
-        read_only: false
       - type: volume
         source: maven-data
         target: /root/.m2
@@ -158,10 +154,6 @@ services:
         source: ./env/docker
         target: /usr/src/clj-money/config
         read_only: true
-      - type: bind
-        source: ./logs/datomic-schema-tmp
-        target: /tmp
-        read_only: false
       - type: volume
         source: maven-data
         target: /root/.m2
