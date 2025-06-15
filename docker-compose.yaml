@@ -117,10 +117,6 @@ services:
     image: dgknght/datomic-pro:1.0.7075
     volumes:
       - type: bind
-        source: ./logs/datomic-transactor
-        target: /opt/datomic-pro/log
-        read_only: false
-      - type: bind
         source: ./env/docker/ # TODO: Should this be a separate folder?
         target: /opt/datomic-pro/config
         read_only: true
