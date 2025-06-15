@@ -123,7 +123,7 @@ services:
         target: /opt/datomic-pro/log
         read_only: false
       - type: bind
-        source: ./docker-compose/datomic-transactor
+        source: ./env/docker/ # TODO: Should this be a separate folder?
         target: /opt/datomic-pro/config
         read_only: true
     command:
