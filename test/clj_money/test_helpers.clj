@@ -10,10 +10,11 @@
             [clj-money.util :as util]
             [clj-money.models :as models]))
 
+; TODO: Remove this an just use the reset in the dbtest so that we don't have to duplicate the strategy selection logic
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [f]
-  (db/reset (db/storage))
+  (db/reset (db/reify-storage (get-in env [:db :strategies :sql])))
   (f))
 
 (defn- throw-if-nil
@@ -51,7 +52,7 @@
 (defn include-strategy
   [{:keys [only exclude]}]
   (cond
-    only    (list 'multi-money.helpers/->set only)
+    only    (list '->set only)
     exclude `(complement ~(->set exclude))
     :else   '(constantly true)))
 
@@ -83,4 +84,5 @@
          (binding [*strategy* (keyword name#)]
            (testing (format "database strategy %s" name#)
              (db/with-storage [config#]
+               (db/reset (db/storage))
                ~@body)))))))
