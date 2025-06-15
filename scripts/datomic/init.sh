@@ -4,5 +4,5 @@ then
 else
 	echo "creating the datomic database..."
 	psql --file=./scripts/datomic/postgres-db.sql && \
-		psql --file=./scripts/datomic/postgres-table.sql
+		psql --file=./scripts/datomic/postgres-table.sql -d datomic
 fi
