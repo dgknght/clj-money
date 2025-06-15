@@ -329,10 +329,10 @@
                       (reduce (execute-and-aggregate tx)
                               {:saved []
                                :id-map {}})))]
-    (update-in result [:saved] #(->> %
-                                     (map (comp after-read
-                                                ->model-refs))
-                                     (reconstruct)))))
+    (->> (:saved result)
+         (map (comp after-read
+                    ->model-refs))
+         (reconstruct))))
 
 (defn- id-key
   [x]
