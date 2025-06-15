@@ -64,6 +64,8 @@ services:
         source: ./env/docker
         target: /usr/src/clj-money/config
         read_only: true
+        bind:
+          selinux: z
       - type: volume
         source: maven-data
         target: /root/.m2
