@@ -20,11 +20,12 @@
   (query [this arg-map])
   (reset [this]))
 
-(defmulti bounding-where-clause
-  (fn [crit-or-model-type]
-    (if (keyword? crit-or-model-type)
-      crit-or-model-type
-      (util/model-type crit-or-model-type))))
+(defn- bounding-where-clause
+  [crit-or-model-type]
+  (let [model-type (util/model-type crit-or-model-type)]
+    (case model-type
+      :user '[?x :user/email ?user]
+      :entity '[?x :entity/name ?entity])))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
