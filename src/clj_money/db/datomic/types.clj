@@ -23,6 +23,12 @@
             x))
         v))
 
+(defn ->java-date-time
+  [local-date-time]
+  (t/java-date
+    (t/zoned-date-time local-date-time
+                       (t/zone-offset 0 0))))
+
 (defn ->java-date
   [local-date]
   (t/java-date
@@ -34,7 +40,9 @@
   "Given a model or criteria, replace all local-date instances with java dates"
   [m]
   (postwalk (fn [x]
-              (if (t/local-date? x)
-                (->java-date x)
-                x))
+              (cond
+                (t/local-date-time? x) (->java-date-time x)
+                (t/local-date? x)      (->java-date x)
+                (t/instant? x)         (t/java-date x)
+                :else x))
             m))
