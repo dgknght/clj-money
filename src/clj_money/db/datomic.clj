@@ -57,14 +57,6 @@
                 x))
             m))
 
-#_(defn <-java-date
-  [^Date java-date]
-  (let [cal (Calendar/getInstance (TimeZone/getTimeZone "UTC"))]
-    (.setTime cal java-date)
-    (t/local-date (.get cal Calendar/YEAR)
-                  (inc (.get cal Calendar/MONTH))
-                  (.get cal Calendar/DAY_OF_MONTH))))
-
 (defn- criteria->query
   [criteria {:as opts :keys [count]}]
   (let [m-type (or (util/model-type criteria)
