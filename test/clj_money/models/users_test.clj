@@ -1,5 +1,5 @@
 (ns clj-money.models.users-test
-  (:require [clojure.test :refer [deftest testing use-fixtures is]]
+  (:require [clojure.test :refer [testing is]]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
             [clj-money.model-helpers :refer [assert-created
@@ -13,10 +13,7 @@
             [clj-money.models.users :as users]
             [clj-money.test-context :refer [with-context
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db
-                                            dbtest]]))
-
-(use-fixtures :each reset-db)
+            [clj-money.test-helpers :refer [dbtest]]))
 
 (def attributes #:user{:first-name "John"
                        :last-name "Doe"
@@ -33,27 +30,27 @@
     (is (not (:user/token-expires-at user))
         "The token expiration is not returned")))
 
-(deftest first-name-is-required
+(dbtest first-name-is-required
   (assert-invalid (dissoc attributes :user/first-name)
                   {:user/first-name ["First name is required"]}))
 
-(deftest first-name-cannot-be-empty
+(dbtest first-name-cannot-be-empty
   (assert-invalid (assoc attributes :user/first-name "")
                   {:user/first-name ["First name is required"]}))
 
-(deftest last-name-is-required
+(dbtest last-name-is-required
   (assert-invalid (dissoc attributes :user/last-name)
                   {:user/last-name ["Last name is required"]}))
 
-(deftest last-name-cannot-be-empty
+(dbtest last-name-cannot-be-empty
   (assert-invalid (assoc attributes :user/last-name "")
                   {:user/last-name ["Last name is required"]}))
 
-(deftest email-is-required
+(dbtest email-is-required
   (assert-invalid (dissoc attributes :user/email)
                   {:user/email ["Email is required"]}))
 
-(deftest email-cannot-be-empty
+(dbtest email-cannot-be-empty
   (assert-invalid (assoc attributes :user/email "")
                   {:user/email ["Email is required"]}))
 
@@ -63,16 +60,16 @@
           :email "john@doe.com"
           :password "please01"}])
 
-(deftest email-is-unique
+(dbtest email-is-unique
   (with-context existing-user-ctx
     (assert-invalid attributes
                     {:user/email ["Email is already in use"]})))
 
-(deftest email-must-be-well-formed
+(dbtest email-must-be-well-formed
   (assert-invalid (assoc attributes :user/email "notvalid")
                   {:user/email ["Email must be a valid email address"]}))
 
-(deftest authenticate-a-user
+(dbtest authenticate-a-user
   (with-context existing-user-ctx
     (let [user (find-user "john@doe.com")
           expected {:identity (:id user)
@@ -87,7 +84,7 @@
       (is (nil? (:user/password authenticated))
           "The password is excluded from the return value."))))
 
-(deftest set-a-password-reset-token
+(dbtest set-a-password-reset-token
   (with-context existing-user-ctx
     (let [user (find-user "john@doe.com")
           token (users/create-password-reset-token user)
@@ -97,7 +94,7 @@
       (is (= (:id user) (:id retrieved))
           "The user can be retrieved using the token"))))
 
-(deftest cannot-retrieve-a-user-with-an-expired-token
+(dbtest cannot-retrieve-a-user-with-an-expired-token
   (with-context existing-user-ctx
     (let [user (find-user "john@doe.com")
           token (with-fixed-time "2017-03-02T12:00:00Z"
@@ -107,7 +104,7 @@
       (is (nil? retrieved)
           "The user is not returned if the token has expired"))))
 
-(deftest reset-a-password
+(dbtest reset-a-password
   (with-context existing-user-ctx
     (let [user (find-user "john@doe.com")
           token (users/create-password-reset-token user)]
@@ -128,7 +125,7 @@
    :name "John Doe"
    :family_name "Doe"})
 
-(deftest find-or-create-a-user-by-oauth-profile
+(dbtest find-or-create-a-user-by-oauth-profile
   (testing "an existing user without identity"
     (let [user (models/put attributes)
           result (users/find-or-create-from-profile profile)]
@@ -137,11 +134,11 @@
       (is (comparable? user result :id :first-name :last-name :email)
           "The existing user is returned"))))
 
-(deftest update-a-user
+(dbtest update-a-user
   (with-context existing-user-ctx
     (assert-updated (find-user "john@doe.com")
                     {:user/first-name "J-man"})))
 
-(deftest delete-a-user
+(dbtest delete-a-user
   (with-context existing-user-ctx
     (assert-deleted (find-user "john@doe.com"))))

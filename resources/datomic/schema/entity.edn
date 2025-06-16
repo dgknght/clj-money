@@ -1,0 +1,25 @@
+[{:db/ident :entity/name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of the entity"}
+ {:db/ident :entity/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user that has full control over the entity"}
+ {:db/ident :entity/settings
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/isComponent true
+  :db/doc "Adjustable settings for the entity"}
+ {:db/ident :settings/inventory-method
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "Adjustable settings for the entity"}
+ #_{:db/ident :settings/monitored-accounts
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/doc "Accounts for which budget monitors are enabled"}
+ #_{:db/ident :settings/default-commodity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The commodity recorded by accounts in the entity by default"}]

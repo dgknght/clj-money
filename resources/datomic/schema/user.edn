@@ -20,6 +20,11 @@
   :db/cardinality :db.cardinality/one
   :db/noHistory true
   :db/doc "A temporary token to allow the user to reset his password"}
+ {:db/ident :user/token-expires-at
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The date on which the password reset token expires"}
  {:db/ident :user/identities
   :db/valueType :db.type/tuple
   :db/tupleTypes [:db.type/keyword :db.type/string]

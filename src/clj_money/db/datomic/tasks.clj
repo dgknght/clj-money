@@ -12,7 +12,8 @@
                 io/resource
                 #(format "datomic/schema/%s.edn" %))
           ["model"
-           "user"]))
+           "user"
+           "entity"]))
 
 (defn apply-schema
   ([] (apply-schema :datomic-peer))
