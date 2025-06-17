@@ -136,20 +136,22 @@
               #(= 1 (count %))
               #(= :db/id (first (keys %)))))
 
-(def ^:private id-entry?
+(def ^:private id-criterion?
   (every-pred map-entry?
               (comp #(= :id %)
                     first)))
 
-(def ^:private model?
-  (every-pred map?
-              #(contains? % :id)))
+(defn- model-criterion?
+  [x]
+  (and (map-entry? x)
+       (map? (second x))
+       (:id (second x))))
 
 (defn- normalize-criterion
   [x]
   (cond
-    (id-entry? x) (update-in x [1] coerce-id)
-    (model? x)    (select-keys x [:id])
+    (id-criterion? x)    (update-in x [1] coerce-id)
+    (model-criterion? x) (update-in x [1] select-keys [:id])
     :else x))
 
 (defn- normalize-criteria
