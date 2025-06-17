@@ -27,23 +27,23 @@
     (case model-type
       :user '[?x :user/email ?user]
       :entity '[?x :entity/name ?entity]
-      :commodity '[?x :commodity/symbol ?commodity])))
+      :commodity '[?x :commodity/symbol ?commodity]
+      :price '[?x :price/value ?price])))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
-(defn- unbounded-query?
+(defn- bounded-query?
   [{:keys [in where]}]
-  (and (->> where
-            (remove #(or (= not-deleted %)
-                         (not= '?x (first %))))
-            empty?)
-       (not-any? #(= '?x %) in)))
+  (or (some #(= '?x %) in)
+      (->> where
+           (remove #(= not-deleted %))
+           (some #(= '?x (first %))))))
 
 (defn- ensure-bounded-query
   [query criteria]
-  (if (unbounded-query? query)
-    (assoc-in query [:where] [(bounding-where-clause criteria)])
-    query))
+  (if (bounded-query? query)
+    query
+    (assoc-in query [:where] [(bounding-where-clause criteria)])))
 
 (defn- rearrange-query
   "Takes a simple datalog query and adjust the attributes
