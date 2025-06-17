@@ -1,0 +1,16 @@
+[{:db/ident :commodity/symbol
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The symbol that identifies of the commodity"}
+ {:db/ident :commodity/name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of the commodity"}
+ {:db/ident :commodity/type
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of the commodity"}
+ {:db/ident :commodity/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity that tracks this commodity"}]

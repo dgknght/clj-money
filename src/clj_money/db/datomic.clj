@@ -1,7 +1,6 @@
 (ns clj-money.db.datomic
   (:require [clojure.walk :refer [postwalk]]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
@@ -27,13 +26,17 @@
   (let [model-type (util/model-type crit-or-model-type)]
     (case model-type
       :user '[?x :user/email ?user]
-      :entity '[?x :entity/name ?entity])))
+      :entity '[?x :entity/name ?entity]
+      :commodity '[?x :commodity/symbol ?commodity])))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
 (defn- unbounded-query?
   [{:keys [in where]}]
-  (and (empty? (remove #(= not-deleted %) where))
+  (and (->> where
+            (remove #(or (= not-deleted %)
+                         (not= '?x (first %))))
+            empty?)
        (not-any? #(= '?x %) in)))
 
 (defn- ensure-bounded-query
@@ -49,15 +52,6 @@
   (-> query
       (select-keys [:args])
       (assoc :query (dissoc query :args))))
-
-(defn- ->datomic-id-keys
-  "Given a model or criteria, replace all :id keys with :db/id"
-  [m]
-  (postwalk (fn [x]
-              (if (map? x)
-                (rename-keys x {:id :db/id})
-                x))
-            m))
 
 (defn- criteria->query
   [criteria {:as opts :keys [count]}]
@@ -94,7 +88,7 @@
     (cons (-> m*
               before-save
               ->java-dates
-              ->datomic-id-keys)
+              (util/deep-rename-keys {:id :db/id}))
           (->> nils
                (filter #(-> m meta :clj-money.models/before %))
                (map #(vector :db/retract (:id m) %))))))
@@ -142,30 +136,30 @@
               #(= 1 (count %))
               #(= :db/id (first (keys %)))))
 
-(defn- coerce-criteria-id
-  [criteria]
-  (postwalk (fn [x]
-              (if (and (map-entry? x)
-                       (= :id (first x)))
-                (update-in x [1] coerce-id)
-                x))
-            criteria))
+(def ^:private id-entry?
+  (every-pred map-entry?
+              (comp #(= :id %)
+                    first)))
 
-; TODO: Remove this, it's part of stowaway now
-(defn- extract-model-ref-ids
+(def ^:private model?
+  (every-pred map?
+              #(contains? % :id)))
+
+(defn- normalize-criterion
+  [x]
+  (cond
+    (id-entry? x) (update-in x [1] coerce-id)
+    (model? x)    (select-keys x [:id])
+    :else x))
+
+(defn- normalize-criteria
   [criteria]
-  (postwalk (fn [x]
-              (if (and (map-entry? x)
-                       (util/model-ref? (second x)))
-                (update-in x [1] :id)
-                x))
-            criteria))
+  (postwalk normalize-criterion criteria))
 
 (defn- select*
   [criteria {:as options :keys [count]} {:keys [api]}]
   (let [qry (-> criteria
-                coerce-criteria-id
-                extract-model-ref-ids
+                normalize-criteria
                 prepare-criteria
                 ->java-dates
                 (criteria->query options))
