@@ -2,11 +2,13 @@
   (:require [clojure.walk :refer [postwalk]]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
             [stowaway.datalog :refer [apply-options]]
             [clj-money.db :as db]
             [clj-money.util :as util]
+            [clj-money.models :as models]
             [clj-money.db.datomic.tasks :refer [apply-schema]]
             [clj-money.db.datomic.types :refer [coerce-id
                                                 ->java-dates]]
@@ -94,7 +96,7 @@
               ->java-dates
               ->datomic-id-keys)
           (->> nils
-               (remove #(nil? (-> m meta :original %)))
+               (filter #(-> m meta :clj-money.models/before %))
                (map #(vector :db/retract (:id m) %))))))
 
 #_(def ^:private action-map
@@ -124,11 +126,15 @@
                      (mapcat prep-for-put)
                      vec)
         {:keys [tempids]} (transact api prepped {})]
+
+    (log/debugf "put models %s" prepped)
+
     ; TODO: relookup the models?
     ; TODO: handle deleted values
-    (map (comp #(rename-keys % {:db/id :id})
-               (fn [m] (update-in m [:db/id] #(tempids % %))))
-         prepped)))
+    (->> prepped
+         (filter map?)
+         (map (comp #(rename-keys % {:db/id :id})
+                    (fn [m] (update-in m [:db/id] #(tempids % %))))))))
 
 ; It seems that after an entire entity has been retracted, the id
 ; can still be returned
@@ -165,6 +171,11 @@
                 ->java-dates
                 (criteria->query options))
         raw-result (query api qry)]
+
+    (log/debugf "select %s -> %s"
+                (models/scrub-sensitive-data criteria)
+                qry) ; TODO scrub the datalog query too
+
     (if count
       (ffirst raw-result)
       (->> raw-result
