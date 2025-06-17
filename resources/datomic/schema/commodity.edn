@@ -9,8 +9,25 @@
  {:db/ident :commodity/type
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/one
-  :db/doc "The name of the commodity"}
+  :db/doc "Indicates the kind of commodity (currency, stock, fund, etc.)"}
+ {:db/ident :commodity/exchange
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "Indicates the market where the commodity is traded"}
+ {:db/ident :commodity/price-date-range
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/instant :db.type/instant]
+  :db/cardinality :db.cardinality/one
+  :db/doc "The earliest and latest dates for which price records exist"}
+ {:db/ident :commodity/price-config
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "Contains information regulating the handling of the commodity by the system"}
  {:db/ident :commodity/entity
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
-  :db/doc "The entity that tracks this commodity"}]
+  :db/doc "The entity that tracks this commodity"}
+ {:db/ident :price-config/enabled
+  :db/valueType :db.type/boolean
+  :db/cardinality :db.cardinality/one
+  :db/doc "Indicates whether or not prices should be fetched for this commodity"}]
