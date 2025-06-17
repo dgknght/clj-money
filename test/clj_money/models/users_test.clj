@@ -90,7 +90,7 @@
           token (users/create-password-reset-token user)
           retrieved (users/find-by-token token)]
       (is (re-matches #"^[a-z0-9]{32}$" token)
-          "A valid tokenis returned")
+          "A valid token is returned")
       (is (= (:id user) (:id retrieved))
           "The user can be retrieved using the token"))))
 
