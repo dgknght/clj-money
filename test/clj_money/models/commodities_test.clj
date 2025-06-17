@@ -1,5 +1,5 @@
 (ns clj-money.models.commodities-test
-  (:require [clojure.test :refer [deftest use-fixtures is]]
+  (:require [clojure.test :refer [is]]
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
@@ -7,14 +7,13 @@
                                                          assert-deleted]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
+            [clj-money.db.datomic.ref]
             [clj-money.models.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]))
-
-(use-fixtures :each reset-db)
+            [clj-money.test-helpers :refer [dbtest]]))
 
 (def ^:private commodity-context
   [(factory :user {:user/email "john@doe.com"})
@@ -35,47 +34,47 @@
   [attr]
   (helpers/assert-created attr :refs [:commodity/entity]))
 
-(deftest create-a-commodity
+(dbtest create-a-commodity
   (with-context commodity-context
     (assert-created (attributes))))
 
-(deftest entity-id-is-required
+(dbtest entity-id-is-required
   (with-context commodity-context
     (assert-invalid (dissoc (attributes) :commodity/entity)
                     {:commodity/entity ["Entity is required"]})))
 
-(deftest type-is-required
+(dbtest type-is-required
   (with-context commodity-context
     (assert-invalid (dissoc (attributes) :commodity/type)
                     {:commodity/type ["Type is required"]})))
 
-(deftest type-can-be-currency
+(dbtest type-can-be-currency
   (with-context commodity-context
     (assert-created (merge (attributes)
                             #:commodity{:type :currency
                                         :name "US Dollar"
                                         :symbol "USD"}))))
 
-(deftest type-can-be-stock
+(dbtest type-can-be-stock
   (with-context commodity-context
     (assert-created (merge (attributes)
                             #:commodity{:type :stock
                                         :name "Apple Inc."
                                         :symbol "AAPL"}))))
 
-(deftest type-can-be-fund
+(dbtest type-can-be-fund
   (with-context commodity-context
     (assert-created (merge (attributes)
                             #:commodity{:type :fund
                                         :name "Vanguard S&P 500 Index Fund"
                                         :symbol "VFIAX"}))))
 
-(deftest type-cannot-be-invalid
+(dbtest type-cannot-be-invalid
   (with-context commodity-context
     (assert-invalid (assoc (attributes) :commodity/type :not-a-valid-type)
                     {:commodity/type ["Type must be fund, currency, or stock"]})))
 
-(deftest name-is-required
+(dbtest name-is-required
   (with-context commodity-context
     (assert-invalid (dissoc (attributes) :commodity/name)
                     {:commodity/name ["Name is required"]})))
@@ -88,12 +87,12 @@
                        :type :stock
                        :entity "Personal"}]))
 
-(deftest name-is-unique-for-an-entity-and-exchange
+(dbtest name-is-unique-for-an-entity-and-exchange
   (with-context existing-context
     (assert-invalid (attributes)
                     {:commodity/name ["Name is already in use"]})))
 
-(deftest name-can-be-duplicated-between-exchanges
+(dbtest name-can-be-duplicated-between-exchanges
   (with-context existing-context
     (let [commodity (models/put
                       (assoc (attributes)
@@ -103,7 +102,7 @@
                                    :symbol "AAPL"}
                        commodity)))))
 
-(deftest name-can-be-duplicated-between-entities
+(dbtest name-can-be-duplicated-between-entities
   (with-context existing-context
     (let [commodity (models/put
                       (assoc (attributes)
@@ -112,33 +111,33 @@
                                    :symbol "AAPL"}
                        commodity)))))
 
-(deftest symbol-is-required
+(dbtest symbol-is-required
   (with-context commodity-context
     (assert-invalid (dissoc (attributes) :commodity/symbol)
                     {:commodity/symbol ["Symbol is required"]})))
 
-(deftest symbol-is-unique-for-an-entity-and-exchange
+(dbtest symbol-is-unique-for-an-entity-and-exchange
   (with-context existing-context
     (assert-invalid (assoc (attributes) :commodity/name "New Name")
                     {:commodity/symbol ["Symbol is already in use"]})))
 
-(deftest symbol-can-be-duplicated-between-exchanges
+(dbtest symbol-can-be-duplicated-between-exchanges
   (with-context existing-context
     (assert-created (assoc (attributes)
                            :commodity/name "Apply"
                            :commodity/exchange :nyse))))
 
-(deftest symbol-can-be-duplicated-between-entities
+(dbtest symbol-can-be-duplicated-between-entities
   (with-context existing-context
     (assert-created (assoc (attributes)
                            :commodity/entity (find-entity "Business")))))
 
-(deftest exchange-is-required-for-stocks
+(dbtest exchange-is-required-for-stocks
   (with-context commodity-context
     (assert-invalid (dissoc (attributes) :commodity/exchange)
                     {:commodity/exchange ["Exchange is required"]})))
 
-(deftest exchange-is-not-required-for-currencies
+(dbtest exchange-is-not-required-for-currencies
   (with-context commodity-context
     (assert-created #:commodity{:entity (find-entity "Personal")
                                  :name "US Dollar"
@@ -146,28 +145,28 @@
                                  :type :currency
                                  :price-config {:price-config/enabled false}})))
 
-(deftest exchange-can-be-nasdaq
+(dbtest exchange-can-be-nasdaq
   (with-context commodity-context
     (assert-created (assoc (attributes)
                             :commodity/exchange :nasdaq
                             :commodity/symbol "AAPL"
                             :commodity/name "Apple"))))
 
-(deftest exchange-can-be-nyse
+(dbtest exchange-can-be-nyse
   (with-context commodity-context
     (assert-created (assoc (attributes)
                             :commodity/exchange :nyse
                             :commodity/symbol "HD"
                             :commodity/name "Home Depot"))))
 
-(deftest exchange-can-be-otc
+(dbtest exchange-can-be-otc
   (with-context commodity-context
     (assert-created (assoc (attributes)
                            :commodity/exchange :otc
                            :commodity/symbol "GBTC"
                            :commodity/name "Grayscale Bitcoin Trust"))))
 
-(deftest exchange-must-be-valid
+(dbtest exchange-must-be-valid
   (with-context commodity-context
     (assert-invalid (assoc (attributes)
                            :commodity/exchange :not-valid
@@ -175,7 +174,7 @@
                            :commodity/name "None of your business")
                     {:commodity/exchange ["Exchange must be amex, nasdaq, nyse, or otc"]})))
 
-(deftest a-commodity-can-be-updated
+(dbtest a-commodity-can-be-updated
   (with-context existing-context
     (let [commodity (find-commodity "AAPL")
           result (models/put (-> commodity
@@ -190,7 +189,7 @@
                        (models/find commodity))
           "The retrieved value has the updated attributes"))))
 
-(deftest a-commodity-can-be-deleted
+(dbtest a-commodity-can-be-deleted
   (with-context existing-context
     (assert-deleted (find-commodity "AAPL"))))
 
@@ -215,6 +214,6 @@
                        :symbol "GBP"
                        :type :currency}]))
 
-(deftest get-a-count-of-commodities
+(dbtest get-a-count-of-commodities
   (with-context count-context
     (is  (= 3 (models/count {:commodity/entity (find-entity "Personal")})))))
