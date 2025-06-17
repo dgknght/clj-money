@@ -1,0 +1,14 @@
+[{:db/ident :identity/provider
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity
+  :db/doc "Identifies the provider that is supplying the identification"}
+ {:db/ident :identity/provider-id
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The providers ID for the user"}
+ {:db/ident :identity/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/isComponent true
+  :db/doc "The user that is identified by the provider"}]

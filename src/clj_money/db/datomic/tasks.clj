@@ -13,6 +13,7 @@
                 #(format "datomic/schema/%s.edn" %))
           ["model"
            "user"
+           "identity"
            "entity"]))
 
 (defn apply-schema

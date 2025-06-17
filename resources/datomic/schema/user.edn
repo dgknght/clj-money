@@ -24,9 +24,4 @@
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
   :db/noHistory true
-  :db/doc "The date on which the password reset token expires"}
- {:db/ident :user/identities
-  :db/valueType :db.type/tuple
-  :db/tupleTypes [:db.type/keyword :db.type/string]
-  :db/cardinality :db.cardinality/many
-  :db/doc "The provider identifier and the provider's ID for the user"}]
+  :db/doc "The date on which the password reset token expires"}]

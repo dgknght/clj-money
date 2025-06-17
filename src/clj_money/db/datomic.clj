@@ -130,10 +130,9 @@
     (log/debugf "put models %s" prepped)
 
     ; TODO: relookup the models?
-    ; TODO: handle deleted values
     (->> prepped
          (filter map?)
-         (map (comp #(rename-keys % {:db/id :id})
+         (map (comp #(util/deep-rename-keys % {:db/id :id})
                     (fn [m] (update-in m [:db/id] #(tempids % %))))))))
 
 ; It seems that after an entire entity has been retracted, the id
