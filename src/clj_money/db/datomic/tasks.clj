@@ -15,7 +15,8 @@
            "user"
            "identity"
            "entity"
-           "commodity"]))
+           "commodity"
+           "price"]))
 
 (defn apply-schema
   ([] (apply-schema :datomic-peer))
