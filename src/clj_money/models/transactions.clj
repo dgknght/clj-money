@@ -470,10 +470,11 @@
 
 (defn- apply-commodities
   [[{:account/keys [entity]} :as accounts]]
-  (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
-    (map #(update-in % [:account/commodity] (comp commodities
-                                                  :id))
-         accounts)))
+  (when (seq accounts)
+    (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
+      (map #(update-in % [:account/commodity] (comp commodities
+                                                    :id))
+           accounts))))
 
 (defn propagate-account-from-start
   [entity account]
