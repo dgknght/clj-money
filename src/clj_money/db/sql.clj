@@ -390,9 +390,10 @@
                 (scrub-values criteria query))
 
     (if (:count options)
-      (jdbc/execute-one! ds
-                         query
-                         sql-opts)
+      (:record-count
+        (jdbc/execute-one! ds
+                           query
+                           sql-opts))
       (->> (jdbc/execute! ds
                           query
                           sql-opts)

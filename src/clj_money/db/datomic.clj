@@ -172,7 +172,7 @@
                 qry) ; TODO scrub the datalog query too
 
     (if count
-      (ffirst raw-result)
+      (or (ffirst raw-result) 0)
       (->> raw-result
            (map first)
            (remove naked-id?)
