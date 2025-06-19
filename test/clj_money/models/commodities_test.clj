@@ -6,8 +6,7 @@
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
             [clj-money.models :as models]
-            [clj-money.db.sql.ref]
-            [clj-money.db.datomic.ref]
+            [clj-money.db.ref]
             [clj-money.models.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context

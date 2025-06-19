@@ -7,8 +7,7 @@
                                              assert-invalid
                                              assert-deleted]]
             [clj-money.models :as models]
-            [clj-money.db.sql.ref]
-            [clj-money.db.datomic.ref]
+            [clj-money.db.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
             [clj-money.test-context :refer [with-context
