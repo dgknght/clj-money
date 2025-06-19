@@ -34,6 +34,7 @@
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
+; TODO: Move this into stowaway.datalog
 (defn- bounded-query?
   [{:keys [in where]}]
   (or (some #(= '?x %) in)

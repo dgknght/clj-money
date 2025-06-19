@@ -1,0 +1,40 @@
+[{:db/ident :transaction-item/action
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The accounting action: debit or credit"}
+ {:db/ident :transaction-item/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that was debited or credited"}
+ {:db/ident :transaction-item/quantity
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The amount debited or credited"}
+ {:db/ident :transaction-item/transaction
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The transaction to which the item belongs"}
+ {:db/ident :transaction-item/memo
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "A note about this item in the transaction"}
+ {:db/ident :transaction-item/index
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The position of this item within the account"}
+ {:db/ident :transaction-item/balance
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The account balance as of this item"}
+ {:db/ident :transaction-item/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The account value as of this item expressed in the default commodity"}
+ {:db/ident :transaction-item/negative
+  :db/valueType :db.type/boolean
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "Indicates the polarity of this item (as a reading convenience in the db)"}]
