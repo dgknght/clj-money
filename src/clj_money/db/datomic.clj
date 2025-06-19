@@ -145,12 +145,17 @@
 
     (log/debugf "put models %s" prepped)
 
-    ; TODO: relookup the models?
     (->> prepped
-         (filter map?)
+         (filter (every-pred map?
+                             :db/id))
          (map (comp after-read
                     #(util/deep-rename-keys % {:db/id :id})
-                    (fn [m] (update-in m [:db/id] #(tempids % %))))))))
+                    ffirst
+                    #(query api {:query '[:find (pull ?x [*])
+                                          :in $ ?x]
+                                 :args [%]})
+                    #(tempids % %)
+                    :db/id)))))
 
 ; It seems that after an entire entity has been retracted, the id
 ; can still be returned
