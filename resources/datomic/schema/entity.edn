@@ -15,11 +15,11 @@
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/one
   :db/doc "Adjustable settings for the entity"}
- #_{:db/ident :settings/monitored-accounts
+ {:db/ident :settings/monitored-accounts
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db/doc "Accounts for which budget monitors are enabled"}
- #_{:db/ident :settings/default-commodity
+ {:db/ident :settings/default-commodity
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The commodity recorded by accounts in the entity by default"}]

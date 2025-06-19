@@ -22,6 +22,7 @@
  {:db/ident :commodity/price-config
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
+  :db/isComponent true
   :db/doc "Contains information regulating the handling of the commodity by the system"}
  {:db/ident :commodity/entity
   :db/valueType :db.type/ref
