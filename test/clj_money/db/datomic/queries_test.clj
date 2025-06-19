@@ -1,7 +1,16 @@
 (ns clj-money.db.datomic.queries-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.pprint :refer [pprint]]
             [datomic.api :as d]))
 
+
+(defn- recursion-rule
+  [rel-key target-key upward?]
+  [['(match-and-recurse ?e ?v)
+    ['?e target-key '?v]]
+   ['(match-and-recurse ?e1 ?v)
+    [(if upward? '?e2 '?e1) rel-key (if upward? '?e1 '?e2)]
+    '(match-and-recurse ?e2 ?v)]])
 
 (deftest query-recursively
   (let [accounts [[1 :account/name "Checking"]
@@ -21,13 +30,9 @@
                     (d/q '[:find ?name
                            :in $ % ?input
                            :where [?a :account/name ?name]
-                           (match-and-recurse ?a :account/parent :account/name ?input)]
+                           (match-and-recurse ?a ?input)]
                          accounts
-                         '[[(match-and-recurse ?e ?a-rel ?a-target ?v)
-                            [?e ?a-target ?v]]
-                           [(match-and-recurse ?e1 ?a-rel ?a-target ?v)
-                            [?e1 ?a-rel ?e2]
-                            (match-and-recurse ?e2 ?a-rel ?a-target ?v)]]
+                         (recursion-rule :account/parent :account/name false)
                          "Savings"))))))
     (testing "infinite levels upward"
       (is (= #{"Doug" "Car" "Savings"}
@@ -36,11 +41,7 @@
                     (d/q '[:find ?name
                            :in $ % ?input
                            :where [?a :account/name ?name]
-                           (match-and-recurse ?a :account/parent :account/name ?input)]
+                           (match-and-recurse ?a ?input)]
                          accounts
-                         '[[(match-and-recurse ?e ?a-rel ?a-target ?v)
-                            [?e ?a-target ?v]]
-                           [(match-and-recurse ?e1 ?a-rel ?a-target ?v)
-                            [?e2 ?a-rel ?e1]
-                            (match-and-recurse ?e2 ?a-rel ?a-target ?v)]]
+                         (recursion-rule :account/parent :account/name true)
                          "Doug"))))))))
