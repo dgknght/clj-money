@@ -518,18 +518,18 @@
         0
         (reduced res)))))
 
-(defn- sort-fn
+(defn- ->comparator
   [order-by]
-  {:pre [(vector? order-by)]}
-  (fn [m1 m2]
-    (->> order-by
-         (map normalize-sort-key)
-         (reduce (compare-fn m1 m2)
-                 0))))
+  (let [normalized (mapv normalize-sort-key order-by)]
+    (fn [m1 m2]
+      (reduce (compare-fn m1 m2)
+              0
+              normalized))))
 
 (defn apply-sort
   "Given a sequence of models, apply the sort specified in the options map"
-  [{:keys [order-by]} models]
-  (if order-by
-    (sort (sort-fn order-by) models)
+  [opts models]
+  (if-let [sort-spec ((some-fn :order-by :sort) opts)]
+    (sort (->comparator sort-spec)
+          models)
     models))
