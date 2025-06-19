@@ -4,8 +4,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
-            [clj-money.db.datomic.ref]
+            [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-user]]
