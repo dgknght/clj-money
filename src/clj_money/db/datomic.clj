@@ -8,6 +8,7 @@
             [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models :as models]
+            [clj-money.models.schema :as schema]
             [clj-money.db.datomic.tasks :refer [apply-schema]]
             [clj-money.db.datomic.types :refer [coerce-id
                                                 ->java-dates]]
@@ -28,7 +29,8 @@
       :user '[?x :user/email ?user]
       :entity '[?x :entity/name ?entity]
       :commodity '[?x :commodity/symbol ?commodity]
-      :price '[?x :price/value ?price])))
+      :price '[?x :price/value ?price]
+      :attachment '[?x :attachment/caption ?caption])))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
@@ -110,12 +112,31 @@
   ; For now, let's assume a deconstruct fn has prepared a legal datomic transaction
   [args])
 
+(def ^:private model-ref-keys
+  (->> schema/models
+       (mapcat (fn [{:keys [refs id]}]
+                 (map (fn [ref]
+                        (keyword (name id)
+                                 (name (schema/ref-id ref))))
+                      refs)))
+       set))
+
+(defn- models->refs
+  [m]
+  (postwalk (fn [x]
+              (if (and (map-entry? x)
+                       (model-ref-keys (key x)))
+                (update-in x [1] select-keys [:id])
+                x))
+            m))
+
 (defn- put*
   [models {:keys [api]}]
   {:pre [(sequential? models)]}
 
   (let [prepped (->> models
-                     (map #(util/+id % (comp str random-uuid)))
+                     (map (comp #(util/+id % (comp str random-uuid))
+                                models->refs))
                      (mapcat deconstruct)
                      (mapcat prep-for-put)
                      vec)

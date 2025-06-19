@@ -17,7 +17,8 @@
            "entity"
            "commodity"
            "price"
-           "account"]))
+           "account"
+           "attachment"]))
 
 (defn apply-schema
   ([] (apply-schema :datomic-peer))
