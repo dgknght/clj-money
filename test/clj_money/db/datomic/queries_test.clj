@@ -3,7 +3,6 @@
             [clojure.pprint :refer [pprint]]
             [datomic.api :as d]))
 
-
 (defn- recursion-rule
   [rel-key target-key upward?]
   [['(match-and-recurse ?e ?v)
