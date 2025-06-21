@@ -23,30 +23,23 @@
   (reset [this]))
 
 (defn- bounding-where-clause
-  [crit-or-model-type]
-  (let [model-type (util/model-type crit-or-model-type)]
-    (case model-type
-      :user '[?x :user/email ?user]
-      :entity '[?x :entity/name ?entity]
-      :commodity '[?x :commodity/symbol ?commodity]
-      :price '[?x :price/value ?price]
-      :attachment '[?x :attachment/caption ?caption])))
+  [model-type]
+  (case model-type
+    :user '[?x :user/email ?user]
+    :entity '[?x :entity/name ?entity]
+    :commodity '[?x :commodity/symbol ?commodity]
+    :price '[?x :price/value ?price]
+    :account '[?x :account/type ?type]
+    :attachment '[?x :attachment/caption ?caption]))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
-; TODO: Move this into stowaway.datalog
-(defn- bounded-query?
-  [{:keys [in where]}]
-  (or (some #(= '?x %) in)
-      (->> where
-           (remove #(= not-deleted %))
-           (some #(= '?x (first %))))))
-
 (defn- ensure-bounded-query
   [query criteria]
-  (if (bounded-query? query)
-    query
-    (assoc-in query [:where] [(bounding-where-clause criteria)])))
+  (let [model-type (util/model-type criteria)]
+    (if ((util/namespaces criteria) model-type)
+      query
+      (assoc-in query [:where] [(bounding-where-clause model-type)]))))
 
 (defn- rearrange-query
   "Takes a simple datalog query and adjust the attributes
@@ -55,6 +48,17 @@
   (-> query
       (select-keys [:args])
       (assoc :query (dissoc query :args))))
+
+(def ^:private recursion-keys
+  {:account :account/parent})
+
+(defn- recursion
+  [{:keys [include-children? include-parents?]} model-type]
+  (when (or include-children? include-parents?)
+    (if-let [k (recursion-keys model-type)]
+      (cond-> [k]
+        include-parents? (conj :upward))
+      (throw (IllegalArgumentException. (format "No recursion defined for model type %s" model-type))))))
 
 (defn- criteria->query
   [criteria {:as opts :keys [count]}]
@@ -68,7 +72,8 @@
          :args []}
         (queries/apply-criteria criteria
                                 :target m-type
-                                :coerce identity)
+                                :coerce identity
+                                :recursion (recursion opts m-type))
         (ensure-bounded-query criteria)
         (apply-options (dissoc opts :order-by :sort))
         rearrange-query)))
