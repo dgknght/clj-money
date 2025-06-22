@@ -34,13 +34,6 @@
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
-(defn- ensure-bounded-query
-  [query criteria]
-  (let [model-type (util/model-type criteria)]
-    (if ((util/namespaces criteria) model-type)
-      query
-      (assoc-in query [:where] [(bounding-where-clause model-type)]))))
-
 (defn- rearrange-query
   "Takes a simple datalog query and adjust the attributes
   to match the format expected by datomic."
@@ -68,13 +61,13 @@
                  '[(count ?x)]
                  '[(pull ?x [*])])
          :in '[$]
-         :where [not-deleted]
+         :where [not-deleted
+                 (bounding-where-clause m-type)]
          :args []}
         (queries/apply-criteria criteria
                                 :target m-type
                                 :coerce identity
                                 :recursion (recursion opts m-type))
-        (ensure-bounded-query criteria)
         (apply-options (dissoc opts :order-by :sort))
         rearrange-query)))
 
