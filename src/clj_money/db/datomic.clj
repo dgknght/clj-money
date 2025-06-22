@@ -25,12 +25,13 @@
 (defn- bounding-where-clause
   [model-type]
   (case model-type
-    :user '[?x :user/email ?user]
-    :entity '[?x :entity/name ?entity]
-    :commodity '[?x :commodity/symbol ?commodity]
-    :price '[?x :price/value ?price]
-    :account '[?x :account/type ?type]
-    :attachment '[?x :attachment/caption ?caption]))
+    :user             '[?x :user/email ?user-email]
+    :entity           '[?x :entity/name ?entity-name]
+    :commodity        '[?x :commodity/symbol ?commodity-symbol]
+    :price            '[?x :price/value ?price-value]
+    :account          '[?x :account/type ?account-type]
+    :attachment       '[?x :attachment/caption ?attachment-caption]
+    :transaction-item '[?x :transaction-item/action ?transaction-item-action]))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
