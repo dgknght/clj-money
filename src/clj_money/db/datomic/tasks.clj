@@ -19,6 +19,7 @@
            "price"
            "account"
            "attachment"
+           "transaction"
            "transaction_item"]))
 
 (defn apply-schema

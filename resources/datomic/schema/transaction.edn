@@ -1,0 +1,30 @@
+[{:db/ident :transaction/transaction-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date on which the transaction took place"}
+ {:db/ident :transaction/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity to which the transaction belongs"}
+ {:db/ident :transaction/description
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "A description of the transaction"}
+ {:db/ident :transaction/memo
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "Additional notes about the transaction"}
+ {:db/ident :transaction/scheduled-transaction
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "A reference to the source scheduled transaction, in created on a schedule"}
+ {:db/ident :transaction/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The sum of the debits or credits in the transaction"}
+ {:db/ident :transaction/attachment-count
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The number of attachments for the transaction"}]
