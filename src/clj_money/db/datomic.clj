@@ -31,6 +31,7 @@
     :price            '[?x :price/value ?price-value]
     :account          '[?x :account/type ?account-type]
     :attachment       '[?x :attachment/caption ?attachment-caption]
+    :transaction      '[?x :transaction/description ?transaction-description]
     :transaction-item '[?x :transaction-item/action ?transaction-item-action]))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
