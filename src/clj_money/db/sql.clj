@@ -63,6 +63,16 @@
                   (juxt :id :primary-key)))
        (into {})))
 
+(defn- scrub-values
+  [m [stmt & args]]
+  (let [get-key (map-invert m)]
+    (vec (cons stmt
+               (map (fn [arg]
+                      (if (models/sensitive-keys (get-key arg))
+                        "********"
+                        arg))
+                    args)))))
+
 (def ^:private reconstruction-rules
   {:budget [{:parent? :budget/name
              :child? :budget-item/account
@@ -79,16 +89,6 @@
                  {:parent? :transaction/description
                   :child? :lot-item/action
                   :children-key :transaction/lot-items}]})
-
-(defn- scrub-values
-  [m [stmt & args]]
-  (let [get-key (map-invert m)]
-    (vec (cons stmt
-               (map (fn [arg]
-                      (if (models/sensitive-keys (get-key arg))
-                        "********"
-                        arg))
-                    args)))))
 
 (defn- reconstruct
   [models]
