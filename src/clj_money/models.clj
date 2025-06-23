@@ -250,8 +250,8 @@
                                    validate
                                    before-validation))))
          saved (db/put (or storage
-                                     (db/storage))
-                                 to-save)
+                           (db/storage))
+                       to-save)
          result (map (comp append-before
                            after-save
                            #(after-read % {}))
