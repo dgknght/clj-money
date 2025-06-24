@@ -36,8 +36,6 @@
       (is (is-entity? {:entity/name "Personal"}))
       (is (not (is-entity? {:account/name "Checking"}))))))
 
-
-
 (deftest extract-a-qualifier
   (is (= "user" (util/qualifier {:user/name "John"}))
       "A single qualifier is taken directly")
@@ -306,11 +304,32 @@
                 [:one 11]
                 [:two 2]]))))
 
-(deftest separate-nils-from-a-model
-  (is (= [{:present :here}
-          [:absent]]
-         (util/split-nils {:present :here
-                           :absent nil}))))
+(deftest remove-nils-from-a-model
+  (testing "one level"
+    (is (= {:present :here}
+           (util/remove-nils {:present :here
+                              :absent nil}))))
+  (testing "collection attribute"
+    (is (= {:present :here
+            :others [{:one 1}
+                     {:two 2}]}
+           (util/remove-nils {:present :here
+                              :others [{:one 1
+                                        :two nil}
+                                       {:one nil
+                                        :two 2}]})))))
+
+(deftest locate-nils-in-a-model
+  (is (= [[:absent]]
+         (util/locate-nils {:present :here
+                            :absent nil})))
+  (is (= [[:others 0 :two]
+          [:others 1 :one]]
+         (util/locate-nils {:present :here
+                            :others [{:one 1
+                                      :two nil}
+                                     {:one nil
+                                      :two 2}]}))))
 
 (deftest ensure-a-model-has-an-id
   (is (= {:id 1} (util/+id {} (constantly 1)))

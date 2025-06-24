@@ -468,18 +468,40 @@
       (keyword (nth m 1) (nth m 2))
       k)))
 
-(defn split-nils
-  "Given a map, return a tuple containing the map
-  with all nil attributes removed in the first position
-  and a vector containing the keys that had nil values
-  in the second"
-  [m]
-  (reduce (fn [res [k v]]
-            (if v
-              (update-in res [0] assoc k v)
-              (update-in res [1] conj k)))
-          [{} []]
-          m))
+(defn remove-nils
+  "Given a data structrure, return the structure with any nil map
+  values removed"
+  [x]
+  (postwalk (fn [v]
+              (if (and (map-entry? v)
+                       (nil? (val v)))
+                nil
+                v))
+            x))
+
+(defn locate-nils
+  "Given a data structure, return a list of key vectors where nils
+  are found."
+  ([x] (locate-nils x []))
+  ([x prefix]
+   (reduce (fn [res x*]
+             (if (map-entry? x*)
+               (let [[k v] x*]
+                 (cond
+                   (nil? v)
+                   (conj res (conj prefix k))
+
+                   (sequential? v)
+                   (apply concat res (map-indexed
+                                       (fn [idx itm]
+                                         (locate-nils itm (conj prefix k idx)))
+                                       v))
+
+                   :else
+                   res))
+               res))
+           []
+           x)))
 
 (defn +id
   "Given a map without an :id value, adds one with a random UUID as a value"
