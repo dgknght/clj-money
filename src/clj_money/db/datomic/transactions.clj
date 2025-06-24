@@ -1,7 +1,23 @@
 (ns clj-money.db.datomic.transactions
-  (:require [clj-money.db.datomic :as datomic]))
+  (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
+            [clj-money.util :refer [+id temp-id]]
+            [clj-money.db.datomic :as datomic]))
 
-(defmethod datomic/deconstruct :transaction
-  [{:as transaction :transaction/keys [items]}]
-  (cons (dissoc transaction :transaction/items)
-        items))
+(def ^:private utc (t/zone-id "UTC"))
+
+; TODO: Dedupe this with the entities ns
+(defn- ->local-date
+  [inst]
+  (t/local-date inst utc))
+
+(defmethod datomic/before-save :transaction
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             (fn [items]
+               (mapv #(+id % temp-id) items))))
+
+(defmethod datomic/after-read :transaction
+  [trx]
+  (update-in trx [:transaction/transaction-date] ->local-date))

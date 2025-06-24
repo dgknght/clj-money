@@ -87,14 +87,17 @@
 
 (defmethod prep-for-put ::util/map
   [m]
-  (let [[m* nils] (util/split-nils m)]
+  (let [m* (util/remove-nils m)
+        nils (util/locate-nils m)]
     (cons (-> m*
               before-save
               ->java-dates
               (util/deep-rename-keys {:id :db/id}))
           (->> nils
-               (filter #(-> m meta :clj-money.models/before %))
-               (map #(vector :db/retract (:id m) %))))))
+               (filter #(get-in (-> m meta :clj-money.models/before) %))
+               (map #(vector :db/retract
+                             (get-in m (butlast %))
+                             (last %)))))))
 
 #_(def ^:private action-map
   {::db/delete :db/retract

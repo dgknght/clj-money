@@ -10,7 +10,7 @@
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
   :db/doc "The amount debited or credited"}
- {:db/ident :transaction-item/transaction
+ {:db/ident :transaction-item/transaction  ; TODO: Should this reference go both ways?
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The transaction to which the item belongs"}
