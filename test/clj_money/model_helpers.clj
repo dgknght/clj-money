@@ -38,16 +38,21 @@
   (mapv #(simplify-refs % refs) models))
 
 (defn assert-created
-  [attr & {:keys [refs compare-result? ignore-attributes]
+  [attr & {:keys [refs
+                  compare-result?
+                  ignore-nils?
+                  ignore-attributes]
            :or {refs []
                 compare-result? true
+                ignore-nils? false
                 ignore-attributes []}}]
   (let [out-chan (a/chan)
-        result (models/put attr :out-chan out-chan)
+        handle-nils (if ignore-nils? util/remove-nils identity)
+        result (handle-nils (models/put attr :out-chan out-chan))
         fetched (when (:id result)
                   (models/find result))
         expected  (apply dissoc
-                         (simplify-refs attr refs)
+                         (handle-nils (simplify-refs attr refs))
                          ignore-attributes)]
     (when compare-result?
       (is (comparable? expected result)

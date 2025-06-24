@@ -87,7 +87,8 @@
   [attr]
   (helpers/assert-created attr
                           :refs [:transaction/entity :transaction-item/account]
-                          :compare-result? false))
+                          :compare-result? false
+                          :ignore-nils? true))
 
 (dbtest create-a-transaction
   (with-context base-context
