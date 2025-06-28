@@ -5,6 +5,7 @@
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
             [stowaway.datalog :refer [apply-options]]
+            [clj-money.config :refer [env]]
             [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models :as models]
@@ -251,6 +252,14 @@
       (reset [_]
         ; probably should not ever get here, as this is for unit tests only
         ))))
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defn q
+  [qry & args]
+  (let [api (init-api (get-in env [:db
+                                   :strategies
+                                   :datomic-peer]))]
+    (query api {:query qry :args args})))
 
 (defmethod db/reify-storage ::service
   [config]
