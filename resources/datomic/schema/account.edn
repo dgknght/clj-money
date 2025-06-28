@@ -47,8 +47,13 @@
   :db/cardinality :db.cardinality/one
   :db/noHistory true
   :db/doc "The current value of the account, expressed in the default commodity"}
- {:db/ident :account/price-as-of
+ {:db/ident :account/commodity-price
   :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The price used to calculate the current value"}
+ {:db/ident :account/price-as-of
+  :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
   :db/noHistory true
   :db/doc "The date of the price used to calculate the current value"}]

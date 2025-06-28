@@ -22,6 +22,7 @@
   (query [this arg-map])
   (reset [this]))
 
+; TODO: Get this from the schema
 (defn- bounding-where-clause
   [model-type]
   (case model-type
@@ -77,11 +78,13 @@
 (defmulti before-save util/model-type)
 (defmulti after-read util/model-type)
 (defmulti prepare-criteria util/model-type)
+(defmulti propagate-delete util/model-type-dispatch)
 
 (defmethod deconstruct :default [m] [m])
 (defmethod before-save :default [m] m)
 (defmethod after-read :default [m] m)
 (defmethod prepare-criteria :default [c] c)
+(defmethod propagate-delete :default [m _] [m])
 
 (defmulti ^:private prep-for-put type)
 
@@ -116,20 +119,11 @@
   ; For now, let's assume a deconstruct fn has prepared a legal datomic transaction
   [args])
 
-(def ^:private model-ref-keys
-  (->> schema/models
-       (mapcat (fn [{:keys [refs id]}]
-                 (map (fn [ref]
-                        (keyword (name id)
-                                 (name (schema/ref-id ref))))
-                      refs)))
-       set))
-
 (defn- models->refs
   [m]
   (postwalk (fn [x]
               (if (and (map-entry? x)
-                       (model-ref-keys (key x)))
+                       (schema/model-ref-keys (key x)))
                 (update-in x [1] select-keys [:id])
                 x))
             m))
@@ -137,11 +131,10 @@
 (defn- put*
   [models {:keys [api]}]
   {:pre [(sequential? models)]}
-
   (let [prepped (->> models
-                     (map (comp #(util/+id % (comp str random-uuid))
-                                models->refs))
+                     (map #(util/+id % (comp str random-uuid)))
                      (mapcat deconstruct)
+                     (map models->refs)
                      (mapcat prep-for-put)
                      vec)
         {:keys [tempids]} (transact api prepped {})]
@@ -212,12 +205,13 @@
            (util/apply-sort options)))))
 
 (defn- delete*
-  [models {:keys [api]}]
+  [models {:keys [api] :as opts}]
   {:pre [(and (sequential? models)
               (not-any? nil? models))]}
   (transact api
-            (mapv #(vector :db/add (:id %) :model/deleted? true)
-                  models)
+            (->> models
+                 (mapcat #(propagate-delete % opts))
+                 (mapv #(vector :db/add (:id %) :model/deleted? true)))
             {}))
 
 (defmulti init-api ::db/strategy)

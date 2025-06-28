@@ -20,7 +20,9 @@
            "account"
            "attachment"
            "transaction"
-           "transaction_item"]))
+           "transaction_item"
+           "lot"
+           "lot_item"]))
 
 (defn apply-schema
   ([] (apply-schema :datomic-peer))

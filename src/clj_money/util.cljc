@@ -510,7 +510,8 @@
                    (nil? v)
                    (conj res (conj prefix k))
 
-                   (sequential? v)
+                   (and (sequential? v)
+                        (map? (first v)))
                    (apply concat res (map-indexed
                                        (fn [idx itm]
                                          (locate-nils itm (conj prefix k idx)))
