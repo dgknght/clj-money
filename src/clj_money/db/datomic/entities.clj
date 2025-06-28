@@ -1,14 +1,8 @@
 (ns clj-money.db.datomic.entities
   (:require [clojure.pprint :refer [pprint]]
-            [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.dates :refer [->local-date]]
             [clj-money.db.datomic :as datomic]))
-
-(def ^:private utc (t/zone-id "UTC"))
-
-(defn- ->local-date
-  [inst]
-  (t/local-date inst utc))
 
 (defmethod datomic/after-read :entity
   [entity]
