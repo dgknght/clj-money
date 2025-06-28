@@ -101,6 +101,10 @@
           [instant]
           instant))
 
+#?(:clj (defmethod instant* String
+          [instant]
+          (t/instant instant)))
+
 (def year
   #?(:clj (comp #(.getValue %)
                 t/year)
@@ -460,3 +464,10 @@
                 (serialize-local-date x)
                 x))
             criteria))
+
+(defn ->local-date
+  [inst]
+  #?(:clj (t/local-date inst (t/zone-id "UTC"))
+     :cljs (t/local-date (t/year inst)
+                         (t/month inst)
+                         (t/day inst))))
