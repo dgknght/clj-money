@@ -5,13 +5,6 @@
             [clj-money.models.schema :as schema]
             [clj-money.util :as util]))
 
-(def ^:private relationships
-  (->> schema/models
-       (mapcat (fn [{:keys [id refs]}]
-                 (map #(vector (schema/ref-id %) id)
-                      refs)))
-       set))
-
 (def ^:private joins
   (->> schema/models
        (filter #(some map? (:refs %)))
@@ -24,7 +17,7 @@
        (into {})))
 
 (def ^:private default-options
-  {:relationships relationships
+  {:relationships schema/relationships
    :joins joins})
 
 (defn criteria->query
