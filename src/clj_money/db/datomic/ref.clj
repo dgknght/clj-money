@@ -6,4 +6,5 @@
             clj-money.db.datomic.accounts
             clj-money.db.datomic.transactions
             clj-money.db.datomic.prices
-            clj-money.db.datomic.lots))
+            clj-money.db.datomic.lots
+            clj-money.db.datomic.grants))
