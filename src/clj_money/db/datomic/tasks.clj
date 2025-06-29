@@ -12,6 +12,7 @@
                 io/resource
                 #(format "datomic/schema/%s.edn" %))
           ["model"
+           "cached_price"
            "user"
            "identity"
            "entity"

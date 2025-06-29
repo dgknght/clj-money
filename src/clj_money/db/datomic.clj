@@ -29,6 +29,7 @@
   (case model-type
     :user             '[?x :user/email ?user-email]
     :entity           '[?x :entity/name ?entity-name]
+    :cached-price     '[?x :cached-price/trade-date ?cached-price-trade-date]
     :commodity        '[?x :commodity/symbol ?commodity-symbol]
     :price            '[?x :price/value ?price-value]
     :account          '[?x :account/type ?account-type]
