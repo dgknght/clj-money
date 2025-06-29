@@ -24,7 +24,8 @@
            "transaction"
            "transaction_item"
            "lot"
-           "lot_item"]))
+           "lot_item"
+           "image"]))
 
 (defn apply-schema
   ([] (apply-schema :datomic-peer))
