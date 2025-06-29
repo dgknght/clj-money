@@ -35,7 +35,8 @@
     :account          '[?x :account/type ?account-type]
     :attachment       '[?x :attachment/caption ?attachment-caption]
     :transaction      '[?x :transaction/description ?transaction-description]
-    :transaction-item '[?x :transaction-item/action ?transaction-item-action]))
+    :transaction-item '[?x :transaction-item/action ?transaction-item-action]
+    :lot              '[?x :lot/purchase-date ?lot-purchase-date]))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
