@@ -121,7 +121,10 @@
              (instant* temporal))
             ([year month day]
              (instant (t/local-date year month day))))
-     :cljs t/date-time))
+     :cljs (fn [d]
+             (cond; TODO: this should be fleshed out
+               (string? d)
+               (tf/parse (tf/formatters :date-time-no-ms) d)))))
 
 (def interval
   #?(:clj (fn
