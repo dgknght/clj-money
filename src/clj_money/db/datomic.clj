@@ -29,6 +29,7 @@
   (case model-type
     :user             '[?x :user/email ?user-email]
     :entity           '[?x :entity/name ?entity-name]
+    :grant            '[?x :grant/user ?grant-user]
     :cached-price     '[?x :cached-price/trade-date ?cached-price-trade-date]
     :commodity        '[?x :commodity/symbol ?commodity-symbol]
     :price            '[?x :price/value ?price-value]
@@ -127,7 +128,7 @@
   (postwalk (fn [x]
               (if (and (map-entry? x)
                        (schema/model-ref-keys (key x)))
-                (update-in x [1] select-keys [:id])
+                (update-in x [1] :id)
                 x))
             m))
 

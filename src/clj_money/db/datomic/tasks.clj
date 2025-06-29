@@ -16,6 +16,7 @@
            "user"
            "identity"
            "entity"
+           "grant"
            "commodity"
            "price"
            "account"
