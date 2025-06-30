@@ -18,6 +18,10 @@
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
   :db/doc "The date of the transaction"}
+ {:db/ident :transaction-item/reconciliation
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The reconciliation in which this item was checked against an external source"}
  {:db/ident :transaction-item/memo
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one

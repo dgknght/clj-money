@@ -26,6 +26,7 @@
 ; TODO: Get this from the schema
 (defn- bounding-where-clause
   [model-type]
+  {:pre [model-type]}
   (case model-type
     :user             '[?x :user/email ?user-email]
     :entity           '[?x :entity/name ?entity-name]
