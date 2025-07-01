@@ -28,6 +28,8 @@
   [model-type]
   {:pre [model-type]}
   (case model-type
+    :budget           '[?x :budget/start-date ?budget-start-date]
+    :budget-item      '[?x :budget-item/periods ?budget-item-periods]
     :user             '[?x :user/email ?user-email]
     :entity           '[?x :entity/name ?entity-name]
     :grant            '[?x :grant/user ?grant-user]

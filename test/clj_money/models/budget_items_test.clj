@@ -1,9 +1,8 @@
 (ns clj-money.models.budget-items-test
-  (:require [clojure.test :refer [deftest use-fixtures]]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models.ref]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated
@@ -13,9 +12,7 @@
                                             find-account
                                             find-budget
                                             find-budget-item]]
-            [clj-money.test-helpers :refer [reset-db]]))
-
-(use-fixtures :each reset-db)
+            [clj-money.test-helpers :refer [dbtest]]))
 
 (defn- assert-created
   [attr]
@@ -33,16 +30,16 @@
                  :period [3 :month]
                  :start-date (t/local-date 2016 1 1)}))
 
-(deftest create-a-budget-item
+(dbtest create-a-budget-item
   (with-context ctx
     (assert-created (attributes))))
 
-(deftest account-is-required
+(dbtest account-is-required
   (with-context ctx
     (assert-invalid (dissoc (attributes) :budget-item/account)
                     {:budget-item/account ["Account is required"]})))
 
-(deftest account-must-belong-to-budget-entity
+(dbtest account-must-belong-to-budget-entity
   (with-context ctx
     (assert-invalid
       (assoc (attributes)
@@ -50,24 +47,53 @@
       {:budget-item/account
        ["Account must belong to the same entity as the budget"]})))
 
-(deftest period-count-must-match-the-budget
+(dbtest period-count-must-match-the-budget
   (with-context ctx
     (assert-invalid
       (assoc (attributes)
              :budget-item/periods [101M])
       {:budget-item/periods ["Must have the number of periods specified by the budget"]})))
 
+(dbtest a-total-based-spec-can-be-specified
+  (with-context ctx
+    (assert-created (assoc (attributes)
+                           :budget-item/spec {:total 1200M}))))
+
+(dbtest an-average-based-spec-can-be-specified
+  (with-context ctx
+    (assert-created (assoc (attributes)
+                           :budget-item/spec {:average 120M}))))
+
+(dbtest a-week-based-spec-can-be-specified
+  (with-context ctx
+    (assert-created (assoc (attributes)
+                           :budget-item/spec {:start-date (t/local-date 2016 1 2)
+                                              :amount 100M
+                                              :week-count 2}))))
+
+(dbtest a-historical-spec-can-be-specified
+  (with-context ctx
+    (assert-created (assoc (attributes)
+                           :budget-item/spec {:start-date (t/local-date 2016 1 1)
+                                              :round-to 2}))))
+
 (def ^:private existing-context
   (conj ctx
         #:budget-item{:budget "2016"
                       :account "Groceries"
-                      :periods [101M 102M 103M]}))
+                      :periods [101M 102M 103M]
+                      :spec {:total 1000M}}))
 
-(deftest update-a-budget-item
+(dbtest update-a-budget-item
   (with-context existing-context
     (assert-updated (find-budget-item ["2016" "Groceries"])
                     {:budget-item/periods [111M 222M 333M]})))
 
-(deftest remove-an-item
+(dbtest update-a-budget-item-spec
+  (with-context existing-context
+    (assert-updated (find-budget-item ["2016" "Groceries"])
+                    {:budget-item/spec {:average 100M}})))
+
+(dbtest remove-an-item
   (with-context existing-context
     (assert-deleted (find-budget-item ["2016" "Groceries"]))))
