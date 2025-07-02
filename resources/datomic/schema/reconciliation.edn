@@ -1,0 +1,20 @@
+[{:db/ident :reconciliation/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account to which the reconciliation applies"}
+ {:db/ident :reconciliation/end-of-period
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date of the reconciliation"}
+ {:db/ident :reconciliation/status
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The status of the reconciliation (:new or :completed)"}
+ {:db/ident :reconciliation/balance
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The balance of the account as of the period-end-date"}
+ {:db/ident :reconciliation/items
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/doc "The items reconciled"}]
