@@ -3,8 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [dgknght.app-lib.core :refer [fmin
-                                          update-in-if]]
+            [dgknght.app-lib.core :refer [fmin]]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
