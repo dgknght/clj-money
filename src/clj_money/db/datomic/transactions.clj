@@ -5,10 +5,14 @@
             [clj-money.db.datomic :as datomic]))
 
 (defmethod datomic/deconstruct :transaction
-  [{:transaction/keys [lot-items] :as trx}]
-  (cons (dissoc trx :transaction/lot-items)
-        (map #(assoc % :lot-item/transaction trx)
-             lot-items)))
+  [{:transaction/keys [lot-items items] :as trx}]
+  (cons (dissoc trx
+                :transaction/lot-items
+                :transaction/items)
+        (concat (map #(assoc % :lot-item/transaction trx)
+                     lot-items)
+                (map #(assoc % :transaction-item/transaction trx)
+                     items))))
 
 (defmethod datomic/before-save :transaction
   [trx]
