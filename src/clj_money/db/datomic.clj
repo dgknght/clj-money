@@ -4,7 +4,7 @@
             [clojure.tools.logging :as log]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
-            [stowaway.datalog :refer [apply-options]]
+            [stowaway.datalog :as dtl]
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
             [clj-money.util :as util]
@@ -80,7 +80,8 @@
                                 :target m-type
                                 :coerce identity
                                 :recursion (recursion opts m-type))
-        (apply-options (dissoc opts :order-by :sort))
+        (dtl/apply-options (dissoc opts :order-by :sort))
+        (queries/apply-select opts)
         rearrange-query)))
 
 (defmulti deconstruct util/model-type)
