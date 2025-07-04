@@ -22,10 +22,10 @@
 
 (defn- in-balance?
   [{:reconciliation/keys [balance] :as recon}]
-  (let [new-balance (->> (get-meta recon ::all-items)
-                         (map :transaction-item/polarized-quantity)
-                         (reduce + (starting-balance recon)))]
-    (= balance new-balance)))
+  (let [calced-balance (->> (get-meta recon ::all-items)
+                            (map :transaction-item/polarized-quantity)
+                            (reduce + (starting-balance recon)))]
+    (= balance calced-balance)))
 
 (defn- in-progress?
   [{:reconciliation/keys [status]}]
