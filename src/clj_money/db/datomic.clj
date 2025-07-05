@@ -192,6 +192,23 @@
   [criteria]
   (postwalk normalize-criterion criteria))
 
+(defn- ->vector
+  [x]
+  (if (sequential? x)
+    (vec x)
+    (vector x)))
+
+(defn- extract-model
+  [{:keys [select-also]}]
+  (let [attributes (->vector select-also)]
+    (if (seq attributes)
+      (fn [[m & others]]
+        (merge m
+               (->> others
+                    (zipmap attributes)
+                    (into {}))))
+      first)))
+
 (defn- select*
   [criteria {:as options :keys [count]} {:keys [api]}]
   (let [qry (-> criteria
@@ -208,7 +225,7 @@
     (if count
       (or (ffirst raw-result) 0)
       (->> raw-result
-           (map first)
+           (map (extract-model options))
            (remove naked-id?)
            (map (comp after-read
                       #(util/deep-rename-keys % {:db/id :id})))
