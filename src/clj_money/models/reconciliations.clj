@@ -114,7 +114,7 @@
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
 ; TODO: Just call this :reconciliation/items?
-(s/def :reconciliation/item-ref (s/tuple uuid? t/local-date?))
+(s/def :reconciliation/item-ref (s/tuple ::models/id t/local-date?))
 (s/def :reconciliation/item-refs (s/coll-of :reconciliation/item-ref))
 
 (s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
