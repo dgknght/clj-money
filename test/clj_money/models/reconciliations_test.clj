@@ -98,7 +98,7 @@
   (with-context reconciliation-context
     (let [checking (find-account "Checking")
           checking-items (models/select {:transaction-item/account checking
-                                         :transaction-item/quantity [:!= 45]}
+                                         :transaction-item/quantity [:!= 45M]}
                                         {:select-also :transaction/transaction-date})]
       (assert-created (assoc (attributes)
                              :reconciliation/item-refs (map ->item-ref checking-items)
