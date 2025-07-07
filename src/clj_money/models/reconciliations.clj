@@ -203,18 +203,15 @@
     item
     (->item-ref* item)))
 
-(def ^:private reffable?
-  (every-pred :id :transaction/transaction-date))
+(s/def ::item-ref (s/or :tuple :reconciliation/item-ref
+                        :model (s/keys :req-un [::models/id]
+                                       :req [:transaction/transaction-date])))
 
-(defn- item-or-ref?
-  [item]
-  (if (vector? item)
-    (s/valid? :reconciliation/item-ref item)
-    (reffable? item)))
+(s/def ::item-refs (s/coll-of ::item-ref))
 
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [item-refs] :as reconciliation}]
-  {:pre [(every? item-or-ref? item-refs)]}
+  {:pre [(s/valid? ::item-refs item-refs)]}
   (let [prep (prepare-item)
         existing-items (map prep
                             (fetch-items reconciliation))
