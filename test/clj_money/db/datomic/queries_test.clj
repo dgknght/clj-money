@@ -25,27 +25,59 @@
 
 (deftest query-recursively
   (testing "infinite levels downward"
-    (is (= #{"Doug" "Eli" "Car" "Reserve" "Savings"}
-           (set
-             (map first
-                  (d/q '[:find ?name
-                         :in $ % ?input
-                         :where [?a :account/name ?name]
-                         (match-and-recurse ?a ?input)]
-                       accounts
-                       (recursion-rule :account/parent :account/name false)
-                       "Savings"))))))
+    (testing "filter by non-id attribute"
+      (is (= #{"Doug" "Eli" "Car" "Reserve" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?input
+                           :where [?a :account/name ?name]
+                           (match-and-recurse ?a ?input)]
+                         accounts
+                         (recursion-rule :account/parent :account/name false)
+                         "Savings"))))))
+    (testing "filter by id"
+      (is (= #{"Doug" "Eli" "Car" "Reserve" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?a
+                           :where [?x :account/name ?name]
+                           (match-and-recurse ?x ?a)]
+                         accounts
+                         '[[(match-and-recurse ?e ?target)
+                            [(= ?e ?target)]]
+                           [(match-and-recurse ?e ?target)
+                            [?e :account/parent ?parent]
+                            (match-and-recurse ?parent ?target)]] 
+                         2)))))))
   (testing "infinite levels upward"
-    (is (= #{"Doug" "Car" "Savings"}
-           (set
-             (map first
-                  (d/q '[:find ?name
-                         :in $ % ?input
-                         :where [?a :account/name ?name]
-                         (match-and-recurse ?a ?input)]
-                       accounts
-                       (recursion-rule :account/parent :account/name true)
-                       "Doug")))))))
+    (testing "filter by non-id attribute"
+      (is (= #{"Doug" "Car" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?input
+                           :where [?a :account/name ?name]
+                           (match-and-recurse ?a ?input)]
+                         accounts
+                         (recursion-rule :account/parent :account/name true)
+                         "Doug"))))))
+    (testing "filter by id"
+      (is (= #{"Doug" "Car" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?a
+                           :where [?x :account/name ?name]
+                           (match-and-recurse ?x ?a)]
+                         accounts
+                         '[[(match-and-recurse ?e ?target)
+                            [(= ?e ?target)]]
+                           [(match-and-recurse ?e ?target)
+                            [?child :account/parent ?e]
+                            (match-and-recurse ?child ?target)]] 
+                         4))))))))
 
 (deftest query-with-or
   (testing "query by entity"
