@@ -12,6 +12,7 @@
             [clj-money.models.schema :as schema]
             [clj-money.db.datomic.tasks :refer [apply-schema]]
             [clj-money.db.datomic.types :refer [coerce-id
+                                                apply-coercions
                                                 ->java-dates]]
             [clj-money.db.datomic.queries :as queries]))
 
@@ -228,6 +229,7 @@
            (map (extract-model options))
            (remove naked-id?)
            (map (comp after-read
+                      apply-coercions
                       #(util/deep-rename-keys % {:db/id :id})))
            (util/apply-sort options)))))
 
