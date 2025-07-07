@@ -1,6 +1,7 @@
 (ns clj-money.db.datomic.types
   (:require [clojure.walk :refer [postwalk]]
-            [java-time.api :as t]))
+            [java-time.api :as t]
+            [clj-money.dates :as dates]))
 
 (derive java.lang.Integer ::integer)
 (derive java.lang.Long ::integer)
@@ -45,4 +46,16 @@
                 (t/local-date? x)      (->java-date x)
                 (t/instant? x)         (t/java-date x)
                 :else x))
+            m))
+
+(def ^:private coercions
+  {:transaction/transaction-date dates/->local-date})
+
+(defn apply-coercions
+  [m]
+  (postwalk (fn [x]
+              (if (map-entry? x)
+                (update-in x [1] (coercions (key x)
+                                            identity))
+                x))
             m))
