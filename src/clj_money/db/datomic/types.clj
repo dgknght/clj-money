@@ -1,5 +1,6 @@
 (ns clj-money.db.datomic.types
   (:require [clojure.walk :refer [postwalk]]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-money.dates :as dates]))
 
@@ -49,7 +50,10 @@
             m))
 
 (def ^:private coercions
-  {:transaction/transaction-date dates/->local-date})
+  {:account/system-tags set
+   :account/user-tags set
+   :account/allocations (partial into {})
+   :transaction/transaction-date dates/->local-date})
 
 (defn apply-coercions
   [m]

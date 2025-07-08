@@ -156,6 +156,7 @@
          (filter (every-pred map?
                              :db/id))
          (map (comp after-read
+                    apply-coercions
                     #(util/deep-rename-keys % {:db/id :id})
                     ffirst
                     #(query api {:query '[:find (pull ?x [*])
