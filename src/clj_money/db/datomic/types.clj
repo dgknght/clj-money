@@ -53,7 +53,10 @@
   {:account/system-tags set
    :account/user-tags set
    :account/allocations (partial into {})
+   :budget/start-date dates/->local-date
+   :budget/end-date dates/->local-date
    :budget-item-spec/start-date dates/->local-date
+   :cached-price/trade-date dates/->local-date
    :transaction/transaction-date dates/->local-date})
 
 (defn apply-coercions
