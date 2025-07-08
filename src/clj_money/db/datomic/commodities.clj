@@ -3,11 +3,6 @@
             [clj-money.db.datomic :as datomic]
             [clj-money.dates :as dates]))
 
-(defmethod datomic/deconstruct :commodity
-  [{:commodity/keys [price-config] :as commodity}]
-  [(dissoc commodity :commodity/price-config)
-   price-config])
-
 (defmethod datomic/after-read :commodity
   [commodity]
   (-> commodity
