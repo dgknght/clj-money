@@ -41,6 +41,4 @@
   [budget-item]
   (-> budget-item
       (update-in-if [:budget-item/spec] strip-kw-ns)
-      (update-in-if [:budget-item/spec :start-date]
-                    ->local-date)
       stash-spec-id))
