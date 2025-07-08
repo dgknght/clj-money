@@ -1,6 +1,5 @@
 (ns clj-money.db.datomic.accounts
   (:require [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.datomic :as datomic]))
 
 (defmethod datomic/deconstruct :account
@@ -13,10 +12,3 @@
                 :account/allocations
                 [k v]])
              allocations)))
-
-(defmethod datomic/after-read :account
-  [account]
-  (-> account
-      (update-in-if [:account/system-tags] set)
-      (update-in-if [:account/user-tags] set)
-      (update-in-if [:account/allocations] #(into {} %))))
