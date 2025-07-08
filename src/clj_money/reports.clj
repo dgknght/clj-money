@@ -674,9 +674,10 @@
    (if-let [budget (bdgs/find-by-date (:account/entity account) as-of)]
      (monitor-from-budget {:account account
                            :as-of as-of
-                           :budget (update-in budget
-                                              [:budget/entity]
-                                              (models/find :entity))})
+                           :budget (-> budget
+                                       (assoc :budget/items (models/select {:budget-item/budget budget}))
+                                       (update-in [:budget/entity]
+                                                  (models/find :entity)))})
      #:report{:caption (:account/name account)
               :account account
               :message (format "There is no budget for %s" (dates/format-local-date as-of))})))

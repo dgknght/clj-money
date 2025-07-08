@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
             [clj-money.db.ref]
             [clj-money.models :as models]
             [clj-money.models.ref]
@@ -135,13 +136,13 @@
 
 (dbtest get-items-by-account
   (with-context get-items-context
-    (let [budget (models/find-by {:budget/name "2015"}
-                                 {:include #{:budget/items}})]
+    (let [items (models/select (util/model-type {:budget/name "2015"}
+                                                :budget-item))]
       (testing "a leaf account"
         (let [account (find-account "Food")
               expected [[100M 100M 100M]]
               actual (map :budget-item/periods (budgets/find-items-by-account
-                                                 budget
+                                                 items
                                                  account))]
           (is (seq-of-maps-like? expected actual) "The correct period values are returned")))
       (testing "a parent account"
@@ -149,6 +150,6 @@
               expected [[100M 100M 100M]
                         [50M 50M 50M]]
               actual (map :budget-item/periods (budgets/find-items-by-account
-                                                 budget
+                                                 items
                                                  account))]
           (is (= expected actual) "The correct period values are returned"))))))
