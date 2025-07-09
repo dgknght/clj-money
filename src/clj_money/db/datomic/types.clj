@@ -57,6 +57,9 @@
    :budget/end-date dates/->local-date
    :budget-item-spec/start-date dates/->local-date
    :cached-price/trade-date dates/->local-date
+   :entity/price-date-range (partial mapv dates/->local-date)
+   :entity/transaction-date-range (partial mapv dates/->local-date)
+   :settings/monitored-accounts set
    :transaction/transaction-date dates/->local-date})
 
 (defn apply-coercions
