@@ -211,7 +211,7 @@
 
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [item-refs] :as reconciliation}]
-  {:pre [(s/valid? ::item-refs item-refs)]}
+  {:pre [(s/valid? (s/nilable ::item-refs) item-refs)]}
   (let [prep (prepare-item)
         existing-items (map prep
                             (fetch-items reconciliation))
