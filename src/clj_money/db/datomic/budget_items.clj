@@ -2,7 +2,6 @@
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util]
-            [clj-money.dates :refer [->local-date]]
             [clj-money.db.datomic :as datomic]))
 
 (defn- set-kw-ns
