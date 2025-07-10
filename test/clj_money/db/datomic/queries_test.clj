@@ -101,3 +101,42 @@
                                 [(contains? ?parent ?account-parent)]]
                        accounts
                        #{2 3})))))))
+
+(def ^:private transactions
+  (conj accounts
+        [7 :account/name "Groceries"]
+        [8 :account/name "Rent"]
+        [9 :account/name "Salary"]
+        [21 :transaction-item/action :debit]
+        [21 :transaction-item/account 1]
+        [21 :transaction-item/quantity 1000M]
+        [22 :transaction-item/action :credit]
+        [22 :transaction-item/account 9]
+        [22 :transaction-item/quantity 1000M]
+        [11 :transaction/transaction-date "2020-01-01"]
+        [11 :transaction/description "The Man"]
+        [11 :transaction/items 21]
+        [11 :transaction/items 22]
+        [23 :transaction-item/action :credit]
+        [23 :transaction-item/account 1]
+        [23 :transaction-item/quantity 100M]
+        [24 :transaction-item/action :debit]
+        [24 :transaction-item/account 7]
+        [24 :transaction-item/quantity 100M]
+        [12 :transaction/transaction-date "2020-01-02"]
+        [12 :transaction/description "Kroger"]
+        [12 :transaction/items 23]
+        [12 :transaction/items 24]))
+
+(deftest join-an-item-to-a-transaction
+  (is (= #{["2020-01-01" 1000M]
+           ["2020-01-02" 100M]}
+         (set
+           (d/q '[:find ?date ?quantity
+                  :in $ ?account
+                  :where [?i :transaction-item/account ?account]
+                         [?i :transaction-item/quantity ?quantity]
+                         [?t :transaction/items ?i]
+                         [?t :transaction/transaction-date ?date]]
+                transactions
+                1)))))
