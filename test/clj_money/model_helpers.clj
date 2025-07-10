@@ -50,7 +50,7 @@
         handle-nils (if ignore-nils? util/remove-nils identity)
         result (handle-nils (models/put attr :out-chan out-chan))
         fetched (when (:id result)
-                  (models/find result))
+                  (handle-nils (models/find result)))
         expected  (apply dissoc
                          (handle-nils (simplify-refs attr refs))
                          ignore-attributes)]

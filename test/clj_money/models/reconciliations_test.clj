@@ -25,9 +25,6 @@
                                             find-reconciliation]]
             [clj-money.models.reconciliations :as recons]))
 
-(def ^:private ->item-ref
-  (juxt :id :transaction/transaction-date))
-
 (def ^:private reconciliation-context
   (conj basic-context
         #:transaction{:transaction-date (t/local-date 2017 1 1)
@@ -61,7 +58,7 @@
                          :end-of-period (t/local-date 2017 1 1)
                          :balance 1000M
                          :status :completed
-                         :item-refs [[(t/local-date 2017 1 1)
+                         :items [[(t/local-date 2017 1 1)
                                       1000M]]}))
 
 (def ^:private working-reconciliation-context
@@ -70,14 +67,14 @@
                          :end-of-period (t/local-date 2017 1 3)
                          :balance 455M
                          :status :new
-                         :item-refs [[(t/local-date 2017 1 2)
+                         :items [[(t/local-date 2017 1 2)
                                       500M]]}))
 
 (defn- assert-created
   [attr]
   (helpers/assert-created attr
                           :refs [:reconciliation/account]
-                          :ignore-attributes [:reconciliation/item-refs]
+                          :ignore-attributes [:reconciliation/items]
                           :compare-result? false))
 
 (defn- attributes []
@@ -101,7 +98,7 @@
                                          :transaction-item/quantity [:!= 45M]}
                                         {:select-also :transaction/transaction-date})]
       (assert-created (assoc (attributes)
-                             :reconciliation/item-refs (map ->item-ref checking-items)
+                             :reconciliation/items checking-items
                              :reconciliation/status :completed))
       (is (->> checking-items
                (mapcat :transaction/items)
@@ -146,17 +143,16 @@
              :reconciliation/status :bouncy)
       {:reconciliation/status ["Status must be new or completed"]})))
 
-(dbtest item-refs-cannot-reference-items-that-belong-to-the-account-being-reconciled
+(dbtest items-cannot-reference-items-that-belong-to-the-account-being-reconciled
   (with-context reconciliation-context
     (assert-invalid #:reconciliation{:account (find-account "Groceries")
                                      :end-of-period (t/local-date 2017 1 31)
                                      :balance 500M
-                                     :item-refs [(->item-ref
-                                                  (find-transaction-item
-                                                    [(t/local-date 2017 1 2)
-                                                     500M
-                                                     (find-account "Rent")]))]}
-                    {:reconciliation/item-refs ["All items must belong to the account being reconciled"]})))
+                                     :items [(find-transaction-item
+                                                   [(t/local-date 2017 1 2)
+                                                    500M
+                                                    (find-account "Rent")])]}
+                    {:reconciliation/items ["All items must belong to the account being reconciled"]})))
 
 (def ^:private parent-account-context
   (conj basic-context
@@ -187,27 +183,26 @@
                                                  :account "Checking"
                                                  :quantity 700M}]}))
 
-(dbtest item-refs-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
+(dbtest items-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
   (with-context parent-account-context
     (let [savings (find-account "Savings")
           car (find-account "Car")
           reserve (find-account "Reserve")
-          item-refs (->> *context*
-                         (filter (util/model-type? :transaction))
-                         (mapcat :transaction/items)
-                         (filter #(or (model= reserve
-                                              (:transaction-item/account %))
-                                      (model= car
-                                              (:transaction-item/account %))))
-                         (mapv ->item-ref))
+          items (->> *context*
+                     (filter (util/model-type? :transaction))
+                     (mapcat :transaction/items)
+                     (filter #(or (model= reserve
+                                          (:transaction-item/account %))
+                                  (model= car
+                                          (:transaction-item/account %)))))
           created (assert-created
                     #:reconciliation{:account savings
                                      :end-of-period (t/local-date 2015 1 31)
                                      :status :completed
                                      :balance 300M
-                                     :item-refs item-refs})]
-      (is (= (set item-refs)
-             (set (:reconciliation/item-refs created)))))))
+                                     :items items})]
+      (is (= (set items)
+             (set (:reconciliation/items created)))))))
 
 (def ^:private working-rec-context
   (conj reconciliation-context
@@ -215,7 +210,7 @@
                          :end-of-period (t/local-date 2017 1 1)
                          :balance 447M
                          :status :new
-                         :item-refs [[(t/local-date 2017 1 1)
+                         :items [[(t/local-date 2017 1 1)
                                       1000M]
                                      [(t/local-date 2017 1 2)
                                       500M]
@@ -233,12 +228,11 @@
       #:reconciliation{:account (find-account "Checking")
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
-                       :item-refs [(->item-ref
-                                    (find-transaction-item
+                       :items [(find-transaction-item
                                       [(t/local-date 2017 1 1)
                                        1000M
-                                       "Checking"]))]}
-      {:reconciliation/item-refs ["No item can belong to another reconciliation"]})))
+                                       "Checking"])]}
+      {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (dbtest a-working-reconciliation-can-be-updated
   (with-context working-reconciliation-context
@@ -257,13 +251,12 @@
   (with-context working-reconciliation-context
     (let [checking (find-account "Checking")
           previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
-          item-ref (->item-ref
-                     (find-transaction-item [(t/local-date 2017 1 3)
-                                             45M
-                                             checking]))
+          item (find-transaction-item [(t/local-date 2017 1 3)
+                                           45M
+                                           checking])
           result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
                      (assoc :reconciliation/status :completed)
-                     (update-in [:reconciliation/item-refs] conj item-ref)
+                     (update-in [:reconciliation/items] conj item)
                      models/put)]
       (is (comparable? #:reconciliation {:status :completed}
                        result)
@@ -299,14 +292,14 @@
 
 (dbtest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
   (with-context working-reconciliation-context
-    (let [item-ref (->item-ref (find-transaction-item [(t/local-date 2017 1 10)
-                                                       53M
-                                                       "Checking"]))]
+    (let [item (find-transaction-item [(t/local-date 2017 1 10)
+                                           53M
+                                           "Checking"])]
       (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])
           (assoc :reconciliation/status :completed)
-          (update-in [:reconciliation/item-refs]
+          (update-in [:reconciliation/items]
                      conj
-                     item-ref)
+                     item)
           (assert-invalid {:reconciliation/balance ["Balance must match the calculated balance"]})))))
 
 (dbtest a-completed-reconciliation-cannot-be-updated

@@ -14,7 +14,7 @@
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
   :db/doc "Additional notes about the transaction"}
- {:db/ident :transaction/items ; should this reference go both ways?
+ {:db/ident :transaction/items
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db/isComponent true
