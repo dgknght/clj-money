@@ -143,7 +143,7 @@
              :reconciliation/status :bouncy)
       {:reconciliation/status ["Status must be new or completed"]})))
 
-(dbtest item-refs-cannot-reference-items-that-belong-to-the-account-being-reconciled
+(dbtest items-cannot-reference-items-that-belong-to-the-account-being-reconciled
   (with-context reconciliation-context
     (assert-invalid #:reconciliation{:account (find-account "Groceries")
                                      :end-of-period (t/local-date 2017 1 31)
@@ -183,7 +183,7 @@
                                                  :account "Checking"
                                                  :quantity 700M}]}))
 
-(dbtest item-refs-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
+(dbtest items-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
   (with-context parent-account-context
     (let [savings (find-account "Savings")
           car (find-account "Car")
