@@ -167,6 +167,7 @@
 
 (defn- last-account-item-on-or-before
   [{:as account :account/keys [transaction-date-range]} date]
+  {:pre [(:account/transaction-date-range account)]}
   (models/find-by (util/model-type
                     {:transaction-item/account account
                      :transaction/transaction-date [:between
