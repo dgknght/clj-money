@@ -1,9 +1,21 @@
 (ns clj-money.db.datomic.queries
-  (:require [stowaway.datalog :as dtl]
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :as set]
+            [stowaway.datalog :as dtl]
             [clj-money.models.schema :as schema]))
 
+; TODO: reconcile this with the schema namespace
+(def ^:private relationships
+  (set/union
+    (set/difference
+      schema/relationships
+      #{[:transaction :transaction-item]
+        [:budget :budget-item]})
+    #{[:transaction-item :transaction :items]
+      [:budget-item :budget :items]}))
+
 (def ^:private default-opts
-  {:relationships schema/relationships
+  {:relationships relationships
    :query-prefix [:query]})
 
 (defn apply-criteria
