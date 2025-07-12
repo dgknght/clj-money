@@ -769,8 +769,12 @@
                          commodity
                          (assoc :lot/commodity commodity))
                        {:sort [[:lot/purchase-date :asc]]})
-        (map #(assoc % :lot/items (models/select {:lot-item/lot %}
-                                                 {:sort [[:transaction/transaction-date :asc]]})))
+        (map #(assoc %
+                     :lot/items
+                     (models/select
+                       {:lot-item/lot %}
+                       {:sort [[:transaction/transaction-date :asc]]
+                        :select-also [:transaction/transaction-date]})))
         (group-by (comp :id :lot/commodity))
         (map (comp #(apply valuate-lots %)
                    #(update-in % [0] (fn [id] (models/find id :commodity)))))
