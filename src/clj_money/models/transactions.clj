@@ -153,7 +153,8 @@
   [account & {:as options}]
   (models/select (acts/->criteria account options)
                  {:sort [[:transaction/transaction-date :desc]
-                         [:transaction-item/index :desc]]}))
+                         [:transaction-item/index :desc]]
+                  :select-also [:transaction/transaction-date]}))
 
 (defn- last-account-item-before
   [account date]
