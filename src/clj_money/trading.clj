@@ -514,7 +514,7 @@
   [{:trade/keys [lots shares commodity] :as trade}]
 
   (when (< (total-shares-owned lots) shares)
-    (log/warnf "Attempt to sell more shares when owned: %s" trade))
+    (log/warnf "Attempt to sell more shares than owned: %s" trade))
 
   (loop [trd (assoc trade
                     :trade/lots []
