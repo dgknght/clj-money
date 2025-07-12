@@ -352,28 +352,18 @@
   (util/model-type? :transaction-item))
 
 (defn- belongs-to-trx?
-  [{:keys [id] :as trx}]
+  [{:transaction/keys [items]}]
   (fn [model]
-    (if (transaction-item? model)
-      (let [{:transaction-item/keys [transaction] :as item} model]
-        (when (and id
-                   (not (:id transaction)))
-          (pprint {::trx trx
-                   ::item item})
-          (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
-                                                                                :item item})))
-        (= id (:id transaction)))
-      false)))
+    (and (transaction-item? model)
+         (contains? (set (map :id items)) (:id model)))))
 
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [[before {:transaction/keys [transaction-date] :keys [id] :as after}]]
+  [[before {:transaction/keys [transaction-date] :as after}]]
   (let [entity (models/find (:transaction/entity after) :entity)]
     (->> (:transaction/items after)
-         (map #(cond-> %
-                 true (assoc :transaction/transaction-date transaction-date)
-                 id   (assoc :transaction-item/transaction {:id id})))
+         (map #(assoc % :transaction/transaction-date transaction-date))
          (realize-accounts entity)
          (group-by (comp util/->model-ref
                          :transaction-item/account))
@@ -443,11 +433,12 @@
 
 (defmethod models/before-delete :transaction
   [trx]
-  (when (and (:id trx)
-             (< 0  (models/count {:transaction-item/transaction trx
-                                  :transaction/transaction-date (:transaction/transaction-date trx)
-                                  :transaction-item/reconciliation [:!= nil]})))
-    (throw (IllegalStateException. "Cannot delete transaction with reconciled items")))
+  (let [existing (models/find trx)]
+    (when (and (:id trx)
+               (< 0 (->> (:transacdtion/transaction-items existing)
+                         (filter :transaction-item/reconciliation)
+                         count)))
+      (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
   trx)
 
 (defn append-items
@@ -494,8 +485,7 @@
                                                  :transaction/transaction-date)
                                         #(update-in-if %
                                                        [:transaction-item/account]
-                                                       util/->model-ref)))
-                             (util/pp->> ::updated-items))
+                                                       util/->model-ref))))
                         [(assoc account
                                 :account/transaction-date-range nil
                                 :account/quantity 0M

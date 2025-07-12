@@ -53,6 +53,7 @@
   {:account/system-tags set
    :account/user-tags set
    :account/allocations (partial into {})
+   :account/transaction-date-range (partial mapv dates/->local-date)
    :budget/start-date dates/->local-date
    :budget/end-date dates/->local-date
    :budget-item-spec/start-date dates/->local-date

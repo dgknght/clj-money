@@ -508,6 +508,7 @@
   "Given a map without an :id value, adds one with a random UUID as a value"
   ([m] (+id m random-uuid))
   ([m id-fn]
+   {:pre [(map? m)]}
    (if (:id m)
      m
      (assoc m :id (id-fn)))))
