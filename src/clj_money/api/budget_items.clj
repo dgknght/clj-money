@@ -33,6 +33,7 @@
   [{:keys [params]}]
   (-> params
       (select-keys [:budget-item/periods ; TODO: use list of attributes derived from schema instead
+                    :budget-item/account
                     :budget-item/spec])
       (update-in [:budget-item/periods] (partial mapv bigdec))))
 
