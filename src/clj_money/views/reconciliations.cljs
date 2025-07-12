@@ -55,7 +55,7 @@
     (->> item-refs
          (filter second)
          (map (comp #(vector %
-                             (get-in items-map [% :transaction-item/transaction-date]))
+                             (get-in items-map [% :transaction/transaction-date]))
                     first)))))
 
 (defn- save-reconciliation*

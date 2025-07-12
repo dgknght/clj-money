@@ -23,9 +23,8 @@
                                                      :transaction-item/quantity
                                                      :transaction-item/action])))
                      (into {}))]
-      (->> (models/select #:transaction-item{:transaction-date (:transaction/transaction-date trx)
-                                             :transaction trx
-                                             :reconciliation [:!= nil]})
+      (->> (:transaction/items (:models/find trx))
+           (filter :transaction-item/reconciliation)
            (map #(select-keys % [:id
                                  :transaction-item/quantity
                                  :transaction-item/action]))
@@ -59,13 +58,6 @@
     (= debit credit))))
 
 (v/reg-msg sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
-
-(defn- transaction-dates-match?
-  [{:transaction/keys [transaction-date items]}]
-  (->> items
-       (map :transaction/transaction-date)
-       (apply = transaction-date)))
-(v/reg-msg transaction-dates-match? "All transaction items must have the same date as the transaction")
 
 (def actions
   "Set of valid transaction action values, includes :debit and :credit"
@@ -253,6 +245,7 @@
   ([account basis items]
    (re-index account basis {} items))
   ([{:as account :account/keys [commodity]} basis {:keys [force?] :or {force? false}} items]
+   {:pre [(every? :transaction/transaction-date items)]}
    (let [updated-items (->> items
                             (reduce (fn [output item]
                                       (let [updated (apply-prev item (last output))]
@@ -288,7 +281,8 @@
                    {:transaction-item/account account
                     :transaction/transaction-date [:>= as-of]}
                    :transaction-item)
-                 {:sort [[:transaction-item/index :asc]]}))
+                 {:sort [[:transaction-item/index :asc]]
+                  :select-also [:transaction/transaction-date]}))
 
 (defn- propagate-account-items
   "Returns a function that takes a list of transaction items and returns the
@@ -495,10 +489,13 @@
                                                   :entity)
                                        initial-basis
                                        {:force? true})
-                             (map (comp #(dissoc % ::polarized-quantity)
+                             (map (comp #(dissoc %
+                                                 ::polarized-quantity
+                                                 :transaction/transaction-date)
                                         #(update-in-if %
                                                        [:transaction-item/account]
-                                                       util/->model-ref))))
+                                                       util/->model-ref)))
+                             (util/pp->> ::updated-items))
                         [(assoc account
                                 :account/transaction-date-range nil
                                 :account/quantity 0M
