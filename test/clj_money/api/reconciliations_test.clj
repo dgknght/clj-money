@@ -96,7 +96,7 @@
                       (let [item (find-transaction-item [(t/local-date 2015 1 10)
                                                          101M
                                                          account])]
-                        [((juxt :id :transaction-item/transaction-date) item)])
+                        [((juxt :id :transaction/transaction-date) item)])
                       [])
           status (if complete?
                    :completed

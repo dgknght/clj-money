@@ -8,8 +8,13 @@
     (is (= :user (util/model-type {:user/name "John"}))
         "A model type is derived from the keyword namespace")
     (is (= :user (util/model-type {:id 101
-                                 :user/name "John"}))
+                                   :user/name "John"}))
         "A model type is derived from the keyword namespace if a non-namespace keyword is present")
+    (is (= :user (util/model-type {:id 101
+                                   :user/first-name "John"
+                                   :user/last-name "Doe"
+                                   :parent/first-name "Jane"}))
+        "A model type is derived from the most frequently occurring keyword namespace if more than one is present")
     (is (= :user (util/model-type ^{:clj-money/model-type :user} {:id 101}))
         "A model type is read from meta data, if present"))
   (testing "Setting the type of a model"

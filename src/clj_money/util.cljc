@@ -1,7 +1,6 @@
 (ns clj-money.util
   (:refer-clojure :exclude [abs format group-by])
   (:require [clojure.string :as string]
-            [clojure.set :refer [union]]
             #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
@@ -50,28 +49,6 @@
    (pprint {m (transform v)})
    v))
 
-(defn- namespaces
-  "Given a criteria (map or vector containing an operator an maps) return
-   all of the namespaces from the map keys in a set."
-  [x]
- (cond
-   (map? x) (->> (keys x)
-                 (map namespace)
-                 (filter identity)
-                 (map keyword)
-                 set)
-   (sequential? x) (->> x
-                        (map namespaces)
-                        (reduce union))) )
-
-(defn- single-ns
-  "Give a criteria (map or vector), return the single namespace if
-  only one namespace is present. Otherwise, return nil."
-  [x]
-  (let [namespaces (namespaces x)]
-    (when (= 1 (count namespaces))
-      (first namespaces))))
-
 (def model-types
   (->> schema/models
        (map :id)
@@ -104,7 +81,15 @@
 (defmethod model-type* ::map
   [x]
   (or (-> x meta :clj-money/model-type)
-      (single-ns (dissoc x :id))))
+      (->> (keys x)
+           (map namespace)
+           (filter identity)
+           (clojure.core/group-by identity)
+           (map #(update-in % [1] count))
+           (sort-by second >)
+           (map first)
+           first
+           keyword)))
 
 (defmethod model-type* ::keyword
   [x]

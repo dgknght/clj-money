@@ -473,26 +473,30 @@
               inv-exp (models/find-by #:account{:name "Investment Expenses"
                                                 :entity entity})]
           (is (seq-of-maps-like?
-                [#:transaction-item{:transaction-date (t/local-date 2015 1 17)
-                                    ;:description "Purchase 100 shares of AAPL at 9.95"
-                                    :value 5M
-                                    :quantity 5M
-                                    :balance 5M
-                                    :action :debit
-                                    :index 0}
-                 #:transaction-item{:transaction-date (t/local-date 2015 5 1)
-                                    ;:description "Sell 100 shares of AAPL at 6.000"
-                                    :value 10M
-                                    :quantity 10M
-                                    :balance 15M
-                                    :action :debit
-                                    :index 1}]
+                [{:transaction/transaction-date (t/local-date 2015 1 17)
+                  :transaction/description "Purchase 100.000 shares of AAPL at 9.950"
+                  :transaction-item/value 5M
+                  :transaction-item/quantity 5M
+                  :transaction-item/balance 5M
+                  :transaction-item/action :debit
+                  :transaction-item/index 0}
+                 {:transaction/transaction-date (t/local-date 2015 5 1)
+                  :transaction/description "Sell 100.000 shares of AAPL at 6.000"
+                  :transaction-item/value 10M
+                  :transaction-item/quantity 10M
+                  :transaction-item/balance 15M
+                  :transaction-item/action :debit
+                  :transaction-item/index 1}]
                 (models/select
-                  #:transaction-item{:account inv-exp
-                                     :transaction-date [:between>
-                                                        (t/local-date 2015 1 1)
-                                                        (t/local-date 2016 1 1)]}
-                  {:sort [:transaction-item/transaction-date]}))
+                  (util/model-type
+                    {:transaction-item/account inv-exp
+                     :transaction/transaction-date [:between>
+                                                    (t/local-date 2015 1 1)
+                                                    (t/local-date 2016 1 1)]}
+                    :transaction-item)
+                  {:sort [:transaction/transaction-date]
+                   :select-also [:transaction/transaction-date
+                                 :transaction/description]}))
               "The Investment Expenses account receives items for the fees charged on trading actions")
           (is (seq-of-maps-like?
                 [#:transaction-item{:transaction-date (t/local-date 2015 3 2)

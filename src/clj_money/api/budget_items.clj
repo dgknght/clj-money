@@ -9,7 +9,6 @@
                      authorize]]
             [clj-money.util :as util]
             [clj-money.models :as models]
-            [clj-money.models.schema :as schema]
             [clj-money.authorization.budget-items]))
 
 (defn- extract-criteria
@@ -33,7 +32,9 @@
 (defn- extract-item
   [{:keys [params]}]
   (-> params
-      (select-keys (schema/attributes :budget-item))
+      (select-keys [:budget-item/periods ; TODO: use list of attributes derived from schema instead
+                    :budget-item/account
+                    :budget-item/spec])
       (update-in [:budget-item/periods] (partial mapv bigdec))))
 
 (defn- create

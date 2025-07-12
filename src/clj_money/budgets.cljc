@@ -319,7 +319,7 @@
                                           :quantity)
                                     s)))
                   (fetch-item-summaries
-                    {:transaction-item/transaction-date [start-date end-date]
+                    {:transaction/transaction-date [start-date end-date]
                      :transaction-item/account account
                      :period [1 period-type]})))
     out-chan))

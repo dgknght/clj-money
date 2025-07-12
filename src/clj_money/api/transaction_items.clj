@@ -75,7 +75,7 @@
       comparatives/symbolize
       (update-in-if [:transaction-date] unserialize-date)
       ensure-dates
-      (rename-keys {:transaction-date :transaction-item/transaction-date
+      (rename-keys {:transaction-date :transaction/transaction-date
                     :account-id :transaction-item/account
                     :entity-id :transaction/entity
                     :reconciliation-id :transaction-item/reconciliation})
@@ -84,7 +84,7 @@
       (update-in-if [:transaction-item/reconciliation] (comp util/->model-ref
                                                              uuid))
       (update-in-if [:transaction/entity] util/->model-ref)
-      (select-keys [:transaction-item/transaction-date
+      (select-keys [:transaction/transaction-date
                     :transaction-item/account
                     :transaction-item/reconciliation
                     :transaction/entity])
@@ -132,7 +132,7 @@
   (->> (-> req
            extract-criteria
            (models/select (assoc (extract-options req)
-                                 :sort [[:transaction-item/transaction-date :desc]
+                                 :sort [[:transaction/transaction-date :desc]
                                         [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
                                                :transaction/attachment-count])))
