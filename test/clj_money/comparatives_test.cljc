@@ -30,8 +30,8 @@
         "-on-or-after translates to >=")
     (is (= {:transaction/transaction-date [:between "2015-01-01" "2015-02-01"]}
            (comparatives/symbolize
-             #:transaction-item{:transaction-date-on-or-after "2015-01-01"
-                                :transaction-date-on-or-before "2015-02-01"}))
+             #:transaction{:transaction-date-on-or-after "2015-01-01"
+                           :transaction-date-on-or-before "2015-02-01"}))
         "-on-or-after and -on-or-before with the same prefix translate to :between")
     (is (= {:scheduled-transaction/start-on [:between "2015-01-01" "2015-02-01"]}
            (comparatives/symbolize
@@ -39,8 +39,8 @@
                                      :start-on-or-before "2015-02-01"}))
         "-on-or-after and -on-or-before with the same prefix translate to :between when key ends with -on")
     (is (= {:transaction/transaction-date [:between>
-                                                "2015-01-01"
-                                                "2015-02-01"]}
+                                           "2015-01-01"
+                                           "2015-02-01"]}
            (comparatives/symbolize
              {:transaction/transaction-date-on-or-after "2015-01-01"
               :transaction/transaction-date-before "2015-02-01"}))
