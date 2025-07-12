@@ -51,7 +51,7 @@
 (defn- last-item
   [inclusion date items]
   (let [pred (case inclusion
-               :on-or-before (fn [{:transaction-item/keys [transaction-date]}]
+               :on-or-before (fn [{:transaction/keys [transaction-date]}]
                                (or (= transaction-date date)
                                    (t/before? transaction-date date)))
                :before #(t/before? (:transaction/transaction-date %) date)
@@ -69,10 +69,13 @@
                 :time-step (t/years 1)
                 :fetch-fn (fn [ids date]
                             (models/select
-                              #:transaction-item{:account [:in ids]
-                                                 :transaction-date [:<between
-                                                                    (t/minus date (t/years 1))
-                                                                    date]}))
+                              (util/model-type
+                                {:transaction-item/account [:in ids]
+                                 :transaction/transaction-date [:<between
+                                                                (t/minus date (t/years 1))
+                                                                date]}
+                                :transaction-item)
+                              {:select-also [:transaction/transaction-date]}))
                 :id-fn (comp :id :transaction-item/account)
                 :find-one-fn (partial last-item :on-or-before as-of)}
                opts))
@@ -113,10 +116,13 @@
                                          :lot/purchase-date [:<= as-of]})))
         lot-items (when (seq lots)
                     (group-by (comp :id :lot-item/lot)
-                              (models/select {:lot-item/lot [:in (->> (vals lots)
-                                                                      (mapcat identity)
-                                                                      (mapv :id))]
-                                              :transaction/transaction-date [:<= as-of]})))
+                              (models/select
+                                (util/model-type
+                                  {:lot-item/lot [:in (->> (vals lots)
+                                                           (mapcat identity)
+                                                           (mapv :id))]
+                                   :transaction/transaction-date [:<= as-of]}
+                                  :lot-item))))
         prices (atom {})]
     (reify accounts/ValuationData
       (fetch-entity [_ _account] entity)
@@ -633,7 +639,7 @@
 
 (defn- aggregate-item
   [{:keys [budget account]}]
-  (let [items (bdgs/find-items-by-account budget account)]
+  (let [items (bdgs/find-items-by-account (:budget/items budget) account)]
     (when (seq items)
       {:account account
        :periods (->> items
