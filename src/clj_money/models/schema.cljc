@@ -76,7 +76,9 @@
                :transient? true}
               {:id :transaction-date-range
                :type :tuple
-               :transient? true}}
+               :transient? true}
+              {:id :settings
+               :type :map}}
     :refs #{:user}}
    {:id :grant
     :fields #{{:id :permissions
