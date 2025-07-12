@@ -3,6 +3,7 @@ pom.xml.asc
 *jar
 /lib/
 /log/
+/logs/
 /classes/
 /target/
 /checkouts/
@@ -21,6 +22,7 @@ resources/public/cljs-out
 .rebel_readline_history
 profiles.clj
 .lsp/
+.env
 env/dev/
 env/docker/
 node_modules/
