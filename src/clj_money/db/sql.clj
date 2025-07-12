@@ -253,11 +253,23 @@
   [model _id-map]
   model)
 
+(defn- ref-to-attrs
+  [ref]
+  (if (keyword? ref)
+    [(str (name ref) "-id")]
+    (let [{:keys [columns]} ref]
+      (map (fn [c]
+             (if (keyword? c)
+               c
+               (second c)))
+           columns))))
+
 (defn- build-attributes
   [[t fields refs]]
   (let [attrs (->> refs
-                   (map (comp #(keyword (str (name %) "-id"))
-                              (some-fn :id identity)))
+                   (mapcat ref-to-attrs)
+                   (map #(keyword (name t) (name %)))
+                   (util/pp->> ::refs)
                    (concat (map :id fields))
                    (map (comp #(keyword (name t) %)
                               name))
