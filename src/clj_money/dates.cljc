@@ -443,6 +443,7 @@
   "Given a model and a key where a date range exists, adjust the boundary
   if necessary to include the specified date"
   [m k & ds]
+  {:pre [(every? identity ds)]}
   (apply update-in m [k] push-boundary ds))
 
 #?(:clj (defn zone-id
