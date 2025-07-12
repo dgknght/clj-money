@@ -116,7 +116,7 @@
                               (models/select {:lot-item/lot [:in (->> (vals lots)
                                                                       (mapcat identity)
                                                                       (mapv :id))]
-                                              :lot-item/transaction-date [:<= as-of]})))
+                                              :transaction/transaction-date [:<= as-of]})))
         prices (atom {})]
     (reify accounts/ValuationData
       (fetch-entity [_ _account] entity)
@@ -770,7 +770,7 @@
                          (assoc :lot/commodity commodity))
                        {:sort [[:lot/purchase-date :asc]]})
         (map #(assoc % :lot/items (models/select {:lot-item/lot %}
-                                                 {:sort [[:lot-item/transaction-date :asc]]})))
+                                                 {:sort [[:transaction/transaction-date :asc]]})))
         (group-by (comp :id :lot/commodity))
         (map (comp #(apply valuate-lots %)
                    #(update-in % [0] (fn [id] (models/find id :commodity)))))

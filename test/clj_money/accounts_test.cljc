@@ -428,27 +428,27 @@
                                   :lot/purchase-date (t/local-date 2020 2 1)}]
           [:four-o-one-k :msft] [{:id 303
                                   :lot/purchase-date (t/local-date 2020 1 1)}]}
-   :lot-items {300 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
+   :lot-items {300 [{:transaction/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}]
-               301 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
+               301 [{:transaction/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}
-                    {:lot-item/transaction-date (t/local-date 2020 2 1)
+                    {:transaction/transaction-date (t/local-date 2020 2 1)
                      :lot-item/action :sell
                      :lot-item/shares (d 50)
                      :lot-item/price (d 9)}]
-               302 [{:lot-item/transaction-date (t/local-date 2020 1 1); AAPL in 401k
+               302 [{:transaction/transaction-date (t/local-date 2020 1 1); AAPL in 401k
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}]
-               303 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
+               303 [{:transaction/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}]
-               304 [{:lot-item/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
+               304 [{:transaction/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 12)}]}

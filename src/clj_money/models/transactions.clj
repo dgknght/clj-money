@@ -39,7 +39,7 @@
 (defn- not-a-trading-transaction?
   [{:keys [id] :transaction/keys [original-transaction-date]}]
   (zero? (models/count {:lot-item/transaction  {:id id}
-                        :lot-item/transaction-date original-transaction-date})))
+                        :transaction/transaction-date original-transaction-date})))
 
 (v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
                                         :path []})
