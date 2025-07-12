@@ -21,6 +21,7 @@ resources/public/cljs-out
 .rebel_readline_history
 profiles.clj
 .lsp/
+.env
 env/dev/
 env/docker/
 node_modules/
