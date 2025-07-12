@@ -26,4 +26,4 @@
   [item]
   (-> item
       (update-in [:transaction-item/action] keyword)
-      (update-in-if [:transaction-item/transaction-date] t/local-date)))
+      (update-in-if [:transaction/transaction-date] t/local-date)))

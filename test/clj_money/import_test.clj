@@ -492,7 +492,7 @@
                                      :transaction-date [:between>
                                                         (t/local-date 2015 1 1)
                                                         (t/local-date 2016 1 1)]}
-                  {:sort [:transaction-item/transaction-date]}))
+                  {:sort [:transaction/transaction-date]}))
               "The Investment Expenses account receives items for the fees charged on trading actions")
           (is (seq-of-maps-like?
                 [#:transaction-item{:transaction-date (t/local-date 2015 3 2)

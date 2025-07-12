@@ -133,27 +133,27 @@
 (defn- assert-successful-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:transaction-item/transaction-date (t/local-date 2017 01 29)
+  (is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 01 29)
                            :transaction/description "Kroger"
                            :transaction-item/quantity 100M
                            :transaction-item/polarized-quantity -100M
                            :transaction-item/action :credit}
-                          {:transaction-item/transaction-date (t/local-date 2017 01 22)
+                          {:transaction/transaction-date (t/local-date 2017 01 22)
                            :transaction/description "Kroger"
                            :transaction-item/quantity 100M
                            :transaction-item/polarized-quantity -100M
                            :transaction-item/action :credit}
-                          {:transaction-item/transaction-date (t/local-date 2017 01 15)
+                          {:transaction/transaction-date (t/local-date 2017 01 15)
                            :transaction/description "Paycheck"
                            :transaction-item/quantity 1000M
                            :transaction-item/polarized-quantity 1000M
                            :transaction-item/action :debit}
-                          {:transaction-item/transaction-date (t/local-date 2017 01 14)
+                          {:transaction/transaction-date (t/local-date 2017 01 14)
                            :transaction/description "Kroger"
                            :transaction-item/quantity 100M
                            :transaction-item/polarized-quantity -100M
                            :transaction-item/action :credit}
-                          {:transaction-item/transaction-date (t/local-date 2017 01 01)
+                          {:transaction/transaction-date (t/local-date 2017 01 01)
                            :transaction/description "Kroger"
                            :transaction-item/quantity 100M
                            :transaction-item/polarized-quantity -100M
@@ -226,13 +226,13 @@
                        parse-edn-body)]
       (is (http-success? response))
       (is (seq-of-maps-like? [{:transaction-item/quantity 103M
-                               :transaction-item/transaction-date (t/local-date 2015 01 04)
+                               :transaction/transaction-date (t/local-date 2015 01 04)
                                :transaction/description "For the sub-zero"}
                               {:transaction-item/quantity 102M
-                               :transaction-item/transaction-date (t/local-date 2015 01 03)
+                               :transaction/transaction-date (t/local-date 2015 01 03)
                                :transaction/description "For a Tesla"}
                               {:transaction-item/quantity 101M
-                               :transaction-item/transaction-date (t/local-date 2015 01 02)
+                               :transaction/transaction-date (t/local-date 2015 01 02)
                                :transaction/description "For a rainy day"}]
                              (:edn-body response))
           "The items in the specified account and the children accounts are returned."))))

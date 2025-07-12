@@ -28,7 +28,7 @@
 (use-fixtures :each reset-db)
 
 (def ^:private ->item-ref
-  (juxt :id :transaction-item/transaction-date))
+  (juxt :id :transaction/transaction-date))
 
 (def ^:private reconciliation-context
   (conj basic-context
@@ -285,7 +285,7 @@
                                                  :quantity 53M
                                                  :reconciliation nil}]
                              (models/select (-> checking models/find acts/->criteria)
-                                            {:sort [:transaction-item/transaction-date]}))
+                                            {:sort [:transaction/transaction-date]}))
           "The retrieved transaction items have the new reconciliation reference"))))
 
 (deftest cannot-create-a-completed-out-of-balance-reconciliation

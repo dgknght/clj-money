@@ -115,7 +115,7 @@
                                                    :balance 1000M}
                                 #:transaction-item{:index 0
                                                    :balance 1000M}]
-                               (models/select {:transaction-item/transaction-date date}))
+                               (models/select {:transaction/transaction-date date}))
             "The item indices and balances are calculated")))))
 
 (deftest transaction-date-is-required

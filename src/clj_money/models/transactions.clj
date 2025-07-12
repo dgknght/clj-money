@@ -63,7 +63,7 @@
 (defn- transaction-dates-match?
   [{:transaction/keys [transaction-date items]}]
   (->> items
-       (map :transaction-item/transaction-date)
+       (map :transaction/transaction-date)
        (apply = transaction-date)))
 (v/reg-msg transaction-dates-match? "All transaction items must have the same date as the transaction")
 
@@ -152,7 +152,7 @@
   "Returns the transaction items for the specified account"
   [account & {:as options}]
   (models/select (acts/->criteria account options)
-                 {:sort [[:transaction-item/transaction-date :desc]
+                 {:sort [[:transaction/transaction-date :desc]
                          [:transaction-item/index :desc]]}))
 
 (defn- last-account-item-before
@@ -271,8 +271,8 @@
             (count items))
        (cons (-> account
                  (dates/push-model-boundary :account/transaction-date-range
-                                            (:transaction-item/transaction-date (last items))
-                                            (some :transaction-item/transaction-date
+                                            (:transaction/transaction-date (last items))
+                                            (some :transaction/transaction-date
                                                   (cons basis
                                                         items)))
                  (assoc :account/quantity final-qty
@@ -315,7 +315,7 @@
                 (propagation-basis account as-of)
                 (->> (cond->> affected-items
                        (not delete?) (concat items))
-                     (sort-by :transaction-item/transaction-date t/before?)
+                     (sort-by :transaction/transaction-date t/before?)
                      (map polarize))))))
 
 (defn- account-model-ref-ids
@@ -376,7 +376,7 @@
   (let [entity (models/find (:transaction/entity after) :entity)]
     (->> (:transaction/items after)
          (map #(cond-> %
-                 true (assoc :transaction-item/transaction-date transaction-date)
+                 true (assoc :transaction/transaction-date transaction-date)
                  id   (assoc :transaction-item/transaction {:id id})))
          (realize-accounts entity)
          (group-by (comp util/->model-ref
@@ -449,7 +449,7 @@
   [trx]
   (when (and (:id trx)
              (< 0  (models/count {:transaction-item/transaction trx
-                                  :transaction-item/transaction-date (:transaction/transaction-date trx)
+                                  :transaction/transaction-date (:transaction/transaction-date trx)
                                   :transaction-item/reconciliation [:!= nil]})))
     (throw (IllegalStateException. "Cannot delete transaction with reconciled items")))
   trx)
@@ -477,8 +477,9 @@
 (defn propagate-account-from-start
   [entity account]
   (let [items (->> (models/select {:transaction-item/account account}
-                                  {:sort [:transaction-item/transaction-date
-                                          :transaction-item/index]})
+                                  {:sort [:transaction/transaction-date
+                                          :transaction-item/index]
+                                   :select-also [:transaction/transaction-date]})
                    (map (comp polarize
                               #(assoc % :transaction-item/account account)))
                    seq)
@@ -545,7 +546,7 @@
                     :transaction-item/index 0
                     :transaction-item/balance nil}
                    {:transaction-item/account (util/->model-ref from-account)
-                    :transaction-item/transaction-date [:>= as-of]})
+                    :transaction/transaction-date [:>= as-of]})
     (doseq [account [from-account to-account]]
       (propagate-account-from-start entity account))))
 
