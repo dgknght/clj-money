@@ -15,18 +15,6 @@
             [clj-money.models.propagation :as prop]
             [clj-money.accounts :as acts]))
 
-(defn- simplify
-  [m]
-  (if (sequential? m)
-    (map simplify m)
-    (select-keys m [:transaction-item/index
-                    :transaction-item/transaction-date
-                    :transaction-item/quantity
-                    :transaction-item/balance
-                    :transaction/description
-                    :account/name
-                    :entity/name])))
-
 (defn- no-reconciled-quantities-changed?
   [{:transaction/keys [items] :as trx}]
   (if (:id trx)
