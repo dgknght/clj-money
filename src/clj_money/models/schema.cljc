@@ -224,6 +224,8 @@
                :type :string}
               {:id :start-date
                :type :date}
+              {:id :date-spec
+               :type :map}
               {:id :end-date
                :type :date}
               {:id :enabled
