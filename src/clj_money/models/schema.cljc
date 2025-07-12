@@ -200,7 +200,7 @@
     :refs #{:lot
             {:id :transaction
              :columns #{:transaction-date
-                        [:id :transaction-id]}}}}
+                        [:id :transaction-id]}}}} ; TODO: really shouldn't have -id here
    {:id :budget
     :fields #{{:id :name
                :type :string}
