@@ -253,11 +253,42 @@
   [model _id-map]
   model)
 
+(defn- ref-to-attrs
+  [ref]
+  (if (keyword? ref)
+    [(str (name ref) "-id")]
+    (let [{:keys [columns]} ref]
+      (map (fn [c]
+             (if (keyword? c)
+               c
+               (second c)))
+           columns))))
+
+(defn- build-attributes
+  [[t fields refs]]
+  (let [attrs (->> refs
+                   (mapcat ref-to-attrs)
+                   (map #(keyword (name t) (name %)))
+                   (concat (map :id fields))
+                   (map (comp #(keyword (name t) %)
+                              name))
+                   set)]
+    [t (conj attrs :id)]))
+
+(def attributes
+  "A map of model types to attributes for the type"
+  (-> (->> schema/models
+           (map (comp build-attributes
+                      (juxt :id :fields :refs)))
+           (into {}))
+      (update-in [:transaction-item]
+                 conj
+                 :transaction-item/transaction-date
+                 :transaction-item/transaction-id)))
+
 (defn- strip-unrecognized-keys
   [m]
-  (if-let [keys (seq (model-keys m))]
-    (select-keys m keys)
-    m))
+  (select-keys m (attributes (util/model-type m))))
 
 (defn- execute-and-aggregate
   "Returns a function that executes the database operation, saves the result

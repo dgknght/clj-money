@@ -54,7 +54,7 @@
                :on-or-before (fn [{:transaction-item/keys [transaction-date]}]
                                (or (= transaction-date date)
                                    (t/before? transaction-date date)))
-               :before #(t/before? (:transaction-item/transaction-date %) date)
+               :before #(t/before? (:transaction/transaction-date %) date)
                inclusion)]
     (->> items
          (filter pred)

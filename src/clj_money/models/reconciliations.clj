@@ -203,7 +203,7 @@
     (->item-ref* item)))
 
 (def ^:private reffable?
-  (every-pred :id :transaction-item/transaction-date))
+  (every-pred :id :transaction/transaction-date))
 
 (defn- item-or-ref?
   [item]
@@ -241,10 +241,10 @@
                         {:transaction-item/reconciliation recon}
                         :transaction))
        (mapcat (fn [{:transaction/keys [items transaction-date]}]
-                 (mapv #(assoc % :transaction-item/transaction-date transaction-date)
+                 (mapv #(assoc % :transaction/transaction-date transaction-date)
                        items)))
        (filter #(util/model= account (:transaction-item/account %)))
-       (map (juxt :id :transaction-item/transaction-date))))
+       (map (juxt :id :transaction/transaction-date))))
 
 (defn- has-item-refs?
   [{:reconciliation/keys [item-refs]}]

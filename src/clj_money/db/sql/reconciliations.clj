@@ -23,7 +23,7 @@
       (update-in [:reconciliation/item-refs] ; I added this when I removed reconstruct, but it still needs some attention
                  (fn [items]
                    (mapv #(if (map? %)
-                            ((juxt :id :transaction-item/transaction-date) %)
+                            ((juxt :id :transaction/transaction-date) %)
                             %)
                          items)))))
 
@@ -31,7 +31,7 @@
   [{:keys [storage]} reconciliations]
   (map #(assoc %
                :reconciliation/item-refs
-               (mapv (juxt :id :transaction-item/transaction-date)
+               (mapv (juxt :id :transaction/transaction-date)
                      (db/select storage {:transaction-item/reconciliation %} {})))
        reconciliations))
 
