@@ -175,7 +175,7 @@
   {:start-date start-date
    :end-date end-date
    :quantity (->> items
-                  (filter #(dates/within? (:transaction-item/transaction-date %) start-date end-date))
+                  (filter #(dates/within? (:transaction/transaction-date %) start-date end-date))
                   (map (comp :transaction-item/polarized-quantity
                              polarize-item-quantity))
                   (reduce d/+ 0M))})

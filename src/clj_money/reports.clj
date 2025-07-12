@@ -54,7 +54,7 @@
                :on-or-before (fn [{:transaction-item/keys [transaction-date]}]
                                (or (= transaction-date date)
                                    (t/before? transaction-date date)))
-               :before #(t/before? (:transaction-item/transaction-date %) date)
+               :before #(t/before? (:transaction/transaction-date %) date)
                inclusion)]
     (->> items
          (filter pred)
@@ -116,7 +116,7 @@
                               (models/select {:lot-item/lot [:in (->> (vals lots)
                                                                       (mapcat identity)
                                                                       (mapv :id))]
-                                              :lot-item/transaction-date [:<= as-of]})))
+                                              :transaction/transaction-date [:<= as-of]})))
         prices (atom {})]
     (reify accounts/ValuationData
       (fetch-entity [_ _account] entity)
@@ -769,8 +769,12 @@
                          commodity
                          (assoc :lot/commodity commodity))
                        {:sort [[:lot/purchase-date :asc]]})
-        (map #(assoc % :lot/items (models/select {:lot-item/lot %}
-                                                 {:sort [[:lot-item/transaction-date :asc]]})))
+        (map #(assoc %
+                     :lot/items
+                     (models/select
+                       {:lot-item/lot %}
+                       {:sort [[:transaction/transaction-date :asc]]
+                        :select-also [:transaction/transaction-date]})))
         (group-by (comp :id :lot/commodity))
         (map (comp #(apply valuate-lots %)
                    #(update-in % [0] (fn [id] (models/find id :commodity)))))

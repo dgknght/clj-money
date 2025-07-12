@@ -10,7 +10,7 @@
             [clj-money.accounts :as accounts]))
 
 (deftest create-criteria-from-one-account
-  (is (= {:transaction-item/transaction-date [:between
+  (is (= {:transaction/transaction-date [:between
                                               (t/local-date 2020 1 1)
                                               (t/local-date 2020 12 31)]
           :transaction-item/account {:id 101}}
@@ -20,7 +20,7 @@
                                              (t/local-date 2020 12 31)]}))))
 
 (deftest create-criteria-from-multiple-accounts
-  (is (= {:transaction-item/transaction-date [:between
+  (is (= {:transaction/transaction-date [:between
                                               (t/local-date 2020 1 1)
                                               (t/local-date 2020 2 29)]
           :transaction-item/account {:id [:in #{101 102}]}}
@@ -428,27 +428,27 @@
                                   :lot/purchase-date (t/local-date 2020 2 1)}]
           [:four-o-one-k :msft] [{:id 303
                                   :lot/purchase-date (t/local-date 2020 1 1)}]}
-   :lot-items {300 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
+   :lot-items {300 [{:transaction/transaction-date (t/local-date 2020 1 1) ; AAPL in IRA
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}]
-               301 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
+               301 [{:transaction/transaction-date (t/local-date 2020 1 1) ; MSFT in IRA
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}
-                    {:lot-item/transaction-date (t/local-date 2020 2 1)
+                    {:transaction/transaction-date (t/local-date 2020 2 1)
                      :lot-item/action :sell
                      :lot-item/shares (d 50)
                      :lot-item/price (d 9)}]
-               302 [{:lot-item/transaction-date (t/local-date 2020 1 1); AAPL in 401k
+               302 [{:transaction/transaction-date (t/local-date 2020 1 1); AAPL in 401k
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}]
-               303 [{:lot-item/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
+               303 [{:transaction/transaction-date (t/local-date 2020 1 1) ; MSFT in 401k
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 10)}]
-               304 [{:lot-item/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
+               304 [{:transaction/transaction-date (t/local-date 2020 2 1) ; AAPL in 401k
                      :lot-item/action :buy
                      :lot-item/shares (d 100)
                      :lot-item/price (d 12)}]}

@@ -3,6 +3,7 @@ pom.xml.asc
 *jar
 /lib/
 /log/
+/logs/
 /classes/
 /target/
 /checkouts/
@@ -24,3 +25,4 @@ profiles.clj
 env/dev/
 env/docker/
 node_modules/
+/**/.env

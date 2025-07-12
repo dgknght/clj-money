@@ -76,7 +76,9 @@
                :transient? true}
               {:id :transaction-date-range
                :type :tuple
-               :transient? true}}
+               :transient? true}
+              {:id :settings
+               :type :map}}
     :refs #{:user}}
    {:id :grant
     :fields #{{:id :permissions
@@ -183,7 +185,7 @@
                :type :date}
               {:id :purchase-price
                :type :decimal}
-              {:id :shared-owned
+              {:id :shares-owned
                :type :string
                :transient? true}}
     :refs #{:account
@@ -198,7 +200,7 @@
     :refs #{:lot
             {:id :transaction
              :columns #{:transaction-date
-                        [:id :transaction-id]}}}}
+                        [:id :transaction-id]}}}} ; TODO: really shouldn't have -id here
    {:id :budget
     :fields #{{:id :name
                :type :string}
@@ -222,6 +224,8 @@
                :type :string}
               {:id :start-date
                :type :date}
+              {:id :date-spec
+               :type :map}
               {:id :end-date
                :type :date}
               {:id :enabled
@@ -277,11 +281,3 @@
   (index-by :id models))
 
 (def ref-id (some-fn :id identity))
-
-(defn attributes
-  [model-type]
-  (let [{:keys [fields refs]} (indexed-models model-type)]
-    (->> refs
-         (concat (map :id fields))
-         (map #(keyword (name model-type)
-                        (name %))))))
