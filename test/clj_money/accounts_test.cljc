@@ -10,7 +10,7 @@
             [clj-money.accounts :as accounts]))
 
 (deftest create-criteria-from-one-account
-  (is (= {:transaction-item/transaction-date [:between
+  (is (= {:transaction/transaction-date [:between
                                               (t/local-date 2020 1 1)
                                               (t/local-date 2020 12 31)]
           :transaction-item/account {:id 101}}
@@ -20,7 +20,7 @@
                                              (t/local-date 2020 12 31)]}))))
 
 (deftest create-criteria-from-multiple-accounts
-  (is (= {:transaction-item/transaction-date [:between
+  (is (= {:transaction/transaction-date [:between
                                               (t/local-date 2020 1 1)
                                               (t/local-date 2020 2 29)]
           :transaction-item/account {:id [:in #{101 102}]}}

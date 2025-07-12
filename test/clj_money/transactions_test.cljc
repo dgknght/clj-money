@@ -314,12 +314,12 @@
                                 items))))))))
 
 (deftest summarize-some-items
-  (let [items [#:transaction-item{:polarized-quantity (d 100)
-                                  :transaction-date (t/local-date 2016 1 2)}
-               #:transaction-item{:polarized-quantity (d 101)
-                                  :transaction-date (t/local-date 2016 1 16)}
-               #:transaction-item{:polarized-quantity (d 102)
-                                  :transaction-date (t/local-date 2016 3 1)}]
+  (let [items [{:transaction-item/polarized-quantity (d 100)
+                :transaction/transaction-date (t/local-date 2016 1 2)}
+               {:transaction-item/polarized-quantity (d 101)
+                :transaction/transaction-date (t/local-date 2016 1 16)}
+               {:transaction-item/polarized-quantity (d 102)
+                :transaction/transaction-date (t/local-date 2016 3 1)}]
         expected [{:start-date (t/local-date 2016 1 1)
                    :end-date (t/local-date 2016 1 31)
                    :quantity (d 201)}
