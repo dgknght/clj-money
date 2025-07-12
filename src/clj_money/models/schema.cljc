@@ -277,11 +277,3 @@
   (index-by :id models))
 
 (def ref-id (some-fn :id identity))
-
-(defn attributes
-  [model-type]
-  (let [{:keys [fields refs]} (indexed-models model-type)]
-    (->> refs
-         (concat (map :id fields))
-         (map #(keyword (name model-type)
-                        (name %))))))
