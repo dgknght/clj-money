@@ -269,7 +269,6 @@
   (let [attrs (->> refs
                    (mapcat ref-to-attrs)
                    (map #(keyword (name t) (name %)))
-                   (util/pp->> ::refs)
                    (concat (map :id fields))
                    (map (comp #(keyword (name t) %)
                               name))
