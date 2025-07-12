@@ -185,7 +185,7 @@
                :type :date}
               {:id :purchase-price
                :type :decimal}
-              {:id :shared-owned
+              {:id :shares-owned
                :type :string
                :transient? true}}
     :refs #{:account
