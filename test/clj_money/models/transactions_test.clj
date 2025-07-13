@@ -458,28 +458,28 @@
           result (-> trx
                        (assoc :transaction/transaction-date (t/local-date 2016 3 10))
                        prop/put-and-propagate)]
-      (is (seq-of-maps-like? [#:transaction-item{:index 2
-                                                 :transaction-date (t/local-date 2016 3 12)
-                                                 :quantity 101M
-                                                 :balance 797M}
-                              #:transaction-item{:index 1
-                                                 :transaction-date (t/local-date 2016 3 10)
-                                                 :quantity 102M
-                                                 :balance 898M}
-                              #:transaction-item{:index 0
-                                                 :transaction-date (t/local-date 2016 3 2)
-                                                 :quantity 1000M
-                                                 :balance 1000M}]
+      (is (seq-of-maps-like? [{:transaction-item/index 2
+                               :transaction/transaction-date (t/local-date 2016 3 12)
+                               :transaction-item/quantity 101M
+                               :transaction-item/balance 797M}
+                              {:transaction-item/index 1
+                               :transaction/transaction-date (t/local-date 2016 3 10)
+                               :transaction-item/quantity 102M
+                               :transaction-item/balance 898M}
+                              {:transaction-item/index 0
+                               :transaction/transaction-date (t/local-date 2016 3 2)
+                               :transaction-item/quantity 1000M
+                               :transaction-item/balance 1000M}]
                              (items-by-account checking))
           "The checking account items are updated")
-      (is (seq-of-maps-like? [#:transaction-item{:index 1
-                                                 :transaction-date (t/local-date 2016 3 12)
-                                                 :quantity 101M
-                                                 :balance 203M}
-                              #:transaction-item{:index 0
-                                                 :transaction-date (t/local-date 2016 3 10)
-                                                 :quantity 102M
-                                                 :balance 102M}]
+      (is (seq-of-maps-like? [{:transaction-item/index 1
+                               :transaction/transaction-date (t/local-date 2016 3 12)
+                               :transaction-item/quantity 101M
+                               :transaction-item/balance 203M}
+                              {:transaction-item/index 0
+                               :transaction/transaction-date (t/local-date 2016 3 10)
+                               :transaction-item/quantity 102M
+                               :transaction-item/balance 102M}]
                              (items-by-account groceries))
           "The groceries account items are updated")
       (assert-account-quantities checking 797M groceries 203M)
@@ -738,7 +738,7 @@
         #:account{:name "Pets"
                   :entity "Personal"
                   :type :expense
-                  :commodity-id "USD"}
+                  :commodity "USD"}
         #:transaction{:transaction-date (t/local-date 2016 3 2)
                       :entity "Personal"
                       :description "Paycheck"
