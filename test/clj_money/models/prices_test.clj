@@ -67,7 +67,7 @@
                        (models/find entity))
           "The entity price date range is updated"))))
 
-(dbtest commodity-id-is-required
+(dbtest commodity-is-required
   (with-context price-context
     (assert-invalid (dissoc (attributes) :price/commodity)
                     {:price/commodity ["Commodity is required"]})))
