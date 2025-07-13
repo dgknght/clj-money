@@ -110,7 +110,9 @@
           (->> nils
                (filter #(get-in (-> m meta :clj-money.models/before) %))
                (map #(vector :db/retract
-                             (get-in m (butlast %))
+                             (get-in m (concat
+                                         (butlast %)
+                                         [:id]))
                              (last %)))))))
 
 #_(def ^:private action-map
