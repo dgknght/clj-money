@@ -183,8 +183,10 @@
 (deftest select-accounts-by-tag
   (with-context tag-context
     (is (= #{"Rent" "Tax" "Dining"}
-           (->> (models/select {:account/user-tags [:&& #{:mandatory
-                                                          :discretionary}]})
+           (->> (models/select {:account/user-tags [:&&
+                                                    #{:mandatory
+                                                      :discretionary}
+                                                    :text]}) ; TODO: this hint is specific to SQL. Move it to a sql ns
                 (map :account/name)
                 set)))))
 
