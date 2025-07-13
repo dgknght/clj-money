@@ -557,7 +557,8 @@
                                           initial-basis)
                                :items (map (comp polarize
                                                  #(assoc % :transaction-item/account account))
-                                           (models/select {:transaction-item/account account}))})
+                                           (models/select {:transaction-item/account account}
+                                                          {:select-also [:transaction/transaction-date]}))})
                             #(assoc-in % [0 :account/entity] entity)
                             #(update-in % [0 :account/commodity] models/resolve-ref :commodity)
                             #(update-in % [0] models/find :account)))
