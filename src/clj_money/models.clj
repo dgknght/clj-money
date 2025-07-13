@@ -78,7 +78,7 @@
 
 (defn count
   [criteria]
-  (:record-count (db/select (db/storage) criteria {:count true})))
+  (db/select (db/storage) criteria {:count true}))
 
 (defn find-by
   ([criteria] (find-by criteria {}))
@@ -249,9 +249,9 @@
                                    before-save
                                    validate
                                    before-validation))))
-         {:keys [saved]} (db/put (or storage
-                                     (db/storage))
-                                 to-save)
+         saved (db/put (or storage
+                           (db/storage))
+                       to-save)
          result (map (comp append-before
                            after-save
                            #(after-read % {}))

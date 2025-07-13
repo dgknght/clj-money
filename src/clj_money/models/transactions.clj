@@ -23,9 +23,8 @@
                                                      :transaction-item/quantity
                                                      :transaction-item/action])))
                      (into {}))]
-      (->> (models/select #:transaction-item{:transaction-date (:transaction/transaction-date trx)
-                                             :transaction trx
-                                             :reconciliation [:!= nil]})
+      (->> (:transaction/items (:models/find trx))
+           (filter :transaction-item/reconciliation)
            (map #(select-keys % [:id
                                  :transaction-item/quantity
                                  :transaction-item/action]))
@@ -59,13 +58,6 @@
     (= debit credit))))
 
 (v/reg-msg sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
-
-(defn- transaction-dates-match?
-  [{:transaction/keys [transaction-date items]}]
-  (->> items
-       (map :transaction/transaction-date)
-       (apply = transaction-date)))
-(v/reg-msg transaction-dates-match? "All transaction items must have the same date as the transaction")
 
 (def actions
   "Set of valid transaction action values, includes :debit and :credit"
@@ -167,6 +159,7 @@
 
 (defn- last-account-item-on-or-before
   [{:as account :account/keys [transaction-date-range]} date]
+  {:pre [(:account/transaction-date-range account)]}
   (models/find-by (util/model-type
                     {:transaction-item/account account
                      :transaction/transaction-date [:between
@@ -252,6 +245,7 @@
   ([account basis items]
    (re-index account basis {} items))
   ([{:as account :account/keys [commodity]} basis {:keys [force?] :or {force? false}} items]
+   {:pre [(every? :transaction/transaction-date items)]}
    (let [updated-items (->> items
                             (reduce (fn [output item]
                                       (let [updated (apply-prev item (last output))]
@@ -287,7 +281,8 @@
                    {:transaction-item/account account
                     :transaction/transaction-date [:>= as-of]}
                    :transaction-item)
-                 {:sort [[:transaction-item/index :asc]]}))
+                 {:sort [[:transaction-item/index :asc]]
+                  :select-also [:transaction/transaction-date]}))
 
 (defn- propagate-account-items
   "Returns a function that takes a list of transaction items and returns the
@@ -357,28 +352,18 @@
   (util/model-type? :transaction-item))
 
 (defn- belongs-to-trx?
-  [{:keys [id] :as trx}]
+  [{:transaction/keys [items]}]
   (fn [model]
-    (if (transaction-item? model)
-      (let [{:transaction-item/keys [transaction] :as item} model]
-        (when (and id
-                   (not (:id transaction)))
-          (pprint {::trx trx
-                   ::item item})
-          (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
-                                                                                :item item})))
-        (= id (:id transaction)))
-      false)))
+    (and (transaction-item? model)
+         (contains? (set (map :id items)) (:id model)))))
 
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [[before {:transaction/keys [transaction-date] :keys [id] :as after}]]
+  [[before {:transaction/keys [transaction-date] :as after}]]
   (let [entity (models/find (:transaction/entity after) :entity)]
     (->> (:transaction/items after)
-         (map #(cond-> %
-                 true (assoc :transaction/transaction-date transaction-date)
-                 id   (assoc :transaction-item/transaction {:id id})))
+         (map #(assoc % :transaction/transaction-date transaction-date))
          (realize-accounts entity)
          (group-by (comp util/->model-ref
                          :transaction-item/account))
@@ -448,11 +433,12 @@
 
 (defmethod models/before-delete :transaction
   [trx]
-  (when (and (:id trx)
-             (< 0  (models/count {:transaction-item/transaction trx
-                                  :transaction/transaction-date (:transaction/transaction-date trx)
-                                  :transaction-item/reconciliation [:!= nil]})))
-    (throw (IllegalStateException. "Cannot delete transaction with reconciled items")))
+  (let [existing (models/find trx)]
+    (when (and (:id trx)
+               (< 0 (->> (:transacdtion/transaction-items existing)
+                         (filter :transaction-item/reconciliation)
+                         count)))
+      (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
   trx)
 
 (defn append-items
@@ -470,10 +456,11 @@
 
 (defn- apply-commodities
   [[{:account/keys [entity]} :as accounts]]
-  (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
-    (map #(update-in % [:account/commodity] (comp commodities
-                                                  :id))
-         accounts)))
+  (when (seq accounts)
+    (let [commodities (index-by :id (models/select {:commodity/entity entity}))]
+      (map #(update-in % [:account/commodity] (comp commodities
+                                                    :id))
+           accounts))))
 
 (defn propagate-account-from-start
   [entity account]
@@ -493,7 +480,9 @@
                                                   :entity)
                                        initial-basis
                                        {:force? true})
-                             (map (comp #(dissoc % ::polarized-quantity)
+                             (map (comp #(dissoc %
+                                                 ::polarized-quantity
+                                                 :transaction/transaction-date)
                                         #(update-in-if %
                                                        [:transaction-item/account]
                                                        util/->model-ref))))

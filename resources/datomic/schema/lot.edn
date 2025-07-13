@@ -1,0 +1,24 @@
+[{:db/ident :lot/commodity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The commodity represented in the lot"}
+ {:db/ident :lot/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account in which the commodity is held"}
+ {:db/ident :lot/purchase-price
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The price at which the commodity was purchased"}
+ {:db/ident :lot/purchase-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date on which the commodity was purchased"}
+ {:db/ident :lot/shares-purchased
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The number of shares purchased"}
+ {:db/ident :lot/shares-owned
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The number of shares currently owned"}]

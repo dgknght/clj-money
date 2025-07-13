@@ -321,10 +321,12 @@
   (let [account (find-account ctx (:reconciliation/account recon))]
     (-> recon
         (assoc :reconciliation/account account)
+        (util/pp-> ::ready-to-resolve-item-refs)
         (update-in [:reconciliation/item-refs]
                    (partial mapv (comp (juxt :id :transaction/transaction-date)
                                        #(find-transaction-item ctx %)
-                                       #(conj % account)))))))
+                                       #(conj % account))))
+        (util/pp-> ::prepared-recon))))
 
 (defmethod prepare :budget
   [budget ctx]

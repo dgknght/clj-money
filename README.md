@@ -100,6 +100,21 @@ Stop the client with:
 lein test
 ```
 
+Ignore a storage strategy
+```bash
+IGNORE_STRATEGY=:sql lein test
+```
+
+Specify a strategy for a single test
+```clojure
+(dbtest create-a-resource {:only :sql}
+  (rest-of-the-test :goes-here)
+
+; You can specify a single strategy or multiple
+(dbtest update-a-resource {:exclude #{:sql}}
+  (rest-of-the-test :goes-here)
+```
+
 ## Running client tests
 ```bash
 lein fig:test

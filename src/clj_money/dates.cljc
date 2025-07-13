@@ -101,6 +101,10 @@
           [instant]
           instant))
 
+#?(:clj (defmethod instant* String
+          [instant]
+          (t/instant instant)))
+
 (def year
   #?(:clj (comp #(.getValue %)
                 t/year)
@@ -117,7 +121,10 @@
              (instant* temporal))
             ([year month day]
              (instant (t/local-date year month day))))
-     :cljs t/date-time))
+     :cljs (fn [d]
+             (cond; TODO: this should be fleshed out
+               (string? d)
+               (tf/parse (tf/formatters :date-time-no-ms) d)))))
 
 (def interval
   #?(:clj (fn
@@ -436,6 +443,7 @@
   "Given a model and a key where a date range exists, adjust the boundary
   if necessary to include the specified date"
   [m k & ds]
+  {:pre [(every? identity ds)]}
   (apply update-in m [k] push-boundary ds))
 
 #?(:clj (defn zone-id
@@ -460,3 +468,10 @@
                 (serialize-local-date x)
                 x))
             criteria))
+
+(defn ->local-date
+  [inst]
+  #?(:clj (t/local-date inst (t/zone-id "UTC"))
+     :cljs (t/local-date (t/year inst)
+                         (t/month inst)
+                         (t/day inst))))

@@ -120,6 +120,6 @@
                                                  {:include-parents? true}))]
 
     (if accounts
-      (map (extract-ancestors (index-by :id ancestors))
+      (map (extract-ancestors (index-by :id (or ancestors []))) ; TODO: Change index-by to allow nil
            accounts)
       [])))

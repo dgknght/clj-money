@@ -1,0 +1,17 @@
+[{:db/ident :image/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user to which the image belongs"}
+ {:db/ident :image/uuid
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity
+  :db/doc "Public identifier for the image"}
+ {:db/ident :image/content-type
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "Identifies the type of the image"}
+ {:db/ident :image/original-filename
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of the file as uploaded to the service"}]

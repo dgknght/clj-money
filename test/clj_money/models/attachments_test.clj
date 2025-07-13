@@ -1,5 +1,5 @@
 (ns clj-money.models.attachments-test
-  (:require [clojure.test :refer [deftest use-fixtures is]]
+  (:require [clojure.test :refer [is]]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
@@ -8,19 +8,18 @@
             [clj-money.models.propagation :refer [put-and-propagate
                                                   delete-and-propagate]]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.model-helpers :as helpers :refer [assert-deleted
+                                                         assert-updated
                                                          assert-invalid]]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-transaction
                                             find-image
                                             find-attachment]]
-            [clj-money.test-helpers :refer [reset-db]]))
-
-(use-fixtures :each reset-db)
+            [clj-money.test-helpers :refer [dbtest]]))
 
 (def ^:private attach-context
   (conj basic-context
@@ -45,11 +44,11 @@
   (helpers/assert-created attrs :refs [:attachment/transaction
                                        :attachment/image]))
 
-(deftest create-an-attachment
+(dbtest create-an-attachment
   (with-context attach-context
     (assert-created (attributes))))
 
-(deftest propagate-attachment-creation
+(dbtest propagate-attachment-creation
   (with-context attach-context
     (put-and-propagate (attributes))
     (is (comparable? {:transaction/attachment-count 1}
@@ -57,14 +56,14 @@
                                                    :description "Paycheck"}))
         "The attachment count is incremented for the associated transaction")))
 
-(deftest transaction-is-required
+(dbtest transaction-is-required
   (with-context attach-context
     (assert-invalid (-> (attributes)
                         (dissoc :attachment/transaction)
                         (assoc :attachment/transaction-date (t/local-date 2017 1 1)))
                     {:attachment/transaction ["Transaction is required"]})))
 
-(deftest image-is-required
+(dbtest image-is-required
   (with-context attach-context
     (assert-invalid (dissoc (attributes) :attachment/image)
                     {:attachment/image ["Image is required"]})))
@@ -75,23 +74,16 @@
                      :image "sample_receipt.jpg"
                      :caption "receipt"}))
 
-(deftest update-an-attachment
+(dbtest update-an-attachment
   (with-context update-context
-    (let [att (find-attachment "receipt")]
-      (is (comparable? {:attachment/caption "Updated caption"}
-                       (-> att
-                           (assoc :attachment/caption "Updated caption")
-                           models/put))
-          "The return value has the updated attributes")
-      (is (comparable? {:attachment/caption "Updated caption"}
-                       (models/find att))
-          "The retrieved valud has the updated attributes"))))
+    (assert-updated (find-attachment "receipt")
+                    {:attachment/caption "Updated caption"})))
 
-(deftest delete-an-attachment
+(dbtest delete-an-attachment
   (with-context update-context
     (assert-deleted (find-attachment "receipt"))))
 
-(deftest propagate-attachment-deletion
+(dbtest propagate-attachment-deletion
   (with-context update-context
     (let [att (find-attachment "receipt")
           trx (models/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)

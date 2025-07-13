@@ -1,0 +1,21 @@
+[{:db/ident :grant/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user to which the permissions are granted"}
+ {:db/ident :grant/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity in which the user is granted the permissions"}
+ {:db/ident :grant/permissions
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/isComponent true
+  :db/doc "The permissions granted"}
+ {:db/ident :permission/scope
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The scope of the permission. E.g., :account, :transaction, etc."}
+ {:db/ident :permission/actions
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/many
+  :db/doc "A list of actions the user has permission to perform witin the specified scope"}]

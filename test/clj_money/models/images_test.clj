@@ -1,20 +1,18 @@
 (ns clj-money.models.images-test
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.test :refer [deftest use-fixtures is]]
+            [clojure.test :refer [is]]
             [clojure.java.io :as io]
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.images.sql]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models.images :as imgs]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [dbtest]]
             [clj-money.model-helpers :refer [assert-invalid] :as helpers]))
-
-(use-fixtures :each reset-db)
 
 (def image-context
   [#:user{:email "john@doe.com"
@@ -35,16 +33,16 @@
                           :ignore-attributes [:image/body]
                           :compare-result? false))
 
-(deftest create-an-image
+(dbtest create-an-image
   (with-context image-context
     (assert-created (attributes))))
 
-(deftest user-is-required
+(dbtest user-is-required
   (with-context image-context
     (assert-invalid (dissoc (attributes) :image/user)
                     {:image/user ["User is required"]})))
 
-(deftest original-filename-is-required
+(dbtest original-filename-is-required
   (with-context image-context
     (assert-invalid (dissoc (attributes) :image/original-filename)
                     {:image/original-filename ["Original filename is required"]})))
@@ -56,17 +54,17 @@
                 :content-type "application/gnucash"
                 :content (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}))
 
-(deftest uuid-is-unique-for-each-user
+(dbtest uuid-is-unique-for-each-user
   (with-context existing-image-context
     (assert-invalid (attributes)
                     {:image/uuid ["The image has already been added"]})))
 
-(deftest content-type-is-required
+(dbtest content-type-is-required
   (with-context image-context
     (assert-invalid (dissoc (attributes) :image/content-type)
                     {:image/content-type ["Content type is required"]})))
 
-(deftest find-or-create-an-image
+(dbtest find-or-create-an-image
   (with-context image-context
     (let [image (imgs/find-or-create (-> (attributes)
                                          (dissoc :image/uuid)

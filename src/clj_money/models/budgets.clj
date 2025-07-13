@@ -38,7 +38,7 @@
 
 (defn find-items-by-account
   "Finds items in the specified budget belonging to the specified account or its children."
-  [{:budget/keys [items]} {:account/keys [child-ids] account-id :id}]
+  [items {:account/keys [child-ids] account-id :id}]
   {:pre [(seq items)]}
   (let [ids (if (seq child-ids)
               (conj (into #{} child-ids) account-id)

@@ -37,15 +37,6 @@
 (defmulti model-keys util/model-type-dispatch)
 (defmethod model-keys :default [_] [])
 
-(def ^:private model-ref-keys
-  (->> schema/models
-       (mapcat (fn [{:keys [refs id]}]
-                 (map (fn [ref]
-                        (keyword (name id)
-                                 (name (schema/ref-id ref))))
-                      refs)))
-       set))
-
 (defn- append-qualifiers
   [[model-type :as entry]]
   (update-in entry
@@ -63,6 +54,16 @@
                   (juxt :id :primary-key)))
        (into {})))
 
+(defn- scrub-values
+  [m [stmt & args]]
+  (let [get-key (map-invert m)]
+    (vec (cons stmt
+               (map (fn [arg]
+                      (if (models/sensitive-keys (get-key arg))
+                        "********"
+                        arg))
+                    args)))))
+
 (def ^:private reconstruction-rules
   {:budget [{:parent? :budget/name
              :child? :budget-item/account
@@ -79,16 +80,6 @@
                  {:parent? :transaction/description
                   :child? :lot-item/action
                   :children-key :transaction/lot-items}]})
-
-(defn- scrub-values
-  [m [stmt & args]]
-  (let [get-key (map-invert m)]
-    (vec (cons stmt
-               (map (fn [arg]
-                      (if (models/sensitive-keys (get-key arg))
-                        "********"
-                        arg))
-                    args)))))
 
 (defn- reconstruct
   [models]
@@ -118,10 +109,10 @@
 (def ^:private sql-ref-keys
   (mapv #(keyword (namespace %)
                   (str (name %) "-id"))
-        model-ref-keys))
+        schema/model-ref-keys))
 
 (def ^:private model->sql-ref-map
-  (zipmap model-ref-keys sql-ref-keys))
+  (zipmap schema/model-ref-keys sql-ref-keys))
 
 (defn- extract-ref-id
   [x]
@@ -146,14 +137,14 @@
           sql-ref-keys))
 
 (def ^:private sql->model-ref-map
-  (zipmap sql-ref-keys model-ref-keys))
+  (zipmap sql-ref-keys schema/model-ref-keys))
 
 (defn- ->model-refs
   [m]
   (reduce (fn [m k]
             (update-in-if m [k] util/->model-ref))
           (rename-keys m sql->model-ref-map)
-          model-ref-keys))
+          schema/model-ref-keys))
 
 ; convert keywords to strings (or can this be done with SettableParameter?)
 ; {:account/type :asset} -> {:account/type "asset"}
@@ -329,10 +320,10 @@
                       (reduce (execute-and-aggregate tx)
                               {:saved []
                                :id-map {}})))]
-    (update-in result [:saved] #(->> %
-                                     (map (comp after-read
-                                                ->model-refs))
-                                     (reconstruct)))))
+    (->> (:saved result)
+         (map (comp after-read
+                    ->model-refs))
+         (reconstruct))))
 
 (defn- id-key
   [x]
@@ -390,9 +381,10 @@
                 (scrub-values criteria query))
 
     (if (:count options)
-      (jdbc/execute-one! ds
-                         query
-                         sql-opts)
+      (:record-count
+        (jdbc/execute-one! ds
+                           query
+                           sql-opts))
       (->> (jdbc/execute! ds
                           query
                           sql-opts)
@@ -434,4 +426,5 @@
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ models] (delete* ds models))
       (update [_ changes criteria] (update* ds changes criteria))
+      (close [_] #_noop)
       (reset [_] (reset* ds)))))

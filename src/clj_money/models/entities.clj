@@ -23,27 +23,18 @@
 (s/def :entity/user ::models/model-ref)
 (s/def :entity/price-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
 (s/def :entity/transaction-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
-(s/def :settings/monitored-account-ids (s/coll-of ::models/id :kind set?))
+(s/def :settings/monitored-accounts (s/coll-of ::models/model-ref :kind set?))
 (s/def :settings/inventory-method #{:fifo :lifo})
 (s/def :settings/default-commodity ::models/model-ref)
 (s/def :entity/settings (s/nilable
                           (s/keys :opt [:settings/inventory-method
-                                        :settings/monitored-account-ids
+                                        :settings/monitored-accounts
                                         :settings/default-commodity])))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/entity (s/and (s/keys :req [:entity/name
                                             :entity/user]
                                       :opt [:entity/settings
                                             :entity/price-date-range
                                             :entity/transaction-date-range])
                               name-is-unique?))
-
-(def ^:private find-or-create*
-  (some-fn models/find-by models/put))
-
-(defn find-or-create
-  "Finds the entity with the specified name for the
-  specified user, or creates it if it is not found."
-  [user entity-name]
-  (find-or-create* #:entity{:user user
-                            :name entity-name}))

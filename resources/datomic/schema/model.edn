@@ -1,0 +1,4 @@
+[{:db/ident :model/deleted?
+  :db/valueType :db.type/boolean
+  :db/cardinality :db.cardinality/one
+  :db/doc "Indicates that the entity has been deleted by the user"}]

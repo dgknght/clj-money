@@ -14,18 +14,24 @@
 (s/def :attachment/caption string?)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/attachment (s/keys :req [:attachment/transaction
-                                         :attachment/transaction-date
                                          :attachment/image]
-                                   :opt [:attachment/caption]))
+                                   :opt [:attachment/caption
+                                         :attachment/transaction-date]))
 
 (defmethod models/before-validation :attachment
   [{:as att :attachment/keys [transaction]}]
-  (update-in att [:attachment/transaction-date] (fnil identity (:transaction/transaction-date transaction))))
+  (if (and (:transaction/transaction-date transaction)
+           (nil? (:attachment/transaction-date att)))
+    (assoc att :attachment/transaction-date (:transaction/transaction-date transaction))
+    att))
 
 (defn- find-trx
   [{:attachment/keys [transaction transaction-date]}]
-  (models/find-by {:id (:id transaction)
-                   :transaction/transaction-date transaction-date}))
+  (models/find-by
+    (cond-> (util/model-type {:id (:id transaction)}
+                             :transaction)
+      transaction-date (assoc :transaction/transaction-date
+                              transaction-date))))
 
 (defn- adjust-trx
   [att f]

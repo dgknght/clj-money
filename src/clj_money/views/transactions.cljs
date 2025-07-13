@@ -79,7 +79,7 @@
   (+busy)
   (let [account (:view-account @page-state)
         criteria {:transaction-item/account account
-                  :transaction-item/transaction-date (apply vector
+                  :transaction/transaction-date (apply vector
                                                             :between
                                                             (:account/transaction-date-range account))
                   :unreconciled true
@@ -120,7 +120,7 @@
                                                               (map (fn [[start end :as range]]
                                                                      (when (seq range)
                                                                        {:transaction-item/account (util/->model-ref account)
-                                                                        :transaction-item/transaction-date [:between> start end]})))
+                                                                        :transaction/transaction-date [:between> start end]})))
                                                               fetch-items)
                                                   :chunk-size 100}))]
             (go-loop [items (<! items-ch)]

@@ -1,13 +1,13 @@
 (ns clj-money.models.reconciliations-test
-  (:require [clojure.test :refer [deftest use-fixtures is testing]]
+  (:require [clojure.test :refer [is testing]]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.util :as util :refer [model=
                                              ->model-ref]]
             [clj-money.json]
-            [clj-money.db.sql.ref]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.db.ref]
+            [clj-money.test-helpers :refer [dbtest]]
             [clj-money.accounts :as acts]
             [clj-money.model-helpers
              :refer [assert-invalid
@@ -24,11 +24,6 @@
                                             find-transaction-item
                                             find-reconciliation]]
             [clj-money.models.reconciliations :as recons]))
-
-(use-fixtures :each reset-db)
-
-(def ^:private ->item-ref
-  (juxt :id :transaction/transaction-date))
 
 (def ^:private reconciliation-context
   (conj basic-context
@@ -63,7 +58,7 @@
                          :end-of-period (t/local-date 2017 1 1)
                          :balance 1000M
                          :status :completed
-                         :item-refs [[(t/local-date 2017 1 1)
+                         :items [[(t/local-date 2017 1 1)
                                       1000M]]}))
 
 (def ^:private working-reconciliation-context
@@ -72,14 +67,14 @@
                          :end-of-period (t/local-date 2017 1 3)
                          :balance 455M
                          :status :new
-                         :item-refs [[(t/local-date 2017 1 2)
+                         :items [[(t/local-date 2017 1 2)
                                       500M]]}))
 
 (defn- assert-created
   [attr]
   (helpers/assert-created attr
                           :refs [:reconciliation/account]
-                          :ignore-attributes [:reconciliation/item-refs]
+                          :ignore-attributes [:reconciliation/items]
                           :compare-result? false))
 
 (defn- attributes []
@@ -87,7 +82,7 @@
                    :balance 447M
                    :end-of-period (t/local-date 2017 1 31)})
 
-(deftest create-a-reconciliation
+(dbtest create-a-reconciliation
   (with-context reconciliation-context
     (assert-created (attributes))
     (testing "transaction items are not marked as reconciled"
@@ -96,17 +91,18 @@
                   (not-any? :transaction/recondiliation))
           "None of the transaction items should be marked as reconcilied"))))
 
-(deftest create-a-completed-reconciliation
+(dbtest create-a-completed-reconciliation
   (with-context reconciliation-context
     (let [checking (find-account "Checking")
           checking-items (models/select {:transaction-item/account checking
-                                         :transaction-item/quantity [:!= 45]})]
+                                         :transaction-item/quantity [:!= 45M]}
+                                        {:select-also :transaction/transaction-date})]
       (assert-created (assoc (attributes)
-                             :reconciliation/item-refs (map ->item-ref checking-items)
+                             :reconciliation/items checking-items
                              :reconciliation/status :completed))
       (is (->> checking-items
                (mapcat :transaction/items)
-               (every? :transaction/recondiliation))
+               (every? :transaction/reconciliation))
           "specified transaction items are marked as reconciled")
       (is (not-any? :transaction/reconciliation
                     (remove #(util/model= checking (:transaction-item/account %))
@@ -116,48 +112,47 @@
                                 :transaction-item))))
           "All other transaction items are not marked as reconcilied"))))
 
-(deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
+(dbtest a-new-reconciliation-cannot-be-created-if-one-already-exists
   (with-context working-reconciliation-context
     (assert-invalid
       (assoc (attributes) :reconciliation/status :new)
       {:reconciliation/account ["Account already has a reconciliation in progress"]})))
 
-(deftest account-is-required
+(dbtest account-is-required
   (with-context reconciliation-context
     (assert-invalid (dissoc (attributes) :reconciliation/account)
                     {:reconciliation/account ["Account is required"]})))
 
-(deftest end-of-period-is-required
+(dbtest end-of-period-is-required
   (with-context reconciliation-context
     (assert-invalid
       (dissoc (attributes) :reconciliation/end-of-period)
       {:reconciliation/end-of-period ["End of period is required"]})))
 
-(deftest end-of-period-must-come-after-the-previous-end-of-period
+(dbtest end-of-period-must-come-after-the-previous-end-of-period
   (with-context existing-reconciliation-context
     (assert-invalid
       (assoc (attributes)
              :reconciliation/end-of-period (t/local-date 2016 12 31))
       {:reconciliation/end-of-period ["End of period must be after that latest reconciliation"]})))
 
-(deftest status-must-be-new-or-completed
+(dbtest status-must-be-new-or-completed
   (with-context existing-reconciliation-context
     (assert-invalid
       (assoc (attributes)
              :reconciliation/status :bouncy)
       {:reconciliation/status ["Status must be new or completed"]})))
 
-(deftest item-refs-cannot-reference-items-that-belong-to-the-account-being-reconciled
+(dbtest items-cannot-reference-items-that-belong-to-the-account-being-reconciled
   (with-context reconciliation-context
     (assert-invalid #:reconciliation{:account (find-account "Groceries")
                                      :end-of-period (t/local-date 2017 1 31)
                                      :balance 500M
-                                     :item-refs [(->item-ref
-                                                  (find-transaction-item
-                                                    [(t/local-date 2017 1 2)
-                                                     500M
-                                                     (find-account "Rent")]))]}
-                    {:reconciliation/item-refs ["All items must belong to the account being reconciled"]})))
+                                     :items [(find-transaction-item
+                                                   [(t/local-date 2017 1 2)
+                                                    500M
+                                                    (find-account "Rent")])]}
+                    {:reconciliation/items ["All items must belong to the account being reconciled"]})))
 
 (def ^:private parent-account-context
   (conj basic-context
@@ -188,27 +183,26 @@
                                                  :account "Checking"
                                                  :quantity 700M}]}))
 
-(deftest item-refs-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
+(dbtest items-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
   (with-context parent-account-context
     (let [savings (find-account "Savings")
           car (find-account "Car")
           reserve (find-account "Reserve")
-          item-refs (->> *context*
-                         (filter (util/model-type? :transaction))
-                         (mapcat :transaction/items)
-                         (filter #(or (model= reserve
-                                              (:transaction-item/account %))
-                                      (model= car
-                                              (:transaction-item/account %))))
-                         (mapv ->item-ref))
+          items (->> *context*
+                     (filter (util/model-type? :transaction))
+                     (mapcat :transaction/items)
+                     (filter #(or (model= reserve
+                                          (:transaction-item/account %))
+                                  (model= car
+                                          (:transaction-item/account %)))))
           created (assert-created
                     #:reconciliation{:account savings
                                      :end-of-period (t/local-date 2015 1 31)
                                      :status :completed
                                      :balance 300M
-                                     :item-refs item-refs})]
-      (is (= (set item-refs)
-             (set (:reconciliation/item-refs created)))))))
+                                     :items items})]
+      (is (= (set items)
+             (set (:reconciliation/items created)))))))
 
 (def ^:private working-rec-context
   (conj reconciliation-context
@@ -216,32 +210,31 @@
                          :end-of-period (t/local-date 2017 1 1)
                          :balance 447M
                          :status :new
-                         :item-refs [[(t/local-date 2017 1 1)
+                         :items [[(t/local-date 2017 1 1)
                                       1000M]
                                      [(t/local-date 2017 1 2)
                                       500M]
                                      [(t/local-date 2017 1 10)
                                       53M]]}))
 
-(deftest find-the-working-reconciliation
+(dbtest find-the-working-reconciliation
   (with-context working-rec-context
     (is (comparable? #:reconciliation{:balance 447M}
                      (recons/find-working (find-account "Checking"))))))
 
-(deftest transaction-item-can-only-belong-to-one-reconciliation
+(dbtest transaction-item-can-only-belong-to-one-reconciliation
   (with-context existing-reconciliation-context
     (assert-invalid
       #:reconciliation{:account (find-account "Checking")
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
-                       :item-refs [(->item-ref
-                                    (find-transaction-item
+                       :items [(find-transaction-item
                                       [(t/local-date 2017 1 1)
                                        1000M
-                                       "Checking"]))]}
-      {:reconciliation/item-refs ["No item can belong to another reconciliation"]})))
+                                       "Checking"])]}
+      {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
-(deftest a-working-reconciliation-can-be-updated
+(dbtest a-working-reconciliation-can-be-updated
   (with-context working-reconciliation-context
     (let [result (-> (find-reconciliation ["Checking"
                                            (t/local-date 2017 1 3)])
@@ -254,17 +247,16 @@
                        (models/find result))
           "The retrieved value has the correct balance after update"))))
 
-(deftest a-working-reconciliation-can-be-completed
+(dbtest a-working-reconciliation-can-be-completed
   (with-context working-reconciliation-context
     (let [checking (find-account "Checking")
           previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
-          item-ref (->item-ref
-                     (find-transaction-item [(t/local-date 2017 1 3)
-                                             45M
-                                             checking]))
+          item (find-transaction-item [(t/local-date 2017 1 3)
+                                           45M
+                                           checking])
           result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
                      (assoc :reconciliation/status :completed)
-                     (update-in [:reconciliation/item-refs] conj item-ref)
+                     (update-in [:reconciliation/items] conj item)
                      models/put)]
       (is (comparable? #:reconciliation {:status :completed}
                        result)
@@ -290,7 +282,7 @@
                                 :select-also [:transaction/transaction-date]}))
           "The retrieved transaction items have the new reconciliation reference"))))
 
-(deftest cannot-create-a-completed-out-of-balance-reconciliation
+(dbtest cannot-create-a-completed-out-of-balance-reconciliation
   (with-context reconciliation-context
     (assert-invalid #:reconciliation{:account (find-account "Checking")
                                      :end-of-period (t/local-date 2017 1 31)
@@ -298,33 +290,33 @@
                                      :status :completed}
                     {:reconciliation/balance ["Balance must match the calculated balance"]})))
 
-(deftest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
+(dbtest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
   (with-context working-reconciliation-context
-    (let [item-ref (->item-ref (find-transaction-item [(t/local-date 2017 1 10)
-                                                       53M
-                                                       "Checking"]))]
+    (let [item (find-transaction-item [(t/local-date 2017 1 10)
+                                           53M
+                                           "Checking"])]
       (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])
           (assoc :reconciliation/status :completed)
-          (update-in [:reconciliation/item-refs]
+          (update-in [:reconciliation/items]
                      conj
-                     item-ref)
+                     item)
           (assert-invalid {:reconciliation/balance ["Balance must match the calculated balance"]})))))
 
-(deftest a-completed-reconciliation-cannot-be-updated
+(dbtest a-completed-reconciliation-cannot-be-updated
   (with-context existing-reconciliation-context
     (assert-invalid (assoc (find-reconciliation ["Checking" (t/local-date 2017 1 1)])
                            :reconciliation/end-of-period (t/local-date 2017 1 31))
                     {:reconciliation/status ["A completed reconciliation cannot be updated"]})))
 
-(deftest the-most-recent-completed-reconciliation-can-be-deleted
+(dbtest the-most-recent-completed-reconciliation-can-be-deleted
   (with-context existing-reconciliation-context
     (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 1)]))))
 
-(deftest a-working-reconciliation-can-be-deleted
+(dbtest a-working-reconciliation-can-be-deleted
   (with-context working-reconciliation-context
     (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 3)]))))
 
-(deftest propagate-reconciliation-deletion
+(dbtest propagate-reconciliation-deletion
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
       (prop/delete-and-propagate reconciliation)
@@ -335,7 +327,7 @@
                       :transaction-item)))
           "The reconciliation is not associated with any items after delete"))))
 
-(deftest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
+(dbtest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"

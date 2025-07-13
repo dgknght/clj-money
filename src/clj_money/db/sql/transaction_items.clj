@@ -23,11 +23,7 @@
       (update-in [:transaction-item/index] (fnil identity (rand-int 1000)))))
 
 (defmethod sql/after-read :transaction-item
-  [{:as item :transaction-item/keys [transaction-date]}]
+  [item]
   (-> item
       (update-in [:transaction-item/action] keyword)
-      (update-in [:transaction/transaction-date]
-                 (fn [d]
-                   (if d
-                     (t/local-date d)
-                     transaction-date)))))
+      (update-in-if [:transaction/transaction-date] t/local-date)))

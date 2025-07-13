@@ -1,0 +1,16 @@
+[{:db/ident :cached-price/symbol
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The trade symbol for the commodity"}
+ {:db/ident :cached-price/trade-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date on which the commodity was traded at this price"}
+ {:db/ident :cached-price/exchange
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "Indicates the exchange on which the commodity is traded"}
+ {:db/ident :cached-price/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The price expressed in USD"}]

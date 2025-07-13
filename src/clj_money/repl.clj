@@ -21,6 +21,7 @@
                      :email email
                      :password password}))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn set-password
   [& {:keys [email password]}]
   (-> (models/find-by {:user/email email})

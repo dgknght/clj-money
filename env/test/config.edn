@@ -1,13 +1,18 @@
 {:allow-unbounded-queries true
  :alpha-vantage-api-key "alpha-vantage-api-key"
  :application-name "clj-money"
- :db {:strategies {:sql {:clj-money.db/strategy :clj-money.db/sql
-                         :host "localhost"
-                         :post 5432
-                         :user :config/sql-app-user
-                         :password :config/sql-app-password
-                         :dbtype "postgresql"
-                         :dbname "money_test"}}
+ :db {:strategies {:sql
+                   {:clj-money.db/strategy :clj-money.db/sql
+                    :host "localhost"
+                    :post 5432
+                    :user :config/sql-app-user
+                    :password :config/sql-app-password
+                    :dbtype "postgresql"
+                    :dbname "money_test"}
+
+                   :datomic-peer
+                   {:clj-money.db/strategy :clj-money.db/datomic-peer
+                    :uri "datomic:mem://money_test"}}
       :active :sql}
  :detailed-import-logging "false"
  :google-client-id "google-id"

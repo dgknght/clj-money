@@ -281,3 +281,19 @@
   (index-by :id models))
 
 (def ref-id (some-fn :id identity))
+
+(def model-ref-keys
+  (->> models
+       (mapcat (fn [{:keys [refs id]}]
+                 (map (fn [ref]
+                        (keyword (name id)
+                                 (name (ref-id ref))))
+                      refs)))
+       set))
+
+(def relationships
+  (->> models
+       (mapcat (fn [{:keys [id refs]}]
+                       (map #(vector (ref-id %) id)
+                            refs)))
+       set))

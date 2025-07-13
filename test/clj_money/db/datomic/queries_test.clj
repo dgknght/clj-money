@@ -1,0 +1,142 @@
+(ns clj-money.db.datomic.queries-test
+  (:require [clojure.test :refer [deftest testing is]]
+            [clojure.pprint :refer [pprint]]
+            [datomic.api :as d]))
+
+(defn- recursion-rule
+  [rel-key target-key upward?]
+  [['(match-and-recurse ?e ?v)
+    ['?e target-key '?v]]
+   ['(match-and-recurse ?e1 ?v)
+    [(if upward? '?e2 '?e1) rel-key (if upward? '?e1 '?e2)]
+    '(match-and-recurse ?e2 ?v)]])
+
+(def accounts
+  [[1 :account/name "Checking"]
+   [2 :account/name "Savings"]
+   [3 :account/name "Car"]
+   [3 :account/parent 2]
+   [4 :account/name "Doug"]
+   [4 :account/parent 3]
+   [5 :account/name "Eli"]
+   [5 :account/parent 3]
+   [6 :account/name "Reserve"]
+   [6 :account/parent 2]])
+
+(deftest query-recursively
+  (testing "infinite levels downward"
+    (testing "filter by non-id attribute"
+      (is (= #{"Doug" "Eli" "Car" "Reserve" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?input
+                           :where [?a :account/name ?name]
+                           (match-and-recurse ?a ?input)]
+                         accounts
+                         (recursion-rule :account/parent :account/name false)
+                         "Savings"))))))
+    (testing "filter by id"
+      (is (= #{"Doug" "Eli" "Car" "Reserve" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?a
+                           :where [?x :account/name ?name]
+                           (match-and-recurse ?x ?a)]
+                         accounts
+                         '[[(match-and-recurse ?e ?target)
+                            [(= ?e ?target)]]
+                           [(match-and-recurse ?e ?target)
+                            [?e :account/parent ?parent]
+                            (match-and-recurse ?parent ?target)]] 
+                         2)))))))
+  (testing "infinite levels upward"
+    (testing "filter by non-id attribute"
+      (is (= #{"Doug" "Car" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?input
+                           :where [?a :account/name ?name]
+                           (match-and-recurse ?a ?input)]
+                         accounts
+                         (recursion-rule :account/parent :account/name true)
+                         "Doug"))))))
+    (testing "filter by id"
+      (is (= #{"Doug" "Car" "Savings"}
+             (set
+               (map first
+                    (d/q '[:find ?name
+                           :in $ % ?a
+                           :where [?x :account/name ?name]
+                           (match-and-recurse ?x ?a)]
+                         accounts
+                         '[[(match-and-recurse ?e ?target)
+                            [(= ?e ?target)]]
+                           [(match-and-recurse ?e ?target)
+                            [?child :account/parent ?e]
+                            (match-and-recurse ?child ?target)]] 
+                         4))))))))
+
+(deftest query-with-or
+  (testing "query by entity"
+    (is (= #{"Checking" "Reserve"}
+           (set
+             (map first
+                  (d/q '[:find ?name
+                         :in $ ?ids
+                         :where [?a :account/name ?name]
+                                [(contains? ?ids ?a)]]
+                       accounts
+                       #{1 6}))))))
+  (testing "query by attribute"
+    (is (= #{"Car" "Reserve" "Doug" "Eli"}
+           (set
+             (map first
+                  (d/q '[:find ?name
+                         :in $ ?parent
+                         :where [?a :account/parent ?account-parent]
+                                [?a :account/name ?name]
+                                [(contains? ?parent ?account-parent)]]
+                       accounts
+                       #{2 3})))))))
+
+(def ^:private transactions
+  (conj accounts
+        [7 :account/name "Groceries"]
+        [8 :account/name "Rent"]
+        [9 :account/name "Salary"]
+        [21 :transaction-item/action :debit]
+        [21 :transaction-item/account 1]
+        [21 :transaction-item/quantity 1000M]
+        [22 :transaction-item/action :credit]
+        [22 :transaction-item/account 9]
+        [22 :transaction-item/quantity 1000M]
+        [11 :transaction/transaction-date "2020-01-01"]
+        [11 :transaction/description "The Man"]
+        [11 :transaction/items 21]
+        [11 :transaction/items 22]
+        [23 :transaction-item/action :credit]
+        [23 :transaction-item/account 1]
+        [23 :transaction-item/quantity 100M]
+        [24 :transaction-item/action :debit]
+        [24 :transaction-item/account 7]
+        [24 :transaction-item/quantity 100M]
+        [12 :transaction/transaction-date "2020-01-02"]
+        [12 :transaction/description "Kroger"]
+        [12 :transaction/items 23]
+        [12 :transaction/items 24]))
+
+(deftest join-an-item-to-a-transaction
+  (is (= #{["2020-01-01" 1000M]
+           ["2020-01-02" 100M]}
+         (set
+           (d/q '[:find ?date ?quantity
+                  :in $ ?account
+                  :where [?i :transaction-item/account ?account]
+                         [?i :transaction-item/quantity ?quantity]
+                         [?t :transaction/items ?i]
+                         [?t :transaction/transaction-date ?date]]
+                transactions
+                1)))))

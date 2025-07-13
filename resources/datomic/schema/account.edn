@@ -1,0 +1,59 @@
+[{:db/ident :account/type
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "Indicates the type of the account (asset, liability, equity, income, expense)"}
+ {:db/ident :account/name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of the account"}
+ {:db/ident :account/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity to which the account belongs"}
+ {:db/ident :account/parent
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The parent of this account"}
+ {:db/ident :account/commodity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The commodity that is represented in the account"}
+ {:db/ident :account/system-tags
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/many
+  :db/doc "Tags used to control the way the system treats the account"}
+ {:db/ident :account/user-tags
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/many
+  :db/doc "Tags used to allow the user to group accounts arbitrarily"}
+ {:db/ident :account/allocations
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/ref :db.type/bigdec]
+  :db/cardinality :db.cardinality/many
+  :db/doc "A list of asset allocation percentages for child accounts"}
+ {:db/ident :account/transaction-date-range
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/instant :db.type/instant]
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The earliest and latest dates for which transaction records exist"}
+ {:db/ident :account/quantity
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The current account balance"}
+ {:db/ident :account/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The current value of the account, expressed in the default commodity"}
+ {:db/ident :account/commodity-price
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The price used to calculate the current value"}
+ {:db/ident :account/price-as-of
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The date of the price used to calculate the current value"}]
