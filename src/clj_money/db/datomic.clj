@@ -126,7 +126,7 @@
 ; Potentially, it could also look like
 ; [::db/delete {:id 1 :user/given-name "John"}]
 ; in which case we want to turn it into
-; [:db/retractEntity 1]
+; [:db/retract 1]
 (defmethod prep-for-put ::util/vector
   [[_action :as args]]
   ; For now, let's assume a deconstruct fn has prepared a legal datomic transaction
