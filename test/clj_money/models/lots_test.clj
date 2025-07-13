@@ -53,12 +53,12 @@
   (with-context lot-context
     (assert-created (attributes) :refs [:lot/commodity :lot/account])))
 
-(dbtest commodity-id-is-required
+(dbtest commodity-is-required
   (with-context lot-context
     (assert-invalid (dissoc (attributes) :lot/commodity)
                     {:lot/commodity ["Commodity is required"]})))
 
-(dbtest account-id-is-required
+(dbtest account-is-required
   (with-context lot-context
     (assert-invalid (dissoc (attributes) :lot/account)
                     {:lot/account ["Account is required"]})))
