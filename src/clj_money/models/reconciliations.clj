@@ -173,15 +173,16 @@
                                 items)]
     (concat
       full
-      (models/select
-        {:id [:in (map :id abbr)]
-         :transaction/transaction-date
-         (apply
-           vector
-           :between
-           (->> abbr
-                (map :transaction/transaction-date)
-                (util/->range :compare t/before?)))}))))
+      (when (seq abbr)
+        (models/select
+          {:id [:in (map :id abbr)]
+           :transaction/transaction-date
+           (apply
+             vector
+             :between
+             (->> abbr
+                  (map :transaction/transaction-date)
+                  (util/->range :compare t/before?)))})))))
 
 (defn- prepare-item []
   (comp polarize-item
@@ -198,7 +199,7 @@
 
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [items] :as recon}]
-  {:pre [(s/valid? :reconciliation/items items)]}
+  {:pre [(s/valid? (s/nilable :reconciliation/items) items)]}
   (let [prep (prepare-item)
         existing-items (->> (fetch-items recon)
                             fullify-items
@@ -207,7 +208,7 @@
                      (map :id)
                      set)
         new-items (->> items
-                       (remove #(ignore? (first %)))
+                       (remove #(ignore? (:id %)))
                        (mapv prep))
         all-items (concat existing-items new-items)]
     (-> recon

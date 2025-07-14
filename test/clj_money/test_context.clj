@@ -212,6 +212,7 @@
           (mapcat :transaction/items)
           (filter #(and (model= act (:transaction-item/account %))
                         (= quantity (:transaction-item/quantity %))))
+          (map #(assoc % :transaction/transaction-date transaction-date))
           first))))
 
 (defn find-scheduled-transaction
