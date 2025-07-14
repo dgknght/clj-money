@@ -203,7 +203,7 @@
   (let [prep (prepare-item)
         existing-items (->> (fetch-items recon)
                             fullify-items
-                            (map prep))
+                            (mapv prep))
         ignore? (->> existing-items
                      (map :id)
                      set)
