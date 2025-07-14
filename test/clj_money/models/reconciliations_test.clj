@@ -230,10 +230,12 @@
       #:reconciliation{:account (find-account "Checking")
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
-                       :items [(find-transaction-item
-                                 [(t/local-date 2017 1 1)
-                                  1000M
-                                  "Checking"])]}
+                       :items (models/select
+                                (util/model-type
+                                  {:transaction/transaction-date (t/local-date 2017 1 1)
+                                   :transaction-item/quantity 1000M
+                                   :account/name "Checking"}
+                                  :transaction-item)) }
       {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (deftest a-working-reconciliation-can-be-updated
