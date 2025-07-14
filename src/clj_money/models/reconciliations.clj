@@ -77,7 +77,7 @@
 
 (v/reg-spec items-belong-to-account?
             {:message "All items must belong to the account being reconciled"
-             :path [:reconciliation/item-refs]})
+             :path [:reconciliation/items]})
 
 (defn- items-not-already-reconciled?
   [{:keys [id] :as recon}]
@@ -87,7 +87,7 @@
        empty?))
 
 (v/reg-spec items-not-already-reconciled? {:message "No item can belong to another reconciliation"
-                                           :path [:reconciliation/item-refs]})
+                                           :path [:reconciliation/items]})
 
 (defn- can-be-updated?
   [recon]
@@ -113,36 +113,23 @@
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
-(s/def :reconciliation/item-ref (s/tuple uuid? t/local-date?))
-(s/def :reconciliation/item-refs (s/coll-of :reconciliation/item-ref))
+(s/def :reconciliation/item (s/or :abbreviated (s/keys :req [:transaction/transaction-date]
+                                                       :req-un [::models/id])
+                                  :full (s/and ::models/transaction-item
+                                               (s/keys :req [:transaction/transaction-date]))))
+(s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
 (s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
                                                     :reconciliation/end-of-period
                                                     :reconciliation/status
                                                     :reconciliation/balance]
-                                              :opt [:reconciliation/item-refs])
+                                              :opt [:reconciliation/items])
                                       not-unbalanced?
                                       no-working-conflict?
                                       items-belong-to-account?
                                       items-not-already-reconciled?
                                       can-be-updated?
                                       after-last-reconciliation?))
-
-(defn- resolve-item-refs
-  [item-refs]
-  {:pre [(s/valid? :reconciliation/item-refs item-refs)]}
-
-  (if (seq item-refs)
-    (let [ids (map first item-refs)
-          [start end] (->> item-refs
-                           (map second)
-                           (sort)
-                           ((juxt first last)))]
-      (models/select (util/model-type
-                       {:id [:in ids]
-                        :transaction/transaction-date [:between start end]}
-                       :transaction-item)))
-    []))
 
 (defn- fetch-items
   [{:keys [id] :reconciliation/keys [account] :as recon}]
@@ -180,6 +167,22 @@
                     (find %)
                     %)))))
 
+(defn- fullify-items
+  [items]
+  (let [[full abbr] (split-with :transaction-item/account
+                                items)]
+    (concat
+      full
+      (models/select
+        {:id [:in (map :id abbr)]
+         :transaction/transaction-date
+         (apply
+           vector
+           :between
+           (->> abbr
+                (map :transaction/transaction-date)
+                (util/->range :compare t/before?)))}))))
+
 (defn- prepare-item []
   (comp polarize-item
         (resolve-account)))
@@ -193,80 +196,55 @@
                       (:id recon) (assoc :id [:!= (:id recon)]))
                     {:sort [[:reconciliation/end-of-period :desc]]})))
 
-(def ^:private ->item-ref*
-  (juxt :id :transaction/transaction-date))
-
-(defn- ->item-ref
-  [item]
-  (if (vector? item)
-    item
-    (->item-ref* item)))
-
-(def ^:private reffable?
-  (every-pred :id :transaction/transaction-date))
-
-(defn- item-or-ref?
-  [item]
-  (if (vector? item)
-    (s/valid? :reconciliation/item-ref item)
-    (reffable? item)))
-
 (defmethod models/before-validation :reconciliation
-  [{:reconciliation/keys [item-refs] :as reconciliation}]
-  {:pre [(every? item-or-ref? item-refs)]}
+  [{:reconciliation/keys [items] :as recon}]
+  {:pre [(s/valid? :reconciliation/items items)]}
   (let [prep (prepare-item)
-        existing-items (map prep
-                            (fetch-items reconciliation))
+        existing-items (->> (fetch-items recon)
+                            fullify-items
+                            (map prep))
         ignore? (->> existing-items
                      (map :id)
                      set)
-        new-items (->> item-refs
-                       (map ->item-ref)
+        new-items (->> items
                        (remove #(ignore? (first %)))
-                       resolve-item-refs
                        (mapv prep))
         all-items (concat existing-items new-items)]
-    (-> reconciliation
+    (-> recon
         (update-in [:reconciliation/status] (fnil identity :new))
         (vary-meta
           #(assoc %
                   ::new-items new-items
                   ::all-items all-items
                   ::existing-items existing-items
-                  ::last-completed (find-last-completed reconciliation))))))
+                  ::last-completed (find-last-completed recon))))))
 
-(defn- fetch-transaction-item-refs
+(defn- fetch-transaction-items
   [{:as recon :reconciliation/keys [account]}]
-  (->> (models/select (util/model-type
-                        {:transaction-item/reconciliation recon}
-                        :transaction))
-       (mapcat (fn [{:transaction/keys [items transaction-date]}]
-                 (mapv #(assoc % :transaction/transaction-date transaction-date)
-                       items)))
-       (filter #(util/model= account (:transaction-item/account %)))
-       (map (juxt :id :transaction/transaction-date))))
+  (->> (models/select {:transaction-item/reconciliation recon
+                       :transaction-item/account account}
+                      {:select-also [:transaction/transaction-date]})
+       (map #(select-keys % [:id :transaction/transaction-date]))))
 
-(defn- has-item-refs?
-  [{:reconciliation/keys [item-refs]}]
-  (and (seq item-refs)
-       (not-any? map? item-refs)))
+(defn- has-items?
+  [{:reconciliation/keys [items]}]
+  (and (seq items)
+       (not-any? map? items)))
 
-(defn- append-transaction-item-refs
+(defn- append-transaction-items
   [recon]
-  ; we don't want to re-lookup item refs if the db implementation already
+  ; we don't want to re-lookup items if the db implementation already
   ; keeps them with the reconciliation.
-  ; we also don't want to allow any transaction-item maps in the list. They
-  ; should be replaced with item-refs.
-  (if (has-item-refs? recon)
+  (if (has-items? recon)
     recon
     (assoc recon
-           :reconciliation/item-refs
-           (fetch-transaction-item-refs recon))))
+           :reconciliation/items
+           (fetch-transaction-items recon))))
 
 (defmethod models/after-read :reconciliation
   [recon _opts]
   (when recon
-    (append-transaction-item-refs recon)))
+    (append-transaction-items recon)))
 
 (defmethod models/before-delete :reconciliation
   [{:as recon :reconciliation/keys [account end-of-period]}]

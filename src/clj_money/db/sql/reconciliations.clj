@@ -2,8 +2,6 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.models :as models]
-            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
@@ -20,40 +18,23 @@
   (-> recon
       (update-in [:reconciliation/status] keyword)
       (update-in [:reconciliation/end-of-period] t/local-date)
-      (update-in [:reconciliation/item-refs] ; I added this when I removed reconstruct, but it still needs some attention
+      (update-in [:reconciliation/items]
                  (fn [items]
-                   (mapv #(if (map? %)
-                            ((juxt :id :transaction/transaction-date) %)
-                            %)
+                   (mapv #(select-keys % [:id :transaction/transaction-date])
                          items)))))
 
 (defmethod sql/post-select :reconciliation
   [{:keys [storage]} reconciliations]
   (map #(assoc %
-               :reconciliation/item-refs
+               :reconciliation/items
                (mapv (juxt :id :transaction/transaction-date)
-                     (db/select storage {:transaction-item/reconciliation %} {})))
+                     (db/select storage
+                                {:transaction-item/reconciliation %}
+                                {:select-also [:transaction/transaction-date]})))
        reconciliations))
 
-(defn- ->range
-  [vs & {:keys [compare] :or {compare <}}]
-  ((juxt first last) (sort compare vs)))
-
-(defn- item-refs->query
-  [item-refs]
-  (util/model-type
-    {:transaction/transaction-date (apply vector
-                                          :between
-                                          (->range (mapv second item-refs)
-                                                   :compare t/before?))
-     :id [:in (mapv first item-refs)]}
-    :transaction-item))
-
 (defmethod sql/deconstruct :reconciliation
-  [{:as recon :keys [id] :reconciliation/keys [item-refs]}]
-  (let [without-refs (dissoc recon :reconciliation/item-refs)]
-    (if (seq item-refs)
-      (cons without-refs
-            (->> (models/select (item-refs->query item-refs))
-                 (mapv #(assoc % :transaction-item/reconciliation {:id id}))))
-      [without-refs])))
+  [{:as recon :keys [id] :reconciliation/keys [items]}]
+  (concat [(dissoc recon :reconciliation/items)]
+          (map #(assoc % :transaction-item/reconciliation {:id id})
+               items)))
