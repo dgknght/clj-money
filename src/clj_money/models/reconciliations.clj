@@ -220,33 +220,6 @@
                   ::existing-items existing-items
                   ::last-completed (find-last-completed recon))))))
 
-(defn- fetch-transaction-items
-  [{:as recon :reconciliation/keys [account]}]
-  (->> (models/select {:transaction-item/reconciliation recon
-                       :transaction-item/account account}
-                      {:select-also [:transaction/transaction-date]})
-       (map #(select-keys % [:id :transaction/transaction-date]))))
-
-(defn- has-items?
-  [{:reconciliation/keys [items]}]
-  (and (seq items)
-       (not-any? map? items)))
-
-(defn- append-transaction-items
-  [recon]
-  ; we don't want to re-lookup items if the db implementation already
-  ; keeps them with the reconciliation.
-  (if (has-items? recon)
-    recon
-    (assoc recon
-           :reconciliation/items
-           (fetch-transaction-items recon))))
-
-(defmethod models/after-read :reconciliation
-  [recon _opts]
-  (when recon
-    (append-transaction-items recon)))
-
 (defmethod models/before-delete :reconciliation
   [{:as recon :reconciliation/keys [account end-of-period]}]
   (when (< 0 (models/count {:reconciliation/account account

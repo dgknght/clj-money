@@ -190,6 +190,11 @@
     (let [savings (find-account "Savings")
           car (find-account "Car")
           reserve (find-account "Reserve")
+          simplify #(select-keys %
+                                 [:id
+                                  :transaction/transaction-date
+                                  :transaction-item/quantity
+                                  :transaction-item/action])
           items (->> *context*
                      (filter (util/model-type? :transaction))
                      (mapcat :transaction/items)
@@ -203,8 +208,12 @@
                                      :status :completed
                                      :balance 300M
                                      :items items})]
-      (is (= (set items)
-             (set (:reconciliation/items created)))))))
+      (is (= (->> items
+                  (map simplify)
+                  set)
+             (->> (:reconciliation/items created)
+                  (map simplify)
+                  set))))))
 
 (def ^:private working-rec-context
   (conj reconciliation-context
