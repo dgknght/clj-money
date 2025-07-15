@@ -27,10 +27,9 @@
   [{:keys [storage]} reconciliations]
   (map #(assoc %
                :reconciliation/items
-               (mapv (juxt :id :transaction/transaction-date)
-                     (db/select storage
-                                {:transaction-item/reconciliation %}
-                                {:select-also [:transaction/transaction-date]})))
+               (db/select storage
+                          {:transaction-item/reconciliation %}
+                          {:select-also [:transaction/transaction-date]}))
        reconciliations))
 
 (defmethod sql/deconstruct :reconciliation
