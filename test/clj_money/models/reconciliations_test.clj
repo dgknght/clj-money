@@ -191,12 +191,12 @@
           car (find-account "Car")
           reserve (find-account "Reserve")
           items (->> *context*
-                         (filter (util/model-type? :transaction))
-                         (mapcat :transaction/items)
-                         (filter #(or (model= reserve
-                                              (:transaction-item/account %))
-                                      (model= car
-                                              (:transaction-item/account %)))))
+                     (filter (util/model-type? :transaction))
+                     (mapcat :transaction/items)
+                     (filter #(or (model= reserve
+                                          (:transaction-item/account %))
+                                  (model= car
+                                          (:transaction-item/account %)))))
           created (assert-created
                     #:reconciliation{:account savings
                                      :end-of-period (t/local-date 2015 1 31)
