@@ -16,7 +16,6 @@
                                             basic-context
                                             find-user
                                             find-account
-                                            find-transaction-item
                                             find-reconciliation]]
             [clj-money.web.server :refer [app]]
             [clj-money.models :as models]))

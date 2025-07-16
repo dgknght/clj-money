@@ -7,6 +7,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
+            [clj-money.models.transaction-items :as itms]
             [clj-money.accounts :as acts]))
 
 (defn- get-meta
@@ -22,10 +23,10 @@
 
 (defn- in-balance?
   [{:reconciliation/keys [balance] :as recon}]
-  (let [new-balance (->> (get-meta recon ::all-items)
-                         (map :transaction-item/polarized-quantity)
-                         (reduce + (starting-balance recon)))]
-    (= balance new-balance)))
+  (let [calculated (->> (get-meta recon ::all-items)
+                        (map :transaction-item/polarized-quantity)
+                        (reduce + (starting-balance recon)))]
+    (= balance calculated)))
 
 (defn- in-progress?
   [{:reconciliation/keys [status]}]
@@ -167,23 +168,6 @@
                     (find %)
                     %)))))
 
-(defn- fullify-items
-  [items]
-  (let [[full abbr] (split-with :transaction-item/account
-                                items)]
-    (concat
-      full
-      (when (seq abbr)
-        (models/select
-          {:id [:in (map :id abbr)]
-           :transaction/transaction-date
-           (apply
-             vector
-             :between
-             (->> abbr
-                  (map :transaction/transaction-date)
-                  (util/->range :compare t/before?)))})))))
-
 (defn- prepare-item []
   (comp polarize-item
         (resolve-account)))
@@ -202,7 +186,7 @@
   {:pre [(s/valid? (s/nilable :reconciliation/items) items)]}
   (let [prep (prepare-item)
         existing-items (->> (fetch-items recon)
-                            fullify-items
+                            itms/resolve-refs
                             (mapv prep))
         ignore? (->> existing-items
                      (map :id)
