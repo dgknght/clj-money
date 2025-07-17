@@ -6,6 +6,7 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [cljs-time.core :as t]
+            [clj-money.util :as util]
             [clj-money.components :refer [button]]
             [clj-money.state :refer [+busy
                                      -busy]]
@@ -15,19 +16,21 @@
 
 (defn- receive-reconciliation
   [page-state]
-  (fn [reconciliation]
-    (swap! page-state
-           assoc
-           :reconciliation (if reconciliation
-                             (update-in reconciliation
-                                        [:reconciliation/item-refs]
-                                        (fn [item-refs]
-                                          (reduce #(assoc %1 (first %2) true)
-                                                  {}
-                                                  item-refs)))
-                             {:reconciliation/account (get-in @page-state
-                                                              [:view-account])
-                              :reconciliation/end-of-period (t/today)}))))
+  (fn [{:as recon :reconciliation/keys [items
+                                        account
+                                        end-of-period]}]
+    (let [item-selection (->> items
+                              (map (juxt :id (constantly true)))
+                              (into {}))]
+      (swap! page-state
+             assoc
+             :reconciliation
+             (assoc recon
+                    ::item-selection item-selection
+                    :reconciliation/account (or account
+                                                (:account @page-state))
+                    :reconciliation/end-of-period (or end-of-period
+                                                      (t/today)))))))
 
 (defn- ->criteria
   [recon]
@@ -47,28 +50,32 @@
                :on-success (comp (receive-reconciliation page-state)
                                  first)))
 
-(defn- resolve-item-refs
-  [item-refs items]
-  (let [items-map (->> items
-                       (map (juxt :id identity))
-                       (into {}))]
-    (->> item-refs
-         (filter second)
-         (map (comp #(vector %
-                             (get-in items-map [% :transaction-item/transaction-date]))
-                    first)))))
+(defn- apply-selections
+  [recon items]
+  (-> recon
+      (dissoc ::item-selection)
+      (assoc :reconciliation/items
+             (->> (::item-selection recon)
+                  (filter second)
+                  (map (comp items
+                             first))))))
 
 (defn- save-reconciliation*
   [page-state]
   (+busy)
-  (recs/save (update-in (get-in @page-state [:reconciliation])
-                        [:reconciliation/item-refs]
-                        resolve-item-refs
-                        (:items @page-state))
-             :callback -busy
-             :on-success (fn [_created]
-                           (swap! page-state dissoc :reconciliation)
-                           (trns/reset-item-loading page-state))))
+  (let [{:keys [reconciliation items]} @page-state]
+
+    ; TODO: Put the save operation back
+
+    (-> reconciliation
+        (apply-selections items)
+
+        (util/pp-> ::to-save)
+
+        #_(recs/save :callback -busy
+                   :on-success (fn [_created]
+                                 (swap! page-state dissoc :reconciliation)
+                                 (trns/reset-item-loading page-state))))))
 
 (defn- save-reconciliation
   [page-state]
@@ -100,14 +107,11 @@
   (let [reconciliation (r/cursor page-state [:reconciliation])
         account (r/cursor page-state [:view-account])
         previous-balance (r/cursor page-state [:previous-reconciliation :reconciliation/balance])
-        item-ids (make-reaction #(->> (:reconciliation/item-refs @reconciliation)
-                                      (filter second)
-                                      (map first)
-                                      set))
+        item-selection (r/cursor page-state [::item-selection])
         items (r/cursor page-state [:items])
         reconciled-total (make-reaction (fn []
                                           (->> @items
-                                               (filter (comp @item-ids :id))
+                                               (filter (comp @item-selection :id))
                                                (map :transaction-item/polarized-quantity)
                                                (reduce decimal/+ 0M))))
         working-balance (make-reaction #(decimal/+ @previous-balance
@@ -115,7 +119,7 @@
         difference (make-reaction #(decimal/- (:reconciliation/balance @reconciliation)
                                               @working-balance))
         balanced? (make-reaction #(and (decimal/zero? @difference)
-                                       (seq @item-ids)))
+                                       (seq @item-selection)))
         disable? (make-reaction #(not @balanced?))]
     (load-previous-balance page-state)
     (fn []

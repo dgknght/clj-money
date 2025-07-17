@@ -212,6 +212,7 @@
           (mapcat :transaction/items)
           (filter #(and (model= act (:transaction-item/account %))
                         (= quantity (:transaction-item/quantity %))))
+          (map #(assoc % :transaction/transaction-date transaction-date))
           first))))
 
 (defn find-scheduled-transaction
@@ -321,9 +322,8 @@
   (let [account (find-account ctx (:reconciliation/account recon))]
     (-> recon
         (assoc :reconciliation/account account)
-        (update-in [:reconciliation/item-refs]
-                   (partial mapv (comp (juxt :id :transaction/transaction-date)
-                                       #(find-transaction-item ctx %)
+        (update-in [:reconciliation/items]
+                   (partial mapv (comp #(find-transaction-item ctx %)
                                        #(conj % account)))))))
 
 (defmethod prepare :budget

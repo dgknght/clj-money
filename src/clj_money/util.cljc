@@ -465,3 +465,9 @@
     (if m
       (keyword (nth m 1) (nth m 2))
       k)))
+
+(defn ->range
+  "Accepts a sequence of values and returns a tuple with the
+  first in the first position and the last in the second."
+  [vs & {:keys [compare] :or {compare <}}]
+  ((juxt first last) (sort compare vs)))

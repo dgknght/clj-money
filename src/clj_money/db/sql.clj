@@ -69,7 +69,7 @@
              :children-key :budget/items}]
    :reconciliation [{:parent? :reconciliation/end-of-period
                      :child? :transaction-item/reconciliation
-                     :children-key :reconciliation/item-refs}]
+                     :children-key :reconciliation/items}]
    :scheduled-transaction [{:parent? :scheduled-transaction/description
                             :child? :scheduled-transaction-item/action
                             :children-key :scheduled-transaction/items}]
