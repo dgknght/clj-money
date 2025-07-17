@@ -137,7 +137,10 @@
    [:td.text-center
     [:div.btn-group
      [:button.btn.btn-secondary.btn-sm
-      {:on-click #(swap! page-state assoc :view-account account)
+      {:on-click #(swap! page-state assoc :view-account (update-in account
+                                                                   [:account/commodity]
+                                                                   (comp (:commodities @page-state)
+                                                                         :id)))
        :title "Click here to view transactions for this account."}
       (icon :collection :size :small)]
      [:button.btn.btn-secondary.btn-sm
@@ -669,7 +672,7 @@
   ([page-state checked?]
   (swap! page-state
          update-in
-         [:reconciliation :reconciliation/item-refs]
+         [:reconciliation :clj-money.views.reconciliations/item-selection]
          merge
          (->> (:items @page-state)
               (map (comp #(vector % checked?)
