@@ -213,17 +213,17 @@
                                (:id item)))
       :on-drag-over #(.preventDefault %)
       :on-drop #(handle-item-row-drop item % page-state)
-      :style (get-in @styles [(:id item)])}
+      :style (get-in styles [(:id item)])}
      [:td.text-end
       [:span.d-md-none (format-date transaction-date "M/d")]
       [:span.d-none.d-md-inline (format-date transaction-date)]]
-     [:td {:style (get-in @styles [(:id item)])} description]
+     [:td {:style (get-in styles [(:id item)])} description]
      [:td.text-end (format-quantity (polarize-quantity quantity
                                                        action
                                                        account)
                                     account)]
      [:td.text-center.d-none.d-md-table-cell
-      (if reconciliation
+      (if @reconciliation
         [forms/checkbox-input
          reconciliation
          [:clj-money.views.reconciliations/item-selection (:id item)]
@@ -237,7 +237,7 @@
      (when-not reconciliation
        [:td.text-end.d-none.d-md-table-cell (format-quantity balance
                                                              account)])
-     (when-not reconciliation
+     (when-not @reconciliation
        [:td
         [:div.btn-group
          [:button.btn.btn-secondary.btn-sm
@@ -277,7 +277,7 @@
         styles (r/cursor page-state [:item-row-styles])
         include-children? (r/cursor page-state [:include-children?])
         account (r/cursor page-state [:view-account])
-        reconciliation (r/cursor page-state [:reconciliation])
+        recon (r/cursor page-state [:reconciliation])
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
@@ -291,9 +291,9 @@
          [:th "Description"]
          [:th.text-end "Amount"]
          [:th.text-center.d-none.d-md-table-cell "Rec."]
-         (when-not @reconciliation
+         (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
-         (when-not @reconciliation
+         (when-not @recon
            [:th (space)])]]
        [:tbody
         (cond
@@ -301,7 +301,7 @@
           (->> @items
                (filter @filter-fn)
                (map (item-row {:account @account
-                               :reconciliation @reconciliation
+                               :reconciliation recon
                                :styles styles}
                               page-state))
                doall)

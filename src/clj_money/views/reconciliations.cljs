@@ -2,11 +2,11 @@
   (:require [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
+            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [cljs-time.core :as t]
-            [clj-money.util :as util]
             [clj-money.components :refer [button]]
             [clj-money.state :refer [+busy
                                      -busy]]
@@ -28,15 +28,16 @@
              (assoc recon
                     ::item-selection item-selection
                     :reconciliation/account (or account
-                                                (:account @page-state))
+                                                (:view-account @page-state))
                     :reconciliation/end-of-period (or end-of-period
                                                       (t/today)))))))
 
 (defn- ->criteria
   [recon]
-  (accounts/->criteria recon
-                       {:account-attribute :reconciliation/account
-                        :date-attribute :reconciliation/end-of-period}))
+  (accounts/->criteria
+    recon
+    {:account-attribute :reconciliation/account
+     :date-attribute :reconciliation/end-of-period}))
 
 (defn load-working-reconciliation
   [page-state]
@@ -51,35 +52,30 @@
                                  first)))
 
 (defn- apply-selections
-  [recon items]
-  (-> recon
-      (dissoc ::item-selection)
-      (assoc :reconciliation/items
-             (->> (::item-selection recon)
-                  (filter second)
-                  (map (comp items
-                             first))))))
+  [{::keys [item-selection] :as recon} items]
+  (let [item-map (index-by :id items)]
+    (-> recon
+        (dissoc ::item-selection)
+        (assoc :reconciliation/items
+               (->> item-selection
+                    (filter second)
+                    (map (comp item-map
+                               first)))))))
 
 (defn- save-reconciliation*
   [page-state]
-  (+busy)
+  #_(+busy)
   (let [{:keys [reconciliation items]} @page-state]
-
-    ; TODO: Put the save operation back
-
     (-> reconciliation
         (apply-selections items)
-
-        (util/pp-> ::to-save)
-
-        #_(recs/save :callback -busy
+        (recs/save :callback -busy
                    :on-success (fn [_created]
                                  (swap! page-state dissoc :reconciliation)
                                  (trns/reset-item-loading page-state))))))
 
 (defn- save-reconciliation
   [page-state]
-  (swap! page-state assoc-in [:reconciliation :status] :new)
+  (swap! page-state assoc-in [:reconciliation :reconciliation/status] :new)
   (save-reconciliation* page-state))
 
 (defn- load-previous-balance
@@ -104,10 +100,10 @@
 
 (defn reconciliation-form
   [page-state]
-  (let [reconciliation (r/cursor page-state [:reconciliation])
+  (let [recon (r/cursor page-state [:reconciliation])
         account (r/cursor page-state [:view-account])
         previous-balance (r/cursor page-state [:previous-reconciliation :reconciliation/balance])
-        item-selection (r/cursor page-state [::item-selection])
+        item-selection (r/cursor recon [::item-selection])
         items (r/cursor page-state [:items])
         reconciled-total (make-reaction (fn []
                                           (->> @items
@@ -116,7 +112,7 @@
                                                (reduce decimal/+ 0M))))
         working-balance (make-reaction #(decimal/+ @previous-balance
                                                    @reconciled-total))
-        difference (make-reaction #(decimal/- (:reconciliation/balance @reconciliation)
+        difference (make-reaction #(decimal/- (:reconciliation/balance @recon)
                                               @working-balance))
         balanced? (make-reaction #(and (decimal/zero? @difference)
                                        (seq @item-selection)))
@@ -130,8 +126,8 @@
        [:div.card
         [:div.card-header [:strong "Reconcile"]]
         [:div.card-body
-         [forms/date-field reconciliation [:reconciliation/end-of-period]]
-         [forms/decimal-field reconciliation [:reconciliation/balance]]
+         [forms/date-field recon [:reconciliation/end-of-period]]
+         [forms/decimal-field recon [:reconciliation/balance]]
          [forms/checkbox-field
           page-state
           [:include-children?]
@@ -150,7 +146,7 @@
           [:tr
            [:th {:scope :col} "New Balance"]
            [:td.text-end
-            (accounts/format-quantity @reconciled-total @account)]]
+            (accounts/format-quantity @working-balance @account)]]
           [:tr {:class (when @balanced? "bg-success text-white")}
            [:th {:scope :col} "Difference"]
            [:td.text-end
