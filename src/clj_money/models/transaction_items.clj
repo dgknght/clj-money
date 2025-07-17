@@ -1,5 +1,8 @@
 (ns clj-money.models.transaction-items
-  (:require [clj-money.util :as util]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
+            [clj-money.util :as util]
             [clj-money.models :as models]))
 
 (defn- fetch-account
@@ -24,3 +27,25 @@
                             account))
                accounts))
       output)))
+
+(defn- ->criteria
+  [items]
+  (let [range (util/->range (map :transaction/transaction-date items)
+                            :compare t/before?)
+        criterion (if (apply = range)
+                    (first range)
+                    [:between range])]
+    (util/model-type
+      {:id [:in (map :id items)]
+       :transaction/transaction-date criterion}
+      :transaction-item)))
+
+(defn resolve-refs
+  [items]
+  {:pre [(s/valid? :reconciliation/items items)]}
+  (let [[full abbr] (split-with :transaction-item/account
+                                items)]
+    (concat
+      full
+      (when (seq abbr)
+        (models/select (->criteria abbr))))))
