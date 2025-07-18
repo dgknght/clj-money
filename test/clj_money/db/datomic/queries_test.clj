@@ -140,3 +140,41 @@
                          [?t :transaction/transaction-date ?date]]
                 transactions
                 1)))))
+
+(def ^:private accounts-with-expenses
+  (conj accounts
+        [7 :account/name "Rent"]
+        [7 :account/tags :mandatory]
+        [8 :account/name "Groceries"]
+        [8 :account/tags :mandatory]
+        [8 :account/tags :food]
+        [9 :account/name "Dining"]
+        [9 :account/tags :discretionary]
+        [9 :account/tags :food]
+        [10 :account/name "FIT"]
+        [10 :account/tags :tax]
+        [11 :account/name "Social Security"]
+        [11 :account/tags :tax]))
+
+(deftest query-account-tags
+  (testing "query against a single tag"
+    (is (= #{"Rent" "Groceries"}
+           (->> (d/q '[:find ?name
+                       :in $ ?tag
+                       :where [?a :account/name ?name]
+                              [?a :account/tags ?tag]]
+                     accounts-with-expenses
+                     :mandatory)
+                (map first)
+                set))))
+  (testing "query against multiple tags"
+    (is (= #{"Rent" "Groceries" "Dining"}
+           (->> (d/q '[:find ?name
+                       :in $ ?t
+                       :where [?a :account/name ?name]
+                              [?a :account/tags ?tag]
+                              [(contains? ?t ?tag)]]
+                     accounts-with-expenses
+                     #{:mandatory :discretionary})
+                (map first)
+                set)))))
