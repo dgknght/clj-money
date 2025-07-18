@@ -168,7 +168,7 @@
                     (find %)
                     %)))))
 
-(def ^:private prepare-item
+(defn- prepare-item []
   (comp polarize-item
         (resolve-account)))
 
