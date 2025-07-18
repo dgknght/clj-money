@@ -185,14 +185,14 @@
   [{:reconciliation/keys [items] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items) items)]}
   (let [prep (prepare-item)
-        existing-items (->> (fetch-items recon)
-                            itms/resolve-refs
-                            (mapv prep))
+        existing-items (mapv prep
+                             (fetch-items recon))
         ignore? (->> existing-items
                      (map :id)
                      set)
         new-items (->> items
                        (remove #(ignore? (:id %)))
+                       itms/resolve-refs
                        (mapv prep))
         all-items (concat existing-items new-items)]
     (-> recon
