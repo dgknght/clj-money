@@ -178,7 +178,7 @@
              :type :expense
              :user-tags #{:mandatory :tax}}])
 
-(deftest select-accounts-by-tag
+(dbtest select-accounts-by-tag
   (with-context tag-context
     (is (= #{"Rent" "Tax" "Dining"}
            (->> (models/select {:account/user-tags [:&&
