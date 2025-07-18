@@ -34,7 +34,7 @@
                             :compare t/before?)
         criterion (if (apply = range)
                     (first range)
-                    [:between range])]
+                    (apply vector :between range))]
     (util/model-type
       {:id [:in (map :id items)]
        :transaction/transaction-date criterion}
