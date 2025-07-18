@@ -184,22 +184,18 @@
                :on-success (post-item-row-drop page-state item)))
 
 (defn- item-row
-  [{:transaction-item/keys [attachment-count
-                            transaction-date
-                            quantity
-                            balance
-                            action
-                            reconciliation-status]
-    :transaction/keys [description]
-    :as item}
+  [{:keys [account
+           reconciliation
+           styles]}
    page-state]
-  (let [account* (r/cursor page-state [:view-account])
-        commodities (r/cursor page-state [:commodities])
-        account (make-reaction #(update-in @account*
-                                           [:account/commodity]
-                                           (comp @commodities :id)))
-        reconciliation (r/cursor page-state [:reconciliation])
-        styles (r/cursor page-state [:item-row-styles])]
+  (fn [{:transaction-item/keys [attachment-count
+                                transaction-date
+                                quantity
+                                balance
+                                action
+                                reconciliation-status]
+        :transaction/keys [description]
+        :as item}]
     ^{:key (str "item-row-" (:id item))}
     [:tr.align-middle
      {:on-drag-enter #(swap! page-state
@@ -217,20 +213,20 @@
                                (:id item)))
       :on-drag-over #(.preventDefault %)
       :on-drop #(handle-item-row-drop item % page-state)
-      :style (get-in @styles [(:id item)])}
+      :style (get-in styles [(:id item)])}
      [:td.text-end
       [:span.d-md-none (format-date transaction-date "M/d")]
       [:span.d-none.d-md-inline (format-date transaction-date)]]
-     [:td {:style (get-in @styles [(:id item)])} description]
+     [:td {:style (get-in styles [(:id item)])} description]
      [:td.text-end (format-quantity (polarize-quantity quantity
                                                        action
-                                                       @account)
-                                    @account)]
+                                                       account)
+                                    account)]
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
         [forms/checkbox-input
          reconciliation
-         [:reconciliation/item-refs (:id item)]
+         [:clj-money.views.reconciliations/item-selection (:id item)]
          {::forms/decoration ::forms/none}]
         (icon
           (case reconciliation-status
@@ -238,9 +234,9 @@
             :new       :dash-sqaure
             :square)
           :size :small))]
-     (when-not @reconciliation
+     (when-not reconciliation
        [:td.text-end.d-none.d-md-table-cell (format-quantity balance
-                                                             @account)])
+                                                             account)])
      (when-not @reconciliation
        [:td
         [:div.btn-group
@@ -278,9 +274,10 @@
                                                reconciliation :completed
                                                :else :unreconciled)))
                                     @raw-items)))
+        styles (r/cursor page-state [:item-row-styles])
         include-children? (r/cursor page-state [:include-children?])
         account (r/cursor page-state [:view-account])
-        reconciliation (r/cursor page-state [:reconciliation])
+        recon (r/cursor page-state [:reconciliation])
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
@@ -294,16 +291,19 @@
          [:th "Description"]
          [:th.text-end "Amount"]
          [:th.text-center.d-none.d-md-table-cell "Rec."]
-         (when-not @reconciliation
+         (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
-         (when-not @reconciliation
+         (when-not @recon
            [:th (space)])]]
        [:tbody
         (cond
           (seq @items)
           (->> @items
                (filter @filter-fn)
-               (map #(item-row % page-state))
+               (map (item-row {:account @account
+                               :reconciliation recon
+                               :styles styles}
+                              page-state))
                doall)
 
           @items
