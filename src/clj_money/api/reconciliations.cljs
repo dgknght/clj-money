@@ -34,24 +34,38 @@
            (prepare-criteria criteria)
            (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
 
+(defn- simplify-items
+  [recon]
+  (update-in-if recon
+                [:reconciliation/items]
+                (fn [items]
+                  (map #(select-keys %
+                                     [:id
+                                      :transaction/transaction-date])
+                       items))))
+
 (defn create
-  [{:reconciliation/keys [account] :as reconciliation} opts]
+  [{:reconciliation/keys [account] :as recon} opts]
   (api/post (api/path :accounts
                       account
                       :reconciliations)
-            (dissoc reconciliation :reconciliation/account)
+            (-> recon
+                simplify-items
+                (dissoc recon :reconciliation/account))
             (add-error-handler opts "Unable to create the reconciliation: %s")))
 
 (defn update
   [recon opts]
   (api/patch (api/path :reconciliations
                        recon)
-             (dissoc recon :id :reconciliation/account)
+             (-> recon
+                 simplify-items
+                 (dissoc :id :reconciliation/account))
              (add-error-handler opts "Unable to update the reconciliation: %s")))
 
 (defn save
-  [reconciliation & {:as opts}]
-  (let [f (if (:id reconciliation)
+  [recon & {:as opts}]
+  (let [f (if (:id recon)
             update
             create)]
-    (f reconciliation opts)))
+    (f recon opts)))
