@@ -153,6 +153,43 @@
              simplified)
           "The result contains lists of account-plus-ancestors"))))
 
+(def ^:private tag-context
+  [#:user{:email "john@doe.com"
+          :first-name "John"
+          :last-name "Doe"
+          :password "Please001!"}
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:commodity{:name "US Dollar"
+               :entity "Personal"
+               :symbol "USD"
+               :type :currency}
+   #:account{:name "Checking"
+             :type :asset
+             :entity "Personal"}
+   #:account{:name "Rent"
+             :type :expense
+             :entity "Personal"
+             :user-tags #{:mandatory}}
+   #:account{:name "Dining"
+             :entity "Personal"
+             :type :expense
+             :user-tags #{:discretionary}}
+   #:account{:name "Tax"
+             :entity "Personal"
+             :type :expense
+             :user-tags #{:mandatory :tax}}])
+
+(deftest select-accounts-by-tag
+  (with-context tag-context
+    (is (= #{"Rent" "Tax" "Dining"}
+           (->> (models/select {:account/user-tags [:&&
+                                                    #{:mandatory
+                                                      :discretionary}
+                                                    :text]}) ; TODO: this hint is specific to SQL. Move it to a sql ns
+                (map :account/name)
+                set)))))
+
 (defn- assert-created
   [attr]
   (helpers/assert-created attr :refs [:account/entity
