@@ -114,10 +114,12 @@
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
-(s/def :reconciliation/item (s/or :abbreviated (s/keys :req [:transaction/transaction-date]
+                                                       ;NB this is required for :sql and optional for :datomic-peer
+(s/def :reconciliation/item (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
                                                        :req-un [::models/id])
                                   :full (s/and ::models/transaction-item
-                                               (s/keys :req [:transaction/transaction-date]))))
+                                                       ;NB this is required for :sql and optional for :datomic-peer
+                                               (s/keys :opt [:transaction/transaction-date]))))
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
 (s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
@@ -139,6 +141,8 @@
                                     (util/->model-ref account)
                                     :account)
                                   {:include-children? true})
+          ; TODO: This query needs to be different between SQL and datomic
+          ; because of the different direction of the relationships
           criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
       (models/select criteria))
