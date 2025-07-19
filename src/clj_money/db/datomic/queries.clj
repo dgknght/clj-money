@@ -16,6 +16,8 @@
       [:transaction-item :reconciliation :items]
       [:transaction-item :transaction :items]}))
 
+(pprint {::relationships relationships})
+
 (def ^:private default-opts
   {:relationships relationships
    :query-prefix [:query]})

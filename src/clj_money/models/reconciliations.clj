@@ -144,8 +144,7 @@
           ; TODO: This query needs to be different between SQL and datomic
           ; because of the different direction of the relationships
           criteria (assoc (acts/->>criteria accounts)
-                          :reconciliation/_self recon
-                          #_:transaction-item/reconciliation #_recon)]
+                          :transaction-item/reconciliation recon)]
       (models/select criteria))
     []))
 

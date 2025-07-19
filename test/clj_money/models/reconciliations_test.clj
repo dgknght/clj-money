@@ -275,8 +275,7 @@
       (is (comparable? #:reconciliation{:status :completed}
                        (models/find result :reconciliation))
           "The retrieved record reflects the updated attributes")
-      ; Is there are better way to test this that works with datomic?
-      #_(is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 1 1)
+      (is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 1 1)
                                :transaction-item/quantity 1000M
                                :transaction-item/reconciliation (->model-ref previous-rec)}
                               {:transaction/transaction-date (t/local-date 2017 1 2)
@@ -334,7 +333,7 @@
       (prop/delete-and-propagate reconciliation)
       (is (empty? (models/select
                     (util/model-type
-                      {:reconciliation/_self (->model-ref reconciliation)
+                      {:transaction-item/reconciliation (->model-ref reconciliation)
                        :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
                       :transaction-item)))
           "The reconciliation is not associated with any items after delete"))))
@@ -348,7 +347,7 @@
       (is (models/find reconciliation) "The reconciliation can still be retrieved")
       (is (seq (models/select
                  (util/model-type
-                   {:reconciliation/_self (->model-ref reconciliation)
+                   {:transaction-item/reconciliation (->model-ref reconciliation)
                     :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
                    :transaction-item)))
           "The transaction items are still associated with the reconciliation"))))
