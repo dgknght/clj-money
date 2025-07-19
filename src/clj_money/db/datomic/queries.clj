@@ -10,13 +10,9 @@
     (set/difference
       schema/relationships
       #{[:budget :budget-item]
-        [:reconciliation :transaction-item]
         [:transaction :transaction-item]})
     #{[:budget-item :budget :items]
-      [:transaction-item :reconciliation :items]
       [:transaction-item :transaction :items]}))
-
-(pprint {::relationships relationships})
 
 (def ^:private default-opts
   {:relationships relationships

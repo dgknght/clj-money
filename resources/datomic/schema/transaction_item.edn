@@ -6,6 +6,10 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The account that was debited or credited"}
+ {:db/ident :transaction-item/reconciliation
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The reconciliation with which this item was reconciled"}
  {:db/ident :transaction-item/quantity
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one

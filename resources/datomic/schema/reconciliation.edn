@@ -13,8 +13,4 @@
  {:db/ident :reconciliation/balance
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
-  :db/doc "The balance of the account as of the period-end-date"}
- {:db/ident :reconciliation/items
-  :db/valueType :db.type/ref
-  :db/cardinality :db.cardinality/many
-  :db/doc "The items reconciled"}]
+  :db/doc "The balance of the account as of the period-end-date"}]
