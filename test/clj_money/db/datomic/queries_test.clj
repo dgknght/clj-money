@@ -178,3 +178,52 @@
                      #{:mandatory :discretionary})
                 (map first)
                 set)))))
+
+(def ^:private recon-data
+  [[101 :account/name "Checking"]
+   [102 :account/name "Salary"]
+   [103 :account/name "Rent"]
+
+   ; Paycheck
+   [201 :transaction-item/action :debit]
+   [201 :transaction-item/account 101]
+   [201 :transaction-item/quantity 1000M]
+   [202 :transaction-item/action :credit]
+   [202 :transaction-item/account 102]
+   [202 :transaction-item/quantity 1000M]
+   [301 :transaction/transaction-date "2020-01-01"]
+   [301 :transaction/description "Paycheck"]
+   [301 :transaction/items 201]
+   [301 :transaction/items 202]
+
+   ; Rent
+   [203 :transaction-item/action :debit]
+   [203 :transaction-item/account 103]
+   [203 :transaction-item/quantity 500M]
+   [204 :transaction-item/action :credit]
+   [204 :transaction-item/account 101]
+   [204 :transaction-item/quantity 500M]
+   [302 :transaction/transaction-date "2020-01-02"]
+   [302 :transaction/description "Kroger"]
+   [302 :transaction/items 203]
+   [302 :transaction/items 204]
+
+   ; Reconciliations
+   [401 :reconciliation/end-of-period "2020-01-31"]
+   [401 :reconciliation/balance 500M]
+   [401 :reconciliation/account 101]
+   [401 :reconciliation/items 201]
+   [401 :reconciliation/items 204]])
+
+(deftest query-transactions-for-reconciliation
+  (is (= #{["2020-01-01" :debit 1000M]
+           ["2020-01-02" :credit 500M]}
+         (set (d/q '[:find ?date ?action ?quantity
+                     :where [?recon :reconciliation/items ?item]
+                            [?item :transaction-item/action ?action]
+                            [?item :transaction-item/quantity ?quantity]
+                            [?transaction :transaction/items ?item]
+                            [?transaction :transaction/transaction-date ?date]
+                     :in $ ?recon]
+                   recon-data
+                   401)))))
