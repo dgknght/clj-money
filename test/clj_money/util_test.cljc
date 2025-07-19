@@ -421,15 +421,3 @@
              (map #(select-keys % [:v :d])
                   (util/apply-sort {:order-by [:v :d]}
                                   (conj items {:v 2 :d d2}))))))))
-
-(deftest turn-a-sequence-into-a-range
-  (is (= [1 4]
-         (util/->range [2 4 3 1]))
-      "Integers can be processed")
-  (is (= [(dates/local-date "2020-01-01")
-          (dates/local-date "2020-12-01")]
-         (util/->range [(dates/local-date "2020-01-01")
-                        (dates/local-date "2020-12-01")
-                        (dates/local-date "2020-05-01")]
-                       :compare t/before?))
-      "Integers can be processed"))

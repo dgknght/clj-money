@@ -576,9 +576,3 @@
     (sort (->comparator sort-spec)
           models)
     models))
-
-(defn ->range
-  "Accepts a sequence of values and returns a tuple with the
-  first in the first position and the last in the second."
-  [vs & {:keys [compare] :or {compare <}}]
-  ((juxt first last) (sort compare vs)))
