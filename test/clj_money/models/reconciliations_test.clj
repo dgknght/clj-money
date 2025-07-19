@@ -8,6 +8,7 @@
             [clj-money.json]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [dbtest]]
+            [clj-money.accounts :as acts]
             [clj-money.model-helpers
              :refer [assert-invalid
                      assert-deleted]
@@ -260,7 +261,7 @@
 (dbtest a-working-reconciliation-can-be-completed
   (with-context working-reconciliation-context
     (let [checking (find-account "Checking")
-          ; previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
+          previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
           item (find-transaction-item [(t/local-date 2017 1 3)
                                        45M
                                        checking])
