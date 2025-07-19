@@ -56,14 +56,18 @@
     exclude `(complement ~(->set exclude))
     :else   '(constantly true)))
 
-(def isolate (when-let [isolate (env :isolate)]
-               #{(if (string? isolate)
-                   (keyword isolate)
-                   isolate)}))
+(defn- env-var->set
+  [k]
+  (when-let [v (env k)]
+    #{(if (string? v)
+        (keyword v)
+        v)}))
+
+(def isolate (env-var->set :isolate))
 
 (def ignore-strategy (if isolate
                        (complement isolate)
-                       (->set (env :ignore-strategy))))
+                       (env-var->set :ignore-strategy)))
 
 (def honor-strategy (complement ignore-strategy))
 
