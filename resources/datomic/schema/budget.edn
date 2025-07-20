@@ -19,4 +19,9 @@
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
   :db/noHistory true
-  :db/doc "The date on which the budget ends"}]
+  :db/doc "The date on which the budget ends"}
+ {:db/ident :budget/items
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/isComponent true
+  :db/doc "The items that make up the budget"}]

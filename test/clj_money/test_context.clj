@@ -328,12 +328,13 @@
 
 (defmethod prepare :budget
   [budget ctx]
-  (update-in budget [:budget/entity] (find-entity ctx)))
+  (-> budget
+      (update-in [:budget/entity] (find-entity ctx))
+      (update-in [:budget/items] (partial map #(prepare % ctx)))))
 
 (defmethod prepare :budget-item
   [item ctx]
   (-> item
-      (update-in-if [:budget-item/budget] #(find-budget ctx %))
       (update-in-if [:budget-item/periods] vec)
       (update-in [:budget-item/account] #(find-account ctx %))))
 

@@ -60,7 +60,7 @@
   [[res {:keys [budget account]}]]
   (is (http-not-found? res))
   (is (empty? (models/select {:budget-item/account account
-                              :budget-item/budget budget}))
+                              :budget/_self budget}))
       "The budget item is not created"))
 
 (deftest a-user-can-add-an-item-to-a-budget-in-his-entity

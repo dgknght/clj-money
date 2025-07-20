@@ -126,13 +126,11 @@
         #:budget{:entity "Personal"
                  :name "2015"
                  :start-date (t/local-date 2015 1 1)
-                 :period [3 :month]}
-        #:budget-item{:budget "2015"
-                      :account "Food"
-                      :periods (repeat 3 100M)}
-        #:budget-item{:budget "2015"
-                      :account "Non-food"
-                      :periods (repeat 3 50M)}))
+                 :period [3 :month]
+                 :items [#:budget-item{:account "Food"
+                                       :periods (repeat 3 100M)}
+                         #:budget-item{:account "Non-food"
+                                       :periods (repeat 3 50M)}]}))
 
 (dbtest get-items-by-account
   (with-context get-items-context

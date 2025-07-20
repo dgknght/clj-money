@@ -1,8 +1,4 @@
-[{:db/ident :budget-item/budget
-  :db/valueType :db.type/ref
-  :db/cardinality :db.cardinality/one
-  :db/doc "The budget to which this item belongs"}
- {:db/ident :budget-item/account
+[{:db/ident :budget-item/account
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The account to which this budget item applies"}
