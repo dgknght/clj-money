@@ -52,8 +52,8 @@
 (defn include-strategy
   [{:keys [only exclude]}]
   (cond
-    only    (list '->set only)
-    exclude `(complement ~(->set exclude))
+    only    (list 'clj-money.test-helpers/->set only)
+    exclude `(complement ~(clj-money.test-helpers/->set exclude))
     :else   '(constantly true)))
 
 (defn- env-var->set

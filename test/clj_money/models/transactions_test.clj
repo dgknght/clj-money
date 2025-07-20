@@ -566,7 +566,7 @@
 ; 2016-03-30     104  Groceries Checking
 
 ; TODO: Consider mocking Storage instead of put*
-(dbtest update-a-transaction-short-circuit-updates
+(dbtest update-a-transaction-short-circuit-updates {:only :sql}
   (with-context short-circuit-context
     (let [calls (atom [])
           orig-put sql/put*]
