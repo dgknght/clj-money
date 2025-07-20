@@ -214,6 +214,12 @@
                     (into {}))))
       first)))
 
+(defn- apply-limit
+  [{:keys [limit]} vs]
+  (if limit
+    (take limit vs)
+    vs))
+
 (defn- select*
   [criteria {:as options :keys [count]} {:keys [api]}]
   (let [qry (-> criteria
@@ -235,7 +241,8 @@
            (map (comp after-read
                       apply-coercions
                       #(util/deep-rename-keys % {:db/id :id})))
-           (util/apply-sort options)))))
+           (util/apply-sort options)
+           (apply-limit options)))))
 
 (defn- delete*
   [models {:keys [api] :as opts}]
