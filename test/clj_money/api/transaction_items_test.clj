@@ -213,14 +213,17 @@
 (deftest a-user-can-get-a-list-of-items-in-an-account-and-child-accounts
   (with-context children-context
     (let [account (find-account "Savings")
-          response (-> (req/request :get (str (path :api
-                                                    :accounts
-                                                    (:id account)
-                                                    :transaction-items)
-                                              "?"
-                                              (map->query-string {:include-children true
-                                                                  :transaction-date-on-or-after "2015-01-01"
-                                                                  :transaction-date-before "2015-02-01"})))
+          response (-> (req/request
+                         :get
+                         (str (path :api
+                                    :accounts
+                                    (:id account)
+                                    :transaction-items)
+                              "?"
+                              (map->query-string
+                                {:include-children true
+                                 :transaction-date-on-or-after "2015-01-01"
+                                 :transaction-date-before "2015-02-01"})))
                        (add-auth (find-user "john@doe.com"))
                        app
                        parse-edn-body)]
