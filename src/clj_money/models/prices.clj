@@ -9,6 +9,7 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
+            [clj-money.decimal :as d]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
 
@@ -76,7 +77,7 @@
 (defn- apply-to-account
   [{:price/keys [value]}]
   (fn [{:as account :account/keys [quantity]}]
-    (assoc account :account/value (* quantity value))))
+    (assoc account :account/value (d/* quantity value))))
 
 (defn- apply-to-accounts
   [{:as price :price/keys [commodity]}]
@@ -171,7 +172,7 @@
   [entity {:keys [date-range]}]
   (apply dates/push-model-boundary entity :entity/price-date-range date-range))
 
-(defn apply-agg-to-commodities
+(defn apply-agg-to-commodities-and-accounts
   [agg]
   (mapcat (fn [[commodity {:keys [current date-range]}]]
             (-> (models/find commodity :commodity)
@@ -190,6 +191,6 @@
                                           :price)))]
      (let [agg (aggregate prices)]
        (models/put-many (cons (apply-agg-to-entity entity agg)
-                              (apply-agg-to-commodities agg)))))))
+                              (apply-agg-to-commodities-and-accounts agg)))))))
 
 (prop/add-full-propagation propagate-all :priority 1)
