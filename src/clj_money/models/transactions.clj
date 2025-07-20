@@ -441,12 +441,10 @@
 
 (defmethod models/before-delete :transaction
   [trx]
-  (let [existing (models/find trx)]
-    (when (and (:id trx)
-               (< 0 (->> (:transacdtion/transaction-items existing)
-                         (filter :transaction-item/reconciliation)
-                         count)))
-      (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
+  (when (and (:id trx)
+             (some :transaction-item/reconciliation
+                   (:transaction/items (models/find trx))))
+    (throw (IllegalStateException. "Cannot delete a transaction with reconciled items")))
   trx)
 
 (defn append-items
