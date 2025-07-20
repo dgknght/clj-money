@@ -105,10 +105,16 @@
        (assert (util/model-type arg) "The argument must have a model type")
        (find (:id arg)
              (keyword (util/model-type arg)))))) ; TODO: can we remove the call to keyword?
-  ([id-or-ref model-type]
-   {:pre [id-or-ref (keyword? model-type)]}
-   (find-by (util/model-type (util/->model-ref id-or-ref)
-                             model-type))))
+  ([id-or-ref model-type-or-opts]
+   (let [[model-type opts] (if (keyword? model-type-or-opts)
+                             [model-type-or-opts {}]
+                             [(or (:model-type model-type-or-opts)
+                                  (util/model-type id-or-ref))
+                              model-type-or-opts])]
+     (find-by (util/model-type
+                (util/->model-ref id-or-ref)
+                model-type)
+              opts))))
 
 (def ^:private mergeable?
   (every-pred map? :id))
