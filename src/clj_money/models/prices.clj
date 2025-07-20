@@ -75,9 +75,12 @@
                        {:sort [[:price/trade-date :desc]]})))))
 
 (defn- apply-to-account
-  [{:price/keys [value]}]
+  [{:price/keys [value trade-date]}]
   (fn [{:as account :account/keys [quantity]}]
-    (assoc account :account/value (d/* quantity value))))
+    (assoc account
+           :account/value (d/* quantity value)
+           :account/commodity-price value
+           :account/price-as-of trade-date)))
 
 (defn- apply-to-accounts
   [{:as price :price/keys [commodity]}]
