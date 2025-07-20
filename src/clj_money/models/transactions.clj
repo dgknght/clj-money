@@ -232,6 +232,14 @@
          :price/trade-date (apply vector :between price-date-range)}
         {:sort [[:price/trade-date :desc]]}))))
 
+(defn- item=
+  [& items]
+  (->> items
+       (map #(select-keys % [:transaction-item/index
+                             :transaction-item/quantity
+                             :transaction-item/balance]))
+       (apply =)))
+
 (defn- re-index
   "Given an account and a list of items, take the index and balance
   of the 1st item and calculate indices and balances forward, then
@@ -249,7 +257,7 @@
    (let [updated-items (->> items
                             (reduce (fn [output item]
                                       (let [updated (apply-prev item (last output))]
-                                        (if (and (= item updated)
+                                        (if (and (item= item updated)
                                                  (not force?))
                                           (reduced output)
                                           (conj output updated))))
