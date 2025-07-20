@@ -19,6 +19,11 @@
   :db/cardinality :db.cardinality/many
   :db/isComponent true
   :db/doc "The items that compose the transaction"}
+ {:db/ident :transaction/lot-items
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/isComponent true
+  :db/doc "The lot changes associated with this transaction"}
  {:db/ident :transaction/scheduled-transaction
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
