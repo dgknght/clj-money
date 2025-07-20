@@ -23,7 +23,7 @@
                                                      :transaction-item/quantity
                                                      :transaction-item/action])))
                      (into {}))]
-      (->> (:transaction/items (:models/find trx))
+      (->> (:transaction/items (models/find trx {:include-items? true}))
            (filter :transaction-item/reconciliation)
            (map #(select-keys % [:id
                                  :transaction-item/quantity
