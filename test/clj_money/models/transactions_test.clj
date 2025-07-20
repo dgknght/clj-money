@@ -957,7 +957,7 @@
                          :balance 1000M
                          :status :completed
                          :items [[(t/local-date 2017 1 1)
-                                      1000M]]}))
+                                  1000M]]}))
 
 (dbtest the-quantity-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context
