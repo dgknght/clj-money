@@ -135,6 +135,7 @@
                                  :sort [[:transaction/transaction-date :desc]
                                         [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
+                                               :transaction/transaction-date
                                                :transaction/attachment-count])))
        (filter-reconciled req)
        (apply-limit req)
@@ -185,7 +186,8 @@
          :as criteria} (extract-summary-criteria req)]
     (->> (models/select (+scope criteria
                                 :transaction-item
-                                authenticated))
+                                authenticated)
+                        {:select-also [:transaction/transaction-date]})
          polarize-quantities
          (summarize-items (assoc (extract-summary-options req)
                                  :since since
