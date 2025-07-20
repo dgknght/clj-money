@@ -174,9 +174,9 @@
 (defn apply-agg-to-commodities
   [agg]
   (mapcat (fn [[commodity {:keys [current date-range]}]]
-            (cons (-> (models/find commodity :commodity)
-                      (assoc :commodity/price-date-range date-range))
-                  (apply-to-accounts current)))
+            (-> (models/find commodity :commodity)
+                (assoc :commodity/price-date-range date-range)
+                (cons (apply-to-accounts current))))
           (:commodities agg)))
 
 (defn propagate-all
