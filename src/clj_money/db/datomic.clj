@@ -115,10 +115,6 @@
                                          [:id]))
                              (last %)))))))
 
-#_(def ^:private action-map
-  {::db/delete :db/retract
-   ::db/put    :db/add})
-
 ; Here we expact that the datomic transaction has already been constructed
 ; like the following:
 ; [:db/add model-id :user/given-name "John"]
@@ -128,9 +124,12 @@
 ; in which case we want to turn it into
 ; [:db/retract 1]
 (defmethod prep-for-put ::util/vector
-  [[_action :as args]]
-  ; For now, let's assume a deconstruct fn has prepared a legal datomic transaction
-  [args])
+  [[action & [{:keys [id] :as model} :as args]]]
+  (if (= ::db/delete action)
+    (->> (keys model)
+         (remove #(= :id %))
+         (map #(vector :db/retract id %)))
+    [(apply vector :db/add args)]))
 
 (defn- models->refs
   [m]
@@ -141,13 +140,25 @@
                 x))
             m))
 
+(defn- pass-through
+  "Returns a fn that takes a single argument and if that
+  argument is a vector, returns it unchanged (or wrapped in another
+  vector if :plural is true). Otherwise it applies the given function f."
+  [f & {:keys [plural]}]
+  (fn [x]
+    (if (vector? x)
+      (if plural
+        [x]
+        x)
+      (f x))))
+
 (defn- put*
   [models {:keys [api]}]
   {:pre [(sequential? models)]}
   (let [prepped (->> models
-                     (map #(util/+id % (comp str random-uuid)))
-                     (mapcat deconstruct)
-                     (map models->refs)
+                     (map (pass-through #(util/+id % (comp str random-uuid))))
+                     (mapcat (pass-through deconstruct :plural true))
+                     (map (pass-through models->refs))
                      (mapcat prep-for-put)
                      vec)
         {:keys [tempids]} (transact api prepped {})]
