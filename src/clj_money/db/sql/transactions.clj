@@ -11,7 +11,7 @@
                 :transaction/lot-items)
         (concat (map #(assoc %
                              :transaction-item/transaction-id id
-                             :transaction/transaction-date transaction-date)
+                             :transaction-item/transaction-date transaction-date)
                      items)
                 (map #(assoc %
                              :lot-item/transaction-id id
