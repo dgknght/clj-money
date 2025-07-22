@@ -204,8 +204,7 @@
                                      :items items})
           simplify #(select-keys % [:transaction-item/action
                                     :transaction-item/account
-                                    :transaction-item/quantity
-                                    :transaction-item/index])
+                                    :transaction-item/quantity])
           retrieved (models/select {:transaction-item/reconciliation created})]
       (is (= (->> items
                   (map simplify)
@@ -287,10 +286,13 @@
                               {:transaction/transaction-date (t/local-date 2017 1 10)
                                :transaction-item/quantity 53M
                                :transaction-item/reconciliation nil}]
-                             (models/select
-                               (-> checking models/find acts/->criteria)
-                               {:sort [:transaction/transaction-date]
-                                :select-also [:transaction/transaction-date]}))
+                             (map #(update-in %
+                                              [:transaction-item/reconciliation]
+                                              identity)
+                                  (models/select
+                                    (-> checking models/find acts/->criteria)
+                                    {:sort [:transaction/transaction-date]
+                                     :select-also [:transaction/transaction-date]})))
           "The retrieved transaction items have the new reconciliation reference"))))
 
 (dbtest cannot-create-a-completed-out-of-balance-reconciliation
