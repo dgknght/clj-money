@@ -195,14 +195,25 @@
                                           (:transaction-item/account %))
                                   (model= car
                                           (:transaction-item/account %)))))
+          _ (assert (= 2 (count items)) "Expected 2 items for the test")
           created (assert-created
                     #:reconciliation{:account savings
                                      :end-of-period (t/local-date 2015 1 31)
                                      :status :completed
                                      :balance 300M
-                                     :items items})]
-      (is (= (set items)
-             (set (:reconciliation/items created)))))))
+                                     :items items})
+          simplify #(select-keys % [:transaction-item/action
+                                    :transaction-item/account
+                                    :transaction-item/quantity
+                                    :transaction-item/index])
+          retrieved (models/select {:transaction-item/reconciliation created})]
+      (is (= (->> items
+                  (map simplify)
+                  set)
+             (->> retrieved
+                  (map simplify)
+                  set))
+          "The items are updated with a reference to the reconciliation"))))
 
 (def ^:private working-rec-context
   (conj reconciliation-context
@@ -228,10 +239,10 @@
       #:reconciliation{:account (find-account "Checking")
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
-                       :items [(find-transaction-item
-                                      [(t/local-date 2017 1 1)
-                                       1000M
-                                       "Checking"])]}
+                       :items (models/select
+                                {:account/name "Checking"
+                                 :transaction-item/quantity 1000M
+                                 :transaction-item/action :debit})}
       {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (dbtest a-working-reconciliation-can-be-updated
