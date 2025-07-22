@@ -35,25 +35,8 @@
                      (db/select storage {:transaction-item/reconciliation %} {})))
        reconciliations))
 
-(defn- ->range
-  [vs & {:keys [compare] :or {compare <}}]
-  ((juxt first last) (sort compare vs)))
-
-(defn- item-refs->query
-  [item-refs]
-  (util/model-type
-    {:transaction/transaction-date (apply vector
-                                          :between
-                                          (->range (mapv second item-refs)
-                                                   :compare t/before?))
-     :id [:in (mapv first item-refs)]}
-    :transaction-item))
-
 (defmethod sql/deconstruct :reconciliation
-  [{:as recon :keys [id] :reconciliation/keys [item-refs]}]
-  (let [without-refs (dissoc recon :reconciliation/item-refs)]
-    (if (seq item-refs)
-      (cons without-refs
-            (->> (models/select (item-refs->query item-refs))
-                 (mapv #(assoc % :transaction-item/reconciliation {:id id}))))
-      [without-refs])))
+  [{:as recon :keys [id] :reconciliation/keys [items]}]
+  (cons (dissoc recon :reconciliation/items)
+        (mapv #(assoc % :transaction-item/reconciliation {:id id})
+              items)))
