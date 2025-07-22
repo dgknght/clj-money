@@ -23,7 +23,7 @@
                                                      :transaction-item/quantity
                                                      :transaction-item/action])))
                      (into {}))]
-      (->> (:transaction/items (:models/find trx))
+      (->> (:transaction/items (:models/find trx {:include-items? true}))
            (filter :transaction-item/reconciliation)
            (map #(select-keys % [:id
                                  :transaction-item/quantity
@@ -432,12 +432,13 @@
                  (:transaction/items before)))))
 
 (defmethod models/before-delete :transaction
-  [trx]
-  (let [existing (models/find trx)]
-    (when (and (:id trx)
-               (< 0 (->> (:transacdtion/transaction-items existing)
-                         (filter :transaction-item/reconciliation)
-                         count)))
+  [{:keys [id] :as trx}]
+  (when-let [{:transaction/keys [items]}
+             (when id (models/find-by (util/model-type {:id id}
+                                                       :transaction)
+                                      {:include-items? true}))]
+    (when (some :transaction-item/reconciliation
+                items)
       (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
   trx)
 
