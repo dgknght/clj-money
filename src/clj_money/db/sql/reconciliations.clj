@@ -17,13 +17,7 @@
   [recon]
   (-> recon
       (update-in [:reconciliation/status] keyword)
-      (update-in [:reconciliation/end-of-period] t/local-date)
-      (update-in [:reconciliation/item-refs] ; I added this when I removed reconstruct, but it still needs some attention
-                 (fn [items]
-                   (mapv #(if (map? %)
-                            ((juxt :id :transaction/transaction-date) %)
-                            %)
-                         items)))))
+      (update-in [:reconciliation/end-of-period] t/local-date)))
 
 (defmethod sql/post-select :reconciliation
   [{:keys [storage]} reconciliations]
