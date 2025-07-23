@@ -247,6 +247,31 @@
                       #(util/deep-rename-keys % {:db/id :id})))
            (util/apply-sort options)))))
 
+(defn- single-ns
+  [m]
+  (let [names (->> (keys m)
+                   (map namespace)
+                   (into #{}))]
+    (if (= 1 (count names))
+      (keyword (first names))
+      (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))
+
+(defn- update*
+  [changes criteria {:keys [api]}]
+  (let [target (single-ns changes)
+        qry (rearrange-query
+              (queries/apply-criteria '{:find [?x]
+                                        :in [$]}
+                                      criteria
+                                      {:target target}))
+        updates (->> (query api qry)
+                     (map first)
+                     (mapcat (fn [id]
+                               (map (fn [[k v]]
+                                      [:db/add id k v])
+                                    changes))))]
+    (transact api updates {})))
+
 (defn- delete*
   [models {:keys [api] :as opts}]
   {:pre [(and (sequential? models)
@@ -310,6 +335,6 @@
       (put [_ models]       (put* models {:api api}))
       (select [_ crit opts] (select* crit opts {:api api}))
       (delete [_ models]    (delete* models {:api api}))
-      (update [_ _changes _criteria] (throw (UnsupportedOperationException.)))
+      (update [_ changes criteria] (update* changes criteria {:api api}))
       (close [_])
       (reset [_]            (reset api)))))
