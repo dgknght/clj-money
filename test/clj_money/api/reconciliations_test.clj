@@ -53,9 +53,9 @@
                          :balance 400M
                          :status :completed
                          :end-of-period (t/local-date 2015 1 4)
-                         :item-refs [[(t/local-date 2015 1 1) 1000M]
-                                     [(t/local-date 2015 1 2) 500M]
-                                     [(t/local-date 2015 1 3) 100M]]}))
+                         :items [[(t/local-date 2015 1 1) 1000M]
+                                 [(t/local-date 2015 1 2) 500M]
+                                 [(t/local-date 2015 1 3) 100M]]}))
 
 (defn- get-reconciliations
   [email]
@@ -92,12 +92,14 @@
   (with-context recon-context
     (let [user (find-user email)
           account (find-account "Checking")
-          item-refs (if complete?
-                      (let [item (find-transaction-item [(t/local-date 2015 1 10)
-                                                         101M
-                                                         account])]
-                        [((juxt :id :transaction/transaction-date) item)])
-                      [])
+          items (if complete?
+                  [(select-keys
+                     (find-transaction-item [(t/local-date 2015 1 10)
+                                           101M
+                                           account])
+                     [:transaction/transaction-date
+                      :id])]
+                  [])
           status (if complete?
                    :completed
                    :new)
@@ -108,7 +110,7 @@
                        (edn-body #:reconciliation{:end-of-period (t/local-date 2015 2 4)
                                                   :balance 299.0M
                                                   :status status
-                                                  :item-refs item-refs})
+                                                  :items items})
                        (add-auth user)
                        app
                        parse-edn-body)
@@ -151,7 +153,7 @@
                          :account "Checking"
                          :balance 299M
                          :status :new
-                         :item-refs [[(t/local-date 2015 1 10) 101M]]}))
+                         :items [[(t/local-date 2015 1 10) 101M]]}))
 
 (defn- update-reconciliation
   [email]
@@ -161,7 +163,7 @@
                                                  :reconciliations
                                                  (:id recon)))
                        (edn-body (-> recon
-                                     (dissoc :id :reconciliation/item-refs)
+                                     (dissoc :id :reconciliation/items)
                                      (assoc :reconciliation/status :completed)))
                        (add-auth (find-user email))
                        app

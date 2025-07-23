@@ -64,7 +64,7 @@
                [:reconciliation/end-of-period
                 :reconciliation/balance
                 :reconciliation/status
-                :reconciliation/item-refs]))
+                :reconciliation/items]))
 
 (defn- create
   [{:keys [authenticated params] :as req}]

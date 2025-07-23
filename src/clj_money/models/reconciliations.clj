@@ -113,7 +113,10 @@
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
-(s/def :reconciliation/items (s/coll-of ::models/transaction-item))
+(s/def ::item (s/or :complete ::models/transaction-item
+                    :abbreviated (s/keys :req [:transaction/transaction-date]
+                                         :req-un [::models/id])))
+(s/def :reconciliation/items (s/coll-of ::item))
 
 (s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
                                                     :reconciliation/end-of-period
@@ -138,6 +141,19 @@
                           :transaction-item/reconciliation recon)]
       (models/select criteria))
     []))
+
+(defn- refetch-items
+  [items]
+  (when (seq items)
+    (let [c {:transaction/transaction-date
+             (apply vector
+                    :between
+                    (util/->range
+                      (map :transaction/transaction-date
+                           items)
+                      :compare t/before?))
+             :id [:in (mapv :id items)]}]
+      (models/select (util/model-type c :transaction-item)))))
 
 (defn- polarize-item
   [{:as item :transaction-item/keys [quantity action account]}]
@@ -177,25 +193,26 @@
                     {:sort [[:reconciliation/end-of-period :desc]]})))
 
 (defmethod models/before-validation :reconciliation
-  [{:reconciliation/keys [items] :as reconciliation}]
+  [{:reconciliation/keys [items] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items) items)]}
   (let [existing-items (map prepare-item
-                            (fetch-items reconciliation))
+                            (fetch-items recon))
         ignore? (->> existing-items
                      (map :id)
                      set)
         new-items (->> items
-                       (remove #(ignore? (first %)))
+                       (remove #(ignore? (:id %)))
+                       (refetch-items)
                        (mapv prepare-item))
         all-items (concat existing-items new-items)]
-    (-> reconciliation
+    (-> recon
         (update-in [:reconciliation/status] (fnil identity :new))
         (vary-meta
           #(assoc %
                   ::new-items new-items
                   ::all-items all-items
                   ::existing-items existing-items
-                  ::last-completed (find-last-completed reconciliation))))))
+                  ::last-completed (find-last-completed recon))))))
 
 (defn- fetch-transaction-items
   [{:as recon :reconciliation/keys [account]}]

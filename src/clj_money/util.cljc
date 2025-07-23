@@ -557,3 +557,9 @@
     (sort (->comparator sort-spec)
           models)
     models))
+
+(defn ->range
+  "Given a sequence of values, return a tuple with the minimum value
+  in the first position and the maximum value in the second"
+  [vs & {:keys [compare] :or {compare <}}]
+  ((juxt first last) (sort compare vs)))
