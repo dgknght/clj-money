@@ -250,10 +250,11 @@
   ([{:as account :account/keys [commodity]} basis {:keys [force?] :or {force? false}} items]
    {:pre [(every? :transaction/transaction-date items)]}
    (if (empty? items)
-     [(assoc account
-             :account/quantity 0M
-             :account/value 0M
-             :account/transaction-date-range nil)]
+     [(cond-> (assoc account
+                     :account/quantity (:transaction-item/balance basis 0M)
+                     :account/value (:transaction-item/value basis 0M))
+        (= -1 (:transaction-item/index basis))
+        (assoc :account/transaction-date-range nil))]
      (let [updated-items (->> items
                               (reduce (fn [output item]
                                         (let [updated (apply-prev item (last output))]
