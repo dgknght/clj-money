@@ -4,10 +4,33 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [clj-money.util :as util]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :as budgets]))
+
+(defn- accounts-belong-to-budget-entity?
+  [{:budget/keys [items entity]}]
+  (->> items
+       (map :budget-item/account)
+       set
+       (map #(models/resolve-ref % :account))
+       (every? #(id= (:account/entity %)
+                     entity))))
+
+(v/reg-spec accounts-belong-to-budget-entity?
+            {:message "Account must belong to the same entity as the budget"
+             :path [:budget/items]})
+
+(defn- period-counts-match?
+  [{:budget/keys [period items]}]
+  (every? #(= (count (:budget-item/periods %))
+              (first period))
+          items))
+
+(v/reg-spec period-counts-match?
+            {:message "Must have the number of periods specified by the budget"
+             :path [:budget-item/periods]})
 
 (s/def :budget/items (s/coll-of ::models/budget-item))
 (s/def :budget/name v/non-empty-string?)
@@ -15,10 +38,12 @@
 (s/def :budget/period ::dates/period)
 (s/def :budget/entity ::models/model-ref)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::models/budget (s/keys :req [:budget/name
-                                     :budget/start-date
-                                     :budget/period
-                                     :budget/entity]))
+(s/def ::models/budget (s/and (s/keys :req [:budget/name
+                                            :budget/start-date
+                                            :budget/period
+                                            :budget/entity])
+                              accounts-belong-to-budget-entity?
+                              period-counts-match?))
 
 (defmethod models/before-save :budget
   [budget]
