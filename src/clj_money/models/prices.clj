@@ -8,6 +8,7 @@
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
+            [clj-money.decimal :as d]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
@@ -74,9 +75,15 @@
                        {:sort [[:price/trade-date :desc]]})))))
 
 (defn- apply-to-account
-  [{:price/keys [value]}]
-  (fn [{:as account :account/keys [quantity]}]
-    (assoc account :account/value (* quantity value))))
+  [{:price/keys [value trade-date]}]
+  (fn [{:as account :account/keys [quantity price-as-of]}]
+    (cond-> account
+      (or (nil? price-as-of)
+          (t/before? price-as-of trade-date))
+      (assoc
+        :account/commodity-price value
+        :account/price-as-of trade-date
+        :account/value (d/* quantity value)))))
 
 (defn- apply-to-accounts
   [{:as price :price/keys [commodity]}]
@@ -171,7 +178,7 @@
   [entity {:keys [date-range]}]
   (apply dates/push-model-boundary entity :entity/price-date-range date-range))
 
-(defn apply-agg-to-commodities
+(defn apply-agg-to-commodities-and-accounts
   [agg]
   (mapcat (fn [[commodity {:keys [current date-range]}]]
             (cons (-> (models/find commodity :commodity)
@@ -190,6 +197,6 @@
                                           :price)))]
      (let [agg (aggregate prices)]
        (models/put-many (cons (apply-agg-to-entity entity agg)
-                              (apply-agg-to-commodities agg)))))))
+                              (apply-agg-to-commodities-and-accounts agg)))))))
 
 (prop/add-full-propagation propagate-all :priority 1)
