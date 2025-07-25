@@ -9,10 +9,12 @@
   (set/union
     (set/difference
       schema/relationships
-      #{[:transaction :transaction-item]
-        [:budget :budget-item]})
-    #{[:transaction-item :transaction :items]
-      [:budget-item :budget :items]}))
+      #{[:budget :budget-item]
+        [:transaction :lot-item]
+        [:transaction :transaction-item]})
+    #{[:budget-item :budget :items]
+      [:lot-item :transaction :lot-items]
+      [:transaction-item :transaction :items]}))
 
 (def ^:private default-opts
   {:relationships relationships

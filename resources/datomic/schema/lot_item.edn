@@ -2,10 +2,6 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The lot against which the action was taken"}
- {:db/ident :lot-item/transaction
-  :db/valueType :db.type/ref
-  :db/cardinality :db.cardinality/one
-  :db/doc "The transaction in which the action was taken"}
  {:db/ident :lot-item/shares
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
