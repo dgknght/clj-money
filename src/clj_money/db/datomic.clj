@@ -30,21 +30,22 @@
   [model-type]
   {:pre [model-type]}
   (case model-type
-    :budget           '[?x :budget/start-date ?budget-start-date]
-    :budget-item      '[?x :budget-item/periods ?budget-item-periods]
-    :user             '[?x :user/email ?user-email]
-    :entity           '[?x :entity/name ?entity-name]
-    :grant            '[?x :grant/user ?grant-user]
-    :cached-price     '[?x :cached-price/trade-date ?cached-price-trade-date]
-    :commodity        '[?x :commodity/symbol ?commodity-symbol]
-    :price            '[?x :price/value ?price-value]
     :account          '[?x :account/type ?account-type]
     :attachment       '[?x :attachment/caption ?attachment-caption]
+    :budget           '[?x :budget/start-date ?budget-start-date]
+    :budget-item      '[?x :budget-item/periods ?budget-item-periods]
+    :cached-price     '[?x :cached-price/trade-date ?cached-price-trade-date]
+    :commodity        '[?x :commodity/symbol ?commodity-symbol]
+    :entity           '[?x :entity/name ?entity-name]
+    :grant            '[?x :grant/user ?grant-user]
+    :identity         '[?x :identity/provider ?identity-provider]
+    :image            '[?x :image/uuid ?image-uuid]
+    :lot              '[?x :lot/purchase-date ?lot-purchase-date]
+    :price            '[?x :price/value ?price-value]
+    :reconciliation   '[?x :reconciliation/status ?reconciliation-status]
     :transaction      '[?x :transaction/description ?transaction-description]
     :transaction-item '[?x :transaction-item/action ?transaction-item-action]
-    :image            '[?x :image/uuid ?image-uuid]
-    :reconciliation   '[?x :reconciliation/status ?reconciliation-status]
-    :lot              '[?x :lot/purchase-date ?lot-purchase-date]))
+    :user             '[?x :user/email ?user-email]))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
