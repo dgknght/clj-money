@@ -110,14 +110,56 @@
                                                (:id (find-entity "Personal"))
                                                :accounts)
                                          "?"
-                                         (map->query-string {:name "Checking"})
-                                         ))
+                                         (map->query-string {:name "Checking"})))
                   (add-auth (find-user "john@doe.com"))
                   app
                   parse-edn-body)]
       (is (http-success? res))
       (is (seq-of-maps-like? [{:account/name "Checking"}]
                              (:edn-body res))))))
+
+(def ^:private tag-context
+  [#:user{:email "john@doe.com"
+          :first-name "John"
+          :last-name "Doe"
+          :password "Please001!"}
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:commodity{:name "US Dollar"
+               :entity "Personal"
+               :symbol "USD"
+               :type :currency}
+   #:account{:name "Checking"
+             :type :asset
+             :entity "Personal"}
+   #:account{:name "Rent"
+             :type :expense
+             :entity "Personal"
+             :user-tags #{:mandatory}}
+   #:account{:name "Dining"
+             :entity "Personal"
+             :type :expense
+             :user-tags #{:discretionary}}
+   #:account{:name "Tax"
+             :entity "Personal"
+             :type :expense
+             :user-tags #{:mandatory}}])
+
+(deftest a-user-can-get-a-list-of-accounts-by-tag
+  (with-context tag-context
+    (let [res (-> (req/request :get (str (path :api
+                                               :entities
+                                               (:id (find-entity "Personal"))
+                                               :accounts)
+                                         "?"
+                                         (map->query-string
+                                           {:user-tags ["mandatory" "discretionary"]})))
+                  (add-auth (find-user "john@doe.com"))
+                  app
+                  parse-edn-body)]
+      (is (http-success? res))
+      (is (= #{"Rent" "Tax" "Dining"}
+             (set (map :account/name (:edn-body res))))))))
 
 (defn- get-an-account
   [email]

@@ -16,7 +16,6 @@
                                             basic-context
                                             find-user
                                             find-account
-                                            find-transaction-item
                                             find-reconciliation]]
             [clj-money.web.server :refer [app]]
             [clj-money.models :as models]))
@@ -93,12 +92,11 @@
     (let [user (find-user email)
           account (find-account "Checking")
           items (if complete?
-                  [(select-keys
-                     (find-transaction-item [(t/local-date 2015 1 10)
-                                           101M
-                                           account])
-                     [:transaction/transaction-date
-                      :id])]
+                  (map #(select-keys % [:id :transaction/transaction-date])
+                       (models/select {:transaction-item/account account
+                                       :transaction-item/quantity 101M
+                                       :transaction/transaction-date (t/local-date 2015 1 10)}
+                                      {:select-also [:transaction/transaction-date]}))
                   [])
           status (if complete?
                    :completed

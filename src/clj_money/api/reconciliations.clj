@@ -13,6 +13,7 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.models :as models]
+            [clj-money.models.transaction-items :as itms]
             [clj-money.authorization.reconciliations]))
 
 (defn- symbolic-comparatives
@@ -70,6 +71,7 @@
   [{:keys [authenticated params] :as req}]
   (-> req
       extract-recon
+      (update-in-if [:reconciliation/items] itms/resolve-refs)
       (assoc :reconciliation/account {:id (:account-id params)})
       (authorize ::auth/create authenticated)
       models/put

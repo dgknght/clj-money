@@ -96,7 +96,7 @@
     (let [checking (find-account "Checking")
           checking-items (models/select {:transaction-item/account checking
                                          :transaction-item/quantity [:!= 45M]}
-                                        {:select-also :transaction/transaction-date})]
+                                        {:select-also [:transaction/transaction-date]})]
       (assert-created (assoc (attributes)
                              :reconciliation/items checking-items
                              :reconciliation/status :completed))
@@ -149,9 +149,9 @@
                                      :end-of-period (t/local-date 2017 1 31)
                                      :balance 500M
                                      :items [(find-transaction-item
-                                                   [(t/local-date 2017 1 2)
-                                                    500M
-                                                    (find-account "Rent")])]}
+                                               [(t/local-date 2017 1 2)
+                                                500M
+                                                (find-account "Rent")])]}
                     {:reconciliation/items ["All items must belong to the account being reconciled"]})))
 
 (def ^:private parent-account-context
@@ -239,9 +239,11 @@
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
                        :items (models/select
-                                {:account/name "Checking"
-                                 :transaction-item/quantity 1000M
-                                 :transaction-item/action :debit})}
+                                (util/model-type
+                                  {:transaction/transaction-date (t/local-date 2017 1 1)
+                                   :transaction-item/quantity 1000M
+                                   :account/name "Checking"}
+                                  :transaction-item)) }
       {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (dbtest a-working-reconciliation-can-be-updated
@@ -306,8 +308,8 @@
 (dbtest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
   (with-context working-reconciliation-context
     (let [item (find-transaction-item [(t/local-date 2017 1 10)
-                                           53M
-                                           "Checking"])]
+                                       53M
+                                       "Checking"])]
       (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])
           (assoc :reconciliation/status :completed)
           (update-in [:reconciliation/items]

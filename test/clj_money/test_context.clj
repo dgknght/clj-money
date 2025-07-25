@@ -212,6 +212,7 @@
           (mapcat :transaction/items)
           (filter #(and (model= act (:transaction-item/account %))
                         (= quantity (:transaction-item/quantity %))))
+          (map #(assoc % :transaction/transaction-date transaction-date))
           first))))
 
 (defn find-scheduled-transaction
@@ -328,8 +329,8 @@
 (defmethod prepare :budget
   [budget ctx]
   (-> budget
-      (update-in [:budget/items] (partial mapv #(prepare % ctx)))
-      (update-in [:budget/entity] (find-entity ctx))))
+      (update-in [:budget/entity] (find-entity ctx))
+      (update-in [:budget/items] (partial map #(prepare % ctx)))))
 
 (defmethod prepare :budget-item
   [item ctx]

@@ -8,8 +8,8 @@
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
-            [clj-money.decimal :as d]
             [clj-money.dates :as dates]
+            [clj-money.decimal :as d]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
 
@@ -182,9 +182,9 @@
 (defn apply-agg-to-commodities-and-accounts
   [agg]
   (mapcat (fn [[commodity {:keys [current date-range]}]]
-            (cons (-> (models/find commodity :commodity)
-                      (assoc :commodity/price-date-range date-range))
-                  (apply-to-accounts current)))
+            (-> (models/find commodity :commodity)
+                (assoc :commodity/price-date-range date-range)
+                (cons (apply-to-accounts current))))
           (:commodities agg)))
 
 (defn propagate-all

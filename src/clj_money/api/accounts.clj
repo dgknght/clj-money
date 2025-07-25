@@ -19,17 +19,17 @@
 
 (defn- tag-criteria
   [tags]
-  [:& (->> (->coll tags)
-           (map keyword)
-           set)])
+  [:&&
+   (->> (->coll tags)
+        (map keyword)
+        set)
+   :text])
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
       (util/qualify-keys :account) 
-      (rename-keys {"system-tags[]" :account/system-tags
-                    "user-tags[]" :account/user-tags
-                    :account/entity-id :account/entity})
+      (rename-keys {:account/entity-id :account/entity})
       (select-keys [:account/entity
                     :account/system-tags
                     :account/user-tags

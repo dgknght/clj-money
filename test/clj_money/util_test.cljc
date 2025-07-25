@@ -3,6 +3,7 @@
                :cljs [cljs.test :refer [deftest is testing]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clj-money.dates :as dates]
             [clj-money.util :as util]))
 
 (deftest model-typing
@@ -303,6 +304,18 @@
                [[:one 1]
                 [:one 11]
                 [:two 2]]))))
+
+(deftest turn-a-sequence-into-a-range
+  (is (= [1 4]
+         (util/->range [2 4 3 1]))
+      "Integers can be processed")
+  (is (= [(dates/local-date "2020-01-01")
+          (dates/local-date "2020-12-01")]
+         (util/->range [(dates/local-date "2020-01-01")
+                        (dates/local-date "2020-12-01")
+                        (dates/local-date "2020-05-01")]
+                       :compare t/before?))
+      "Integers can be processed"))
 
 (deftest remove-nils-from-a-model
   (testing "one level"

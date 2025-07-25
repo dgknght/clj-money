@@ -41,7 +41,8 @@
 (s/def ::models/budget (s/and (s/keys :req [:budget/name
                                             :budget/start-date
                                             :budget/period
-                                            :budget/entity])
+                                            :budget/entity]
+                                      :opt [:budget/items])
                               accounts-belong-to-budget-entity?
                               period-counts-match?))
 

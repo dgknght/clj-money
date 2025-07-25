@@ -230,6 +230,12 @@
                     (into {}))))
       first)))
 
+(defn- apply-limit
+  [{:keys [limit]} vs]
+  (if limit
+    (take limit vs)
+    vs))
+
 (defn- select*
   [criteria {:as options :keys [count]} {:keys [api]}]
   (let [qry (-> criteria
@@ -251,6 +257,7 @@
            (map (comp after-read
                       apply-coercions
                       #(util/deep-rename-keys % {:db/id :id})))
+           (apply-limit options)
            (util/apply-sort options)))))
 
 (defn- single-ns

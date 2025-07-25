@@ -7,6 +7,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
+            [clj-money.models.transaction-items :as itms]
             [clj-money.accounts :as acts]))
 
 (defn- get-meta
@@ -113,10 +114,13 @@
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
-(s/def ::item (s/or :complete ::models/transaction-item
-                    :abbreviated (s/keys :req [:transaction/transaction-date]
-                                         :req-un [::models/id])))
-(s/def :reconciliation/items (s/coll-of ::item))
+                                                       ;NB this is required for :sql and optional for :datomic-peer
+(s/def :reconciliation/item (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
+                                                       :req-un [::models/id])
+                                  :full (s/and ::models/transaction-item
+                                                       ;NB this is required for :sql and optional for :datomic-peer
+                                               (s/keys :opt [:transaction/transaction-date]))))
+(s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
 (s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
                                                     :reconciliation/end-of-period
@@ -137,6 +141,8 @@
                                     (util/->model-ref account)
                                     :account)
                                   {:include-children? true})
+          ; TODO: This query needs to be different between SQL and datomic
+          ; because of the different direction of the relationships
           criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
       (models/select criteria))
@@ -179,7 +185,7 @@
                     (find %)
                     %)))))
 
-(def ^:private prepare-item
+(defn- prepare-item []
   (comp polarize-item
         (resolve-account)))
 
@@ -195,15 +201,16 @@
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [items] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items) items)]}
-  (let [existing-items (map prepare-item
-                            (fetch-items recon))
+  (let [prep (prepare-item)
+        existing-items (mapv prep
+                             (fetch-items recon))
         ignore? (->> existing-items
                      (map :id)
                      set)
         new-items (->> items
                        (remove #(ignore? (:id %)))
-                       (refetch-items)
-                       (mapv prepare-item))
+                       itms/resolve-refs
+                       (mapv prep))
         all-items (concat existing-items new-items)]
     (-> recon
         (update-in [:reconciliation/status] (fnil identity :new))

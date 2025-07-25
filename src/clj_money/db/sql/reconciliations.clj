@@ -5,13 +5,9 @@
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
-(defn- coerce
-  [m]
-  (update-in-if m [:reconciliation/status] name))
-
 (defmethod sql/before-save :reconciliation
   [recon]
-  (coerce recon))
+  (update-in-if recon [:reconciliation/status] name))
 
 (defmethod sql/after-read :reconciliation
   [recon]
@@ -22,9 +18,10 @@
 (defmethod sql/post-select :reconciliation
   [{:keys [storage]} reconciliations]
   (map #(assoc %
-               :reconciliation/item-refs
-               (mapv (juxt :id :transaction/transaction-date)
-                     (db/select storage {:transaction-item/reconciliation %} {})))
+               :reconciliation/items
+               (db/select storage
+                          {:transaction-item/reconciliation %}
+                          {:select-also [:transaction/transaction-date]}))
        reconciliations))
 
 (defmethod sql/deconstruct :reconciliation
