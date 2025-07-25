@@ -116,6 +116,10 @@
                                          [:id]))
                              (last %)))))))
 
+(def ^:private action-map
+  {::db/add :db/add
+   ::db/delete :db/retract})
+
 ; Here we expact that the datomic transaction has already been constructed
 ; like the following:
 ; [:db/add model-id :user/given-name "John"]
@@ -130,7 +134,7 @@
     (->> (keys model)
          (remove #(= :id %))
          (map #(vector :db/retract id %)))
-    [(apply vector :db/add args)]))
+    [(apply vector (action-map action action) args)]))
 
 (defn- models->refs
   [m]
