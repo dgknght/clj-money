@@ -29,6 +29,7 @@
 (defmethod datomic/before-save :budget-item
   [budget-item]
   (-> budget-item
+      (update-in-if [:budget-item/periods] pr-str)
       (update-in-if [:budget-item/spec] set-kw-ns "budget-item-spec" )
       (update-in-if [:budget-item/spec]
                     update-in
@@ -39,5 +40,6 @@
 (defmethod datomic/after-read :budget-item
   [budget-item]
   (-> budget-item
+      (update-in-if [:budget-item/periods] read-string)
       (update-in-if [:budget-item/spec] strip-kw-ns)
       stash-spec-id))
