@@ -196,17 +196,22 @@
               (comp #(= :id %)
                     first)))
 
-(defn- model-criterion?
-  [x]
-  (and (map-entry? x)
-       (map? (second x))
-       (:id (second x))))
+(def ^:private model-criterion?
+  (every-pred map-entry?
+              (comp map? second)
+              (comp :id second)))
+
+(def ^:private self-reference?
+  (every-pred map-entry?
+              (comp (partial = "_self")
+                    (comp name key))))
 
 (defn- normalize-criterion
   [x]
   (cond
     (id-criterion? x)    (update-in x [1] coerce-id)
     (model-criterion? x) (update-in x [1] select-keys [:id])
+    (self-reference? x)  (do (pprint {::x x}) (update-in x [1] select-keys [:id]))
     :else x))
 
 (defn- normalize-criteria
