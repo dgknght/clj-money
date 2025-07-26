@@ -304,7 +304,7 @@
 (s/def ::model (s/and (s/keys :req-un [::id])
                       util/model-type))
 (s/def ::puttable (s/or :map ::model
-                       :operation (s/tuple ::db/operation ::model)))
+                        :operation (s/tuple ::db/operation ::model)))
 (s/def ::puttables (s/coll-of ::puttable))
 
 ; This is only exposed publicly to support tests that enforce
