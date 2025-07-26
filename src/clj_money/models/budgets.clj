@@ -32,7 +32,7 @@
             {:message "Must have the number of periods specified by the budget"
              :path [:budget-item/periods]})
 
-(s/def :budget/items (s/coll-of ::models/budget-item))
+(s/def :budget/items (s/nilable (s/coll-of ::models/budget-item)))
 (s/def :budget/name v/non-empty-string?)
 (s/def :budget/start-date t/local-date?)
 (s/def :budget/period ::dates/period)
