@@ -25,6 +25,7 @@
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-exceptions]]
             [clj-money.models :as models]
+            [clj-money.db.ref]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
