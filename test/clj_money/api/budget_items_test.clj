@@ -49,11 +49,11 @@
   (let [expected #:budget-item{:account {:id (:id account)}
                                :periods [100M 101M 102M]}]
     (is (http-created? res))
-    (is (comparable? expected (:edn-body res))
+    (is (seq-of-maps-like? [expected]
+                           (:budget/items (:edn-body res)))
         "The created budget item is returned in the response")
     (is (seq-of-maps-like? [expected]
-                           (models/select (util/model-type {:budget budget}
-                                                           :budget-item)))
+                           (:budget/items (models/find budget)))
         "The created budget item can be retrieved")))
 
 (defn- assert-not-found-create
