@@ -4,5 +4,6 @@
             clj-money.db.datomic.accounts
             clj-money.db.datomic.grants
             clj-money.db.datomic.attachments
+            clj-money.db.datomic.budgets
             clj-money.db.datomic.budget-items
             clj-money.db.datomic.reconciliations))
