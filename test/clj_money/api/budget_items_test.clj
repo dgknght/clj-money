@@ -76,10 +76,9 @@
         #:budget{:entity "Personal"
                  :name "2016"
                  :period [3 :month]
-                 :start-date (t/local-date 2016 1 1)}
-        #:budget-item{:budget "2016"
-                      :account "Groceries"
-                      :periods [100M 101M 102M]}))
+                 :start-date (t/local-date 2016 1 1)
+                 :items [#:budget-item{:account "Groceries"
+                                       :periods [100M 101M 102M]}]}))
 
 (defn- update-budget-item
   [user-email]
@@ -141,10 +140,10 @@
   (is (models/find budget-item)
       "The budget item can be retrieved after attempted delete"))
 
-(deftest a-user-can-delete-an-item-to-a-budget-in-his-entity
+(deftest a-user-can-delete-an-item-from-a-budget-in-his-entity
   (with-context update-ctx
     (assert-successful-delete (delete-budget-item "john@doe.com"))))
 
-(deftest a-user-cannot-delete-an-item-to-a-budget-in-anothers-entity
+(deftest a-user-cannot-delete-an-item-from-a-budget-in-anothers-entity
   (with-context update-ctx
     (assert-not-found-delete (delete-budget-item "jane@doe.com"))))
