@@ -36,7 +36,7 @@
   [{:attachment/keys [transaction transaction-date]}]
   (models/find-by
     (util/model-type
-      {:transaction/id (:id transaction)
+      {:transaction/_self transaction
        :transaction/transaction-date transaction-date}
       :entity)))
 
@@ -45,24 +45,24 @@
   (fetch-entity* entity))
 
 (defmethod fetch-entity :budget-item
-  [{:budget-item/keys [budget]}]
+  [budget-item]
   (models/find-by
     (util/model-type
-      {:budget/id (:id budget)}
+      {:budget-item/_self budget-item}
       :entity)))
 
 (defmethod fetch-entity :price
   [{:price/keys [commodity]}]
   (models/find-by
     (util/model-type
-      {:commodity/id (:id commodity)}
+      {:commodity/_self commodity}
       :entity)))
 
 (defmethod fetch-entity :reconciliation
   [{:reconciliation/keys [account]}]
   (models/find-by
     (util/model-type
-      {:account/id (:id account)}
+      {:account/_self account}
       :entity)))
 
 (defmethod fetch-entity :trade
