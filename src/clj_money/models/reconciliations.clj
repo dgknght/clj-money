@@ -148,19 +148,6 @@
       (models/select criteria))
     []))
 
-(defn- refetch-items
-  [items]
-  (when (seq items)
-    (let [c {:transaction/transaction-date
-             (apply vector
-                    :between
-                    (util/->range
-                      (map :transaction/transaction-date
-                           items)
-                      :compare t/before?))
-             :id [:in (mapv :id items)]}]
-      (models/select (util/model-type c :transaction-item)))))
-
 (defn- polarize-item
   [{:as item :transaction-item/keys [quantity action account]}]
   (assoc item

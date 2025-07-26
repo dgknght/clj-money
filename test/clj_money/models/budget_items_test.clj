@@ -13,8 +13,7 @@
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-account
-                                            find-budget
-                                            find-budget-item]]
+                                            find-budget]]
             [clj-money.test-helpers :refer [dbtest]]))
 
 (defn- attributes []
