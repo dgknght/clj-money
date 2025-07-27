@@ -31,7 +31,7 @@
   {:pre [model-type]}
   (case model-type
     :account          '[?x :account/type ?account-type]
-    :attachment       '[?x :attachment/caption ?attachment-caption]
+    :attachment       '[?x :attachment/image ?attachment-image]
     :budget           '[?x :budget/start-date ?budget-start-date]
     :budget-item      '[?x :budget-item/periods ?budget-item-periods]
     :cached-price     '[?x :cached-price/trade-date ?cached-price-trade-date]

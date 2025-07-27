@@ -9,8 +9,8 @@
              :as auth
              :refer [+scope
                      authorize]]
-            [clj-money.dates :as dates]
             [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.comparatives :as comparatives :refer [nominative-variations] ]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
@@ -41,15 +41,26 @@
   (api/response
     (models/select (extract-criteria req))))
 
+; TODO: Make this more universal
+; The problem is that the framework parses smaller id values
+; but not the id values from datomic. We really shouldn't know
+; about the storage strategy here. For now, we're just assuming
+; that a string that looks like an integer should be one.
+(defn- coerce-id
+  [id]
+  (if (and (string? id)
+           (re-find #"\A\d+\z" id))
+    (parse-long id)
+    id))
+
 (defn- extract-attachment
-  [{:keys [params]}]
+  [{{:keys [transaction-id transaction-date] :as params} :params}]
   (-> params
-      (select-keys [:transaction-id :transaction-date])
+      (select-keys [:caption])
       (util/qualify-keys :attachment)
-      (update-in [:attachment/transaction-id] (comp util/->model-ref
-                                                    uuid))
-      (update-in [:attachment/transaction-date] dates/unserialize-local-date)
-      (rename-keys {:attachment/transaction-id :attachment/transaction})))
+      (merge {:attachment/transaction
+              {:id (coerce-id transaction-id)
+               :transaction/transaction-date (dates/unserialize-local-date transaction-date)}})))
 
 (defn- find-or-create-image
   [{{:keys [file]} :params

@@ -33,11 +33,10 @@
   (fetch-entity* entity))
 
 (defmethod fetch-entity :attachment
-  [{:attachment/keys [transaction transaction-date]}]
+  [{:attachment/keys [transaction]}]
   (models/find-by
     (util/model-type
-      {:transaction/_self transaction
-       :transaction/transaction-date transaction-date}
+      {:transaction/_self transaction}
       :entity)))
 
 (defmethod fetch-entity :budget

@@ -62,7 +62,7 @@
   (is (empty? (::v/errors edn-body))
       "There are no validation errors")
   (is (:id edn-body) "An ID is assigned to the new record")
-  (is (comparable? {:attachment/transaction-date (t/local-date 2015 1 1)}
+  (is (comparable? {:attachment/caption "receipt"}
                    retrieved) 
       "The created attachment can be retrieved"))
 
