@@ -15,6 +15,14 @@
             [clj-money.models.propagation :as prop]
             [clj-money.accounts :as acts]))
 
+(defn- new-transaction-has-items?
+  [{:transaction/keys [items] :keys [id]}]
+  (or id (seq items)))
+
+(v/reg-spec new-transaction-has-items?
+            {:message "A new transaction must have items"
+             :path [:transaction/items]})
+
 (defn- no-reconciled-quantities-changed?
   [{:transaction/keys [items] :as trx}]
   (if (:id trx)
@@ -108,11 +116,12 @@
                                  sum-of-credits-equals-sum-of-debits?))
 (s/def ::models/transaction (s/and (s/keys :req [:transaction/description
                                                  :transaction/transaction-date
-                                                 :transaction/items
                                                  :transaction/entity]
                                            :opt [:transaction/memo
-                                                 :transaction/lot-items])
-                                   no-reconciled-quantities-changed?))
+                                                 :transaction/lot-items
+                                                 :transaction/items])
+                                   no-reconciled-quantities-changed?
+                                   new-transaction-has-items?))
 
 (defn- remove-empty-strings
   [model & keys]
@@ -128,20 +137,19 @@
   [trx]
   (-> trx
       trxs/expand
-      (update-in [:transaction/items]
-                 (fn [items]
-                   (mapv (fn [{:as item :transaction-item/keys [quantity]}]
-                           (-> item
-                               (update-in [:transaction-item/value]
-                                          (fnil identity quantity)) ; TODO need to calculate the correct value
-                               (remove-empty-strings :transaction-item/memo)))
-                         items)))))
+      (update-in-if [:transaction/items]
+                    (fn [items]
+                      (mapv (fn [{:as item :transaction-item/keys [quantity]}]
+                              (-> item
+                                  (update-in [:transaction-item/value]
+                                             (fnil identity quantity)) ; TODO need to calculate the correct value
+                                  (remove-empty-strings :transaction-item/memo)))
+                            items)))))
 
 (defmethod models/before-save :transaction
-  [trx]
-  (-> trx
-      (dissoc :transaction/original-transaction-date)
-      (assoc :transaction/value (trxs/value trx))))
+  [{:as trx :transaction/keys [items]}]
+  (cond-> (dissoc trx :transaction/original-transaction-date)
+    (seq items) (assoc :transaction/value (trxs/value trx))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
