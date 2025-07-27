@@ -54,10 +54,13 @@
           entity (find-entity "Personal")
           response (-> (req/request :patch (path :api :entities (:id entity)))
                        (edn-body (-> entity
-                                          (assoc :entity/name "New Name")
-                                          (assoc-in [:entity/settings :settings/monitored-account-ids] #{1 2})
-                                          (select-keys [:entity/name
-                                                        :entity/settings])))
+                                     (assoc :entity/name "New Name")
+                                     (assoc-in [:entity/settings
+                                                :settings/monitored-accounts]
+                                               #{{:id 1}
+                                                 {:id 2}})
+                                     (select-keys [:entity/name
+                                                   :entity/settings])))
                        (add-auth user)
                        app
                        parse-edn-body)]
