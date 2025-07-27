@@ -2,8 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [uuid
-                                          update-in-if]]
+            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization
              :as auth
@@ -11,17 +10,10 @@
                      authorize]]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
-            [clj-money.comparatives :as comparatives :refer [nominative-variations] ]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.images :as img]
             [clj-money.authorization.attachments]))
-
-(defn- unserialize-transaction-date
-  [criteria]
-  (reduce #(update-in-if %1 [%2] dates/unserialize-local-date)
-          criteria
-          (nominative-variations :transaction-date)))
 
 ; TODO: Make this more universal
 ; The problem is that the framework parses smaller id values
