@@ -212,7 +212,7 @@
   (cond
     (id-criterion? x)    (update-in x [1] coerce-id)
     (model-criterion? x) (update-in x [1] select-keys [:id])
-    (self-reference? x)  (do (pprint {::x x}) (update-in x [1] select-keys [:id]))
+    (self-reference? x)  (update-in x [1] select-keys [:id])
     :else x))
 
 (defn- normalize-criteria
