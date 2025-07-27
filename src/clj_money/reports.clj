@@ -674,16 +674,15 @@
   "Returns a mini-report for a specified account against a budget period"
   ([account]
    (monitor account (t/local-date)))
-  ([account as-of]
+  ([{:as account :account/keys [entity]} as-of]
    {:pre [account as-of]}
 
-   (if-let [budget (bdgs/find-by-date (:account/entity account) as-of)]
+   (if-let [budget (bdgs/find-by-date entity as-of)]
      (monitor-from-budget {:account account
                            :as-of as-of
-                           :budget (-> budget
-                                       (assoc :budget/items (models/select {:budget-item/budget budget}))
-                                       (update-in [:budget/entity]
-                                                  (models/find :entity)))})
+                           :budget (update-in budget
+                                              [:budget/entity]
+                                              (models/resolve-ref :entity))})
      #:report{:caption (:account/name account)
               :account account
               :message (format "There is no budget for %s" (dates/format-local-date as-of))})))
