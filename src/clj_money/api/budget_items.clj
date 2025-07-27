@@ -39,16 +39,15 @@
 
 (defn- create
   [{:keys [authenticated params] :as req}]
-  (if-let [budget (authorize
-                    (models/find-by
-                      (+scope (util/model-type {:id (:budget-id params)}
-                                               :budget)
-                              :budget
-                              authenticated))
-                    ::auth/update
-                    authenticated)]
-    (-> budget
-        (update-in [:budget/items] (fnil conj []) (extract-item req))
+  (if-let [budget (models/find-by
+                    (+scope (util/model-type {:id (:budget-id params)}
+                                             :budget)
+                            :budget
+                            authenticated))]
+    (-> req
+        extract-item
+        (assoc :budget-item/budget budget)
+        (authorize ::auth/create authenticated)
         models/put
         api/creation-response)
     api/not-found))
