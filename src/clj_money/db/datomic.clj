@@ -263,8 +263,8 @@
            (map (comp after-read
                       apply-coercions
                       #(util/deep-rename-keys % {:db/id :id})))
-           (apply-limit options)
-           (util/apply-sort options)))))
+           (util/apply-sort options)
+           (apply-limit options)))))
 
 (defn- single-ns
   [m]
