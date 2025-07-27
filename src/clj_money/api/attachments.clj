@@ -55,6 +55,22 @@
   (api/response
     (models/select (extract-criteria req))))
 
+(defn- extract-account-criteria
+  [{:keys [authenticated] {:keys [start-date end-date account-id]} :params}]
+  (+scope
+    {:transaction-item/account {:id account-id}
+     :transaction/transaction-date
+     [:between>
+      (dates/unserialize-local-date start-date)
+      (dates/unserialize-local-date end-date)]}
+    :attachment
+    authenticated))
+
+(defn- index-by-account
+  [req]
+  (api/response
+    (models/select (extract-account-criteria req))))
+
 (defn- extract-attachment
   [{{:keys [transaction-id transaction-date] :as params} :params}]
   (-> params
@@ -120,6 +136,7 @@
 (def routes
   [["transactions/:transaction-id/:transaction-date/attachments" {:post {:handler create}
                                                                   :get {:handler index}}]
+   ["accounts/:account-id/attachments/:start-date/:end-date" {:get {:handler index-by-account}}]
    ["attachments"
     ["" {:get {:handler index}}]
     ["/:id" {:patch {:handler update}

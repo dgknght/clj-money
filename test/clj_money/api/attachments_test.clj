@@ -6,7 +6,6 @@
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.util :as util]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.dates :as dates]
@@ -18,6 +17,7 @@
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-user
+                                            find-account
                                             find-transaction
                                             find-attachment]]
             [clj-money.models :as models]
@@ -103,6 +103,20 @@
           app
           parse-edn-body))))
 
+(defn- list-account-attachments
+  [email]
+  (with-context list-context
+    (let [account (find-account "Checking")]
+      (-> (req/request :get (path :api
+                                  :accounts
+                                  (:id account)
+                                  :attachments
+                                  "2015-01-01"
+                                  "2015-02-01"))
+          (add-auth (find-user email))
+          app
+          parse-edn-body))))
+
 (defn- assert-successful-list
   [{:as response :keys [edn-body]}]
   (is (http-success? response))
@@ -120,6 +134,12 @@
 
 (deftest a-user-cannot-get-a-list-of-attachments-for-a-trx-in-anothers-entity
   (assert-blocked-list (list-trx-attachments "jane@doe.com")))
+
+(deftest a-user-can-get-a-list-of-attachments-for-an-account-in-his-entity
+  (assert-successful-list (list-account-attachments "john@doe.com")))
+
+(deftest a-user-cannot-get-a-list-of-attachments-for-an-account-in-anothers-entity
+  (assert-blocked-list (list-account-attachments "jane@doe.com")))
 
 (defn- update-attachment
   [email]
