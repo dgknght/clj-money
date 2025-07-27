@@ -563,3 +563,7 @@
   in the first position and the maximum value in the second"
   [vs & {:keys [compare] :or {compare <}}]
   ((juxt first last) (sort compare vs)))
+
+(defn ->>range
+  [{:keys [compare] :or {compare <}} vs]
+  ((juxt first last) (sort compare vs)))
