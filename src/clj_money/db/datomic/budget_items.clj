@@ -4,6 +4,11 @@
             [clj-money.util :as util]
             [clj-money.db.datomic :as datomic]))
 
+(defmethod datomic/deconstruct :budget-item
+  [{:as budget-item :budget-item/keys [budget]}]
+  (cond-> [(dissoc budget-item :budget-item/budget)]
+    budget (conj [:db/add (:id budget) :budget/items (:id budget-item)])))
+
 (defn- set-kw-ns
   [m n]
   (update-keys m (comp #(keyword n %)
