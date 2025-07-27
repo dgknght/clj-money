@@ -41,6 +41,7 @@
     :identity         '[?x :identity/provider ?identity-provider]
     :image            '[?x :image/uuid ?image-uuid]
     :lot              '[?x :lot/purchase-date ?lot-purchase-date]
+    :lot-item         '[?x :lot-item/action ?lot-item-action]
     :price            '[?x :price/value ?price-value]
     :reconciliation   '[?x :reconciliation/status ?reconciliation-status]
     :transaction      '[?x :transaction/description ?transaction-description]
