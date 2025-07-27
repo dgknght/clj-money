@@ -4,9 +4,9 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [ring.mock.request :as req]
-            [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.util :as util]
             [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.dates :as dates]
@@ -88,18 +88,17 @@
                                    "Paycheck"]
                      :image "receipt.jpg"}))
 
-(defn- list-attachments
+(defn- list-trx-attachments
   [email]
   (with-context list-context
     (let [transaction (find-transaction [(t/local-date 2015 1 1)
                                          "Paycheck"])]
-      (-> (req/request :get (str (path :api
-                                       :attachments)
-                                 "?"
-                                 (map->query-string
-                                   {:transaction-date-on-or-after "2015-01-01"
-                                    :transaction-date-on-or-before "2015-01-31"
-                                    :transaction-id (:id transaction)})))
+      (-> (req/request :get (path :api
+                                  :transactions
+                                  (:id transaction)
+                                  (dates/serialize-local-date
+                                    (:transaction/transaction-date transaction))
+                                  :attachments))
           (add-auth (find-user email))
           app
           parse-edn-body))))
@@ -116,11 +115,11 @@
   (is (http-success? response))
   (is (empty? edn-body) "No records are returned"))
 
-(deftest a-user-can-get-a-list-of-attachments-in-his-entity
-  (assert-successful-list (list-attachments "john@doe.com")))
+(deftest a-user-can-get-a-list-of-attachments-for-a-trx-in-his-entity
+  (assert-successful-list (list-trx-attachments "john@doe.com")))
 
-(deftest a-user-cannot-get-a-list-of-attachments-in-anothers-entity
-  (assert-blocked-list (list-attachments "jane@doe.com")))
+(deftest a-user-cannot-get-a-list-of-attachments-for-a-trx-in-anothers-entity
+  (assert-blocked-list (list-trx-attachments "jane@doe.com")))
 
 (defn- update-attachment
   [email]

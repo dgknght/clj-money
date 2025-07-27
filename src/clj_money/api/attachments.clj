@@ -23,35 +23,37 @@
           criteria
           (nominative-variations :transaction-date)))
 
-(defn- extract-criteria
-  [{:keys [params authenticated]}]
-  (-> params
-      unserialize-transaction-date
-      comparatives/symbolize
-      (rename-keys {"transaction-id[]" :transaction/id
-                    :transaction-id :transaction/id
-                    :transaction-date :transaction/transaction-date})
-      (update-in-if [:transaction/id] #(if (coll? %)
-                                         (map uuid %)
-                                         (uuid %)))
-      (+scope :attachment authenticated)))
-
-(defn- index
-  [req]
-  (api/response
-    (models/select (extract-criteria req))))
-
 ; TODO: Make this more universal
 ; The problem is that the framework parses smaller id values
 ; but not the id values from datomic. We really shouldn't know
 ; about the storage strategy here. For now, we're just assuming
 ; that a string that looks like an integer should be one.
+(def ^:private long-pattern #"\A\d+\z")
+(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
+
 (defn- coerce-id
   [id]
-  (if (and (string? id)
-           (re-find #"\A\d+\z" id))
-    (parse-long id)
-    id))
+  (if (coll? id)
+    (map coerce-id id)
+    (if (string? id)
+      (cond
+        (re-find long-pattern id) (parse-long id)
+        (re-find uuid-pattern id) (uuid id))
+      id)))
+
+(defn- extract-criteria
+  [{:keys [authenticated] {:keys [transaction-id :transaction-date]} :params}]
+  (+scope
+    {:attachment/transaction
+     {:id (coerce-id transaction-id)
+      :transaction/transaction-date (dates/unserialize-local-date transaction-date)}}
+    :attachment
+    authenticated))
+
+(defn- index
+  [req]
+  (api/response
+    (models/select (extract-criteria req))))
 
 (defn- extract-attachment
   [{{:keys [transaction-id transaction-date] :as params} :params}]
@@ -116,7 +118,8 @@
     api/not-found))
 
 (def routes
-  [["transactions/:transaction-id/:transaction-date/attachments" {:post {:handler create}}]
+  [["transactions/:transaction-id/:transaction-date/attachments" {:post {:handler create}
+                                                                  :get {:handler index}}]
    ["attachments"
     ["" {:get {:handler index}}]
     ["/:id" {:patch {:handler update}
