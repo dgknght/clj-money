@@ -30,23 +30,24 @@
   [model-type]
   {:pre [model-type]}
   (case model-type
-    :account          '[?x :account/type ?account-type]
-    :attachment       '[?x :attachment/image ?attachment-image]
-    :budget           '[?x :budget/start-date ?budget-start-date]
-    :budget-item      '[?x :budget-item/periods ?budget-item-periods]
-    :cached-price     '[?x :cached-price/trade-date ?cached-price-trade-date]
-    :commodity        '[?x :commodity/symbol ?commodity-symbol]
-    :entity           '[?x :entity/name ?entity-name]
-    :grant            '[?x :grant/user ?grant-user]
-    :identity         '[?x :identity/provider ?identity-provider]
-    :image            '[?x :image/uuid ?image-uuid]
-    :lot              '[?x :lot/purchase-date ?lot-purchase-date]
-    :lot-item         '[?x :lot-item/action ?lot-item-action]
-    :price            '[?x :price/value ?price-value]
-    :reconciliation   '[?x :reconciliation/status ?reconciliation-status]
-    :transaction      '[?x :transaction/description ?transaction-description]
-    :transaction-item '[?x :transaction-item/action ?transaction-item-action]
-    :user             '[?x :user/email ?user-email]))
+    :account               '[?x :account/type ?account-type]
+    :attachment            '[?x :attachment/image ?attachment-image]
+    :budget                '[?x :budget/start-date ?budget-start-date]
+    :budget-item           '[?x :budget-item/periods ?budget-item-periods]
+    :cached-price          '[?x :cached-price/trade-date ?cached-price-trade-date]
+    :commodity             '[?x :commodity/symbol ?commodity-symbol]
+    :entity                '[?x :entity/name ?entity-name]
+    :grant                 '[?x :grant/user ?grant-user]
+    :identity              '[?x :identity/provider ?identity-provider]
+    :image                 '[?x :image/uuid ?image-uuid]
+    :lot                   '[?x :lot/purchase-date ?lot-purchase-date]
+    :lot-item              '[?x :lot-item/action ?lot-item-action]
+    :price                 '[?x :price/value ?price-value]
+    :reconciliation        '[?x :reconciliation/status ?reconciliation-status]
+    :scheduled-transaction '[?x :scheduled-transaction/description ?scheduled-transaction-description]
+    :transaction           '[?x :transaction/description ?transaction-description]
+    :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
+    :user                  '[?x :user/email ?user-email]))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
