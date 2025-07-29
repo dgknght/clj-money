@@ -71,7 +71,10 @@
       (throw (IllegalArgumentException. (format "No recursion defined for model type %s" model-type))))))
 
 (defn- criteria->query
-  [criteria {:as opts :keys [count]}]
+  [criteria {:as opts
+             :keys [count
+                    nil-replacements]
+             :or {nil-replacements {}}}]
   (let [m-type (or (util/model-type criteria)
                    (:model-type opts))]
     (-> {:find (if count
@@ -84,7 +87,8 @@
         (queries/apply-criteria criteria
                                 :target m-type
                                 :coerce identity
-                                :recursion (recursion opts m-type))
+                                :recursion (recursion opts m-type)
+                                :nil-replacements (->java-dates nil-replacements))
         (dtl/apply-options (dissoc opts :order-by :sort))
         (queries/apply-select opts)
         rearrange-query)))
