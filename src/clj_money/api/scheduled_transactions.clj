@@ -100,10 +100,12 @@
 
 (defn- put-many
   [models]
-  (with-delayed-propagation [out-chan ctrl-chan]
-    (models/put-many {:out-chan out-chan
-                      :ctrl-chan ctrl-chan}
-                     models)))
+  (if (seq models)
+    (with-delayed-propagation [out-chan ctrl-chan]
+      (models/put-many {:out-chan out-chan
+                        :ctrl-chan ctrl-chan}
+                       models))
+    []))
 
 (defn- realize
   [req]
@@ -113,19 +115,30 @@
               api/creation-response)
       api/not-found))
 
-(defn- mass-realize
+(defn- fetch-entity
   [{:keys [params authenticated]}]
-  (if-let [entity (some-> {:id (:entity-id params)}
-                          (util/model-type :entity)
-                          (+scope :entity authenticated)
-                          models/find-by)]
-    (->> (models/select
-           [:and
-            #:scheduled-transaction{:entity entity
-                                    :enabled true}
-            [:or
-             {:scheduled-transaction/end-date nil}
-             {:scheduled-transaction/end-date [:< (t/local-date)]}]])
+  (some-> {:id (:entity-id params)}
+          (util/model-type :entity)
+          (+scope :entity authenticated)
+          models/find-by))
+
+(defn- ready-to-realize
+  [req]
+  (if-let [entity (fetch-entity req)]
+    (models/select
+      #:scheduled-transaction{:entity (util/->model-ref entity)
+                              :enabled true
+                              :start-date [:<= (t/local-date)]
+                              :end-date [:>= (t/local-date)]}
+      {:nil-replacements
+       {:scheduled-transaction/end-date (t/local-date 9999 12 31)
+        :scheduled-transaction/start-date (t/minus (t/local-date) (t/days 1))}})
+    []))
+
+(defn- mass-realize
+  [{:as req :keys [authenticated]}]
+  (if-let [ready (ready-to-realize req)]
+    (->> ready
          (filter #(allowed? % ::sched-trans-auth/realize authenticated))
          (mapcat sched-trans/realize)
          put-many
