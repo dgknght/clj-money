@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization
              :as auth
@@ -15,29 +14,11 @@
             [clj-money.models.images :as img]
             [clj-money.authorization.attachments]))
 
-; TODO: Make this more universal
-; The problem is that the framework parses smaller id values
-; but not the id values from datomic. We really shouldn't know
-; about the storage strategy here. For now, we're just assuming
-; that a string that looks like an integer should be one.
-(def ^:private long-pattern #"\A\d+\z")
-(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
-
-(defn- coerce-id
-  [id]
-  (if (coll? id)
-    (map coerce-id id)
-    (if (string? id)
-      (cond
-        (re-find long-pattern id) (parse-long id)
-        (re-find uuid-pattern id) (uuid id))
-      id)))
-
 (defn- extract-criteria
   [{:keys [authenticated] {:keys [transaction-id :transaction-date]} :params}]
   (+scope
     {:attachment/transaction
-     {:id (coerce-id transaction-id)
+     {:id (util/coerce-id transaction-id)
       :transaction/transaction-date (dates/unserialize-local-date transaction-date)}}
     :attachment
     authenticated))
@@ -69,7 +50,7 @@
       (select-keys [:caption])
       (util/qualify-keys :attachment)
       (merge {:attachment/transaction
-              {:id (coerce-id transaction-id)
+              {:id (util/coerce-id transaction-id)
                :transaction/transaction-date (dates/unserialize-local-date transaction-date)}})))
 
 (defn- find-or-create-image

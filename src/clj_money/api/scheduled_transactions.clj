@@ -69,7 +69,7 @@
   [{:keys [params authenticated] :as req}]
   (-> req
       extract-sched-tran
-      (assoc :scheduled-transaction/entity {:id (:entity-id params)})
+      (assoc :scheduled-transaction/entity {:id (util/coerce-id (:entity-id params))})
       (authorize ::authorization/create authenticated)
       models/put
       api/creation-response))
