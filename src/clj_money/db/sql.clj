@@ -5,6 +5,7 @@
             [clojure.set :refer [rename-keys map-invert]]
             [clojure.spec.alpha :as s]
             [camel-snake-kebab.core :refer [->snake_case_keyword
+                                            ->snake_case_string
                                             ->snake_case
                                             ->kebab-case]]
             [next.jdbc :as jdbc]
@@ -362,21 +363,34 @@
 (def ^:private recursions
   {:account [:parent_id :id]}) ; This is a bit of a kludge, as :parent-id should be translated to snake case, but it's not
 
+; TODO: I think we can manage without doing this directly
+; next-jdbc and honeysql both have mechanisms for handling this, I'm pretty sure.
+; we just need to set them correctly
+(defn- ->snake-case
+  [k]
+  (keyword (->snake_case_string (namespace k))
+           (->snake_case_string (name k))))
+
 (defn- select*
   [ds criteria {:as options
                 :keys [include-children?
-                       include-parents?]}]
+                       include-parents?
+                       nil-replacements]}]
   (let [model-type (util/model-type criteria)
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
-                  (criteria->query (cond-> (assoc options
-                                                  :quoted? true
-                                                  :column-fn ->snake_case
-                                                  :table-fn ->snake_case
-                                                  :target model-type)
-                                     include-children? (assoc :recursion (recursions model-type))
-                                     include-parents? (assoc :recursion (reverse (recursions model-type))))))]
+                  (criteria->query
+                    (cond-> (assoc options
+                                   :quoted? true
+                                   :column-fn ->snake_case
+                                   :table-fn ->snake_case
+                                   :target model-type)
+                      nil-replacements (assoc :nil-replacements
+                                              (update-keys nil-replacements
+                                                           ->snake-case))
+                      include-children? (assoc :recursion (recursions model-type))
+                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
     (log/debugf "database select %s with options %s -> %s"
                 (models/scrub-sensitive-data criteria)
