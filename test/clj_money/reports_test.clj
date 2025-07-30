@@ -4,7 +4,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [clj-money.reports.fixtures :as fixtures]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models.ref]
             [clj-money.models :as models]
             [clj-money.core]

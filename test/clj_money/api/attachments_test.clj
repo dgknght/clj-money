@@ -7,7 +7,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body

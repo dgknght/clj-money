@@ -9,7 +9,7 @@
             [dgknght.app-lib.core :refer [safe-nth]]
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.images.sql]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
