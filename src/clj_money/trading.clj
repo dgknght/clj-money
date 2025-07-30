@@ -660,8 +660,8 @@
 (defn unsell
   [trx & {:as opts}]
   (let [lot-items (models/select
-                    #:lot-item{:transaction trx
-                               :transaction-date (:transaction/transaction-date trx)})
+                    (util/model-type {:transaction/_self trx}
+                                     :lot-item))
         lots (index-by :id
                        (models/select (util/model-type
                                         {:id [:in (map (comp :id :lot-item/lot)
