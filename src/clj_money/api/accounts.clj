@@ -65,9 +65,9 @@
     (api/response account)
     api/not-found))
 
+; TODO: Use schema instead of refining these here
 (def ^:private attribute-keys
-  [:id
-   :account/name
+  [:account/name
    :account/entity
    :account/type
    :account/commodity
@@ -79,8 +79,8 @@
 (defn- create
   [{:keys [params authenticated]}]
   (-> params
-      (assoc :account/entity {:id (:entity-id params)})
       (select-keys attribute-keys)
+      (assoc :account/entity {:id (util/coerce-id (:entity-id params))})
       (authorize ::auth/create authenticated)
       models/put
       api/creation-response))
