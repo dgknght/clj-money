@@ -18,7 +18,7 @@
   [{:keys [authenticated] {:keys [transaction-id :transaction-date]} :params}]
   (+scope
     {:attachment/transaction
-     {:id (util/coerce-id transaction-id)
+     {:id transaction-id
       :transaction/transaction-date (dates/unserialize-local-date transaction-date)}}
     :attachment
     authenticated))
@@ -50,7 +50,7 @@
       (select-keys [:caption])
       (util/qualify-keys :attachment)
       (merge {:attachment/transaction
-              {:id (util/coerce-id transaction-id)
+              {:id transaction-id
                :transaction/transaction-date (dates/unserialize-local-date transaction-date)}})))
 
 (defn- find-or-create-image

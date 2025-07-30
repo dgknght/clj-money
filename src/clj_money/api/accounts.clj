@@ -80,7 +80,7 @@
   [{:keys [params authenticated]}]
   (-> params
       (select-keys attribute-keys)
-      (assoc :account/entity {:id (util/coerce-id (:entity-id params))})
+      (assoc :account/entity {:id (:entity-id params)})
       (authorize ::auth/create authenticated)
       models/put
       api/creation-response))

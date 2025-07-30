@@ -568,20 +568,3 @@
 (defn ->>range
   [{:keys [compare] :or {compare <}} vs]
   ((juxt first last) (sort compare vs)))
-
-; The problem is that the framework parses smaller id values
-; but not the id values from datomic. We really shouldn't know
-; about the storage strategy here. For now, we're just assuming
-; that a string that looks like an integer should be one.
-(def ^:private long-pattern #"\A\d+\z")
-(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
-
-(defn coerce-id
-  [id]
-  (if (coll? id)
-    (map coerce-id id)
-    (if (string? id)
-      (cond
-        (re-find long-pattern id) (parse-long id)
-        (re-find uuid-pattern id) (uuid id))
-      id)))
