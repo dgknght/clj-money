@@ -124,7 +124,7 @@
 
 (defn- ready-to-realize
   [req]
-  (if-let [entity (fetch-entity req)]
+  (when-let [entity (fetch-entity req)]
     (models/select
       #:scheduled-transaction{:entity (util/->model-ref entity)
                               :enabled true
@@ -132,8 +132,7 @@
                               :end-date [:>= (t/local-date)]}
       {:nil-replacements
        {:scheduled-transaction/end-date (t/local-date 9999 12 31)
-        :scheduled-transaction/start-date (t/minus (t/local-date) (t/days 1))}})
-    []))
+        :scheduled-transaction/start-date (t/minus (t/local-date) (t/days 1))}})))
 
 (defn- mass-realize
   [{:as req :keys [authenticated]}]
