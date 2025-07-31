@@ -60,7 +60,7 @@
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
-  (authorize (models/find-by {:id (uuid (:id params))
+  (authorize (models/find-by {:id (:id params)
                               :price/trade-date (dates/unserialize-local-date (:trade-date params))})
              action
              authenticated))
