@@ -171,8 +171,7 @@
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
                      (map (pass-through models->refs))
-                     (mapcat prep-for-put)
-                     vec)
+                     (mapcat prep-for-put))
         {:keys [tempids]} (transact api prepped {})]
 
     (log/debugf "put models %s" prepped)
