@@ -3,7 +3,6 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.core :refer [update-in-if
-                                          uuid
                                           index-by]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util :refer [model=]]
