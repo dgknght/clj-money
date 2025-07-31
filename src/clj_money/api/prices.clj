@@ -147,9 +147,7 @@
   "Return prices for a specified list of commodities"
   [{:keys [params]}]
   (->> (:commodity-id params)
-       (map (comp (models/find :commodity)
-                  parse-int)
-            (:commodity-id params))
+       (map (models/find :commodity))
        fetch*
        models/put-many
        (map #(update-in % [:price/commodity] util/->model-ref))
