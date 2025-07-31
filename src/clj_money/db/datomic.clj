@@ -211,12 +211,24 @@
               (comp (partial = "_self")
                     (comp name key))))
 
+(defn- model-in-criterion?
+  [x]
+  (when (and (map-entry? x)
+             (vector? (val x)))
+    (let [[oper v] (val x)]
+      (and (= :in oper)
+           (every? util/model-ref? v)))))
+
 (defn- normalize-criterion
   [x]
   (cond
-    (id-criterion? x)    (update-in x [1] coerce-id)
-    (model-criterion? x) (update-in x [1] select-keys [:id])
-    (self-reference? x)  (update-in x [1] select-keys [:id])
+    (id-criterion? x)       (update-in x [1] coerce-id)
+    (model-criterion? x)    (update-in x [1] select-keys [:id])
+    (self-reference? x)     (update-in x [1] select-keys [:id])
+    (model-in-criterion? x) (update-in x [1] (fn [[oper v]]
+                                               (apply vector
+                                                      oper
+                                                      (map :id v))))
     :else x))
 
 (defn- normalize-criteria
