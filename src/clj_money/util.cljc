@@ -6,7 +6,6 @@
             #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
-            [dgknght.app-lib.core :refer [uuid]]
             [clj-money.models.schema :as schema]))
 
 (derive #?(:clj java.lang.String
