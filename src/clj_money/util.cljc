@@ -40,9 +40,13 @@
 
 (defn pp->
   [v m & {:keys [meta? transform]
-          :or {transform identity}}]
-  (binding [*print-meta* meta?]
-    (pprint {m (transform v)}))
+          :or {transform identity}
+          :as opts}]
+
+  (when (or (nil? (:if opts))
+            ((:if opts) v))
+    (binding [*print-meta* meta?]
+      (pprint {m (transform v)})))
   v)
 
 (defn pp->>
