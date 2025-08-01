@@ -259,7 +259,7 @@
     vs))
 
 (defn- select*
-  [criteria {:as options :keys [count]} {:keys [api]}]
+  [criteria {:as options :keys [count select]} {:keys [api]}]
   (let [qry (-> criteria
                 normalize-criteria
                 prepare-criteria
@@ -271,8 +271,14 @@
                 (models/scrub-sensitive-data criteria)
                 qry) ; TODO scrub the datalog query too
 
-    (if count
+    (cond
+      count
       (or (ffirst raw-result) 0)
+
+      select
+      (map #(zipmap select %) raw-result)
+
+      :else
       (->> raw-result
            (map (extract-model options))
            (remove naked-id?)
