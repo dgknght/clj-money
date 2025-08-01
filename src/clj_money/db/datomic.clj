@@ -225,10 +225,10 @@
     (id-criterion? x)       (update-in x [1] coerce-id)
     (model-criterion? x)    (update-in x [1] select-keys [:id])
     (self-reference? x)     (update-in x [1] select-keys [:id])
-    (model-in-criterion? x) (update-in x [1] (fn [[oper v]]
-                                               (apply vector
-                                                      oper
-                                                      (map :id v))))
+    (model-in-criterion? x) (update-in x [1] (fn [c]
+                                               (update-in c [1] #(->> %
+                                                                      (map :id)
+                                                                      set))))
     :else x))
 
 (defn- normalize-criteria
