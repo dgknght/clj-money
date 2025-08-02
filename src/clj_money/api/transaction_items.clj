@@ -25,7 +25,8 @@
                [:transaction-item/account]
                (fn [id]
                  [:in (map :id (models/select
-                                 {:account/_self {:id id}}
+                                 (util/model-type {:id id}
+                                                  :account)
                                  {:include-children? true
                                   :select [:id]}))]))
 
