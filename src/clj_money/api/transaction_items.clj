@@ -136,7 +136,8 @@
                                         [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
                                                :transaction/transaction-date
-                                               :transaction/attachment-count])))
+                                               :transaction/attachment-count]
+                                 :nil-replacements {:transaction/attachment-count 0})))
        (filter-reconciled req)
        (apply-limit req)
        polarize-quantities
