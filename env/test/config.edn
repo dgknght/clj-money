@@ -13,7 +13,7 @@
                    :datomic-peer
                    {:clj-money.db/strategy :clj-money.db/datomic-peer
                     :uri "datomic:mem://money_test"}}
-      :active #_:sql :datomic-peer}
+      :active :datomic-peer}
  :detailed-import-logging "false"
  :google-client-id "google-id"
  :google-client-secret "google-client-secret"
