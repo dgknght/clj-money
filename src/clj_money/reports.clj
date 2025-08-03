@@ -715,7 +715,7 @@
    (commodities-account-summary account (t/local-date)))
   ([account as-of]
    (let [records (conj (->> (models/select {:lot/account account
-                                            :lot/shares-owned [:!= 0]})
+                                            :lot/shares-owned [:!= 0M]})
                             (group-by (comp :id :lot/commodity))
                             (map #(summarize-commodity %))
                             (sort-by :report/caption)
