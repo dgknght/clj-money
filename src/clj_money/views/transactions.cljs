@@ -91,9 +91,8 @@
 
 (defn- load-attachments
   [page-state]
-  (let [{:keys [attachments-item]} @page-state
-        criteria {:transaction-id (:transaction-id attachments-item)
-                  :transaction-date (:transaction-date attachments-item)}]
+  (let [{{:transaction-item/keys [transaction]} :attachment-item} @page-state
+        criteria {:attachment/transaction transaction}]
     (+busy)
     (atts/select criteria
                  :callback -busy

@@ -1,0 +1,58 @@
+[{:db/ident :scheduled-transaction/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity to which the scheduled transaction belongs"}
+ {:db/ident :scheduled-transaction/start-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date on which the scheduled transaction starts to be evaluated"}
+ {:db/ident :scheduled-transaction/last-occurrence
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date of the last transaction produced by this schedule"}
+ {:db/ident :scheduled-transaction/end-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date after which the scheduled transaction is no longer evaluated"}
+ {:db/ident :scheduled-transaction/enabled
+  :db/valueType :db.type/boolean
+  :db/cardinality :db.cardinality/one
+  :db/doc "Indicates whether or not the scheduled transaction should be evaluated"}
+ {:db/ident :scheduled-transaction/description
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The transaction description"}
+ {:db/ident :scheduled-transaction/memo
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "An extra note about the transaction"}
+ {:db/ident :scheduled-transaction/period
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/long :db.type/keyword]
+  :db/cardinality :db.cardinality/one
+  :db/doc "An extra note about the transaction"}
+ {:db/ident :scheduled-transaction/date-spec
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The (serialized) specification for the date on which the transaction is to occur."}
+ {:db/ident :scheduled-transaction/items
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/isComponent true
+  :db/doc "The templates for the transaction items"}
+ {:db/ident :scheduled-transaction-item/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account affected by this transaction item"}
+ {:db/ident :scheduled-transaction-item/action
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account action to be taken for this item"}
+ {:db/ident :scheduled-transaction-item/quantity
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The quantity of against which the action is taken"}
+ {:db/ident :scheduled-transaction-item/memo
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "A note about this transaction for this account"}]

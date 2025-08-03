@@ -40,9 +40,13 @@
 
 (defn pp->
   [v m & {:keys [meta? transform]
-          :or {transform identity}}]
-  (binding [*print-meta* meta?]
-    (pprint {m (transform v)}))
+          :or {transform identity}
+          :as opts}]
+
+  (when (or (nil? (:if opts))
+            ((:if opts) v))
+    (binding [*print-meta* meta?]
+      (pprint {m (transform v)})))
   v)
 
 (defn pp->>
@@ -468,25 +472,6 @@
       (keyword (nth m 1) (nth m 2))
       k)))
 
-(defn ->range
-  "Accepts a sequence of values and returns a tuple with the
-  first in the first position and the last in the second."
-  [vs & {:keys [compare] :or {compare <}}]
-  ((juxt first last) (sort compare vs)))
-
-(defn split-nils
-  "Given a map, return a tuple containing the map
-  with all nil attributes removed in the first position
-  and a vector containing the keys that had nil values
-  in the second"
-  [m]
-  (reduce (fn [res [k v]]
-            (if v
-              (update-in res [0] assoc k v)
-              (update-in res [1] conj k)))
-          [{} []]
-          m))
-
 (defn remove-nils
   "Given a data structrure, return the structure with any nil map
   values removed"
@@ -576,3 +561,13 @@
     (sort (->comparator sort-spec)
           models)
     models))
+
+(defn ->range
+  "Given a sequence of values, return a tuple with the minimum value
+  in the first position and the maximum value in the second"
+  [vs & {:keys [compare] :or {compare <}}]
+  ((juxt first last) (sort compare vs)))
+
+(defn ->>range
+  [{:keys [compare] :or {compare <}} vs]
+  ((juxt first last) (sort compare vs)))

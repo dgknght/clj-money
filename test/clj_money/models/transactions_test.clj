@@ -353,14 +353,16 @@
 
 (dbtest get-a-transaction
   (with-context update-context
-    (let [trx (find-transaction [(t/local-date 2016 3 2) "Paycheck"])]
-      (testing "items are not included if not specified"
-        (let [retrieved (models/find-by (select-keys trx [:id :transaction/transaction-date]))]
-          (is retrieved "a value is returned")
-          (is (= 1000M (:transaction/value retrieved))
-              "The transaction value can be retrieved")
-          (is (= 2 (count (:transaction/items retrieved)))
-              "The transaction items are included"))))))
+    (let [retrieved (models/find-by
+                      {:transaction/transaction-date (t/local-date 2016 3 2)
+                       :transaction/description "Paycheck"})]
+      (is (comparable? {:transaction/value 1000M
+                        :transaction/description "Paycheck"
+                        :transaction/transaction-date (t/local-date 2016 3 2)}
+                       retrieved)
+          "The transaction can be retrieved")
+      (is (= 2 (count (:transaction/items retrieved)))
+          "The transaction items are included"))))
 
 (def search-context
   (conj base-context
@@ -406,13 +408,14 @@
 
 (dbtest search-by-date-vector
   (with-context search-context
-    (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2017 6 1)}
-                            #:transaction{:transaction-date (t/local-date 2017 6 15)}]
-                           (models/select #:transaction{:transaction-date [:between
-                                                                           (t/local-date 2017 6 1)
-                                                                           (t/local-date 2017 6 30)]
-                                                        :entity (find-entity "Personal")}))
-        "The transactions from the specified day are returned")))
+    (is (seq-of-maps-like?
+          [#:transaction{:transaction-date (t/local-date 2017 6 1)}
+           #:transaction{:transaction-date (t/local-date 2017 6 15)}]
+          (models/select #:transaction{:transaction-date [:between
+                                                          (t/local-date 2017 6 1)
+                                                          (t/local-date 2017 6 30)]
+                                       :entity (find-entity "Personal")}))
+        "The transactions from the specified date range are returned")))
 
 (defn- update-items
   [items change-map]
