@@ -106,10 +106,10 @@
 (defmethod prepare-criteria :default [c] c)
 (defmethod propagate-delete :default [m _] [m])
 
-(defmulti ^:private prep-for-put type)
+(defmulti ^:private prep-for-put (fn [m _] (type m)))
 
 (defmethod prep-for-put ::util/map
-  [m]
+  [m _api]
   (let [m* (util/remove-nils m)
         nils (util/locate-nils m)]
     (cons (-> m*
@@ -137,10 +137,13 @@
 ; in which case we want to turn it into
 ; [:db/retract 1]
 (defmethod prep-for-put ::util/vector
-  [[action & [{:keys [id] :as model} :as args]]]
+  [[action & [{:keys [id]} :as args]] api]
   (if (= ::db/delete action)
-    (->> (keys model)
-         (remove #(= :id %))
+    (->> (keys (ffirst (query api
+                              {:query '[:find (pull ?x [*])
+                                        :in $ ?x]
+                               :args [id]})))
+         (remove #(= :db/id %))
          (map #(vector :db/retract id %)))
     [(apply vector (action-map action action) args)]))
 
@@ -172,10 +175,10 @@
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
                      (map (pass-through models->refs))
-                     (mapcat prep-for-put))
+                     (mapcat #(prep-for-put % api)))
         {:keys [tempids]} (transact api prepped {})]
 
-    (log/debugf "put models %s" prepped)
+    (log/debugf "put models %s" (pr-str prepped))
 
     (->> prepped
          (filter (every-pred map?
