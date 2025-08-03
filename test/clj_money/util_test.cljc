@@ -317,12 +317,6 @@
                        :compare t/before?))
       "Integers can be processed"))
 
-(deftest separate-nils-from-a-model
-  (is (= [{:present :here}
-          [:absent]]
-         (util/split-nils {:present :here
-                           :absent nil}))))
-
 (deftest remove-nils-from-a-model
   (testing "one level"
     (is (= {:present :here}

@@ -2,54 +2,56 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [uuid
-                                          update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization
              :as auth
              :refer [+scope
                      authorize]]
-            [clj-money.dates :as dates]
             [clj-money.util :as util]
-            [clj-money.comparatives :as comparatives :refer [nominative-variations] ]
+            [clj-money.dates :as dates]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.images :as img]
             [clj-money.authorization.attachments]))
 
-(defn- unserialize-transaction-date
-  [criteria]
-  (reduce #(update-in-if %1 [%2] dates/unserialize-local-date)
-          criteria
-          (nominative-variations :transaction-date)))
-
 (defn- extract-criteria
-  [{:keys [params authenticated]}]
-  (-> params
-      unserialize-transaction-date
-      comparatives/symbolize
-      (rename-keys {"transaction-id[]" :transaction/id
-                    :transaction-id :transaction/id
-                    :transaction-date :transaction/transaction-date})
-      (update-in-if [:transaction/id] #(if (coll? %)
-                                         (map uuid %)
-                                         (uuid %)))
-      (+scope :attachment authenticated)))
+  [{:keys [authenticated] {:keys [transaction-id :transaction-date]} :params}]
+  (+scope
+    {:attachment/transaction
+     {:id transaction-id
+      :transaction/transaction-date (dates/unserialize-local-date transaction-date)}}
+    :attachment
+    authenticated))
 
 (defn- index
   [req]
   (api/response
     (models/select (extract-criteria req))))
 
+(defn- extract-account-criteria
+  [{:keys [authenticated] {:keys [start-date end-date account-id]} :params}]
+  (+scope
+    {:transaction-item/account {:id account-id}
+     :transaction/transaction-date
+     [:between>
+      (dates/unserialize-local-date start-date)
+      (dates/unserialize-local-date end-date)]}
+    :attachment
+    authenticated))
+
+(defn- index-by-account
+  [req]
+  (api/response
+    (models/select (extract-account-criteria req))))
+
 (defn- extract-attachment
-  [{:keys [params]}]
+  [{{:keys [transaction-id transaction-date] :as params} :params}]
   (-> params
-      (select-keys [:transaction-id :transaction-date])
+      (select-keys [:caption])
       (util/qualify-keys :attachment)
-      (update-in [:attachment/transaction-id] (comp util/->model-ref
-                                                    uuid))
-      (update-in [:attachment/transaction-date] dates/unserialize-local-date)
-      (rename-keys {:attachment/transaction-id :attachment/transaction})))
+      (merge {:attachment/transaction
+              {:id transaction-id
+               :transaction/transaction-date (dates/unserialize-local-date transaction-date)}})))
 
 (defn- find-or-create-image
   [{{:keys [file]} :params
@@ -105,7 +107,9 @@
     api/not-found))
 
 (def routes
-  [["transactions/:transaction-id/:transaction-date/attachments" {:post {:handler create}}]
+  [["transactions/:transaction-id/:transaction-date/attachments" {:post {:handler create}
+                                                                  :get {:handler index}}]
+   ["accounts/:account-id/attachments/:start-date/:end-date" {:get {:handler index-by-account}}]
    ["attachments"
     ["" {:get {:handler index}}]
     ["/:id" {:patch {:handler update}

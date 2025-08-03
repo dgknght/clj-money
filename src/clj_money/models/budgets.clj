@@ -4,35 +4,35 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [clj-money.util :as util]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :as budgets]))
 
+(defn- accounts-belong-to-budget-entity?
+  [{:budget/keys [items entity]}]
+  (->> items
+       (map :budget-item/account)
+       set
+       (map #(models/resolve-ref % :account))
+       (every? #(id= (:account/entity %)
+                     entity))))
+
+(v/reg-spec accounts-belong-to-budget-entity?
+            {:message "Account must belong to the same entity as the budget"
+             :path [:budget/items]})
+
 (defn- period-counts-match?
-  [{:budget/keys [items period]}]
-  (every? #(= (first period)
-              (count (:budget-item/periods %)))
+  [{:budget/keys [period items]}]
+  (every? #(= (count (:budget-item/periods %))
+              (first period))
           items))
 
 (v/reg-spec period-counts-match?
             {:message "Must have the number of periods specified by the budget"
              :path [:budget-item/periods]})
 
-(defn- accounts-belong-to-budget-entity?
-  [{:budget/keys [entity items]}]
-  (every? #(util/id= entity
-                     (-> %
-                         :budget-item/account
-                         (models/resolve-ref :account)
-                         :account/entity))
-          items))
-
-(v/reg-spec accounts-belong-to-budget-entity?
-            {:message "Accounts must belong to the same entity as the budget"
-             :path [:budget/items]})
-
-(s/def :budget/items (s/coll-of ::models/budget-item))
+(s/def :budget/items (s/nilable (s/coll-of ::models/budget-item)))
 (s/def :budget/name v/non-empty-string?)
 (s/def :budget/start-date t/local-date?)
 (s/def :budget/period ::dates/period)

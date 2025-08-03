@@ -151,6 +151,7 @@
   (conj basic-context
         #:scheduled-transaction{:entity "Personal"
                                 :description "Paycheck"
+                                :enabled true
                                 :period [1 :month]
                                 :last-occurrence (t/local-date 2016 1 1)
                                 :start-date (t/local-date 2015 1 1)

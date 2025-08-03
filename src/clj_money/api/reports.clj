@@ -78,7 +78,7 @@
     (api/response (map (comp serialize-monitor
                              rpt/monitor
                              (models/find :account))
-                       (get-in entity [:entity/settings :settings/monitored-account-ids])))
+                       (get-in entity [:entity/settings :settings/monitored-accounts])))
     api/not-found))
 
 (def routes

@@ -31,6 +31,22 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db/doc "Accounts for which budget monitors are enabled"}
+ {:db/ident :settings/lt-capital-gains-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks long-term capital gains for the entity"}
+ {:db/ident :settings/st-capital-gains-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks short-term capital gains for the entity"}
+ {:db/ident :settings/lt-capital-loss-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks long-term capital loss for the entity"}
+ {:db/ident :settings/st-capital-loss-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks short-term capital loss for the entity"}
  {:db/ident :settings/default-commodity
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one

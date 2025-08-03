@@ -14,7 +14,8 @@
             [clj-money.db.datomic.types :refer [coerce-id
                                                 apply-coercions
                                                 ->java-dates]]
-            [clj-money.db.datomic.queries :as queries]))
+            [clj-money.db.datomic.queries :as queries]
+            [clj-money.db.datomic.util :refer [->datums]]))
 
 (derive ::db/datomic-peer   ::service)
 (derive ::db/datomic-client ::service)
@@ -29,22 +30,25 @@
   [model-type]
   {:pre [model-type]}
   (case model-type
-    :account          '[?x :account/type ?account-type]
-    :attachment       '[?x :attachment/caption ?attachment-caption]
-    :budget           '[?x :budget/start-date ?budget-start-date]
-    :budget-item      '[?x :budget-item/periods ?budget-item-periods]
-    :commodity        '[?x :commodity/symbol ?commodity-symbol]
-    :cached-price     '[?x :cached-price/trade-date ?cached-price-trade-date]
-    :entity           '[?x :entity/name ?entity-name]
-    :grant            '[?x :grant/user ?grant-user]
-    :identity         '[?x :identity/provider ?identity-provider]
-    :image            '[?x :image/uuid ?image-uuid]
-    :lot              '[?x :lot/purchase-date ?lot-purchase-date]
-    :price            '[?x :price/value ?price-value]
-    :transaction      '[?x :transaction/description ?transaction-description]
-    :transaction-item '[?x :transaction-item/action ?transaction-item-action]
-    :reconciliation   '[?x :reconciliation/status ?reconciliation-status]
-    :user             '[?x :user/email ?user-email]))
+    :account               '[?x :account/type ?account-type]
+    :attachment            '[?x :attachment/image ?attachment-image]
+    :budget                '[?x :budget/start-date ?budget-start-date]
+    :budget-item           '[?x :budget-item/periods ?budget-item-periods]
+    :cached-price          '[?x :cached-price/trade-date ?cached-price-trade-date]
+    :commodity             '[?x :commodity/symbol ?commodity-symbol]
+    :entity                '[?x :entity/name ?entity-name]
+    :grant                 '[?x :grant/user ?grant-user]
+    :identity              '[?x :identity/provider ?identity-provider]
+    :image                 '[?x :image/uuid ?image-uuid]
+    :import                '[?x :import/entity-name ?import-entity-name]
+    :lot                   '[?x :lot/purchase-date ?lot-purchase-date]
+    :lot-item              '[?x :lot-item/action ?lot-item-action]
+    :price                 '[?x :price/value ?price-value]
+    :reconciliation        '[?x :reconciliation/status ?reconciliation-status]
+    :scheduled-transaction '[?x :scheduled-transaction/description ?scheduled-transaction-description]
+    :transaction           '[?x :transaction/description ?transaction-description]
+    :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
+    :user                  '[?x :user/email ?user-email]))
 
 (def ^:private not-deleted '(not [?x :model/deleted? true]))
 
@@ -68,7 +72,10 @@
       (throw (IllegalArgumentException. (format "No recursion defined for model type %s" model-type))))))
 
 (defn- criteria->query
-  [criteria {:as opts :keys [count]}]
+  [criteria {:as opts
+             :keys [count
+                    nil-replacements]
+             :or {nil-replacements {}}}]
   (let [m-type (or (util/model-type criteria)
                    (:model-type opts))]
     (-> {:find (if count
@@ -81,7 +88,8 @@
         (queries/apply-criteria criteria
                                 :target m-type
                                 :coerce identity
-                                :recursion (recursion opts m-type))
+                                :recursion (recursion opts m-type)
+                                :nil-replacements (->java-dates nil-replacements))
         (dtl/apply-options (dissoc opts :order-by :sort))
         (queries/apply-select opts)
         rearrange-query)))
@@ -98,10 +106,10 @@
 (defmethod prepare-criteria :default [c] c)
 (defmethod propagate-delete :default [m _] [m])
 
-(defmulti ^:private prep-for-put type)
+(defmulti ^:private prep-for-put (fn [m _] (type m)))
 
 (defmethod prep-for-put ::util/map
-  [m]
+  [m _api]
   (let [m* (util/remove-nils m)
         nils (util/locate-nils m)]
     (cons (-> m*
@@ -116,9 +124,9 @@
                                          [:id]))
                              (last %)))))))
 
-#_(def ^:private action-map
-  {::db/delete :db/retract
-   ::db/put    :db/add})
+(def ^:private action-map
+  {::db/add :db/add
+   ::db/delete :db/retract})
 
 ; Here we expact that the datomic transaction has already been constructed
 ; like the following:
@@ -129,9 +137,15 @@
 ; in which case we want to turn it into
 ; [:db/retract 1]
 (defmethod prep-for-put ::util/vector
-  [[_action :as args]]
-  ; For now, let's assume a deconstruct fn has prepared a legal datomic transaction
-  [args])
+  [[action & [{:keys [id]} :as args]] api]
+  (if (= ::db/delete action)
+    (->> (keys (ffirst (query api
+                              {:query '[:find (pull ?x [*])
+                                        :in $ ?x]
+                               :args [id]})))
+         (remove #(= :db/id %))
+         (map #(vector :db/retract id %)))
+    [(apply vector (action-map action action) args)]))
 
 (defn- models->refs
   [m]
@@ -142,18 +156,29 @@
                 x))
             m))
 
+(defn- pass-through
+  "Returns a fn that takes a single argument and if that
+  argument is a vector, returns it unchanged (or wrapped in another
+  vector if :plural is true). Otherwise it applies the given function f."
+  [f & {:keys [plural]}]
+  (fn [x]
+    (if (vector? x)
+      (if plural
+        [x]
+        x)
+      (f x))))
+
 (defn- put*
   [models {:keys [api]}]
   {:pre [(sequential? models)]}
   (let [prepped (->> models
-                     (map #(util/+id % (comp str random-uuid)))
-                     (mapcat deconstruct)
-                     (map models->refs)
-                     (mapcat prep-for-put)
-                     vec)
+                     (map (pass-through #(util/+id % (comp str random-uuid))))
+                     (mapcat (pass-through deconstruct :plural true))
+                     (map (pass-through models->refs))
+                     (mapcat #(prep-for-put % api)))
         {:keys [tempids]} (transact api prepped {})]
 
-    (log/debugf "put models %s" prepped)
+    (log/debugf "put models %s" (pr-str prepped))
 
     (->> prepped
          (filter (every-pred map?
@@ -180,17 +205,34 @@
               (comp #(= :id %)
                     first)))
 
-(defn- model-criterion?
+(def ^:private model-criterion?
+  (every-pred map-entry?
+              (comp map? second)
+              (comp :id second)))
+
+(def ^:private self-reference?
+  (every-pred map-entry?
+              (comp (partial = "_self")
+                    (comp name key))))
+
+(defn- model-in-criterion?
   [x]
-  (and (map-entry? x)
-       (map? (second x))
-       (:id (second x))))
+  (when (and (map-entry? x)
+             (vector? (val x)))
+    (let [[oper v] (val x)]
+      (and (= :in oper)
+           (every? util/model-ref? v)))))
 
 (defn- normalize-criterion
   [x]
   (cond
-    (id-criterion? x)    (update-in x [1] coerce-id)
-    (model-criterion? x) (update-in x [1] select-keys [:id])
+    (id-criterion? x)       (update-in x [1] coerce-id)
+    (model-criterion? x)    (update-in x [1] select-keys [:id])
+    (self-reference? x)     (update-in x [1] select-keys [:id])
+    (model-in-criterion? x) (update-in x [1] (fn [c]
+                                               (update-in c [1] #(->> %
+                                                                      (map :id)
+                                                                      set))))
     :else x))
 
 (defn- normalize-criteria
@@ -221,7 +263,7 @@
     vs))
 
 (defn- select*
-  [criteria {:as options :keys [count]} {:keys [api]}]
+  [criteria {:as options :keys [count select]} {:keys [api]}]
   (let [qry (-> criteria
                 normalize-criteria
                 prepare-criteria
@@ -233,8 +275,14 @@
                 (models/scrub-sensitive-data criteria)
                 qry) ; TODO scrub the datalog query too
 
-    (if count
+    (cond
+      count
       (or (ffirst raw-result) 0)
+
+      select
+      (map #(zipmap select %) raw-result)
+
+      :else
       (->> raw-result
            (map (extract-model options))
            (remove naked-id?)
@@ -243,6 +291,29 @@
                       #(util/deep-rename-keys % {:db/id :id})))
            (util/apply-sort options)
            (apply-limit options)))))
+
+(defn- single-ns
+  [m]
+  (let [names (->> (keys m)
+                   (map namespace)
+                   (into #{}))]
+    (if (= 1 (count names))
+      (keyword (first names))
+      (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))
+
+(defn- update*
+  [changes criteria {:keys [api]}]
+  (let [target (single-ns changes)
+        qry (rearrange-query
+              (queries/apply-criteria '{:find [?x]
+                                        :in [$]}
+                                      criteria
+                                      {:target target}))
+        updates (->> (query api qry)
+                     (map first)
+                     (mapcat (fn [id]
+                               (->datums (assoc changes :id id)))))]
+    (transact api updates {})))
 
 (defn- delete*
   [models {:keys [api] :as opts}]
@@ -307,6 +378,6 @@
       (put [_ models]       (put* models {:api api}))
       (select [_ crit opts] (select* crit opts {:api api}))
       (delete [_ models]    (delete* models {:api api}))
-      (update [_ _changes _criteria] (throw (UnsupportedOperationException.)))
+      (update [_ changes criteria] (update* changes criteria {:api api}))
       (close [_])
       (reset [_]            (reset api)))))
