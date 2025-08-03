@@ -70,18 +70,11 @@
                       (auto-create-items budget
                                          start-date))))
 
-; I'm not sure this is the best way to handle this, but it's working for now anyway
-(defn- parse-entity-id
-  [x]
-  (if (string? x)
-    (parse-long x)
-    x))
-
 (defn- create
   [{:keys [authenticated params] :as req}]
   (-> req
       extract-budget
-      (assoc :budget/entity {:id (parse-entity-id (:entity-id params))} )
+      (assoc :budget/entity {:id (:entity-id params)} )
       (authorize ::auth/create authenticated)
       models/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
       (append-items (:budget/auto-create-start-date params))
