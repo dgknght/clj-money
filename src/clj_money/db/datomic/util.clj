@@ -9,14 +9,14 @@
        (:id x)
        x))))
 
-(defn- ->datum
+(defn- ->datom
   [id]
   (fn [[k v]]
     (if v
       [:db/add id k v]
       [:db/retract id k])))
 
-(defn ->datums
+(defn ->datoms
   [m]
   {:pre [(map? m)]}
 
@@ -24,5 +24,5 @@
                (util/temp-id))]
     (->> m
          (remove #(= :id (key %)))
-         (map (comp (->datum id)
+         (map (comp (->datom id)
                     extract-model-id)))))

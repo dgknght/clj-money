@@ -15,7 +15,7 @@
                                                 apply-coercions
                                                 ->java-dates]]
             [clj-money.db.datomic.queries :as queries]
-            [clj-money.db.datomic.util :refer [->datums]]))
+            [clj-money.db.datomic.util :refer [->datoms]]))
 
 (derive ::db/datomic-peer   ::service)
 (derive ::db/datomic-client ::service)
@@ -312,7 +312,7 @@
         updates (->> (query api qry)
                      (map first)
                      (mapcat (fn [id]
-                               (->datums (assoc changes :id id)))))]
+                               (->datoms (assoc changes :id id)))))]
     (transact api updates {})))
 
 (defn- delete*
