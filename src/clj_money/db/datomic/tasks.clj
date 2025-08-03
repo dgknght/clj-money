@@ -26,6 +26,7 @@
            "lot"
            "lot_item"
            "image"
+           "import"
            "budget"
            "budget_item"
            "reconciliation"

@@ -40,6 +40,7 @@
     :grant                 '[?x :grant/user ?grant-user]
     :identity              '[?x :identity/provider ?identity-provider]
     :image                 '[?x :image/uuid ?image-uuid]
+    :import                '[?x :import/entity-name ?import-entity-name]
     :lot                   '[?x :lot/purchase-date ?lot-purchase-date]
     :lot-item              '[?x :lot-item/action ?lot-item-action]
     :price                 '[?x :price/value ?price-value]

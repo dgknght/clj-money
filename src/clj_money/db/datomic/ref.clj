@@ -6,6 +6,7 @@
             clj-money.db.datomic.attachments
             clj-money.db.datomic.budgets
             clj-money.db.datomic.budget-items
+            clj-money.db.datomic.imports
             clj-money.db.datomic.reconciliations
             clj-money.db.datomic.scheduled-transactions
             clj-money.db.datomic.users))

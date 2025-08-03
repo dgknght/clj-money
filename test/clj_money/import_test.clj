@@ -553,22 +553,18 @@
       (is (seq-of-maps-like?
             [#:scheduled-transaction{:entity (util/->model-ref entity)
                                      :description "Paycheck"
-                                     :memo nil
                                      :start-date (t/local-date 2016 1 15)
                                      :end-date (t/local-date 2018 12 31)
                                      :enabled true
                                      :date-spec {:days #{:friday}}
-                                     :last-occurrence nil
                                      :period [2 :week]}]
             retrieved)
           "The scheduled transactions are available after import.")
       (is (seq-of-maps-like? [#:scheduled-transaction-item{:action :debit
                                                            :account (account-ref "Checking")
-                                                           :quantity 1000M
-                                                           :memo nil}
+                                                           :quantity 1000M}
                               #:scheduled-transaction-item{:action :credit
                                                            :account (account-ref "Salary")
-                                                           :quantity 1000M
-                                                           :memo nil}]
+                                                           :quantity 1000M}]
                              (:scheduled-transaction/items (first retrieved)))
           "The scheduled transaction items can be retrieved after import."))))
