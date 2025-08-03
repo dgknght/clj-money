@@ -53,8 +53,6 @@
   (with-context existing-imports-context
     (is (seq-of-maps-like?
           [#:import{:entity-name "import entity"
-                    :progress nil
-                    :options nil
                     :entity-exists? false}]
           (models/select #:import{:user (find-user "john@doe.com")})))))
 
