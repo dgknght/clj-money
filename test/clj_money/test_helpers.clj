@@ -11,10 +11,13 @@
             [clj-money.models :as models]))
 
 ; TODO: Remove this an just use the reset in the dbtest so that we don't have to duplicate the strategy selection logic
+(def active-db-config
+  (get-in env [:db :strategies (get-in env [:db :active])]))
+
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [f]
-  (db/reset (db/reify-storage (get-in env [:db :strategies :sql])))
+  (db/reset (db/reify-storage active-db-config))
   (f))
 
 (defn- throw-if-nil
@@ -56,18 +59,16 @@
     exclude `(complement ~(clj-money.test-helpers/->set exclude))
     :else   '(constantly true)))
 
-(defn- env-var->set
-  [k]
-  (when-let [v (env k)]
-    #{(if (string? v)
-        (keyword v)
-        v)}))
-
-(def isolate (env-var->set :isolate))
+(def isolate (when-let [isolate (env :isolate)]
+               #{(if (string? isolate)
+                   (keyword isolate)
+                   isolate)}))
 
 (def ignore-strategy (if isolate
                        (complement isolate)
-                       (env-var->set :ignore-strategy)))
+                       (if-let [ignore (env :ignore-strategy)]
+                         (->set ignore)
+                         (constantly false))))
 
 (def honor-strategy (complement ignore-strategy))
 

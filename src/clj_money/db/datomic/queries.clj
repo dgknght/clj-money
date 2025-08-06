@@ -10,8 +10,10 @@
     (set/difference
       schema/relationships
       #{[:budget :budget-item]
+        [:transaction :lot-item]
         [:transaction :transaction-item]})
     #{[:budget-item :budget :items]
+      [:lot-item :transaction :lot-items]
       [:transaction-item :transaction :items]}))
 
 (def ^:private default-opts

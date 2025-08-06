@@ -10,7 +10,7 @@
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.images.sql]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]

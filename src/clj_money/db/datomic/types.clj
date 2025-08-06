@@ -64,7 +64,11 @@
    :price/trade-date dates/->local-date
    :reconciliation/end-of-period dates/->local-date
    :settings/monitored-accounts set
-   :transaction/transaction-date dates/->local-date})
+   :transaction/transaction-date dates/->local-date
+   :scheduled-transaction/start-date dates/->local-date
+   :scheduled-transaction/end-date dates/->local-date
+   :scheduled-transaction/last-occurrence dates/->local-date
+   :scheduled-transaction/date-spec read-string})
 
 (defn apply-coercions
   [m]

@@ -1,5 +1,6 @@
 (ns clj-money.db.sql.transaction-items
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]
@@ -26,4 +27,5 @@
   [item]
   (-> item
       (update-in [:transaction-item/action] keyword)
+      (rename-keys {:transaction-item/transaction-date :transaction/transaction-date})
       (update-in-if [:transaction/transaction-date] t/local-date)))

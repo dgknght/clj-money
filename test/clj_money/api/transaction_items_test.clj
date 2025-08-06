@@ -103,7 +103,7 @@
         #:reconciliation{:end-of-period (t/local-date 2017 1 31)
                          :account "Checking"
                          :items [[(t/local-date 2017 1 1) 1000M]
-                                     [(t/local-date 2017 1 8) 100M]]
+                                 [(t/local-date 2017 1 8) 100M]]
                          :balance 900M
                          :status :completed}
         #:reconciliation{:end-of-period (t/local-date 2017 2 28)

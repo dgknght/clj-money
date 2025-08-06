@@ -26,6 +26,10 @@
 (s/def :settings/monitored-accounts (s/coll-of ::models/model-ref :kind set?))
 (s/def :settings/inventory-method #{:fifo :lifo})
 (s/def :settings/default-commodity ::models/model-ref)
+(s/def :settings/lt-capital-gains-account ::models/model-ref)
+(s/def :settings/st-capital-gains-account ::models/model-ref)
+(s/def :settings/lt-capital-loss-account ::models/model-ref)
+(s/def :settings/st-capital-loss-account ::models/model-ref)
 (s/def :entity/settings (s/nilable
                           (s/keys :opt [:settings/inventory-method
                                         :settings/monitored-accounts
