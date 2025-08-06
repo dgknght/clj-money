@@ -86,7 +86,8 @@
            :settings/default-commodity
            :id]
           comm-opts
-          {:transform-fn parse-int}]
+          {:transform-fn parse-int
+           :caption "Default commodity"}]
          #_[radio-buttons [:entity/settings :settings/inventory-method] ["fifo" "lifo"]]]
         [:div.card-footer
          [button {:html {:title "Click here to save this entity."
