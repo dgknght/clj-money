@@ -9,7 +9,7 @@
             [dgknght.app-lib.forms :refer [text-field
                                            select-field]]
             [dgknght.app-lib.forms-validation :as v]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.components :refer [button]]
             [clj-money.icons :refer  [icon]]
             [clj-money.api.entities :as entities]
@@ -33,12 +33,12 @@
         (update-in [:entities]
                    #(util/upsert-into
                       entity
-                      {}
+                      {:sort-key :entity/name}
                       %))
         (update-in [:currenty-entity]
                    (fn [e]
                      (if (or (nil? e)
-                             (model= e entity))
+                             (id= e entity))
                        entity
                        e))))))
 
