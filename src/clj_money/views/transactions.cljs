@@ -233,7 +233,7 @@
             :new       :dash-sqaure
             :square)
           :size :small))]
-     (when-not reconciliation
+     (when-not @reconciliation
        [:td.text-end.d-none.d-md-table-cell (format-quantity balance
                                                              account)])
      (when-not @reconciliation
