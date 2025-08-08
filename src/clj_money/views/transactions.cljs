@@ -263,16 +263,17 @@
   [page-state]
   (let [raw-items (r/cursor page-state [:items])
         items (make-reaction (fn []
-                               (map (fn [{:transaction-item/keys [reconciliation]
-                                          :keys [id]
-                                          :as item}]
-                                      (assoc item
-                                             :transaction-item/reconciliation-status
-                                             (cond
-                                               (nil? id) :new
-                                               reconciliation :completed
-                                               :else :unreconciled)))
-                                    @raw-items)))
+                               (when @raw-items
+                                 (map (fn [{:transaction-item/keys [reconciliation]
+                                            :keys [id]
+                                            :as item}]
+                                        (assoc item
+                                               :transaction-item/reconciliation-status
+                                               (cond
+                                                 (nil? id) :new
+                                                 reconciliation :completed
+                                                 :else :unreconciled)))
+                                      @raw-items))))
         styles (r/cursor page-state [:item-row-styles])
         include-children? (r/cursor page-state [:include-children?])
         account (r/cursor page-state [:view-account])
