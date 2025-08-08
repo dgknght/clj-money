@@ -12,8 +12,10 @@
   </appender>
 
   <logger name="clj-money" level="DEBUG"/>
-  <logger name="org.eclipse" level="WARN"/>
+  <logger name="datomic.peer" level="WARN"/>
   <logger name="datomic.process-monitor" level="WARN"/>
+  <logger name="org.apache" level="WARN"/>
+  <logger name="org.eclipse" level="WARN"/>
 
   <root level="DEBUG">
     <!-- appender-ref ref="CONSOLE"/ -->

@@ -3,7 +3,7 @@
             [clojure.edn :as edn]
             [clj-money.models.schema :as schema]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models :as models]
             [clj-money.accounts :refer [nest unnest]]
             [clj-money.models.transactions :as transactions]))

@@ -5,7 +5,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
             [clj-money.models :as models]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -54,10 +54,13 @@
           entity (find-entity "Personal")
           response (-> (req/request :patch (path :api :entities (:id entity)))
                        (edn-body (-> entity
-                                          (assoc :entity/name "New Name")
-                                          (assoc-in [:entity/settings :settings/monitored-account-ids] #{1 2})
-                                          (select-keys [:entity/name
-                                                        :entity/settings])))
+                                     (assoc :entity/name "New Name")
+                                     (assoc-in [:entity/settings
+                                                :settings/monitored-accounts]
+                                               #{{:id 1}
+                                                 {:id 2}})
+                                     (select-keys [:entity/name
+                                                   :entity/settings])))
                        (add-auth user)
                        app
                        parse-edn-body)]

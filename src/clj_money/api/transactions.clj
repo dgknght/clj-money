@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [uuid update-in-if]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.comparatives :as comparatives]
             [clj-money.authorization :refer [authorize
@@ -52,7 +52,6 @@
                             :transaction-date]))]
     (some-> path-params
             (select-keys [:id])
-            (update-in [:id] uuid)
             (assoc :transaction/transaction-date trans-date)
             (+scope authenticated)
             models/find-by
