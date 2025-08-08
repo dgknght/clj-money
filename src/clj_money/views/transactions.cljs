@@ -188,12 +188,12 @@
            styles]}
    page-state]
   (fn [{:transaction-item/keys [attachment-count
-                                transaction-date
                                 quantity
                                 balance
                                 action
                                 reconciliation-status]
-        :transaction/keys [description]
+        :transaction/keys [description
+                           transaction-date]
         :as item}]
     ^{:key (str "item-row-" (:id item))}
     [:tr.align-middle
