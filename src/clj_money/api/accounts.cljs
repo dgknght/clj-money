@@ -1,7 +1,7 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update get])
   (:require [cljs.pprint :refer [pprint]]
-            [clj-money.models :refer [prune]]
+            [clj-money.models.schema :refer [strip]]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -16,7 +16,7 @@
 (defn create
   [account {:as opts}]
   (api/post (api/path :entities (:account/entity account) :accounts)
-            (prune account :account)
+            account
             (add-error-handler
               opts
               "Unable to create the account: %s")))
@@ -24,16 +24,18 @@
 (defn update
   [account {:as opts}]
   (api/patch (api/path :accounts (:id account))
-             (prune account :account)
+             account
              (add-error-handler
                opts
                "Unable to update the account: %s")))
 
 (defn save
   [account & {:as opts}]
-  (if (:id account)
-    (update account opts)
-    (create account opts)))
+  (let [f (if (:id account)
+            update
+            create)]
+    (f (strip account :account)
+       opts)))
 
 (defn delete
   [account & {:as opts}]
