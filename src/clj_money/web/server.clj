@@ -22,9 +22,10 @@
             [clj-money.decimal :as d]
             [clj-money.web.auth :as web-auth]
             [clj-money.web.images :as images]
-            [clj-money.middleware :refer [wrap-integer-id-params
+            [clj-money.middleware :refer [wrap-parse-id-params
                                           wrap-exceptions]]
             [clj-money.models :as models]
+            [clj-money.db.ref]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
@@ -138,7 +139,7 @@
                    web-auth/routes]
                   ["app/" {:middleware [:site
                                         wrap-merge-path-params
-                                        wrap-integer-id-params
+                                        wrap-parse-id-params
                                         :authentication
                                         wrap-request-logging]}
                    images/routes]
@@ -146,7 +147,7 @@
                                          :wrap-restful-format
                                          wrap-decimals
                                          wrap-merge-path-params
-                                         wrap-integer-id-params
+                                         wrap-parse-id-params
                                          wrap-exceptions
                                          wrap-request-logging]}
                    users-api/unauthenticated-routes]
@@ -154,7 +155,7 @@
                                         :wrap-restful-format
                                         wrap-decimals
                                         wrap-merge-path-params
-                                        wrap-integer-id-params
+                                        wrap-parse-id-params
                                         :authentication
                                         wrap-exceptions
                                         wrap-request-logging]}

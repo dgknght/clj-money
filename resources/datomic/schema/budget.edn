@@ -24,4 +24,4 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db/isComponent true
-  :db/doc "The items that make up the budget"}]
+  :db/doc "The items that comprise the budget"}]

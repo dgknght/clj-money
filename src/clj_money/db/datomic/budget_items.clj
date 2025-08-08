@@ -4,6 +4,11 @@
             [clj-money.util :as util]
             [clj-money.db.datomic :as datomic]))
 
+(defmethod datomic/deconstruct :budget-item
+  [{:as budget-item :budget-item/keys [budget]}]
+  (cond-> [(dissoc budget-item :budget-item/budget)]
+    budget (conj [:db/add (:id budget) :budget/items (:id budget-item)])))
+
 (defn- set-kw-ns
   [m n]
   (update-keys m (comp #(keyword n %)
@@ -29,6 +34,7 @@
 (defmethod datomic/before-save :budget-item
   [budget-item]
   (-> budget-item
+      (update-in-if [:budget-item/periods] pr-str)
       (update-in-if [:budget-item/spec] set-kw-ns "budget-item-spec" )
       (update-in-if [:budget-item/spec]
                     update-in
@@ -39,5 +45,6 @@
 (defmethod datomic/after-read :budget-item
   [budget-item]
   (-> budget-item
+      (update-in-if [:budget-item/periods] read-string)
       (update-in-if [:budget-item/spec] strip-kw-ns)
       stash-spec-id))

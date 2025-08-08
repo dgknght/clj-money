@@ -75,16 +75,20 @@
                        {:sort [[:price/trade-date :desc]]})))))
 
 (defn- apply-to-account
-  [{:price/keys [value trade-date]}]
-  (fn [{:as account :account/keys [quantity]}]
-    (assoc account
-           :account/value (d/* quantity value)
-           :account/commodity-price value
-           :account/price-as-of trade-date)))
+  [{:price/keys [value trade-date]} {:keys [force]}]
+  (fn [{:as account :account/keys [quantity price-as-of]}]
+    (cond-> account
+      (or (nil? price-as-of)
+          force
+          (t/before? price-as-of trade-date))
+      (assoc
+        :account/commodity-price value
+        :account/price-as-of trade-date
+        :account/value (d/* quantity value)))))
 
 (defn- apply-to-accounts
-  [{:as price :price/keys [commodity]}]
-  (map (apply-to-account price)
+  [{:as price :price/keys [commodity]} & {:as opts}]
+  (map (apply-to-account price opts)
        (models/select {:account/commodity commodity})))
 
 (defn- push-entity-bounds
@@ -147,7 +151,7 @@
                    (if new-end
                      [start (:price/trade-date new-end)]
                      nil))
-            (apply-to-accounts new-end)))))
+            (apply-to-accounts new-end :force true)))))
 
 (defmethod prop/propagate :price
   [[before after]]

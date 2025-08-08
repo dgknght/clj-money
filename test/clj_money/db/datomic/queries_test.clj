@@ -227,3 +227,62 @@
                      :in $ ?recon]
                    recon-data
                    401)))))
+
+(defn- init-db
+  [schema data]
+  (let [uri "datomic:mem://test"
+        _ (d/create-database uri)
+        conn (d/connect uri)]
+    @(d/transact conn schema)
+    @(d/transact conn data)
+    conn))
+
+(def ^:private sched-trx-schema
+  [{:db/ident :scheduled-transaction/enabled
+    :db/valueType :db.type/boolean
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :scheduled-transaction/id
+    :db/valueType :db.type/keyword
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :scheduled-transaction/start-date
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :scheduled-transaction/end-date
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}])
+
+(def ^:private sched-trx-data
+  [{:scheduled-transaction/enabled true
+    :scheduled-transaction/id :always}
+   {:scheduled-transaction/enabled false
+    :scheduled-transaction/id :never}
+   {:scheduled-transaction/enabled true
+    :scheduled-transaction/id :sometimes
+    :scheduled-transaction/start-date "2020-03-01"
+    :scheduled-transaction/end-date "2020-03-31"}])
+
+(deftest query-active-scheduled-transactions
+  (let [conn (init-db sched-trx-schema sched-trx-data)
+        qry '[:find ?id
+              :in $ ?enabled ?as-of
+              :where [?trx :scheduled-transaction/enabled ?enabled]
+                     [?trx :scheduled-transaction/id ?id]
+                     [(get-else $ ?trx :scheduled-transaction/start-date "0000-00-00") ?start-date]
+                     [(<= ?start-date ?as-of)]
+                     [(get-else $ ?trx :scheduled-transaction/end-date "9999-99-99") ?end-date]
+                     [(<= ?as-of ?end-date)]]]
+    (is (= #{:always}
+           (->> (d/q qry (d/db conn) true "2020-02-28")
+                (map first)
+                set))
+        "Transactions starting after the specified date are excluded")
+    (is (= #{:always :sometimes}
+           (->> (d/q qry (d/db conn) true "2020-03-01")
+                (map first)
+                set))
+        "Transactions starting before and ending after the specified date are included")
+    (is (= #{:always}
+           (->> (d/q qry (d/db conn) true "2020-04-01")
+                (map first)
+                set))
+        "Transactions ending before the specified date are excluded")))
