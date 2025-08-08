@@ -237,7 +237,7 @@
        [:td.text-end.d-none.d-md-table-cell (format-quantity balance
                                                              account)])
      (when-not @reconciliation
-       [:td
+       [:td.d-flex.justify-content-end
         [:div.btn-group
          [:button.btn.btn-secondary.btn-sm
           {:on-click #(edit-transaction item page-state)
