@@ -237,7 +237,9 @@
                :type :string}
               {:id :last-occurrence
                :type :string
-               :transient? true}}
+               :transient? true}
+              {:id :items
+               :type :vector}}
     :refs #{:entity}}
    {:id :scheduled-transaction-item
     :fields #{{:id :action
