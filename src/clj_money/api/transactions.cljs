@@ -5,7 +5,7 @@
             [clj-money.comparatives :as comparatives]
             [clj-money.state :refer [current-entity]]
             [clj-money.dates :refer [serialize-local-date local-date?]]
-            [clj-money.models :refer [prune]]
+            [clj-money.models.schema :refer [prune]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (def ^:private working-date

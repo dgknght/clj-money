@@ -2,21 +2,18 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [java-time.api :as t]
             [dgknght.app-lib.core :refer [fmin]]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
 
 (s/def :attachment/transaction ::models/model-ref)
-(s/def :attachment/transaction-date t/local-date?)
 (s/def :attachment/image ::models/model-ref)
 (s/def :attachment/caption string?)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/attachment (s/keys :req [:attachment/transaction
                                          :attachment/image]
-                                   :opt [:attachment/caption
-                                         :attachment/transaction-date]))
+                                   :opt [:attachment/caption]))
 
 (defmethod models/before-validation :attachment
   [{:as att :attachment/keys [transaction]}]

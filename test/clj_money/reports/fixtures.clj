@@ -454,28 +454,22 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :start-date (t/local-date 2016 01 01)
-                 :period [12 :month]}
-        #:budget-item{:budget "2016"
-                      :account "Salary"
-                      :periods (repeat 12 2000M)}
-        #:budget-item{:budget "2016"
-                      :account "FIT"
-                      :periods (repeat 12 400M)}
-        #:budget-item{:budget "2016"
-                      :account "Social Security"
-                      :periods (repeat 12 134M)}
-        #:budget-item{:budget "2016"
-                      :account "Medicare"
-                      :periods (repeat 12 30M)}
-        #:budget-item{:budget "2016"
-                      :account "Rent"
-                      :periods (repeat 12 700M)}
-        #:budget-item{:budget "2016"
-                      :account "Dining"
-                      :periods (repeat 12 200M)}
-        #:budget-item{:budget "2016"
-                      :account "Groceries"
-                      :periods (repeat 12 450M)}
+                 :period [12 :month]
+                 :items [#:budget-item{:account "Salary"
+                                       :periods (repeat 12 2000M)}
+                         #:budget-item{:account "FIT"
+                                       :periods (repeat 12 400M)}
+                         #:budget-item{:account "Social Security"
+                                       :periods (repeat 12 134M)}
+                         #:budget-item{:account "Medicare"
+                                       :periods (repeat 12 30M)}
+                         #:budget-item{:account "Rent"
+                                       :periods (repeat 12 700M)}
+                         #:budget-item{:account "Dining"
+                                       :periods (repeat 12 200M)}
+                         #:budget-item{:account "Groceries"
+                                       :periods (repeat 12 450M)}]}
+
         ; salary
         #:transaction{:transaction-date (t/local-date 2016 01 01)
                       :entity "Personal"
@@ -912,12 +906,10 @@
                             :cost-basis 475M
                             :current-value 1900M
                             :gain 1425M
-                            :items [#:lot-item{:transaction-date (t/local-date 2016 3 2)
-                                               :action :buy
+                            :items [#:lot-item{:action :buy
                                                :price 5M
                                                :shares 100M}
-                                    #:lot-item{:transaction-date (t/local-date 2017 1 31)
-                                               :action :sell
+                                    #:lot-item{:action :sell
                                                :price 11M
                                                :shares 5M}]}
                       #:lot{:purchase-date (t/local-date 2017 1 15)
@@ -927,8 +919,7 @@
                             :cost-basis 100M
                             :current-value 200M
                             :gain 100M
-                            :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                               :action :buy
+                            :items [#:lot-item{:action :buy
                                                :price 10M
                                                :shares 10M}]}]}
    #:commodity{:name"General Electric Co."
@@ -944,8 +935,7 @@
                             :cost-basis 100M
                             :current-value 100M
                             :gain 0M
-                            :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                               :action :buy
+                            :items [#:lot-item{:action :buy
                                                :shares 10M
                                                :price 10M}]}]}
    #:commodity{:name "Microsoft Corp"
@@ -961,19 +951,18 @@
                             :cost-basis 100M
                             :current-value 50M
                             :gain -50M
-                            :items [#:lot-item{:transaction-date (t/local-date 2017 1 15)
-                                               :action :buy
+                            :items [#:lot-item{:action :buy
                                                :shares 10M
                                                :price 10M}]}]}])
 (def portfolio-context
   (conj basic-context
         #:account{:name "IRA"
                   :type :asset
-                  :tags #{:trading}
+                  :system-tags #{:trading}
                   :entity "Personal"}
         #:account{:name "401k"
                   :type :asset
-                  :tags #{:trading}
+                  :system-tags #{:trading}
                   :entity "Personal"}
         #:commodity{:name "Apple, Inc."
                     :entity "Personal"

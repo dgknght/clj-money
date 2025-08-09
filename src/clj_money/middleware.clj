@@ -2,7 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clojure.walk :refer [postwalk]]
             [ring.util.response :refer [response status header]]
+            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
             [clj-money.authorization :as authorization]
@@ -15,49 +17,44 @@
     (name specified-name)
     specified-name))
 
-(defmulti ^:private integerize
-  (fn [v]
+(def ^:private long-pattern #"\A\d+\z")
+(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
+
+(defn- parse-id
+  [v]
+  (cond
+    (string? v)
     (cond
-      (string? v) :string
-      (coll? v) :collection)))
+      (re-find long-pattern v) (parse-long v)
+      (re-find uuid-pattern v) (uuid v)
+      :else v)
 
-(defmethod ^:private integerize :default [v] v)
+    (coll? v)
+    (mapv parse-id v)
 
-(defmethod ^:private integerize :string
-  [value]
-  (try
-    (if (re-find #"^\d+$" value)
-      (Integer. value)
-      value)
-    (catch NumberFormatException _
-      value)))
-
-(defmethod ^:private integerize :collection
-  [values]
-  (map integerize values))
+    :else v))
 
 (defn- id-key?
   [k]
   (boolean (re-find #"id$" (param-name k))))
 
-(defn- integerize-id-param
-  [[k v]]
-  [k (if (id-key? k)
-       (integerize v)
-       v)])
+(def ^:private id-param?
+  (every-pred map-entry?
+              (comp id-key? key)))
 
-(defn- integerize-id-params
+(defn- parse-id-params
   [params]
-  (when params
-    (->> params
-         (map integerize-id-param)
-         (into {}))))
+  (postwalk (fn [x]
+              (if (id-param? x)
+                (update-in x [1] parse-id)
+                x))
+            params))
 
-(defn wrap-integer-id-params
+(defn wrap-parse-id-params
   "Finds ID parameters and turns them into integers"
   [handler]
   (fn [request]
-    (handler (update-in request [:params] integerize-id-params))))
+    (handler (update-in request [:params] parse-id-params))))
 
 (defmulti handle-exception
   (fn [e]

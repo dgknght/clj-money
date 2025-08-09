@@ -26,9 +26,11 @@
            "lot"
            "lot_item"
            "image"
+           "import"
            "budget"
            "budget_item"
-           "reconciliation"]))
+           "reconciliation"
+           "scheduled_transaction"]))
 
 (defn apply-schema
   ([] (apply-schema :datomic-peer))
