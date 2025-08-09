@@ -1,13 +1,16 @@
 (ns clj-money.db.datomic.imports
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
+  (:require [clojure.pprint :refer [pprint]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util]
             [clj-money.db.datomic :as datomic]))
 
 (defmethod datomic/before-save :import
-  [imp]
-  (-> imp
-      (update-in-if [:import/progress] pr-str)
-      (update-in-if [:import/options] util/qualify-keys :import-option)))
+  [{:as imp :import/keys [options]}]
+  (cond-> (-> imp
+              (update-in-if [:import/images] (partial map (some-fn identity :id)))
+              (update-in-if [:import/progress] pr-str)
+              (update-in-if [:import/options] util/qualify-keys :import-option))
+    (util/blank? options) (dissoc :import/options)))
 
 (defmethod datomic/after-read :import
   [imp]
