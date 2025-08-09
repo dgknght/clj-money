@@ -3,10 +3,9 @@
   :db/cardinality :db.cardinality/one
   :db/doc "The account to which this budget item applies"}
  {:db/ident :budget-item/periods
-  :db/valueType :db.type/tuple
-  :db/tupleType :db.type/bigdec
+  :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
-  :db/doc "The values for this account, one for each period"}
+  :db/doc "The serialized values for this account, one for each period"}
  {:db/ident :budget-item/spec
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one

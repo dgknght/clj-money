@@ -1,6 +1,8 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [clj-money.api :as api :refer [add-error-handler]]))
+  (:require [clojure.pprint :refer [pprint]]
+            [clj-money.models.schema :as schema]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn select
   [& {:as opts}]
@@ -31,7 +33,9 @@
   (let [f (if (:id entity)
             update
             create)]
-    (f entity opts)))
+    (-> entity
+        (schema/prune :entity)
+        (f opts))))
 
 (defn delete
   [entity & {:as opts}]

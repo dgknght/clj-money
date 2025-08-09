@@ -7,6 +7,7 @@
              :as auth
              :refer [+scope
                      authorize]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
@@ -18,8 +19,9 @@
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
-      (select-keys [:entity-id])
-      (rename-keys {:entity-id :budget/entity-id})
+      (select-keys [:entity])
+      (rename-keys {:entity :budget/entity})
+      (update-in-if [:budget/entity] #(vector :id %))
       (+scope :budget authenticated)))
 
 (defn- index

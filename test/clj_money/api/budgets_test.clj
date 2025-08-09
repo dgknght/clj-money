@@ -6,7 +6,7 @@
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.test]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models :as models]
             [clj-money.dates :refer [periodic-seq]]
             [clj-money.test-helpers :refer [reset-db
@@ -137,16 +137,13 @@
         #:budget{:name "2015"
                  :entity "Personal"
                  :period [12 :month]
-                 :start-date (t/local-date 2015 1 1)}
-        #:budget-item{:budget "2015"
-                      :account "Salary"
-                      :periods (repeat 12 1000M)}
-        #:budget-item{:budget "2015"
-                      :account "Rent"
-                      :periods (repeat 12 500M)}
-        #:budget-item{:budget "2015"
-                      :account "Groceries"
-                      :periods (repeat 12 200M)}
+                 :start-date (t/local-date 2015 1 1)
+                 :items [#:budget-item{:account "Salary"
+                                       :periods (repeat 12 1000M)}
+                         #:budget-item{:account "Rent"
+                                       :periods (repeat 12 500M)}
+                         #:budget-item{:account "Groceries"
+                                       :periods (repeat 12 200M)}]}
         #:budget{:name "2016"
                  :entity "Personal"
                  :period [12 :month]
