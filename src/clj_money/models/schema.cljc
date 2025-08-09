@@ -1,6 +1,7 @@
 (ns clj-money.models.schema
   (:require [clojure.spec.alpha :as s]
-            [dgknght.app-lib.core :refer [index-by]]
+            [dgknght.app-lib.core :refer [index-by
+                                          update-in-if]]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
@@ -236,7 +237,9 @@
                :type :string}
               {:id :last-occurrence
                :type :string
-               :transient? true}}
+               :transient? true}
+              {:id :items
+               :type :vector}}
     :refs #{:entity}}
    {:id :scheduled-transaction-item
     :fields #{{:id :action
@@ -297,3 +300,46 @@
                        (map #(vector (ref-id %) id)
                             refs)))
        set))
+
+(defn- extract-attributes
+        [{:keys [fields refs] :as model}]
+        (concat (map (fn [{:keys [id]}]
+                             (keyword (name (:id model))
+                                      (name id)))
+                     fields)
+                (map (fn [m]
+                             (keyword (name (:id model))
+                                      (name m)))
+                     refs)))
+
+(def attributes
+  (->> models
+       (map (juxt :id extract-attributes))
+       (into {})))
+
+(defn- extract-reference-attributes
+  [{:keys [refs] :as model}]
+  (map (fn [m]
+               (keyword (name (:id model))
+                        (name m)))
+       refs))
+
+(def reference-attributes
+  (->> models
+       (map (juxt :id extract-reference-attributes))
+       (into {})))
+
+(defn- simplify-references
+  [model model-type]
+  (reduce (fn [m ref]
+                  (update-in-if m [ref] #(select-keys % [:id])))
+          model
+          (reference-attributes model-type)))
+
+(defn prune
+  "Given a model, remove keys that don't belong to the model
+  and reduce references to a simple model ref"
+  [model model-type]
+  (-> model
+      (select-keys (cons :id (attributes model-type)))
+      (simplify-references model-type)))

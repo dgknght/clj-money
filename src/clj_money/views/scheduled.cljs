@@ -349,9 +349,14 @@
           [[:year "Yearly"]
            [:month "Monthly"]
            [:week "Weekly"]]
-          {:transform-fn keyword}]]
+          {:transform-fn keyword
+           :caption "Recurrence Period"}]]
         [:div.col
-         [forms/integer-field sched-tran [:scheduled-transaction/period 0] {:validation [:required]}]]]
+         [forms/integer-field
+          sched-tran
+          [:scheduled-transaction/period 0]
+          {:validation [:required]
+           :caption "Period Count"}]]]
        (case (get-in @sched-tran [:scheduled-transaction/period 1])
          :year [:div.row [:div.col [forms/select-field
                                     sched-tran

@@ -178,9 +178,9 @@
   ([context [budget-name account-name]]
    (let [budget (find-budget context budget-name)
          account (find-account context account-name)]
-     (find context
-           :budget-item/budget (util/->model-ref budget)
-           :budget-item/account (util/->model-ref account)))))
+     (->> (:budget/items budget)
+          (filter #(util/id= account (:budget-item/account %)))
+          first))))
 
 (defn find-price
   ([identifier] (find-price *context* identifier))

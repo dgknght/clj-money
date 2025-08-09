@@ -23,7 +23,7 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db/isComponent true
-  :db/doc "The lot changes associated with this transaction"}
+  :db/doc "Records of actions taken on lots in connection with this transaction"}
  {:db/ident :transaction/scheduled-transaction
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one

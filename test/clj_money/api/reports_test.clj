@@ -5,6 +5,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.test-helpers :refer [reset-db
@@ -144,10 +145,9 @@
         #:budget{:name "2016"
                  :entity "Personal"
                  :start-date (t/local-date 2016 1 1)
-                 :period [12 :month]}
-        #:budget-item{:budget "2016"
-                      :account "Groceries"
-                      :periods (repeat 12 200M)}
+                 :period [12 :month]
+                 :items [#:budget-item{:account "Groceries"
+                                       :periods (repeat 12 200M)}]}
         #:transaction{:transaction-date (t/local-date 2016 1 1)
                       :entity "Personal"
                       :description "Kroger"
@@ -164,9 +164,9 @@
       ; solve the chicken and egg problem first
       (models/put (update-in entity
                              [:entity/settings
-                              :settings/monitored-account-ids]
+                              :settings/monitored-accounts]
                              (fnil conj #{})
-                             (:id (find-account "Groceries"))))
+                             (util/->model-ref (find-account "Groceries"))))
 
       (with-fixed-time "2016-01-07T00:00:00Z"
         (-> (req/request :get (path :api

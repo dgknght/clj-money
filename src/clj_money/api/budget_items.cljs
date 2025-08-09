@@ -1,6 +1,7 @@
 (ns clj-money.api.budget-items
   (:refer-clojure :exclude [update])
-  (:require [clj-money.api :as api :refer [add-error-handler]]))
+  (:require [clj-money.models.schema :as schema]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn create
   [{:as item :budget-item/keys [budget]} opts]
@@ -28,4 +29,4 @@
   (let [f (if (:id item)
             update
             create)]
-    (f item opts)))
+    (f (schema/prune item :budget-item) opts)))
