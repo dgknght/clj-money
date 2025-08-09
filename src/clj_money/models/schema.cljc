@@ -148,7 +148,9 @@
                :transient? true}
               {:id :attachment-count
                :type :string
-               :transient? true}}
+               :transient? true}
+              {:id :items
+               :type :vector}}
     :refs #{:entity
             :scheduled-transaction}}
    {:id :transaction-item
