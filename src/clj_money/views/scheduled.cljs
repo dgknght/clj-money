@@ -447,7 +447,7 @@
              [:div.spinner-border.spinner-border-sm {:role :status}
               [:span.visually-hidden "Working..."]]
              [:span.ms-1 "Realize"]]
-            (icon-with-text :gear "Realize"))]]
+            (icon-with-text :lightning-fill "Realize"))]]
         [created page-state]]
        [:div {:class (when-not @selected "d-none")}
         [sched-tran-form page-state]]])))
