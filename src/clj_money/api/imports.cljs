@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update get])
   (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.models.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- ->multipart-params
@@ -22,7 +21,7 @@
                    (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                   clj->js)))]
     (api/post (api/path :imports)
-              (schema/prune params :import)
+              params
               (-> opts
                   (assoc :encoding :multipart)
                   (add-error-handler "Unable to create the import: %s")))))
