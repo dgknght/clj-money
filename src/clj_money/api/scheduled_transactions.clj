@@ -45,11 +45,16 @@
                     :scheduled-transaction/start-date])
       (+scope :scheduled-transaction authenticated)))
 
+(defn- select-options []
+  {:nil-replacements
+   {:scheduled-transaction/end-date (t/local-date 9999 12 31)
+    :scheduled-transaction/start-date (t/minus (t/local-date) (t/days 1))}})
+
 (defn- index
   [req]
   (-> req
       ->criteria
-      models/select
+      (models/select (select-options))
       api/response))
 
 (defn- extract-sched-tran
@@ -130,9 +135,7 @@
                               :enabled true
                               :start-date [:<= (t/local-date)]
                               :end-date [:>= (t/local-date)]}
-      {:nil-replacements
-       {:scheduled-transaction/end-date (t/local-date 9999 12 31)
-        :scheduled-transaction/start-date (t/minus (t/local-date) (t/days 1))}})))
+      (select-options))))
 
 (defn- mass-realize
   [{:as req :keys [authenticated]}]
