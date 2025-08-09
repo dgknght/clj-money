@@ -34,7 +34,7 @@
             update
             create)]
     (-> entity
-        (schema/strip :entity)
+        (schema/prune :entity)
         (f opts))))
 
 (defn delete

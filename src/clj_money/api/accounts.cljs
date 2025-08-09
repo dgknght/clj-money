@@ -1,7 +1,7 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update get])
   (:require [cljs.pprint :refer [pprint]]
-            [clj-money.models.schema :refer [strip]]
+            [clj-money.models.schema :refer [prune]]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -34,7 +34,7 @@
   (let [f (if (:id account)
             update
             create)]
-    (f (strip account :account)
+    (f (prune account :account)
        opts)))
 
 (defn delete

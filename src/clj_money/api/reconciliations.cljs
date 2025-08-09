@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.models.schema :as schema]
             [clj-money.dates :as dates]
             [clj-money.util :as util :refer [update-keys]]
             [clj-money.api :as api :refer [add-error-handler]]))
@@ -68,4 +69,5 @@
   (let [f (if (:id recon)
             update
             create)]
-    (f recon opts)))
+    (f (schema/prune recon :reconciliation)
+       opts)))

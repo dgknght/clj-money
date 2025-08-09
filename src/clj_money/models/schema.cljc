@@ -334,7 +334,7 @@
           model
           (reference-attributes model-type)))
 
-(defn strip
+(defn prune
   "Given a model, remove keys that don't belong to the model
   and reduce references to a simple model ref"
   [model model-type]

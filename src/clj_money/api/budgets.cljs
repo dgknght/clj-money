@@ -1,7 +1,7 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
   (:require [cljs.pprint :refer [pprint]]
-            [clj-money.models.schema :refer [strip]]
+            [clj-money.models.schema :refer [prune]]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -49,7 +49,7 @@
   (let [f (if (:id budget)
             update
             create)]
-    (f (strip budget :budget)
+    (f (prune budget :budget)
        opts)))
 
 (defn delete

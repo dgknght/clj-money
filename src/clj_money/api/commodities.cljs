@@ -42,7 +42,7 @@
             update
             create)]
     (-> commodity
-        (schema/strip :commodity)
+        (schema/prune :commodity)
         (util/pp-> ::save)
         (f opts))))
 
