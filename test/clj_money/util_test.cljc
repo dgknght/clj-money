@@ -232,9 +232,14 @@
     (is (util/blank? '())
         "An empty vector is blank")
     (is (util/present? '("A"))
-        "An vector with a non-blank value is present")
+        "A vector with a non-blank value is present")
     (is (not (util/blank? '("A")))
-        "An vector with a non-blank value is not blank")))
+        "A vector with a non-blank value is not blank"))
+  (testing "maps"
+    (is (util/present? {:one 1})
+        "A map with at least one key is present")
+    (is (not (util/present? {}))
+        "A map with no keys is not present")))
 
 (deftest use-a-present-value-or-default
   (is (= "A" (util/presence-or "" "A"))

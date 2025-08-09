@@ -23,8 +23,6 @@
 (derive #?(:clj clojure.lang.PersistentList$EmptyList
            :cljs cljs.core/EmptyList)
         ::list)
-(derive ::vector ::collection)
-(derive ::list ::collection)
 (derive #?(:clj clojure.lang.PersistentArrayMap
            :cljs cljs.core/PersistentArrayMap)
         ::map)
@@ -37,6 +35,9 @@
 (derive #?(:clj clojure.lang.MapEntry
            :cljs cljs.core/MapEntry)
         ::map-entry)
+(derive ::vector ::collection)
+(derive ::list ::collection)
+(derive ::map ::collection)
 
 (defn pp->
   [v m & {:keys [meta? transform]
