@@ -18,8 +18,7 @@
   [import-data & {:as opts}]
   (let [params (-> import-data
                    ->multipart-params
-                   (update-in-if [:options] (comp #(.stringify js/JSON %)
-                                                  clj->js)))]
+                   (update-in-if [:options] pr-str))]
     (api/post (api/path :imports)
               params
               (-> opts

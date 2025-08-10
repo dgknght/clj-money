@@ -5,7 +5,7 @@
             [clojure.core.async :as a]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
-            [cheshire.core :as json]
+            [clojure.edn :as edn]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
@@ -25,7 +25,13 @@
   [imp progress-chan]
   (a/go-loop [progress (a/<! progress-chan)]
     (when progress
-      (models/put (assoc imp :import/progress progress))
+      (try
+        (-> imp
+            (dissoc :import/options)
+            (assoc :import/progress progress)
+            models/put)
+        (catch Exception e
+          (log/errorf e "Unable to save the import progress: %s" progress)))
       (recur (a/<! progress-chan)))))
 
 (defn- launch-and-track
@@ -102,7 +108,7 @@
                     :import/options])
       (rename-keys {:entity-name :import/entity-name
                     :options :import/options})
-      (update-in-if [:import/options] #(json/parse-string % true)); TODO: Why is this not parsed with the rest of the body?
+      (update-in-if [:import/options] edn/read-string) ; on create, the data is posted in a multipart from request, not edn.
       (assoc :import/user authenticated)))
 
 (defn- create
