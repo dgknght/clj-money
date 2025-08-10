@@ -6,6 +6,7 @@
             [clojure.core :as c]
             [clojure.data :refer [diff]]
             [clojure.walk :refer [postwalk]]
+            [clojure.tools.logging :as log]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.json] ; to ensure encoders are registered
@@ -50,6 +51,9 @@
   [model]
   (let [validated (v/validate model (validation-key model))]
     (when (seq (::v/errors validated))
+      (log/debugf "[validation] Invalid model %s: %s"
+                  model
+                  (::v/errors validated))
       (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
   model)
 

@@ -132,10 +132,6 @@ services:
       - 9999:9999
     healthcheck:
       test: wget localhost:9999/health
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
     env_file: .env
 
   datomic-schema:

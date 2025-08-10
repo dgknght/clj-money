@@ -1,7 +1,6 @@
 [{:db/ident :price/trade-date
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
-  :db/unique :db.unique/identity
   :db/doc "The date on which the price was recorded"}
  {:db/ident :price/value
   :db/valueType :db.type/bigdec

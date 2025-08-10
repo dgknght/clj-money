@@ -101,8 +101,8 @@
                              :reconciliation/items checking-items
                              :reconciliation/status :completed))
       (is (->> checking-items
-               (map models/find)
-               (every? :transaction-item/reconciliation))
+               (mapcat :transaction/items)
+               (every? :transaction/reconciliation))
           "specified transaction items are marked as reconciled")
       (is (not-any? :transaction/reconciliation
                     (remove #(util/model= checking (:transaction-item/account %))
@@ -188,11 +188,6 @@
     (let [savings (find-account "Savings")
           car (find-account "Car")
           reserve (find-account "Reserve")
-          simplify #(select-keys %
-                                 [:id
-                                  :transaction/transaction-date
-                                  :transaction-item/quantity
-                                  :transaction-item/action])
           items (->> *context*
                      (filter (util/model-type? :transaction))
                      (mapcat :transaction/items)
@@ -200,18 +195,24 @@
                                           (:transaction-item/account %))
                                   (model= car
                                           (:transaction-item/account %)))))
+          _ (assert (= 2 (count items)) "Expected 2 items for the test")
           created (assert-created
                     #:reconciliation{:account savings
                                      :end-of-period (t/local-date 2015 1 31)
                                      :status :completed
                                      :balance 300M
-                                     :items items})]
+                                     :items items})
+          simplify #(select-keys % [:transaction-item/action
+                                    :transaction-item/account
+                                    :transaction-item/quantity])
+          retrieved (models/select {:transaction-item/reconciliation created})]
       (is (= (->> items
                   (map simplify)
                   set)
-             (->> (models/select {:transaction-item/reconciliation created})
+             (->> retrieved
                   (map simplify)
-                  set))))))
+                  set))
+          "The items are updated with a reference to the reconciliation"))))
 
 (def ^:private working-rec-context
   (conj reconciliation-context
@@ -259,41 +260,42 @@
           "The retrieved value has the correct balance after update"))))
 
 (dbtest a-working-reconciliation-can-be-completed
-        (with-context working-reconciliation-context
-          (let [checking (find-account "Checking")
-                previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
-                item (find-transaction-item [(t/local-date 2017 1 3)
-                                             45M
-                                             checking])
-                result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
-                           (assoc :reconciliation/status :completed)
-                           (update-in [:reconciliation/items] conj item)
-                           models/put)]
-            (is (comparable? #:reconciliation {:status :completed}
-                             result)
-                "The result reflects the updated attributes")
-            (is (comparable? #:reconciliation{:status :completed}
-                             (models/find result :reconciliation))
-                "The retrieved record reflects the updated attributes")
-            (let [retrieved (models/select
-                              (-> checking models/find acts/->criteria)
-                              {:sort [:transaction/transaction-date]
-                               :select-also [:transaction/transaction-date]})]
-              (is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 1 1)
-                                       :transaction-item/quantity 1000M
-                                       :transaction-item/reconciliation (->model-ref previous-rec)}
-                                      {:transaction/transaction-date (t/local-date 2017 1 2)
-                                       :transaction-item/quantity 500M
-                                       :transaction-item/reconciliation (->model-ref result)}
-                                      {:transaction/transaction-date (t/local-date 2017 1 3)
-                                       :transaction-item/quantity 45M
-                                       :transaction-item/reconciliation (->model-ref result)}
-                                      {:transaction/transaction-date (t/local-date 2017 1 10)
-                                       :transaction-item/quantity 53M}]
-                                     retrieved)
-                  "The retrieved transaction items have the new reconciliation reference")
-              (is (nil? (:transaction-item/reconciliation (last retrieved)))
-                  "The unreconciled items still have no reconciliation reference")))))
+  (with-context working-reconciliation-context
+    (let [checking (find-account "Checking")
+          previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
+          item (find-transaction-item [(t/local-date 2017 1 3)
+                                           45M
+                                           checking])
+          result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
+                     (assoc :reconciliation/status :completed)
+                     (update-in [:reconciliation/items] conj item)
+                     models/put)]
+      (is (comparable? #:reconciliation {:status :completed}
+                       result)
+          "The result reflects the updated attributes")
+      (is (comparable? #:reconciliation{:status :completed}
+                       (models/find result :reconciliation))
+          "The retrieved record reflects the updated attributes")
+      (is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 1 1)
+                               :transaction-item/quantity 1000M
+                               :transaction-item/reconciliation (->model-ref previous-rec)}
+                              {:transaction/transaction-date (t/local-date 2017 1 2)
+                               :transaction-item/quantity 500M
+                               :transaction-item/reconciliation (->model-ref result)}
+                              {:transaction/transaction-date (t/local-date 2017 1 3)
+                               :transaction-item/quantity 45M
+                               :transaction-item/reconciliation (->model-ref result)}
+                              {:transaction/transaction-date (t/local-date 2017 1 10)
+                               :transaction-item/quantity 53M
+                               :transaction-item/reconciliation nil}]
+                             (map #(update-in %
+                                              [:transaction-item/reconciliation]
+                                              identity)
+                                  (models/select
+                                    (-> checking models/find acts/->criteria)
+                                    {:sort [:transaction/transaction-date]
+                                     :select-also [:transaction/transaction-date]})))
+          "The retrieved transaction items have the new reconciliation reference"))))
 
 (dbtest cannot-create-a-completed-out-of-balance-reconciliation
   (with-context reconciliation-context

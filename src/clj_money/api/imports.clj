@@ -5,12 +5,12 @@
             [clojure.core.async :as a]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
-            [cheshire.core :as json]
+            [clojure.edn :as edn]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.images.sql]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
@@ -25,10 +25,16 @@
   [imp progress-chan]
   (a/go-loop [progress (a/<! progress-chan)]
     (when progress
-      (models/put (assoc imp :import/progress progress))
+      (try
+        (-> imp
+            (dissoc :import/options)
+            (assoc :import/progress progress)
+            models/put)
+        (catch Exception e
+          (log/errorf e "Unable to save the import progress: %s" progress)))
       (recur (a/<! progress-chan)))))
 
-(defn- launch-and-track-import
+(defn- launch-and-track
   [imp]
   (let [out-chan (a/chan (a/sliding-buffer 10)
                          (progress-xf))]
@@ -102,26 +108,19 @@
                     :import/options])
       (rename-keys {:entity-name :import/entity-name
                     :options :import/options})
-      (update-in-if [:import/options] #(json/parse-string % true)); TODO: Why is this not parsed with the rest of the body?
+      (update-in-if [:import/options] edn/read-string) ; on create, the data is posted in a multipart from request, not edn.
       (assoc :import/user authenticated)))
 
-(defn- step-2
-  [req images]
-  (let [imp (-> req
-                extract-import
-                (assoc :import/images images)
-                models/put)]
-    (api/response (launch-and-track-import imp)
-                  201)))
-
-(defn- step-1
-  [{:keys [params authenticated] :as req}]
-  (step-2 req (create-images authenticated
-                             (source-files params))))
-
 (defn- create
-  [req]
-  (step-1 req))
+  [{:keys [params authenticated] :as req}]
+  (-> req
+      extract-import
+      (assoc :import/images
+             (create-images authenticated
+                            (source-files params)))
+      models/put
+      launch-and-track
+      (api/response 201)))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
@@ -155,7 +154,7 @@
 (defn- start
   [req]
   (or (some-> (find-and-authorize req ::authorization/update)
-              launch-and-track-import
+              launch-and-track
               api/response)
       api/not-found))
 

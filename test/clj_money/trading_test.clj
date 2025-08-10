@@ -6,7 +6,7 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-entity
@@ -98,7 +98,6 @@
                              :description "Purchase 100.000 shares of AAPL at 10.000"
                              :value 1000M
                              :lot-items [#:lot-item{:action :buy
-                                                    :transaction-date (t/local-date 2016 1 2)
                                                     :shares 100M
                                                     :price 10M}]
                              :items [#:transaction-item{:action :credit

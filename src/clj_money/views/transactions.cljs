@@ -91,9 +91,8 @@
 
 (defn- load-attachments
   [page-state]
-  (let [{:keys [attachments-item]} @page-state
-        criteria {:transaction-id (:transaction-id attachments-item)
-                  :transaction-date (:transaction-date attachments-item)}]
+  (let [{{:transaction-item/keys [transaction]} :attachment-item} @page-state
+        criteria {:attachment/transaction transaction}]
     (+busy)
     (atts/select criteria
                  :callback -busy
@@ -111,7 +110,7 @@
 (defn init-item-loading
   [page-state]
   (let [account (get-in @page-state [:view-account])
-        [first-date last-date] (:account/transaction-date-range account)]
+        [first-date last-date :as range] (:account/transaction-date-range account)]
     (if range
       (do (swap! page-state dissoc :items :all-items-fetched?)
           (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges first-date last-date (t/months 6))
@@ -189,12 +188,12 @@
            styles]}
    page-state]
   (fn [{:transaction-item/keys [attachment-count
-                                transaction-date
                                 quantity
                                 balance
                                 action
                                 reconciliation-status]
-        :transaction/keys [description]
+        :transaction/keys [description
+                           transaction-date]
         :as item}]
     ^{:key (str "item-row-" (:id item))}
     [:tr.align-middle
@@ -234,11 +233,11 @@
             :new       :dash-sqaure
             :square)
           :size :small))]
-     (when-not reconciliation
+     (when-not @reconciliation
        [:td.text-end.d-none.d-md-table-cell (format-quantity balance
                                                              account)])
      (when-not @reconciliation
-       [:td
+       [:td.d-flex.justify-content-end
         [:div.btn-group
          [:button.btn.btn-secondary.btn-sm
           {:on-click #(edit-transaction item page-state)
@@ -264,16 +263,17 @@
   [page-state]
   (let [raw-items (r/cursor page-state [:items])
         items (make-reaction (fn []
-                               (map (fn [{:transaction-item/keys [reconciliation]
-                                          :keys [id]
-                                          :as item}]
-                                      (assoc item
-                                             :transaction-item/reconciliation-status
-                                             (cond
-                                               (nil? id) :new
-                                               reconciliation :completed
-                                               :else :unreconciled)))
-                                    @raw-items)))
+                               (when @raw-items
+                                 (map (fn [{:transaction-item/keys [reconciliation]
+                                            :keys [id]
+                                            :as item}]
+                                        (assoc item
+                                               :transaction-item/reconciliation-status
+                                               (cond
+                                                 (nil? id) :new
+                                                 reconciliation :completed
+                                                 :else :unreconciled)))
+                                      @raw-items))))
         styles (r/cursor page-state [:item-row-styles])
         include-children? (r/cursor page-state [:include-children?])
         account (r/cursor page-state [:view-account])
