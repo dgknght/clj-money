@@ -513,15 +513,15 @@
   [entity account]
   (let [items (fetch-account-items account)
         [{:account/keys [transaction-date-range]}
-         :as updated] (process-account-items account entity items)
-        [saved-entity] (-> entity
-                           (update-in [:entity/transaction-date-range]
-                                      #(apply dates/push-boundary
-                                              %
-                                              transaction-date-range))
-                           (cons updated)
-                           models/put-many)]
-    saved-entity))
+         :as updates] (process-account-items account entity items)]
+    (->> (-> entity
+             (update-in [:entity/transaction-date-range]
+                        #(apply dates/push-boundary
+                                %
+                                transaction-date-range))
+             (cons updates))
+         models/put-many
+         first)))
 
 (defn propagate-all
   ([opts]
