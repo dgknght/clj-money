@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.core.async :as a]
+            [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [index-by
@@ -523,13 +524,27 @@
      (propagate-all entity opts)))
   ([entity {:keys [progress-chan]}]
    {:pre [entity]}
-   (let [accounts (models/select {:account/entity entity})]
+   (let [accounts (models/select {:account/entity entity})
+         total (count accounts)]
+
+     (log/debugf "Propagating %s. %s account(s)"
+                 (:entity/name entity)
+                 (count accounts))
+
      (when progress-chan
        (a/go (a/>! progress-chan {:declaration/record-type :propagation
-                                  :declaration/record-count (count accounts)
+                                  :declaration/record-count total
                                   :import/record-type :declaration})))
      [(->> accounts
            apply-commodities
+           (interleave (map inc (range)))
+           (partition-all 2)
+           (map (fn [[index account]]
+                  (log/debugf "Propagating account %s (%d of %d)"
+                              (:account/name account)
+                              index
+                              total)
+                  account))
            (reduce (comp (fn [entity]
                            (when progress-chan
                              (a/go
