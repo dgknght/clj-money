@@ -532,6 +532,7 @@
                  (count accounts))
 
      (when progress-chan
+       (log/debugf "Report Propagating %s accounts" total)
        (a/go (a/>! progress-chan {:declaration/record-type :propagation
                                   :declaration/record-count total
                                   :import/record-type :declaration})))
@@ -547,6 +548,7 @@
                   account))
            (reduce (comp (fn [entity]
                            (when progress-chan
+                             (log/debug "Report Propagating account completed")
                              (a/go
                                (a/>! progress-chan
                                      {:import/record-type :propagation})))
