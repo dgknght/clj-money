@@ -520,7 +520,8 @@
                                 %
                                 transaction-date-range))
              (cons updates))
-         models/put-many
+         (partition-all 20)
+         (mapcat models/put-many)
          first)))
 
 (defn propagate-all
