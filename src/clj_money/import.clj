@@ -646,6 +646,8 @@
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
         wait-chan (a/promise-chan)]
+    (log/infof "[import] Import process starting for \"%s\"."
+               (:import/entity-name import-spec))
     (a/go
       (try
         (let [result (->> images
@@ -672,7 +674,7 @@
           (when-not (::abend? result)
             (-> entity
                 models/find
-                (prop/propagate-all :progress-chan out-chan))
+                (prop/propagate-all {:progress-chan out-chan}))
             (a/alts!! [(process-reconciliations result
                                                 out-chan)
                        (a/timeout 5000)]))
@@ -681,6 +683,8 @@
               (a/>! out-chan {:import/record-type :termination-signal})))
           (a/>! wait-chan (select-keys result [:notifications :entity])))
         (finally
+          (log/infof "[import] Import process has ended for \"%s\"."
+                     (:import/entity-name import-spec))
           (a/close! wait-chan))))
     {:entity entity
      :wait-chan wait-chan}))
