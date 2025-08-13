@@ -484,35 +484,36 @@
 (defn- fetch-account-items
   [account]
   (->> (models/select {:transaction-item/account account}
-                                  {:sort [:transaction/transaction-date
-                                          :transaction-item/index]
-                                   :select-also [:transaction/transaction-date]})
-                   (map (comp polarize
-                              #(assoc % :transaction-item/account account)))
-                   seq))
+                      {:sort [:transaction/transaction-date
+                              :transaction-item/index]
+                       :select-also [:transaction/transaction-date]})
+       (map (comp polarize
+                  #(assoc % :transaction-item/account account)))
+       seq))
+
+(defn- process-account-items
+  [account entity items]
+  (if items
+    (->> items
+         (re-index (assoc account :account/entity entity)
+                   initial-basis
+                   {:force? true})
+         (map (comp #(dissoc %
+                             ::polarized-quantity
+                             :transaction/transaction-date)
+                    #(update-in-if %
+                                   [:transaction-item/account]
+                                   util/->model-ref))))
+    [(assoc account
+            :account/transaction-date-range nil
+            :account/quantity 0M
+            :account/value 0M)]))
 
 (defn propagate-account-from-start
   [entity account]
   (let [items (fetch-account-items account)
         [{:account/keys [transaction-date-range]}
-         :as updated] (if items
-                        (->> items
-                             (re-index (update-in account
-                                                  [:account/entity]
-                                                  models/resolve-ref
-                                                  :entity)
-                                       initial-basis
-                                       {:force? true})
-                             (map (comp #(dissoc %
-                                                 ::polarized-quantity
-                                                 :transaction/transaction-date)
-                                        #(update-in-if %
-                                                       [:transaction-item/account]
-                                                       util/->model-ref))))
-                        [(assoc account
-                                :account/transaction-date-range nil
-                                :account/quantity 0M
-                                :account/value 0M)])
+         :as updated] (process-account-items account entity items)
         [saved-entity] (-> entity
                            (update-in [:entity/transaction-date-range]
                                       #(apply dates/push-boundary
