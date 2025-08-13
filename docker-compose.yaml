@@ -122,7 +122,8 @@ services:
         read_only: true
     command:
       - ./bin/transactor
-      - -Ddatomic.printConnectionInfo=true
+      - -Xmx2g
+      - -Xms1g
       - -Dsql-user=${SQL_APP_USER}
       - -Dsql-password=${SQL_APP_PASSWORD}
       - ./config/transactor.properties
