@@ -481,15 +481,19 @@
                                                     :id))
            accounts))))
 
-(defn propagate-account-from-start
-  [entity account]
-  (let [items (->> (models/select {:transaction-item/account account}
+(defn- fetch-account-items
+  [account]
+  (->> (models/select {:transaction-item/account account}
                                   {:sort [:transaction/transaction-date
                                           :transaction-item/index]
                                    :select-also [:transaction/transaction-date]})
                    (map (comp polarize
                               #(assoc % :transaction-item/account account)))
-                   seq)
+                   seq))
+
+(defn propagate-account-from-start
+  [entity account]
+  (let [items (fetch-account-items account)
         [{:account/keys [transaction-date-range]}
          :as updated] (if items
                         (->> items
