@@ -10,7 +10,7 @@
 
 (defn- propagation-fn []
   (->> @full-propagations
-       (sort-by first)
+       (sort-by first >)
        (mapcat second)
        (apply comp)))
 
@@ -19,10 +19,10 @@
 
   Model namespaces register a function with add-full-propagation so that when
   this function is called, all of the mode-specific propagations will be executed."
-  ([opts]
+  ([& args]
    (let [f (propagation-fn)]
      (try
-       (f opts)
+       (apply f args)
        (catch Exception e
          (log/error e "Unable to finish the full propagation"))))))
 
