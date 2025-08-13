@@ -16,7 +16,7 @@ tmux split-window -h
 tmux send-keys 'git status' C-m
 
 # Database window
-tmux new-window -t $session:2 -n 'database' 'psql -h localhost -U app_user -d money_development'
+tmux new-window -t $session:2 -n 'database' 'psql'
 
 # Log window
 tmux new-window -t $session:3 -n 'logs'
