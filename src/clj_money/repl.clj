@@ -51,4 +51,5 @@
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn propagate-prices
   [entity-name]
-  (prices/propagate-all (models/find-by {:entity/name entity-name})))
+  (prices/propagate-all (models/find-by {:entity/name entity-name})
+                        {}))

@@ -8,10 +8,11 @@
 ; A map of priority number to sets of propagation fns
 (def ^:private full-propagations (atom {}))
 
-(defn- propagation-fn []
+(defn- propagation-fn [opts]
   (->> @full-propagations
        (sort-by first >)
        (mapcat second)
+       (map (fn [f] #(f % opts)))
        (apply comp)))
 
 (defn propagate-all
@@ -19,12 +20,19 @@
 
   Model namespaces register a function with add-full-propagation so that when
   this function is called, all of the mode-specific propagations will be executed."
-  ([& args]
-   (let [f (propagation-fn)]
+  ([opts]
+   (doseq [entity (models/select (util/model-type {} :entity))]
+     (propagate-all entity opts)))
+  ([entity opts]
+   (log/debugf "[propagation] start entity %s"
+               (:entity/name entity))
+   (let [f (propagation-fn opts)]
      (try
-       (apply f args)
+       (f entity)
+       (log/infof "[propagation] finished entity %s"
+                  (:entity/name entity))
        (catch Exception e
-         (log/error e "Unable to finish the full propagation"))))))
+         (log/error e "[propagation] Unable to finish the full propagation"))))))
 
 (defn add-full-propagation
   "Registers a function that will be executed with propagate-all is invoked.

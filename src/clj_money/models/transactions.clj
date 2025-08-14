@@ -525,42 +525,39 @@
          first)))
 
 (defn propagate-all
-  ([opts]
-   (doseq [entity (models/select (util/model-type {} :entity))]
-     (propagate-all entity opts)))
-  ([entity {:keys [progress-chan]}]
-   {:pre [entity]}
-   (let [accounts (models/select {:account/entity entity})
-         total (count accounts)]
+  [entity {:keys [progress-chan]}]
+  {:pre [entity]}
+  (let [accounts (models/select {:account/entity entity})
+        total (count accounts)]
 
-     (log/debugf "Propagating %s. %s account(s)"
-                 (:entity/name entity)
-                 (count accounts))
+    (log/debugf "[propagation] process transactions for %s. %s account(s)"
+                (:entity/name entity)
+                (count accounts))
 
-     (when progress-chan
-       (log/debugf "Report Propagating %s accounts" total)
-       (a/go (a/>! progress-chan {:declaration/record-type :propagation
-                                  :declaration/record-count total
-                                  :import/record-type :declaration})))
-     [(->> accounts
-           apply-commodities
-           (interleave (map inc (range)))
-           (partition-all 2)
-           (map (fn [[index account]]
-                  (log/debugf "Propagating account %s (%d of %d)"
-                              (:account/name account)
-                              index
-                              total)
-                  account))
-           (reduce (comp (fn [entity]
-                           (when progress-chan
-                             (log/debug "Report Propagating account completed")
-                             (a/go
-                               (a/>! progress-chan
-                                     {:import/record-type :propagation})))
-                           entity)
-                         propagate-account-from-start)
-                   entity))])))
+    (when progress-chan
+      (log/debugf "[propagation] report %s accounts" total)
+      (a/go (a/>! progress-chan {:declaration/record-type :propagation
+                                 :declaration/record-count total
+                                 :import/record-type :declaration})))
+    [(->> accounts
+          apply-commodities
+          (interleave (map inc (range)))
+          (partition-all 2)
+          (map (fn [[index account]]
+                 (log/debugf "[propagation] starting account %s (%d of %d)"
+                             (:account/name account)
+                             index
+                             total)
+                 account))
+          (reduce (comp (fn [entity]
+                          (when progress-chan
+                            (log/debug "[propagation] report propagation on the channel")
+                            (a/go
+                              (a/>! progress-chan
+                                    {:import/record-type :propagation})))
+                          entity)
+                        propagate-account-from-start)
+                  entity))]))
 
 (prop/add-full-propagation propagate-all :priority 5)
 

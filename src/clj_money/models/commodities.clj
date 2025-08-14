@@ -75,23 +75,24 @@
   (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
 
 (defn propagate-all
-  ([opts]
-   (doseq [entity (models/select (util/model-type {} :entity))]
-     (propagate-all entity opts)))
-  ([entity _opts]
-   {:pre [entity]}
-   (when-not (get-in entity [:entity/settings
-                             :settings/default-commodity])
-     (when-let [currencies (seq
-                             (models/select {:commodity/entity entity
-                                             :commodity/type :currency}))]
-       (when (< 1 (clojure.core/count currencies))
-         (log/warnf "Found multiple currencies for entity %s, defaulting to %s."
-                    (select-keys entity [:id :entity/name])
-                    (select-keys (first currencies) [:id :commodity/name :commodity/symbol])))
-       (models/put-many [(assoc-in entity
-                                   [:entity/settings
-                                    :settings/default-commodity]
-                                   (util/->model-ref (first currencies)))])))))
+  [entity _opts]
+  {:pre [entity]}
+  (log/debugf "[propagation] start entity %s"
+              (:entity/name entity))
+  (when-not (get-in entity [:entity/settings
+                            :settings/default-commodity])
+    (when-let [currencies (seq
+                            (models/select {:commodity/entity entity
+                                            :commodity/type :currency}))]
+      (when (< 1 (clojure.core/count currencies))
+        (log/warnf "Found multiple currencies for entity %s, defaulting to %s."
+                   (select-keys entity [:id :entity/name])
+                   (select-keys (first currencies) [:id :commodity/name :commodity/symbol])))
+      (models/put-many [(assoc-in entity
+                                  [:entity/settings
+                                   :settings/default-commodity]
+                                  (util/->model-ref (first currencies)))])))
+  (log/infof "[propagation] finish entity %s"
+             (:entity/name entity)))
 
 (prop/add-full-propagation propagate-all :priority 5)
