@@ -672,9 +672,13 @@
                              :entity entity})
                           a/<!!)]
           (when-not (::abend? result)
+            (log/debugf "[import] data imported, start propagation for %s"
+                        (:import/entity-name import-spec))
             (-> entity
                 models/find
                 (prop/propagate-all {:progress-chan out-chan}))
+            (log/debugf "[import] start reconciliations for %s"
+                        (:import/entity-name import-spec))
             (a/alts!! [(process-reconciliations result
                                                 out-chan)
                        (a/timeout 5000)]))
