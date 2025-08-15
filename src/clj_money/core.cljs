@@ -103,47 +103,49 @@
                    %))))
 
 (defn navbar
-  [items {:keys [profile-photo-url]}]
-  (fn []
-    [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
-     [:div.container
-      [:a.navbar-brand {:href "/"}
-       [:img {:src "/images/logo.svg"
-              :alt "abacus logo"
-              :width 24
-              :height 24}]]
-      (when-let [entity (:entity/name @current-entity)]
-        [:a.navbar-brand {:href "#entity-selection"
-                          :data-bs-toggle "offcanvas"
-                          :role :button
-                          :aria-controls "entity-selection"}
-         entity])
-      [:button.navbar-toggler {:type :button
-                               :data-bs-toggle :collapse
-                               :data-bs-target "#primary-nav"
-                               :aria-controls "primary-nav"
-                               :aria-expanded false
-                               :aria-label "Toggle Navigation"}
-       [:span.navbar-toggler-icon]]
-      (when (seq items)
-        [:div#primary-nav.collapse.navbar-collapse
-         [:ul.navbar-nav.me-auto.mb-2.mb-lg-0
-          (->> items
-               (map bs/nav-item)
-               doall)]])
+  [items entity-name {:keys [profile-photo-url]}]
+  [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
+   [:div.container
+    [:a.navbar-brand {:href "/"}
+     [:img {:src "/images/logo.svg"
+            :alt "abacus logo"
+            :width 24
+            :height 24}]]
+    (when entity-name
+      [:a.navbar-brand {:href "#entity-selection"
+                        :data-bs-toggle "offcanvas"
+                        :role :button
+                        :aria-controls "entity-selection"}
+       entity-name])
+    [:button.navbar-toggler {:type :button
+                             :data-bs-toggle :collapse
+                             :data-bs-target "#primary-nav"
+                             :aria-controls "primary-nav"
+                             :aria-expanded false
+                             :aria-label "Toggle Navigation"}
+     [:span.navbar-toggler-icon]]
+    (when (seq items)
+      [:div#primary-nav.collapse.navbar-collapse
+       [:ul.navbar-nav.me-auto.mb-2.mb-lg-0
+        (->> items
+             (map bs/nav-item)
+             doall)]])
 
-      (when profile-photo-url ; TODO: Fetch this when authenticating via google
-        [:img.rounded-circle.d-none.d-lg-block
-         {:src profile-photo-url
-          :style {:max-width "32px"}
-          :alt "Profile Photo"}])]]))
+    (when profile-photo-url ; TODO: Fetch this when authenticating via google
+      [:img.rounded-circle.d-none.d-lg-block
+       {:src profile-photo-url
+        :style {:max-width "32px"}
+        :alt "Profile Photo"}])]])
 
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])
-        items (make-reaction #(nav-items @active-nav @current-user @current-entity))]
+        items (make-reaction #(nav-items @active-nav
+                                         @current-user
+                                         @current-entity))]
     (fn []
       (navbar
         @items
+        (:entity/name @current-entity)
         {:brand "clj-money"
          :brand-path "/"}))))
 
