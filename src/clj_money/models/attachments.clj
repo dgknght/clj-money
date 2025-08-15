@@ -50,13 +50,14 @@
   [entity _opts]
   (log/debugf "[propagation] start entity %s"
               (:entity/name entity))
-  (some->> (models/select
-             (util/model-type {:transaction/entity entity}
-                              :attachment))
-           seq
-           (map #(adjust-trx % inc))
-           (models/put-many))
-  (log/infof "[propagation] finish entity %s"
-             (:entity/name entity)))
+  (let [updated (some->> (models/select
+                           (util/model-type {:transaction/entity entity}
+                                            :attachment))
+                         seq
+                         (map #(adjust-trx % inc))
+                         (models/put-many))]
+    (log/infof "[propagation] finish entity %s"
+               (:entity/name entity))
+    updated))
 
 (prop/add-full-propagation propagate-all)

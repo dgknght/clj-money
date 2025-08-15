@@ -37,8 +37,8 @@
 (defn add-full-propagation
   "Registers a function that will be executed with propagate-all is invoked.
 
-  The function must have two arities: One that accepts an entity as the single argument,
-  and one that accepts no arguments (and processes all entities)"
+  The function must take an entity as the first argument, and options
+  as the second argument. The function must return the entity."
   [f & {:keys [priority] :or {priority 10}}]
   (swap! full-propagations update-in [priority] (fnil conj #{}) f))
 
