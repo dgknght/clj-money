@@ -533,7 +533,7 @@
   (if out-chan
     (fn [recon]
       (a/go
-        (a/>! out-chan {:import/record-type :reconciliation-finalization}))
+        (a/>! out-chan {:import/record-type :reconciliation}))
       recon)
     identity))
 
