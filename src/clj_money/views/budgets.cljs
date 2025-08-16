@@ -135,7 +135,6 @@
   (let [selected (r/cursor page-state [:selected])
         auto-create (r/cursor selected [:auto-create-items])]
     (fn []
-      (pprint {::budget-form @selected})
       (when @selected
         [:form {:on-submit (fn [e]
                              (.preventDefault e)

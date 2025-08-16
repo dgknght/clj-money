@@ -1,6 +1,7 @@
 select a.name,
   i.index,
   t.transaction_date,
+  i.reconciliation_id,
   t.description,
   i.action,
   i.quantity,

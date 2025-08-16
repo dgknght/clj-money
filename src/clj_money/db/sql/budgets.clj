@@ -2,17 +2,29 @@
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [parse-int]]
             [clj-money.db :as db]
+            [clj-money.models :as models]
             [clj-money.db.sql :as sql]))
 
 (defmethod sql/before-save :budget
   [budget]
   (update-in budget [:budget/period 1] name))
 
+(defn- removed
+  [{:budget/keys [items] :as budget}]
+  (let [ids (->> items
+                 (map :id)
+                 set)]
+    (when-let [existing (seq (models/before budget :budget/items))]
+      (->> existing
+           (remove #(ids (:id %)))
+           (map #(vector ::db/delete %))))))
+
 (defmethod sql/deconstruct :budget
   [{:budget/keys [items] :keys [id] :as budget}]
   (cons (dissoc budget :budget/items)
-        (map #(assoc % :budget-item/budget-id id)
-             items)))
+        (concat (map #(assoc % :budget-item/budget-id id)
+                     items)
+                (removed budget))))
 
 (defmethod sql/after-read :budget
   [budget]
@@ -21,13 +33,13 @@
       (update-in [:budget/period 1] keyword)))
 
 (defmethod sql/post-select :budget
-  [{:keys [storage include]
-    :or {include #{}}}
+  [{:keys [storage]}
    budgets]
-  (if (include :budget/items)
+  (let [items (group-by (comp :id :budget-item/budget)
+                        (db/select storage
+                                   {:budget-item/budget [:in (map :id budgets)]}
+                                   {}))]
     (map #(assoc %
                  :budget/items
-                 (vec (db/select
-                        storage {:budget-item/budget %} {})))
-         budgets)
-    budgets))
+                 (items (:id %)))
+         budgets)))

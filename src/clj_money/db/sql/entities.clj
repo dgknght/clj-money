@@ -8,7 +8,7 @@
 (defmethod sql/after-read :entity
   [entity]
   (-> entity
-      (update-in-if [:entity/settings :settings/monitored-account-ids] set)
+      (update-in-if [:entity/settings :settings/monitored-accounts] set)
       (update-in-if [:entity/settings :settings/inventory-method] keyword)
       (update-in-if [:entity/transaction-date-range 0] t/local-date)
       (update-in-if [:entity/transaction-date-range 1] t/local-date)

@@ -1,9 +1,7 @@
 (ns clj-money.api.imports
   (:refer-clojure :exclude [update get])
-  (:require [cljs-http.client :as http]
+  (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.api-async :as lib-api]
-            [clj-money.state :refer [app-state]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- ->multipart-params
@@ -20,13 +18,12 @@
   [import-data & {:as opts}]
   (let [params (-> import-data
                    ->multipart-params
-                   (update-in-if [:options] (comp #(.stringify js/JSON %)
-                                                  clj->js)))]
-    (http/post (api/path :imports)
-               (-> (lib-api/request opts)
-                   (lib-api/multipart-params params)
-                   (add-error-handler "Unable to create the import: %s")
-                   (assoc :oauth-token (:auth-token @app-state))))))
+                   (update-in-if [:options] pr-str))]
+    (api/post (api/path :imports)
+              params
+              (-> opts
+                  (assoc :encoding :multipart)
+                  (add-error-handler "Unable to create the import: %s")))))
 
 (defn get
   [id & {:as opts}]
