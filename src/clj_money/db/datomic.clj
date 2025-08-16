@@ -177,9 +177,6 @@
                      (map (pass-through models->refs))
                      (mapcat #(prep-for-put % api)))
         {:keys [tempids]} (transact api prepped {})]
-
-    (log/debugf "put models %s" (pr-str prepped))
-
     (->> prepped
          (filter (every-pred map?
                              :db/id))
