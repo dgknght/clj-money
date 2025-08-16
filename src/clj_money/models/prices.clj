@@ -187,21 +187,29 @@
                 (cons (apply-to-accounts current))))
           (:commodities agg)))
 
+(defn- fetch-prices
+  [entity]
+  (models/select
+    (util/model-type {:commodity/entity entity}
+                     :price)))
+
 (defn propagate-all
   [entity _opts]
-  (log/debugf "[propagation] start entity %s"
-              (:entity/name entity))
-  (if-let [prices (seq
-                    (models/select
-                      (util/model-type {:commodity/entity entity}
-                                       :price)))]
-    (let [agg (aggregate prices)
-          result (models/put-many
-                   (cons (apply-agg-to-entity entity agg)
-                         (apply-agg-to-commodities-and-accounts agg)))]
-      (log/infof "[propagation] finish entity %s"
-                 (:entity/name entity))
-      result)
-    entity))
+
+  (log/debugf "[propagation] start entity %s" (:entity/name entity))
+
+  (let [result (or (when-let [prices (seq (fetch-prices entity))]
+                     (let [agg (aggregate prices)]
+                       (-> entity
+                           (apply-agg-to-entity agg)
+                           (cons (apply-agg-to-commodities-and-accounts agg))
+                           models/put-many
+                           first)))
+                   entity)]
+
+    (log/infof "[propagation] finish entity %s"
+               (:entity/name result))
+
+    result))
 
 (prop/add-full-propagation propagate-all :priority 1)
