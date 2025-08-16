@@ -511,18 +511,24 @@
 
 (defn propagate-account-from-start
   [entity account]
-  (let [items (fetch-account-items account)
-        [{:account/keys [transaction-date-range]}
-         :as updates] (process-account-items account entity items)]
-    (->> (-> entity
-             (update-in [:entity/transaction-date-range]
-                        #(apply dates/push-boundary
-                                %
-                                transaction-date-range))
-             (cons updates))
-         (partition-all 20)
-         (mapcat models/put-many)
-         first)))
+  (try
+    (let [items (fetch-account-items account)
+          [{:account/keys [transaction-date-range]}
+           :as updates] (process-account-items account entity items)]
+      (->> (-> entity
+               (update-in [:entity/transaction-date-range]
+                          #(apply dates/push-boundary
+                                  %
+                                  transaction-date-range))
+               (cons updates))
+           (partition-all 10)
+           (mapcat models/put-many)
+           first))
+    (catch Exception e
+      (log/errorf e
+                  "Unable to propagate account %s (%s) "
+                  (:account/name account)
+                  (:id account)))))
 
 (defn propagate-all
   [entity {:keys [progress-chan]}]
