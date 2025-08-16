@@ -526,13 +526,13 @@
 
 (defn propagate-all
   [entity {:keys [progress-chan]}]
-  {:pre [entity]}
+  {:pre [entity (map? entity)]}
   (let [accounts (models/select {:account/entity entity})
         total (count accounts)]
 
     (log/debugf "[propagation] process transactions for %s. %s account(s)"
                 (:entity/name entity)
-                (count accounts))
+                total)
 
     (when progress-chan
       (log/debugf "[propagation] report %s accounts" total)
@@ -551,7 +551,6 @@
                 account))
          (reduce (comp (fn [entity]
                          (when progress-chan
-                           (log/debug "[propagation] report propagation on the channel")
                            (a/go
                              (a/>! progress-chan
                                    {:import/record-type :propagation})))
