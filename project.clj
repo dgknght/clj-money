@@ -10,7 +10,8 @@
                  [org.clojure/tools.reader "1.3.4"]
                  [org.clojure/data.json "2.5.1"]
                  [org.clojure/data.xml "0.2.0-alpha6"]
-                 [clj-http "3.9.0" :exclusions [org.clojure/tools.reader]]
+                 [clj-http "3.9.0" :exclusions [org.clojure/tools.reader
+                                                commons-io]]
                  [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.clojure/tools.reader]]
@@ -80,6 +81,17 @@
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
                  [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
+                 [com.datomic/peer "1.0.7364" :exclusions [com.google.errorprone/error_prone_annotations
+                                                           commons-codec
+                                                           joda-time
+                                                           org.apache.httpcomponents/httpclient
+                                                           org.clojure/tools.cli
+                                                           org.slf4j/slf4j-api]]
+                 [com.datomic/client-pro "1.0.81" :exclusions [com.cognitect/transit-java
+                                                               commons-codec
+                                                               com.cognitect/transit-clj
+                                                               org.eclipse.jetty/jetty-http
+                                                               org.eclipse.jetty/jetty-io]]
                  [crypto-random "1.2.1" :exclusions [commons-codec]] ; added to clarify dependencies
                  [buddy/buddy-sign "3.1.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                         com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
@@ -95,7 +107,7 @@
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.36"
+                  "0.3.37"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
@@ -137,7 +149,7 @@
                    com.fasterxml.jackson.core/jackson-core
                    lein-doo]]
                  [lambdaisland/uri "1.4.54"]
-                 [stowaway "0.2.8" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
+                 [stowaway "0.2.10" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
@@ -148,7 +160,8 @@
   :aot [clj-money.web.server]
   :clean-targets ^{:protect false} [:target-path]
   :source-paths ["src"]
-  :aliases {"migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]
+  :aliases {"datomic-schema"        ["run" "-m" "clj-money.db.datomic.tasks/apply-schema"]
+            "migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]
             "rollback"              ["run" "-m" "clj-money.db.sql.tasks/rollback"]
             "remigrate"             ["run" "-m" "clj-money.db.sql.tasks/remigrate"]
             "create-sql"            ["run" "-m" "clj-money.db.sql.tasks/create"]

@@ -71,9 +71,11 @@
 
 (defn- recently-created?
   [{:account/keys [created-at]}]
-  (t/before?
-   (t/now)
-   (t/plus created-at (t/days 1))))
+  (if created-at
+    (t/before?
+      (t/now)
+      (t/plus created-at (t/days 1)))
+    true))
 
 (defn- account-hidden?
   [{:account/keys [parent-ids] :as account} expanded hide-zero-balances?]

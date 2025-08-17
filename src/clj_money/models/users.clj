@@ -47,9 +47,9 @@
 
 (defmethod models/after-read :user
   [user {:keys [include-password?]}]
-  (let [ks (cond-> sensitive-keys
-             include-password? (disj :user/password))]
-    (apply dissoc user ks)))
+  (if include-password?
+    user
+    (apply dissoc user sensitive-keys)))
 
 (defn find-by-email
   "Returns the user having the specified email"
@@ -60,7 +60,8 @@
   "Returns the user having the specified, unexpired password reset token"
   [token]
   (models/find-by #:user{:password-reset-token token
-                         :token-expires-at [:> (t/instant)]}))
+                         :token-expires-at [:> (t/instant)]}
+                  {:include-password? true}))
 
 (defn authenticate
   "Returns the user with the specified username and password.

@@ -1,5 +1,6 @@
 (ns clj-money.db.sql.transaction-items
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]
@@ -23,11 +24,8 @@
       (update-in [:transaction-item/index] (fnil identity (rand-int 1000)))))
 
 (defmethod sql/after-read :transaction-item
-  [{:as item :transaction-item/keys [transaction-date]}]
+  [item]
   (-> item
       (update-in [:transaction-item/action] keyword)
-      (update-in [:transaction/transaction-date]
-                 (fn [d]
-                   (if d
-                     (t/local-date d)
-                     transaction-date)))))
+      (rename-keys {:transaction-item/transaction-date :transaction/transaction-date})
+      (update-in-if [:transaction/transaction-date] t/local-date)))
