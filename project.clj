@@ -181,7 +181,7 @@
             "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
             "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
 
-  :jvm-opts ["-Duser.timezone=UTC"]
+  :jvm-opts ["-Duser.timezone=UTC -Xmx2g -Xms512m -server"]
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93
