@@ -1,0 +1,53 @@
+[{:db/ident :entity/name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of the entity"}
+ {:db/ident :entity/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user that has full control over the entity"}
+ {:db/ident :entity/settings
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/isComponent true
+  :db/doc "Adjustable settings for the entity"}
+ {:db/ident :entity/transaction-date-range
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/instant :db.type/instant]
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The earliest and latest dates for which transaction records exist in the entity"}
+ {:db/ident :entity/price-date-range
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/instant :db.type/instant]
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The earliest and latest dates for which price records exist in the entity"}
+ {:db/ident :settings/inventory-method
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "Adjustable settings for the entity"}
+ {:db/ident :settings/monitored-accounts
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/doc "Accounts for which budget monitors are enabled"}
+ {:db/ident :settings/lt-capital-gains-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks long-term capital gains for the entity"}
+ {:db/ident :settings/st-capital-gains-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks short-term capital gains for the entity"}
+ {:db/ident :settings/lt-capital-loss-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks long-term capital loss for the entity"}
+ {:db/ident :settings/st-capital-loss-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account that tracks short-term capital loss for the entity"}
+ {:db/ident :settings/default-commodity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The commodity recorded by accounts in the entity by default"}]

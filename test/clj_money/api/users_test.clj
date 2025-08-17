@@ -5,7 +5,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
                                             parse-edn-body]]

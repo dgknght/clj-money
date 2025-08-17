@@ -1,0 +1,12 @@
+[{:db/ident :attachment/caption
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "A label applied to the caption by the user that uploaded it"}
+ {:db/ident :attachment/image
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The image attached"}
+ {:db/ident :attachment/transaction
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The transaciton to which the image is attached"}]

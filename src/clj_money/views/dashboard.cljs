@@ -33,7 +33,7 @@
   (+busy)
   (swap! current-entity
          update-in
-         [:entity/settings :settings/monitored-account-ids]
+         [:entity/settings :settings/monitored-accounts]
          (fnil conj #{})
          (get-in @state [:new-monitor :account :id]))
   (entities/save @current-entity
@@ -117,7 +117,7 @@
   [{:report/keys [account]} state]
   (swap! current-entity
          update-in
-         [:entity/settings :settings/monitored-account-ids]
+         [:entity/settings :settings/monitored-accounts]
          disj
          (:id account))
   (swap! state

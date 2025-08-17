@@ -2,30 +2,34 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [java-time.api :as t]
+            [clojure.tools.logging :as log]
             [dgknght.app-lib.core :refer [fmin]]
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
 
 (s/def :attachment/transaction ::models/model-ref)
-(s/def :attachment/transaction-date t/local-date?)
 (s/def :attachment/image ::models/model-ref)
 (s/def :attachment/caption string?)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::models/attachment (s/keys :req [:attachment/transaction
-                                         :attachment/transaction-date
                                          :attachment/image]
                                    :opt [:attachment/caption]))
 
 (defmethod models/before-validation :attachment
   [{:as att :attachment/keys [transaction]}]
-  (update-in att [:attachment/transaction-date] (fnil identity (:transaction/transaction-date transaction))))
+  (if (and (:transaction/transaction-date transaction)
+           (nil? (:attachment/transaction-date att)))
+    (assoc att :attachment/transaction-date (:transaction/transaction-date transaction))
+    att))
 
 (defn- find-trx
   [{:attachment/keys [transaction transaction-date]}]
-  (models/find-by {:id (:id transaction)
-                   :transaction/transaction-date transaction-date}))
+  (models/find-by
+    (cond-> (util/model-type {:id (:id transaction)}
+                             :transaction)
+      transaction-date (assoc :transaction/transaction-date
+                              transaction-date))))
 
 (defn- adjust-trx
   [att f]
@@ -43,15 +47,17 @@
     (conj (adjust-trx before (fmin dec 0)))))
 
 (defn propagate-all
-  ([opts]
-   (doseq [e (models/select (util/model-type {} :entity))]
-     (propagate-all e opts)))
-  ([entity _opts]
-   (some->> (models/select
-              (util/model-type {:transaction/entity entity}
-                               :attachment))
-            seq
-            (map #(adjust-trx % inc))
-            (models/put-many))))
+  [entity _opts]
+  (log/debugf "[propagation] start entity %s"
+              (:entity/name entity))
+  (let [updated (some->> (models/select
+                           (util/model-type {:transaction/entity entity}
+                                            :attachment))
+                         seq
+                         (map #(adjust-trx % inc))
+                         (models/put-many))]
+    (log/infof "[propagation] finish entity %s"
+               (:entity/name entity))
+    updated))
 
 (prop/add-full-propagation propagate-all)
