@@ -1,5 +1,5 @@
 (ns clj-money.models.accounts-test
-  (:require [clojure.test :refer [deftest use-fixtures is]]
+  (:require [clojure.test :refer [is]]
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
@@ -7,7 +7,7 @@
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-commodity
@@ -17,9 +17,7 @@
                                                          assert-deleted]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
-            [clj-money.test-helpers :refer [reset-db]]))
-
-(use-fixtures :each reset-db)
+            [clj-money.test-helpers :refer [dbtest]]))
 
 (defn- attributes []
   #:account{:name "Checking"
@@ -49,7 +47,7 @@
                   :type :asset
                   :commodity "USD"}))
 
-(deftest select-accounts
+(dbtest select-accounts
   (with-context select-context
     (let [entity (find-entity "Personal")
           expected [#:account{:name "Checking"
@@ -99,7 +97,7 @@
                   :parent "Taxes"
                   :entity "Personal"}))
 
-(deftest select-account-with-children
+(dbtest select-account-with-children
   (with-context nested-context
     (is (= #{"Savings" "Reserve" "Car" "Doug" "Eli"}
            (->> (models/select {:account/name "Savings"}
@@ -107,7 +105,7 @@
                 (map :account/name)
                 set)))))
 
-(deftest select-account-with-parents
+(dbtest select-account-with-parents
   (with-context nested-context
     (is (= #{"Savings" "Car" "Eli"}
            (->> (models/select {:account/name "Eli"}
@@ -141,7 +139,7 @@
                   :commodity "AAPL"
                   :name "AAPL"}))
 
-(deftest select-accounts-with-ancestors
+(dbtest select-accounts-with-ancestors
   (with-context inv-context
     (let [chains (accounts/select-with-ancestors
                     (find-commodity "AAPL"))
@@ -180,7 +178,7 @@
              :type :expense
              :user-tags #{:mandatory :tax}}])
 
-(deftest select-accounts-by-tag
+(dbtest select-accounts-by-tag
   (with-context tag-context
     (is (= #{"Rent" "Tax" "Dining"}
            (->> (models/select {:account/user-tags [:&&
@@ -196,7 +194,7 @@
                                       :account/commodity
                                       :account/parent]))
 
-(deftest create-an-account
+(dbtest create-an-account
   (with-context account-context
     (assert-created (attributes))))
 
@@ -222,12 +220,12 @@
                   :parent "Household"
                   :commodity "USD"}))
 
-(deftest name-can-be-duplicated-across-entities
+(dbtest name-can-be-duplicated-across-entities
   (with-context duplicate-name-context
     (assert-created (assoc (attributes)
                            :account/entity (find-entity "Business")))))
 
-(deftest name-can-be-duplicated-across-account-types
+(dbtest name-can-be-duplicated-across-account-types
   (with-context duplicate-name-context
     (assert-created (assoc (attributes)
                            :account/type :liability
@@ -240,7 +238,7 @@
                   :commodity "USD"
                   :entity "Personal"}))
 
-(deftest create-a-child-account
+(dbtest create-a-child-account
   (with-context create-child-context
     (assert-created #:account{:name "Car"
                               :type :asset
@@ -248,7 +246,7 @@
                               :parent (find-account "Savings")
                               :entity (find-entity "Personal")})))
 
-(deftest child-must-have-same-type-as-parent
+(dbtest child-must-have-same-type-as-parent
   (with-context create-child-context
     (assert-invalid #:account{:name "Federal income tax"
                               :type :expense
@@ -257,12 +255,12 @@
                               :entity (find-entity "Personal")}
                     {:account/type ["Type must match the parent type"]})))
 
-(deftest name-is-required
+(dbtest name-is-required
   (with-context account-context
     (assert-invalid (dissoc (attributes) :account/name)
                     {:account/name ["Name is required"]})))
 
-(deftest name-is-unique-within-a-parent
+(dbtest name-is-unique-within-a-parent
   (with-context duplicate-name-context
     (assert-invalid #:account{:name "Repairs"
                               :parent (find-account "Household")
@@ -271,18 +269,18 @@
                               :type :expense}
                     {:account/name ["Name is already in use"]})))
 
-(deftest name-can-be-duplicated-across-parents
+(dbtest name-can-be-duplicated-across-parents
   (with-context duplicate-name-context
     (assert-created (assoc (attributes)
                            :account/parent (find-account "Savings")
                            :account/name "Repairs"))))
 
-(deftest type-cannot-be-something-other-than-expense-equity-liability-income-asset
+(dbtest type-cannot-be-something-other-than-expense-equity-liability-income-asset
   (with-context account-context
     (assert-invalid (assoc (attributes) :account/type :invalidtype)
                     {:account/type ["Type must be expense, equity, liability, income, or asset"]})))
 
-(deftest commodity-id-defaults-to-entity-default
+(dbtest commodity-id-defaults-to-entity-default
   (with-context account-context
     (let [account (assert-created (dissoc (attributes)
                                           :account/commodity))]
@@ -290,7 +288,7 @@
                        (models/find (:id (get-in account [:account/commodity]))
                                     :commodity))))))
 
-(deftest update-an-account
+(dbtest update-an-account
   (with-context select-context
     (assert-updated (find-account "Checking")
                     #:account{:name "New name"
@@ -313,7 +311,7 @@
                   :entity "Personal"
                   :commodity "USD"}))
 
-(deftest change-an-account-parent
+(dbtest change-an-account-parent
   (with-context same-parent-context
     (let [fixed-assets (find-account "Fixed assets")
           result (-> (find-account "House")
@@ -326,6 +324,6 @@
                        (:id (:account/parent (models/find result))))
           "The retrieved account has the correct parent-id value"))))
 
-(deftest delete-an-account
+(dbtest delete-an-account
   (with-context select-context
     (assert-deleted (find-account "Checking"))))
