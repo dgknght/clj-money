@@ -1,19 +1,17 @@
 (ns clj-money.models.grants-test
-  (:require [clojure.test :refer [deftest use-fixtures is]]
+  (:require [clojure.test :refer [is]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models :as models]
             [clj-money.model-helpers :as helpers :refer [assert-deleted]]
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-user
                                             find-grant]]
-            [clj-money.test-helpers :refer [reset-db]]))
-
-(use-fixtures :each reset-db)
+            [clj-money.test-helpers :refer [dbtest]]))
 
 (def ^:private grant-context
   (conj (mapv #(factory :user {:user/email %})
@@ -29,7 +27,7 @@
   [attr]
   (helpers/assert-created attr :refs [:grant/entity :grant/user]))
 
-(deftest create-a-grant
+(dbtest create-a-grant
   (with-context grant-context
     (assert-created #:grant{:entity (find-entity "Business") 
                             :user (find-user "jane@doe.com")
@@ -41,7 +39,7 @@
                 :entity "Business"
                 :permissions {:account #{:index :show}}}))
 
-(deftest update-a-grant
+(dbtest update-a-grant
   (with-context existing-grant-context
     (let [result (-> (find-grant ["Business" "jane@doe.com"])
                      (update-in [:grant/permissions]
@@ -54,6 +52,6 @@
                        (models/find result))
           "The retrieved value has the specified attributes"))))
 
-(deftest delete-a-grant
+(dbtest delete-a-grant
   (with-context existing-grant-context
     (assert-deleted (find-grant ["Business" "jane@doe.com"]))))
