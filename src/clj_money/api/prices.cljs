@@ -4,7 +4,7 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util :refer [update-keys]]
             [clj-money.comparatives :as comparatives]
-            [clj-money.models :as models]
+            [clj-money.models.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- prepare-criteria
@@ -44,7 +44,7 @@
 (defn save
   [price & {:as opts}]
   (let [f (if (:id price) update create)]
-    (f (models/prune price :price)
+    (f (schema/prune price :price)
        opts)))
 
 (defn delete

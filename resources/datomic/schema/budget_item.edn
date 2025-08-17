@@ -1,0 +1,37 @@
+[{:db/ident :budget-item/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account to which this budget item applies"}
+ {:db/ident :budget-item/periods
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The serialized values for this account, one for each period"}
+ {:db/ident :budget-item/spec
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/isComponent true
+  :db/doc "The specification used to create the budget item"}
+ {:db/ident :budget-item-spec/total
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The total over all periods for this item in the budget"}
+ {:db/ident :budget-item-spec/average
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The average of all periods for this item in the budget"}
+ {:db/ident :budget-item-spec/start-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The start date for a weekly or historical specification."}
+ {:db/ident :budget-item-spec/amount
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The amount to be distributed for a total or average specification"}
+ {:db/ident :budget-item-spec/week-count
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "The number of weeks in a weekly specification"}
+ {:db/ident :budget-item-spec/round-to
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "The number of decimal places at which to round values in a historical specification"}]

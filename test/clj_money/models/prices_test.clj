@@ -1,5 +1,5 @@
 (ns clj-money.models.prices-test
-  (:require [clojure.test :refer [deftest use-fixtures is testing]]
+  (:require [clojure.test :refer [is testing]]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
             [java-time.api :as t]
@@ -12,7 +12,7 @@
                                                   delete-and-propagate]]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -20,10 +20,8 @@
                                             find-entity
                                             find-commodity
                                             find-price]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [dbtest]]
             [clj-money.models.prices :as prices]))
-
-(use-fixtures :each reset-db)
 
 (def ^:private price-context
   [(factory :user {:user/email "john@doe.com"})
@@ -50,11 +48,11 @@
   [attr]
   (helpers/assert-created attr :refs [:price/commodity]))
 
-(deftest create-a-price
+(dbtest create-a-price
   (with-context price-context
     (assert-created (attributes))))
 
-(deftest propagate-a-new-price
+(dbtest propagate-a-new-price
   (with-context price-context
     (let [{:as attr :price/keys [trade-date]} (attributes)
           entity (find-entity "Personal")
@@ -69,17 +67,17 @@
                        (models/find entity))
           "The entity price date range is updated"))))
 
-(deftest commodity-id-is-required
+(dbtest commodity-is-required
   (with-context price-context
     (assert-invalid (dissoc (attributes) :price/commodity)
                     {:price/commodity ["Commodity is required"]})))
 
-(deftest trade-date-is-required
+(dbtest trade-date-is-required
   (with-context price-context
     (assert-invalid (dissoc (attributes) :price/trade-date)
                     {:price/trade-date ["Trade date is required"]})))
 
-(deftest trade-date-must-be-a-date
+(dbtest trade-date-must-be-a-date
   (with-context price-context
     (assert-invalid (assoc (attributes) :price/trade-date "notadate")
                     {:price/trade-date ["Trade date is invalid"]})))
@@ -89,27 +87,27 @@
                               :trade-date (t/local-date 2017 3 2)
                               :value 12.34M}))
 
-(deftest trade-date-must-be-unique
+(dbtest trade-date-must-be-unique
   (with-context existing-price-context
     (assert-invalid (attributes)
                     {:price/trade-date ["Trade date already exists"]})))
 
-(deftest value-is-required
+(dbtest value-is-required
   (with-context price-context
     (assert-invalid (dissoc (attributes) :price/value)
                     {:price/value ["Value is required"]})))
 
-(deftest value-must-be-a-number
+(dbtest value-must-be-a-number
   (with-context price-context
     (assert-invalid (assoc (attributes) :price/value "notanumber")
                     {:price/value ["Value must be a number"]})))
 
-(deftest update-a-price
+(dbtest update-a-price
   (with-context existing-price-context
     (assert-updated (find-price ["AAPL" (t/local-date 2017 3 2)])
                     {:price/value 10M})))
 
-(deftest delete-a-price
+(dbtest delete-a-price
   (with-context existing-price-context
     (let [price (find-price ["AAPL" (t/local-date 2017 3 2)])]
       (models/delete price)
@@ -128,7 +126,7 @@
                 :trade-date (t/local-date 2017 3 1)
                 :value 12.00M}))
 
-(deftest get-the-most-recent-price-for-a-commodity
+(dbtest get-the-most-recent-price-for-a-commodity
   (with-context multi-price-context
     (testing "When at least one price exists"
       (is (comparable? {:price/value 12.20M}
@@ -138,7 +136,7 @@
       (let [price (prices/most-recent (models/find-by {:commodity/symbol "USD"}))]
         (is (nil? price) "The nil is returned")))))
 
-(deftest deleting-a-commodity-deletes-the-prices
+(dbtest deleting-a-commodity-deletes-the-prices
   (with-context existing-price-context
     (let [commodity (find-commodity "AAPL")
           criteria #:price{:commodity commodity
@@ -176,7 +174,7 @@
                 :shares 100M
                 :value 1000M}))
 
-(deftest creating-a-price-updates-account-summary-data
+(dbtest creating-a-price-updates-account-summary-data
   (with-context account-summary-context
     (testing "a historical price"
       (put-and-propagate
@@ -207,7 +205,7 @@
                 :commodity "AAPL"
                 :value 12M}))
 
-(deftest updating-a-price-updates-account-summary-data
+(dbtest updating-a-price-updates-account-summary-data
   (with-context account-summary-context-for-update
     (testing "before the update"
       (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
@@ -231,7 +229,7 @@
                                             {:sort [:price/trade-date]}))
           "The price can be retrieved after update"))))
 
-(deftest deleting-a-price-updates-account-summary-data
+(dbtest deleting-a-price-updates-account-summary-data
   (with-context account-summary-context-for-update
     (testing "before delete"
       (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))

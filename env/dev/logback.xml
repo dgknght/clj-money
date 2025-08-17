@@ -12,6 +12,8 @@
   </appender>
 
   <logger name="clj-money" level="DEBUG"/>
+  <logger name="datomic" level="WARN"/>
+  <logger name="org.apache" level="WARN"/>
   <logger name="org.eclipse" level="WARN"/>
 
   <root level="DEBUG">

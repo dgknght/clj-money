@@ -258,7 +258,7 @@
                            (models/select #:price{:trade-date (t/local-date 2015 3 2)}))
         "The prices are written to the database")))
 
-(deftest a-user-can-fetch-a-current-commodity-prices
+(deftest a-user-can-fetch-current-commodity-prices
   (with-context fetch-context
     (assert-successful-fetch (fetch-some-prices "john@doe.com"))))
 

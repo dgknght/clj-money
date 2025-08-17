@@ -75,23 +75,29 @@
   (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
 
 (defn propagate-all
-  ([opts]
-   (doseq [entity (models/select (util/model-type {} :entity))]
-     (propagate-all entity opts)))
-  ([entity _opts]
-   {:pre [entity]}
-   (when-not (get-in entity [:entity/settings
-                             :settings/default-commodity])
-     (when-let [currencies (seq
-                             (models/select {:commodity/entity entity
-                                             :commodity/type :currency}))]
-       (when (< 1 (clojure.core/count currencies))
-         (log/warnf "Found multiple currencies for entity %s, defaulting to %s."
-                    (select-keys entity [:id :entity/name])
-                    (select-keys (first currencies) [:id :commodity/name :commodity/symbol])))
-       (models/put-many [(assoc-in entity
-                                   [:entity/settings
-                                    :settings/default-commodity]
-                                   (util/->model-ref (first currencies)))])))))
+  [entity _opts]
+  {:pre [entity]}
+  (log/debugf "[propagation] start entity %s"
+              (:entity/name entity))
+  (if (get-in entity [:entity/settings
+                      :settings/default-commodity])
+    (do (log/info "entity already has a default commodity")
+        entity)
+    (if-let [currencies (seq
+                          (models/select {:commodity/entity entity
+                                          :commodity/type :currency}))]
+      (do (when (< 1 (clojure.core/count currencies))
+            (log/warnf "Found multiple currencies for entity %s, defaulting to %s."
+                       (select-keys entity [:id :entity/name])
+                       (select-keys (first currencies) [:id :commodity/name :commodity/symbol])))
+          (let [updated (models/put (assoc-in entity
+                                              [:entity/settings
+                                               :settings/default-commodity]
+                                              (util/->model-ref (first currencies))))]
+            (log/infof "[propagation] finish entity %s"
+                       (:entity/name entity))
+            updated))
+      (do (log/info "No currencies to set as the default commodity")
+          entity))))
 
 (prop/add-full-propagation propagate-all :priority 5)

@@ -40,15 +40,15 @@
    #:account{:name "IRA"
              :type :asset
              :entity "Personal"
-             :currency "USD"}
+             :commodity "USD"}
    #:account{:name "Opening Balances"
              :type :equity
              :entity "Personal"
-             :currency "USD"}
+             :commodity "USD"}
    #:account{:name "Dividends"
              :type :income
              :entity "Personal"
-             :currency "USD"}
+             :commodity "USD"}
    #:transaction{:transaction-date (t/local-date 2016 1 1)
                  :entity "Personal"
                  :description "Opening balances"
