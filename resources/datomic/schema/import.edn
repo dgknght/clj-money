@@ -10,6 +10,11 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db/doc "The binary images that contain the data to be imported"}
+ {:db/ident :import/progress
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The import progress, serialized as edn"}
  {:db/ident :import/options
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
@@ -30,8 +35,4 @@
  {:db/ident :import-option/st-capital-loss-account
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
-  :db/doc "The path to the account where short-term capital gains are recorded"}
- {:db/ident :import/progress
-  :db/valueType :db.type/string
-  :db/cardinality :db.cardinality/one
-  :db/doc "The import progress, serialized as edn"}]
+  :db/doc "The path to the account where short-term capital gains are recorded"}]
