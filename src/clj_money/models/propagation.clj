@@ -1,11 +1,19 @@
 (ns clj-money.models.propagation
   (:require [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clj-money.util :as util]
             [clj-money.models :as models]))
 
 ; A map of priority number to sets of propagation fns
 (def ^:private full-propagations (atom {}))
+
+(defn- propagation-fn [opts]
+  (->> @full-propagations
+       (sort-by first >)
+       (mapcat second)
+       (map (fn [f] #(f % opts)))
+       (apply comp)))
 
 (defn propagate-all
   "Performs a full propagation for all models in the system.
@@ -13,29 +21,24 @@
   Model namespaces register a function with add-full-propagation so that when
   this function is called, all of the mode-specific propagations will be executed."
   ([opts]
-   (->> @full-propagations
-        (sort-by first)
-        (mapcat second)
-        (map #(% opts))
-        doall))
-  ([entity & {:as opts}]
-   (->> @full-propagations
-        (sort-by first)
-        (mapcat second)
-        (reduce (fn [entity f]
-                  (if-let [updated (->> (f entity opts)
-                                        (filter (util/model-type? :entity))
-                                        first)]
-                    updated
-                    entity))
-                entity)
-        doall)))
+   (doseq [entity (models/select (util/model-type {} :entity))]
+     (propagate-all entity opts)))
+  ([entity opts]
+   (log/debugf "[propagation] start entity %s"
+               (:entity/name entity))
+   (let [f (propagation-fn opts)]
+     (try
+       (f entity)
+       (log/infof "[propagation] finished entity %s"
+                  (:entity/name entity))
+       (catch Exception e
+         (log/error e "[propagation] Unable to finish the full propagation"))))))
 
 (defn add-full-propagation
   "Registers a function that will be executed with propagate-all is invoked.
 
-  The function must have two arities: One that accepts an entity as the single argument,
-  and one that accepts no arguments (and processes all entities)"
+  The function must take an entity as the first argument, and options
+  as the second argument. The function must return the entity."
   [f & {:keys [priority] :or {priority 10}}]
   (swap! full-propagations update-in [priority] (fnil conj #{}) f))
 

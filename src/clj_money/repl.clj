@@ -30,7 +30,8 @@
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn propagate-all
   [entity-name]
-  (prop/propagate-all (models/find-by {:entity/name entity-name})))
+  (prop/propagate-all (models/find-by {:entity/name entity-name})
+                      {}))
 
 (defn- find-account
   [names entity]
@@ -50,4 +51,5 @@
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn propagate-prices
   [entity-name]
-  (prices/propagate-all (models/find-by {:entity/name entity-name})))
+  (prices/propagate-all (models/find-by {:entity/name entity-name})
+                        {}))
