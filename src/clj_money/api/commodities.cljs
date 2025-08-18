@@ -1,7 +1,6 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count get])
   (:require [clj-money.state :refer [current-entity]]
-            [clj-money.util :as util]
             [clj-money.models.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
 
@@ -43,7 +42,6 @@
             create)]
     (-> commodity
         (schema/prune :commodity)
-        (util/pp-> ::save)
         (f opts))))
 
 (defn delete

@@ -44,8 +44,9 @@
 (defn save
   [price & {:as opts}]
   (let [f (if (:id price) update create)]
-    (f (schema/prune price :price)
-       opts)))
+    (-> price
+        (schema/prune :price)
+        (f opts))))
 
 (defn delete
   [price & {:as opts}]

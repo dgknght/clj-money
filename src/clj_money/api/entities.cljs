@@ -1,7 +1,6 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clj-money.models.schema :as schema]
+  (:require [clj-money.models.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn select

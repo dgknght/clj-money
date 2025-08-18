@@ -1,7 +1,7 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update get])
   (:require [cljs.pprint :refer [pprint]]
-            [clj-money.models.schema :refer [prune]]
+            [clj-money.models.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -31,11 +31,10 @@
 
 (defn save
   [account & {:as opts}]
-  (let [f (if (:id account)
-            update
-            create)]
-    (f (prune account :account)
-       opts)))
+  (let [f (if (:id account) update create)]
+    (-> account
+        (schema/prune :account)
+        (f opts))))
 
 (defn delete
   [account & {:as opts}]

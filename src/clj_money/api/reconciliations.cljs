@@ -69,5 +69,6 @@
   (let [f (if (:id recon)
             update
             create)]
-    (f (schema/prune recon :reconciliation)
-       opts)))
+    (-> recon
+        (schema/prune :reconciliation)
+        (f opts))))

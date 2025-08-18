@@ -29,4 +29,6 @@
   (let [f (if (:id item)
             update
             create)]
-    (f (schema/prune item :budget-item) opts)))
+    (-> item
+        (schema/prune :budget-item)
+        (f opts))))

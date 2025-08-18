@@ -68,8 +68,9 @@
   (let [f (if (:id sched-tran)
             update
             create)]
-    (f (schema/prune sched-tran :scheduled-transaction)
-       opts)))
+    (-> sched-tran
+        (schema/prune :scheduled-transaction)
+        (f opts))))
 
 (defn realize
   [& args]
