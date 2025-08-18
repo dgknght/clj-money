@@ -1,0 +1,16 @@
+[{:db/ident :lot-item/lot
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The lot against which the action was taken"}
+ {:db/ident :lot-item/shares
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The number of shares transacted"}
+ {:db/ident :lot-item/action
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The action taken (purhcase or sale)"}
+ {:db/ident :lot-item/price
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The price at which the shares were bought or sold"}]

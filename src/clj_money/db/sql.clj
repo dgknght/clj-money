@@ -5,6 +5,7 @@
             [clojure.set :refer [rename-keys map-invert]]
             [clojure.spec.alpha :as s]
             [camel-snake-kebab.core :refer [->snake_case_keyword
+                                            ->snake_case_string
                                             ->snake_case
                                             ->kebab-case]]
             [next.jdbc :as jdbc]
@@ -36,15 +37,6 @@
 
 (defmulti model-keys util/model-type-dispatch)
 (defmethod model-keys :default [_] [])
-
-(def ^:private model-ref-keys
-  (->> schema/models
-       (mapcat (fn [{:keys [refs id]}]
-                 (map (fn [ref]
-                        (keyword (name id)
-                                 (name (schema/ref-id ref))))
-                      refs)))
-       set))
 
 (defn- append-qualifiers
   [[model-type :as entry]]
@@ -118,10 +110,10 @@
 (def ^:private sql-ref-keys
   (mapv #(keyword (namespace %)
                   (str (name %) "-id"))
-        model-ref-keys))
+        schema/model-ref-keys))
 
 (def ^:private model->sql-ref-map
-  (zipmap model-ref-keys sql-ref-keys))
+  (zipmap schema/model-ref-keys sql-ref-keys))
 
 (defn- extract-ref-id
   [x]
@@ -146,14 +138,14 @@
           sql-ref-keys))
 
 (def ^:private sql->model-ref-map
-  (zipmap sql-ref-keys model-ref-keys))
+  (zipmap sql-ref-keys schema/model-ref-keys))
 
 (defn- ->model-refs
   [m]
   (reduce (fn [m k]
             (update-in-if m [k] util/->model-ref))
           (rename-keys m sql->model-ref-map)
-          model-ref-keys))
+          schema/model-ref-keys))
 
 ; convert keywords to strings (or can this be done with SettableParameter?)
 ; {:account/type :asset} -> {:account/type "asset"}
@@ -299,7 +291,10 @@
                         (seq id-map) (resolve-temp-ids id-map)
                         (temp-id? m) (dissoc :id))
           saved (put-one ds [operator id-resolved])]
-      (cond-> (update-in result [:saved] conj (assoc id-resolved :id saved))
+      (cond-> result
+        (not= ::db/delete operator)
+        (update-in [:saved] conj (assoc id-resolved :id saved))
+
         (temp-id? m)
         (assoc-in [:id-map (:id m)]
                   saved)))))
@@ -310,7 +305,7 @@
 (s/def ::model (s/and (s/keys :req-un [::id])
                       util/model-type))
 (s/def ::puttable (s/or :map ::model
-                       :operation (s/tuple ::db/operation ::model)))
+                        :operation (s/tuple ::db/operation ::model)))
 (s/def ::puttables (s/coll-of ::puttable))
 
 ; This is only exposed publicly to support tests that enforce
@@ -329,10 +324,10 @@
                       (reduce (execute-and-aggregate tx)
                               {:saved []
                                :id-map {}})))]
-    (update-in result [:saved] #(->> %
-                                     (map (comp after-read
-                                                ->model-refs))
-                                     (reconstruct)))))
+    (->> (:saved result)
+         (map (comp after-read
+                    ->model-refs))
+         (reconstruct))))
 
 (defn- id-key
   [x]
@@ -368,21 +363,34 @@
 (def ^:private recursions
   {:account [:parent_id :id]}) ; This is a bit of a kludge, as :parent-id should be translated to snake case, but it's not
 
+; TODO: I think we can manage without doing this directly
+; next-jdbc and honeysql both have mechanisms for handling this, I'm pretty sure.
+; we just need to set them correctly
+(defn- ->snake-case
+  [k]
+  (keyword (->snake_case_string (namespace k))
+           (->snake_case_string (name k))))
+
 (defn- select*
   [ds criteria {:as options
                 :keys [include-children?
-                       include-parents?]}]
+                       include-parents?
+                       nil-replacements]}]
   (let [model-type (util/model-type criteria)
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
-                  (criteria->query (cond-> (assoc options
-                                                  :quoted? true
-                                                  :column-fn ->snake_case
-                                                  :table-fn ->snake_case
-                                                  :target model-type)
-                                     include-children? (assoc :recursion (recursions model-type))
-                                     include-parents? (assoc :recursion (reverse (recursions model-type))))))]
+                  (criteria->query
+                    (cond-> (assoc options
+                                   :quoted? true
+                                   :column-fn ->snake_case
+                                   :table-fn ->snake_case
+                                   :target model-type)
+                      nil-replacements (assoc :nil-replacements
+                                              (update-keys nil-replacements
+                                                           ->snake-case))
+                      include-children? (assoc :recursion (recursions model-type))
+                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
     (log/debugf "database select %s with options %s -> %s"
                 (models/scrub-sensitive-data criteria)
@@ -390,9 +398,10 @@
                 (scrub-values criteria query))
 
     (if (:count options)
-      (jdbc/execute-one! ds
-                         query
-                         sql-opts)
+      (:record-count
+        (jdbc/execute-one! ds
+                           query
+                           sql-opts))
       (->> (jdbc/execute! ds
                           query
                           sql-opts)

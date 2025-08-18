@@ -4,11 +4,10 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [ring.mock.request :as req]
-            [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
@@ -18,6 +17,7 @@
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-user
+                                            find-account
                                             find-transaction
                                             find-attachment]]
             [clj-money.models :as models]
@@ -62,7 +62,7 @@
   (is (empty? (::v/errors edn-body))
       "There are no validation errors")
   (is (:id edn-body) "An ID is assigned to the new record")
-  (is (comparable? {:attachment/transaction-date (t/local-date 2015 1 1)}
+  (is (comparable? {:attachment/caption "receipt"}
                    retrieved) 
       "The created attachment can be retrieved"))
 
@@ -88,18 +88,31 @@
                                    "Paycheck"]
                      :image "receipt.jpg"}))
 
-(defn- list-attachments
+(defn- list-trx-attachments
   [email]
   (with-context list-context
     (let [transaction (find-transaction [(t/local-date 2015 1 1)
                                          "Paycheck"])]
-      (-> (req/request :get (str (path :api
-                                       :attachments)
-                                 "?"
-                                 (map->query-string
-                                   {:transaction-date-on-or-after "2015-01-01"
-                                    :transaction-date-on-or-before "2015-01-31"
-                                    :transaction-id (:id transaction)})))
+      (-> (req/request :get (path :api
+                                  :transactions
+                                  (:id transaction)
+                                  (dates/serialize-local-date
+                                    (:transaction/transaction-date transaction))
+                                  :attachments))
+          (add-auth (find-user email))
+          app
+          parse-edn-body))))
+
+(defn- list-account-attachments
+  [email]
+  (with-context list-context
+    (let [account (find-account "Checking")]
+      (-> (req/request :get (path :api
+                                  :accounts
+                                  (:id account)
+                                  :attachments
+                                  "2015-01-01"
+                                  "2015-02-01"))
           (add-auth (find-user email))
           app
           parse-edn-body))))
@@ -116,11 +129,17 @@
   (is (http-success? response))
   (is (empty? edn-body) "No records are returned"))
 
-(deftest a-user-can-get-a-list-of-attachments-in-his-entity
-  (assert-successful-list (list-attachments "john@doe.com")))
+(deftest a-user-can-get-a-list-of-attachments-for-a-trx-in-his-entity
+  (assert-successful-list (list-trx-attachments "john@doe.com")))
 
-(deftest a-user-cannot-get-a-list-of-attachments-in-anothers-entity
-  (assert-blocked-list (list-attachments "jane@doe.com")))
+(deftest a-user-cannot-get-a-list-of-attachments-for-a-trx-in-anothers-entity
+  (assert-blocked-list (list-trx-attachments "jane@doe.com")))
+
+(deftest a-user-can-get-a-list-of-attachments-for-an-account-in-his-entity
+  (assert-successful-list (list-account-attachments "john@doe.com")))
+
+(deftest a-user-cannot-get-a-list-of-attachments-for-an-account-in-anothers-entity
+  (assert-blocked-list (list-account-attachments "jane@doe.com")))
 
 (defn- update-attachment
   [email]

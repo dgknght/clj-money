@@ -114,10 +114,12 @@
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
-(s/def :reconciliation/item (s/or :abbreviated (s/keys :req [:transaction/transaction-date]
+                                                       ;NB this is required for :sql and optional for :datomic-peer
+(s/def :reconciliation/item (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
                                                        :req-un [::models/id])
                                   :full (s/and ::models/transaction-item
-                                               (s/keys :req [:transaction/transaction-date]))))
+                                                       ;NB this is required for :sql and optional for :datomic-peer
+                                               (s/keys :opt [:transaction/transaction-date]))))
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
 (s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
@@ -139,6 +141,8 @@
                                     (util/->model-ref account)
                                     :account)
                                   {:include-children? true})
+          ; TODO: This query needs to be different between SQL and datomic
+          ; because of the different direction of the relationships
           criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
       (models/select criteria))
@@ -185,14 +189,14 @@
   [{:reconciliation/keys [items] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items) items)]}
   (let [prep (prepare-item)
-        existing-items (->> (fetch-items recon)
-                            itms/resolve-refs
-                            (mapv prep))
+        existing-items (mapv prep
+                             (fetch-items recon))
         ignore? (->> existing-items
                      (map :id)
                      set)
         new-items (->> items
                        (remove #(ignore? (:id %)))
+                       itms/resolve-refs
                        (mapv prep))
         all-items (concat existing-items new-items)]
     (-> recon
@@ -203,6 +207,29 @@
                   ::all-items all-items
                   ::existing-items existing-items
                   ::last-completed (find-last-completed recon))))))
+
+(defn- fetch-transaction-items
+  [{:as recon :reconciliation/keys [account]}]
+  (->> (models/select (util/model-type
+                        {:transaction-item/reconciliation recon}
+                        :transaction)
+                      {:select-also :transaction/transaction-date})
+       (filter #(util/id= account (:transaction-item/account %)))))
+
+(defn- append-transaction-items
+  [{:as recon :reconciliation/keys [items]}]
+  ; we don't want to re-lookup items if the db implementation already
+  ; keeps them with the reconciliation.
+  (if (seq items)
+    recon
+    (assoc recon
+           :reconciliation/items
+           (fetch-transaction-items recon))))
+
+(defmethod models/after-read :reconciliation
+  [recon _opts]
+  (when recon
+    (append-transaction-items recon)))
 
 (defmethod models/before-delete :reconciliation
   [{:as recon :reconciliation/keys [account end-of-period]}]

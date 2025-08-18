@@ -178,9 +178,9 @@
   ([context [budget-name account-name]]
    (let [budget (find-budget context budget-name)
          account (find-account context account-name)]
-     (find context
-           :budget-item/budget (util/->model-ref budget)
-           :budget-item/account (util/->model-ref account)))))
+     (->> (:budget/items budget)
+          (filter #(util/id= account (:budget-item/account %)))
+          first))))
 
 (defn find-price
   ([identifier] (find-price *context* identifier))
@@ -328,12 +328,13 @@
 
 (defmethod prepare :budget
   [budget ctx]
-  (update-in budget [:budget/entity] (find-entity ctx)))
+  (-> budget
+      (update-in [:budget/entity] (find-entity ctx))
+      (update-in [:budget/items] (partial map #(prepare % ctx)))))
 
 (defmethod prepare :budget-item
   [item ctx]
   (-> item
-      (update-in-if [:budget-item/budget] #(find-budget ctx %))
       (update-in-if [:budget-item/periods] vec)
       (update-in [:budget-item/account] #(find-account ctx %))))
 

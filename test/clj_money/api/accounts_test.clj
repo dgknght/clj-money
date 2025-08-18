@@ -8,7 +8,7 @@
             [clj-money.json]
             [clj-money.util :as util]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             basic-context

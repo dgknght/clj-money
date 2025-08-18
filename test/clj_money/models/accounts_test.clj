@@ -288,12 +288,29 @@
                        (models/find (:id (get-in account [:account/commodity]))
                                     :commodity))))))
 
+(def ^:private update-context
+  (conj account-context
+        #:account{:name "IRA"
+                  :entity "Personal"
+                  :type :asset
+                  :commodity "USD"}
+        #:account{:name "Stocks"
+                  :entity "Personal"
+                  :type :asset
+                  :commodity "USD"}
+        #:account{:name "Bonds"
+                  :entity "Personal"
+                  :type :asset
+                  :commodity "USD"}))
+
 (dbtest update-an-account
-  (with-context select-context
-    (assert-updated (find-account "Checking")
-                    #:account{:name "New name"
-                              :allocations {1 50M
-                                            2 50M}})))
+  (with-context update-context
+    (let [stocks (find-account "Stocks")
+          bonds (find-account "Bonds")]
+      (assert-updated (find-account "IRA")
+                      #:account{:name "New name"
+                                :allocations {(:id stocks) 50M
+                                              (:id bonds) 50M}}))))
 
 (def same-parent-context
   (conj select-context 

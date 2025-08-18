@@ -420,3 +420,7 @@
           (is (= (t/zoned-date-time 2020 1 1 12 0 0 0 (dates/zone-id "America/Chicago"))
                  (dates/at-zone (t/instant "2020-01-01T18:00:00Z")
                                 "America/Chicago")))))
+
+(deftest convert-an-instant-to-a-local-date
+  (is (= (t/local-date 2020 1 1)
+         (dates/->local-date (dates/instant "2020-01-01T00:00:00Z")))))

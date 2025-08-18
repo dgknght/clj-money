@@ -39,14 +39,19 @@
     (let [source-file (io/file (io/resource "fixtures/sample.gnucash"))
           user (find-user "john@doe.com")
           calls (atom [])
+          options {:lt-capital-gains-account "Investment Income/Long Term Gains"
+                   :st-capital-gains-account "Investment Income/Short Term Gains"}
 
           {:as response
            {:keys [entity import]} :edn-body}
-          (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
+          (with-redefs [imports-api/launch-and-track (mock-launch-and-track calls)]
             (-> (req/request :post (path :api :imports))
-                (merge (build-multipart-request {:import/entity-name "Personal"
-                                                 :import/source-file-0 {:file source-file
-                                                                        :content-type "application/gnucash"}}))
+                (merge
+                  (build-multipart-request
+                    {:entity-name "Personal"
+                     :options (pr-str options)
+                     :source-file-0 {:file source-file
+                                     :content-type "application/gnucash"}}))
                 (add-auth user)
                 (req/header "Accept" "application/edn")
                 app
@@ -57,6 +62,7 @@
                        entity)
           "The newly created entity is returned in the response")
       (is (comparable? #:import{:entity-name "Personal"
+                                :options options
                                 :user (util/->model-ref user)}
                        import)
           "The newly created import is returned in the response")
@@ -65,10 +71,10 @@
           "The new record can be retrieved from the database")
       (let [[c :as cs] @calls]
         (is (= 1 (count cs))
-            "launch-and-track-import is called once")
+            "launch-and-track is called once")
         (is (comparable? {:import/entity-name "Personal"}
                          c)
-          "The newly created import is passed to launch-and-track-import")))))
+            "The newly created import is passed to launch-and-track")))))
 
 (def ^:private list-context
   (conj create-context
@@ -170,7 +176,7 @@
   (with-context list-context
     (let [imp (find-import "Personal")
           calls (atom [])
-          response (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
+          response (with-redefs [imports-api/launch-and-track (mock-launch-and-track calls)]
                      (-> (req/request :patch (path :api :imports (:id imp)))
                          (add-auth (find-user email))
                          app
@@ -184,7 +190,7 @@
       "The response contains the relevant entity and import")
   (let [[c :as cs] @calls]
     (is (= 1 (count cs))
-        "Exactly one call is made to launch-and-track-import")
+        "Exactly one call is made to launch-and-track")
     (is (comparable? {:import/entity-name "Personal"}
                      c)
         "The specified import is started")))

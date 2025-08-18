@@ -37,19 +37,24 @@
   (conj grant-context
         #:grant{:user "jane@doe.com"
                 :entity "Business"
-                :permissions {:account #{:index :show}}}))
+                :permissions {:account #{:index :show}
+                              :commodity #{:index :update}}}))
 
 (dbtest update-a-grant
   (with-context existing-grant-context
     (let [result (-> (find-grant ["Business" "jane@doe.com"])
                      (update-in [:grant/permissions]
                                 assoc :transaction #{:index :show})
+                     (update-in [:grant/permissions :account] disj :index)
+                     (update-in [:grant/permissions] dissoc :commodity)
                      models/put)]
-      (is (comparable? #:grant{:permissions {:transaction #{:index :show}}}
-                       result)
+      (is (= {:transaction #{:index :show}
+              :account #{:show}}
+             (:grant/permissions result))
           "The returned value has the specified attributes") 
-      (is (comparable? #:grant{:permissions {:transaction #{:index :show}}}
-                       (models/find result))
+      (is (= {:transaction #{:index :show}
+              :account #{:show}}
+             (:grant/permissions (models/find result)))
           "The retrieved value has the specified attributes"))))
 
 (dbtest delete-a-grant

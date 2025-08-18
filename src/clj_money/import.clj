@@ -318,9 +318,9 @@
           (update-entity-settings result)))))
 
 (defmethod import-record* :reconciliation
-  [{:keys [account-ids] :as context} {:import/keys [account-id] :as reconciliation}]
+  [{:keys [account-ids] :as context} {:import/keys [account-id] :as recon}]
   (if-let [new-id (account-ids account-id)]
-    (let [created (-> reconciliation
+    (let [created (-> recon
                       (assoc :reconciliation/balance 0M
                              :reconciliation/status :new
                              :reconciliation/account {:id new-id})
@@ -337,8 +337,8 @@
       context
       (format "Unable to resolve account %s for reconciliation on %s"
               account-id
-              (:reconciliation/end-of-period reconciliation))
-      {:reconciliation reconciliation})))
+              (:reconciliation/end-of-period recon))
+      {:reconciliation recon})))
 
 (defn- find-reconciliation-id
   [old-account-id {:keys [account-ids account-recons account-parents]}]
@@ -533,7 +533,7 @@
   (if out-chan
     (fn [recon]
       (a/go
-        (a/>! out-chan {:import/record-type :reconciliation-finalization}))
+        (a/>! out-chan {:import/record-type :reconciliation}))
       recon)
     identity))
 

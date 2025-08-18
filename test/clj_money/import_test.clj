@@ -9,7 +9,7 @@
             [dgknght.app-lib.core :refer [safe-nth]]
             [dgknght.app-lib.test-assertions]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.images.sql]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
@@ -499,33 +499,37 @@
                                  :transaction/description]}))
               "The Investment Expenses account receives items for the fees charged on trading actions")
           (is (seq-of-maps-like?
-                [#:transaction-item{:transaction-date (t/local-date 2015 3 2)
-                                    ;:description "Transfer 100 shares of AAPL"
-                                    :index 0
-                                    :action :debit
-                                    :quantity 100M
-                                    :balance 100M
-                                    :value 1000M}
-                 #:transaction-item{:transaction-date (t/local-date 2015 4 1)
-                                    ;:description "Split shares of AAPL 2 for 1"
-                                    :index 1
-                                    :action :debit
-                                    :quantity 100M
-                                    :balance 200M
-                                    :value 0M}
-                 #:transaction-item{:transaction-date (t/local-date 2015 5 1)
-                                    ;:description "Sell 100 shares of AAPL at 6.000"
-                                    :index 2
-                                    :action :credit
-                                    :quantity 100M
-                                    :value 497.5M ; this is reflecting the original value, not the sale value...is that right?
-                                    :balance 100M}]
+                [{:transaction/transaction-date (t/local-date 2015 3 2)
+                  :transaction/description "Transfer 100.000000 shares of AAPL"
+                  :transaction-item/index 0
+                  :transaction-item/action :debit
+                  :transaction-item/quantity 100M
+                  :transaction-item/balance 100M
+                  :transaction-item/value 1000M}
+                 {:transaction/transaction-date (t/local-date 2015 4 1)
+                  :transaction/description "Split shares of AAPL 2 for 1"
+                  :transaction-item/index 1
+                  :transaction-item/action :debit
+                  :transaction-item/quantity 100M
+                  :transaction-item/balance 200M
+                  :transaction-item/value 0M}
+                 {:transaction/transaction-date (t/local-date 2015 5 1)
+                  :transaction/description "Sell 100.000 shares of AAPL at 6.000"
+                  :transaction-item/index 2
+                  :transaction-item/action :credit
+                  :transaction-item/quantity 100M
+                  :transaction-item/value 497.5M ; this is reflecting the original value, not the sale value...is that right?
+                  :transaction-item/balance 100M}]
                 (models/select
-                  #:transaction-item{:account ira-aapl
-                                     :transaction-date [:between>
-                                                        (t/local-date 2015 1 1)
-                                                        (t/local-date 2016 1 1)]}
-                  {:sort [:transaction-item/index]}))
+                  (util/model-type
+                    {:transaction-item/account ira-aapl
+                     :transaction/transaction-date [:between>
+                                                    (t/local-date 2015 1 1)
+                                                    (t/local-date 2016 1 1)]}
+                    :transaction-item)
+                  {:sort [:transaction-item/index]
+                   :select-also [:transaction/transaction-date
+                                 :transaction/description]}))
               "The IRA account receives items for the transfer, split and sale actions"))))))
 
 (def ^:private sched-context
@@ -549,22 +553,18 @@
       (is (seq-of-maps-like?
             [#:scheduled-transaction{:entity (util/->model-ref entity)
                                      :description "Paycheck"
-                                     :memo nil
                                      :start-date (t/local-date 2016 1 15)
                                      :end-date (t/local-date 2018 12 31)
                                      :enabled true
                                      :date-spec {:days #{:friday}}
-                                     :last-occurrence nil
                                      :period [2 :week]}]
             retrieved)
           "The scheduled transactions are available after import.")
       (is (seq-of-maps-like? [#:scheduled-transaction-item{:action :debit
                                                            :account (account-ref "Checking")
-                                                           :quantity 1000M
-                                                           :memo nil}
+                                                           :quantity 1000M}
                               #:scheduled-transaction-item{:action :credit
                                                            :account (account-ref "Salary")
-                                                           :quantity 1000M
-                                                           :memo nil}]
+                                                           :quantity 1000M}]
                              (:scheduled-transaction/items (first retrieved)))
           "The scheduled transaction items can be retrieved after import."))))
