@@ -37,15 +37,6 @@
 (defmulti model-keys util/model-type-dispatch)
 (defmethod model-keys :default [_] [])
 
-(def ^:private model-ref-keys
-  (->> schema/models
-       (mapcat (fn [{:keys [refs id]}]
-                 (map (fn [ref]
-                        (keyword (name id)
-                                 (name (schema/ref-id ref))))
-                      refs)))
-       set))
-
 (defn- append-qualifiers
   [[model-type :as entry]]
   (update-in entry
@@ -118,10 +109,10 @@
 (def ^:private sql-ref-keys
   (mapv #(keyword (namespace %)
                   (str (name %) "-id"))
-        model-ref-keys))
+        schema/model-ref-keys))
 
 (def ^:private model->sql-ref-map
-  (zipmap model-ref-keys sql-ref-keys))
+  (zipmap schema/model-ref-keys sql-ref-keys))
 
 (defn- extract-ref-id
   [x]
@@ -146,14 +137,14 @@
           sql-ref-keys))
 
 (def ^:private sql->model-ref-map
-  (zipmap sql-ref-keys model-ref-keys))
+  (zipmap sql-ref-keys schema/model-ref-keys))
 
 (defn- ->model-refs
   [m]
   (reduce (fn [m k]
             (update-in-if m [k] util/->model-ref))
           (rename-keys m sql->model-ref-map)
-          model-ref-keys))
+          schema/model-ref-keys))
 
 ; convert keywords to strings (or can this be done with SettableParameter?)
 ; {:account/type :asset} -> {:account/type "asset"}
