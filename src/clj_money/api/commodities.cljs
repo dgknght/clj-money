@@ -1,6 +1,7 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count get])
   (:require [clj-money.state :refer [current-entity]]
+            [clj-money.models.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn count
@@ -39,7 +40,9 @@
   (let [f (if (:id commodity)
             update
             create)]
-    (f commodity opts)))
+    (-> commodity
+        (schema/prune :commodity)
+        (f opts))))
 
 (defn delete
   [commodity & {:as opts}]

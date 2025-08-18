@@ -5,6 +5,7 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
+            [clj-money.models.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
@@ -67,7 +68,9 @@
   (let [f (if (:id sched-tran)
             update
             create)]
-    (f sched-tran opts)))
+    (-> sched-tran
+        (schema/prune :scheduled-transaction)
+        (f opts))))
 
 (defn realize
   [& args]
