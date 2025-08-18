@@ -1,5 +1,5 @@
 (ns clj-money.models.imports-test
-  (:require [clojure.test :refer [deftest is use-fixtures testing]]
+  (:require [clojure.test :refer [is testing]]
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
@@ -13,11 +13,9 @@
                                             find-user
                                             find-image
                                             find-import]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [dbtest]]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
-
-(use-fixtures :each reset-db)
 
 (def import-context
   [(factory :user {:user/email "john@doe.com"})
@@ -39,7 +37,7 @@
   [attr]
   (helpers/assert-created attr :refs [:import/user]))
 
-(deftest create-an-import
+(dbtest create-an-import
   (with-context import-context
     (assert-created (attributes))))
 
@@ -49,29 +47,29 @@
                  :entity-name "import entity"
                  :images ["sample.gnucash"]}))
 
-(deftest get-a-list-of-imports
+(dbtest get-a-list-of-imports
   (with-context existing-imports-context
     (is (seq-of-maps-like?
           [#:import{:entity-name "import entity"
                     :entity-exists? false}]
           (models/select #:import{:user (find-user "john@doe.com")})))))
 
-(deftest user-is-required
+(dbtest user-is-required
   (with-context import-context
     (assert-invalid (dissoc (attributes) :import/user)
                     {:import/user ["User is required"]})))
 
-(deftest images-is-required
+(dbtest images-is-required
   (with-context import-context
     (assert-invalid (dissoc (attributes) :import/images)
                     {:import/images ["Images is required"]}))) ; TODO: Fix this grammar
 
-(deftest entity-name-is-required
+(dbtest entity-name-is-required
   (with-context import-context
     (assert-invalid (dissoc (attributes) :import/entity-name)
                     {:import/entity-name ["Entity name is required"]})))
  
-(deftest update-an-import
+(dbtest update-an-import
   (with-context existing-imports-context
     (is (comparable? {:import/progress {:account {:total 20
                                                   :processed 0}}}
@@ -98,7 +96,7 @@
                  :entity-name "same entity"
                  :images ["sample.gnucash"]}))
 
-(deftest delete-an-import
+(dbtest delete-an-import
   (with-context delete-context
     (let [user (find-user "john@doe.com")]
       (testing "deleting an import deletes the associated files"

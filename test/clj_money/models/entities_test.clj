@@ -36,21 +36,21 @@
   (helpers/assert-created attr :refs [:entity/user]))
 
 (dbtest create-an-entity
-        (with-context entity-context
-          (testing "An entity can be created with minimal attributes"
-            (assert-created (attributes)))
-          (testing "An entity can be created with all attributes"
-            (assert-created
-              #:entity{:name "Business"
-                       :user (find-user "john@doe.com")
-                       :transaction-date-range [(t/local-date 2020 1 1)
-                                                (t/local-date 2020 12 31)]
-                       :price-date-range [(t/local-date 2020 1 1)
+  (with-context entity-context
+    (testing "An entity can be created with minimal attributes"
+      (assert-created (attributes)))
+    (testing "An entity can be created with all attributes"
+      (assert-created
+        #:entity{:name "Business"
+                 :user (find-user "john@doe.com")
+                 :transaction-date-range [(t/local-date 2020 1 1)
                                           (t/local-date 2020 12 31)]
-                       :settings #:settings{:inventory-method :fifo
-                                            :monitored-accounts #{{:id 1}
-                                                                  {:id 2}
-                                                                  {:id 3}}}}))))
+                 :price-date-range [(t/local-date 2020 1 1)
+                                    (t/local-date 2020 12 31)]
+                 :settings #:settings{:inventory-method :fifo
+                                      :monitored-accounts #{{:id 1}
+                                                            {:id 2}
+                                                            {:id 3}}}}))))
 
 (dbtest name-is-required
   (with-context entity-context
