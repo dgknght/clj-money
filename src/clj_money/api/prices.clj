@@ -3,8 +3,6 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.core :refer [update-in-if
-                                          uuid
-                                          parse-int
                                           index-by]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util :refer [model=]]
@@ -61,7 +59,7 @@
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
-  (authorize (models/find-by {:id (uuid (:id params))
+  (authorize (models/find-by {:id (:id params)
                               :price/trade-date (dates/unserialize-local-date (:trade-date params))})
              action
              authenticated))
@@ -147,9 +145,7 @@
   "Return prices for a specified list of commodities"
   [{:keys [params]}]
   (->> (:commodity-id params)
-       (map (comp (models/find :commodity)
-                  parse-int)
-            (:commodity-id params))
+       (map (models/find :commodity))
        fetch*
        models/put-many
        (map #(update-in % [:price/commodity] util/->model-ref))

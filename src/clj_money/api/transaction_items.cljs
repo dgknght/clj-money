@@ -19,9 +19,9 @@
 
 (defn- prepare-criteria
   [criteria]
-  {:pre [(:transaction-item/transaction-date criteria)]}
+  {:pre [(:transaction/transaction-date criteria)]}
   (-> criteria
-      (update-in [:transaction-item/transaction-date] serialize-date)
+      (update-in [:transaction/transaction-date] serialize-date)
       comparatives/nominalize
       (dissoc :transaction-item/account)))
 
@@ -38,10 +38,10 @@
   [{:keys [period] :as criteria}]
   (-> criteria
       (dissoc :period)
-      (update-in [:transaction-item/transaction-date 0] serialize-local-date)
-      (update-in [:transaction-item/transaction-date 1] serialize-local-date)
+      (update-in [:transaction/transaction-date 0] serialize-local-date)
+      (update-in [:transaction/transaction-date 1] serialize-local-date)
       (update-in-if [:transaction-item/account] :id)
-      (rename-keys {:transaction-item/transaction-date :transaction-date
+      (rename-keys {:transaction/transaction-date :transaction-date
                     :transaction-item/account :account-id})
       (assoc :period-type (name (second period)))
       (assoc :period-count (first period))

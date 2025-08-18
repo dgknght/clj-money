@@ -9,7 +9,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.ref]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]

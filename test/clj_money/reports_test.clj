@@ -4,7 +4,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [clj-money.reports.fixtures :as fixtures]
-            [clj-money.db.sql.ref]
+            [clj-money.db.ref]
             [clj-money.models.ref]
             [clj-money.models :as models]
             [clj-money.core]
@@ -37,7 +37,7 @@
     (is (seq-of-maps-like? fixtures/expected-balance-sheet-with-commodities
                            (reports/balance-sheet (models/find (find-entity "Personal"))
                                                   (t/local-date 2017 3 2)))
-        "THe balance sheet includes unrealized gains")))
+        "The balance sheet includes unrealized gains")))
 
 (deftest create-a-commodities-account-summary
   (with-context fixtures/commodities-account-summary-context

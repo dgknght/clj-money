@@ -1,0 +1,12 @@
+[{:db/ident :price/trade-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date on which the price was recorded"}
+ {:db/ident :price/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The value of the price"}
+ {:db/ident :price/commodity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The commodity to which the price applies"}]

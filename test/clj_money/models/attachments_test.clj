@@ -12,6 +12,7 @@
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.model-helpers :as helpers :refer [assert-deleted
+                                                         assert-updated
                                                          assert-invalid]]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -75,15 +76,8 @@
 
 (dbtest update-an-attachment
   (with-context update-context
-    (let [att (find-attachment "receipt")]
-      (is (comparable? {:attachment/caption "Updated caption"}
-                       (-> att
-                           (assoc :attachment/caption "Updated caption")
-                           models/put))
-          "The return value has the updated attributes")
-      (is (comparable? {:attachment/caption "Updated caption"}
-                       (models/find att))
-          "The retrieved valud has the updated attributes"))))
+    (assert-updated (find-attachment "receipt")
+                    {:attachment/caption "Updated caption"})))
 
 (dbtest delete-an-attachment
   (with-context update-context

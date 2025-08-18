@@ -250,9 +250,10 @@
 
 (defn- recent? []
   (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
-    (constantly false)
     (fn [{:commodity/keys [created-at]}]
-      (t/before? an-hour-ago created-at))))
+      (if created-at
+        (t/before? an-hour-ago created-at)
+        true))))
 
 (defn- match-fn
   [hide-zero-shares? search-term]

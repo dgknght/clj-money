@@ -307,8 +307,8 @@
         [:div.card-header [:strong "Import Entity"]]
         [:div.card-body
          [text-field import-data [:entity-name] {:validate [:required]}]
-         [text-field import-data [:options :lt-capital-gains-account-id] {:caption "Long-term Capital Gains Account"}]
-         [text-field import-data [:options :st-capital-gains-account-id] {:caption "Short-term Capital Gains Account"}]
+         [text-field import-data [:options :lt-capital-gains-account] {:caption "Long-term Capital Gains Account"}]
+         [text-field import-data [:options :st-capital-gains-account] {:caption "Short-term Capital Gains Account"}]
          [text-field import-data [:options :lt-capital-loss-account-id] {:caption "Long-term Capital Loss Account"}]
          [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]
          [:div#import-source.drop-zone.bg-primary.text-light
@@ -345,8 +345,8 @@
                   :class "btn-primary"
                   :on-click (fn []
                               (swap! page-state assoc
-                                     :import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
-                                                             :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
+                                     :import-data {:options {:lt-capital-gains-account "Investment Income/Long Term Gains"
+                                                             :st-capital-gains-account "Investment Income/Short Term Gains"}})
                               (set-focus "entity-name"))}
            :icon :plus
            :caption "Add"}]]

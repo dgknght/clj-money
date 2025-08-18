@@ -45,22 +45,22 @@
       :account groceries}]))
 
 (defn- assert-successful-create
-  [[res {:keys [budget account]}]]
+  [[res {:keys [account]}]]
   (let [expected #:budget-item{:account {:id (:id account)}
                                :periods [100M 101M 102M]}]
     (is (http-created? res))
-    (is (comparable? expected (:edn-body res))
+    (is (comparable? expected
+                     (:edn-body res))
         "The created budget item is returned in the response")
-    (is (seq-of-maps-like? [expected]
-                           (models/select (util/model-type {:budget budget}
-                                                           :budget-item)))
+    (is (comparable? expected
+                     (models/find (:edn-body res)))
         "The created budget item can be retrieved")))
 
 (defn- assert-not-found-create
   [[res {:keys [budget account]}]]
   (is (http-not-found? res))
   (is (empty? (models/select {:budget-item/account account
-                              :budget-item/budget budget}))
+                              :budget/_self budget}))
       "The budget item is not created"))
 
 (deftest a-user-can-add-an-item-to-a-budget-in-his-entity
@@ -76,10 +76,9 @@
         #:budget{:entity "Personal"
                  :name "2016"
                  :period [3 :month]
-                 :start-date (t/local-date 2016 1 1)}
-        #:budget-item{:budget "2016"
-                      :account "Groceries"
-                      :periods [100M 101M 102M]}))
+                 :start-date (t/local-date 2016 1 1)
+                 :items [#:budget-item{:account "Groceries"
+                                       :periods [100M 101M 102M]}]}))
 
 (defn- update-budget-item
   [user-email]
@@ -141,10 +140,10 @@
   (is (models/find budget-item)
       "The budget item can be retrieved after attempted delete"))
 
-(deftest a-user-can-delete-an-item-to-a-budget-in-his-entity
+(deftest a-user-can-delete-an-item-from-a-budget-in-his-entity
   (with-context update-ctx
     (assert-successful-delete (delete-budget-item "john@doe.com"))))
 
-(deftest a-user-cannot-delete-an-item-to-a-budget-in-anothers-entity
+(deftest a-user-cannot-delete-an-item-from-a-budget-in-anothers-entity
   (with-context update-ctx
     (assert-not-found-delete (delete-budget-item "jane@doe.com"))))
