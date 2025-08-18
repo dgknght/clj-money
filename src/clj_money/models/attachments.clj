@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [clojure.tools.logging :as log]
             [dgknght.app-lib.core :refer [fmin]]
             [clj-money.util :as util]
             [clj-money.models :as models]
@@ -43,15 +44,17 @@
     (conj (adjust-trx before (fmin dec 0)))))
 
 (defn propagate-all
-  ([opts]
-   (doseq [e (models/select (util/model-type {} :entity))]
-     (propagate-all e opts)))
-  ([entity _opts]
-   (some->> (models/select
-              (util/model-type {:transaction/entity entity}
-                               :attachment))
-            seq
-            (map #(adjust-trx % inc))
-            (models/put-many))))
+  [entity _opts]
+  (log/debugf "[propagation] start entity %s"
+              (:entity/name entity))
+  (let [updated (some->> (models/select
+                           (util/model-type {:transaction/entity entity}
+                                            :attachment))
+                         seq
+                         (map #(adjust-trx % inc))
+                         (models/put-many))]
+    (log/infof "[propagation] finish entity %s"
+               (:entity/name entity))
+    updated))
 
 (prop/add-full-propagation propagate-all)
