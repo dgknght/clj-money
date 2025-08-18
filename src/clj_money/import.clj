@@ -318,9 +318,9 @@
           (update-entity-settings result)))))
 
 (defmethod import-record* :reconciliation
-  [{:keys [account-ids] :as context} {:import/keys [account-id] :as reconciliation}]
+  [{:keys [account-ids] :as context} {:import/keys [account-id] :as recon}]
   (if-let [new-id (account-ids account-id)]
-    (let [created (-> reconciliation
+    (let [created (-> recon
                       (assoc :reconciliation/balance 0M
                              :reconciliation/status :new
                              :reconciliation/account {:id new-id})
@@ -337,8 +337,8 @@
       context
       (format "Unable to resolve account %s for reconciliation on %s"
               account-id
-              (:reconciliation/end-of-period reconciliation))
-      {:reconciliation reconciliation})))
+              (:reconciliation/end-of-period recon))
+      {:reconciliation recon})))
 
 (defn- find-reconciliation-id
   [old-account-id {:keys [account-ids account-recons account-parents]}]
@@ -533,7 +533,7 @@
   (if out-chan
     (fn [recon]
       (a/go
-        (a/>! out-chan {:import/record-type :reconciliation-finalization}))
+        (a/>! out-chan {:import/record-type :reconciliation}))
       recon)
     identity))
 
@@ -646,6 +646,8 @@
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
         wait-chan (a/promise-chan)]
+    (log/infof "[import] Import process starting for \"%s\"."
+               (:import/entity-name import-spec))
     (a/go
       (try
         (let [result (->> images
@@ -670,9 +672,13 @@
                              :entity entity})
                           a/<!!)]
           (when-not (::abend? result)
+            (log/debugf "[import] data imported, start propagation for %s"
+                        (:import/entity-name import-spec))
             (-> entity
                 models/find
-                (prop/propagate-all :progress-chan out-chan))
+                (prop/propagate-all {:progress-chan out-chan}))
+            (log/debugf "[import] start reconciliations for %s"
+                        (:import/entity-name import-spec))
             (a/alts!! [(process-reconciliations result
                                                 out-chan)
                        (a/timeout 5000)]))
@@ -681,6 +687,8 @@
               (a/>! out-chan {:import/record-type :termination-signal})))
           (a/>! wait-chan (select-keys result [:notifications :entity])))
         (finally
+          (log/infof "[import] Import process has ended for \"%s\"."
+                     (:import/entity-name import-spec))
           (a/close! wait-chan))))
     {:entity entity
      :wait-chan wait-chan}))

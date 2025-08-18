@@ -9,6 +9,7 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
+            [clj-money.decimal :as d]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]))
 
@@ -74,13 +75,20 @@
                        {:sort [[:price/trade-date :desc]]})))))
 
 (defn- apply-to-account
-  [{:price/keys [value]}]
-  (fn [{:as account :account/keys [quantity]}]
-    (assoc account :account/value (* quantity value))))
+  [{:price/keys [value trade-date]} {:keys [force]}]
+  (fn [{:as account :account/keys [quantity price-as-of]}]
+    (cond-> account
+      (or (nil? price-as-of)
+          force
+          (t/before? price-as-of trade-date))
+      (assoc
+        :account/commodity-price value
+        :account/price-as-of trade-date
+        :account/value (d/* quantity value)))))
 
 (defn- apply-to-accounts
-  [{:as price :price/keys [commodity]}]
-  (map (apply-to-account price)
+  [{:as price :price/keys [commodity]} & {:as opts}]
+  (map (apply-to-account price opts)
        (models/select {:account/commodity commodity})))
 
 (defn- push-entity-bounds
@@ -143,7 +151,7 @@
                    (if new-end
                      [start (:price/trade-date new-end)]
                      nil))
-            (apply-to-accounts new-end)))))
+            (apply-to-accounts new-end :force true)))))
 
 (defmethod prop/propagate :price
   [[before after]]
@@ -171,25 +179,37 @@
   [entity {:keys [date-range]}]
   (apply dates/push-model-boundary entity :entity/price-date-range date-range))
 
-(defn apply-agg-to-commodities
+(defn apply-agg-to-commodities-and-accounts
   [agg]
   (mapcat (fn [[commodity {:keys [current date-range]}]]
-            (cons (-> (models/find commodity :commodity)
-                      (assoc :commodity/price-date-range date-range))
-                  (apply-to-accounts current)))
+            (-> (models/find commodity :commodity)
+                (assoc :commodity/price-date-range date-range)
+                (cons (apply-to-accounts current))))
           (:commodities agg)))
 
+(defn- fetch-prices
+  [entity]
+  (models/select
+    (util/model-type {:commodity/entity entity}
+                     :price)))
+
 (defn propagate-all
-  ([opts]
-   (doseq [e (models/select (util/model-type {} :entity))]
-     (propagate-all e opts)))
-  ([entity _opts]
-   (when-let [prices (seq
-                       (models/select
-                         (util/model-type {:commodity/entity entity}
-                                          :price)))]
-     (let [agg (aggregate prices)]
-       (models/put-many (cons (apply-agg-to-entity entity agg)
-                              (apply-agg-to-commodities agg)))))))
+  [entity _opts]
+
+  (log/debugf "[propagation] start entity %s" (:entity/name entity))
+
+  (let [result (or (when-let [prices (seq (fetch-prices entity))]
+                     (let [agg (aggregate prices)]
+                       (-> entity
+                           (apply-agg-to-entity agg)
+                           (cons (apply-agg-to-commodities-and-accounts agg))
+                           models/put-many
+                           first)))
+                   entity)]
+
+    (log/infof "[propagation] finish entity %s"
+               (:entity/name result))
+
+    result))
 
 (prop/add-full-propagation propagate-all :priority 1)

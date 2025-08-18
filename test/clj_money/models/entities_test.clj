@@ -48,7 +48,9 @@
                  :price-date-range [(t/local-date 2020 1 1)
                                     (t/local-date 2020 12 31)]
                  :settings #:settings{:inventory-method :fifo
-                                      :monitored-account-ids #{1 2 3}}}))))
+                                      :monitored-accounts #{{:id 1}
+                                                            {:id 2}
+                                                            {:id 3}}}}))))
 
 (dbtest name-is-required
   (with-context entity-context
@@ -79,7 +81,8 @@
   (with-context list-context
     (assert-updated (find-entity "Personal")
                     #:entity{:name "Entity Y"
-                             :settings {:settings/monitored-account-ids #{1 2}}})))
+                             :settings {:settings/monitored-accounts #{{:id 1}
+                                                                       {:id 2}}}})))
 
 (dbtest delete-an-entity
   (with-context list-context

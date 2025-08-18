@@ -660,8 +660,8 @@
 (defn unsell
   [trx & {:as opts}]
   (let [lot-items (models/select
-                    #:lot-item{:transaction trx
-                               :transaction-date (:transaction/transaction-date trx)})
+                    (util/model-type {:transaction/_self trx}
+                                     :lot-item))
         lots (index-by :id
                        (models/select (util/model-type
                                         {:id [:in (map (comp :id :lot-item/lot)
@@ -824,10 +824,9 @@
       (update-in [:lot-item/shares] #(* % ratio))))
 
 (defn- fetch-and-adjust-lot-items
-  [lot ratio date]
+  [lot ratio]
   (mapv #(apply-ratio-to-lot-item % ratio)
-        (models/select #:lot-item{:lot lot
-                                  :transaction-date [:<= date]})))
+        (models/select #:lot-item{:lot lot})))
 
 (defn- apply-ratio-to-lot
   [lot ratio]
@@ -837,18 +836,18 @@
       (update-in [:lot/purchase-price] #(with-precision 4 (/ % ratio)))))
 
 (defn- adjust-lot-and-lot-items
-  [ratio lots date]
+  [ratio lots]
   (reduce (fn [acc lot]
             (-> acc
                 (update-in [:lots] conj (apply-ratio-to-lot lot ratio))
-                (update-in [:lot-items] concat (fetch-and-adjust-lot-items lot ratio date))))
+                (update-in [:lot-items] concat (fetch-and-adjust-lot-items lot ratio))))
           {:lots []
            :lot-items []}
           lots))
 
 (defn- adjust-split-lots
-  [{:split/keys [lots ratio date] :as split}]
-  (let [{:keys [lots lot-items]} (adjust-lot-and-lot-items ratio lots date)]
+  [{:split/keys [lots ratio] :as split}]
+  (let [{:keys [lots lot-items]} (adjust-lot-and-lot-items ratio lots)]
     (assoc split
            :split/lots lots
            :split/lot-items lot-items)))

@@ -64,7 +64,7 @@
 
 (defn- save-reconciliation*
   [page-state]
-  #_(+busy)
+  (+busy)
   (let [{:keys [reconciliation items]} @page-state]
     (-> reconciliation
         (apply-selections items)
