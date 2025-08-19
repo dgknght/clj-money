@@ -80,14 +80,14 @@
                                            :quantity 1000M}
                         #:transaction-item{:account (find-account "Salary")
                                            :action :credit
-                                           :quantity 1000M
-                                           :memo nil}]})
+                                           :quantity 1000M}]})
 
 (defn- assert-created
   [attr]
   (helpers/assert-created attr
                           :refs [:transaction/entity :transaction-item/account]
-                          :compare-result? false))
+                          :compare-result? false
+                          :ignore-nils? true))
 
 (dbtest create-a-transaction
   (with-context base-context
@@ -353,14 +353,16 @@
 
 (dbtest get-a-transaction
   (with-context update-context
-    (let [trx (find-transaction [(t/local-date 2016 3 2) "Paycheck"])]
-      (testing "items are not included if not specified"
-        (let [retrieved (models/find-by (select-keys trx [:id :transaction/transaction-date]))]
-          (is retrieved "a value is returned")
-          (is (= 1000M (:transaction/value retrieved))
-              "The transaction value can be retrieved")
-          (is (= 2 (count (:transaction/items retrieved)))
-              "The transaction items are included"))))))
+    (let [retrieved (models/find-by
+                      {:transaction/transaction-date (t/local-date 2016 3 2)
+                       :transaction/description "Paycheck"})]
+      (is (comparable? {:transaction/value 1000M
+                        :transaction/description "Paycheck"
+                        :transaction/transaction-date (t/local-date 2016 3 2)}
+                       retrieved)
+          "The transaction can be retrieved")
+      (is (= 2 (count (:transaction/items retrieved)))
+          "The transaction items are included"))))
 
 (def search-context
   (conj base-context
@@ -406,13 +408,14 @@
 
 (dbtest search-by-date-vector
   (with-context search-context
-    (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2017 6 1)}
-                            #:transaction{:transaction-date (t/local-date 2017 6 15)}]
-                           (models/select #:transaction{:transaction-date [:between
-                                                                           (t/local-date 2017 6 1)
-                                                                           (t/local-date 2017 6 30)]
-                                                        :entity (find-entity "Personal")}))
-        "The transactions from the specified day are returned")))
+    (is (seq-of-maps-like?
+          [#:transaction{:transaction-date (t/local-date 2017 6 1)}
+           #:transaction{:transaction-date (t/local-date 2017 6 15)}]
+          (models/select #:transaction{:transaction-date [:between
+                                                          (t/local-date 2017 6 1)
+                                                          (t/local-date 2017 6 30)]
+                                       :entity (find-entity "Personal")}))
+        "The transactions from the specified date range are returned")))
 
 (defn- update-items
   [items change-map]
@@ -458,28 +461,28 @@
           result (-> trx
                        (assoc :transaction/transaction-date (t/local-date 2016 3 10))
                        prop/put-and-propagate)]
-      (is (seq-of-maps-like? [#:transaction-item{:index 2
-                                                 :transaction-date (t/local-date 2016 3 12)
-                                                 :quantity 101M
-                                                 :balance 797M}
-                              #:transaction-item{:index 1
-                                                 :transaction-date (t/local-date 2016 3 10)
-                                                 :quantity 102M
-                                                 :balance 898M}
-                              #:transaction-item{:index 0
-                                                 :transaction-date (t/local-date 2016 3 2)
-                                                 :quantity 1000M
-                                                 :balance 1000M}]
+      (is (seq-of-maps-like? [{:transaction-item/index 2
+                               :transaction/transaction-date (t/local-date 2016 3 12)
+                               :transaction-item/quantity 101M
+                               :transaction-item/balance 797M}
+                              {:transaction-item/index 1
+                               :transaction/transaction-date (t/local-date 2016 3 10)
+                               :transaction-item/quantity 102M
+                               :transaction-item/balance 898M}
+                              {:transaction-item/index 0
+                               :transaction/transaction-date (t/local-date 2016 3 2)
+                               :transaction-item/quantity 1000M
+                               :transaction-item/balance 1000M}]
                              (items-by-account checking))
           "The checking account items are updated")
-      (is (seq-of-maps-like? [#:transaction-item{:index 1
-                                                 :transaction-date (t/local-date 2016 3 12)
-                                                 :quantity 101M
-                                                 :balance 203M}
-                              #:transaction-item{:index 0
-                                                 :transaction-date (t/local-date 2016 3 10)
-                                                 :quantity 102M
-                                                 :balance 102M}]
+      (is (seq-of-maps-like? [{:transaction-item/index 1
+                               :transaction/transaction-date (t/local-date 2016 3 12)
+                               :transaction-item/quantity 101M
+                               :transaction-item/balance 203M}
+                              {:transaction-item/index 0
+                               :transaction/transaction-date (t/local-date 2016 3 10)
+                               :transaction-item/quantity 102M
+                               :transaction-item/balance 102M}]
                              (items-by-account groceries))
           "The groceries account items are updated")
       (assert-account-quantities checking 797M groceries 203M)
@@ -493,30 +496,30 @@
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
           result (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
-                       (assoc :transaction/transaction-date (t/local-date 2016 4 12))
-                       prop/put-and-propagate)]
-      (is (seq-of-maps-like? [#:transaction-item{:index 2
-                                                 :transaction-date (t/local-date 2016 4 12)
-                                                 :quantity 101M
-                                                 :balance 797M}
-                              #:transaction-item{:index 1
-                                                 :transaction-date (t/local-date 2016 3 22)
-                                                 :quantity 102M
-                                                 :balance 898M}
-                              #:transaction-item{:index 0
-                                                 :transaction-date (t/local-date 2016 3 2)
-                                                 :quantity 1000M
-                                                 :balance 1000M}]
+                     (assoc :transaction/transaction-date (t/local-date 2016 4 12))
+                     prop/put-and-propagate)]
+      (is (seq-of-maps-like? [{:transaction-item/index 2
+                               :transaction-item/quantity 101M
+                               :transaction-item/balance 797M
+                               :transaction/transaction-date (t/local-date 2016 4 12)}
+                              {:transaction-item/index 1
+                               :transaction-item/quantity 102M
+                               :transaction-item/balance 898M
+                               :transaction/transaction-date (t/local-date 2016 3 22)}
+                              {:transaction-item/index 0
+                               :transaction-item/quantity 1000M
+                               :transaction-item/balance 1000M
+                               :transaction/transaction-date (t/local-date 2016 3 2)}]
                              (items-by-account checking))
           "The checking account items reflect the change in transaction date")
-      (is (seq-of-maps-like? [#:transaction-item{:index 1
-                                                 :transaction-date (t/local-date 2016 4 12)
-                                                 :quantity 101M
-                                                 :balance 203M}
-                              #:transaction-item{:index 0
-                                                 :transaction-date (t/local-date 2016 3 22)
-                                                 :quantity 102M
-                                                 :balance 102M}]
+      (is (seq-of-maps-like? [{:transaction-item/index 1
+                               :transaction-item/quantity 101M
+                               :transaction-item/balance 203M
+                               :transaction/transaction-date (t/local-date 2016 4 12) }
+                              {:transaction-item/index 0
+                               :transaction-item/quantity 102M
+                               :transaction-item/balance 102M
+                               :transaction/transaction-date (t/local-date 2016 3 22)}]
                              (items-by-account groceries))
           "The groceries account items reflect the change in transaction date")
       (assert-account-quantities checking 797M groceries 203M)
@@ -566,7 +569,7 @@
 ; 2016-03-30     104  Groceries Checking
 
 ; TODO: Consider mocking Storage instead of put*
-(dbtest update-a-transaction-short-circuit-updates
+(dbtest update-a-transaction-short-circuit-updates {:only :sql}
   (with-context short-circuit-context
     (let [calls (atom [])
           orig-put sql/put*]
@@ -738,7 +741,7 @@
         #:account{:name "Pets"
                   :entity "Personal"
                   :type :expense
-                  :commodity-id "USD"}
+                  :commodity "USD"}
         #:transaction{:transaction-date (t/local-date 2016 3 2)
                       :entity "Personal"
                       :description "Paycheck"
@@ -957,7 +960,7 @@
                          :balance 1000M
                          :status :completed
                          :items [[(t/local-date 2017 1 1)
-                                      1000M]]}))
+                                  1000M]]}))
 
 (dbtest the-quantity-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context

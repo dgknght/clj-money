@@ -2,9 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [update-in-if
-                                          parse-int
-                                          uuid]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.authorization
              :as auth
              :refer [+scope
@@ -51,7 +49,7 @@
   (-> params
       translate-sort
       (select-keys [:limit :sort])
-      (update-in-if [:limit] parse-int)))
+      (update-in-if [:limit] parse-long)))
 
 (defn- index
   [req]
@@ -81,7 +79,6 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (update-in [:id] uuid)
           (+scope :reconciliation authenticated)
           models/find-by
           (authorize action authenticated)))

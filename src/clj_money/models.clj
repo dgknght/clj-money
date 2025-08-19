@@ -6,6 +6,7 @@
             [clojure.core :as c]
             [clojure.data :refer [diff]]
             [clojure.walk :refer [postwalk]]
+            [clojure.tools.logging :as log]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.json] ; to ensure encoders are registered
@@ -50,6 +51,9 @@
   [model]
   (let [validated (v/validate model (validation-key model))]
     (when (seq (::v/errors validated))
+      (log/debugf "[validation] Invalid model %s: %s"
+                  model
+                  (::v/errors validated))
       (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
   model)
 
@@ -78,7 +82,7 @@
 
 (defn count
   [criteria]
-  (:record-count (db/select (db/storage) criteria {:count true})))
+  (db/select (db/storage) criteria {:count true}))
 
 (defn find-by
   ([criteria] (find-by criteria {}))
@@ -105,10 +109,16 @@
        (assert (util/model-type arg) "The argument must have a model type")
        (find (:id arg)
              (keyword (util/model-type arg)))))) ; TODO: can we remove the call to keyword?
-  ([id-or-ref model-type]
-   {:pre [id-or-ref (keyword? model-type)]}
-   (find-by (util/model-type (util/->model-ref id-or-ref)
-                             model-type))))
+  ([id-or-ref model-type-or-opts]
+   (let [[model-type opts] (if (keyword? model-type-or-opts)
+                             [model-type-or-opts {}]
+                             [(or (:model-type model-type-or-opts)
+                                  (util/model-type id-or-ref))
+                              model-type-or-opts])]
+     (find-by (util/model-type
+                (util/->model-ref id-or-ref)
+                model-type)
+              opts))))
 
 (def ^:private mergeable?
   (every-pred map? :id))
@@ -249,9 +259,9 @@
                                    before-save
                                    validate
                                    before-validation))))
-         {:keys [saved]} (db/put (or storage
-                                     (db/storage))
-                                 to-save)
+         saved (db/put (or storage
+                           (db/storage))
+                       to-save)
          result (map (comp append-before
                            after-save
                            #(after-read % {}))

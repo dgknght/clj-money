@@ -37,8 +37,6 @@
       (is (is-entity? {:entity/name "Personal"}))
       (is (not (is-entity? {:account/name "Checking"}))))))
 
-
-
 (deftest extract-a-qualifier
   (is (= "user" (util/qualifier {:user/name "John"}))
       "A single qualifier is taken directly")
@@ -234,9 +232,14 @@
     (is (util/blank? '())
         "An empty vector is blank")
     (is (util/present? '("A"))
-        "An vector with a non-blank value is present")
+        "A vector with a non-blank value is present")
     (is (not (util/blank? '("A")))
-        "An vector with a non-blank value is not blank")))
+        "A vector with a non-blank value is not blank"))
+  (testing "maps"
+    (is (util/present? {:one 1})
+        "A map with at least one key is present")
+    (is (not (util/present? {}))
+        "A map with no keys is not present")))
 
 (deftest use-a-present-value-or-default
   (is (= "A" (util/presence-or "" "A"))
@@ -318,3 +321,102 @@
                         (dates/local-date "2020-05-01")]
                        :compare t/before?))
       "Integers can be processed"))
+
+(deftest remove-nils-from-a-model
+  (testing "one level"
+    (is (= {:present :here}
+           (util/remove-nils {:present :here
+                              :absent nil}))))
+  (testing "collection attribute"
+    (is (= {:present :here
+            :others [{:one 1}
+                     {:two 2}]}
+           (util/remove-nils {:present :here
+                              :others [{:one 1
+                                        :two nil}
+                                       {:one nil
+                                        :two 2}]})))))
+
+(deftest locate-nils-in-a-model
+  (is (= [[:absent]]
+         (util/locate-nils {:present :here
+                            :absent nil})))
+  (is (= [[:others 0 :two]
+          [:others 1 :one]]
+         (util/locate-nils {:present :here
+                            :others [{:one 1
+                                      :two nil}
+                                     {:one nil
+                                      :two 2}]}))))
+
+(deftest ensure-a-model-has-an-id
+  (is (= {:id 1} (util/+id {} (constantly 1)))
+      "An :id attribute is added if none is present")
+  (is (= {:id 2} (util/+id {:id 2} (constantly 1)))
+      "An :id attribute is left as-is if it is already present"))
+
+(deftest rename-keys-nested-in-a-data-structure
+  (is (= [{:db/id 1
+           :user/name "John"}
+          {:db/id 2
+           :user/name "Jane"}]
+         (util/deep-rename-keys
+           [{:id 1
+             :user/name "John"}
+            {:id 2
+             :user/name "Jane"}]
+           {:id :db/id}))))
+
+(deftest apply-sort-rule
+  (let [d1 (t/local-date 2001 1 1)
+        d2 (t/local-date 2002 1 1)
+        d3 (t/local-date 2004 1 1)
+        items [{:v 2 :d d1 :s "carrot"}
+               {:v 1 :d d3 :s "banana"}
+               {:v 3 :d d2 :s "apple"}]]
+    (testing "Ascending sort on one string field, implicit direction"
+      (is (= [{:s "apple"}
+              {:s "banana"}
+              {:s "carrot"}]
+             (map #(select-keys % [:s])
+                  (util/apply-sort {:order-by [:s]}
+                                  items)))))
+    (testing "Ascending sort on one integer field, implicit direction"
+      (is (= items
+             (util/apply-sort {} items))))
+    (testing "Ascending sort on one integer field, implicit direction"
+      (is (= [{:v 1}
+              {:v 2}
+              {:v 3}]
+             (map #(select-keys % [:v])
+                  (util/apply-sort {:order-by [:v]}
+                                  items)))))
+    (testing "Ascending sort on one date field, implicit direction"
+      (is (= [{:d d1}
+              {:d d2}
+              {:d d3}]
+             (map #(select-keys % [:d])
+                  (util/apply-sort {:order-by [:d]}
+                                  items)))))
+    (testing "Ascending sort on one integer field, explicit direction"
+      (is (= [{:v 1}
+              {:v 2}
+              {:v 3}]
+             (map #(select-keys % [:v])
+                  (util/apply-sort {:order-by [[:v :asc]]}
+                                  items)))))
+    (testing "Descending sort on one integer field"
+      (is (= [{:v 3}
+              {:v 2}
+              {:v 1}]
+             (map #(select-keys % [:v])
+                  (util/apply-sort {:order-by [[:v :desc]]}
+                                  items)))))
+    (testing "Multi-field sort"
+      (is (= [{:v 1 :d d3}
+              {:v 2 :d d1}
+              {:v 2 :d d2}
+              {:v 3 :d d2}]
+             (map #(select-keys % [:v :d])
+                  (util/apply-sort {:order-by [:v :d]}
+                                  (conj items {:v 2 :d d2}))))))))

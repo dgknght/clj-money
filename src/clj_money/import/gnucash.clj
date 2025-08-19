@@ -535,19 +535,20 @@
 
 (defmethod ^:private process-record :commodity
   [{:keys [id name quote_source] :as record} _]
-  (let [space (-> record :space s/lower-case keyword)
-        exchange (#{:nasdaq :nyse :amex} space)
-        type (if (or (#{:crypto} space) ; TODO This is a custom namespace I created. we probably need to be able to map this in the UI
-                     (#{"currency"} quote_source))
-               :currency
-               (or (#{:fund :currency} space)
-                   :stock))]
-    (cond-> {:import/record-type :commodity
-             :import/ignore? (= :template space)
-             :commodity/name (or name id)
-             :commodity/symbol id
-             :commodity/type type}
-      exchange (assoc :commodity/exchange exchange))))
+  (when-not (= "template" (:space record))
+    (let [space (-> record :space s/lower-case keyword)
+          exchange (#{:nasdaq :nyse :amex} space)
+          type (if (or (#{:crypto} space) ; TODO This is a custom namespace I created. we probably need to be able to map this in the UI
+                       (#{"currency"} quote_source))
+                 :currency
+                 (or (#{:fund :currency} space)
+                     :stock))]
+      (cond-> {:import/record-type :commodity
+               :import/ignore? false
+               :commodity/name (or name id)
+               :commodity/symbol id
+               :commodity/type type}
+        exchange (assoc :commodity/exchange exchange)))))
 
 (defmethod ^:private process-record :price
   [price state]

@@ -26,6 +26,6 @@
 
 (defmethod sql/deconstruct :reconciliation
   [{:as recon :keys [id] :reconciliation/keys [items]}]
-  (concat [(dissoc recon :reconciliation/items)]
-          (map #(assoc % :transaction-item/reconciliation {:id id})
-               items)))
+  (cons (dissoc recon :reconciliation/items)
+        (mapv #(assoc % :transaction-item/reconciliation {:id id})
+              items)))

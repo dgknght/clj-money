@@ -5,6 +5,7 @@
             [clojure.set :refer [rename-keys map-invert]]
             [clojure.spec.alpha :as s]
             [camel-snake-kebab.core :refer [->snake_case_keyword
+                                            ->snake_case_string
                                             ->snake_case
                                             ->kebab-case]]
             [next.jdbc :as jdbc]
@@ -290,7 +291,10 @@
                         (seq id-map) (resolve-temp-ids id-map)
                         (temp-id? m) (dissoc :id))
           saved (put-one ds [operator id-resolved])]
-      (cond-> (update-in result [:saved] conj (assoc id-resolved :id saved))
+      (cond-> result
+        (not= ::db/delete operator)
+        (update-in [:saved] conj (assoc id-resolved :id saved))
+
         (temp-id? m)
         (assoc-in [:id-map (:id m)]
                   saved)))))
@@ -301,7 +305,7 @@
 (s/def ::model (s/and (s/keys :req-un [::id])
                       util/model-type))
 (s/def ::puttable (s/or :map ::model
-                       :operation (s/tuple ::db/operation ::model)))
+                        :operation (s/tuple ::db/operation ::model)))
 (s/def ::puttables (s/coll-of ::puttable))
 
 ; This is only exposed publicly to support tests that enforce
@@ -320,10 +324,10 @@
                       (reduce (execute-and-aggregate tx)
                               {:saved []
                                :id-map {}})))]
-    (update-in result [:saved] #(->> %
-                                     (map (comp after-read
-                                                ->model-refs))
-                                     (reconstruct)))))
+    (->> (:saved result)
+         (map (comp after-read
+                    ->model-refs))
+         (reconstruct))))
 
 (defn- id-key
   [x]
@@ -359,21 +363,34 @@
 (def ^:private recursions
   {:account [:parent_id :id]}) ; This is a bit of a kludge, as :parent-id should be translated to snake case, but it's not
 
+; TODO: I think we can manage without doing this directly
+; next-jdbc and honeysql both have mechanisms for handling this, I'm pretty sure.
+; we just need to set them correctly
+(defn- ->snake-case
+  [k]
+  (keyword (->snake_case_string (namespace k))
+           (->snake_case_string (name k))))
+
 (defn- select*
   [ds criteria {:as options
                 :keys [include-children?
-                       include-parents?]}]
+                       include-parents?
+                       nil-replacements]}]
   (let [model-type (util/model-type criteria)
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
-                  (criteria->query (cond-> (assoc options
-                                                  :quoted? true
-                                                  :column-fn ->snake_case
-                                                  :table-fn ->snake_case
-                                                  :target model-type)
-                                     include-children? (assoc :recursion (recursions model-type))
-                                     include-parents? (assoc :recursion (reverse (recursions model-type))))))]
+                  (criteria->query
+                    (cond-> (assoc options
+                                   :quoted? true
+                                   :column-fn ->snake_case
+                                   :table-fn ->snake_case
+                                   :target model-type)
+                      nil-replacements (assoc :nil-replacements
+                                              (update-keys nil-replacements
+                                                           ->snake-case))
+                      include-children? (assoc :recursion (recursions model-type))
+                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
 
     (log/debugf "database select %s with options %s -> %s"
                 (models/scrub-sensitive-data criteria)
@@ -381,9 +398,10 @@
                 (scrub-values criteria query))
 
     (if (:count options)
-      (jdbc/execute-one! ds
-                         query
-                         sql-opts)
+      (:record-count
+        (jdbc/execute-one! ds
+                           query
+                           sql-opts))
       (->> (jdbc/execute! ds
                           query
                           sql-opts)

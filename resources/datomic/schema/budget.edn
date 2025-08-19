@@ -1,0 +1,27 @@
+[{:db/ident :budget/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity to which the budget belongs"}
+ {:db/ident :budget/name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The name of the budget"}
+ {:db/ident :budget/start-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date on which the budget starts"}
+ {:db/ident :budget/period
+  :db/valueType :db.type/tuple
+  :db/tupleTypes [:db.type/long :db.type/keyword]
+  :db/cardinality :db.cardinality/one
+  :db/doc "The duration of the budget, like [12 :month]"}
+ {:db/ident :budget/end-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The date on which the budget ends"}
+ {:db/ident :budget/items
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/isComponent true
+  :db/doc "The items that comprise the budget"}]

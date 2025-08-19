@@ -4,7 +4,6 @@
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
             [dgknght.app-lib.core :refer [update-in-if
-                                          parse-int
                                           parse-bool
                                           uuid
                                           index-by]]
@@ -25,10 +24,11 @@
     (update-in criteria
                [:transaction-item/account]
                (fn [id]
-                 [:in (mapv :id (models/select
-                                  (util/model-type {:id id} :account)
-                                  {:include-children? true
-                                   :select :account/id}))]))
+                 [:in (map :id (models/select
+                                 (util/model-type {:id id}
+                                                  :account)
+                                 {:include-children? true
+                                  :select [:id]}))]))
 
     criteria))
 
@@ -93,15 +93,15 @@
 (defn- extract-options
   [{:keys [params]}]
   (-> params
-      #_(update-in-if [:limit] parse-int)
-      (update-in-if [:skip] parse-int)
+      (update-in-if [:limit] parse-long)
+      (update-in-if [:skip] parse-long)
       (select-keys [#_:limit :skip])))
 
 ; TODO: fix the join problem with the query and move the limit back to the SQL query
 (defn- apply-limit
   [{{:keys [limit]} :params} items]
   (if limit
-    (take (parse-int limit) items)
+    (take (parse-long limit) items)
     items))
 
 (defn- polarize-quantities
@@ -135,7 +135,9 @@
                                  :sort [[:transaction/transaction-date :desc]
                                         [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
-                                               :transaction/attachment-count])))
+                                               :transaction/transaction-date
+                                               :transaction/attachment-count]
+                                 :nil-replacements {:transaction/attachment-count 0})))
        (filter-reconciled req)
        (apply-limit req)
        polarize-quantities
@@ -176,7 +178,7 @@
 (defn- extract-summary-options
   [{{:keys [period-type period-count] :as params} :params}]
   {:pre [(s/valid? ::raw-summary-options params)]}
-  {:period [(parse-int period-count)
+  {:period [(parse-long period-count)
             (keyword period-type)]})
 
 (defn- summarize
@@ -185,7 +187,8 @@
          :as criteria} (extract-summary-criteria req)]
     (->> (models/select (+scope criteria
                                 :transaction-item
-                                authenticated))
+                                authenticated)
+                        {:select-also [:transaction/transaction-date]})
          polarize-quantities
          (summarize-items (assoc (extract-summary-options req)
                                  :since since

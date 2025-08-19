@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
             [clj-money.db.ref]
             [clj-money.models :as models]
             [clj-money.models.ref]
@@ -125,23 +126,21 @@
         #:budget{:entity "Personal"
                  :name "2015"
                  :start-date (t/local-date 2015 1 1)
-                 :period [3 :month]}
-        #:budget-item{:budget "2015"
-                      :account "Food"
-                      :periods (repeat 3 100M)}
-        #:budget-item{:budget "2015"
-                      :account "Non-food"
-                      :periods (repeat 3 50M)}))
+                 :period [3 :month]
+                 :items [#:budget-item{:account "Food"
+                                       :periods (repeat 3 100M)}
+                         #:budget-item{:account "Non-food"
+                                       :periods (repeat 3 50M)}]}))
 
 (dbtest get-items-by-account
   (with-context get-items-context
-    (let [budget (models/find-by {:budget/name "2015"}
-                                 {:include #{:budget/items}})]
+    (let [items (models/select (util/model-type {:budget/name "2015"}
+                                                :budget-item))]
       (testing "a leaf account"
         (let [account (find-account "Food")
               expected [[100M 100M 100M]]
               actual (map :budget-item/periods (budgets/find-items-by-account
-                                                 budget
+                                                 items
                                                  account))]
           (is (seq-of-maps-like? expected actual) "The correct period values are returned")))
       (testing "a parent account"
@@ -149,6 +148,6 @@
               expected [[100M 100M 100M]
                         [50M 50M 50M]]
               actual (map :budget-item/periods (budgets/find-items-by-account
-                                                 budget
+                                                 items
                                                  account))]
           (is (= expected actual) "The correct period values are returned"))))))
