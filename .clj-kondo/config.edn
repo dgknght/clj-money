@@ -54,6 +54,7 @@
                                          (clj-money.models.transactions/with-delayed-propagation)
                                          (clj-money.models.propagation/with-propagation)
                                          (clj-money.tasks/with-options)
+                                         (clj-money.progress.redis-test/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}
            :unused-private-var {:exclude #{clj-money.models.transactions/simplify}}
            :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
