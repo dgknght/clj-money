@@ -33,6 +33,14 @@
              opts
              "Unable to retrieve the import: %s")))
 
+(defn progress
+  [{:keys [id]} & {:as opts}]
+  (api/get (api/path :imports id :progress)
+           {}
+           (add-error-handler
+             opts
+             "Unable to retreive the import progress: %s")))
+
 (defn select
   [criteria & {:as opts}]
   (api/get (api/path :imports)

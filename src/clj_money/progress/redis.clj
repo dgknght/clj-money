@@ -1,8 +1,8 @@
 (ns clj-money.progress.redis
   (:require [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [taoensso.carmine :as car]
-            [clj-money.util :as util]
             [clj-money.progress :as prog]))
 
 (defonce conn-pool (car/connection-pool {}))
@@ -26,12 +26,18 @@
 
 (defn- expect*
   [{:keys [redis-opts] :as opts} process-key expected-count]
+
+  (log/debugf "[import] expect %s %s" process-key expected-count)
+
   (car/wcar redis-opts
             (car/set (build-key opts process-key :total)
                      expected-count)))
 
 (defn- increment*
   [{:keys [redis-opts] :as opts} process-key completed-count]
+
+  (log/debugf "[import] increment %s %s" process-key completed-count)
+
   (car/wcar redis-opts
             (car/incrby (build-key opts process-key :completed)
                         completed-count)))

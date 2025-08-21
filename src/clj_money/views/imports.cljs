@@ -102,7 +102,7 @@
 
 (defn- progress-table
   [page-state]
-  (let [progress (r/cursor page-state [:active :import/progress])]
+  (let [progress (r/cursor page-state [:progress])]
     (fn []
       [:table.table.table-hover
        [:tbody
@@ -119,17 +119,24 @@
 
 (declare load-import)
 
+(defn- load-progress
+  [page-state]
+  (let [import (get-in @page-state [:active])]
+    (imports/progress import
+                      :on-success (fn [res]
+                                    (when (:finished? res)
+                                      (reset! auto-refresh false))
+                                    (when @auto-refresh
+                                      (go
+                                        (<! (timeout 1000))
+                                        (load-progress page-state)))
+                                    (swap! page-state assoc :progress res)))))
+
 (defn- receive-import
   ([page-state] (partial receive-import page-state))
-  ([page-state {{:keys [finished]} :import/progress
-                :as received}]
-   (when finished
-     (reset! auto-refresh false))
-   (when @auto-refresh
-     (go
-       (<! (timeout 1000))
-       (load-import page-state)))
-   (swap! page-state assoc :active received)))
+  ([page-state received]
+   (swap! page-state assoc :active received)
+   (load-progress page-state)))
 
 (defn- load-import
   [page-state]
@@ -165,6 +172,7 @@
       (icon :play :size :small)]
      [:button.btn.btn-secondary.btn-sm {:on-click (fn []
                                                 (swap! page-state assoc :active imp)
+                                                (load-progress page-state)
                                                 (reset! auto-refresh true)
                                                 (load-import page-state))
                                     :disable busy?

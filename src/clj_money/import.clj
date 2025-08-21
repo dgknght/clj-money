@@ -8,6 +8,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
+            [clj-money.progress :as prog]
             [clj-money.images :as images]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
@@ -568,25 +569,26 @@
         (fn [acc v]
           (xf acc v))))))
 
-(defn progress-xf []
-  (let [progress (atom {})]
-    (map (fn [{:as r :declaration/keys [record-type record-count]}]
-           (case (:import/record-type r)
-             :declaration (swap! progress
-                                 assoc
-                                 record-type
-                                 {:total record-count
-                                  :completed 0})
-             :notification (swap! progress
-                                  update-in
-                                  [:notifications]
-                                  conj
-                                  r)
-             :termination-signal (swap! progress assoc :finished true)
-             (swap! progress
-                    update-in
-                    [(:import/record-type r) :completed]
-                    (fnil inc 0)))))))
+(defn progress-xf
+  [tracker-or-import-or-id]
+  (let [tracker (cond
+                  (satisfies? prog/Tracker tracker-or-import-or-id)
+                  tracker-or-import-or-id
+
+                  (map? tracker-or-import-or-id)
+                  (prog/tracker (:id tracker-or-import-or-id))
+
+                  :else
+                  (prog/tracker tracker-or-import-or-id))]
+    (map (fn [{:as r :import/keys [record-type]}]
+           (case record-type
+             :declaration
+             (let [{:declaration/keys [record-type record-count]} r]
+               (prog/expect tracker record-type record-count))
+             ;:notification
+             ;:termination-signal (swap! progress assoc :finished true)
+             (prog/increment tracker record-type))
+           r))))
 
 (defmulti filter-behavior
   (fn [record _state]
