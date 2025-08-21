@@ -1,10 +1,34 @@
 (ns clj-money.progress.redis-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [clj-money.config :refer [env]]
             [taoensso.carmine :as car]
             [clj-money.progress :as prog]
             [clj-money.progress.redis]))
+
+(defmacro with-redis
+  [& body]
+  (let [config (get-in env [:progress
+                            :strategies
+                            :redis
+                            :redis-config])]
+    `(car/wcar {:pool {}
+                :spec ~config}
+               ~@body)))
+
+(defn- reset-redis [f]
+  (let [prefix (get-in env [:progress
+                            :strategies
+                            :redis
+                            :prefix])
+        pattern (if prefix
+                  (str prefix ":*")
+                  "*")
+        keys (with-redis (car/keys pattern))]
+    (with-redis (doseq [k keys] (car/del k))))
+  (f))
+
+(use-fixtures :each reset-redis)
 
 (defn- track
   [f calls]

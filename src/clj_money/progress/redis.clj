@@ -2,6 +2,7 @@
   (:require [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
             [taoensso.carmine :as car]
+            [clj-money.util :as util]
             [clj-money.progress :as prog]))
 
 (defonce conn-pool (car/connection-pool {}))
@@ -42,23 +43,23 @@
                     (filter identity)
                     set)]
     (fn [k]
-      (let [segments (->> (string/split k #":")
-                          (remove ignore)
-                          (map keyword))]
-        [(vec (butlast segments))
-         (last segments)]))))
+      (->> (string/split k #":")
+           (remove ignore)
+           (map keyword)))))
 
 (defn- get*
   [{:keys [redis-opts] :as opts}]
-  (let [parse (parse-key opts)
-        pattern (build-key opts "*")
+  (let [pattern (build-key opts "*")
         keys (car/wcar redis-opts
-                       (car/keys pattern))]
-    (->> keys
-         (map #(vector (parse %) %))
-         (map #(update-in % [1] (fn [k]
-                                  (car/wcar redis-opts
-                                            (car/get k)))))
+                       (car/keys pattern))
+        vals (car/wcar redis-opts
+                       (mapv #(car/get %) keys))]
+    (->> vals
+         (interleave keys)
+         (partition 2)
+         (map (comp #(update-in % [0] (parse-key opts))
+                    #(update-in % [1] parse-long)
+                    vec))
          (reduce (fn [m [k v]]
                    (assoc-in m k v))
                  {}))))
