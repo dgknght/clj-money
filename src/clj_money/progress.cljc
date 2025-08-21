@@ -1,7 +1,6 @@
 (ns clj-money.progress
   (:refer-clojure :exclude [get])
-  (:require #?(:clj [config.core :refer [env]]
-               :cljs [clj-money.config :refer [env]])))
+  (:require #?(:clj [config.core :refer [env]])))
 
 (defprotocol Tracker
   "Functions that track progress of a multi-part, long running process"
@@ -17,9 +16,11 @@
   (fn [config & _]
     (::strategy config)))
 
+(defn- config []
+  #?(:clj (let [active-key (get-in env [:progress :active])]
+            (get-in env [:progress :strategies active-key]))
+     :cljs (throw (js/Error. "Not implemented"))))
+
 (defn tracker
   [& args]
-  (let [active-key (get-in env [:progress :active])]
-    (-> env
-        (get-in [:progress :strategies active-key])
-        (apply reify-tracker args))))
+  (apply reify-tracker (config) args))
