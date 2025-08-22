@@ -534,7 +534,7 @@
   (if out-chan
     (fn [recon]
       (a/go
-        (a/>! out-chan {:import/record-type :reconciliation}))
+        (a/>! out-chan {:import/record-type :finalize-reconciliation}))
       recon)
     identity))
 
@@ -547,7 +547,7 @@
         ch (a/promise-chan)]
     (a/go
       (when out-chan
-        (a/>! out-chan {:declaration/record-type :reconciliation
+        (a/>! out-chan {:declaration/record-type :finalize-reconciliation
                         :declaration/record-count (count reconciliations)
                         :import/record-type :declaration}))
       (mapv (comp (notify-reconciliation-finalization out-chan)
