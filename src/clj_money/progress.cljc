@@ -1,6 +1,6 @@
 (ns clj-money.progress
   (:refer-clojure :exclude [get])
-  #?(:clj (:require [config.core :refer [env]])))
+  #?(:clj (:require [clj-money.config :refer [env]])))
 
 (defprotocol Tracker
   "Functions that track progress of a multi-part, long running process"
