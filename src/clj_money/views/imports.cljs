@@ -102,7 +102,7 @@
 
 (defn- progress-table
   [page-state]
-  (let [progress (r/cursor page-state [:progress])]
+  (let [progress (r/cursor page-state [:progress :processes])]
     (fn []
       [:table.table.table-hover
        [:tbody
