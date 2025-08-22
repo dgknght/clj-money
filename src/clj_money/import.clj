@@ -583,10 +583,17 @@
     (map (fn [{:as r :import/keys [record-type]}]
            (case record-type
              :declaration
-             (let [{:declaration/keys [record-type record-count]} r]
-               (prog/expect tracker record-type record-count))
+             (prog/expect tracker
+                          (:declaration/record-type r)
+                          (:declaration/record-count r))
+
              ;:notification
-             ;:termination-signal (swap! progress assoc :finished true)
+             ; send notification to the tracker
+
+             ;:termination-signal
+             ; mark the tracker as having finished
+             ;(swap! progress assoc :finished true)
+
              (prog/increment tracker record-type))
            r))))
 
