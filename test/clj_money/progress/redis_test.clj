@@ -41,7 +41,8 @@
          f# (fn* [~(first bindings)]
                  ~@body)]
      (with-redefs [car/set (track :set calls#)
-                   car/incrby (track :incrby calls#)]
+                   car/incrby (track :incrby calls#)
+                   car/rpush (track :rpush calls#)]
        (f# calls#))))
 
 (def ^:private mock-config
@@ -54,7 +55,7 @@
       (let [tracker (prog/reify-tracker mock-config
                                         :root)]
         (prog/expect tracker :accounts 123)
-        (is (= {:set [["progress:root:accounts:total" 123]]}
+        (is (= {:set [["progress:root:processes:accounts:total" 123]]}
                @calls)
             "The expected count is saved at the key for based on the specified category"))))
   (testing "integer root key"
@@ -62,7 +63,7 @@
       (let [tracker (prog/reify-tracker mock-config
                                         111)]
         (prog/expect tracker :accounts 123)
-        (is (= {:set [["progress:111:accounts:total" 123]]}
+        (is (= {:set [["progress:111:processes:accounts:total" 123]]}
                @calls)
             "The expected count is saved at the key for based on the specified category"))))
   (testing "composite process key"
@@ -70,7 +71,7 @@
       (let [tracker (prog/reify-tracker mock-config
                                         :root)]
         (prog/expect tracker [:propagation :transactions] 123)
-        (is (= {:set [["progress:root:propagation:transactions:total" 123]]}
+        (is (= {:set [["progress:root:processes:propagation:transactions:total" 123]]}
                @calls)
             "The expected count is saved at the key for based on the specified category"))))
   (testing "with a prefix"
@@ -79,7 +80,7 @@
                                                :prefix "my-prefix")
                                         :root)]
         (prog/expect tracker [:propagation :transactions] 123)
-        (is (= {:set [["my-prefix:progress:root:propagation:transactions:total" 123]]}
+        (is (= {:set [["my-prefix:progress:root:processes:propagation:transactions:total" 123]]}
                @calls)
             "The expected count is saved at the key for based on the specified category")))))
 
@@ -89,7 +90,7 @@
       (let [tracker (prog/reify-tracker mock-config
                                         :root)]
         (prog/increment tracker :accounts)
-        (is (= {:incrby [["progress:root:accounts:completed" 1]]}
+        (is (= {:incrby [["progress:root:processes:accounts:completed" 1]]}
                @calls)
             "The completed count is saved at the key for based on the specified category"))))
   (testing "increment by an explicit amount"
@@ -97,16 +98,51 @@
       (let [tracker (prog/reify-tracker mock-config
                                         :root)]
         (prog/increment tracker :accounts 5)
-        (is (= {:incrby [["progress:root:accounts:completed" 5]]}
+        (is (= {:incrby [["progress:root:processes:accounts:completed" 5]]}
                @calls)
             "The completed count is saved at the key for based on the specified category")))))
+
+(deftest send-a-notification
+  (testing "warning"
+    (with-mocked-redis [calls]
+      (let [tracker (prog/reify-tracker mock-config
+                                        :root)]
+        (prog/warn tracker
+                   "non-essential task failed")
+        (is (= {:rpush [["progress:root:warnings" "non-essential task failed"]]}
+               @calls)
+            "The message is pushed into the list of warnings"))))
+  (testing "fatal"
+    (with-mocked-redis [calls]
+      (let [tracker (prog/reify-tracker mock-config
+                                        :root)]
+        (prog/fail tracker
+                   "catastrophic failure")
+        (is (= {:set [["progress:root:failure-reason" "catastrophic failure"]]}
+               @calls)
+            "The message is set as the cause of an abnormal ending")))))
+
+(deftest finalize-a-process
+  (with-mocked-redis [calls]
+      (let [tracker (prog/reify-tracker mock-config
+                                        :root)]
+        (prog/finish tracker)
+        (is (= {:set [["progress:root:finished" "1"]]}
+               @calls)
+            "The flag is set indicating the process has finished")))) 
 
 (deftest ^:redis round-trip
   (let [tracker (prog/reify-tracker (get-in env [:progress :strategies :redis])
                                     :my-root)]
+    (prog/expect tracker :commodities 2)
     (prog/expect tracker :accounts 100)
+    (prog/increment tracker :commodities)
+    (prog/increment tracker :commodities)
     (prog/increment tracker :accounts)
-    (prog/increment tracker :accounts)
-    (is (= {:accounts {:total 100
-                       :completed 2}}
+    (prog/warn tracker "Something not too bad")
+    (prog/finish tracker)
+    (is (= {:processes {:accounts {:total 100 :completed 1}
+                        :commodities {:total 2 :completed 2}}
+            :warnings ["Something not too bad"]
+            :finished true}
            (prog/get tracker)))))
