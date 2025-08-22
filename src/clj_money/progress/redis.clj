@@ -26,21 +26,21 @@
 
 (defn- expect*
   [{:keys [redis-opts] :as opts} process-key expected-count]
-
-  (log/debugf "[import] expect %s %s" process-key expected-count)
-
-  (car/wcar redis-opts
-            (car/set (build-key opts process-key :total)
-                     expected-count)))
+  (try
+    (car/wcar redis-opts
+              (car/set (build-key opts process-key :total)
+                       expected-count))
+    (catch Exception e
+      (log/error e "Unable to write the expectation to redis"))))
 
 (defn- increment*
   [{:keys [redis-opts] :as opts} process-key completed-count]
-
-  (log/debugf "[import] increment %s %s" process-key completed-count)
-
-  (car/wcar redis-opts
-            (car/incrby (build-key opts process-key :completed)
-                        completed-count)))
+  (try
+    (car/wcar redis-opts
+              (car/incrby (build-key opts process-key :completed)
+                          completed-count))
+    (catch Exception e
+      (log/error e "Unable to increment the completed count in redis"))))
 
 (defn- parse-key
   [{:keys [prefix root]}]
