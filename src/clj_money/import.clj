@@ -587,12 +587,13 @@
                           (:declaration/record-type r)
                           (:declaration/record-count r))
 
-             ;:notification
-             ; send notification to the tracker
+             :notification
+             (if (= :fatal (:notification/severity r))
+               (prog/fail tracker (:notification/message r))
+               (prog/warn tracker (:notification/message r)))
 
-             ;:termination-signal
-             ; mark the tracker as having finished
-             ;(swap! progress assoc :finished true)
+             :finalize-reconciliation
+             (prog/finish tracker)
 
              (prog/increment tracker record-type))
            r))))

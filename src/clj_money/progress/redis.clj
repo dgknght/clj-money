@@ -60,13 +60,17 @@
                          (car/get (build-key opts :finished))
                          (car/lrange (build-key opts :warnings) 0 -1)
                          (car/keys pattern))
-        vals (car/wcar redis-opts
-                       (mapv #(car/get %) keys))]
+        vals (when (seq keys)
+               (car/wcar redis-opts
+                         (mapv #(car/get %) keys)))]
     (assoc (->> vals
                 (interleave keys)
                 (partition 2)
                 (map (comp #(update-in % [0] (parse-key opts))
-                           #(update-in % [1] parse-long)
+                           #(update-in % [1] (fn [x]
+                                               (if (string? x)
+                                                 (parse-long x)
+                                                 x)))
                            vec))
                 (reduce (fn [m [k v]]
                           (assoc-in m k v))

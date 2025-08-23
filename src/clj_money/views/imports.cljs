@@ -124,7 +124,7 @@
   (let [import (get-in @page-state [:active])]
     (imports/progress import
                       :on-success (fn [res]
-                                    (when (:finished? res)
+                                    (when (:finished res)
                                       (reset! auto-refresh false))
                                     (when @auto-refresh
                                       (go
