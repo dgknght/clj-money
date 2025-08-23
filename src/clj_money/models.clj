@@ -47,14 +47,14 @@
   (keyword "clj-money.models"
            (-> m util/model-type name)))
 
-(defn- validate
+(defn validate
   [model]
   (let [validated (v/validate model (validation-key model))]
     (when (seq (::v/errors validated))
       (log/debugf "[validation] Invalid model %s: %s"
                   model
                   (::v/errors validated))
-      (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
+      (throw (ex-info "Validation failed" {:errors (select-keys validated [::v/errors])}))))
   model)
 
 (defn before
