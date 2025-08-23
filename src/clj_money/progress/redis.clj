@@ -54,8 +54,12 @@
 (defn- get*
   [{:keys [redis-opts] :as opts}]
   (let [pattern (build-key opts :processes "*")
-        keys (car/wcar redis-opts
-                       (car/keys pattern))
+        [finished
+         warnings
+         keys] (car/wcar redis-opts
+                         (car/get (build-key opts :finished))
+                         (car/lrange (build-key opts :warnings) 0 -1)
+                         (car/keys pattern))
         vals (car/wcar redis-opts
                        (mapv #(car/get %) keys))]
     (assoc (->> vals
@@ -67,11 +71,8 @@
                 (reduce (fn [m [k v]]
                           (assoc-in m k v))
                         {}))
-           :warnings (car/wcar redis-opts
-                               (car/lrange (build-key opts :warnings) 0 -1))
-           :finished (= "1"
-                        (car/wcar redis-opts
-                                  (car/get (build-key opts :finished)))))))
+           :warnings warnings
+           :finished (= "1" finished))))
 
 (defn- warn*
   [{:keys [redis-opts] :as opts} msg]
