@@ -34,7 +34,6 @@ services:
       - sql
       - datomic-peer
       - datomic-client
-      - all
     image: clj-money-util
     build:
       target: util
@@ -49,7 +48,6 @@ services:
       - sql
       - datomic-peer
       - datomic-client
-      - all
     image: clj-money-util
     build:
       target: util
@@ -75,7 +73,6 @@ services:
     profiles:
       - datomic-peer # Is this needed in the peer profile?
       - datomic-client
-      - all
     image: memcached:1.6-bullseye
     ports:
       - 11211:11211
@@ -89,7 +86,6 @@ services:
     profiles:
       - datomic-peer
       - datomic-client
-      - all
     image: clj-money-util
     build:
       target: util
@@ -108,7 +104,6 @@ services:
     profiles:
       - datomic-peer
       - datomic-client
-      - all
     depends_on:
       datomic-sql-init:
         condition: service_completed_successfully
@@ -139,7 +134,6 @@ services:
     profiles:
       - datomic-peer
       - datomic-client
-      - all
     image: clj-money-util
     build:
       target: util
@@ -163,7 +157,6 @@ services:
     profiles:
       - datomic-peer
       - datomic-client
-      - all
     image: dgknght/datomic-pro:1.0.7075
     depends_on:
       datomic-transactor:
@@ -182,7 +175,6 @@ services:
   datomic-peer-server:
     profiles:
       - datomic-client
-      - all
     depends_on:
       datomic-schema:
         condition: service_completed_successfully
