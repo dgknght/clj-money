@@ -78,7 +78,7 @@ services:
     image: clj-money-util
     build:
       target: util
-    command: sh -c "lein with-profile util create-sql && ./scripts/datomic/init.sh && touch /init-markers/datomic-sql-init-complete && ls -l /init-markers"
+    command: sh -c "if [ -e /init-markers/datomic-sql-init-complete ]; then rm /init-markers/*; fi && lein with-profile util create-sql && ./scripts/datomic/init.sh && touch /init-markers/datomic-sql-init-complete"
     env_file: .env
     environment:
       PGPASSWORD: ${SQL_ADM_PASSWORD}
@@ -118,7 +118,7 @@ services:
       - type: volume
         source: init-markers
         target: /init-markers
-    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; ls -l /init-markers; sleep 5s; done && ./bin/transactor -Xmx2g -Xms1g ./config/transactor.properties"
+    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; sleep 5s; done && ./bin/transactor -Xmx2g -Xms1g ./config/transactor.properties"
     restart: on-failure
     ports:
       - 4334:4334
@@ -134,7 +134,7 @@ services:
     image: clj-money-util
     build:
       target: util
-    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; ls -l /init-markers; sleep 5s; done && lein with-profile util datomic-schema && touch /init-markers/datomic-schema-complete"
+    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; sleep 5s; done && lein with-profile util datomic-schema && touch /init-markers/datomic-schema-complete"
     volumes:
       - type: bind
         source: ./env/docker
@@ -162,7 +162,7 @@ services:
     restart: on-failure
     ports:
       - 4050:8080
-    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; ls -l /init-markers; sleep 5s; done && ./bin/console -p '8080' sql '${DATOMIC_NO_DB_URI}'"
+    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; sleep 5s; done && ./bin/console -p '8080' sql '${DATOMIC_NO_DB_URI}'"
     volumes:
       - type: volume
         source: init-markers
