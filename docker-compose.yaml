@@ -118,7 +118,7 @@ services:
       - type: volume
         source: init-markers
         target: /init-markers
-    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; ls -l /init-markers; sleep 5s; done && ./bin/transactor -Xmx2g -Xms1g -Dsql-user=${SQL_APP_USER} -Dsql-password=${SQL_APP_PASSWORD} ./config/transactor.properties"
+    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; ls -l /init-markers; sleep 5s; done && ./bin/transactor -Xmx2g -Xms1g ./config/transactor.properties"
     restart: on-failure
     ports:
       - 4334:4334
