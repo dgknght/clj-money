@@ -1,4 +1,4 @@
-CREATE TABLE datomic_kvs
+CREATE TABLE IF NOT EXISTS datomic_kvs
 (
  id text NOT NULL,
  rev integer,
