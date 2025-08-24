@@ -148,7 +148,7 @@ services:
         target: /init-markers
     depends_on:
       datomic-transactor:
-        condition: service_started
+        condition: service_healthy
     env_file: .env
 
   datomic-console:
@@ -158,7 +158,7 @@ services:
     image: dgknght/datomic-pro:1.0.7075
     depends_on:
       datomic-transactor:
-        condition: service_started
+        condition: service_healthy
     restart: on-failure
     ports:
       - 4050:8080
