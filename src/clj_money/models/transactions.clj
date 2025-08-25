@@ -523,6 +523,7 @@
                (cons updates))
            (partition-all 10)
            (mapcat models/put-many)
+           doall
            first))
     (catch Exception e
       (log/errorf e
