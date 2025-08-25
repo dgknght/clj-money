@@ -527,7 +527,7 @@
            first))
     (catch Exception e
       (log/errorf e
-                  "Unable to propagate account %s (%s) "
+                  "[propagation] Unable to propagate account %s (%s) "
                   (:account/name account)
                   (:id account)))))
 
