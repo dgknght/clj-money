@@ -1,6 +1,8 @@
 (ns clj-money.repl
-  (:require [clj-money.web.server :as s]
+  (:require [clojure.pprint :refer [pprint]]
+            [clj-money.web.server :as s]
             [clj-money.models :as models]
+            [clj-money.util :as util]
             [clj-money.models.propagation :as prop]
             [clj-money.models.transactions :as trx]
             [clj-money.models.prices :as prices]))
@@ -15,11 +17,20 @@
   (reset! server nil))
 
 (defn create-user
-  [& {:keys [first-name last-name email password]}]
-  (models/put #:user{:first-name first-name
-                     :last-name last-name
-                     :email email
-                     :password password}))
+  [& {:as params}]
+  (try
+    (-> params
+        (select-keys [:first-name
+                      :last-name
+                      :email
+                      :password])
+        (util/qualify-keys :user)
+        models/validate
+        models/put)
+    (catch Exception e
+      (println "Unable to save the user: " (ex-message e))
+      (when-let [data (ex-data e)]
+        (pprint data)))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn set-password
