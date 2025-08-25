@@ -27,6 +27,13 @@
  :mailer-host "testmailer.com"
  :mailer-from "no-reply@clj-money.com"
  :partition-period :year
+ :progress {:strategies {:redis {:clj-money.progress/strategy :clj-money.progress/redis
+                                 :prefix "test"
+                                 :redis-config {:host "localhost"
+                                                :port 6379
+                                                :password :config/redis-password}}}
+            :active :redis}
+ :redis-password "please04"
  :secret "test-secret-for-testing"
  :show-error-messages true
  :site-host "www.mymoney.com"

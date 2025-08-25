@@ -9,6 +9,8 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
+            [clj-money.progress :as prog]
+            [clj-money.progress.redis]
             [clj-money.models.ref]
             [clj-money.db.ref]
             [clj-money.images.sql]
@@ -21,32 +23,18 @@
             [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.authorization.imports]))
 
-(defn- report-progress
-  [imp progress-chan]
-  (a/go-loop [progress (a/<! progress-chan)]
-    (when progress
-      (try
-        (-> imp
-            (dissoc :import/options)
-            (assoc :import/progress progress)
-            models/put)
-        (catch Exception e
-          (log/errorf e "Unable to save the import progress: %s" progress)))
-      (recur (a/<! progress-chan)))))
-
 (defn- launch-and-track
   [imp]
   (let [out-chan (a/chan (a/sliding-buffer 10)
-                         (progress-xf))]
-    (report-progress imp out-chan)
-    (let [{:keys [entity wait-chan]} (import-data imp
-                                                  :out-chan out-chan)]
-      (log/infof "[import] started for %s" (:import/entity-name imp))
-      (a/go
-        (a/<! wait-chan)
-        (log/infof "[import] finished for %s" (:import/entity-name imp)))
-      {:entity entity
-       :import imp})))
+                         (progress-xf imp))
+        {:keys [entity wait-chan]} (import-data imp
+                                                :out-chan out-chan)]
+    (log/infof "[import] started for %s" (:import/entity-name imp))
+    (a/go
+      (a/<! wait-chan)
+      (log/infof "[import] finished for %s" (:import/entity-name imp)))
+    {:entity entity
+     :import imp}))
 
 (defn- infer-content-type
   [source-file]
@@ -137,6 +125,18 @@
               api/response)
       api/not-found))
 
+(defn- fetch-progress
+  [{:keys [id]}]
+  (let [tracker (prog/tracker id)]
+    (prog/get tracker)))
+
+(defn- progress
+  [req]
+  (or (some-> (find-and-authorize req ::authorization/show)
+              fetch-progress
+              api/response)
+      api/not-found))
+
 (defn- index
   [{:keys [authenticated params]}]
   (api/response (models/select (-> params
@@ -162,6 +162,8 @@
   [["imports"
     ["" {:get {:handler index}
          :post {:handler create}}]
-    ["/:id" {:get {:handler show}
-             :patch {:handler start}
-             :delete {:handler delete}}]]])
+    ["/:id"
+     ["" {:get {:handler show}
+          :patch {:handler start}
+          :delete {:handler delete}}]
+     ["/progress" {:get {:handler progress}}]]]])

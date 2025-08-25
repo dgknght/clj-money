@@ -3,7 +3,21 @@ name: clj-money
 volumes:
   sql-data-17:
   maven-data:
+  redis-data-8:
 services:
+
+  redis:
+    image: redis:8
+    restart: on-failure
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data-8:/data
+    command: "redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+    env_file: .env
+
   sql:
     image: postgres:17
     restart: on-failure
@@ -18,6 +32,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "PGPASSWORD=${SQL_ADM_PASSWORD} sh -c 'pg_isready -U ${SQL_ADM_USER} -d ${SQL_ADM_USER}'"]
     env_file: .env
+
   pgadmin:
     image: dpage/pgadmin4:latest
     environment:

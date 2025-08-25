@@ -14,6 +14,8 @@
   <logger name="clj-money" level="DEBUG"/>
   <logger name="datomic.db" level="WARN"/>
   <logger name="datomic.process-monitor" level="WARN"/>
+  <logger name="io.methvin" level="WARN"/>
+  <logger name="io.netty" level="WARN"/>
 
   <root level="DEBUG">
     <!-- appender-ref ref="CONSOLE"/ -->
