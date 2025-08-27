@@ -89,6 +89,14 @@
                                       honeysql.helpers/limit
                                       honeysql.helpers/with-recursive
                                       honeysql.core/format
+                                      taoensso.carmine/set
+                                      taoensso.carmine/incrby
+                                      taoensso.carmine/expire
+                                      taoensso.carmine/get
+                                      taoensso.carmine/lrange
+                                      taoensso.carmine/lpush
+                                      taoensso.carmine/keys
+                                      taoensso.carmine/del
                                       dgknght.app-lib.test-assertions/comparable?
                                       dgknght.app-lib.test-assertions/seq-of-maps-like?
                                       digest/sha-1]}

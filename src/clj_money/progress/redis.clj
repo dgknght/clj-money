@@ -25,12 +25,22 @@
        (map stringify)
        (string/join ":")))
 
+(defn- proc-key
+  [opts process-key & args]
+  (apply build-key opts :processes process-key args))
+
+(defn- now []
+  (t/format :iso-instant (t/instant)))
+
 (defn- expect*
   [{:keys [redis-opts] :as opts} process-key expected-count]
   (try
     (car/wcar redis-opts
-              (car/set (build-key opts :processes process-key :total)
+              (car/set (proc-key opts process-key :total)
                        expected-count
+                       "EX" ex-seconds)
+              (car/set (proc-key opts process-key :started-at)
+                       (now)
                        "EX" ex-seconds))
     (catch Exception e
       (log/error e "Unable to write the expectation to redis"))))
@@ -38,10 +48,16 @@
 (defn- increment*
   [{:keys [redis-opts] :as opts} process-key completed-count]
   (try
-    (let [k (build-key opts :processes process-key :completed)]
-      (car/wcar redis-opts
-                (car/incrby k completed-count)
-                (car/expire k ex-seconds)))
+    (let [k (proc-key opts process-key :completed)
+          [completed _ total] (car/wcar redis-opts
+                                        (car/incrby k completed-count)
+                                        (car/expire k ex-seconds)
+                                        (car/get (proc-key opts process-key :total)))]
+      (when (>= completed (parse-long total))
+        (car/wcar redis-opts
+                  (car/set (proc-key opts process-key :completed-at)
+                           (now)
+                           "EX" ex-seconds))))
     (catch Exception e
       (log/error e "Unable to increment the completed count in redis"))))
 
