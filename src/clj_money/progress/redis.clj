@@ -2,8 +2,11 @@
   (:require [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
+            [java-time.api :as t]
             [taoensso.carmine :as car]
             [clj-money.progress :as prog]))
+
+(def ex-seconds (.getSeconds (t/duration 90 :days)))
 
 (defn- stringify
   [x]
@@ -27,16 +30,18 @@
   (try
     (car/wcar redis-opts
               (car/set (build-key opts :processes process-key :total)
-                       expected-count))
+                       expected-count
+                       "EX" ex-seconds))
     (catch Exception e
       (log/error e "Unable to write the expectation to redis"))))
 
 (defn- increment*
   [{:keys [redis-opts] :as opts} process-key completed-count]
   (try
-    (car/wcar redis-opts
-              (car/incrby (build-key opts :processes process-key :completed)
-                          completed-count))
+    (let [k (build-key opts :processes process-key :completed)]
+      (car/wcar redis-opts
+                (car/incrby k completed-count)
+                (car/expire k ex-seconds)))
     (catch Exception e
       (log/error e "Unable to increment the completed count in redis"))))
 
@@ -92,7 +97,8 @@
   (try
     (car/wcar redis-opts
               (car/set (build-key opts :failure-reason)
-                       msg))
+                       msg
+                       "EX" ex-seconds))
     (catch Exception e
       (log/error e "Unable to record the warning"))))
 
@@ -101,7 +107,8 @@
   (try
     (car/wcar redis-opts
               (car/set (build-key opts :finished)
-                       "1"))
+                       "1"
+                       "EX" ex-seconds))
     (catch Exception e
       (log/error e "Unable to mark the process as finished"))))
 
