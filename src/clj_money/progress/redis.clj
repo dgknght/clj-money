@@ -86,9 +86,10 @@
 (defn- warn*
   [{:keys [redis-opts] :as opts} msg]
   (try
-    (car/wcar redis-opts
-              (car/rpush (build-key opts :warnings)
-                         msg))
+    (let [k (build-key opts :warnings)]
+      (car/wcar redis-opts
+                (car/lpush k msg)
+                (car/expire k ex-seconds)))
     (catch Exception e
       (log/error e "Unable to record the warning"))))
 
