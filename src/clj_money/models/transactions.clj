@@ -514,17 +514,18 @@
   (try
     (let [items (fetch-account-items account)
           [{:account/keys [transaction-date-range]}
-           :as updates] (process-account-items account entity items)]
-      (->> (-> entity
-               (update-in [:entity/transaction-date-range]
-                          #(apply dates/push-boundary
-                                  %
-                                  transaction-date-range))
-               (cons updates))
+           :as updates] (process-account-items account entity items)
+          updated (-> entity
+                      (update-in [:entity/transaction-date-range]
+                                 #(apply dates/push-boundary
+                                         %
+                                         transaction-date-range))
+                      models/put)]
+      (->> updates
            (partition-all 10)
            (mapcat models/put-many)
-           doall
-           first))
+           doall)
+      updated)
     (catch Exception e
       (log/errorf e
                   "[propagation] Unable to propagate account %s (%s) "
