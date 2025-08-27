@@ -30,7 +30,9 @@
   (+busy)
   (imports/select {}
                   :callback -busy
-                  :on-success #(swap! page-state assoc :imports %)))
+                  :on-success #(->> %
+                                    (sort-by :import/entity-name)
+                                    (swap! page-state assoc :imports))))
 
 (defn- delete-import
   [imp page-state]
