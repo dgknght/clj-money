@@ -399,6 +399,18 @@
   #?(:clj (t/local-date-time (t/formatter :iso-date-time) date-str)
      :cljs (tf/parse-local (tf/formatters :date-hour-minute-second) date-str)))
 
+(defn serialize-instant
+  [d]
+  #?(:clj (t/format :iso-instant d)
+     :cljs (str (tf/unparse (tf/formatters :date-hour-minute-second-ms) d)
+                "Z")))
+
+(defn unserialize-instant
+  [s]
+  #?(:clj (t/instant s)
+     :cljs (when-let [parsable (re-find #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}" s)]
+             (tf/parse (tf/formatters :date-hour-minute-second-ms) parsable))))
+
 (defn format-local-date
   [local-date]
   #?(:clj (t/format (t/formatter "M/d/yyyy") local-date)

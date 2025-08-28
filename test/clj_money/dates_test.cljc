@@ -302,6 +302,16 @@
   (is (dates/equal? (t/local-date-time 2000 1 1 11 22 33)
                     (dates/unserialize-local-date-time "2000-01-01T11:22:33"))))
 
+(deftest serialize-an-instant
+  (is (= "2020-02-03T12:34:56.789Z"
+         (dates/serialize-instant #?(:clj (t/instant "2020-02-03T12:34:56.789Z")
+                                     :cljs (t/date-time 2020 2 3 12 34 56 789))))))
+
+(deftest unserialize-an-instant
+  (is (dates/equal? #?(:clj (t/instant "2020-02-03T12:34:56.789Z")
+                       :cljs (t/date-time 2020 2 3 12 34 56 789))
+                    (dates/unserialize-instant "2020-02-03T12:34:56.789Z"))))
+
 (deftest get-the-number-of-days-in-a-period
   (is (= 3 (dates/days-between (t/local-date 2000 1 1)
                                (t/local-date 2000 1 4)))))
