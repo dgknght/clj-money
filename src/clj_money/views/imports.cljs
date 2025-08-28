@@ -1,11 +1,11 @@
 (ns clj-money.views.imports
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cljs.pprint :refer [pprint]]
+            [cljs.core.async :refer [timeout
+                                     <!]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
-            [cljs.core.async :refer [timeout
-                                     <!]]
             [dgknght.app-lib.core :refer [present?]]
             [dgknght.app-lib.web :refer [format-percent
                                          format-decimal
@@ -16,6 +16,7 @@
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.dates :as dates]
             [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.components :refer [button]]
             [clj-money.dnd :as dnd]
@@ -65,10 +66,13 @@
       [:strong (str "Import: " (:import/entity-name @imp))])))
 
 (defn- progress-row
-  [[progress-type {:keys [total completed]}]]
+  [[progress-type {:keys [total completed started-at _completed-at]}]]
   ^{:key (str "progress-" (name progress-type))}
   [:tr
-   [:td.col-sm-6 (name progress-type)]
+   [:td.col-sm-6
+    [:div.d-flex.flex-column
+     [:span (name progress-type)]
+     [:span (dates/unserialize-instant started-at)]]]
    [:td.col-sm-6.text-center
     (let [perc (if (< 0 total)
                  (* 100 (/ completed total))

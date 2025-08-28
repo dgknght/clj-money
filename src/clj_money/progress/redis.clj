@@ -4,6 +4,7 @@
             [clojure.tools.logging :as log]
             [java-time.api :as t]
             [taoensso.carmine :as car]
+            [clj-money.dates :as dates]
             [clj-money.progress :as prog]))
 
 (def ex-seconds (.getSeconds (t/duration 90 :days)))
@@ -30,20 +31,23 @@
   (apply build-key opts :processes process-key args))
 
 (defn- now []
-  (t/format :iso-instant (t/instant)))
+  (dates/serialize-instant (t/instant)))
 
 (defn- expect*
   [{:keys [redis-opts] :as opts} process-key expected-count]
-  (try
-    (car/wcar redis-opts
-              (car/set (proc-key opts process-key :total)
-                       expected-count
-                       "EX" ex-seconds)
-              (car/set (proc-key opts process-key :started-at)
-                       (now)
-                       "EX" ex-seconds))
-    (catch Exception e
-      (log/error e "Unable to write the expectation to redis"))))
+  (let [now (now)]
+    (try
+      (car/wcar redis-opts
+                (car/setnx (build-key opts :started-at)
+                           now)
+                (car/set (proc-key opts process-key :total)
+                         expected-count
+                         "EX" ex-seconds)
+                (car/set (proc-key opts process-key :started-at)
+                         now
+                         "EX" ex-seconds))
+      (catch Exception e
+        (log/error e "Unable to write the expectation to redis")))))
 
 (defn- increment*
   [{:keys [redis-opts] :as opts} process-key completed-count]
@@ -53,13 +57,18 @@
                                         (car/incrby k completed-count)
                                         (car/expire k ex-seconds)
                                         (car/get (proc-key opts process-key :total)))]
-      (when (>= completed (parse-long total))
+      (when (and total
+                 (>= completed (parse-long total)))
         (car/wcar redis-opts
                   (car/set (proc-key opts process-key :completed-at)
                            (now)
                            "EX" ex-seconds))))
     (catch Exception e
-      (log/error e "Unable to increment the completed count in redis"))))
+      (log/errorf
+        e
+        "Unable to increment the completed count by %s in redis for %s"
+        completed-count
+        process-key))))
 
 (defn- parse-key
   [{:keys [prefix root]}]
@@ -77,9 +86,13 @@
   (let [pattern (build-key opts :processes "*")
         [finished
          warnings
+         started-at
+         completed-at
          keys] (car/wcar redis-opts
                          (car/get (build-key opts :finished))
                          (car/lrange (build-key opts :warnings) 0 -1)
+                         (car/get (build-key opts :started-at))
+                         (car/get (build-key opts :completed-at))
                          (car/keys pattern))
         vals (when (seq keys)
                (car/wcar redis-opts
@@ -89,7 +102,8 @@
                 (partition 2)
                 (map (comp #(update-in % [0] (parse-key opts))
                            #(update-in % [1] (fn [x]
-                                               (if (string? x)
+                                               (if (and (string? x)
+                                                        (re-matches #"\d+" x))
                                                  (parse-long x)
                                                  x)))
                            vec))
@@ -97,7 +111,9 @@
                           (assoc-in m k v))
                         {}))
            :warnings warnings
-           :finished (= "1" finished))))
+           :finished (= "1" finished)
+           :started-at started-at
+           :completed-at completed-at)))
 
 (defn- warn*
   [{:keys [redis-opts] :as opts} msg]
