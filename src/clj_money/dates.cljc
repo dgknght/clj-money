@@ -62,10 +62,15 @@
   #?(:clj t/local-date-time?
      :cljs (partial instance? DateTime)))
 
+(def instant?
+  #?(:clj t/instant?
+     :cljs #(satisfies? t/DateTimeProtocol %)))
+
 (defmulti equal?
   (fn [d1 _d2]
     (cond
       (sequential? d1) :sequence
+      (instant? d1) :scalar
       (local-date? d1) :scalar
       (local-date-time? d1) :scalar)))
 
