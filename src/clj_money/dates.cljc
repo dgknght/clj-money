@@ -493,3 +493,15 @@
      :cljs (t/local-date (t/year inst)
                          (t/month inst)
                          (t/day inst))))
+
+#?(:cljs (defn format-interval
+           [i]
+           (let [s (t/in-seconds i)
+                 whole-minutes (quot s 60)
+                 remaining-seconds (mod s 60)]
+             (cond
+               (< 1 whole-minutes)
+               (str whole-minutes ":" remaining-seconds)
+
+               :else
+               (str s " sec")))))
