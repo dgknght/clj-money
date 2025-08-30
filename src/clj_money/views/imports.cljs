@@ -3,6 +3,7 @@
   (:require [cljs.pprint :refer [pprint]]
             [cljs.core.async :refer [timeout
                                      <!]]
+            [cljs-time.core :as t]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
@@ -65,14 +66,22 @@
     (fn []
       [:strong (str "Import: " (:import/entity-name @imp))])))
 
+(defn- progress-time-elapsed
+  [{:keys [started-at completed-at completed]}]
+  (when (and started-at (< 0 completed))
+    (let [s (dates/unserialize-instant started-at)
+            c (dates/unserialize-instant completed-at)]
+        [:span (dates/format-interval (t/interval s (or c
+                                                        (t/now))))])))
+
 (defn- progress-row
-  [[progress-type {:keys [total completed started-at _completed-at]}]]
+  [[progress-type {:keys [total completed] :as p}]]
   ^{:key (str "progress-" (name progress-type))}
   [:tr
    [:td.col-sm-6
     [:div.d-flex.flex-column
      [:span (name progress-type)]
-     [:span (dates/unserialize-instant started-at)]]]
+     (progress-time-elapsed p)]]
    [:td.col-sm-6.text-center
     (let [perc (if (< 0 total)
                  (* 100 (/ completed total))
@@ -253,8 +262,11 @@
 (defn- notifications-card
   [page-state]
   (let [raw-errors (r/cursor page-state [:progress :warnings])
-        errors (make-reaction #(map (partial hash-map :severity :error :message)
-                                      @raw-errors))
+        errors (make-reaction #(->> @raw-errors
+                                    (group-by identity)
+                                    (map (fn [[m c]]
+                                           [{:message m
+                                             :severity :error} c]))))
         failure-reason (r/cursor page-state [:progress :failure-reason])
         notifications (make-reaction #(if-let [f @failure-reason]
                                         (cons {:message f
