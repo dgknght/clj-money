@@ -413,8 +413,9 @@
 (defn unserialize-instant
   [s]
   #?(:clj (t/instant s)
-     :cljs (when-let [parsable (re-find #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}" s)]
-             (tf/parse (tf/formatters :date-hour-minute-second-ms) parsable))))
+     :cljs (when s
+             (when-let [parsable (re-find #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}" s)]
+               (tf/parse (tf/formatters :date-hour-minute-second-ms) parsable)))))
 
 (defn format-local-date
   [local-date]
