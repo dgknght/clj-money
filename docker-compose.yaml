@@ -31,7 +31,7 @@ services:
       POSTGRES_USER: ${SQL_ADM_USER}
       POSTGRES_DB: ${SQL_ADM_USER}
     healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=${SQL_ADM_PASSWORD} sh -c 'pg_isready -U ${SQL_ADM_USER} -d ${SQL_ADM_USER}'"]
+      test: pg_isready
     env_file: .env
 
   pgadmin:
