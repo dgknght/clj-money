@@ -67,12 +67,14 @@
       [:strong (str "Import: " (:import/entity-name @imp))])))
 
 (defn- progress-time-elapsed
-  [{:keys [started-at completed-at completed]}]
-  (when (and started-at (< 0 completed))
-    (let [s (dates/unserialize-instant started-at)
-            c (dates/unserialize-instant completed-at)]
-        [:span (dates/format-interval (t/interval s (or c
-                                                        (t/now))))])))
+  ([{:keys [started-at completed-at completed]}]
+   (progress-time-elapsed started-at completed-at completed))
+  ([started-at completed-at completed]
+   (when (and started-at (< 0 completed))
+     (let [s (dates/unserialize-instant started-at)
+           c (dates/unserialize-instant completed-at)]
+       [:span (dates/format-interval (t/interval s (or c
+                                                       (t/now))))]))))
 
 (defn- progress-row
   [[progress-type {:keys [total completed] :as p}]]
@@ -117,18 +119,28 @@
 
 (defn- progress-table
   [page-state]
-  (let [progress (r/cursor page-state [:progress :processes])]
+  (let [progress (r/cursor page-state [:progress])
+        started-at (r/cursor progress [:started-at])
+        completed-at (r/cursor progress [:completed-at])
+        processes (r/cursor progress [:processes])]
     (fn []
       [:table.table.table-hover
        [:tbody
         [:tr
          [:th "Record Type"]
          [:th.text-center "Progress"]]
-        (->> @progress
+        (->> @processes
              (filter (comp map? second))
              (sort-by (comp name first))
              (map progress-row)
-             doall)]])))
+             doall)]
+       [:tfoot
+        [:tr
+         [:td.text-end {:colspan 2}
+          "Total: "
+          (progress-time-elapsed @started-at
+                                 @completed-at
+                                 1)]]]])))
 
 (def auto-refresh (r/atom false))
 
