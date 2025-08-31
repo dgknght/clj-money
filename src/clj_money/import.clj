@@ -592,7 +592,7 @@
                (prog/fail tracker (:notification/message r))
                (prog/warn tracker (:notification/message r)))
 
-             :finalize-reconciliation
+             :termination-signal
              (prog/finish tracker)
 
              (prog/increment tracker record-type))
