@@ -36,13 +36,15 @@
 (defn- expect*
   [{:keys [redis-opts] :as opts} process-key expected-count]
   (try
-    (car/wcar redis-opts
-              (car/set (proc-key opts process-key :total)
-                       expected-count
-                       "EX" ex-seconds)
-              (car/set (proc-key opts process-key :started-at)
-                       (now)
-                       "EX" ex-seconds))
+    (let [start-key (build-key opts :started-at)
+          started-at (car/wcar redis-opts
+                               (car/get start-key))]
+      (car/wcar redis-opts
+                (car/set (proc-key opts process-key :total)
+                         expected-count
+                         "EX" ex-seconds)
+                (when-not started-at
+                  (car/set start-key (now)))))
     (catch Exception e
       (log/error e "Unable to write the expectation to redis"))))
 
@@ -148,6 +150,9 @@
     (car/wcar redis-opts
               (car/set (build-key opts :finished)
                        "1"
+                       "EX" ex-seconds)
+              (car/set (build-key opts :completed-at)
+                       (now)
                        "EX" ex-seconds))
     (catch Exception e
       (log/error e "Unable to mark the process as finished"))))
