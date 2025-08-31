@@ -434,3 +434,18 @@
 (deftest convert-an-instant-to-a-local-date
   (is (= (t/local-date 2020 1 1)
          (dates/->local-date (dates/instant "2020-01-01T00:00:00Z")))))
+
+#?(:cljs (deftest format-an-interval
+           (are [s e expected] (= expected (dates/format-interval (t/interval s e)))
+                (t/date-time 2000 1 1 12 0 0)
+                (t/date-time 2000 1 1 12 0 1)
+                "0:01"
+
+                (t/date-time 2000 1 1 12 0 0)
+                (t/date-time 2000 1 1 12 0 59)
+                "0:59"
+
+
+                (t/date-time 2000 1 1 12 0 0)
+                (t/date-time 2000 1 1 12 1 0)
+                "1:00")))

@@ -3,6 +3,7 @@
                :cljs [cljs.pprint :refer [pprint]])
             [clojure.spec.alpha :as s]
             [clojure.walk :refer [postwalk]]
+            #?(:cljs [goog.string :refer [format]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.format :as tf])
@@ -496,12 +497,7 @@
 
 #?(:cljs (defn format-interval
            [i]
-           (let [s (t/in-seconds i)
-                 whole-minutes (quot s 60)
-                 remaining-seconds (mod s 60)]
-             (cond
-               (< 1 whole-minutes)
-               (str whole-minutes ":" remaining-seconds)
-
-               :else
-               (str s " sec")))))
+           (let [s (t/in-seconds i)]
+             (format "%d:%02d"
+                     (quot s 60)
+                     (mod s 60)))))
