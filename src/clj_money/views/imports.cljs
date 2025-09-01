@@ -136,7 +136,7 @@
              doall)]
        [:tfoot
         [:tr
-         [:td.text-end {:colspan 2}
+         [:td.text-end {:col-span 2}
           "Total: "
           (progress-time-elapsed @started-at
                                  @completed-at
