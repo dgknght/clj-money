@@ -580,23 +580,25 @@
 
                   :else
                   (prog/tracker tracker-or-import-or-id))]
-    (map (fn [{:as r :import/keys [record-type]}]
-           (case record-type
-             :declaration
-             (prog/expect tracker
-                          (:declaration/record-type r)
-                          (:declaration/record-count r))
+    (comp (remove (fn [{:import/keys [record-type]}]
+                    (= :reconciliation record-type)))
+          (map (fn [{:as r :import/keys [record-type]}]
+                 (case record-type
+                   :declaration
+                   (prog/expect tracker
+                                (:declaration/record-type r)
+                                (:declaration/record-count r))
 
-             :notification
-             (if (= :fatal (:notification/severity r))
-               (prog/fail tracker (:notification/message r))
-               (prog/warn tracker (:notification/message r)))
+                   :notification
+                   (if (= :fatal (:notification/severity r))
+                     (prog/fail tracker (:notification/message r))
+                     (prog/warn tracker (:notification/message r)))
 
-             :termination-signal
-             (prog/finish tracker)
+                   :termination-signal
+                   (prog/finish tracker)
 
-             (prog/increment tracker record-type))
-           r))))
+                   (prog/increment tracker record-type))
+                 r)))))
 
 (defmulti filter-behavior
   (fn [record _state]
