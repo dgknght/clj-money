@@ -34,6 +34,8 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
+        env:
+          REDIS_PASSWORD: please04
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
