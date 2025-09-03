@@ -194,7 +194,10 @@
                       (swap! state update-in [:increment k] (fnil inc 0)))
                     (increment [_ k c]
                       (swap! state update-in [:increment k] (fnil + 0) c))
-                    (get [_] #_noop))
+                    (get [_] #_noop)
+                    (warn [_ _msg] #_noop)
+                    (fail [&  _msg] #_noop)
+                    (finish [_] #_noop))
           progress-chan (a/chan 1 (imp/progress-xf tracker))
           _ (a/go-loop [p (a/<! progress-chan)]
                        (when p
