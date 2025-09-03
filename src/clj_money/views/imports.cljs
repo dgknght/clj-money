@@ -378,7 +378,9 @@
 (defn- import-list []
   (let [page-state (r/atom {})
         import-data (r/cursor page-state [:import-data])
-        active (r/cursor page-state [:active])]
+        active (r/cursor page-state [:active])
+        show-active? (make-reaction #(and @active
+                                          (not @import-data)))]
     (load-imports page-state)
     (fn []
       [:<>
@@ -399,7 +401,7 @@
         (when @import-data
           [:div.col-md-6
            [import-form page-state]])
-        (when @active
+        (when @show-active?
           [:div.col-md-6.mt-2.mt-md-0
            [import-activity page-state]])]])))
 
