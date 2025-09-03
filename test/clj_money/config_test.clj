@@ -26,4 +26,9 @@
 (deftest fetch-a-config-with-unresolvable-references
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"Unresolvable config reference"
-                        (config/process {:some-value :config/does-not-exist}))))
+                        (config/process {:some-value :config/does-not-exist}))
+      "An exception is thrown if the key is absent")
+  (is (nil? (:some-value
+              (config/process {:some-value :config/deliberately-nil
+                               :deliberately-nil nil})))
+      "An explicit nil value is allowed"))
