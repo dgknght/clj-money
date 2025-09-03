@@ -130,9 +130,11 @@
          [:th "Record Type"]
          [:th.text-center "Progress"]]
         (->> @processes
-             (filter (comp map? second))
              (sort-by (comp name first))
-             (map progress-row)
+             (map (comp progress-row
+                        #(update-in %
+                                    [1 :completed-at]
+                                    (fnil identity @completed-at))))
              doall)]
        [:tfoot
         [:tr
