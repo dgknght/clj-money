@@ -28,14 +28,13 @@ jobs:
       redis:
         image: redis:8
         options: >-
-          --health-cmd "redis-cli ping"
+          --health-cmd "redis-cli -a please04 ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
         ports:
           - 6379:6379
-        env:
-          REDIS_PASSWORD: please04
+        cmd: ["redis-server", "--requirepass", "please04"]
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
