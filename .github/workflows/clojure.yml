@@ -25,6 +25,15 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+      redis:
+        image: redis:8
+        options: >-
+          --health-cmd "redis-cli -a please04 ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -46,6 +55,8 @@ jobs:
         run: lein with-profile +test do create-sql, migrate, partition 2015-01-01 2017-12-31
       - name: Run tests
         run: lein cloverage
+        env:
+          REDIS_PASSWORD: ""
 
   tag:
     needs: build

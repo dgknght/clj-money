@@ -54,6 +54,7 @@
                                          (clj-money.models.transactions/with-delayed-propagation)
                                          (clj-money.models.propagation/with-propagation)
                                          (clj-money.tasks/with-options)
+                                         (clj-money.progress.redis-test/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}
            :unused-private-var {:exclude #{clj-money.models.transactions/simplify}}
            :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
@@ -88,6 +89,15 @@
                                       honeysql.helpers/limit
                                       honeysql.helpers/with-recursive
                                       honeysql.core/format
+                                      taoensso.carmine/del
+                                      taoensso.carmine/expire
+                                      taoensso.carmine/get
+                                      taoensso.carmine/incrby
+                                      taoensso.carmine/keys
+                                      taoensso.carmine/lpush
+                                      taoensso.carmine/lrange
+                                      taoensso.carmine/set
+                                      taoensso.carmine/setnx
                                       dgknght.app-lib.test-assertions/comparable?
                                       dgknght.app-lib.test-assertions/seq-of-maps-like?
                                       digest/sha-1]}

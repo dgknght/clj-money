@@ -8,6 +8,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
+            [clj-money.progress :as prog]
             [clj-money.images :as images]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
@@ -533,7 +534,7 @@
   (if out-chan
     (fn [recon]
       (a/go
-        (a/>! out-chan {:import/record-type :reconciliation}))
+        (a/>! out-chan {:import/record-type :finalize-reconciliation}))
       recon)
     identity))
 
@@ -546,7 +547,7 @@
         ch (a/promise-chan)]
     (a/go
       (when out-chan
-        (a/>! out-chan {:declaration/record-type :reconciliation
+        (a/>! out-chan {:declaration/record-type :finalize-reconciliation
                         :declaration/record-count (count reconciliations)
                         :import/record-type :declaration}))
       (mapv (comp (notify-reconciliation-finalization out-chan)
@@ -568,25 +569,36 @@
         (fn [acc v]
           (xf acc v))))))
 
-(defn progress-xf []
-  (let [progress (atom {})]
-    (map (fn [{:as r :declaration/keys [record-type record-count]}]
-           (case (:import/record-type r)
-             :declaration (swap! progress
-                                 assoc
-                                 record-type
-                                 {:total record-count
-                                  :completed 0})
-             :notification (swap! progress
-                                  update-in
-                                  [:notifications]
-                                  conj
-                                  r)
-             :termination-signal (swap! progress assoc :finished true)
-             (swap! progress
-                    update-in
-                    [(:import/record-type r) :completed]
-                    (fnil inc 0)))))))
+(defn progress-xf
+  [tracker-or-import-or-id]
+  (let [tracker (cond
+                  (satisfies? prog/Tracker tracker-or-import-or-id)
+                  tracker-or-import-or-id
+
+                  (map? tracker-or-import-or-id)
+                  (prog/tracker (:id tracker-or-import-or-id))
+
+                  :else
+                  (prog/tracker tracker-or-import-or-id))]
+    (comp (remove (fn [{:import/keys [record-type]}]
+                    (= :reconciliation record-type)))
+          (map (fn [{:as r :import/keys [record-type]}]
+                 (case record-type
+                   :declaration
+                   (prog/expect tracker
+                                (:declaration/record-type r)
+                                (:declaration/record-count r))
+
+                   :notification
+                   (if (= :fatal (:notification/severity r))
+                     (prog/fail tracker (:notification/message r))
+                     (prog/warn tracker (:notification/message r)))
+
+                   :termination-signal
+                   (prog/finish tracker)
+
+                   (prog/increment tracker record-type))
+                 r)))))
 
 (defmulti filter-behavior
   (fn [record _state]

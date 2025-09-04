@@ -8,6 +8,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [safe-nth]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.progress :as prog]
             [clj-money.models.ref]
             [clj-money.db.ref]
             [clj-money.images.sql]
@@ -185,63 +186,42 @@
 
 (deftest track-import-progress
   (with-context gnucash-context
-    (let [state (atom [])
-          progress-chan (a/chan 1 (imp/progress-xf))
+    (let [state (atom {})
+          tracker (reify prog/Tracker
+                    (expect [_ k c]
+                      (swap! state assoc-in [:expect k] c))
+                    (increment [_ k]
+                      (swap! state update-in [:increment k] (fnil inc 0)))
+                    (increment [_ k c]
+                      (swap! state update-in [:increment k] (fnil + 0) c))
+                    (get [_] #_noop)
+                    (warn [_ _msg] #_noop)
+                    (fail [&  _msg] #_noop)
+                    (finish [_] #_noop))
+          progress-chan (a/chan 1 (imp/progress-xf tracker))
           _ (a/go-loop [p (a/<! progress-chan)]
                        (when p
                          (swap! state #(conj % p))
                          (recur (a/<! progress-chan))))
           {:keys [wait-chan]} (import-data (find-import "Personal") :out-chan progress-chan)]
       (a/alts!! [wait-chan (a/timeout 5000)])
-      (let [updates @state]
-        (is (includes-progress-notification?
-              :commodity
-              {:total 1
-               :completed 0}
-              updates)
-            "The initial commodity progress is reported")
-        (is (includes-progress-notification?
-              :commodity
-              {:total 1
-               :completed 1}
-              updates)
-            "The final commodity progress is reported")
-        (is (includes-progress-notification?
-              :account
-              {:total 9
-               :completed 0}
-              updates)
-            "The initial account progress is reported")
-        (is (includes-progress-notification?
-              :account
-              {:total 9
-               :completed 9}
-              updates)
-            "The final account progress is reported")
-        (is (includes-progress-notification?
-              :transaction
-              {:total 6
-               :completed 0}
-              updates)
-            "The initial transaction progress is reported")
-        (is (includes-progress-notification?
-              :transaction
-              {:total 6
-               :completed 6}
-              updates)
-            "The final transaction progress is reported")
-        (is (includes-progress-notification?
-              :propagation
-              {:total 4
-               :completed 0}
-              updates)
-            "The initial propagation progress is reported")
-        (is (includes-progress-notification?
-              :propagation
-              {:total 4
-               :completed 4}
-              updates)
-            "The final propagation progress is reported")))))
+      (let [{:keys [expect increment]} @state]
+        (is (= 1 (expect :commodity))
+            "Expectation is given for 1 commodity")
+        (is (= 1 (increment :commodity))
+            "Commodity count is incremented once")
+        (is (= 9 (expect :account))
+            "Expectation is given for 9 accounts")
+        (is (= 9 (increment :account))
+            "Account count is incremented 9 times")
+        (is (= 6 (expect :transaction))
+            "Expectation is given for 6 transactions")
+        (is (= 6 (increment :transaction))
+            "Transaction count is incremented 6 times")
+        (is (= 4 (expect :propagation))
+            "Expectation is given for 4 propagations")
+        (is (= 4 (increment :propagation))
+            "Propagation count is incremented 4 times")))))
 
 (deftest halt-on-failure
   (with-context gnucash-context
