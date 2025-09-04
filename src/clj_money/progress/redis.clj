@@ -44,7 +44,8 @@
                          expected-count
                          "EX" ex-seconds)
                 (when-not started-at
-                  (car/set start-key (now)))))
+                  (car/set start-key (now)
+                           "EX" ex-seconds))))
     (catch Exception e
       (log/error e "Unable to write the expectation to redis"))))
 
