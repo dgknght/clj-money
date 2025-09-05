@@ -3,16 +3,16 @@
   :url "http://money.herokuapp.com"
   :license {:name "Eclipse Public License v1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.11.4" :exclusions [org.clojure/tools.reader]]
+  :dependencies [[org.clojure/clojure "1.12.0" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/core.async "1.6.681" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.cli "1.0.206" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.reader "1.3.4"]
                  [org.clojure/data.json "2.5.1"]
                  [org.clojure/data.xml "0.2.0-alpha6"]
-                 [clj-http "3.9.0" :exclusions [org.clojure/tools.reader
+                 [clj-http "3.13.1" :exclusions [org.clojure/tools.reader
                                                 commons-io]]
-                 [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]
+                 [cheshire "5.13.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.11" :exclusions [org.clojure/tools.reader]]
@@ -28,7 +28,7 @@
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M3" :exclusions [commons-io]]
-                 [ring "1.9.6" :exclusions [commons-codec
+                 [ring "1.10.0" :exclusions [commons-codec
                                             commons-io]]
                  [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
                                                           joda-time
@@ -48,27 +48,26 @@
                  [metosin/ring-middleware-format "0.6.0" :exclusions [org.clojure/tools.reader
                                                                       org.clojure/tools.analyzer.jvm
                                                                       org.clojure/core.memoize
-                                                                      com.cognitect/transit-clj
                                                                       ring]]
-                 [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
-                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader
+                 [com.cognitect/transit-clj "1.0.333"]
+                 [hiccup "2.0.0" :exclusions [org.clojure/tools.reader]]
+                 [cljs-http "0.1.48" :exclusions [org.clojure/tools.reader
                                                   org.clojure/tools.namespace]]
-                 [selmer "1.11.7" :exclusions [joda-time
+                 [selmer "1.12.61" :exclusions [joda-time
                                                com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
-                 [reagent "0.8.0" :exclusions [com.google.code.findbugs/jsr305
+                 [reagent "1.2.0" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
                  [reagent-forms "0.5.41"]
                  [reagent-utils "0.3.1"]
-                 [org.clojure/clojurescript "1.11.4" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/clojurescript "1.11.132" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "31.0.1-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
                                                      org.clojure/tools.reader]]
-                 [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler
-                                                 org.clojure/tools.reader]]
-                 [venantius/accountant "0.2.4" :exclusions [com.google.javascript/closure-compiler
+                 [bidi "2.1.6" :exclusions [org.clojure/tools.reader]]
+                 [venantius/accountant "0.2.5" :exclusions [com.google.javascript/closure-compiler
                                                             org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
@@ -149,7 +148,7 @@
                    com.fasterxml.jackson.core/jackson-core
                    lein-doo]]
                  [lambdaisland/uri "1.4.54"]
-                 [com.taoensso/carmine "3.4.1"]
+                 [com.taoensso/carmine "3.4.1" :exclusions [org.clojure/tools.reader commons-codec]]
                  [stowaway "0.2.10" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
