@@ -3,6 +3,7 @@
                :cljs [cljs.pprint :refer [pprint]])
             [clojure.spec.alpha :as s]
             [clojure.walk :refer [postwalk]]
+            #?(:cljs [goog.string :refer [format]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.format :as tf])
@@ -62,10 +63,15 @@
   #?(:clj t/local-date-time?
      :cljs (partial instance? DateTime)))
 
+(def instant?
+  #?(:clj t/instant?
+     :cljs #(satisfies? t/DateTimeProtocol %)))
+
 (defmulti equal?
   (fn [d1 _d2]
     (cond
       (sequential? d1) :sequence
+      (instant? d1) :scalar
       (local-date? d1) :scalar
       (local-date-time? d1) :scalar)))
 
@@ -399,6 +405,19 @@
   #?(:clj (t/local-date-time (t/formatter :iso-date-time) date-str)
      :cljs (tf/parse-local (tf/formatters :date-hour-minute-second) date-str)))
 
+(defn serialize-instant
+  [d]
+  #?(:clj (t/format :iso-instant d)
+     :cljs (str (tf/unparse (tf/formatters :date-hour-minute-second-ms) d)
+                "Z")))
+
+(defn unserialize-instant
+  [s]
+  #?(:clj (t/instant s)
+     :cljs (when s
+             (when-let [parsable (re-find #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}" s)]
+               (tf/parse (tf/formatters :date-hour-minute-second-ms) parsable)))))
+
 (defn format-local-date
   [local-date]
   #?(:clj (t/format (t/formatter "M/d/yyyy") local-date)
@@ -475,3 +494,10 @@
      :cljs (t/local-date (t/year inst)
                          (t/month inst)
                          (t/day inst))))
+
+#?(:cljs (defn format-interval
+           [i]
+           (let [s (t/in-seconds i)]
+             (format "%d:%02d"
+                     (quot s 60)
+                     (mod s 60)))))

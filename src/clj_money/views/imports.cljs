@@ -1,11 +1,12 @@
 (ns clj-money.views.imports
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cljs.pprint :refer [pprint]]
+            [cljs.core.async :refer [timeout
+                                     <!]]
+            [cljs-time.core :as t]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
-            [cljs.core.async :refer [timeout
-                                     <!]]
             [dgknght.app-lib.core :refer [present?]]
             [dgknght.app-lib.web :refer [format-percent
                                          format-decimal
@@ -16,6 +17,7 @@
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.dates :as dates]
             [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.components :refer [button]]
             [clj-money.dnd :as dnd]
@@ -30,7 +32,9 @@
   (+busy)
   (imports/select {}
                   :callback -busy
-                  :on-success #(swap! page-state assoc :imports %)))
+                  :on-success #(->> %
+                                    (sort-by :import/entity-name)
+                                    (swap! page-state assoc :imports))))
 
 (defn- delete-import
   [imp page-state]
@@ -62,11 +66,24 @@
     (fn []
       [:strong (str "Import: " (:import/entity-name @imp))])))
 
+(defn- progress-time-elapsed
+  ([{:keys [started-at completed-at completed]}]
+   (progress-time-elapsed started-at completed-at completed))
+  ([started-at completed-at completed]
+   (when (and started-at (< 0 completed))
+     (let [s (dates/unserialize-instant started-at)
+           c (dates/unserialize-instant completed-at)]
+       [:span (dates/format-interval (t/interval s (or c
+                                                       (t/now))))]))))
+
 (defn- progress-row
-  [[progress-type {:keys [total completed]}]]
+  [[progress-type {:keys [total completed] :as p}]]
   ^{:key (str "progress-" (name progress-type))}
   [:tr
-   [:td.col-sm-6 (name progress-type)]
+   [:td.col-sm-6
+    [:div.d-flex.flex-column
+     [:span (name progress-type)]
+     (progress-time-elapsed p)]]
    [:td.col-sm-6.text-center
     (let [perc (if (< 0 total)
                  (* 100 (/ completed total))
@@ -102,34 +119,53 @@
 
 (defn- progress-table
   [page-state]
-  (let [progress (r/cursor page-state [:active :import/progress])]
+  (let [progress (r/cursor page-state [:progress])
+        started-at (r/cursor progress [:started-at])
+        completed-at (r/cursor progress [:completed-at])
+        processes (r/cursor progress [:processes])]
     (fn []
       [:table.table.table-hover
        [:tbody
         [:tr
          [:th "Record Type"]
          [:th.text-center "Progress"]]
-        (->> @progress
-             (filter (comp map? second))
+        (->> @processes
              (sort-by (comp name first))
-             (map progress-row)
-             doall)]])))
+             (map (comp progress-row
+                        #(update-in %
+                                    [1 :completed-at]
+                                    (fnil identity @completed-at))))
+             doall)]
+       [:tfoot
+        [:tr
+         [:td.text-end {:col-span 2}
+          "Total: "
+          (progress-time-elapsed @started-at
+                                 @completed-at
+                                 1)]]]])))
 
 (def auto-refresh (r/atom false))
 
 (declare load-import)
 
+(defn- load-progress
+  [page-state]
+  (let [import (get-in @page-state [:active])]
+    (imports/progress import
+                      :on-success (fn [res]
+                                    (when (:finished res)
+                                      (reset! auto-refresh false))
+                                    (when @auto-refresh
+                                      (go
+                                        (<! (timeout 1000))
+                                        (load-progress page-state)))
+                                    (swap! page-state assoc :progress res)))))
+
 (defn- receive-import
   ([page-state] (partial receive-import page-state))
-  ([page-state {{:keys [finished]} :import/progress
-                :as received}]
-   (when finished
-     (reset! auto-refresh false))
-   (when @auto-refresh
-     (go
-       (<! (timeout 1000))
-       (load-import page-state)))
-   (swap! page-state assoc :active received)))
+  ([page-state received]
+   (swap! page-state assoc :active received)
+   (load-progress page-state)))
 
 (defn- load-import
   [page-state]
@@ -165,6 +201,7 @@
       (icon :play :size :small)]
      [:button.btn.btn-secondary.btn-sm {:on-click (fn []
                                                 (swap! page-state assoc :active imp)
+                                                (load-progress page-state)
                                                 (reset! auto-refresh true)
                                                 (load-import page-state))
                                     :disable busy?
@@ -222,7 +259,7 @@
       [refresh-button page-state]]]))
 
 (defn- notification-elem
-  [[{:notification/keys [message severity id]} count]]
+  [[{:keys [message severity id]} count]]
   ^{:key (str "simple-notification-" id)}
   [:div.alert
    {:role :alert
@@ -238,17 +275,26 @@
 
 (defn- notifications-card
   [page-state]
-  (let [notifications (r/cursor page-state [:active :import/progress :notifications])
-        grouped (make-reaction #(group-by :notification/message @notifications))]
+  (let [raw-errors (r/cursor page-state [:progress :warnings])
+        errors (make-reaction #(->> @raw-errors
+                                    (group-by identity)
+                                    (map (fn [[m c]]
+                                           [{:message m
+                                             :severity :error} c]))))
+        failure-reason (r/cursor page-state [:progress :failure-reason])
+        notifications (make-reaction #(if-let [f @failure-reason]
+                                        (cons {:message f
+                                               :severity :fatal}
+                                              @errors)
+                                        @errors))]
     (fn []
       (when (seq @notifications)
         [:div.card.mt-2
          [:div.card-header "Alerts"]
          [:div.card-body
-          (->> @grouped
+          (->> @notifications
                (map (comp notification-elem
-                          (juxt first count)
-                          second))
+                          #(vector % 1)))
                doall)]]))))
 
 (defn- import-activity
@@ -332,7 +378,9 @@
 (defn- import-list []
   (let [page-state (r/atom {})
         import-data (r/cursor page-state [:import-data])
-        active (r/cursor page-state [:active])]
+        active (r/cursor page-state [:active])
+        show-active? (make-reaction #(and @active
+                                          (not @import-data)))]
     (load-imports page-state)
     (fn []
       [:<>
@@ -353,7 +401,7 @@
         (when @import-data
           [:div.col-md-6
            [import-form page-state]])
-        (when @active
+        (when @show-active?
           [:div.col-md-6.mt-2.mt-md-0
            [import-activity page-state]])]])))
 

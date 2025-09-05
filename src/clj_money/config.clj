@@ -11,13 +11,20 @@
               (= "config" (namespace v))))))
 
 (def ^:private naked-key (comp keyword name))
+
+(defn- extract-value
+  [config]
+  (fn [ky]
+    (let [k (naked-key ky)]
+      (when-not (contains? config k)
+        (throw (ex-info (format "Unresolvable config reference: %s"
+                              k)
+                      {:config config})))
+      (get-in config [k]))))
+
 (defn- resolve-ref
   [entry config]
-  (update-in entry [1] #(if-let [v (config (naked-key %))]
-                          v
-                          (throw (ex-info (format "Unresolvable config reference: %s"
-                                                  %)
-                                          {:entry entry})))))
+  (update-in entry [1] (extract-value config)))
 
 (defn process
   [config]

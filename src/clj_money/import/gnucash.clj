@@ -258,11 +258,11 @@
                                           "payer-name-source"} (:key %))) ; TODO: probably should catch this earlier in the process
                               first)]
       (a/>!! out-chan (assoc account
-                           :import/record-type :account))
+                             :import/record-type :account))
       (when reconciliation
         (a/>!! out-chan (assoc reconciliation
-                             :account-id (:id account)
-                             :import/record-type :reconciliation)))))
+                               :account-id (:id account)
+                               :import/record-type :reconciliation)))))
   (pop-elem state))
 
 (defmethod ^:private process-elem ::act/slots

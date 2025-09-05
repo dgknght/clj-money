@@ -34,9 +34,14 @@
 
     :else v))
 
-(defn- id-key?
-  [k]
-  (boolean (re-find #"id$" (param-name k))))
+(defn- ends-with-id?
+  [s]
+  (boolean (re-find #"id$" (param-name s))))
+
+(def ^:private id-key?
+  (every-pred (some-fn string?
+                       keyword?)
+              ends-with-id?))
 
 (def ^:private id-param?
   (every-pred map-entry?
@@ -44,11 +49,12 @@
 
 (defn- parse-id-params
   [params]
-  (postwalk (fn [x]
-              (if (id-param? x)
-                (update-in x [1] parse-id)
-                x))
-            params))
+  (when params
+    (postwalk (fn [x]
+                (if (id-param? x)
+                  (update-in x [1] parse-id)
+                  x))
+              params)))
 
 (defn wrap-parse-id-params
   "Finds ID parameters and turns them into integers"
