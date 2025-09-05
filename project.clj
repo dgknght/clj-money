@@ -10,9 +10,9 @@
                  [org.clojure/tools.reader "1.3.4"]
                  [org.clojure/data.json "2.5.1"]
                  [org.clojure/data.xml "0.2.0-alpha6"]
-                 [clj-http "3.9.0" :exclusions [org.clojure/tools.reader
+                 [clj-http "3.13.1" :exclusions [org.clojure/tools.reader
                                                 commons-io]]
-                 [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]
+                 [cheshire "6.1.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.11" :exclusions [org.clojure/tools.reader]]
