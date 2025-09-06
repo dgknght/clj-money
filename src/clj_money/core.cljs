@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
+            [reagent.dom :refer [render]]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
             [dgknght.app-lib.inflection :refer [humanize]]
@@ -213,7 +214,7 @@
   (let [mounted? (r/cursor app-state [:mounted?])]
     (when-not @mounted?
       (swap! app-state assoc :mounted? true :page #'home-page)
-      (r/render [current-page] (.getElementById js/document "app")))))
+      (render [current-page] (.getElementById js/document "app")))))
 
 (defn- receive-entities
   [[entity :as entities]]
