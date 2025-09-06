@@ -58,15 +58,20 @@
                                                org.clojure/tools.reader]]
                  [reagent "1.2.0" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
+                 [cljsjs/react "18.2.0-1"]
+                 [cljsjs/react-dom "18.2.0-1"]
+                 [org.clojure/google-closure-library "0.0-20230227-c7c0a541"]
+                 [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler
+                                                 org.clojure/tools.reader]]
                  [reagent-forms "0.5.41"]
-                 [reagent-utils "0.3.1"]
+                 [reagent-utils "0.3.8"]
                  [org.clojure/clojurescript "1.11.132" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "31.0.1-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
                                                      org.clojure/tools.reader]]
-                 [bidi "2.1.6" :exclusions [org.clojure/tools.reader]]
+                 [bidi "2.1.6" :exclusions [org.clojure/tools.reader prismatic/schema]]
                  [venantius/accountant "0.2.5" :exclusions [com.google.javascript/closure-compiler
                                                             org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
