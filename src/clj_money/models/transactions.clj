@@ -8,6 +8,7 @@
             [dgknght.app-lib.core :refer [index-by
                                           update-in-if]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.monitoring :refer [log-memory-usage]]
             [clj-money.db :as db]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
@@ -525,6 +526,10 @@
            (partition-all 10)
            (mapcat models/put-many)
            doall)
+
+      (log-memory-usage (format "after account %s"
+                                (:account/name account)))
+
       updated)
     (catch Exception e
       (log/errorf e
@@ -543,7 +548,6 @@
                 total)
 
     (when progress-chan
-      (log/debugf "[propagation] report %s accounts" total)
       (a/go (a/>! progress-chan {:declaration/record-type :propagation
                                  :declaration/record-count total
                                  :import/record-type :declaration})))
@@ -588,12 +592,12 @@
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
   accounts as of the associated dates."
-  [{:keys [accounts entity-id] :as x}]
+  [{:keys [accounts entity-id]}]
   (let [entity (models/find entity-id :entity)]
     (models/put-many
       (cons (update-in entity
                        [:entity/transaction-date-range]
-                       #(apply dates/push-boundary % (:entity x)))
+                       #(apply dates/push-boundary % entity))
             (->> accounts
                  (map (comp (fn [[account date]]
                               {:account account
