@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
@@ -187,6 +188,17 @@
                                                     :text]}) ; TODO: this hint is specific to SQL. Move it to a sql ns
                 (map :account/name)
                 set)))))
+
+(dbtest select-accounts-in-batches
+  (with-context tag-context
+    (is (= [{:account/name "Checking"}
+            {:account/name "Dining"}
+            {:account/name "Rent"}
+            {:account/name "Tax"}]
+           (models/batch-select
+             (util/model-type {} :account)
+             {:select [:account/name]
+              :batch-size 2})))))
 
 (defn- assert-created
   [attr]

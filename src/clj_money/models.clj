@@ -84,6 +84,18 @@
   [criteria]
   (db/select (db/storage) criteria {:count true}))
 
+(defn batch-select
+  ([criteria] (batch-select criteria {}))
+  ([criteria {:keys [batch-size]
+              :or {batch-size 50}
+              :as options}]
+   (let [total (count criteria)]
+     (->> (range 0 total batch-size)
+          (mapcat #(select criteria
+                           (assoc options
+                                  :offset %
+                                  :limit batch-size)))))))
+
 (defn find-by
   ([criteria] (find-by criteria {}))
   ([criteria options]
