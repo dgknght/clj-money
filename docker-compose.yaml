@@ -17,7 +17,6 @@ services:
     command: "redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD}"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-    env_file: .env
 
   sql:
     image: postgres:17
@@ -32,7 +31,6 @@ services:
       POSTGRES_DB: ${SQL_ADM_USER}
     healthcheck:
       test: pg_isready
-    env_file: .env
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -44,7 +42,6 @@ services:
     depends_on:
       sql:
         condition: service_healthy
-    env_file: .env
 
   sql-init:
     profiles:
@@ -66,7 +63,6 @@ services:
       - type: volume
         source: maven-data
         target: /root/.m2
-    env_file: .env
 
   # Datomic
   #--------
@@ -91,8 +87,7 @@ services:
     image: clj-money-util
     build:
       target: util
-    command: sh -c "if [ -e /init-markers/datomic-sql-init-complete ]; then rm /init-markers/*; fi && lein with-profile util create-sql && ./scripts/datomic/init.sh && touch /init-markers/datomic-sql-init-complete"
-    env_file: .env
+    command: sh -c "if [ -e /init-markers/datomic-sql-init-complete ]; then rm -rvf /init-markers/*; fi && lein with-profile util create-sql && ./scripts/datomic/init.sh && touch /init-markers/datomic-sql-init-complete"
     environment:
       PGPASSWORD: ${SQL_ADM_PASSWORD}
       PGHOST: ${SQL_HOST}
@@ -131,14 +126,13 @@ services:
       - type: volume
         source: init-markers
         target: /init-markers
-    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; sleep 5s; done && ./bin/transactor -Xmx2g -Xms1g ./config/transactor.properties"
+    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; sleep 5s; done && ./bin/transactor -Ddatomic.printConnectionInfo=true -Xmx2g -Xms1g ./config/transactor.properties"
     restart: on-failure
     ports:
       - 4334:4334
       - 9999:9999
     healthcheck:
       test: wget localhost:9999/health
-    env_file: .env
 
   datomic-schema:
     profiles:
@@ -162,7 +156,6 @@ services:
     depends_on:
       datomic-transactor:
         condition: service_healthy
-    env_file: .env
 
   datomic-console:
     profiles:
@@ -175,12 +168,11 @@ services:
     restart: on-failure
     ports:
       - 4050:8080
-    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; sleep 5s; done && ./bin/console -p '8080' sql '${DATOMIC_NO_DB_URI}'"
+    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; sleep 5s; done && ./bin/console -p '8080' sql 'datomic:sql://?jdbc:postgresql://${SQL_HOST}:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}'"
     volumes:
       - type: volume
         source: init-markers
         target: /init-markers
-    env_file: .env
 
   datomic-peer-server:
     profiles:
@@ -212,8 +204,7 @@ services:
       - -a
       - "${DATOMIC_ACCESS_KEY},${DATOMIC_SECRET}"
       - -d
-      - "${DATOMIC_DB_NAME},${DATOMIC_STORAGE_URI}"
-    env_file: .env
+      - "${DATOMIC_DB_NAME},datomic:sql://${DATOMIC_DB_NAME}?jdbc:postgresql://${SQL_HOST}:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}"
     healthcheck:
       test: ["CMD", "curl", "-k", "https://localhost:8998/health"]
       interval: 30s
