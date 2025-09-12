@@ -93,6 +93,14 @@ services:
       PGHOST: ${SQL_HOST}
       PGDATABASE: ${SQL_ADM_USER}
       PGUSER: ${SQL_ADM_USER}
+      SQL_ADM_USER: ${SQL_ADM_USER}
+      SQL_ADM_PASSWORD: ${SQL_ADM_PASSWORD}
+      SQL_DDL_USER: ${SQL_DDL_USER}
+      SQL_DDL_PASSWORD: ${SQL_DDL_PASSWORD}
+      SQL_APP_USER: ${SQL_APP_USER}
+      SQL_APP_PASSWORD: ${SQL_APP_PASSWORD}
+      SQL_DB_NAME: ${SQL_DB_NAME}
+      SQL_HOST: ${SQL_HOST}
     depends_on:
       sql:
         condition: service_healthy
