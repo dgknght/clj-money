@@ -8,10 +8,10 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.progress :as prog]
             [clj-money.images :as images]
             [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria
                                         expense?]]
@@ -125,9 +125,8 @@
        items))
 
 (defn- prepare-transaction
-  [transaction {:as context :keys [entity]}]
+  [transaction {:keys [entity]}]
   (-> transaction
-      (update-in [:transaction/items] #(resolve-account-references context %))
       (assoc :transaction/entity entity)
       purge-import-keys))
 
@@ -366,18 +365,54 @@
   [items]
   (remove #(zero? (:transaction-item/quantity %)) items))
 
+(defn- propagate-item
+  [context]
+  (fn
+    [{:transaction-item/keys [polarized-quantity account] :as item}]
+    {:pre [(:transaction-item/polarized-quantity item)
+           (:transaction-item/account item)]}
+    (let [{:transaction-item/keys [balance index]}
+          (get-in context
+                  [:last-trxs (:id account)]
+                  #:transaction-item{:balance 0M
+                                     :index -1})]
+      (assoc item
+             :transaction-item/balance (+ balance polarized-quantity)
+             :transaction-item/index (inc index)))))
+
+(defn- update-last-trxs
+  [context {:transaction/keys [items]}]
+  (update-in context
+             [:last-trxs]
+             #(reduce (fn [c {:as item {:keys [id]} :transaction-item/account}]
+                        (assoc c id item))
+                      %
+                      items)))
+
 (defmethod import-record* :transaction
   [context transaction]
   (with-fatal-exceptions
-    (let [trx (update-in transaction
-                         [:transaction/items]
-                         (comp #(refine-recon-info context %)
-                               remove-zero-quantity-items))]
+    (let [trx (-> transaction
+                  (update-in [:transaction/items]
+                             (comp #(refine-recon-info context %)
+                                   remove-zero-quantity-items))
+                  (update-in [:transaction/items] #(resolve-account-references
+                                                     context
+                                                     %))
+                  (update-in [:transaction/items] #(map (comp (propagate-item context)
+                                                              polarize-item-quantity)
+                                                        %)))]
       (if (empty? (:transaction/items trx))
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
           (assoc-warning context "Transaction with no items" trx))
-        (import-transaction context trx)))))
+        (-> context
+            (import-transaction trx)
+            (update-last-trxs trx)
+            (update-in [:entity]
+                       dates/push-model-boundary
+                       :entity/transaction-date-range 
+                       (:transaction/transaction-date trx)))))))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity account-ids]
@@ -683,13 +718,9 @@
                              :notifications []
                              :entity entity})
                           a/<!!)]
+          (models/put (:entity result)) ; transaction-date-range has been updated
           (when-not (::abend? result)
-            (log/debugf "[import] data imported, start propagation for %s"
-                        (:import/entity-name import-spec))
-            (-> entity
-                models/find
-                (prop/propagate-all {:progress-chan out-chan}))
-            (log/debugf "[import] start reconciliations for %s"
+            (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))
             (a/alts!! [(process-reconciliations result
                                                 out-chan)

@@ -217,11 +217,7 @@
         (is (= 6 (expect :transaction))
             "Expectation is given for 6 transactions")
         (is (= 6 (increment :transaction))
-            "Transaction count is incremented 6 times")
-        (is (= 4 (expect :propagation))
-            "Expectation is given for 4 propagations")
-        (is (= 4 (increment :propagation))
-            "Propagation count is incremented 4 times")))))
+            "Transaction count is incremented 6 times")))))
 
 (deftest halt-on-failure
   (with-context gnucash-context
