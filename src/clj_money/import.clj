@@ -117,10 +117,10 @@
           (models/put updated))))))
 
 (defn- resolve-account-references
-  [{:keys [account-ids]} items]
+  [{:keys [account-ids accounts]} items]
   (map (fn [{:import/keys [account-id] :as item}]
          (-> item
-             (assoc :transaction-item/account {:id (account-ids account-id)})
+             (assoc :transaction-item/account (-> account-id account-ids accounts))
              purge-import-keys))
        items))
 
