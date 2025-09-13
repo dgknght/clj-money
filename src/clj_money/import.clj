@@ -506,7 +506,7 @@
    {:keys [entity]}]
   (let [accounts (models/select
                    (util/model-type
-                     {:id (:id account)}
+                     (select-keys account [:id])
                      :account)
                    {:include-children? true})]
     (models/select
@@ -515,7 +515,7 @@
           {:earliest-date (get-in entity [:entity/transaction-date-range 0])
            :latest-date (get-in entity [:entity/transaction-date-range 1])}
           accounts)
-        :transaction-item/reconciliation (util/->model-ref id)))))
+        :transaction-item/reconciliation {:id id}))))
 
 (defn- process-reconciliation
   [recon {:as ctx :keys [accounts]}]
