@@ -123,13 +123,6 @@
           :transaction-item/account
           (-> account-id account-ids accounts))))
 
-(defn- resolve-account-references
-  ([ctx]
-   (partial resolve-account-references ctx))
-  ([ctx items]
-   (map (resolve-account-reference ctx)
-        items)))
-
 (defn- prepare-transaction
   [transaction {:keys [entity]}]
   (-> transaction
@@ -403,9 +396,9 @@
                          [:transaction/items]
                          (comp #(map (comp purge-import-keys
                                            (propagate-item context)
-                                           polarize-item-quantity)
+                                           polarize-item-quantity
+                                           (resolve-account-reference context))
                                      %)
-                               (resolve-account-references context)
                                (refine-recon-info context)
                                remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
