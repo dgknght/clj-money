@@ -392,16 +392,15 @@
 (defmethod import-record* :transaction
   [context transaction]
   (with-fatal-exceptions
-    (let [trx (-> transaction
-                  (update-in [:transaction/items]
-                             (comp #(refine-recon-info context %)
-                                   remove-zero-quantity-items))
-                  (update-in [:transaction/items] #(resolve-account-references
-                                                     context
-                                                     %))
-                  (update-in [:transaction/items] #(map (comp (propagate-item context)
-                                                              polarize-item-quantity)
-                                                        %)))]
+    (let [trx (update-in transaction [:transaction/items]
+                         (comp #(map (comp (propagate-item context)
+                                           polarize-item-quantity)
+                                     %)
+                               #(resolve-account-references
+                                  context
+                                  %)
+                               #(refine-recon-info context %)
+                               remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
