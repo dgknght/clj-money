@@ -116,12 +116,18 @@
           entity
           (models/put updated))))))
 
+(defn- resolve-account-reference
+  ([ctx] #(resolve-account-reference % ctx))
+  ([{:as item :import/keys [account-id]} {:keys [account-ids accounts]}]
+   (assoc item
+          :transaction-item/account
+          (-> account-id account-ids accounts))))
+
 (defn- resolve-account-references
   ([ctx]
    (partial resolve-account-references ctx))
-  ([{:keys [account-ids accounts]} items]
-   (map (fn [{:import/keys [account-id] :as item}]
-          (assoc item :transaction-item/account (-> account-id account-ids accounts)))
+  ([ctx items]
+   (map (resolve-account-reference ctx)
         items)))
 
 (defn- prepare-transaction
