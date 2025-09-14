@@ -351,15 +351,14 @@
 (defn- refine-recon-info
   "Given an imported transaction item, if the import/reconciled? attribute is true,
   add a transaction-item/reconciliation attribute."
-  ([ctx] (partial refine-recon-info ctx))
-  ([{:keys [account-recons] :as ctx} items]
-   (if account-recons
-     (mapv (fn [{:as item :import/keys [reconciled? account-id]}]
-             (cond-> item
-               reconciled? (assoc :transaction-item/reconciliation
-                                  (util/->model-ref (find-reconciliation-id account-id ctx)))))
-           items)
-     items)))
+  ([ctx]
+   (if (:account-recons ctx)
+     #(refine-recon-info % ctx)
+     identity))
+  ([{:as item :import/keys [reconciled? account-id]} ctx]
+   (cond-> item
+     reconciled? (assoc :transaction-item/reconciliation
+                        (util/->model-ref (find-reconciliation-id account-id ctx))))))
 
 (defn- remove-zero-quantity-items
   [items]
@@ -397,9 +396,9 @@
                          (comp #(map (comp purge-import-keys
                                            (propagate-item context)
                                            polarize-item-quantity
-                                           (resolve-account-reference context))
+                                           (resolve-account-reference context)
+                                           (refine-recon-info context))
                                      %)
-                               (refine-recon-info context)
                                remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
         (do
