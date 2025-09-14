@@ -117,12 +117,14 @@
           (models/put updated))))))
 
 (defn- resolve-account-references
-  [{:keys [account-ids accounts]} items]
-  (map (fn [{:import/keys [account-id] :as item}]
-         (-> item
-             (assoc :transaction-item/account (-> account-id account-ids accounts))
-             purge-import-keys))
-       items))
+  ([ctx]
+   (partial resolve-account-references ctx))
+  ([{:keys [account-ids accounts]} items]
+   (map (fn [{:import/keys [account-id] :as item}]
+          (-> item
+              (assoc :transaction-item/account (-> account-id account-ids accounts))
+              purge-import-keys))
+        items)))
 
 (defn- prepare-transaction
   [transaction {:keys [entity]}]
@@ -352,14 +354,15 @@
 (defn- refine-recon-info
   "Given an imported transaction item, if the import/reconciled? attribute is true,
   add a transaction-item/reconciliation attribute."
-  [{:keys [account-recons] :as ctx} items]
-  (if account-recons
-    (mapv (fn [{:as item :import/keys [reconciled? account-id]}]
-            (cond-> item
-              reconciled? (assoc :transaction-item/reconciliation
-                                 (util/->model-ref (find-reconciliation-id account-id ctx)))))
-          items)
-    items))
+  ([ctx] (partial refine-recon-info ctx))
+  ([{:keys [account-recons] :as ctx} items]
+   (if account-recons
+     (mapv (fn [{:as item :import/keys [reconciled? account-id]}]
+             (cond-> item
+               reconciled? (assoc :transaction-item/reconciliation
+                                  (util/->model-ref (find-reconciliation-id account-id ctx)))))
+           items)
+     items)))
 
 (defn- remove-zero-quantity-items
   [items]
@@ -392,14 +395,13 @@
 (defmethod import-record* :transaction
   [context transaction]
   (with-fatal-exceptions
-    (let [trx (update-in transaction [:transaction/items]
+    (let [trx (update-in transaction
+                         [:transaction/items]
                          (comp #(map (comp (propagate-item context)
                                            polarize-item-quantity)
                                      %)
-                               #(resolve-account-references
-                                  context
-                                  %)
-                               #(refine-recon-info context %)
+                               (resolve-account-references context)
+                               (refine-recon-info context)
                                remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
         (do
