@@ -393,8 +393,8 @@
        (refine-recon-info ctx)
        (resolve-account-reference ctx)
        polarize-item-quantity
-       (propagate-item ctx)
-       purge-import-keys)))
+       purge-import-keys
+       (propagate-item ctx))))
 
 (defmethod import-record* :transaction
   [context transaction]
