@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
+            [clojure.set :refer [union]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
@@ -171,6 +172,19 @@
           (reduce + 0M))
      (account-ids (:import/account-id (first exp-items)))]))
 
+(defn- merge-system-tags
+  [accounts {:account/keys [system-tags] :keys [id]}]
+  (update-in accounts
+             [id :account/system-tags]
+             union
+             system-tags))
+
+(defn- apply-purchase-to-accounts
+  [accounts {:trade/keys [account commodity-account]}]
+  (-> accounts
+      (merge-system-tags account)
+      (merge-system-tags commodity-account)))
+
 (defmethod ^:private import-transaction :buy
   [{:keys [account-ids] :as context}
    {:trade/keys [shares value]
@@ -194,9 +208,12 @@
                    account-id           (assoc :trade/account {:id (account-ids account-id)})
                    fee                  (assoc :trade/fee fee
                                                :trade/fee-account {:id fee-account-id}))
-        {result :trade/transaction} (trading/buy purchase)]
-    (log-transaction result "commodity purchase"))
-  context)
+        {trx :trade/transaction :as result} (trading/buy purchase)]
+    (log-transaction trx "commodity purchase")
+    (update-in context
+               [:accounts]
+               apply-purchase-to-accounts
+               result)))
 
 (defn- find-commodity
   [{:keys [commodities-by-symbol
@@ -224,25 +241,37 @@
     (log-transaction transaction "commodity sale"))
   context)
 
+(defn- apply-transfer-to-accounts
+  [accounts {:transfer/keys [from-account
+                             from-commodity-account
+                             to-account
+                             to-commodity-account]}]
+  (-> accounts
+      (merge-system-tags from-account)
+      (merge-system-tags from-commodity-account)
+      (merge-system-tags to-account)
+      (merge-system-tags to-commodity-account)))
+
 (defmethod ^:private import-transaction :transfer
   [{:keys [account-ids accounts account-parents] :as context}
-   {:import/keys [from-account-id to-account-id]
-    :transaction/keys [transaction-date]
-    :transfer/keys [shares]}]
-  (let [from-commodity-account-id (account-ids from-account-id)
-        from-account {:id (account-parents from-commodity-account-id)}
-        to-commodity-account-id (account-ids to-account-id)
-        to-account {:id (account-parents to-commodity-account-id)}
-        commodity (:account/commodity (accounts from-commodity-account-id))
+   {:transaction/keys [transaction-date]
+    :transfer/keys [shares]
+    :as imp}]
+  (let [from-commodity-account (-> (:import/from-account-id imp) account-ids accounts)
+        from-account (accounts (account-parents (:id from-commodity-account)))
+        to-commodity-account (-> (:import/to-account-id imp) account-ids accounts)
+        to-account (accounts (account-parents (:id to-commodity-account)))
+        commodity (:account/commodity from-commodity-account)
         xfr #:transfer{:date transaction-date
                        :from-account from-account
                        :to-account to-account
                        :commodity commodity
                        :shares shares}
         _ (log/debugf "[import] transfer %s" xfr)
-        {result :transfer/transaction} (trading/transfer xfr)]
-    (log-transaction result "commodity transfer"))
-  context)
+        {trx :transfer/transaction :as result} (trading/transfer xfr)]
+
+    (log-transaction trx "commodity transfer")
+    (update-in context [:accounts] apply-transfer-to-accounts result)))
 
 (defmethod ^:private import-transaction :split
   [{:as context
@@ -396,8 +425,8 @@
        purge-import-keys
        (propagate-item ctx))))
 
-(defn- apply-to-accounts
-  ([trx] #(apply-to-accounts % trx))
+(defn- apply-transaction-to-accounts
+  ([trx] #(apply-transaction-to-accounts % trx))
   ([accounts {:transaction/keys [items]}]
    (reduce (fn [acts {:transaction-item/keys [account polarized-quantity]}]
              (update-in acts
@@ -421,7 +450,7 @@
           (assoc-warning context "Transaction with no items" trx))
         (-> context
             (import-transaction trx)
-            (update-in [:accounts] (apply-to-accounts trx))
+            (update-in [:accounts] (apply-transaction-to-accounts trx))
             (update-last-trxs trx)
             (update-in [:entity]
                        dates/push-model-boundary
