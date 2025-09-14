@@ -739,21 +739,21 @@
     (throw (ex-info "Unable to process transfer without most recent commodity price"
                     {:transfer transfer})))
   (let [value (d/* shares (:price/value most-recent-price))]
-      (assoc transfer
-             :transfer/transaction
-             #:transaction{:entity (:commodity/entity commodity)
-                           :transaction-date date
-                           :description (format "Transfer %s shares of %s"
-                                                shares
-                                                (:commodity/symbol commodity))
-                           :items [#:transaction-item{:action :credit
-                                                      :quantity shares
-                                                      :value value
-                                                      :account from-commodity-account}
-                                   #:transaction-item{:action :debit
-                                                      :quantity shares
-                                                      :value value
-                                                      :account to-commodity-account}]})))
+    (assoc transfer
+           :transfer/transaction
+           #:transaction{:entity (:commodity/entity commodity)
+                         :transaction-date date
+                         :description (format "Transfer %s shares of %s"
+                                              shares
+                                              (:commodity/symbol commodity))
+                         :items [#:transaction-item{:action :credit
+                                                    :quantity shares
+                                                    :value value
+                                                    :account from-commodity-account}
+                                 #:transaction-item{:action :debit
+                                                    :quantity shares
+                                                    :value value
+                                                    :account to-commodity-account}]})))
 
 (defn- put-transfer
   [{:transfer/keys [transaction
