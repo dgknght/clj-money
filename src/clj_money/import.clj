@@ -121,9 +121,7 @@
    (partial resolve-account-references ctx))
   ([{:keys [account-ids accounts]} items]
    (map (fn [{:import/keys [account-id] :as item}]
-          (-> item
-              (assoc :transaction-item/account (-> account-id account-ids accounts))
-              purge-import-keys))
+          (assoc item :transaction-item/account (-> account-id account-ids accounts)))
         items)))
 
 (defn- prepare-transaction
@@ -397,7 +395,8 @@
   (with-fatal-exceptions
     (let [trx (update-in transaction
                          [:transaction/items]
-                         (comp #(map (comp (propagate-item context)
+                         (comp #(map (comp purge-import-keys
+                                           (propagate-item context)
                                            polarize-item-quantity)
                                      %)
                                (resolve-account-references context)
