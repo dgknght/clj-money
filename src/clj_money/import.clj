@@ -396,6 +396,18 @@
        purge-import-keys
        (propagate-item ctx))))
 
+(defn- apply-to-accounts
+  ([trx] #(apply-to-accounts % trx))
+  ([accounts {:transaction/keys [items]}]
+   (reduce (fn [acts {:transaction-item/keys [account polarized-quantity]}]
+             (update-in acts
+                        [(:id account)]
+                        #(-> %
+                             (update-in [:account/quantity] + polarized-quantity)
+                             (update-in [:account/value] + polarized-quantity))))
+           accounts
+           items)))
+
 (defmethod import-record* :transaction
   [context transaction]
   (with-fatal-exceptions
@@ -409,6 +421,7 @@
           (assoc-warning context "Transaction with no items" trx))
         (-> context
             (import-transaction trx)
+            (update-in [:accounts] (apply-to-accounts trx))
             (update-last-trxs trx)
             (update-in [:entity]
                        dates/push-model-boundary
@@ -719,7 +732,8 @@
                              :notifications []
                              :entity entity})
                           a/<!!)]
-          (models/put (:entity result)) ; transaction-date-range has been updated
+          (models/put-many (cons (:entity result) ; transaction-date-range has been updated
+                                 (vals (:accounts result)))) ; indexes and balances have changed
           (when-not (::abend? result)
             (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))
