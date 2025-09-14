@@ -365,19 +365,17 @@
   (remove #(zero? (:transaction-item/quantity %)) items))
 
 (defn- propagate-item
-  [context]
-  (fn
-    [{:transaction-item/keys [polarized-quantity account] :as item}]
-    {:pre [(:transaction-item/polarized-quantity item)
-           (:transaction-item/account item)]}
-    (let [{:transaction-item/keys [balance index]}
-          (get-in context
-                  [:last-trxs (:id account)]
-                  #:transaction-item{:balance 0M
-                                     :index -1})]
-      (assoc item
-             :transaction-item/balance (+ balance polarized-quantity)
-             :transaction-item/index (inc index)))))
+  [{:transaction-item/keys [polarized-quantity account] :as item} context]
+  {:pre [(:transaction-item/polarized-quantity item)
+         (:transaction-item/account item)]}
+  (let [{:transaction-item/keys [balance index]}
+        (get-in context
+                [:last-trxs (:id account)]
+                #:transaction-item{:balance 0M
+                                   :index -1})]
+    (assoc item
+           :transaction-item/balance (+ balance polarized-quantity)
+           :transaction-item/index (inc index))))
 
 (defn- update-last-trxs
   [context {:transaction/keys [items]}]
@@ -388,17 +386,22 @@
                       %
                       items)))
 
+(defn- process-trx-item
+  ([ctx] #(process-trx-item % ctx))
+  ([item ctx]
+   (-> item
+       (refine-recon-info ctx)
+       (resolve-account-reference ctx)
+       polarize-item-quantity
+       (propagate-item ctx)
+       purge-import-keys)))
+
 (defmethod import-record* :transaction
   [context transaction]
   (with-fatal-exceptions
     (let [trx (update-in transaction
                          [:transaction/items]
-                         (comp #(map (comp purge-import-keys
-                                           (propagate-item context)
-                                           polarize-item-quantity
-                                           (resolve-account-reference context)
-                                           (refine-recon-info context))
-                                     %)
+                         (comp #(map (process-trx-item context) %)
                                remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
         (do
