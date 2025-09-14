@@ -185,6 +185,14 @@
       (merge-system-tags account)
       (merge-system-tags commodity-account)))
 
+(defn- last-trx-item
+  ([ctx] #(last-trx-item % ctx))
+  ([account ctx]
+   (get-in ctx
+           [:last-trxs (:id account)]
+           #:transaction-item{:index -1
+                              :balance 0M})))
+
 (defmethod ^:private import-transaction :buy
   [{:keys [account-ids] :as context}
    {:trade/keys [shares value]
@@ -208,7 +216,8 @@
                    account-id           (assoc :trade/account {:id (account-ids account-id)})
                    fee                  (assoc :trade/fee fee
                                                :trade/fee-account {:id fee-account-id}))
-        {trx :trade/transaction :as result} (trading/buy purchase)]
+        {trx :trade/transaction :as result} (trading/buy purchase
+                                                         :item-basis (last-trx-item context))]
     (log-transaction trx "commodity purchase")
     (update-in context
                [:accounts]
@@ -268,7 +277,9 @@
                        :commodity commodity
                        :shares shares}
         _ (log/debugf "[import] transfer %s" xfr)
-        {trx :transfer/transaction :as result} (trading/transfer xfr)]
+        {trx :transfer/transaction :as result} (trading/transfer
+                                                 xfr
+                                                 :item-basis (last-trx-item context))]
 
     (log-transaction trx "commodity transfer")
     (update-in context [:accounts] apply-transfer-to-accounts result)))
@@ -281,17 +292,18 @@
    {:as transaction
     :import/keys [commodity-account-id]}]
   ; this logic to adjust accounts may be specific to gnucash
-  (let  [{result :split/transaction} (-> transaction
-                                         (select-keys [:split/date :split/shares-gained])
-                                         (assoc :split/account {:id (-> commodity-account-id
-                                                                        account-ids
-                                                                        account-parents)}
-                                                :split/commodity (-> commodity-account-id
-                                                                     account-ids
-                                                                     accounts
-                                                                     :account/commodity))
-                                         trading/split)]
-    (log-transaction result "commodity split"))
+  (let  [{trx :split/transaction}
+         (-> transaction
+             (select-keys [:split/date :split/shares-gained])
+             (assoc :split/account {:id (-> commodity-account-id
+                                            account-ids
+                                            account-parents)}
+                    :split/commodity (-> commodity-account-id
+                                         account-ids
+                                         accounts
+                                         :account/commodity))
+             (trading/split :item-basis (last-trx-item context)))]
+    (log-transaction trx "commodity split"))
   context)
 
 (defn- get-source-type
@@ -397,11 +409,7 @@
   [{:transaction-item/keys [polarized-quantity account] :as item} context]
   {:pre [(:transaction-item/polarized-quantity item)
          (:transaction-item/account item)]}
-  (let [{:transaction-item/keys [balance index]}
-        (get-in context
-                [:last-trxs (:id account)]
-                #:transaction-item{:balance 0M
-                                   :index -1})]
+  (let [{:transaction-item/keys [balance index]} (last-trx-item account context)]
     (assoc item
            :transaction-item/balance (+ balance polarized-quantity)
            :transaction-item/index (inc index))))
