@@ -688,7 +688,8 @@
     :as transfer}]
   (-> transfer
       (update-in [:transfer/from-account] (models/resolve-ref :account))
-      (update-in [:transfer/to-account] (models/resolve-ref :account))
+      (update-in [:transfer/to-account] (comp #(ensure-tag % :trading)
+                                              (models/resolve-ref :account)))
       (assoc :transfer/from-commodity-account
              (models/find-by #:account{:commodity commodity
                                        :parent from-account}))
@@ -757,15 +758,17 @@
 (defn- put-transfer
   [{:transfer/keys [transaction
                     lots
-                    to-commodity-account]}
+                    to-commodity-account]
+    :as transfer}
    opts]
   (let [result (->> (cond->> (cons transaction lots)
                       (util/temp-id? to-commodity-account)
                       (cons to-commodity-account))
                     (models/put-many opts)
                     (group-by util/model-type))]
-    {:transfer/transaction (first (:transaction result))
-     :transfer/lots (:lot result)}))
+    (merge transfer
+           {:transfer/transaction (first (:transaction result))
+            :transfer/lots (:lot result)})))
 
 (s/def :transfer/date t/local-date?)
 (s/def :transfer/from-account ::models/model-ref)
