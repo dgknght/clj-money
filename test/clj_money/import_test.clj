@@ -440,8 +440,8 @@
             "The 401k account is tagged as a trading account")
         (is (= 0M (:account/quantity four-oh-one-k))
             "All shares have been transfered out of 401k")
-        (is (= 590M (:account/quantity ira))
-            "Shares have been transfered into IRA"))
+        (is (= 591M (:account/quantity ira))
+            "The IRA quantity reflects the sale proceeds and cash in lieu"))
 
       (testing "transactions"
         (let [ira-aapl (models/find-by #:account{:parent ira
