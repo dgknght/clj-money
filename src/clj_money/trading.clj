@@ -228,20 +228,35 @@
 (defn- create-dividend-transaction
   "When :dividend? is true, creates the transaction for
   the receipt of the dividend"
-  [{:trade/keys [dividend? dividend-account account value entity date] :as trade}]
+  [{:trade/keys [dividend?
+                 dividend-account
+                 account
+                 value
+                 entity
+                 date]
+    :as trade}
+   {:keys [item-basis]}]
   (if dividend?
     (if dividend-account
-      (assoc trade
-             :trade/dividend-transaction
-             #:transaction{:entity entity
-                           :transaction-date date
-                           :description (dividend-transaction-description trade)
-                           :items [#:transaction-item{:action :credit
-                                                      :account dividend-account
-                                                      :quantity value}
-                                   #:transaction-item{:action :debit
-                                                      :account account
-                                                      :quantity value}]})
+      (let [dividend-basis (item-basis dividend-account)
+            account-basis (item-basis account)]
+        (assoc trade
+               :trade/dividend-transaction
+               #:transaction{:entity entity
+                             :transaction-date date
+                             :description (dividend-transaction-description trade)
+                             :items [#:transaction-item{:action :credit
+                                                        :account dividend-account
+                                                        :quantity value
+                                                        :index (inc (:transaction-item/index dividend-basis))
+                                                        :balance (+ (:transaction-item/balance dividend-basis)
+                                                                    value)}
+                                     #:transaction-item{:action :debit
+                                                        :account account
+                                                        :quantity value
+                                                        :index (inc (:transaction-item/index account-basis))
+                                                        :balance (+ (:transaction-item/balance account-basis)
+                                                                    value)}]}))
       (throw (ex-info "Unable to apply the dividend because a dividend account was not specified"
                       trade)))
     trade))
@@ -337,29 +352,44 @@
                  fee-account
                  gains]
     :or {fee 0M}
-    :as trade}]
+    :as trade}
+   {:keys [item-basis]
+    :or {item-basis random-item-basis}}]
   (let [total-gains (->> gains
                          (map :quantity)
-                         (reduce + 0M))]
+                         (reduce + 0M))
+        subtotal (- value fee)
+        account-basis (item-basis account)
+        commodity-basis (item-basis commodity-account)
+        fee-basis (when-not (zero? fee) (item-basis fee-account))]
     (cond-> (conj (create-capital-gains-items trade)
                   #:transaction-item{:action :debit
                                      :account account
-                                     :quantity (- value fee)
-                                     :value (- value fee)}
+                                     :quantity subtotal
+                                     :value subtotal
+                                     :index (inc (:transaction-item/index account-basis))
+                                     :balance (+ (:transaction-item/balance account-basis)
+                                                 subtotal)}
                   #:transaction-item{:action :credit
                                      :account commodity-account
                                      :quantity shares
-                                     :value (- value total-gains)})
+                                     :value (- value total-gains)
+                                     :index (inc (:transaction-item/index commodity-basis))
+                                     :balance (- (:transaction-item/balance commodity-basis)
+                                                 shares)})
       (not (zero? fee)) (conj #:transaction-item{:action :debit
                                                  :account fee-account
                                                  :quantity fee
-                                                 :value fee}))))
+                                                 :value fee
+                                                 :index (inc (:transaction-item/index fee-basis))
+                                                 :balance (+ (:transaction-item/balance fee-basis)
+                                                             fee)}))))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [date account lot-items] :as trade}]
-  (let [items (create-sale-transaction-items trade)]
+  [{:trade/keys [date account lot-items] :as trade} opts]
+  (let [items (create-sale-transaction-items trade opts)]
     (update-in trade
                [:trade/transactions]
                (fnil conj [])
@@ -445,7 +475,7 @@
         create-price
         update-accounts
         create-lot
-        create-dividend-transaction
+        (create-dividend-transaction opts)
         (create-purchase-transaction opts)
         (put-purchase opts))))
 
@@ -675,7 +705,7 @@
         create-price
         update-accounts
         process-lot-sales
-        create-sale-transaction
+        (create-sale-transaction opts)
         (put-sale opts))))
 
 (def sell-and-propagate
@@ -778,12 +808,16 @@
                                                     :quantity shares
                                                     :value value
                                                     :account from-commodity-account
-                                                    :index (inc (:transaction-item/index from-basis))}
+                                                    :index (inc (:transaction-item/index from-basis))
+                                                    :balance (+ (:transaction-item/balance from-basis)
+                                                                shares)}
                                  #:transaction-item{:action :debit
                                                     :quantity shares
                                                     :value value
                                                     :account to-commodity-account
-                                                    :index (inc (:transaction-item/index to-basis))}]})))
+                                                    :index (inc (:transaction-item/index to-basis))
+                                                    :balance (+ (:transaction-item/balance to-basis)
+                                                                shares)}]})))
 
 (defn- put-transfer
   [{:transfer/keys [transaction
