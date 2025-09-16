@@ -152,7 +152,7 @@
   context)
 
 (defn- inv-transaction-fee-info
-  [{:keys [account-ids accounts]} {:transaction/keys [items]}]
+  [{:transaction/keys [items]}]
   ; For a purchase
   ; - credit the cash account for the amount paid
   ; - debit the commodity account for the quantity of shares and the value of product of the shares and the price
@@ -163,14 +163,12 @@
   ; - debit the expense account for the amount of the expense
   (when-let [exp-items (->> items
                             (filter (comp expense?
-                                          accounts
-                                          account-ids
-                                          :import/account-id))
+                                          :transaction-item/account))
                             seq)]
     [(->> exp-items
           (map :transaction-item/quantity)
           (reduce + 0M))
-     (account-ids (:import/account-id (first exp-items)))]))
+     (->> exp-items (map :transaction-item/account) first)])) ; NB if there is more than one fee to more than one account, this will lump it all to the first account
 
 (defn- merge-system-tags
   [accounts {:account/keys [system-tags] :keys [id]}]
@@ -199,7 +197,7 @@
     :transaction/keys [transaction-date]
     :import/keys [commodity-account-id account-id]
     :as transaction}]
-  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction)
+  (let [[fee fee-account] (inv-transaction-fee-info transaction)
         commodity-id (->> context
                           :commodities
                           (filter #(and (= (:commodity/symbol %)
@@ -215,7 +213,7 @@
                    commodity-account-id (assoc :trade/commodity-account {:id (account-ids commodity-account-id)})
                    account-id           (assoc :trade/account {:id (account-ids account-id)})
                    fee                  (assoc :trade/fee fee
-                                               :trade/fee-account {:id fee-account-id}))
+                                               :trade/fee-account fee-account))
         {trx :trade/transaction :as result} (trading/buy purchase
                                                          :item-basis (last-trx-item context))]
     (log-transaction trx "commodity purchase")
@@ -234,19 +232,22 @@
                       commodity))))
 
 (defmethod ^:private import-transaction :sell
-  [{:keys [account-ids] :as context}
+  [{:keys [account-ids accounts] :as context}
    {:as transaction
     :import/keys [commodity-account-id]
     :transaction/keys [transaction-date]
     :trade/keys [shares value]}]
-  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction)
-        sale (cond-> #:trade{:commodity-account {:id (account-ids commodity-account-id)}
+  (let [[fee fee-account] (inv-transaction-fee-info transaction)
+        sale (cond-> #:trade{:commodity-account (-> commodity-account-id
+                                                    account-ids
+                                                    accounts)
                              :date transaction-date
                              :shares shares
                              :value value}
                fee (assoc :trade/fee fee
-                          :trade/fee-account {:id fee-account-id}))
-        {:trade/keys [transaction]} (trading/sell sale)]
+                          :trade/fee-account fee-account))
+        {:trade/keys [transaction]} (trading/sell sale
+                                                  :item-basis (last-trx-item context))]
     (log-transaction transaction "commodity sale"))
   context)
 
