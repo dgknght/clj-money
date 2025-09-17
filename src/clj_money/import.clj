@@ -432,19 +432,21 @@
        (resolve-account-reference ctx)
        polarize-item-quantity
        purge-import-keys
-       (propagate-item ctx))))
+       (propagate-item ctx)
+       (dissoc :transaction-item/polarized-quantity))))
 
 (defn- apply-transaction-to-accounts
   ([trx] #(apply-transaction-to-accounts % trx))
   ([accounts {:transaction/keys [items]}]
-   (reduce (fn [acts {:transaction-item/keys [account polarized-quantity]}]
-             (update-in acts
-                        [(:id account)]
-                        #(-> %
-                             (update-in [:account/quantity] + polarized-quantity)
-                             (update-in [:account/value] + polarized-quantity))))
-           accounts
-           items)))
+   (->> items
+        (map polarize-item-quantity)
+        (reduce (fn [acts {:transaction-item/keys [account polarized-quantity]}]
+                  (update-in acts
+                             [(:id account)]
+                             #(-> %
+                                  (update-in [:account/quantity] + polarized-quantity)
+                                  (update-in [:account/value] + polarized-quantity))))
+                accounts))))
 
 (defmethod import-record* :transaction
   [context transaction]
