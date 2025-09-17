@@ -225,6 +225,12 @@
   [{{:commodity/keys [symbol]} :trade/commodity}]
   (format "Dividend received from %s" symbol))
 
+; we'll either get a fn that gets a meaningful basis, or we just supply
+; random values on the assumption propagation will happen separately
+(defn- random-item-basis [& _]
+  {:transaction-item/balance 0M
+   :transaction-item/index (rand-int Integer/MAX_VALUE)})
+
 (defn- create-dividend-transaction
   "When :dividend? is true, creates the transaction for
   the receipt of the dividend"
@@ -235,7 +241,8 @@
                  entity
                  date]
     :as trade}
-   {:keys [item-basis]}]
+   {:keys [item-basis]
+    :or {item-basis random-item-basis}}]
   (if dividend?
     (if dividend-account
       (let [dividend-basis (item-basis dividend-account)
@@ -260,12 +267,6 @@
       (throw (ex-info "Unable to apply the dividend because a dividend account was not specified"
                       trade)))
     trade))
-
-; we'll either get a fn that gets a meaningful basis, or we just supply
-; random values on the assumption propagation will happen separately
-(defn- random-item-basis [& _]
-  {:transaction-item/balance 0M
-   :transaction-item/index (rand-int Integer/MAX_VALUE)})
 
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
