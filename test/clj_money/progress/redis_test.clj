@@ -198,6 +198,7 @@
                                       :completed 2
                                       :started-at "2020-01-01T00:00:00Z"
                                       :completed-at "2020-01-01T00:00:00Z"}}
+            :failure-reason nil
             :warnings ["Something not too bad"]
             :finished true
             :started-at "2020-01-01T00:00:00Z"

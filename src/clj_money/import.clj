@@ -5,13 +5,14 @@
             [clojure.java.io :as io]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
+            [clojure.set :refer [union]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.progress :as prog]
             [clj-money.images :as images]
             [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria
                                         expense?]]
@@ -116,18 +117,16 @@
           entity
           (models/put updated))))))
 
-(defn- resolve-account-references
-  [{:keys [account-ids]} items]
-  (map (fn [{:import/keys [account-id] :as item}]
-         (-> item
-             (assoc :transaction-item/account {:id (account-ids account-id)})
-             purge-import-keys))
-       items))
+(defn- resolve-account-reference
+  ([ctx] #(resolve-account-reference % ctx))
+  ([{:as item :import/keys [account-id]} {:keys [account-ids accounts]}]
+   (assoc item
+          :transaction-item/account
+          (-> account-id account-ids accounts))))
 
 (defn- prepare-transaction
-  [transaction {:as context :keys [entity]}]
+  [transaction {:keys [entity]}]
   (-> transaction
-      (update-in [:transaction/items] #(resolve-account-references context %))
       (assoc :transaction/entity entity)
       purge-import-keys))
 
@@ -153,7 +152,7 @@
   context)
 
 (defn- inv-transaction-fee-info
-  [{:keys [account-ids accounts]} {:transaction/keys [items]}]
+  [{:transaction/keys [items]}]
   ; For a purchase
   ; - credit the cash account for the amount paid
   ; - debit the commodity account for the quantity of shares and the value of product of the shares and the price
@@ -164,14 +163,33 @@
   ; - debit the expense account for the amount of the expense
   (when-let [exp-items (->> items
                             (filter (comp expense?
-                                          accounts
-                                          account-ids
-                                          :import/account-id))
+                                          :transaction-item/account))
                             seq)]
     [(->> exp-items
           (map :transaction-item/quantity)
           (reduce + 0M))
-     (account-ids (:import/account-id (first exp-items)))]))
+     (->> exp-items (map :transaction-item/account) first)])) ; NB if there is more than one fee to more than one account, this will lump it all to the first account
+
+(defn- merge-system-tags
+  [accounts {:account/keys [system-tags] :keys [id]}]
+  (update-in accounts
+             [id :account/system-tags]
+             union
+             system-tags))
+
+(defn- apply-purchase-to-accounts
+  [accounts {:trade/keys [account commodity-account]}]
+  (-> accounts
+      (merge-system-tags account)
+      (merge-system-tags commodity-account)))
+
+(defn- last-trx-item
+  ([ctx] #(last-trx-item % ctx))
+  ([account ctx]
+   (get-in ctx
+           [:last-trx-items (:id account)]
+           #:transaction-item{:index -1
+                              :balance 0M})))
 
 (defmethod ^:private import-transaction :buy
   [{:keys [account-ids] :as context}
@@ -179,7 +197,7 @@
     :transaction/keys [transaction-date]
     :import/keys [commodity-account-id account-id]
     :as transaction}]
-  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction)
+  (let [[fee fee-account] (inv-transaction-fee-info transaction)
         commodity-id (->> context
                           :commodities
                           (filter #(and (= (:commodity/symbol %)
@@ -195,10 +213,14 @@
                    commodity-account-id (assoc :trade/commodity-account {:id (account-ids commodity-account-id)})
                    account-id           (assoc :trade/account {:id (account-ids account-id)})
                    fee                  (assoc :trade/fee fee
-                                               :trade/fee-account {:id fee-account-id}))
-        {result :trade/transaction} (trading/buy purchase)]
-    (log-transaction result "commodity purchase"))
-  context)
+                                               :trade/fee-account fee-account))
+        {trx :trade/transaction :as result} (trading/buy purchase
+                                                         :item-basis (last-trx-item context))]
+    (log-transaction trx "commodity purchase")
+    (update-in context
+               [:accounts]
+               apply-purchase-to-accounts
+               result)))
 
 (defn- find-commodity
   [{:keys [commodities-by-symbol
@@ -210,41 +232,58 @@
                       commodity))))
 
 (defmethod ^:private import-transaction :sell
-  [{:keys [account-ids] :as context}
+  [{:keys [account-ids accounts] :as context}
    {:as transaction
     :import/keys [commodity-account-id]
     :transaction/keys [transaction-date]
     :trade/keys [shares value]}]
-  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction)
-        sale (cond-> #:trade{:commodity-account {:id (account-ids commodity-account-id)}
+  (let [[fee fee-account] (inv-transaction-fee-info transaction)
+        sale (cond-> #:trade{:commodity-account (-> commodity-account-id
+                                                    account-ids
+                                                    accounts)
                              :date transaction-date
                              :shares shares
                              :value value}
                fee (assoc :trade/fee fee
-                          :trade/fee-account {:id fee-account-id}))
-        {:trade/keys [transaction]} (trading/sell sale)]
+                          :trade/fee-account fee-account))
+        {:trade/keys [transaction]} (trading/sell sale
+                                                  :item-basis (last-trx-item context))]
     (log-transaction transaction "commodity sale"))
   context)
 
+(defn- apply-transfer-to-accounts
+  [accounts {:transfer/keys [from-account
+                             from-commodity-account
+                             to-account
+                             to-commodity-account]}]
+  (-> accounts
+      (merge-system-tags from-account)
+      (merge-system-tags from-commodity-account)
+      (merge-system-tags to-account)
+      (merge-system-tags to-commodity-account)))
+
 (defmethod ^:private import-transaction :transfer
   [{:keys [account-ids accounts account-parents] :as context}
-   {:import/keys [from-account-id to-account-id]
-    :transaction/keys [transaction-date]
-    :transfer/keys [shares]}]
-  (let [from-commodity-account-id (account-ids from-account-id)
-        from-account {:id (account-parents from-commodity-account-id)}
-        to-commodity-account-id (account-ids to-account-id)
-        to-account {:id (account-parents to-commodity-account-id)}
-        commodity (:account/commodity (accounts from-commodity-account-id))
+   {:transaction/keys [transaction-date]
+    :transfer/keys [shares]
+    :as imp}]
+  (let [from-commodity-account (-> (:import/from-account-id imp) account-ids accounts)
+        from-account (accounts (account-parents (:id from-commodity-account)))
+        to-commodity-account (-> (:import/to-account-id imp) account-ids accounts)
+        to-account (accounts (account-parents (:id to-commodity-account)))
+        commodity (:account/commodity from-commodity-account)
         xfr #:transfer{:date transaction-date
                        :from-account from-account
                        :to-account to-account
                        :commodity commodity
                        :shares shares}
         _ (log/debugf "[import] transfer %s" xfr)
-        {result :transfer/transaction} (trading/transfer xfr)]
-    (log-transaction result "commodity transfer"))
-  context)
+        {trx :transfer/transaction :as result} (trading/transfer
+                                                 xfr
+                                                 :item-basis (last-trx-item context))]
+
+    (log-transaction trx "commodity transfer")
+    (update-in context [:accounts] apply-transfer-to-accounts result)))
 
 (defmethod ^:private import-transaction :split
   [{:as context
@@ -254,17 +293,18 @@
    {:as transaction
     :import/keys [commodity-account-id]}]
   ; this logic to adjust accounts may be specific to gnucash
-  (let  [{result :split/transaction} (-> transaction
-                                         (select-keys [:split/date :split/shares-gained])
-                                         (assoc :split/account {:id (-> commodity-account-id
-                                                                        account-ids
-                                                                        account-parents)}
-                                                :split/commodity (-> commodity-account-id
-                                                                     account-ids
-                                                                     accounts
-                                                                     :account/commodity))
-                                         trading/split)]
-    (log-transaction result "commodity split"))
+  (let  [{trx :split/transaction}
+         (-> transaction
+             (select-keys [:split/date :split/shares-gained])
+             (assoc :split/account {:id (-> commodity-account-id
+                                            account-ids
+                                            account-parents)}
+                    :split/commodity (-> commodity-account-id
+                                         account-ids
+                                         accounts
+                                         :account/commodity))
+             (trading/split :item-basis (last-trx-item context)))]
+    (log-transaction trx "commodity split"))
   context)
 
 (defn- get-source-type
@@ -353,31 +393,101 @@
 (defn- refine-recon-info
   "Given an imported transaction item, if the import/reconciled? attribute is true,
   add a transaction-item/reconciliation attribute."
-  [{:keys [account-recons] :as ctx} items]
-  (if account-recons
-    (mapv (fn [{:as item :import/keys [reconciled? account-id]}]
-            (cond-> item
-              reconciled? (assoc :transaction-item/reconciliation
-                                 (util/->model-ref (find-reconciliation-id account-id ctx)))))
-          items)
-    items))
+  ([ctx]
+   (if (:account-recons ctx)
+     #(refine-recon-info % ctx)
+     identity))
+  ([{:as item :import/keys [reconciled? account-id]} ctx]
+   (cond-> item
+     reconciled? (assoc :transaction-item/reconciliation
+                        (util/->model-ref (find-reconciliation-id account-id ctx))))))
 
 (defn- remove-zero-quantity-items
   [items]
   (remove #(zero? (:transaction-item/quantity %)) items))
+
+(defn- propagate-item
+  [{:transaction-item/keys [polarized-quantity account] :as item} context]
+  {:pre [(:transaction-item/polarized-quantity item)
+         (:transaction-item/account item)]}
+  (let [{:transaction-item/keys [balance index]} (last-trx-item account context)]
+    (assoc item
+           :transaction-item/balance (+ balance polarized-quantity)
+           :transaction-item/index (inc index))))
+
+(defn- update-last-trxs
+  [context {:transaction/keys [items transaction-date]}]
+  (let [{:keys [items dates]} (reduce (fn [res {:as item {:keys [id]} :transaction-item/account}]
+                                        (-> res
+                                            (assoc-in [:items id] item)
+                                            (assoc-in [:dates id] transaction-date))
+                                        )
+                                      {:items {}
+                                       :dates {}}
+                                      items)]
+    (-> context
+        (update-in [:last-trx-items] merge items)
+        (update-in [:last-trx-dates] merge dates))))
+
+(defn- process-trx-item
+  ([ctx] #(process-trx-item % ctx))
+  ([item ctx]
+   (-> item
+       (refine-recon-info ctx)
+       (resolve-account-reference ctx)
+       polarize-item-quantity
+       purge-import-keys
+       (propagate-item ctx)
+       (dissoc :transaction-item/polarized-quantity))))
+
+(defn- apply-transaction-to-accounts
+  ([trx] #(apply-transaction-to-accounts % trx))
+  ([accounts {:transaction/keys [items transaction-date]}]
+   (->> items
+        (map polarize-item-quantity)
+        (reduce (fn [acts {:transaction-item/keys [account polarized-quantity]}]
+                  (update-in acts
+                             [(:id account)]
+                             #(-> %
+                                  (dates/push-model-boundary :account/transaction-date-range transaction-date)
+                                  (update-in [:account/quantity] + polarized-quantity)
+                                  (update-in [:account/value] + polarized-quantity))))
+                accounts))))
+
+(defn- after-last-trx?
+  [{:transaction/keys [transaction-date items]} {:keys [last-trx-dates]
+                                                 :or {last-trx-dates {}}}]
+  (->> items
+       (map (comp last-trx-dates
+                  :id
+                  :transaction-item/account))
+       (filter identity)
+       (every? #(t/before? % transaction-date))))
 
 (defmethod import-record* :transaction
   [context transaction]
   (with-fatal-exceptions
     (let [trx (update-in transaction
                          [:transaction/items]
-                         (comp #(refine-recon-info context %)
+                         (comp #(map (process-trx-item context) %)
                                remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
           (assoc-warning context "Transaction with no items" trx))
-        (import-transaction context trx)))))
+        (do
+          (when-not (after-last-trx? trx context)
+            (throw (ex-info "Transaction out of order"
+                            {:transaction trx
+                             :last-trx-dates (:last-trx-dates context)})))
+          (-> context
+              (import-transaction trx)
+              (update-in [:accounts] (apply-transaction-to-accounts trx))
+              (update-last-trxs trx)
+              (update-in [:entity]
+                         dates/push-model-boundary
+                         :entity/transaction-date-range 
+                         (:transaction/transaction-date trx))))))))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity account-ids]
@@ -506,7 +616,7 @@
    {:keys [entity]}]
   (let [accounts (models/select
                    (util/model-type
-                     {:id (:id account)}
+                     (select-keys account [:id])
                      :account)
                    {:include-children? true})]
     (models/select
@@ -515,19 +625,32 @@
           {:earliest-date (get-in entity [:entity/transaction-date-range 0])
            :latest-date (get-in entity [:entity/transaction-date-range 1])}
           accounts)
-        :transaction-item/reconciliation (util/->model-ref id)))))
+        :transaction-item/reconciliation {:id id}))))
 
 (defn- process-reconciliation
   [recon {:as ctx :keys [accounts]}]
-  (let [balance (->> (fetch-reconciled-items recon ctx)
-                     (map (comp :transaction-item/polarized-quantity
-                                polarize-item-quantity
-                                #(update-in % [:transaction-item/account] (comp accounts :id))))
-                     (reduce + 0M))]
-    (-> recon
-        (assoc :reconciliation/balance balance
-               :reconciliation/status :completed)
-        models/put)))
+  (try
+    (let [balance (->> (fetch-reconciled-items recon ctx)
+                       (map (comp :transaction-item/polarized-quantity
+                                  polarize-item-quantity
+                                  #(update-in % [:transaction-item/account] (comp accounts :id))))
+                       (reduce + 0M))]
+      (-> recon
+          (assoc :reconciliation/balance balance
+                 :reconciliation/status :completed)
+          models/put))
+    {:import/record-type :finalize-reconciliation}
+    (catch Exception e
+      (let [account (-> recon
+                        :reconciliation/account
+                        :id
+                        accounts
+                        :account/name)]
+        (log/errorf e "[import] Unable to reconcile account %s" account)
+        {:import/record-type :notification
+         :notification/severity :error
+         :notification/message (format "Unable to reconcile account %s."
+                                       account)}))))
 
 (defn- notify-reconciliation-finalization
   [out-chan]
@@ -683,13 +806,10 @@
                              :notifications []
                              :entity entity})
                           a/<!!)]
+          (models/put-many (cons (:entity result) ; transaction-date-range has been updated
+                                 (vals (:accounts result)))) ; indexes and balances have changed
           (when-not (::abend? result)
-            (log/debugf "[import] data imported, start propagation for %s"
-                        (:import/entity-name import-spec))
-            (-> entity
-                models/find
-                (prop/propagate-all {:progress-chan out-chan}))
-            (log/debugf "[import] start reconciliations for %s"
+            (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))
             (a/alts!! [(process-reconciliations result
                                                 out-chan)
