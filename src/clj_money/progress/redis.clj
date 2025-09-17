@@ -96,11 +96,13 @@
   (let [pattern (build-key opts :processes "*")
         [finished
          warnings
+         failure-reason
          started-at
          completed-at
          keys] (car/wcar redis-opts
                          (car/get (build-key opts :finished))
                          (car/lrange (build-key opts :warnings) 0 -1)
+                         (car/get (build-key opts :failure-reason))
                          (car/get (build-key opts :started-at))
                          (car/get (build-key opts :completed-at))
                          (car/keys pattern))
@@ -121,6 +123,7 @@
                           (assoc-in m k v))
                         {}))
            :warnings warnings
+           :failure-reason failure-reason
            :finished (= "1" finished)
            :started-at started-at
            :completed-at completed-at)))
