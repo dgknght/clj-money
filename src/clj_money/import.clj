@@ -437,13 +437,14 @@
 
 (defn- apply-transaction-to-accounts
   ([trx] #(apply-transaction-to-accounts % trx))
-  ([accounts {:transaction/keys [items]}]
+  ([accounts {:transaction/keys [items transaction-date]}]
    (->> items
         (map polarize-item-quantity)
         (reduce (fn [acts {:transaction-item/keys [account polarized-quantity]}]
                   (update-in acts
                              [(:id account)]
                              #(-> %
+                                  (dates/push-model-boundary :account/transaction-date-range transaction-date)
                                   (update-in [:account/quantity] + polarized-quantity)
                                   (update-in [:account/value] + polarized-quantity))))
                 accounts))))

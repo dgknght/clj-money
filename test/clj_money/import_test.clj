@@ -84,22 +84,30 @@
                :type :asset
                :commodity usd
                :quantity 1810M
-               :value 1810M}
+               :value 1810M
+               :transaction-date-range [(t/local-date 2015 1 1)
+                                        (t/local-date 2015 1 15)]}
      #:account{:name "Credit Card"
                :type :liability
                :commodity usd
                :quantity 100M
-               :value 100M}
+               :value 100M
+               :transaction-date-range [(t/local-date 2015 1 18)
+                                        (t/local-date 2015 1 18)]}
      #:account{:name "Groceries"
                :type :expense
                :commodity usd
                :quantity 290M
-               :value 290M}
+               :value 290M
+               :transaction-date-range [(t/local-date 2015 1 4)
+                                        (t/local-date 2015 1 18)]}
      #:account{:name "Salary"
                :type :income
                :commodity usd
                :quantity 2000M
-               :value 2000M}]))
+               :value 2000M
+               :transaction-date-range [(t/local-date 2015 1 1)
+                                        (t/local-date 2015 1 15)]}]))
 
 (defn- execute-import
   [imp]
