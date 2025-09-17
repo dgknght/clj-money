@@ -175,7 +175,7 @@ services:
     restart: on-failure
     ports:
       - 4050:8080
-    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; sleep 5s; done && ./bin/console -p '8080' sql '${DATOMIC_NO_DB_URI}'"
+    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; sleep 5s; done && ./bin/console -p '8080' sql 'datomic:sql://?jdbc:postgresql://${SQL_HOST}:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}'"
     volumes:
       - type: volume
         source: init-markers
