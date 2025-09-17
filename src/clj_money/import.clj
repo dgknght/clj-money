@@ -608,15 +608,28 @@
 
 (defn- process-reconciliation
   [recon {:as ctx :keys [accounts]}]
-  (let [balance (->> (fetch-reconciled-items recon ctx)
-                     (map (comp :transaction-item/polarized-quantity
-                                polarize-item-quantity
-                                #(update-in % [:transaction-item/account] (comp accounts :id))))
-                     (reduce + 0M))]
-    (-> recon
-        (assoc :reconciliation/balance balance
-               :reconciliation/status :completed)
-        models/put)))
+  (try
+    (let [balance (->> (fetch-reconciled-items recon ctx)
+                       (map (comp :transaction-item/polarized-quantity
+                                  polarize-item-quantity
+                                  #(update-in % [:transaction-item/account] (comp accounts :id))))
+                       (reduce + 0M))]
+      (-> recon
+          (assoc :reconciliation/balance balance
+                 :reconciliation/status :completed)
+          models/put))
+    {:import/record-type :finalize-reconciliation}
+    (catch Exception e
+      (let [account (-> recon
+                        :reconciliation/account
+                        :id
+                        accounts
+                        :account/name)]
+        (log/errorf e "[import] Unable to reconcile account %s" account)
+        {:import/record-type :notification
+         :notification/severity :error
+         :notification/message (format "Unable to reconcile account %s."
+                                       account)}))))
 
 (defn- notify-reconciliation-finalization
   [out-chan]
