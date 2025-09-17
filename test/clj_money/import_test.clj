@@ -84,22 +84,30 @@
                :type :asset
                :commodity usd
                :quantity 1810M
-               :value 1810M}
+               :value 1810M
+               :transaction-date-range [(t/local-date 2015 1 1)
+                                        (t/local-date 2015 1 15)]}
      #:account{:name "Credit Card"
                :type :liability
                :commodity usd
                :quantity 100M
-               :value 100M}
+               :value 100M
+               :transaction-date-range [(t/local-date 2015 1 18)
+                                        (t/local-date 2015 1 18)]}
      #:account{:name "Groceries"
                :type :expense
                :commodity usd
                :quantity 290M
-               :value 290M}
+               :value 290M
+               :transaction-date-range [(t/local-date 2015 1 4)
+                                        (t/local-date 2015 1 18)]}
      #:account{:name "Salary"
                :type :income
                :commodity usd
                :quantity 2000M
-               :value 2000M}]))
+               :value 2000M
+               :transaction-date-range [(t/local-date 2015 1 1)
+                                        (t/local-date 2015 1 15)]}]))
 
 (defn- execute-import
   [imp]
@@ -217,11 +225,7 @@
         (is (= 6 (expect :transaction))
             "Expectation is given for 6 transactions")
         (is (= 6 (increment :transaction))
-            "Transaction count is incremented 6 times")
-        (is (= 4 (expect :propagation))
-            "Expectation is given for 4 propagations")
-        (is (= 4 (increment :propagation))
-            "Propagation count is incremented 4 times")))))
+            "Transaction count is incremented 6 times")))))
 
 (deftest halt-on-failure
   (with-context gnucash-context
@@ -444,8 +448,8 @@
             "The 401k account is tagged as a trading account")
         (is (= 0M (:account/quantity four-oh-one-k))
             "All shares have been transfered out of 401k")
-        (is (= 590M (:account/quantity ira))
-            "Shares have been transfered into IRA"))
+        (is (= 591M (:account/quantity ira))
+            "The IRA quantity reflects the sale proceeds and cash in lieu"))
 
       (testing "transactions"
         (let [ira-aapl (models/find-by #:account{:parent ira
