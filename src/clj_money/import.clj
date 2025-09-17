@@ -187,7 +187,7 @@
   ([ctx] #(last-trx-item % ctx))
   ([account ctx]
    (get-in ctx
-           [:last-trxs (:id account)]
+           [:last-trx-items (:id account)]
            #:transaction-item{:index -1
                               :balance 0M})))
 
@@ -416,13 +416,18 @@
            :transaction-item/index (inc index))))
 
 (defn- update-last-trxs
-  [context {:transaction/keys [items]}]
-  (update-in context
-             [:last-trxs]
-             #(reduce (fn [c {:as item {:keys [id]} :transaction-item/account}]
-                        (assoc c id item))
-                      %
-                      items)))
+  [context {:transaction/keys [items transaction-date]}]
+  (let [{:keys [items dates]} (reduce (fn [res {:as item {:keys [id]} :transaction-item/account}]
+                                        (-> res
+                                            (assoc-in [:items id] item)
+                                            (assoc-in [:dates id] transaction-date))
+                                        )
+                                      {:items {}
+                                       :dates {}}
+                                      items)]
+    (-> context
+        (update-in [:last-trx-items] merge items)
+        (update-in [:last-trx-dates] merge dates))))
 
 (defn- process-trx-item
   ([ctx] #(process-trx-item % ctx))
@@ -449,6 +454,16 @@
                                   (update-in [:account/value] + polarized-quantity))))
                 accounts))))
 
+(defn- after-last-trx?
+  [{:transaction/keys [transaction-date items]} {:keys [last-trx-dates]
+                                                 :or {last-trx-dates {}}}]
+  (->> items
+       (map (comp last-trx-dates
+                  :id
+                  :transaction-item/account))
+       (filter identity)
+       (every? #(t/before? % transaction-date))))
+
 (defmethod import-record* :transaction
   [context transaction]
   (with-fatal-exceptions
@@ -460,14 +475,19 @@
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
           (assoc-warning context "Transaction with no items" trx))
-        (-> context
-            (import-transaction trx)
-            (update-in [:accounts] (apply-transaction-to-accounts trx))
-            (update-last-trxs trx)
-            (update-in [:entity]
-                       dates/push-model-boundary
-                       :entity/transaction-date-range 
-                       (:transaction/transaction-date trx)))))))
+        (do
+          (when-not (after-last-trx? trx context)
+            (throw (ex-info "Transaction out of order"
+                            {:transaction trx
+                             :last-trx-dates (:last-trx-dates context)})))
+          (-> context
+              (import-transaction trx)
+              (update-in [:accounts] (apply-transaction-to-accounts trx))
+              (update-last-trxs trx)
+              (update-in [:entity]
+                         dates/push-model-boundary
+                         :entity/transaction-date-range 
+                         (:transaction/transaction-date trx))))))))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity account-ids]
