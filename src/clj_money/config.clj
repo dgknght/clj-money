@@ -19,7 +19,7 @@
       (when-not (contains? config k)
         (throw (ex-info (format "Unresolvable config reference: %s"
                               k)
-                      {:config config})))
+                      {:keys (-> config keys sort)})))
       (get-in config [k]))))
 
 (defn- resolve-ref
