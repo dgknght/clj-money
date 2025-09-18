@@ -94,13 +94,14 @@
   the one that the app is configured to us."
   []
   (let [{:keys [dbname] :as cfg} (sql-adm-config)
-        _ (assert ((every-pred :dbtype
-                               :dbname
-                               :user
-                               :password
-                               :host)
-                   cfg)
-                  "The configuration is not valid.")
+        missing (->> [:dbtype
+                      :dbname
+                      :user
+                      :password
+                      :host]
+                     (remove cfg)
+                     (into []))
+        _ (assert (empty? missing) (format "Missing config values for: %s" missing))
         ds (jdbc/get-datasource (assoc cfg :dbname (:user cfg)))]
     (doseq [{:keys [exists? create label]} (init-cmds dbname)]
       (if (empty? (jdbc/execute! ds [exists?]))

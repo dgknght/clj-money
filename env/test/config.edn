@@ -1,48 +1,58 @@
 {:allow-unbounded-queries true
- :alpha-vantage-api-key "alpha-vantage-api-key"
  :application-name "clj-money"
  :db {:strategies {:sql
                    {:clj-money.db/strategy :clj-money.db/sql
-                    :host "localhost"
-                    :post 5432
+                    :host :config/sql-host
+                    :port 5432
                     :user :config/sql-app-user
                     :password :config/sql-app-password
                     :dbtype "postgresql"
-                    :dbname "money_test"}
+                    :dbname :config/sql-db-name}
 
                    :datomic-peer
                    {:clj-money.db/strategy :clj-money.db/datomic-peer
                     :uri "datomic:mem://money_test"}}
       :active :sql}
  :detailed-import-logging "false"
- :google-client-id "google-id"
- :google-client-secret "google-client-secret"
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
                  :host "localhost"
                  :post 5432
                  :user :config/sql-app-user
                  :password :config/sql-app-password
                  :dbtype "postgresql"
-                 :dbname "money_test"}
+                 :dbname :config/sql-db-name}
  :mailer-host "testmailer.com"
  :mailer-from "no-reply@clj-money.com"
  :partition-period :year
  :progress {:strategies {:redis {:clj-money.progress/strategy :clj-money.progress/redis
                                  :prefix "test"
-                                 :redis-config {:host "localhost"
+                                 :redis-config {:host :config/redis-host
                                                 :port 6379
                                                 :password :config/redis-password}}}
             :active :redis}
+ :site-host "www.mymoney.com"
+ :site-protocol "https"
+
+ ; Content above this line is not sensitive and can be commited
+ ; to source control and generally readable.
+ ;
+ ; Content below this line is sensitive and will be replace by
+ ; environment variables when running in public environments
+
+ :alpha-vantage-api-key "alpha-vantage-api-key"
+ :google-client-id "google-id"
+ :google-client-secret "google-client-secret"
+ :redis-host "localhost"
  :redis-password "please04"
  :secret "test-secret-for-testing"
  :show-error-messages true
- :site-host "www.mymoney.com"
- :site-protocol "https"
- :test? true
- :yahoo-api-key "yahoo-api-key"
+ :sql-adm-user "adm_user"
+ :sql-adm-password "please03"
  :sql-app-user "app_user"
  :sql-app-password "please01"
+ :sql-db-name "money_test"
  :sql-ddl-user "ddl_user"
  :sql-ddl-password "please02"
- :sql-adm-user "adm_user"
- :sql-adm-password "please03"}
+ :sql-host "localhost"
+ :test? true
+ :yahoo-api-key "yahoo-api-key"}
