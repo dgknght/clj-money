@@ -272,10 +272,6 @@
                 (models/scrub-sensitive-data criteria)
                 qry) ; TODO scrub the datalog query too
 
-    (when (:offset options)
-      (pprint {::qry qry
-               ::raw-result raw-result}))
-
     (cond
       count
       (or (ffirst raw-result) 0)
