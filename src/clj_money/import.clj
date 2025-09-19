@@ -477,9 +477,12 @@
           (assoc-warning context "Transaction with no items" trx))
         (do
           (when-not (after-last-trx? trx context)
-            (throw (ex-info "Transaction out of order"
-                            {:transaction trx
-                             :last-trx-dates (:last-trx-dates context)})))
+            (log/errorf "[import] Transaction out of order: %s %s"
+                        trx
+                        (:last-trx-dates context)))
+          (throw (ex-info "Transaction out of order"
+                          {:transaction trx
+                           :last-trx-dates (:last-trx-dates context)}))
           (-> context
               (import-transaction trx)
               (update-in [:accounts] (apply-transaction-to-accounts trx))
