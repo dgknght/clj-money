@@ -587,12 +587,12 @@
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
   accounts as of the associated dates."
-  [{:keys [accounts entity-id]}]
+  [{:keys [accounts entity-id] :as x}]
   (let [entity (models/find entity-id :entity)]
     (models/put-many
       (cons (update-in entity
                        [:entity/transaction-date-range]
-                       #(apply dates/push-boundary % entity))
+                       #(apply dates/push-boundary % (:entity x)))
             (->> accounts
                  (map (comp (fn [[account date]]
                               {:account account
