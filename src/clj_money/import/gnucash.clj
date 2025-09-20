@@ -882,6 +882,8 @@
                     :content []
                     :child-content []
                     :out-chan records-chan}))
+      (a/>! records-chan #:import{:record-type :sweep
+                                   :ignore? true})
       (a/close! records-chan))
     out-chan))
 

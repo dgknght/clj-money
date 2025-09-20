@@ -16,6 +16,7 @@
   <logger name="datomic.process-monitor" level="WARN"/>
   <logger name="io.methvin" level="WARN"/>
   <logger name="io.netty" level="WARN"/>
+  <logger name="clj-money.import.gnucash" level="INFO"/>
 
   <root level="DEBUG">
     <!-- appender-ref ref="CONSOLE"/ -->
