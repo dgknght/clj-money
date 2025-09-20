@@ -478,9 +478,10 @@
         (do
           (when-not (after-last-trx? trx context)
             (log/errorf "[import] Transaction out of order: %s %s"
-                        trx
+                        (select-keys trx [:transaction/transaction-date
+                                          :transaction/description])
                         (:last-trx-dates context)))
-          (throw (ex-info "Transaction out of order"
+          #_(throw (ex-info "Transaction out of order"
                           {:transaction trx
                            :last-trx-dates (:last-trx-dates context)}))
           (-> context
@@ -601,17 +602,15 @@
 
 (defn- import-record
   [xf]
-  (fn
-    ([] (xf))
-    ([context] (xf context))
-    ([context record]
-     (if (ignore? record)
-       (xf context record)
-       (try
-         (xf (import-record* context record)
-             record)
-         (catch Exception e
-           (apply xf (handle-ex e record context))))))))
+  (completing
+    (fn [context record]
+      (if (ignore? record)
+        (xf context record)
+        (try
+          (xf (import-record* context record)
+              record)
+          (catch Exception e
+            (apply xf (handle-ex e record context))))))))
 
 (defn- fetch-reconciled-items
   [{:reconciliation/keys [account]
@@ -757,6 +756,27 @@
             :import (xf acc record)
             :ignore (xf acc (assoc record :import/ignore? true))))))))
 
+(defn- sort-records
+  [xf]
+  (completing
+    (fn [ctx {:import/keys [record-type] :as rec}]
+      (cond
+        (= :transaction record-type)
+        (update-in ctx
+                   [:sorted-trxs
+                    (:transaction/transaction-date rec)]
+                   conj
+                   rec)
+
+        (seq (:sorted-trxs ctx))
+        (let [updated-ctx (->> (vals (:sorted-trxs ctx))
+                               (mapcat identity)
+                               (reduce xf (dissoc ctx :sorted-trxs)))]
+          (xf updated-ctx rec))
+
+        :else
+        (xf ctx rec)))))
+
 ; Import steps
 ; read input -> stream of records
 ; rebalance accounts -> stream of accounts (just counts?)
@@ -793,20 +813,22 @@
                           (read-source source-type)
                           (a/transduce
                             (comp (filter-import)
+                                  sort-records
                                   import-record
                                   (forward out-chan))
                             (completing
-                              (fn [acc {:import/keys [record-type]
+                              (fn [ctx {:import/keys [record-type]
                                         :notification/keys [severity]}]
                                 (if (and (= :notification record-type)
                                          (= :fatal severity))
-                                  (reduced (assoc acc ::abend? true))
-                                  acc)))
+                                  (reduced (assoc ctx ::abend? true))
+                                  ctx)))
                             {:import import-spec
                              :account-ids {}
                              :account-children {}
                              :account-parents {}
                              :notifications []
+                             :sorted-trxs (sorted-map)
                              :entity entity})
                           a/<!!)]
           (models/put-many (cons (:entity result) ; transaction-date-range has been updated
