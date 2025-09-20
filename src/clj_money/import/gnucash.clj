@@ -859,7 +859,7 @@
   [xf]
   (completing
     (fn [acc {:import/keys [record-type] :as record}]
-      (log/debugf "[import] [gnucash] reporting %s: %s"
+      (log/tracef "[import] [gnucash] reporting %s: %s"
                   (name record-type)
                   (prn-str record))
       (xf acc record))))
@@ -879,7 +879,13 @@
 
           (seq @trxs)
           (do
-            (doseq [trx (mapcat identity (vals @trxs))]
+            (doseq [trx (mapcat (fn [[k v]]
+                                  (log/infof
+                                    "[import] [gnucash] One day of transactions %s: %s"
+                                    k
+                                    (mapv :transaction/description v))
+                                  v)
+                                @trxs)]
               (xf ch trx))
             (reset! trxs (sorted-map))
             (xf ch rec))
