@@ -462,29 +462,32 @@
                   :id
                   :transaction-item/account))
        (filter identity)
-       (every? #(t/before? % transaction-date))))
+       (every? #(t/not-after? % transaction-date))))
 
 (defmethod import-record* :transaction
-  [context transaction]
+  [{:as ctx :keys [accounts last-trx-dates]} transaction]
   (with-fatal-exceptions
     (let [trx (update-in transaction
                          [:transaction/items]
-                         (comp #(map (process-trx-item context) %)
+                         (comp #(map (process-trx-item ctx) %)
                                remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
-          (assoc-warning context "Transaction with no items" trx))
+          (assoc-warning ctx "Transaction with no items" trx))
         (do
-          (when-not (after-last-trx? trx context)
-            (log/errorf "[import] Transaction out of order: %s %s"
-                        (select-keys trx [:transaction/transaction-date
-                                          :transaction/description])
-                        (:last-trx-dates context)))
-          #_(throw (ex-info "Transaction out of order"
-                          {:transaction trx
-                           :last-trx-dates (:last-trx-dates context)}))
-          (-> context
+          (when-not (after-last-trx? trx ctx)
+            (let [t (select-keys trx [:transaction/transaction-date
+                                      :transaction/description])
+                  lasts (map #(update-in % [0] (comp :account/name accounts))
+                             last-trx-dates)]
+              (log/errorf "[import] Transaction out of order: %s %s"
+                          t
+                          lasts)
+              (throw (ex-info "Transaction out of order"
+                              {:transaction t
+                               :last-trx-dates lasts}))))
+          (-> ctx
               (import-transaction trx)
               (update-in [:accounts] (apply-transaction-to-accounts trx))
               (update-last-trxs trx)
