@@ -756,27 +756,6 @@
             :import (xf acc record)
             :ignore (xf acc (assoc record :import/ignore? true))))))))
 
-(defn- sort-records
-  [xf]
-  (completing
-    (fn [ctx {:import/keys [record-type] :as rec}]
-      (cond
-        (= :transaction record-type)
-        (update-in ctx
-                   [:sorted-trxs
-                    (:transaction/transaction-date rec)]
-                   conj
-                   rec)
-
-        (seq (:sorted-trxs ctx))
-        (let [updated-ctx (->> (vals (:sorted-trxs ctx))
-                               (mapcat identity)
-                               (reduce xf (dissoc ctx :sorted-trxs)))]
-          (xf updated-ctx rec))
-
-        :else
-        (xf ctx rec)))))
-
 ; Import steps
 ; read input -> stream of records
 ; rebalance accounts -> stream of accounts (just counts?)
@@ -813,7 +792,6 @@
                           (read-source source-type)
                           (a/transduce
                             (comp (filter-import)
-                                  sort-records
                                   import-record
                                   (forward out-chan))
                             (completing

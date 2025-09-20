@@ -864,11 +864,34 @@
                   (prn-str record))
       (xf acc record))))
 
+(defn- sort-records
+  [xf]
+  (let [trxs (atom (sorted-map))]
+    (completing
+      (fn [ch {:import/keys [record-type] :as rec}]
+        (cond
+          (= :transaction record-type)
+          (swap! trxs
+                 update-in
+                 [(:transaction/transaction-date rec)]
+                 conj
+                 rec)
+
+          (seq @trxs)
+          (do
+            (doseq [trx (mapcat identity (vals @trxs))]
+              (xf ch trx))
+            (xf ch rec))
+
+          :else
+          (xf ch rec))))))
+
 (defmethod read-source :gnucash
   [_ inputs]
   (let [out-chan (a/chan)
         records-chan (a/chan 100 (comp (filter emit-record?)
                                        (process-records)
+                                       sort-records
                                        (filter identity)
                                        log-records))]
     (a/pipe records-chan out-chan)
