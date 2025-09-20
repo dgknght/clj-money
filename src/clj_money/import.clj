@@ -477,16 +477,22 @@
           (assoc-warning ctx "Transaction with no items" trx))
         (do
           (when-not (after-last-trx? trx ctx)
-            (let [t (select-keys trx [:transaction/transaction-date
-                                      :transaction/description])
-                  lasts (map #(update-in % [0] (comp :account/name accounts))
-                             last-trx-dates)]
-              (log/errorf "[import] Transaction out of order: %s %s"
-                          t
-                          lasts)
-              (throw (ex-info "Transaction out of order"
-                              {:transaction t
-                               :last-trx-dates lasts}))))
+            (let [t (-> trx
+                        (update-in [:transaction/items]
+                                   #(map (juxt
+                                           (comp :account/name
+                                                 accounts
+                                                 :id
+                                                 :transaction-item/account)
+                                           (comp last-trx-dates
+                                                 :id
+                                                 :transaction-item/account))
+                                         %))
+                        (select-keys [:transaction/transaction-date
+                                      :transaction/description
+                                      :transaction/items]))]
+              (log/errorf "[import] Transaction out of order: %s" t)
+              (throw (ex-info "Transaction out of order" t))))
           (-> ctx
               (import-transaction trx)
               (update-in [:accounts] (apply-transaction-to-accounts trx))
