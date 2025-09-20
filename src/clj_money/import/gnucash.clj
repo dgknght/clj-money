@@ -881,6 +881,7 @@
           (do
             (doseq [trx (mapcat identity (vals @trxs))]
               (xf ch trx))
+            (reset! trxs (sorted-map))
             (xf ch rec))
 
           :else
