@@ -186,7 +186,7 @@
   [state elem]
   (when (and (env :detailed-import-logging)
              (not (known-irrelevant-elements (:tag elem))))
-    (log/debug "Encountered unhandled element " (prn-str (:tag elem))))
+    (log/tracef "Encountered unhandled element %s" (:tag elem)))
   (pop-elem state))
 
 (defn- tag->keyword
