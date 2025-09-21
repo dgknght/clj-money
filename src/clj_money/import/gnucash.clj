@@ -660,7 +660,7 @@
 (defn- adjust-trade-actions
   [items]
   (map (fn [item]
-         (update-in item [:transaction-item/action] #(get-in trade-actions-map [%] %)))
+         (update-in item [:transaction-item/action] #(trade-actions-map % %)))
        items))
 
 (defn- trx-item-by-action
