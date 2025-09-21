@@ -889,6 +889,7 @@
                                                (case action 
                                                  nil 0
                                                  :buy 1
+                                                 :sell 3
                                                  2))
                                              trxs))))
                  (mapcat second)
