@@ -182,26 +182,21 @@
                               :balance 0M})))
 
 (defmethod ^:private import-transaction :buy
-  [{:keys [account-ids] :as context}
+  [{:keys [account-ids accounts] :as context}
    {:trade/keys [shares value]
     :transaction/keys [transaction-date]
     :import/keys [commodity-account-id account-id]
     :as transaction}]
   (let [[fee fee-account] (inv-transaction-fee-info transaction)
-        commodity-id (->> context
-                          :commodities
-                          (filter #(and (= (:commodity/symbol %)
-                                           (:commodity/symbol transaction))
-                                        (= (:commodity/exchange %)
-                                           (:commodity/exchange transaction))))
-                          first
-                          :id)
         purchase (cond-> #:trade{:date transaction-date
                                  :shares shares
                                  :value value}
-                   commodity-id         (assoc :trade/commodity {:id commodity-id})
-                   commodity-account-id (assoc :trade/commodity-account {:id (account-ids commodity-account-id)})
-                   account-id           (assoc :trade/account {:id (account-ids account-id)})
+                   commodity-account-id (assoc :trade/commodity-account (-> commodity-account-id
+                                                                            account-ids
+                                                                            accounts))
+                   account-id           (assoc :trade/account (-> account-id
+                                                                  account-ids
+                                                                  accounts))
                    fee                  (assoc :trade/fee fee
                                                :trade/fee-account fee-account))
         {trx :trade/transaction :as result} (trading/buy purchase
