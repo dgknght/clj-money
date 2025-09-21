@@ -879,7 +879,6 @@
           [checking
            salary
            groceries] (find-accounts "Checking" "Salary" "Groceries")]
-      ^{:clj-kondo/ignore [:unresolved-symbol]}
       (transactions/with-delayed-propagation [out-chan ctrl-chan]
         (mapv (comp #(models/put %
                                  :out-chan out-chan

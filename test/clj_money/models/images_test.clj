@@ -24,7 +24,7 @@
   #:image{:user (find-user "john@doe.com")
           :original-filename "sample.gnucash"
           :content-type "application/gnucash"
-          :uuid "7e3feff7f2dc501a32af044d3ead2f8667649b79"})
+          :uuid "9ce09a549c89ad44100e944410fb3b1b84dc0bea"})
 
 (defn- assert-created
   [attr]
@@ -72,6 +72,6 @@
                                                 (-> "resources/fixtures/sample.gnucash"
                                                     io/input-stream
                                                     read-bytes))))]
-      (is (comparable? {:image/uuid "7e3feff7f2dc501a32af044d3ead2f8667649b79"}
+      (is (comparable? {:image/uuid "9ce09a549c89ad44100e944410fb3b1b84dc0bea"}
                        image)
-          "A UUID is created an added to the image"))))
+          "A UUID is created and added to the image"))))
