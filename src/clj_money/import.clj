@@ -43,14 +43,6 @@
               :notification/message msg
               :notification/data data}))
 
-(defn- validate
-  [m spec]
-  (when-let [errors (s/explain-data spec m)]
-    (throw (ex-info (format "Invalid model %s" (util/simplify m))
-                    {:model m
-                     :explain errors})))
-  m)
-
 (defn- remove-keys-by-ns
   [m ns]
   (with-meta
@@ -146,7 +138,6 @@
   [context transaction]
   (-> transaction
       (prepare-transaction context)
-      (validate ::models/transaction)
       models/put
       (log-transaction "standard"))
   context)
@@ -346,7 +337,6 @@
                             :account/commodity (find-commodity context commodity)
                             :account/parent (account-parent account context))
                      purge-import-keys
-                     (validate ::models/account)
                      models/put)]
       (log/infof "[import] imported account \"%s\": %s -> %s"
                  (:account/name result)
@@ -366,7 +356,6 @@
                              :reconciliation/status :new
                              :reconciliation/account {:id new-id})
                       purge-import-keys
-                      (validate ::models/reconciliation)
                       models/put)]
       ; We'll use this map later to assocate reconciled transactions
       ; for this account with this reconciliation
@@ -563,7 +552,6 @@
       (select-keys [:price/trade-date
                     :price/value])
       (assoc :price/commodity (find-commodity ctx price))
-      (validate ::models/price)
       models/put)
   ctx)
 
@@ -575,7 +563,6 @@
                             (assoc :commodity/entity entity
                                    :commodity/price-config {:price-config/enabled true}) ; TODO: read this from import source
                             purge-import-keys
-                            (validate ::models/commodity)
                             models/put)]
       (log/infof "[import] imported commodity %s (%s)"
                  (:commodity/name created)
