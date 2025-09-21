@@ -319,23 +319,14 @@
   [context _]
   context)
 
-(defn- account-parent
-  "Returns a model reference for the parent if the parent ID is found.
-
-  The ID may not be found because we ignore the parents for the basic account types."
-  [{:import/keys [parent-id]}
-   {:keys [account-ids]}]
-  (when-let [id (account-ids parent-id)]
-    {:id id}))
-
 (defmethod import-record* :account
-  [{:keys [entity] :as context}
-   {:import/keys [commodity id] :as account}]
+  [{:keys [entity account-ids accounts] :as context}
+   {:import/keys [commodity id parent-id] :as account}]
   (with-fatal-exceptions
     (let [result (-> account
                      (assoc :account/entity entity
                             :account/commodity (find-commodity context commodity)
-                            :account/parent (account-parent account context))
+                            :account/parent (some-> parent-id account-ids accounts))
                      purge-import-keys
                      models/put)]
       (log/infof "[import] imported account \"%s\": %s -> %s"
