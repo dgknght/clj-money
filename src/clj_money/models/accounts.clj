@@ -6,8 +6,8 @@
                                           index-by]]
             [dgknght.app-lib.validation :as v]
             [clj-money.dates :as dates]
-            [clj-money.util :refer [live-id
-                                    id=]]
+            [clj-money.util :as util :refer [live-id
+                                             id=]]
             [clj-money.models :as models]))
 
 (defn- name-is-unique?
@@ -29,7 +29,7 @@
   [{:account/keys [parent type]}]
   (or (nil? parent)
       (= type
-         (:account/type (models/find parent :account)))))
+         (:account/type (models/resolve-ref parent :account)))))
 (v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
                                    :path [:account/type]})
 

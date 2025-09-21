@@ -4,7 +4,6 @@
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [clojure.core.async :as a]
-            [clojure.spec.alpha :as s]
             [clojure.set :refer [union]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
@@ -42,14 +41,6 @@
               :notification/severity :warning
               :notification/message msg
               :notification/data data}))
-
-(defn- validate
-  [m spec]
-  (when-let [errors (s/explain-data spec m)]
-    (throw (ex-info (format "Invalid model %s" (util/simplify m))
-                    {:model m
-                     :explain errors})))
-  m)
 
 (defn- remove-keys-by-ns
   [m ns]
@@ -146,7 +137,6 @@
   [context transaction]
   (-> transaction
       (prepare-transaction context)
-      (validate ::models/transaction)
       models/put
       (log-transaction "standard"))
   context)
@@ -328,25 +318,15 @@
   [context _]
   context)
 
-(defn- account-parent
-  "Returns a model reference for the parent if the parent ID is found.
-
-  The ID may not be found because we ignore the parents for the basic account types."
-  [{:import/keys [parent-id]}
-   {:keys [account-ids]}]
-  (when-let [id (account-ids parent-id)]
-    {:id id}))
-
 (defmethod import-record* :account
-  [{:keys [entity] :as context}
-   {:import/keys [commodity id] :as account}]
+  [{:keys [entity account-ids accounts] :as context}
+   {:import/keys [commodity id parent-id] :as account}]
   (with-fatal-exceptions
     (let [result (-> account
                      (assoc :account/entity entity
                             :account/commodity (find-commodity context commodity)
-                            :account/parent (account-parent account context))
+                            :account/parent (some-> parent-id account-ids accounts))
                      purge-import-keys
-                     (validate ::models/account)
                      models/put)]
       (log/infof "[import] imported account \"%s\": %s -> %s"
                  (:account/name result)
@@ -366,7 +346,6 @@
                              :reconciliation/status :new
                              :reconciliation/account {:id new-id})
                       purge-import-keys
-                      (validate ::models/reconciliation)
                       models/put)]
       ; We'll use this map later to assocate reconciled transactions
       ; for this account with this reconciliation
@@ -462,25 +441,38 @@
                   :id
                   :transaction-item/account))
        (filter identity)
-       (every? #(t/before? % transaction-date))))
+       (every? #(t/not-after? % transaction-date))))
 
 (defmethod import-record* :transaction
-  [context transaction]
+  [{:as ctx :keys [accounts last-trx-dates]} transaction]
   (with-fatal-exceptions
     (let [trx (update-in transaction
                          [:transaction/items]
-                         (comp #(map (process-trx-item context) %)
+                         (comp #(map (process-trx-item ctx) %)
                                remove-zero-quantity-items))]
       (if (empty? (:transaction/items trx))
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
-          (assoc-warning context "Transaction with no items" trx))
+          (assoc-warning ctx "Transaction with no items" trx))
         (do
-          (when-not (after-last-trx? trx context)
-            (throw (ex-info "Transaction out of order"
-                            {:transaction trx
-                             :last-trx-dates (:last-trx-dates context)})))
-          (-> context
+          (when-not (after-last-trx? trx ctx)
+            (let [t (-> trx
+                        (update-in [:transaction/items]
+                                   #(map (juxt
+                                           (comp :account/name
+                                                 accounts
+                                                 :id
+                                                 :transaction-item/account)
+                                           (comp last-trx-dates
+                                                 :id
+                                                 :transaction-item/account))
+                                         %))
+                        (select-keys [:transaction/transaction-date
+                                      :transaction/description
+                                      :transaction/items]))]
+              (log/errorf "[import] Transaction out of order: %s" t)
+              (throw (ex-info "Transaction out of order" t))))
+          (-> ctx
               (import-transaction trx)
               (update-in [:accounts] (apply-transaction-to-accounts trx))
               (update-last-trxs trx)
@@ -550,7 +542,6 @@
       (select-keys [:price/trade-date
                     :price/value])
       (assoc :price/commodity (find-commodity ctx price))
-      (validate ::models/price)
       models/put)
   ctx)
 
@@ -562,7 +553,6 @@
                             (assoc :commodity/entity entity
                                    :commodity/price-config {:price-config/enabled true}) ; TODO: read this from import source
                             purge-import-keys
-                            (validate ::models/commodity)
                             models/put)]
       (log/infof "[import] imported commodity %s (%s)"
                  (:commodity/name created)
@@ -598,17 +588,15 @@
 
 (defn- import-record
   [xf]
-  (fn
-    ([] (xf))
-    ([context] (xf context))
-    ([context record]
-     (if (ignore? record)
-       (xf context record)
-       (try
-         (xf (import-record* context record)
-             record)
-         (catch Exception e
-           (apply xf (handle-ex e record context))))))))
+  (completing
+    (fn [context record]
+      (if (ignore? record)
+        (xf context record)
+        (try
+          (xf (import-record* context record)
+              record)
+          (catch Exception e
+            (apply xf (handle-ex e record context))))))))
 
 (defn- fetch-reconciled-items
   [{:reconciliation/keys [account]
@@ -793,17 +781,18 @@
                                   import-record
                                   (forward out-chan))
                             (completing
-                              (fn [acc {:import/keys [record-type]
+                              (fn [ctx {:import/keys [record-type]
                                         :notification/keys [severity]}]
                                 (if (and (= :notification record-type)
                                          (= :fatal severity))
-                                  (reduced (assoc acc ::abend? true))
-                                  acc)))
+                                  (reduced (assoc ctx ::abend? true))
+                                  ctx)))
                             {:import import-spec
                              :account-ids {}
                              :account-children {}
                              :account-parents {}
                              :notifications []
+                             :sorted-trxs (sorted-map)
                              :entity entity})
                           a/<!!)]
           (models/put-many (cons (:entity result) ; transaction-date-range has been updated
