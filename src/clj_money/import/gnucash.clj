@@ -870,6 +870,7 @@
     (completing
       (fn [ch {:import/keys [record-type] :as rec}]
         (cond
+          ; hold and sort transactions until we have them all
           (= :transaction record-type)
           (swap! trxs
                  update-in
@@ -877,19 +878,26 @@
                  conj
                  rec)
 
+          ; once we have all transactions, emit them in order
           (seq @trxs)
           (do
-            (doseq [trx (mapcat (fn [[k v]]
-                                  (log/infof
-                                    "[import] [gnucash] One day of transactions %s: %s"
-                                    k
-                                    (mapv :transaction/description v))
-                                  v)
-                                @trxs)]
-              (xf ch trx))
+            (->> @trxs
+                 (map #(update-in %
+                                  [1]
+                                  (fn [trxs]
+                                    (sort-by (fn [{:trade/keys [action]}]
+                                               (case action 
+                                                 nil 0
+                                                 :buy 1
+                                                 2))
+                                             trxs))))
+                 (mapcat second)
+                 (map #(xf ch %))
+                 doall)
             (reset! trxs (sorted-map))
             (xf ch rec))
 
+          ; otherwise emit the record as usual
           :else
           (xf ch rec))))))
 
