@@ -4,7 +4,6 @@
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [clojure.core.async :as a]
-            [clojure.spec.alpha :as s]
             [clojure.set :refer [union]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
