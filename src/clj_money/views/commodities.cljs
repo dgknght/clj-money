@@ -248,19 +248,11 @@
                   :callback -busy
                   :on-success #(load-commodities page-state))))
 
-(defn- recent? []
-  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
-    (fn [{:commodity/keys [created-at]}]
-      (if created-at
-        (t/before? an-hour-ago created-at)
-        true))))
-
 (defn- match-fn
   [hide-zero-shares? search-term]
   (apply every-pred
          (cond-> [(cmm/matches-search? search-term)]
-           hide-zero-shares? (conj (some-fn cmm/has-shares?
-                                            (recent?))))))
+           hide-zero-shares? (conj cmm/has-shares?))))
 
 (defn- commodities-table
   [page-state]
@@ -268,7 +260,7 @@
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
         search-term (r/cursor page-state [:search-term])
         match? (make-reaction #(match-fn @hide-zero-shares?
-                                        @search-term))
+                                         @search-term))
         filtered (make-reaction #(filter @match? @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
