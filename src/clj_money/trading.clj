@@ -864,15 +864,16 @@
   :date         - the date on which the transfer takes place
   :from-account - the account from which the commodity is to be moved
   :to-account   - the account to which the commodity is to be moved"
-  [transfer & {:as opts}]
-  (with-ex-validation transfer ::models/transfer
-    (some-> transfer
-            (update-in [:transfer/commodity] (models/resolve-ref :commodity))
-            append-transfer-accounts
-            append-most-recent-price
-            process-transfer-lots
-            (create-transfer-transaction opts)
-            (put-transfer opts))))
+  [transfer & {:as options}]
+  (let [opts (merge default-opts options)]
+    (with-ex-validation transfer ::models/transfer
+      (some-> transfer
+              (update-in [:transfer/commodity] (models/resolve-ref :commodity))
+              append-transfer-accounts
+              append-most-recent-price
+              process-transfer-lots
+              (create-transfer-transaction opts)
+              (put-transfer opts)))))
 
 (def transfer-and-propagate
   (prop/+propagation transfer))
@@ -1003,8 +1004,9 @@
   :shares-gained - the difference in the number of shares held before and after the split
   :account       - the trading account through which the commodity was purchased"
 
-  [split & {:as opts}]
-  (with-ex-validation split ::models/split
+  [split & {:as options}]
+  (let [opts (merge default-opts options)]
+    (with-ex-validation split ::models/split
     (some-> split
             (update-in [:split/commodity] (models/resolve-ref :commodity))
             append-split-accounts
@@ -1012,7 +1014,7 @@
             append-split-ratio
             adjust-split-lots
             (create-split-transaction opts)
-            (put-split opts))))
+            (put-split opts)))))
 
 (def split-and-propagate
   (prop/+propagation split))
