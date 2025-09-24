@@ -797,7 +797,7 @@
                         (:import/entity-name import-spec))
             (a/alts!! [(process-reconciliations result
                                                 out-chan)
-                       (a/timeout 5000)]))
+                       (a/timeout (* 5 60 1000))]))
           (when out-chan
             (a/go
               (a/>! out-chan {:import/record-type :termination-signal})))
