@@ -335,8 +335,8 @@
               (models/find-by {:commodity/symbol "AAPL"}))
             "The traded commodity is created"))
       (testing "transactions"
-        (is (seq-of-maps-like? [#:transaction-item{:action :debit
-                                                   :index 11
+        (is (seq-of-maps-like? [#:transaction-item{:action :credit
+                                                   :index 0
                                                    :quantity 102.50M
                                                    :value 102.50M
                                                    :balance 102.50M
