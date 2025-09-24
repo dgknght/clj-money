@@ -178,7 +178,7 @@
      [:td (truncate (:commodity/name commodity))]
      [:td.d-lg-table-cell.d-none symbol]
      [:td.d-lg-table-cell.d-none exchange]
-     [:td.d-lg-table-cell.d-none.text-end (currency-format (:price most-recent-price))]
+     [:td.d-lg-table-cell.d-none.text-end (currency-format (:price/value most-recent-price))]
      [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
@@ -336,11 +336,11 @@
                    :on-success (post-delete-price page-state))))
 
 (defn- price-row
-  [{:as p :price/keys [trade-date price]} page-state]
+  [{:as p :price/keys [trade-date value]} page-state]
   ^{:key (str "price-row-" (:id p))}
   [:tr
    [:td.text-end (format-date trade-date)]
-   [:td.text-end (currency-format price)]
+   [:td.text-end (currency-format value)]
    [:td
     [:div.btn-group
      [:button.btn.btn-secondary.btn-sm
