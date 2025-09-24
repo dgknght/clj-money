@@ -69,20 +69,11 @@
                                               (disj expanded id)
                                               (conj expanded id)))))
 
-(defn- recently-created?
-  [{:account/keys [created-at]}]
-  (if created-at
-    (t/before?
-      (t/now)
-      (t/plus created-at (t/days 1)))
-    true))
-
 (defn- account-hidden?
   [{:account/keys [parent-ids] :as account} expanded hide-zero-balances?]
   (or (and hide-zero-balances?
            (decimal/zero? (decimal/+ (:account/value account)
-                                     (:account/children-value account)))
-           (not (recently-created? account)))
+                                     (:account/children-value account))))
       (not (expanded (:account/type account)))
       (and (seq parent-ids)
            (not-every? expanded parent-ids))))
