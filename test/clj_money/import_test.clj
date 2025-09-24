@@ -299,7 +299,7 @@
                            :lt-capital-loss-account "Investment/Long-Term Losses"
                            :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
-(deftest import-with-entity-settings
+(deftest import-with-commodities
   (with-context ext-context
     (let [imp (find-import "Personal")
           {:keys [entity notifications]} (execute-import imp)
@@ -309,15 +309,25 @@
                             lt-capital-loss-account
                             st-capital-loss-account]} :entity/settings}
           (models/find entity)]
-      (is (empty? notifications) "No errors or warnings are reported")
-      (is (util/model-ref? lt-capital-gains-account)
-          "The long-term capital gains account id is set")
-      (is (util/model-ref? st-capital-gains-account)
-          "The short-term capital gains account id is set")
-      (is (util/model-ref? lt-capital-loss-account)
-          "The long-term capital losses account id is set")
-      (is (util/model-ref? st-capital-loss-account)
-          "The short-term capital losses account id is set"))))
+      (testing "entity settings"
+        (is (empty? notifications) "No errors or warnings are reported")
+        (is (util/model-ref? lt-capital-gains-account)
+            "The long-term capital gains account id is set")
+        (is (util/model-ref? st-capital-gains-account)
+            "The short-term capital gains account id is set")
+        (is (util/model-ref? lt-capital-loss-account)
+            "The long-term capital losses account id is set")
+        (is (util/model-ref? st-capital-loss-account)
+            "The short-term capital losses account id is set"))
+      (testing "commodities"
+        (is (comparable?
+              #:commodity{:symbol "AAPL"
+                          :name "Apple, Inc."
+                          :price-config #:price-config{:enabled true}
+                          :price-date-range [(t/local-date 2015 1 17)
+                                             (t/local-date 2015 5 1)]}
+              (models/find-by {:commodity/symbol "AAPL"}))
+            "The traded commodity is created")))))
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]

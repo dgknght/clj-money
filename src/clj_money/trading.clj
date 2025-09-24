@@ -97,29 +97,28 @@
 
 (s/def ::models/sale (s/multi-spec sale-spec :trade/commodity-account))
 
+(defn- find-price
+  [attr]
+  (or (models/find-by attr)
+      attr))
+
 (defn- create-price
   "Given a trade map, calculates and appends the share price"
   [{:trade/keys [shares value commodity date] :as trade}]
-  (let [existing (models/find-by {:price/commodity commodity
-                                  :price/trade-date date})
-        price-value (with-precision 4 (/ value shares))
-        price (if existing
-                (assoc existing :price/value price-value)
-                #:price{:commodity commodity
-                        :trade-date date
-                        :value price-value})]
-    ; TODO: We should probably report this back to the user
-    (when-not (= (:price/value price)
-                 (:price/value existing))
-      (log/debugf "Conflicting commodity price for %s on %s: %s vs %s"
-                  (:commodity/symbol commodity)
-                  date
-                  (:price/value existing)
-                  (:price/value price)))
-    (-> trade
-        (update-in [:trade/commodity-account :account/price-as-of]
-                   #(dates/latest % date))
-        (assoc :trade/price price))))
+  (-> trade
+      (update-in [:trade/commodity-account :account/price-as-of]
+                 #(dates/latest % date))
+      (assoc :trade/price (assoc (find-price #:price{:commodity commodity
+                                                     :trade-date date})
+                                 :price/value (with-precision 4 (/ value shares))))))
+
+(defn- push-commodity-price-boundary
+  [{:trade/keys [date] :as trade}]
+  (update-in trade
+             [:trade/commodity]
+             dates/push-model-boundary
+             :commodity/price-date-range
+             date))
 
 (defn- ensure-tag
   "Appends the specified tag to the account if it isn't there already"
@@ -474,6 +473,7 @@
         append-accounts
         append-entity
         create-price
+        push-commodity-price-boundary
         update-accounts
         create-lot
         (create-dividend-transaction opts)
@@ -704,6 +704,7 @@
         ensure-gains-accounts
         update-entity-settings
         create-price
+        push-commodity-price-boundary
         update-accounts
         process-lot-sales
         (create-sale-transaction opts)
