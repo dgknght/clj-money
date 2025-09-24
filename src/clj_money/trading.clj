@@ -240,8 +240,7 @@
                  entity
                  date]
     :as trade}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (if dividend?
     (if dividend-account
       (let [dividend-basis (item-basis dividend-account)
@@ -281,8 +280,7 @@
                  commodity-account]
     :or {fee 0M}
     :as trade}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (let [currency-amount (+ value fee)
         account-basis (item-basis account)
         commodity-basis (item-basis commodity-account)
@@ -320,26 +318,30 @@
                                                 :shares shares}]})))
 
 (defn- create-capital-gains-item
-  [{:keys [quantity description long-term?]} trade]
-  (let [[action effect] (if (< quantity 0)
-                          [:debit "loss"]
-                          [:credit "gains"])
-        account-key (keyword
-                      "trade"
-                      (format "%s-capital-%s-account"
-                              (if long-term? "lt" "st")
-                              effect))
-        account (account-key trade)]
-    #:transaction-item{:action action
-                       :account account
-                       :quantity (d/abs quantity)
-                       :value (d/abs quantity)
-                       :memo description}))
+  [trade {:keys [item-basis]}]
+  (fn [{:keys [quantity description long-term?]}]
+    (let [[action effect] (if (< quantity 0)
+                            [:debit "loss"]
+                            [:credit "gains"])
+          account-key (keyword
+                        "trade"
+                        (format "%s-capital-%s-account"
+                                (if long-term? "lt" "st")
+                                effect))
+          account (account-key trade)
+          {:transaction-item/keys [balance index]} (item-basis account)]
+      #:transaction-item{:action action
+                         :account account
+                         :quantity (d/abs quantity)
+                         :value (d/abs quantity)
+                         :memo description
+                         :index (inc index)
+                         :balance (+ quantity balance)})))
 
 (defn- create-capital-gains-items
-  [{:trade/keys [gains] :as trade}]
+  [{:trade/keys [gains] :as trade} opts]
   (->> gains
-       (map #(create-capital-gains-item % trade))
+       (map (create-capital-gains-item trade opts))
        (remove (comp zero?
                      :transaction-item/quantity))))
 
@@ -353,8 +355,7 @@
                  gains]
     :or {fee 0M}
     :as trade}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis] :as opts}]
   (let [total-gains (->> gains
                          (map :quantity)
                          (reduce + 0M))
@@ -362,7 +363,7 @@
         account-basis (item-basis account)
         commodity-basis (item-basis commodity-account)
         fee-basis (when-not (zero? fee) (item-basis fee-account))]
-    (cond-> (conj (create-capital-gains-items trade)
+    (cond-> (conj (create-capital-gains-items trade opts)
                   #:transaction-item{:action :debit
                                      :account account
                                      :quantity subtotal
@@ -451,6 +452,9 @@
                                          (filter (system-tagged? :tradable))
                                          first))))
 
+(def ^:private default-opts
+  {:item-basis random-item-basis})
+
 ; expect
 ; either
 ;   :trade/commodity
@@ -465,20 +469,21 @@
 ; and can also include a fn for getting the previous
 ; index and balance for transaction item roll-ups
 (defn buy
-  [purchase & {:as opts}]
+  [purchase & {:as options}]
   (with-ex-validation purchase ::models/purchase []
-    (-> purchase
-        append-commodity-account
-        append-commodity
-        append-accounts
-        append-entity
-        create-price
-        push-commodity-price-boundary
-        update-accounts
-        create-lot
-        (create-dividend-transaction opts)
-        (create-purchase-transaction opts)
-        (put-purchase opts))))
+    (let [opts (merge default-opts options)]
+      (-> purchase
+          append-commodity-account
+          append-commodity
+          append-accounts
+          append-entity
+          create-price
+          push-commodity-price-boundary
+          update-accounts
+          create-lot
+          (create-dividend-transaction opts)
+          (create-purchase-transaction opts)
+          (put-purchase opts)))))
 
 (def buy-and-propagate
   (prop/+propagation buy))
@@ -692,23 +697,25 @@
                                          (filter (system-tagged? :tradable))
                                          first)
            :trade/updated-lots (:lot result))))
+
 (defn sell
-  [sale & {:as opts}]
+  [sale & {:as options}]
   (with-ex-validation sale ::models/sale
-    (-> sale
-        append-commodity-account
-        append-commodity
-        append-accounts
-        append-entity
-        acquire-lots
-        ensure-gains-accounts
-        update-entity-settings
-        create-price
-        push-commodity-price-boundary
-        update-accounts
-        process-lot-sales
-        (create-sale-transaction opts)
-        (put-sale opts))))
+    (let [opts (merge default-opts options)]
+      (-> sale
+          append-commodity-account
+          append-commodity
+          append-accounts
+          append-entity
+          acquire-lots
+          ensure-gains-accounts
+          update-entity-settings
+          create-price
+          push-commodity-price-boundary
+          update-accounts
+          process-lot-sales
+          (create-sale-transaction opts)
+          (put-sale opts)))))
 
 (def sell-and-propagate
   (prop/+propagation sell))
@@ -791,8 +798,7 @@
                     date
                     shares]
     :as transfer}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (when-not most-recent-price
     (throw (ex-info "Unable to process transfer without most recent commodity price"
                     {:transfer transfer})))
@@ -941,8 +947,7 @@
                  ratio
                  commodity-account
                  shares-gained] :as split}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (let [{:transaction-item/keys [index balance]} (item-basis commodity-account)]
     (assoc split
            :split/transaction

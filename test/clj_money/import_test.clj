@@ -110,8 +110,8 @@
                                         (t/local-date 2015 1 15)]}]))
 
 (defn- execute-import
-  [imp]
-  (let [{:keys [wait-chan]} (import-data imp)]
+  [imp & args]
+  (let [{:keys [wait-chan]} (apply import-data imp args)]
     (first (a/alts!! [wait-chan (a/timeout 5000)]))))
 
 (defmethod assert-expr 'includes-progress-notification?
@@ -299,10 +299,16 @@
                            :lt-capital-loss-account "Investment/Long-Term Losses"
                            :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
+(defn- last-trx-item
+  [account]
+  (models/find-by {:tranaction-item/account (util/->model-ref account)}
+                  {:sort [[:transaction-item/date :desc]
+                          [:transaction-item/index :desc]]}))
+
 (deftest import-with-commodities
   (with-context ext-context
     (let [imp (find-import "Personal")
-          {:keys [entity notifications]} (execute-import imp)
+          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)
           _ (assert entity "No entity was returned from the import")
           {{:settings/keys [lt-capital-gains-account
                             st-capital-gains-account
@@ -327,7 +333,15 @@
                           :price-date-range [(t/local-date 2015 1 17)
                                              (t/local-date 2015 5 1)]}
               (models/find-by {:commodity/symbol "AAPL"}))
-            "The traded commodity is created")))))
+            "The traded commodity is created"))
+      (testing "transactions"
+        (is (seq-of-maps-like? [#:transaction-item{:action :debit
+                                                   :index 11
+                                                   :quantity 102.50M
+                                                   :value 102.50M
+                                                   :balance 102.50M
+                                                   :memo "Sell 100.000000 shares of AAPL at 6.000"}]
+               (models/select {:transaction-item/account st-capital-gains-account})))))))
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
