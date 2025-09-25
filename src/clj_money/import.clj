@@ -15,7 +15,8 @@
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria
                                         expense?]]
-            [clj-money.transactions :refer [polarize-item-quantity]]))
+            [clj-money.transactions :refer [polarize-item-quantity]]
+            [clj-money.models.accounts :as accounts]))
 
 (defmacro with-fatal-exceptions
   [& body]
@@ -817,4 +818,5 @@
   [import-spec & {:as opts :keys [atomic?]}]
   (if atomic?
     (throw (UnsupportedOperationException. "Atomic imports are not supported"))
-    (import-data* import-spec opts)))
+    (binding [accounts/*express-validation* true]
+      (import-data* import-spec opts))))
