@@ -7,7 +7,7 @@
       <!--
       <pattern>%-4relative [%thread] %-5level %logger{35} - %msg%n</pattern>
       -->
-      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %-10contextName %logger{36} - %msg%n</pattern>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %-10contextName %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
@@ -17,9 +17,9 @@
   <logger name="io.methvin" level="WARN"/>
   <logger name="io.netty" level="WARN"/>
   <logger name="clj-money.import.gnucash" level="DEBUG"/>
+  <logger name="clj-money.db.datomic" level="TRACE"/>
 
-  <root level="DEBUG">
-    <!-- appender-ref ref="CONSOLE"/ -->
+  <root level="TRACE">
     <appender-ref ref="FILE"/>
   </root>
 </configuration>
