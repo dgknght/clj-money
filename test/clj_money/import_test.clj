@@ -114,25 +114,6 @@
   (let [{:keys [wait-chan]} (apply import-data imp args)]
     (first (a/alts!! [wait-chan (a/timeout 5000)]))))
 
-(defmethod assert-expr 'includes-progress-notification?
-  [msg form]
-  (let  [k (safe-nth form 1)
-         expected (safe-nth form 2)
-         coll  (safe-nth form 3)]
-    `(let  [found# (->> ~coll
-                        (filter #(= ~expected
-                                    (get-in % [~k])))
-                        first)]
-       (do-report  (merge  {:expected ~expected
-                            :message ~msg
-                            :actual found#}
-                          (if found#
-                            {:type :pass}
-                            {:type :fail
-                             :actual (->> ~coll
-                                          (map #(get-in % [~k]))
-                                          (filter identity))}))))))
-
 (defn- test-import []
   (let [imp (find-import "Personal")
         {:keys [entity notifications]} (execute-import imp)]
