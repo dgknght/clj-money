@@ -612,17 +612,23 @@
         :transaction-item/reconciliation {:id id}))))
 
 (defn- process-reconciliation
-  [recon {:as ctx :keys [accounts]}]
+  [{:as recon :reconciliation/keys [account items]}
+   {:as ctx :keys [accounts]}]
   (try
-    (let [balance (->> (fetch-reconciled-items recon ctx)
+    (let [balance (->> (or (seq items)
+                           (fetch-reconciled-items recon ctx))
                        (map (comp :transaction-item/polarized-quantity
                                   polarize-item-quantity
-                                  #(update-in % [:transaction-item/account] (comp accounts :id))))
+                                  #(update-in %
+                                              [:transaction-item/account]
+                                              (comp accounts :id))))
                        (reduce + 0M))]
       (-> recon
           (assoc :reconciliation/balance balance
                  :reconciliation/status :completed)
           models/put))
+    (log/debugf "[import] processed reconciliation for account %s"
+                (:account/name account))
     {:import/record-type :finalize-reconciliation}
     (catch Exception e
       (let [account (-> recon
@@ -646,7 +652,7 @@
     identity))
 
 (defn- process-reconciliations
-  [{:keys [entity] :as ctx} out-chan]
+  [{:keys [entity accounts] :as ctx} out-chan]
   (let [reconciliations (models/select
                           (util/model-type
                             {:account/entity entity}
@@ -658,7 +664,8 @@
                         :declaration/record-count (count reconciliations)
                         :import/record-type :declaration}))
       (mapv (comp (notify-reconciliation-finalization out-chan)
-                  #(process-reconciliation % ctx))
+                  #(process-reconciliation % ctx)
+                  #(update-in % [:reconciliation/account] (comp accounts :id)))
             reconciliations)
       (a/close! ch))
     ch))
@@ -798,7 +805,9 @@
                         (:import/entity-name import-spec))
             (a/alts!! [(process-reconciliations result
                                                 out-chan)
-                       (a/timeout (* 5 60 1000))]))
+                       (a/timeout (* 5 60 1000))])
+            (log/debugf "[import] finished processing reconciliations for %s"
+                        (:import/entity-name import-spec)))
           (when out-chan
             (a/go
               (a/>! out-chan {:import/record-type :termination-signal})))
