@@ -1,12 +1,11 @@
 (ns clj-money.import-test
   (:refer-clojure :exclude [update])
-  (:require [clojure.test :refer [deftest is use-fixtures testing assert-expr do-report]]
+  (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.java.io :as io]
             [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.core :refer [safe-nth]]
             [dgknght.app-lib.test-assertions]
             [clj-money.progress :as prog]
             [clj-money.models.ref]
@@ -206,7 +205,11 @@
         (is (= 6 (expect :transaction))
             "Expectation is given for 6 transactions")
         (is (= 6 (increment :transaction))
-            "Transaction count is incremented 6 times")))))
+            "Transaction count is incremented 6 times")
+        (is (= 1 (expect :finalize-reconciliation))
+            "Expectation is given for 1 reconciliation")
+        (is (= 1 (increment :finalize-reconciliation))
+            "Reconciliation finalization count is incremented 1 time")))))
 
 (deftest halt-on-failure
   (with-context gnucash-context

@@ -647,7 +647,7 @@
   (if out-chan
     (fn [recon]
       (a/go
-        (a/>! out-chan {:import/record-type :finalize-reconciliation}))
+        (a/>! out-chan recon))
       recon)
     identity))
 
@@ -803,11 +803,15 @@
           (when-not (::abend? result)
             (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))
-            (a/alts!! [(process-reconciliations result
-                                                out-chan)
-                       (a/timeout (* 5 60 1000))])
-            (log/debugf "[import] finished processing reconciliations for %s"
-                        (:import/entity-name import-spec)))
+            (let [t (a/timeout (* 5 60 1000))
+                  x (a/alts!! [(process-reconciliations result
+                                                        out-chan)
+                               t]
+                              :priority true)]
+              (log/debugf (if (= x t)
+                            "[import] timed out waiting for reconciliations for %s"
+                            "[import] finished processing reconciliations for %s")
+                          (:import/entity-name import-spec))))
           (when out-chan
             (a/go
               (a/>! out-chan {:import/record-type :termination-signal})))
