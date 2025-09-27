@@ -178,7 +178,7 @@
      [:td (truncate (:commodity/name commodity))]
      [:td.d-lg-table-cell.d-none symbol]
      [:td.d-lg-table-cell.d-none exchange]
-     [:td.d-lg-table-cell.d-none.text-end (currency-format (:price most-recent-price))]
+     [:td.d-lg-table-cell.d-none.text-end (currency-format (:price/value most-recent-price))]
      [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
@@ -248,19 +248,11 @@
                   :callback -busy
                   :on-success #(load-commodities page-state))))
 
-(defn- recent? []
-  (let [an-hour-ago (t/minus (t/now) (t/hours 1))]
-    (fn [{:commodity/keys [created-at]}]
-      (if created-at
-        (t/before? an-hour-ago created-at)
-        true))))
-
 (defn- match-fn
   [hide-zero-shares? search-term]
   (apply every-pred
          (cond-> [(cmm/matches-search? search-term)]
-           hide-zero-shares? (conj (some-fn cmm/has-shares?
-                                            (recent?))))))
+           hide-zero-shares? (conj cmm/has-shares?))))
 
 (defn- commodities-table
   [page-state]
@@ -268,7 +260,7 @@
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
         search-term (r/cursor page-state [:search-term])
         match? (make-reaction #(match-fn @hide-zero-shares?
-                                        @search-term))
+                                         @search-term))
         filtered (make-reaction #(filter @match? @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
@@ -344,11 +336,11 @@
                    :on-success (post-delete-price page-state))))
 
 (defn- price-row
-  [{:as p :price/keys [trade-date price]} page-state]
+  [{:as p :price/keys [trade-date value]} page-state]
   ^{:key (str "price-row-" (:id p))}
   [:tr
    [:td.text-end (format-date trade-date)]
-   [:td.text-end (currency-format price)]
+   [:td.text-end (currency-format value)]
    [:td
     [:div.btn-group
      [:button.btn.btn-secondary.btn-sm
