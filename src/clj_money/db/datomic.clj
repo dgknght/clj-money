@@ -259,6 +259,25 @@
     (take limit vs)
     vs))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defmacro with-performance-logging
+  [query & body]
+  `(let [f# (fn* [] ~@body)
+         start# (System/nanoTime)
+         result# (f#)
+         duration# (/ (- (System/nanoTime)
+                         start#)
+                      1000000.0)]
+     (log/debugf "[performance] {:query %s :millis %.2f :stack %s}"
+                 ~query
+                 duration#
+                 (->> (.getStackTrace (Thread/currentThread))
+                      (map #(.toString %))
+                      (filter #(re-find #"clj_money" %))
+                      (take 20)
+                      (into [])))
+     result#))
+
 (defn- select*
   [criteria {:as options :keys [count select]} {:keys [api]}]
   (let [qry (-> criteria
