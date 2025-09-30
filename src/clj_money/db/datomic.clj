@@ -50,8 +50,6 @@
     :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
     :user                  '[?x :user/email ?user-email]))
 
-(def ^:private not-deleted '(not [?x :model/deleted? true]))
-
 (defn- rearrange-query
   "Takes a simple datalog query and adjust the attributes
   to match the format expected by datomic."
@@ -82,8 +80,7 @@
                  '[(count ?x)]
                  '[(pull ?x [*])])
          :in '[$]
-         :where [not-deleted
-                 (bounding-where-clause m-type)]
+         :where [(bounding-where-clause m-type)]
          :args []}
         (queries/apply-criteria criteria
                                 :target m-type
@@ -338,7 +335,7 @@
   (transact api
             (->> models
                  (mapcat #(propagate-delete % opts))
-                 (mapv #(vector :db/add (:id %) :model/deleted? true)))
+                 (mapv #(vector :db/retractEntity (:id %))))
             {}))
 
 (defmulti init-api ::db/strategy)
