@@ -722,6 +722,10 @@
   [_record _state]
   :import)
 
+(defmethod filter-behavior :sweep
+  [& _]
+  :ignore)
+
 (defmethod filter-behavior :price
   [{:keys [trade-date] :as price} state]
   (let [cache-key (select-keys price [:symbol :exchange])
@@ -803,7 +807,7 @@
           (when-not (::abend? result)
             (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))
-            (let [t (a/timeout (* 5 60 1000))
+            (let [t (a/timeout (* 30 60 1000))
                   x (a/alts!! [(process-reconciliations result
                                                         out-chan)
                                t]
