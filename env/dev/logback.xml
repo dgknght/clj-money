@@ -17,6 +17,7 @@
   <logger name="org.eclipse" level="WARN"/>
   <logger name="io.methvin" level="WARN"/>
   <logger name="io.netty" level="WARN"/>
+  <logger name="clj-money.import.gnucash" level="DEBUG"/>
 
   <root level="DEBUG">
     <!-- appender-ref ref="CONSOLE"/ -->

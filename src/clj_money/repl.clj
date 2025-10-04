@@ -1,5 +1,6 @@
 (ns clj-money.repl
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.java.io :as io]
             [clj-money.web.server :as s]
             [clj-money.models :as models]
             [clj-money.util :as util]
@@ -65,3 +66,42 @@
   [entity-name]
   (prices/propagate-all (models/find-by {:entity/name entity-name})
                         {}))
+
+(defn parse-performance-logs
+  [path]
+  (with-open[reader (io/reader path)]
+    (->> (line-seq reader)
+         (map (partial re-find #"(?<=^.*\[performance\] ).*"))
+         (filter identity)
+         (map read-string)
+         (into []))))
+
+(defn stack-includes?
+  ([pattern]
+   (fn [datum]
+     (stack-includes? datum pattern)))
+  ([{:keys [stack]} pattern]
+   (some (partial re-find pattern) stack)))
+
+(defn sort-by-count
+  [data]
+  (->> data
+       (group-by :query)
+       (map #(update-in % [1] (fn [data]
+                                {:count (count data)
+                                 :stacks (->> data
+                                              (map :stack)
+                                              frequencies)})))
+       (sort-by (comp :count second) >)))
+
+(defn sort-by-average
+  [data]
+  (->> data
+       (group-by :query)
+       (map #(update-in % [1] (fn [data]
+                                {:average (/ (->> data (map :millis) (reduce +))
+                                             (count data))
+                                 :stacks (->> data
+                                              (map :stack)
+                                              frequencies)})))
+       (sort-by (comp :average second) >)))

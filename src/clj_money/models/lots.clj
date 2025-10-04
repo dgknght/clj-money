@@ -8,7 +8,7 @@
 (defn- asset-account?
   [account]
   (= :asset
-     (:account/type (models/find account :account))))
+     (:account/type (models/resolve-ref account :account))))
 (v/reg-msg asset-account? "%s must be an asset")
 
 (s/def :lot/account (s/and ::models/model-ref
