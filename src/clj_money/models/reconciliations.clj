@@ -141,11 +141,11 @@
                                     (util/->model-ref account)
                                     :account)
                                   {:include-children? true})
-          ; TODO: This query needs to be different between SQL and datomic
-          ; because of the different direction of the relationships
           criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
-      (models/select criteria))
+      (models/select criteria
+                     {:hints [:transaction-item/reconciliation
+                              :transaction-item/account]}))
     []))
 
 (defn- polarize-item
@@ -213,7 +213,8 @@
   (->> (models/select (util/model-type
                         {:transaction-item/reconciliation recon}
                         :transaction)
-                      {:select-also :transaction/transaction-date})
+                      {:select-also :transaction/transaction-date
+                       :hints [:transaction-item/reconciliation]})
        (filter #(util/id= account (:transaction-item/account %)))))
 
 (defn- append-transaction-items
