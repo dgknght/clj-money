@@ -144,8 +144,8 @@
           criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
       (models/select criteria
-                     {:hints [:transaction-item/reconciliation
-                              :transaction-item/account]}))
+                     {:datalog/hints [:transaction-item/reconciliation
+                                      :transaction-item/account]}))
     []))
 
 (defn- polarize-item
@@ -214,7 +214,7 @@
                         {:transaction-item/reconciliation recon}
                         :transaction)
                       {:select-also :transaction/transaction-date
-                       :hints [:transaction-item/reconciliation]})
+                       :datalog/hints [:transaction-item/reconciliation]})
        (filter #(util/id= account (:transaction-item/account %)))))
 
 (defn- append-transaction-items

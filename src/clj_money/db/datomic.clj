@@ -86,7 +86,8 @@
                                 :target m-type
                                 :coerce identity
                                 :recursion (recursion opts m-type)
-                                :nil-replacements (->java-dates nil-replacements))
+                                :nil-replacements (->java-dates nil-replacements)
+                                :datalog/hints (:datalog/hints opts))
         (dtl/apply-options (dissoc opts :order-by :sort))
         (queries/apply-select opts)
         rearrange-query)))
@@ -282,7 +283,7 @@
                 prepare-criteria
                 ->java-dates
                 (criteria->query options))
-        raw-result (query api qry)]
+        raw-result (with-performance-logging qry (query api qry))]
 
     (log/debugf "select %s -> %s"
                 (models/scrub-sensitive-data criteria)

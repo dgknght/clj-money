@@ -609,7 +609,8 @@
           {:earliest-date (get-in entity [:entity/transaction-date-range 0])
            :latest-date (get-in entity [:entity/transaction-date-range 1])}
           accounts)
-        :transaction-item/reconciliation {:id id}))))
+        :transaction-item/reconciliation {:id id})
+      {:datalog/hints [:transaction-item/reconciliation]})))
 
 (defn- process-reconciliation
   [{:as recon :reconciliation/keys [account items]}

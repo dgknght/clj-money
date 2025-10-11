@@ -75,7 +75,8 @@
                                                                 (t/minus date (t/years 1))
                                                                 date]}
                                 :transaction-item)
-                              {:select-also [:transaction/transaction-date]}))
+                              {:select-also [:transaction/transaction-date]
+                               :datalog/hints [:transaction-item/account]}))
                 :id-fn (comp :id :transaction-item/account)
                 :find-one-fn (partial last-item :on-or-before as-of)}
                opts))
