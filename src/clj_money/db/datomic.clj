@@ -26,7 +26,7 @@
   (reset [this]))
 
 ; TODO: Get this from the schema
-#_(defn- bounding-where-clause
+(defn- bounding-where-clause
   [model-type]
   {:pre [model-type]}
   (case model-type
@@ -49,6 +49,22 @@
     :transaction           '[?x :transaction/description ?transaction-description]
     :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
     :user                  '[?x :user/email ?user-email]))
+
+(defn- unbounded?
+  [{:keys [where]}]
+  (->> where
+       (filter #(and (vector? %)
+                     (keyword? (second %))))
+       empty?))
+
+(defn- ensure-bounding-where-clause
+  [query model-type]
+  (if (unbounded? query)
+    (update-in query
+               [:where]
+               (fnil conj '())
+               (bounding-where-clause model-type))
+    query))
 
 (defn- rearrange-query
   "Takes a simple datalog query and adjust the attributes
@@ -89,6 +105,7 @@
                                 :datalog/hints (:datalog/hints opts))
         (dtl/apply-options (dissoc opts :order-by :sort))
         (queries/apply-select opts)
+        (ensure-bounding-where-clause m-type)
         rearrange-query)))
 
 (defmulti deconstruct util/model-type)
