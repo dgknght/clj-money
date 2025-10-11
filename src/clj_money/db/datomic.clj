@@ -26,7 +26,7 @@
   (reset [this]))
 
 ; TODO: Get this from the schema
-(defn- bounding-where-clause
+#_(defn- bounding-where-clause
   [model-type]
   {:pre [model-type]}
   (case model-type
@@ -80,7 +80,6 @@
                  '[(count ?x)]
                  '[(pull ?x [*])])
          :in '[$]
-         :where [(bounding-where-clause m-type)]
          :args []}
         (queries/apply-criteria criteria
                                 :target m-type
