@@ -83,7 +83,7 @@
         (testing "after the start date"
           (testing "before the transaction date"
             (is (= expected
-                   (with-fixed-time "2021-03-25T00:00:00Z"
+                   (with-fixed-time "2021-03-24T00:00:00Z"
                      (st/next-transaction-dates sched-trx)))))
           (testing "on the transaction date"
             (is (= expected
@@ -106,7 +106,7 @@
         (testing "after the start date"
           (testing "before the transaction date"
             (is (= expected
-                   (with-fixed-time "2020-02-23T00:00:00Z"
+                   (with-fixed-time "2020-02-22T00:00:00Z"
                      (st/next-transaction-dates sched-tran)))))
           (testing "on the transaction date"
             (is (= expected
