@@ -543,7 +543,6 @@
                 total)
 
     (when progress-chan
-      (log/debugf "[propagation] report %s accounts" total)
       (a/go (a/>! progress-chan {:declaration/record-type :propagation
                                  :declaration/record-count total
                                  :import/record-type :declaration})))

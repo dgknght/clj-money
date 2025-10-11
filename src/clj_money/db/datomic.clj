@@ -26,7 +26,7 @@
   (reset [this]))
 
 ; TODO: Get this from the schema
-(defn- bounding-where-clause
+#_(defn- bounding-where-clause
   [model-type]
   {:pre [model-type]}
   (case model-type
@@ -80,13 +80,13 @@
                  '[(count ?x)]
                  '[(pull ?x [*])])
          :in '[$]
-         :where [(bounding-where-clause m-type)]
          :args []}
         (queries/apply-criteria criteria
                                 :target m-type
                                 :coerce identity
                                 :recursion (recursion opts m-type)
-                                :nil-replacements (->java-dates nil-replacements))
+                                :nil-replacements (->java-dates nil-replacements)
+                                :datalog/hints (:datalog/hints opts))
         (dtl/apply-options (dissoc opts :order-by :sort))
         (queries/apply-select opts)
         rearrange-query)))
@@ -256,6 +256,25 @@
     (take limit vs)
     vs))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(defmacro with-performance-logging
+  [query & body]
+  `(let [f# (fn* [] ~@body)
+         start# (System/nanoTime)
+         result# (f#)
+         duration# (/ (- (System/nanoTime)
+                         start#)
+                      1000000.0)]
+     (log/debugf "[performance] {:query %s :millis %.2f :stack %s}"
+                 ~query
+                 duration#
+                 (->> (.getStackTrace (Thread/currentThread))
+                      (map #(.toString %))
+                      (filter #(re-find #"clj_money" %))
+                      (take 20)
+                      (into [])))
+     result#))
+
 (defn- select*
   [criteria {:as options :keys [count select]} {:keys [api]}]
   (let [qry (-> criteria
@@ -263,7 +282,7 @@
                 prepare-criteria
                 ->java-dates
                 (criteria->query options))
-        raw-result (query api qry)]
+        raw-result (with-performance-logging qry (query api qry))]
 
     (log/debugf "select %s -> %s"
                 (models/scrub-sensitive-data criteria)

@@ -97,29 +97,28 @@
 
 (s/def ::models/sale (s/multi-spec sale-spec :trade/commodity-account))
 
+(defn- find-price
+  [attr]
+  (or (models/find-by attr)
+      attr))
+
 (defn- create-price
   "Given a trade map, calculates and appends the share price"
   [{:trade/keys [shares value commodity date] :as trade}]
-  (let [existing (models/find-by {:price/commodity commodity
-                                  :price/trade-date date})
-        price-value (with-precision 4 (/ value shares))
-        price (if existing
-                (assoc existing :price/value price-value)
-                #:price{:commodity commodity
-                        :trade-date date
-                        :value price-value})]
-    ; TODO: We should probably report this back to the user
-    (when-not (= (:price/value price)
-                 (:price/value existing))
-      (log/debugf "Conflicting commodity price for %s on %s: %s vs %s"
-                  (:commodity/symbol commodity)
-                  date
-                  (:price/value existing)
-                  (:price/value price)))
-    (-> trade
-        (update-in [:trade/commodity-account :account/price-as-of]
-                   #(dates/latest % date))
-        (assoc :trade/price price))))
+  (-> trade
+      (update-in [:trade/commodity-account :account/price-as-of]
+                 #(dates/latest % date))
+      (assoc :trade/price (assoc (find-price #:price{:commodity commodity
+                                                     :trade-date date})
+                                 :price/value (with-precision 4 (/ value shares))))))
+
+(defn- push-commodity-price-boundary
+  [{:trade/keys [date] :as trade}]
+  (update-in trade
+             [:trade/commodity]
+             dates/push-model-boundary
+             :commodity/price-date-range
+             date))
 
 (defn- ensure-tag
   "Appends the specified tag to the account if it isn't there already"
@@ -241,8 +240,7 @@
                  entity
                  date]
     :as trade}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (if dividend?
     (if dividend-account
       (let [dividend-basis (item-basis dividend-account)
@@ -282,8 +280,7 @@
                  commodity-account]
     :or {fee 0M}
     :as trade}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (let [currency-amount (+ value fee)
         account-basis (item-basis account)
         commodity-basis (item-basis commodity-account)
@@ -321,26 +318,30 @@
                                                 :shares shares}]})))
 
 (defn- create-capital-gains-item
-  [{:keys [quantity description long-term?]} trade]
-  (let [[action effect] (if (< quantity 0)
-                          [:debit "loss"]
-                          [:credit "gains"])
-        account-key (keyword
-                      "trade"
-                      (format "%s-capital-%s-account"
-                              (if long-term? "lt" "st")
-                              effect))
-        account (account-key trade)]
-    #:transaction-item{:action action
-                       :account account
-                       :quantity (d/abs quantity)
-                       :value (d/abs quantity)
-                       :memo description}))
+  [trade {:keys [item-basis]}]
+  (fn [{:keys [quantity description long-term?]}]
+    (let [[action effect] (if (< quantity 0)
+                            [:debit "loss"]
+                            [:credit "gains"])
+          account-key (keyword
+                        "trade"
+                        (format "%s-capital-%s-account"
+                                (if long-term? "lt" "st")
+                                effect))
+          account (account-key trade)
+          {:transaction-item/keys [balance index]} (item-basis account)]
+      #:transaction-item{:action action
+                         :account account
+                         :quantity (d/abs quantity)
+                         :value (d/abs quantity)
+                         :memo description
+                         :index (inc index)
+                         :balance (+ quantity balance)})))
 
 (defn- create-capital-gains-items
-  [{:trade/keys [gains] :as trade}]
+  [{:trade/keys [gains] :as trade} opts]
   (->> gains
-       (map #(create-capital-gains-item % trade))
+       (map (create-capital-gains-item trade opts))
        (remove (comp zero?
                      :transaction-item/quantity))))
 
@@ -354,8 +355,7 @@
                  gains]
     :or {fee 0M}
     :as trade}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis] :as opts}]
   (let [total-gains (->> gains
                          (map :quantity)
                          (reduce + 0M))
@@ -363,7 +363,7 @@
         account-basis (item-basis account)
         commodity-basis (item-basis commodity-account)
         fee-basis (when-not (zero? fee) (item-basis fee-account))]
-    (cond-> (conj (create-capital-gains-items trade)
+    (cond-> (conj (create-capital-gains-items trade opts)
                   #:transaction-item{:action :debit
                                      :account account
                                      :quantity subtotal
@@ -452,6 +452,9 @@
                                          (filter (system-tagged? :tradable))
                                          first))))
 
+(def ^:private default-opts
+  {:item-basis random-item-basis})
+
 ; expect
 ; either
 ;   :trade/commodity
@@ -466,19 +469,21 @@
 ; and can also include a fn for getting the previous
 ; index and balance for transaction item roll-ups
 (defn buy
-  [purchase & {:as opts}]
+  [purchase & {:as options}]
   (with-ex-validation purchase ::models/purchase []
-    (-> purchase
-        append-commodity-account
-        append-commodity
-        append-accounts
-        append-entity
-        create-price
-        update-accounts
-        create-lot
-        (create-dividend-transaction opts)
-        (create-purchase-transaction opts)
-        (put-purchase opts))))
+    (let [opts (merge default-opts options)]
+      (-> purchase
+          append-commodity-account
+          append-commodity
+          append-accounts
+          append-entity
+          create-price
+          push-commodity-price-boundary
+          update-accounts
+          create-lot
+          (create-dividend-transaction opts)
+          (create-purchase-transaction opts)
+          (put-purchase opts)))))
 
 (def buy-and-propagate
   (prop/+propagation buy))
@@ -692,22 +697,25 @@
                                          (filter (system-tagged? :tradable))
                                          first)
            :trade/updated-lots (:lot result))))
+
 (defn sell
-  [sale & {:as opts}]
+  [sale & {:as options}]
   (with-ex-validation sale ::models/sale
-    (-> sale
-        append-commodity-account
-        append-commodity
-        append-accounts
-        append-entity
-        acquire-lots
-        ensure-gains-accounts
-        update-entity-settings
-        create-price
-        update-accounts
-        process-lot-sales
-        (create-sale-transaction opts)
-        (put-sale opts))))
+    (let [opts (merge default-opts options)]
+      (-> sale
+          append-commodity-account
+          append-commodity
+          append-accounts
+          append-entity
+          acquire-lots
+          ensure-gains-accounts
+          update-entity-settings
+          create-price
+          push-commodity-price-boundary
+          update-accounts
+          process-lot-sales
+          (create-sale-transaction opts)
+          (put-sale opts)))))
 
 (def sell-and-propagate
   (prop/+propagation sell))
@@ -790,8 +798,7 @@
                     date
                     shares]
     :as transfer}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (when-not most-recent-price
     (throw (ex-info "Unable to process transfer without most recent commodity price"
                     {:transfer transfer})))
@@ -857,15 +864,16 @@
   :date         - the date on which the transfer takes place
   :from-account - the account from which the commodity is to be moved
   :to-account   - the account to which the commodity is to be moved"
-  [transfer & {:as opts}]
-  (with-ex-validation transfer ::models/transfer
-    (some-> transfer
-            (update-in [:transfer/commodity] (models/resolve-ref :commodity))
-            append-transfer-accounts
-            append-most-recent-price
-            process-transfer-lots
-            (create-transfer-transaction opts)
-            (put-transfer opts))))
+  [transfer & {:as options}]
+  (let [opts (merge default-opts options)]
+    (with-ex-validation transfer ::models/transfer
+      (some-> transfer
+              (update-in [:transfer/commodity] (models/resolve-ref :commodity))
+              append-transfer-accounts
+              append-most-recent-price
+              process-transfer-lots
+              (create-transfer-transaction opts)
+              (put-transfer opts)))))
 
 (def transfer-and-propagate
   (prop/+propagation transfer))
@@ -940,8 +948,7 @@
                  ratio
                  commodity-account
                  shares-gained] :as split}
-   {:keys [item-basis]
-    :or {item-basis random-item-basis}}]
+   {:keys [item-basis]}]
   (let [{:transaction-item/keys [index balance]} (item-basis commodity-account)]
     (assoc split
            :split/transaction
@@ -997,8 +1004,9 @@
   :shares-gained - the difference in the number of shares held before and after the split
   :account       - the trading account through which the commodity was purchased"
 
-  [split & {:as opts}]
-  (with-ex-validation split ::models/split
+  [split & {:as options}]
+  (let [opts (merge default-opts options)]
+    (with-ex-validation split ::models/split
     (some-> split
             (update-in [:split/commodity] (models/resolve-ref :commodity))
             append-split-accounts
@@ -1006,7 +1014,7 @@
             append-split-ratio
             adjust-split-lots
             (create-split-transaction opts)
-            (put-split opts))))
+            (put-split opts)))))
 
 (def split-and-propagate
   (prop/+propagation split))

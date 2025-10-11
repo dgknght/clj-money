@@ -6,20 +6,23 @@
                                           index-by]]
             [dgknght.app-lib.validation :as v]
             [clj-money.dates :as dates]
-            [clj-money.util :refer [live-id
-                                    id=]]
+            [clj-money.util :as util :refer [live-id
+                                             id=]]
             [clj-money.models :as models]))
+
+(defonce ^:dynamic *express-validation* false)
 
 (defn- name-is-unique?
   [account]
-  (= 0 (models/count (-> account
-                         (select-keys [:account/entity
-                                       :account/parent
-                                       :account/name
-                                       :account/type])
-                         (update-in [:account/parent] identity) ; Ensure that nil is included, as it matters for this query
-                         (assoc-if :id (when-let [id (live-id account)]
-                                         [:!= id]))))))
+  (or *express-validation*
+      (= 0 (models/count (-> account
+                             (select-keys [:account/entity
+                                           :account/parent
+                                           :account/name
+                                           :account/type])
+                             (update-in [:account/parent] identity) ; Ensure that nil is included, as it matters for this query
+                             (assoc-if :id (when-let [id (live-id account)]
+                                             [:!= id])))))))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:account/name]})
 
@@ -27,9 +30,10 @@
   "Validation rule that ensure an account
   has the same type as its parent"
   [{:account/keys [parent type]}]
-  (or (nil? parent)
+  (or *express-validation*
+      (nil? parent)
       (= type
-         (:account/type (models/find parent :account)))))
+         (:account/type (models/resolve-ref parent :account)))))
 (v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
                                    :path [:account/type]})
 

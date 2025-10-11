@@ -291,7 +291,22 @@
                                :import/commodity-account-id "77bfb9a7eb53ebfd5dd13b22476f58dd" ; apple 401k
                                :import/record-type :transaction
                                :import/ignore? false}
-                               
+
+                               {:transaction/transaction-date #clj-money/local-date "2015-01-18"
+                               :transaction/description "Kroger"
+                               :transaction/items [{:transaction-item/action :debit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
+                                                    :import/reconciled? false}
+                                                   {:transaction-item/action :credit
+                                                    :transaction-item/quantity 100M
+                                                    :transaction-item/value 100M
+                                                    :import/account-id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
+                                                    :import/reconciled? false}]
+                               :import/record-type :transaction
+                               :import/ignore? false}
+
                               {:transaction/transaction-date #clj-money/local-date "2015-03-02"
                                :transaction/description "Transfer shares of AAPL"
                                :transaction/items [{:transaction-item/action :debit
@@ -364,17 +379,4 @@
                                :import/record-type :transaction
                                :import/ignore? false}
                                
-                              {:transaction/transaction-date #clj-money/local-date "2015-01-18"
-                               :transaction/description "Kroger"
-                               :transaction/items [{:transaction-item/action :debit
-                                                    :transaction-item/quantity 100M
-                                                    :transaction-item/value 100M
-                                                    :import/account-id "835bfe9b2728976d06e63b90aea8c090" ; groceries
-                                                    :import/reconciled? false}
-                                                   {:transaction-item/action :credit
-                                                    :transaction-item/quantity 100M
-                                                    :transaction-item/value 100M
-                                                    :import/account-id "337685830c05f47b2b09734a05a7c1a2" ; credit-card
-                                                    :import/reconciled? false}]
-                               :import/record-type :transaction
-                               :import/ignore? false}]}}
+                              ]}}

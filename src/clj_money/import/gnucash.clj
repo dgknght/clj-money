@@ -186,7 +186,7 @@
   [state elem]
   (when (and (env :detailed-import-logging)
              (not (known-irrelevant-elements (:tag elem))))
-    (log/debug "Encountered unhandled element " (prn-str (:tag elem))))
+    (log/tracef "Encountered unhandled element %s" (:tag elem)))
   (pop-elem state))
 
 (defn- tag->keyword
@@ -660,7 +660,7 @@
 (defn- adjust-trade-actions
   [items]
   (map (fn [item]
-         (update-in item [:transaction-item/action] #(get-in trade-actions-map [%] %)))
+         (update-in item [:transaction-item/action] #(trade-actions-map % %)))
        items))
 
 (defn- trx-item-by-action
@@ -859,16 +859,55 @@
   [xf]
   (completing
     (fn [acc {:import/keys [record-type] :as record}]
-      (log/debugf "[import] [gnucash] reporting %s: %s"
+      (log/tracef "[import] [gnucash] reporting %s: %s"
                   (name record-type)
                   (prn-str record))
       (xf acc record))))
+
+(defn- sort-records
+  [xf]
+  (let [trxs (atom (sorted-map))]
+    (completing
+      (fn [ch {:import/keys [record-type] :as rec}]
+        (cond
+          ; hold and sort transactions until we have them all
+          (= :transaction record-type)
+          (swap! trxs
+                 update-in
+                 [(:transaction/transaction-date rec)]
+                 conj
+                 rec)
+
+          ; once we have all transactions, emit them in order
+          (seq @trxs)
+          (do
+            (->> @trxs
+                 (map #(update-in %
+                                  [1]
+                                  (fn [trxs]
+                                    (sort-by (fn [{:trade/keys [action]}]
+                                               (case action 
+                                                 nil 0
+                                                 :buy 1
+                                                 :sell 3
+                                                 2))
+                                             trxs))))
+                 (mapcat second)
+                 (map #(xf ch %))
+                 doall)
+            (reset! trxs (sorted-map))
+            (xf ch rec))
+
+          ; otherwise emit the record as usual
+          :else
+          (xf ch rec))))))
 
 (defmethod read-source :gnucash
   [_ inputs]
   (let [out-chan (a/chan)
         records-chan (a/chan 100 (comp (filter emit-record?)
                                        (process-records)
+                                       sort-records
                                        (filter identity)
                                        log-records))]
     (a/pipe records-chan out-chan)
@@ -882,6 +921,8 @@
                     :content []
                     :child-content []
                     :out-chan records-chan}))
+      (a/>! records-chan #:import{:record-type :sweep
+                                  :ignore? true})
       (a/close! records-chan))
     out-chan))
 
