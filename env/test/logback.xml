@@ -19,7 +19,7 @@
   <logger name="clj-money.import.gnucash" level="DEBUG"/>
   <logger name="clj-money.db.datomic" level="TRACE"/>
 
-  <root level="TRACE">
+  <root level="DEBUG">
     <appender-ref ref="FILE"/>
   </root>
 </configuration>
