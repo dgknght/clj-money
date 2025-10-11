@@ -26,7 +26,6 @@
       (let [active-key (get-in env [:db :active])]
         (-> env
             (get-in [:db :strategies active-key])
-            #_resolve-config-refs ; TODO: add this back in when we move to k8s
             reify-storage))))
 
 (defmacro with-storage

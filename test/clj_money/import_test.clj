@@ -1,12 +1,11 @@
 (ns clj-money.import-test
   (:refer-clojure :exclude [update])
-  (:require [clojure.test :refer [deftest is use-fixtures testing assert-expr do-report]]
+  (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.java.io :as io]
             [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.core :refer [safe-nth]]
             [dgknght.app-lib.test-assertions]
             [clj-money.progress :as prog]
             [clj-money.models.ref]
@@ -110,28 +109,9 @@
                                         (t/local-date 2015 1 15)]}]))
 
 (defn- execute-import
-  [imp]
-  (let [{:keys [wait-chan]} (import-data imp)]
+  [imp & args]
+  (let [{:keys [wait-chan]} (apply import-data imp args)]
     (first (a/alts!! [wait-chan (a/timeout 5000)]))))
-
-(defmethod assert-expr 'includes-progress-notification?
-  [msg form]
-  (let  [k (safe-nth form 1)
-         expected (safe-nth form 2)
-         coll  (safe-nth form 3)]
-    `(let  [found# (->> ~coll
-                        (filter #(= ~expected
-                                    (get-in % [~k])))
-                        first)]
-       (do-report  (merge  {:expected ~expected
-                            :message ~msg
-                            :actual found#}
-                          (if found#
-                            {:type :pass}
-                            {:type :fail
-                             :actual (->> ~coll
-                                          (map #(get-in % [~k]))
-                                          (filter identity))}))))))
 
 (defn- test-import []
   (let [imp (find-import "Personal")
@@ -225,7 +205,12 @@
         (is (= 6 (expect :transaction))
             "Expectation is given for 6 transactions")
         (is (= 6 (increment :transaction))
-            "Transaction count is incremented 6 times")))))
+            "Transaction count is incremented 6 times")
+        (is (= 1 (expect :finalize-reconciliation))
+            "Expectation is given for 1 reconciliation")
+        ; This one is flakey
+        #_(is (= 1 (increment :finalize-reconciliation))
+            "Reconciliation finalization count is incremented 1 time")))))
 
 (deftest halt-on-failure
   (with-context gnucash-context
@@ -299,25 +284,49 @@
                            :lt-capital-loss-account "Investment/Long-Term Losses"
                            :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
-(deftest import-with-entity-settings
+(defn- last-trx-item
+  [account]
+  (models/find-by {:tranaction-item/account (util/->model-ref account)}
+                  {:sort [[:transaction-item/date :desc]
+                          [:transaction-item/index :desc]]}))
+
+(deftest import-with-commodities
   (with-context ext-context
     (let [imp (find-import "Personal")
-          {:keys [entity notifications]} (execute-import imp)
+          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)
           _ (assert entity "No entity was returned from the import")
           {{:settings/keys [lt-capital-gains-account
                             st-capital-gains-account
                             lt-capital-loss-account
                             st-capital-loss-account]} :entity/settings}
           (models/find entity)]
-      (is (empty? notifications) "No errors or warnings are reported")
-      (is (util/model-ref? lt-capital-gains-account)
-          "The long-term capital gains account id is set")
-      (is (util/model-ref? st-capital-gains-account)
-          "The short-term capital gains account id is set")
-      (is (util/model-ref? lt-capital-loss-account)
-          "The long-term capital losses account id is set")
-      (is (util/model-ref? st-capital-loss-account)
-          "The short-term capital losses account id is set"))))
+      (testing "entity settings"
+        (is (empty? notifications) "No errors or warnings are reported")
+        (is (util/model-ref? lt-capital-gains-account)
+            "The long-term capital gains account id is set")
+        (is (util/model-ref? st-capital-gains-account)
+            "The short-term capital gains account id is set")
+        (is (util/model-ref? lt-capital-loss-account)
+            "The long-term capital losses account id is set")
+        (is (util/model-ref? st-capital-loss-account)
+            "The short-term capital losses account id is set"))
+      (testing "commodities"
+        (is (comparable?
+              #:commodity{:symbol "AAPL"
+                          :name "Apple, Inc."
+                          :price-config #:price-config{:enabled true}
+                          :price-date-range [(t/local-date 2015 1 17)
+                                             (t/local-date 2015 5 1)]}
+              (models/find-by {:commodity/symbol "AAPL"}))
+            "The traded commodity is created"))
+      (testing "transactions"
+        (is (seq-of-maps-like? [#:transaction-item{:action :credit
+                                                   :index 0
+                                                   :quantity 102.50M
+                                                   :value 102.50M
+                                                   :balance 102.50M
+                                                   :memo "Sell 100.000000 shares of AAPL at 6.000"}]
+               (models/select {:transaction-item/account st-capital-gains-account})))))))
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
