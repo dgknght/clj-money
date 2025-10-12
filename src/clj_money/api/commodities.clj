@@ -6,6 +6,7 @@
                                              +scope]
              :as authorization]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.models.propagation :as prop]
             [clj-money.authorization.commodities]))
@@ -41,7 +42,7 @@
 (defn- append-shares-owned
   [commodities]
   (if (seq commodities)
-    (let [lots (->> (models/select #:lot{:commodity [:in commodities]
+    (let [lots (->> (models/select #:lot{:commodity [:in (map util/->model-ref commodities)]
                                          :shares-owned [:> 0]})
                     (group-by (comp :id :lot/commodity))
                     (map #(update-in % [1] (fn [lots]

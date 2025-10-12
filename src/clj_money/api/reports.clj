@@ -1,5 +1,6 @@
 (ns clj-money.api.reports
-  (:require [dgknght.app-lib.core :refer [update-in-if]]
+  (:require [clojure.pprint :refer [pprint]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.authorization :refer [+scope]]
@@ -75,10 +76,15 @@
 (defn- monitors
   [req]
   (if-let [entity (fetch-entity req)]
-    (api/response (map (comp serialize-monitor
-                             rpt/monitor
-                             (models/find :account))
-                       (get-in entity [:entity/settings :settings/monitored-accounts])))
+    (if-let [refs (seq (get-in entity
+                               [:entity/settings
+                                :settings/monitored-accounts]))]
+      (->> (models/select (util/model-type {:id [:in (mapv :id refs)]}
+                                           :account))
+           (map (comp serialize-monitor
+                      rpt/monitor))
+           api/response)
+      (api/response []))
     api/not-found))
 
 (def routes

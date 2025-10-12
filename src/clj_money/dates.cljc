@@ -437,7 +437,10 @@
 
 (defmacro with-fixed-time
   [time & body]
-  #?(:clj `(t/with-clock (t/fixed-clock (->instant ~time)) ~@body)
+  #?(:clj `(t/with-clock
+             (t/mock-clock (t/fixed-clock (->instant ~time))
+                           (t/zone-id "UTC"))
+             ~@body)
      :cljs `(t/do-at (->instant ~time) ~@body)))
 
 (def ^:private first-and-last
