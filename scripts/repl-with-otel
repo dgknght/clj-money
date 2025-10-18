@@ -1,5 +1,0 @@
-#!/bin/bash
-JAVA_TOOL_OPTIONS="-javaagent:./lib/opentelemetry-javaagent.jar" \
-  OTEL_SERVICE_NAME="clj-money" \
-  OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318" \
-  lein repl

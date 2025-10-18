@@ -72,6 +72,11 @@ Start the web server with
 ```bash
 lein repl
 ```
+Or, if you want to test integration with OpenTelemetry, start the server with
+```bash
+lein with-profile +otel repl
+```
+
 then
 ```clojure
 (start-server)

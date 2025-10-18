@@ -154,7 +154,8 @@
                    lein-doo]]
                  [lambdaisland/uri "1.4.54"]
                  [com.taoensso/carmine "3.4.1" :exclusions [org.clojure/tools.reader commons-codec]]
-                 [stowaway "0.2.11" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
+                 [stowaway "0.2.11" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
+                 [io.opentelemetry/opentelemetry-api "1.55.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
@@ -186,7 +187,10 @@
             "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
             "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
 
-  :jvm-opts ["-Duser.timezone=UTC -Xmx2g -Xms512m -server"]
+  :jvm-opts ["-Duser.timezone=UTC"
+             "-Xmx2g"
+             "-Xms512m"
+             "-server"]
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93
@@ -223,4 +227,7 @@
                                                                        cheshire
                                                                        com.fasterxml.jackson.core/jackson-core]]]
                    :resource-paths ^:replace ["env/dev" "resources" "target"]}
+             :otel {:jvm-opts ["-javaagent:./lib/opentelemetry-javaagent.jar"
+                               "-Dotel.service.name=clj-money"
+                               "-Dotel.exporter.otlp.endpoint=http://localhost:4318"]}
              :util {:resource-paths ^:replace ["config" "resources" "target"]}})
