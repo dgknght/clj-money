@@ -229,5 +229,6 @@
                    :resource-paths ^:replace ["env/dev" "resources" "target"]}
              :otel {:jvm-opts ["-javaagent:./lib/opentelemetry-javaagent.jar"
                                "-Dotel.service.name=clj-money"
-                               "-Dotel.exporter.otlp.endpoint=http://localhost:4318"]}
+                               "-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318"
+                               "-Djava.net.preferIPv4Stack=true"]}
              :util {:resource-paths ^:replace ["config" "resources" "target"]}})
