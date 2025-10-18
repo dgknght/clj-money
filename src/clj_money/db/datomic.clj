@@ -5,6 +5,7 @@
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
             [stowaway.datalog :as dtl]
+            [clj-money.otel :refer [with-tracing]]
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
             [clj-money.util :as util]
@@ -294,33 +295,35 @@
 
 (defn- select*
   [criteria {:as options :keys [count select]} {:keys [api]}]
-  (let [qry (-> criteria
-                normalize-criteria
-                prepare-criteria
-                ->java-dates
-                (criteria->query options))
-        raw-result (with-performance-logging qry (query api qry))]
+  (with-tracing [span (format "datomic select %s"
+                              (util/model-type criteria))]
+    (let [qry (-> criteria
+                  normalize-criteria
+                  prepare-criteria
+                  ->java-dates
+                  (criteria->query options))
+          raw-result (with-performance-logging qry (query api qry))]
 
-    (log/debugf "select %s -> %s"
-                (models/scrub-sensitive-data criteria)
-                qry) ; TODO scrub the datalog query too
+      (log/debugf "select %s -> %s"
+                  (models/scrub-sensitive-data criteria)
+                  qry) ; TODO scrub the datalog query too
 
-    (cond
-      count
-      (or (ffirst raw-result) 0)
+      (cond
+        count
+        (or (ffirst raw-result) 0)
 
-      select
-      (map #(zipmap select %) raw-result)
+        select
+        (map #(zipmap select %) raw-result)
 
-      :else
-      (->> raw-result
-           (map (extract-model options))
-           (remove naked-id?)
-           (map (comp after-read
-                      apply-coercions
-                      #(util/deep-rename-keys % {:db/id :id})))
-           (util/apply-sort options)
-           (apply-limit options)))))
+        :else
+        (->> raw-result
+             (map (extract-model options))
+             (remove naked-id?)
+             (map (comp after-read
+                        apply-coercions
+                        #(util/deep-rename-keys % {:db/id :id})))
+             (util/apply-sort options)
+             (apply-limit options))))))
 
 (defn- single-ns
   [m]
