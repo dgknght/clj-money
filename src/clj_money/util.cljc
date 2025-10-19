@@ -572,3 +572,14 @@
 (defn ->>range
   [{:keys [compare] :or {compare <}} vs]
   ((juxt first last) (sort compare vs)))
+
+(defn single-ns
+  "Given a map, return the one namespace of all the keys in the map.
+  Throw an exception if more than one namespace is found."
+  [m]
+  (let [names (->> (keys m)
+                   (map namespace)
+                   (into #{}))]
+    (if (= 1 (count names))
+      (keyword (first names))
+      (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))

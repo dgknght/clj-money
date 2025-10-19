@@ -325,18 +325,9 @@
              (util/apply-sort options)
              (apply-limit options))))))
 
-(defn- single-ns
-  [m]
-  (let [names (->> (keys m)
-                   (map namespace)
-                   (into #{}))]
-    (if (= 1 (count names))
-      (keyword (first names))
-      (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))
-
 (defn- update*
   [changes criteria {:keys [api]}]
-  (let [target (single-ns changes)
+  (let [target (util/single-ns changes)
         qry (rearrange-query
               (queries/apply-criteria '{:find [?x]
                                         :in [$]}

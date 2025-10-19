@@ -4,7 +4,8 @@
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             [clj-money.dates :as dates]
-            [clj-money.util :as util]))
+            [clj-money.util :as util])
+  (:import clojure.lang.ExceptionInfo))
 
 (deftest model-typing
   (testing "Retrieved the type of a model"
@@ -420,3 +421,13 @@
              (map #(select-keys % [:v :d])
                   (util/apply-sort {:order-by [:v :d]}
                                   (conj items {:v 2 :d d2}))))))))
+
+(deftest extract-the-single-namespace-from-a-map
+  (testing "success"
+    (is (= :user
+           (util/single-ns {:user/first-name "John"
+                            :user/last-name "Doe"}))))
+  (testing "failure"
+    (is (thrown-with-msg? ExceptionInfo #"(?i)more than one namespace"
+                          (util/single-ns {:user/first-name "John"
+                                           :company/name "Doe, Inc."})))))
