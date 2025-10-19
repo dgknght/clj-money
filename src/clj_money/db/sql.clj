@@ -435,7 +435,7 @@
   [ds]
   (jdbc/execute! ds ["delete from cached_price; delete from \"user\" cascade"]))
 
-(defmethod db/reify-storage ::db/sql
+(defn- sql-storage
   [config]
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
@@ -445,3 +445,9 @@
       (update [_ changes criteria] (update* ds changes criteria))
       (close [_] #_noop)
       (reset [_] (reset* ds)))))
+
+(defmethod db/reify-storage ::db/sql
+  [config]
+  (db/tracing-storage
+    (sql-storage config)
+    "sql"))

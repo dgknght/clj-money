@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
+            [clj-money.otel :refer [with-tracing]]
+            [clj-money.util :as util]
             [clj-money.config :refer [env]]))
 
 (s/def ::operation #{::insert ::update ::delete})
@@ -36,3 +38,40 @@
          ~@body)
        (finally
          (close storage#)))))
+
+(defn tracing-storage
+  [storage prefix]
+  (reify Storage
+    (put [_ models]
+      (with-tracing [span (format "%s/put %s"
+                                  prefix
+                                  (-> models first util/model-type))]
+        (put storage models)))
+
+    (select [_ criteria opts]
+      (with-tracing [span (format "%s/select %s"
+                                  prefix
+                                  (util/model-type criteria))]
+        (select storage criteria opts)))
+
+    (delete [_ models]
+      (with-tracing [span (format "%s/delete %s"
+                                  prefix
+                                  (-> models first util/model-type))]
+        (delete storage models)))
+
+    (update [_ changes criteria]
+      (with-tracing [span (format "%s/update %s"
+                                  prefix
+                                  (util/single-ns changes))]
+        (update storage changes criteria)))
+
+    (close [_]
+      (with-tracing [span (format "%s/close"
+                                  prefix)]
+        (close storage)))
+
+    (reset [_]
+      (with-tracing [span (format "%s/reset"
+                                  prefix)]
+        (reset storage)))))
