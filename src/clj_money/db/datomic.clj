@@ -322,18 +322,9 @@
            (util/apply-sort options)
            (apply-limit options)))))
 
-(defn- single-ns
-  [m]
-  (let [names (->> (keys m)
-                   (map namespace)
-                   (into #{}))]
-    (if (= 1 (count names))
-      (keyword (first names))
-      (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))
-
 (defn- update*
   [changes criteria {:keys [api]}]
-  (let [target (single-ns changes)
+  (let [target (util/single-ns changes)
         qry (rearrange-query
               (queries/apply-criteria '{:find [?x]
                                         :in [$]}
@@ -401,7 +392,7 @@
                                    :datomic-peer]))]
     (query api {:query qry :args args})))
 
-(defmethod db/reify-storage ::service
+(defn- datomic-storage
   [config]
   (let [api (init-api config)]
     (reify db/Storage
@@ -411,3 +402,9 @@
       (update [_ changes criteria] (update* changes criteria {:api api}))
       (close [_])
       (reset [_]            (reset api)))))
+
+(defmethod db/reify-storage ::service
+  [config]
+  (db/tracing-storage
+    (datomic-storage config)
+    "datomic"))

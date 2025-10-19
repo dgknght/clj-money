@@ -53,6 +53,7 @@
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
                                          (clj-money.models.transactions/with-delayed-propagation)
                                          (clj-money.models.propagation/with-propagation)
+                                         (clj-money.otel/with-tracing)
                                          (clj-money.tasks/with-options)
                                          (clj-money.progress.redis-test/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}

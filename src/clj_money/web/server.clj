@@ -14,9 +14,10 @@
             [ring.adapter.jetty :as jetty]
             [ring.middleware.format :refer [wrap-restful-format]]
             [ring.middleware.session.cookie :refer [cookie-store]]
-            [clj-money.config :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
+            [clj-money.otel.web :as otel]
+            [clj-money.config :refer [env]]
             [clj-money.core]
             [clj-money.json]
             [clj-money.decimal :as d]
@@ -131,7 +132,7 @@
 
 (def app
   (ring/ring-handler
-    (ring/router ["/" #_{:middleware [wrap-request-logging]}
+    (ring/router ["/" {:middleware [otel/wrap-otel]}
                   apps/routes
                   ["auth/" {:middleware [:site
                                          wrap-merge-path-params
