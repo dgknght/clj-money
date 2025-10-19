@@ -5,7 +5,7 @@
                :cljs [cljs-time.core :as t])
             [clj-money.dates :as dates]
             [clj-money.util :as util])
-  (:import clojure.lang.ExceptionInfo))
+  #?(:clj (:import clojure.lang.ExceptionInfo)))
 
 (deftest model-typing
   (testing "Retrieved the type of a model"
@@ -428,6 +428,8 @@
            (util/single-ns {:user/first-name "John"
                             :user/last-name "Doe"}))))
   (testing "failure"
-    (is (thrown-with-msg? ExceptionInfo #"(?i)more than one namespace"
+    (is (thrown-with-msg? #?(:clj ExceptionInfo
+                             :cljs js/Error)
+                          #"(?i)more than one namespace"
                           (util/single-ns {:user/first-name "John"
                                            :company/name "Doe, Inc."})))))
