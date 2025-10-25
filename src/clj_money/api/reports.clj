@@ -5,7 +5,7 @@
             [clj-money.util :as util]
             [clj-money.authorization :refer [+scope]]
             [clj-money.dates :as dates]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.reports :as rpt])
   (:import java.math.BigDecimal
            clojure.lang.Ratio))

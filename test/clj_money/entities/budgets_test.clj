@@ -1,0 +1,153 @@
+(ns clj-money.entities.budgets-test
+  (:require [clojure.test :refer [is testing]]
+            [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
+            [dgknght.app-lib.test-assertions]
+            [clj-money.util :as util]
+            [clj-money.db.ref]
+            [clj-money.models :as models]
+            [clj-money.entities.ref]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid
+                                                         assert-updated
+                                                         assert-deleted]]
+            [clj-money.entities.budgets :as budgets]
+            [clj-money.test-context :refer [with-context
+                                            basic-context
+                                            find-entity
+                                            find-account
+                                            find-budget]]
+            [clj-money.test-helpers :refer [dbtest]]))
+
+(defn- attributes []
+  #:budget{:entity (find-entity "Personal")
+           :name "2016"
+           :start-date (t/local-date 2016 1 1)
+           :period [3 :month]})
+
+(defn- assert-created
+  [attr]
+  (helpers/assert-created attr :refs [:budget/entity]))
+
+(dbtest create-a-budget
+  (with-context basic-context
+    (let [created (assert-created (attributes))]
+      (is (t/= (t/local-date 2016 3 31)
+               (:budget/end-date created))
+          "The end date is calculated and included in the result"))))
+
+(dbtest entity-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/entity)
+                    {:budget/entity ["Entity is required"]})))
+
+(dbtest name-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/name)
+                    {:budget/name ["Name is required"]})))
+
+(dbtest start-date-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/start-date)
+                    {:budget/start-date ["Start date is required"]})))
+
+(dbtest period-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/period)
+                    {:budget/period ["Period is required"]})))
+
+(dbtest period-type-is-required
+  (with-context
+    (assert-invalid (assoc (attributes) :budget/period [12])
+                    {:budget/period ["Period is invalid"]}
+                    :message "An omitted period type is invalid")
+    (assert-invalid (assoc (attributes) :budget/period [12 nil])
+                    {:budget/period {1 ["Value must be quarter, day, week, month, or year"]}}
+                    :message "A nil period type is invalid")))
+
+(dbtest period-type-must-be-week-month-or-quarter
+  (with-context
+    (assert-invalid (assoc (attributes) :budget/period [12 :not-a-period])
+                    {:budget/period {1 ["Value must be quarter, day, week, month, or year"]}})))
+
+(dbtest period-count-is-required
+  (with-context
+    (assert-invalid (assoc (attributes) :budget/period [nil :month])
+                    {:budget/period {0 ["Value must be an integer"]}})))
+
+(dbtest period-count-must-be-greater-than-zero
+  (with-context
+    (assert-invalid (assoc (attributes) :budget/period [0 :month])
+                    {:budget/period {0 ["Value is invalid"]}})))
+
+(def existing-context
+  (conj basic-context
+        #:budget{:name "2016"
+                 :entity "Personal"
+                 :period [12 :month]
+                 :start-date (t/local-date 2016 1 1)}))
+
+(dbtest delete-a-budget
+  (with-context existing-context
+    (assert-deleted (find-budget "2016"))))
+
+(dbtest update-a-budget
+  (with-context existing-context
+    (assert-updated (find-budget "2016")
+                    #:budget{:name "edited"
+                             :start-date (t/local-date 2015 1 1)})
+    (is (= (t/local-date 2015 12 31)
+           (:budget/end-date (models/find-by {:budget/name "edited"})))
+        "The end-date is recalculated")))
+
+(dbtest find-a-budget-by-date
+  (with-context existing-context
+    (let [entity (find-entity "Personal")
+          tests [{:description "before any budgets"
+                  :date (t/local-date 2015 12 31)
+                  :expected nil}
+                 {:description "start of a budget"
+                  :date (t/local-date 2016 1 1)
+                  :expected "2016"}]]
+      (doseq [{:keys [expected date description]} tests]
+        (testing description
+          (is (= expected
+                 (:budget/name (budgets/find-by-date entity date)))))))))
+
+(def ^:private get-items-context
+  (conj basic-context
+        #:account{:name "Food"
+                  :parent "Groceries"
+                  :entity "Personal"
+                  :type :expense}
+        #:account{:name "Non-food"
+                  :parent "Groceries"
+                  :entity "Personal"
+                  :type :expense}
+        #:budget{:entity "Personal"
+                 :name "2015"
+                 :start-date (t/local-date 2015 1 1)
+                 :period [3 :month]
+                 :items [#:budget-item{:account "Food"
+                                       :periods (repeat 3 100M)}
+                         #:budget-item{:account "Non-food"
+                                       :periods (repeat 3 50M)}]}))
+
+(dbtest get-items-by-account
+  (with-context get-items-context
+    (let [items (models/select (util/model-type {:budget/name "2015"}
+                                                :budget-item))]
+      (testing "a leaf account"
+        (let [account (find-account "Food")
+              expected [[100M 100M 100M]]
+              actual (map :budget-item/periods (budgets/find-items-by-account
+                                                 items
+                                                 account))]
+          (is (seq-of-maps-like? expected actual) "The correct period values are returned")))
+      (testing "a parent account"
+        (let [account (find-account "Groceries")
+              expected [[100M 100M 100M]
+                        [50M 50M 50M]]
+              actual (map :budget-item/periods (budgets/find-items-by-account
+                                                 items
+                                                 account))]
+          (is (= expected actual) "The correct period values are returned"))))))

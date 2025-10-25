@@ -8,7 +8,7 @@
             [clj-money.decimal :as d]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.models :as models]))
+            [clj-money.entities :as models]))
 
 ; TODO: Remove this an just use the reset in the dbtest so that we don't have to duplicate the strategy selection logic
 (def active-db-config

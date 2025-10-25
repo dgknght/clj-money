@@ -6,7 +6,7 @@
                                           parse-bool]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.authorization :as auth :refer [authorize
                                                       +scope]]
             [clj-money.authorization.accounts]))

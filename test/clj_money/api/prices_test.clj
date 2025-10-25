@@ -19,7 +19,7 @@
                                             edn-body
                                             parse-edn-body]]
             [clj-money.prices.yahoo :as yahoo]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)

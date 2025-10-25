@@ -6,7 +6,7 @@
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db
@@ -20,7 +20,7 @@
                                             find-account
                                             find-transaction
                                             find-attachment]]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)

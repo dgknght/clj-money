@@ -4,9 +4,9 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.db.ref]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-user

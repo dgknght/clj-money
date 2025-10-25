@@ -1,6 +1,6 @@
 (ns clj-money.db.datomic.budgets
   (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.db :as db]
             [clj-money.db.datomic :as datomic]))
 

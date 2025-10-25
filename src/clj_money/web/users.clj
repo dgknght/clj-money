@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.config :refer [env]]
             [buddy.sign.jwt :as jwt]
-            [clj-money.models :as models]))
+            [clj-money.entities :as models]))
 
 (defn- extract-header-auth-token
   [{:keys [headers]}]

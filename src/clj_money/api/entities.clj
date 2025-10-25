@@ -4,7 +4,7 @@
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.authorization.entities]))
 
 (defn- index

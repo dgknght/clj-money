@@ -1,7 +1,7 @@
 (ns clj-money.authorization.scheduled-transactions
   (:require [clj-money.util :as util]
             [clj-money.authorization :as authorization]
-            [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
+            [clj-money.entities.auth-helpers :refer [owner-or-granted?]]))
 
 (derive ::realize ::authorization/manage)
 

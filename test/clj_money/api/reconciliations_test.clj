@@ -5,7 +5,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web :refer [path]]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.util :as util]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db
@@ -18,7 +18,7 @@
                                             find-account
                                             find-reconciliation]]
             [clj-money.web.server :refer [app]]
-            [clj-money.models :as models]))
+            [clj-money.entities :as models]))
 
 (use-fixtures :each reset-db)
 

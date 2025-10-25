@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :as set]
             [stowaway.datalog :as dtl]
-            [clj-money.models.schema :as schema]))
+            [clj-money.entities.schema :as schema]))
 
 ; TODO: reconcile this with the schema namespace
 (def ^:private relationships

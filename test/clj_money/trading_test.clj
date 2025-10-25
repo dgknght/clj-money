@@ -5,7 +5,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -15,7 +15,7 @@
                                             find-transaction]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.util :as util :refer [model= id=]]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.trading :as trading]))
 
 (use-fixtures :each reset-db)

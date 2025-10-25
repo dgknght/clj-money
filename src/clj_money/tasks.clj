@@ -1,12 +1,12 @@
 (ns clj-money.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.edn :as edn]
-            [clj-money.models.schema :as schema]
-            [clj-money.models.ref]
+            [clj-money.entities.schema :as schema]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.accounts :refer [nest unnest]]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.entities.transactions :as transactions]))
 
 (defn- usage?
   [{:keys [options]}]

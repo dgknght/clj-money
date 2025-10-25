@@ -10,8 +10,8 @@
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.transaction-items :as itms]
+            [clj-money.entities :as models]
+            [clj-money.entities.transaction-items :as itms]
             [clj-money.authorization.reconciliations]))
 
 (defn- symbolic-comparatives

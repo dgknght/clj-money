@@ -8,7 +8,7 @@
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.find-in-chunks :as ch]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.util :as util :refer [id= model=]]
             [clj-money.dates :as dates :refer [earliest]]
             [clj-money.accounts :as accounts :refer [nest
@@ -17,9 +17,9 @@
                                                      system-tagged?
                                                      valuate]]
             [clj-money.budgets :as budgets]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.prices :as prices]
-            [clj-money.models.budgets :as bdgs]))
+            [clj-money.entities.transactions :as transactions]
+            [clj-money.entities.prices :as prices]
+            [clj-money.entities.budgets :as bdgs]))
 
 (defn- header?
   [{:report/keys [style]}]

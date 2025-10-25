@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clj-money.authorization :as authorization]
             [clj-money.util :as util]
-            [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
+            [clj-money.entities.auth-helpers :refer [owner-or-granted?]]))
 
 (defmethod authorization/allowed? [:commodity ::authorization/manage]
   [commodity action user]
