@@ -1,6 +1,7 @@
 [{:db/ident :transaction/transaction-date
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
+  :db/index true
   :db/doc "The date on which the transaction took place"}
  {:db/ident :transaction/entity
   :db/valueType :db.type/ref

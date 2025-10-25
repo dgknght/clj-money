@@ -5,6 +5,7 @@
  {:db/ident :reconciliation/end-of-period
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
+  :db/index true
   :db/doc "The date of the reconciliation"}
  {:db/ident :reconciliation/status
   :db/valueType :db.type/keyword
