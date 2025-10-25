@@ -134,6 +134,16 @@
 
 (def ^:private list-context
   (conj create-context
+        #:entity{:user "john@doe.com"
+                 :name "Other Household"}
+        #:commodity{:entity "Other Household"
+                    :type :currency
+                    :name "US Dollar"
+                    :symbol "USD"}
+        #:account{:entity "Other Household"
+                  :type :income
+                  :name "Salary - B"
+                  :commodity "USD"}
         #:budget{:name "2015"
                  :entity "Personal"
                  :period [12 :month]
@@ -144,6 +154,12 @@
                                        :periods (repeat 12 500M)}
                          #:budget-item{:account "Groceries"
                                        :periods (repeat 12 200M)}]}
+        #:budget{:name "2015 - B"
+                 :entity "Other Household"
+                 :period [12 :month]
+                 :start-date (t/local-date 2015 1 1)
+                 :items [#:budget-item{:account "Salary - B"
+                                       :periods (repeat 12 1000M)}]}
         #:budget{:name "2016"
                  :entity "Personal"
                  :period [12 :month]
