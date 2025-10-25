@@ -8,7 +8,7 @@
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
             [clj-money.authorization :as authorization]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.api :refer [log-error]]))
 
 (defn- param-name

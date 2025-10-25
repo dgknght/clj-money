@@ -4,7 +4,7 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.lots]))
 

@@ -5,9 +5,9 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.test]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.dates :refer [periodic-seq]]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body

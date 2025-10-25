@@ -11,12 +11,12 @@
             [clj-money.dates :as dates]
             [clj-money.progress :as prog]
             [clj-money.images :as images]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria
                                         expense?]]
             [clj-money.transactions :refer [polarize-item-quantity]]
-            [clj-money.models.accounts :as accounts]))
+            [clj-money.entities.accounts :as accounts]))
 
 (defmacro with-fatal-exceptions
   [& body]

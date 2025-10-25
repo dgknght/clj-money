@@ -14,6 +14,7 @@
 - Use `require` with aliases for external dependencies
 - Import Java classes explicitly in `:import` declarations
 - Prefer pure functions where possible
+- Resolve any warnings presented by clj-kondo
 
 ### Error Handling
 - Use meaningful error messages

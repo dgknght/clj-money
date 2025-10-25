@@ -5,7 +5,7 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
-            [clj-money.models.schema :as schema]
+            [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 

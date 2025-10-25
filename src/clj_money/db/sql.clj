@@ -17,8 +17,8 @@
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [temp-id?]]
-            [clj-money.models :as models]
-            [clj-money.models.schema :as schema]
+            [clj-money.entities :as models]
+            [clj-money.entities.schema :as schema]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
                                               ->update]]

@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]
-            [clj-money.models.grants :as grants]))
+            [clj-money.entities.grants :as grants]))
 
 (defn- prepare-permissions
   [permissions]

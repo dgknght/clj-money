@@ -10,9 +10,9 @@
             [clj-money.decimal :as d]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
-            [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
-            [clj-money.models.prices :as prices]
+            [clj-money.entities :as models]
+            [clj-money.entities.propagation :as prop]
+            [clj-money.entities.prices :as prices]
             [clj-money.util :as util]
             [clj-money.db :as db])
   (:import java.math.BigDecimal))

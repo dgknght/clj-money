@@ -1,7 +1,7 @@
 (ns clj-money.db.datomic.grants
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :as set]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.db.datomic :as datomic]))
 
 (defn- removed-permissions

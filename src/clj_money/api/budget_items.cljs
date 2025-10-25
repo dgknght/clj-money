@@ -1,6 +1,6 @@
 (ns clj-money.api.budget-items
   (:refer-clojure :exclude [update])
-  (:require [clj-money.models.schema :as schema]
+  (:require [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn create

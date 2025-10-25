@@ -51,13 +51,13 @@
                                                         dgknght.app-lib.test-assertions/includes-progress-notification?])
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
-                                         (clj-money.models.transactions/with-delayed-propagation)
-                                         (clj-money.models.propagation/with-propagation)
+                                         (clj-money.entities.transactions/with-delayed-propagation)
+                                         (clj-money.entities.propagation/with-propagation)
                                          (clj-money.otel/with-tracing)
                                          (clj-money.tasks/with-options)
                                          (clj-money.progress.redis-test/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}
-           :unused-private-var {:exclude #{clj-money.models.transactions/simplify}}
+           :unused-private-var {:exclude #{clj-money.entities.transactions/simplify}}
            :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
                                                       clj-money.db.sql.tasks/create-partitions
                                                       clj-money.db.sql.tasks/check-transaction-balances

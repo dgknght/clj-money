@@ -6,9 +6,9 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util :refer [model=]]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.images :as images]
-            [clj-money.models.propagation :as prop]
+            [clj-money.entities.propagation :as prop]
             [clj-money.transactions :refer [expand]]
             [clj-money.trading :as trading]))
 

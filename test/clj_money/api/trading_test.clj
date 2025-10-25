@@ -7,7 +7,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-helpers :refer [reset-db

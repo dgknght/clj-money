@@ -6,7 +6,7 @@
             [clj-money.util :as util]
             [clj-money.images :as images]
             [clj-money.images.sql]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.authorization.images]))
 
 (defn- find-image

@@ -10,9 +10,9 @@
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.budgets :refer [create-items-from-history]]
-            [clj-money.models.transaction-items :as trx-items]
+            [clj-money.entities.transaction-items :as trx-items]
             [clj-money.authorization.budgets]))
 
 (defn- extract-criteria

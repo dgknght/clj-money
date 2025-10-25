@@ -13,7 +13,7 @@
             [clj-money.comparatives :as comparatives]
             [clj-money.transactions :refer [summarize-items
                                             polarize-item-quantity]]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.transactions]))

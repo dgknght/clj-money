@@ -25,7 +25,7 @@
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-parse-id-params
                                           wrap-exceptions]]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.db.ref]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]

@@ -7,7 +7,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.json]
             [clj-money.util :as util]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -21,7 +21,7 @@
                                             parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]
-            [clj-money.models :as models]))
+            [clj-money.entities :as models]))
 
 (use-fixtures :each reset-db)
 

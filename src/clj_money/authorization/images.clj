@@ -1,9 +1,9 @@
 (ns clj-money.authorization.images
   (:refer-clojure :exclude [update])
   (:require [clj-money.util :refer [model=] :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.authorization :as authorization]
-            [clj-money.models.auth-helpers :refer [user-granted-access?]]))
+            [clj-money.entities.auth-helpers :refer [user-granted-access?]]))
 
 (defmethod authorization/allowed? [:image ::authorization/manage]
   [image action user]

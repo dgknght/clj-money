@@ -7,8 +7,8 @@
              :as authorization]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
+            [clj-money.entities :as models]
+            [clj-money.entities.propagation :as prop]
             [clj-money.authorization.commodities]))
 
 (defn- extract-criteria

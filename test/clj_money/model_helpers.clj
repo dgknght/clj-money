@@ -6,7 +6,7 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
-            [clj-money.models :as models]))
+            [clj-money.entities :as models]))
 
 (derive clojure.lang.PersistentVector ::vector)
 

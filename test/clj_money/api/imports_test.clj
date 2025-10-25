@@ -8,7 +8,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
                                             parse-edn-body]]

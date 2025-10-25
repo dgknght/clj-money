@@ -3,7 +3,7 @@
   (:require [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.api :as api]
             [clj-money.web.auth :refer [make-token]]
-            [clj-money.models.users :as users]))
+            [clj-money.entities.users :as users]))
 
 (defn- find
   [{:keys [authenticated]}]

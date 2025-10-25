@@ -6,7 +6,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
@@ -16,7 +16,7 @@
                                             find-entity
                                             find-account
                                             find-scheduled-transaction]]
-            [clj-money.models.transactions :as trxs]
+            [clj-money.entities.transactions :as trxs]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
                                             parse-edn-body]]

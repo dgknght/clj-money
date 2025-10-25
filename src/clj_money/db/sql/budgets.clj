@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [parse-int]]
             [clj-money.db :as db]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.db.sql :as sql]))
 
 (defmethod sql/before-save :budget

@@ -10,8 +10,8 @@
              :as authorization]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :refer [unserialize-local-date]]
-            [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
+            [clj-money.entities :as models]
+            [clj-money.entities.propagation :as prop]
             [clj-money.authorization.transactions]
             [clj-money.transactions :refer [expand]]))
 

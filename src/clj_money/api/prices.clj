@@ -12,8 +12,8 @@
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.prices.alpha-vantage :as alpha-vantage]
             [clj-money.prices.cache :as cache]
-            [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
+            [clj-money.entities :as models]
+            [clj-money.entities.propagation :as prop]
             [clj-money.authorization :refer [+scope
                                              authorize]
              :as authorization]

@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-money.prices :as prices]
-            [clj-money.models :as models]))
+            [clj-money.entities :as models]))
 
 (deftype CacheProvider []
   prices/PriceProvider

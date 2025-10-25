@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
             [stowaway.sql-qualified :as sql]
-            [clj-money.models.schema :as schema]
+            [clj-money.entities.schema :as schema]
             [clj-money.util :as util]))
 
 (def ^:private joins

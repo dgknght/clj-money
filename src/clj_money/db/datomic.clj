@@ -8,8 +8,8 @@
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.schema :as schema]
+            [clj-money.entities :as models]
+            [clj-money.entities.schema :as schema]
             [clj-money.db.datomic.tasks :refer [apply-schema]]
             [clj-money.db.datomic.types :refer [coerce-id
                                                 apply-coercions
@@ -131,7 +131,7 @@
               ->java-dates
               (util/deep-rename-keys {:id :db/id}))
           (->> nils
-               (filter #(get-in (-> m meta :clj-money.models/before) %))
+               (filter #(get-in (-> m meta :clj-money.entities/before) %))
                (map #(vector :db/retract
                              (get-in m (concat
                                          (butlast %)

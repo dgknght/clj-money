@@ -10,7 +10,7 @@
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]
-            [clj-money.models.users :as usrs])
+            [clj-money.entities.users :as usrs])
   (:import java.io.ByteArrayInputStream))
 
 (use-fixtures :each reset-db)

@@ -7,7 +7,7 @@
             [cheshire.core :as json]
             [dgknght.app-lib.core :refer [uuid]]
             [lambdaisland.uri :refer [uri map->query-string]]
-            [clj-money.models.identities :as idents]))
+            [clj-money.entities.identities :as idents]))
 
 (defn- callback-url []
   {:pre [(env :site-protocol)

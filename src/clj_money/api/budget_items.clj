@@ -8,7 +8,7 @@
              :refer [+scope
                      authorize]]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.authorization.budget-items]))
 
 (defn- extract-criteria

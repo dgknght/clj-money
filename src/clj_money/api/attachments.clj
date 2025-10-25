@@ -10,8 +10,8 @@
             [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.models :as models]
-            [clj-money.models.images :as img]
+            [clj-money.entities :as models]
+            [clj-money.entities.images :as img]
             [clj-money.authorization.attachments]))
 
 (defn- extract-criteria

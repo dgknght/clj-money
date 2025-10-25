@@ -2,7 +2,7 @@
   (:require [postal.core :refer [send-message]]
             [clj-money.config :refer [env]]
             [selmer.parser :refer [render]]
-            [clj-money.models.users :as users]))
+            [clj-money.entities.users :as users]))
 
 (defn- alt-body
   [parts context]

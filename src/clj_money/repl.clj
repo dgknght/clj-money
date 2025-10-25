@@ -2,11 +2,11 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [clj-money.web.server :as s]
-            [clj-money.models :as models]
+            [clj-money.entities :as models]
             [clj-money.util :as util]
-            [clj-money.models.propagation :as prop]
-            [clj-money.models.transactions :as trx]
-            [clj-money.models.prices :as prices]))
+            [clj-money.entities.propagation :as prop]
+            [clj-money.entities.transactions :as trx]
+            [clj-money.entities.prices :as prices]))
 
 (def server (atom nil))
 
