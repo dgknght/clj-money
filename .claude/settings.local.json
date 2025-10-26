@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(mv:*)",
+      "Bash(lein test:*)",
+      "Bash(lein clean:*)",
+      "Read(//tmp/**)",
+      "Bash(lein compile:*)",
+      "Bash(clj-kondo --lint:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

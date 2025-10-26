@@ -6,7 +6,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.test-helpers :refer [reset-db
                                             parse-edn-body]]
@@ -162,11 +162,11 @@
 
       ; TODO: I'd like to move this into the context, but I've got to
       ; solve the chicken and egg problem first
-      (models/put (update-in entity
+      (entities/put (update-in entity
                              [:entity/settings
                               :settings/monitored-accounts]
                              (fnil conj #{})
-                             (util/->model-ref (find-account "Groceries"))))
+                             (util/->entity-ref (find-account "Groceries"))))
 
       (with-fixed-time "2016-01-07T00:00:00Z"
         (-> (req/request :get (path :api

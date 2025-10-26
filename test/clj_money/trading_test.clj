@@ -5,7 +5,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -14,8 +14,8 @@
                                             find-commodity
                                             find-transaction]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.util :as util :refer [model= id=]]
-            [clj-money.models :as models]
+            [clj-money.util :as util :refer [entity= id=]]
+            [clj-money.entities :as entities]
             [clj-money.trading :as trading]))
 
 (use-fixtures :each reset-db)
@@ -25,7 +25,7 @@
   {:pre [acc transaction]}
 
   (->> (:transaction/items transaction)
-         (filter #(model= acc (:transaction-item/account %)))
+         (filter #(entity= acc (:transaction-item/account %)))
          first))
 
 (def ^:private base-context
@@ -93,7 +93,7 @@
           result (trading/buy (purchase-attributes))]
       (testing "The transaction"
         (is (seq-of-maps-like?
-              [#:transaction{:entity (util/->model-ref personal)
+              [#:transaction{:entity (util/->entity-ref personal)
                              :transaction-date (t/local-date 2016 1 2)
                              :description "Purchase 100.000 shares of AAPL at 10.000"
                              :value 1000M
@@ -103,23 +103,23 @@
                              :items [#:transaction-item{:action :credit
                                                         :quantity 1000M
                                                         :value 1000M
-                                                        :account (util/->model-ref ira)}
+                                                        :account (util/->entity-ref ira)}
                                      #:transaction-item{:action :debit
                                                         :quantity 100M
                                                         :value 1000M
-                                                        :account (util/->model-ref (:trade/commodity-account result))}]}]
+                                                        :account (util/->entity-ref (:trade/commodity-account result))}]}]
 
               (:trade/transactions result))
             "A transaction is created and returned"))
       (testing "The commodity account"
         (is (comparable? #:account{:name "AAPL"
-                                   :commodity (util/->model-ref commodity)
-                                   :entity (util/->model-ref personal)
+                                   :commodity (util/->entity-ref commodity)
+                                   :entity (util/->entity-ref personal)
                                    :type :asset
-                                   :parent (util/->model-ref ira)
+                                   :parent (util/->entity-ref ira)
                                    :system-tags #{:tradable}
                                    :price-as-of (t/local-date 2016 1 2)}
-                         (models/find-by #:account{:commodity commodity
+                         (entities/find-by #:account{:commodity commodity
                                                    :entity personal}))
             "An account to track shares of the commodity is created"))
       (testing "The lot"
@@ -129,7 +129,7 @@
                                :purchase-date (t/local-date 2016 1 2)}
                          (:trade/lot result))))
       (testing "The trading account"
-        (is (contains? (:account/system-tags (models/find ira))
+        (is (contains? (:account/system-tags (entities/find ira))
                        :trading)
             "The :trading tag is added to the trading account"))
       (testing "The price"
@@ -148,14 +148,14 @@
         (is (comparable? #:account{:name "AAPL"
                                    :quantity 100M
                                    :value 1000M}
-                         (models/find-by #:account{:commodity commodity
+                         (entities/find-by #:account{:commodity commodity
                                                    :entity personal}))
             "An account to track shares of the commodity is has propagated values"))
       (testing "The trading account"
         (is (comparable? #:account{:name "IRA"
                                    :quantity 1000M
                                    :value 1000M}
-                         (models/find ira))
+                         (entities/find ira))
             "The trading account balance is updated to reflect money paid out")))))
 
 (deftest purchase-a-commodity-with-a-fee
@@ -166,15 +166,15 @@
           (assoc :trade/fee 5M
                  :trade/fee-account inv-exp)
           (trading/buy-and-propagate))
-      (is (= 995M (:account/quantity (models/find ira)))
+      (is (= 995M (:account/quantity (entities/find ira)))
           "The investment account balance reflects the fee")
-      (is (= 5M (:account/quantity (models/find inv-exp)))
+      (is (= 5M (:account/quantity (entities/find inv-exp)))
           "The investment expense account reflects the fee"))))
 
 (deftest reinvest-a-dividend
   (with-context purchase-context
     (let [dividends (find-account "Dividends")
-          ira (models/find (find-account "IRA"))
+          ira (entities/find (find-account "IRA"))
           [{:trade/keys [transactions]}] (-> #:trade{:commodity (find-commodity "AAPL")
                                                      :account (find-account "IRA")
                                                      :date (t/local-date 2016 2 2)
@@ -191,10 +191,10 @@
           "The transaction for the purchase of shares with dividend is returned")
       (is (comparable? #:account{:quantity 50M
                                  :value 50M}
-                       (models/find dividends))
+                       (entities/find dividends))
           "The dividend account is debited for the amount of the purchase")
       (is (= (:account/quantity ira)
-             (:account/quantity (models/find ira)))
+             (:account/quantity (entities/find ira)))
           "The trading account balance is unchanged."))))
 
 (defn- assert-invalid-purchase
@@ -255,7 +255,7 @@
   (with-context sale-context
     (let [result (trading/sell (sale-attributes))
           ltcg (find-account "Long-term Capital Gains")
-          aapl-acc (models/find-by #:account{:entity (find-entity "Personal")
+          aapl-acc (entities/find-by #:account{:entity (find-entity "Personal")
                                              :commodity (find-commodity "AAPL")})]
       (testing "The price"
         (is (comparable? #:price{:value 15M
@@ -292,17 +292,17 @@
                          (item-by-account ltcg (first (:trade/transactions result))))
             "The capital gains account is credited the amount received above the original cost of the shares."))
       (testing "The entity"
-        (let [entity (models/find-by {:entity/name "Personal"})]
-          (is (model= ltcg
+        (let [entity (entities/find-by {:entity/name "Personal"})]
+          (is (entity= ltcg
                       (get-in entity [:entity/settings :settings/lt-capital-gains-account]))
               "The long-term capital gains account is saved")
-          (is (model= (find-account "Short-term Capital Gains")
+          (is (entity= (find-account "Short-term Capital Gains")
                       (get-in entity [:entity/settings :settings/st-capital-gains-account]))
               "The short-term capital gains account is saved")
-          (is (model= (find-account "Long-term Capital Losses")
+          (is (entity= (find-account "Long-term Capital Losses")
                       (get-in entity [:entity/settings :settings/lt-capital-loss-account]))
               "The long-term capital losses account is saved")
-          (is (model= (find-account "Short-term Capital Losses")
+          (is (entity= (find-account "Short-term Capital Losses")
                       (get-in entity [:entity/settings :settings/st-capital-loss-account]))
               "The short-term capital losses account is saved"))))))
 
@@ -314,13 +314,13 @@
                                  :quantity 75M
                                  :value 1125M
                                  :price-as-of (t/local-date 2017 3 2)}
-                       (models/find-by {:account/name "AAPL"}))
+                       (entities/find-by {:account/name "AAPL"}))
           "The commodity account is updated wth new value and price date"))
     (testing "The trading account"
       (is (comparable? #:account{:name "IRA"
                                  :quantity 1375M
                                  :value 1375M}
-                       (models/find-by {:account/name "IRA"}))
+                       (entities/find-by {:account/name "IRA"}))
           "The trading account is updated wth new value"))))
 
 (deftest sell-a-commodity-for-a-gain-before-1-year
@@ -375,7 +375,7 @@
         (is (comparable? #:transaction-item{:action :credit
                                             :value 250M
                                             :quantity 25M}
-                         (item-by-account (models/find-by #:account{:entity (find-entity "Personal")
+                         (item-by-account (entities/find-by #:account{:entity (find-entity "Personal")
                                                                     :commodity (find-commodity "AAPL")})
                                           (first (:trade/transactions result))))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
@@ -411,9 +411,9 @@
                           :date (t/local-date 2017 3 2)
                           :shares 25M
                           :value 375M})
-    (let [entity (models/find-by {:entity/name "Personal"})]
+    (let [entity (entities/find-by {:entity/name "Personal"})]
       (testing "Long-term capital gains"
-        (let [account (models/find-by #:account{:entity entity
+        (let [account (entities/find-by #:account{:entity entity
                                                 :name "Long-term Capital Gains"})]
           (is (comparable? {:account/type :income}
                            account)
@@ -424,7 +424,7 @@
                    account)
               "The Long-term Capital Gains account is specified in the entity settings")))
       (testing "Short-term capital gains"
-        (let [account (models/find-by #:account{:entity entity
+        (let [account (entities/find-by #:account{:entity entity
                                                 :name "Short-term Capital Gains"})]
           (is (comparable? {:account/type :income}
                            account)
@@ -435,7 +435,7 @@
                    account)
               "The Short-term Capital Gains account id is placed in the entity settings")))
       (testing "Long-term capital losses"
-        (let [account (models/find-by #:account{:entity entity
+        (let [account (entities/find-by #:account{:entity entity
                                                 :name "Long-term Capital Losses"})]
           (is (comparable? {:account/type :expense}
                            account)
@@ -446,7 +446,7 @@
                    account)
               "The Long-term Capital Losses account id is placed in the entity settings")))
       (testing "Short-term capital losses"
-        (let [account (models/find-by #:account{:entity entity
+        (let [account (entities/find-by #:account{:entity entity
                                                 :name "Short-term Capital Losses"})]
           (is (comparable? {:account/type :expense}
                            account)
@@ -468,10 +468,10 @@
     ; Sell AAPL          + 375 -> $1,375
     ; less the fee        -  5 -> $1,370
     (is (comparable? {:account/quantity 1370M}
-                     (models/find (find-account "IRA")))
+                     (entities/find (find-account "IRA")))
         "The investment account balance reflects the fee")
     (is (comparable? {:account/quantity 5M}
-                     (models/find (find-account "Investment Expenses")))
+                     (entities/find (find-account "Investment Expenses")))
         "The investment fee account balance reflects the fee")))
 
 (defn- assert-invalid-sale
@@ -546,7 +546,7 @@
                                     :shares-purchased 100M
                                     :shares-owned 50M
                                     :purchase-price 20M}]
-                             (models/select #:lot{:commodity commodity
+                             (entities/select #:lot{:commodity commodity
                                                   :account ira}
                                             {:sort [[:lot/purchase-date :asc]]}))
           "Shares are sold from the most recent lot"))))
@@ -566,7 +566,7 @@
                                     :shares-purchased 100M
                                     :shares-owned 100M
                                     :purchase-price 20M}]
-                             (models/select #:lot{:commodity commodity
+                             (entities/select #:lot{:commodity commodity
                                                   :account ira}
                                             {:sort [[:lot/purchase-date :asc]]}))
           "Shares are sold from the earliest lot"))))
@@ -579,14 +579,14 @@
     ; TODO Should we delete the price that was created?
     (testing "The trading account"
       (is (comparable? {:account/quantity 2000M}
-                       (models/find (find-account "IRA")))
+                       (entities/find (find-account "IRA")))
           "The trading account balance is restored"))
     (testing "The commodity account"
       (is (comparable? {:account/quantity 0M}
-                       (models/find (find-account "AAPL")))
+                       (entities/find (find-account "AAPL")))
           "The commodity account balance is restored"))
     (testing "The lot"
-      (is (= 0 (models/count {:lot/account (find-account "IRA")}))
+      (is (= 0 (entities/count {:lot/account (find-account "IRA")}))
           "The lot is deleted"))))
 
 (deftest cannot-undo-a-purchase-if-shares-have-been-sold
@@ -619,16 +619,16 @@
           ira (find-account "IRA")]
       (trading/unsell-and-propagate trx)
       (testing "The transaction"
-        (is (nil? (models/find trx))
+        (is (nil? (entities/find trx))
             "The transaction cannot be retrieved after unsell"))
       (testing "The trading account"
         (is (comparable? {:account/quantity 1000M}
-                         (models/find ira))
+                         (entities/find ira))
             "The account balance is restored"))
       (testing "The affected lots"
         (is (seq-of-maps-like? [#:lot{:shares-purchased 100M
                                       :shares-owned 100M}]
-                               (models/select {:lot/account ira}))
+                               (entities/select {:lot/account ira}))
             "The shares owned are restored")))))
 
 (def ^:private transfer-context
@@ -641,7 +641,7 @@
   (with-context transfer-context
     (let [from-account (find-account "IRA")
           to-account (find-account "IRA 2")
-          commodity (models/find (find-commodity "AAPL")) ; reload to get the date boundaries
+          commodity (entities/find (find-commodity "AAPL")) ; reload to get the date boundaries
           [result] (trading/transfer-and-propagate
                    #:transfer{:commodity commodity
                               :from-account from-account
@@ -652,31 +652,31 @@
         (is (comparable?
               #:transaction{:transaction-date (t/local-date 2016 4 2)
                             :description "Transfer 100 shares of AAPL"
-                            :entity (util/->model-ref (find-entity "Personal"))
+                            :entity (util/->entity-ref (find-entity "Personal"))
                             :items [#:transaction-item{:action :credit
                                                        :quantity 100M
                                                        :value 1000M
                                                        :balance 0M
-                                                       :account (util/->model-ref
-                                                                  (models/find-by #:account{:name "AAPL"
+                                                       :account (util/->entity-ref
+                                                                  (entities/find-by #:account{:name "AAPL"
                                                                                             :parent from-account}))}
                                     #:transaction-item{:action :debit
                                                        :quantity 100M
                                                        :value 1000M
                                                        :balance 100M
-                                                       :account (util/->model-ref
-                                                                  (models/find-by #:account{:name "AAPL"
+                                                       :account (util/->entity-ref
+                                                                  (entities/find-by #:account{:name "AAPL"
                                                                                             :parent to-account}))}]}
-              (models/find (:transfer/transaction result)))
+              (entities/find (:transfer/transaction result)))
             "A transaction is created and returned"))
       (testing "The lots"
-        (is (seq-of-maps-like? [#:lot{:commodity (util/->model-ref commodity)
-                                      :account (util/->model-ref to-account)
+        (is (seq-of-maps-like? [#:lot{:commodity (util/->entity-ref commodity)
+                                      :account (util/->entity-ref to-account)
                                       :shares-owned 100M
                                       :purchase-price 10M
                                       :shares-purchased 100M
                                       :purchase-date (t/local-date 2016 3 2)}]
-                               (models/select {:lot/commodity commodity}))
+                               (entities/select {:lot/commodity commodity}))
             "The lot is updated to reflect the new account"))
       (testing "The originating account"
         ; Original account balance was 2,000, we bought 1,000 worth of
@@ -684,21 +684,21 @@
         ; leaving 1,000 in cash
         (is (comparable? #:account{:quantity 1000M
                                    :name "IRA"}
-                         (models/find from-account))
+                         (entities/find from-account))
             "The account balance reflects the cash before the transfer"))
       (testing "The destination account"
         ; No money was ever addedto the second account, so the balance
         ; is still 0
         (is (comparable? #:account{:quantity 0M
                                    :name "IRA 2"}
-                         (models/find to-account))
+                         (entities/find to-account))
             "The account balance reflects the cash on hand before the transfer")))))
 
 (deftest split-a-commodity
   (with-context sale-context
     (let [ira (find-account "IRA")
           commodity (find-commodity "AAPL")
-          commodity-account (models/find-by #:account{:name "AAPL"
+          commodity-account (entities/find-by #:account{:name "AAPL"
                                                       :parent ira})
           [result] (trading/split-and-propagate
                      #:split{:commodity commodity
@@ -713,23 +713,23 @@
                                        :description "Split shares of AAPL 2 for 1"
                                        :value 0M
                                        :items [#:transaction-item{:action :debit
-                                                                  :account (util/->model-ref commodity-account)
+                                                                  :account (util/->entity-ref commodity-account)
                                                                   :quantity 100M
                                                                   :balance 200M
                                                                   :value 0M}]}
-                         (models/find (:split/transaction result)))
+                         (entities/find (:split/transaction result)))
             "The result contains the transaction that was created"))
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)
-                                      :account (util/->model-ref ira)
+                                      :account (util/->entity-ref ira)
                                       :purchase-price 5M
                                       :shares-purchased 200M
                                       :shares-owned 200M}]
-                               (models/select #:lot{:commodity commodity}))
+                               (entities/select #:lot{:commodity commodity}))
             "The lots are adjusted correctly"))
       (testing "The trading account"
         (is (comparable? {:account/quantity 1000M}
-                         (models/find ira))
+                         (entities/find ira))
             "The account balance is unchanged")))))
 
 (def ^:private rev-split-context
@@ -761,5 +761,5 @@
                                       :shares-purchased 150M
                                       :shares-owned 150M
                                       :purchase-price 200M}]
-                               (models/select #:lot{:account account
+                               (entities/select #:lot{:account account
                                                     :commodity commodity})))))))

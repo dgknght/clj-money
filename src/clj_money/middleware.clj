@@ -8,7 +8,7 @@
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
             [clj-money.authorization :as authorization]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.api :refer [log-error]]))
 
 (defn- param-name
@@ -86,7 +86,7 @@
       (status 500)
       (header "Content-Type" "application/json")))
 
-(defmethod handle-exception ::models/not-found
+(defmethod handle-exception ::entities/not-found
   [_]
   api/not-found)
 

@@ -576,7 +576,7 @@
            (fn [{:as state budget :detailed-budget}]
              (assoc state
                     :selected-item
-                    {:budget-item/budget (util/->model-ref budget)
+                    {:budget-item/budget (util/->entity-ref budget)
                      :budget-item/periods (vec
                                             (repeat (get-in budget [:budget/period 0])
                                                     0M))

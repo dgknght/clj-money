@@ -10,8 +10,8 @@
             [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.models :as models]
-            [clj-money.models.images :as img]
+            [clj-money.entities :as entities]
+            [clj-money.entities.images :as img]
             [clj-money.authorization.attachments]))
 
 (defn- extract-criteria
@@ -26,7 +26,7 @@
 (defn- index
   [req]
   (api/response
-    (models/select (extract-criteria req))))
+    (entities/select (extract-criteria req))))
 
 (defn- extract-account-criteria
   [{:keys [authenticated] {:keys [start-date end-date account-id]} :params}]
@@ -42,7 +42,7 @@
 (defn- index-by-account
   [req]
   (api/response
-    (models/select (extract-account-criteria req))))
+    (entities/select (extract-account-criteria req))))
 
 (defn- extract-attachment
   [{{:keys [transaction-id transaction-date] :as params} :params}]
@@ -76,12 +76,12 @@
   (-> (extract-attachment req)
       (authorize ::auth/create authenticated)
       (assoc-image req)
-      models/put
+      entities/put
       api/creation-response))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (when-let [attachment (models/find-by (-> params
+  (when-let [attachment (entities/find-by (-> params
                                             (select-keys [:id])
                                             (+scope :attachment authenticated)))]
     (authorize
@@ -94,7 +94,7 @@
   (if-let [attachment (find-and-auth req ::auth/update)]
     (-> attachment
         (merge (select-keys body-params [:attachment/caption]))
-        models/put
+        entities/put
         api/update-response)
     api/not-found))
 
@@ -102,7 +102,7 @@
   [req]
   (if-let [attachment (find-and-auth req ::auth/destroy)]
     (do
-      (models/delete attachment)
+      (entities/delete attachment)
       (api/response))
     api/not-found))
 

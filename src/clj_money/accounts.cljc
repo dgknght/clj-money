@@ -143,7 +143,7 @@
   [{:keys [quantity account]}]
   (cond-> {:transaction-item/action :credit}
     quantity      (assoc :transaction-item/quantity (d/abs quantity))
-    account       (assoc :transaction-item/account (util/->model-ref account))
+    account       (assoc :transaction-item/account (util/->entity-ref account))
     (and quantity
          account) (assoc :transaction-item/action
                                   (derive-action quantity account))))
@@ -154,10 +154,10 @@
             date-attribute
             earliest-date
             latest-date
-            model-type]
+            entity-type]
      :or {account-attribute :transaction-item/account
           date-attribute :transaction/transaction-date
-          model-type :transaction-item}}
+          entity-type :transaction-item}}
     accounts]
    (let [range (->> accounts
                     (map :account/transaction-date-range)
@@ -165,16 +165,16 @@
                     (reduce (fn [m r]
                               (apply dates/push-boundary m r))
                             []))]
-     (util/model-type
+     (util/entity-type
        {account-attribute (if (= 1 (count accounts))
-                            (util/->model-ref (first accounts))
+                            (util/->entity-ref (first accounts))
                             {:id [:in (->> accounts
                                            (map :id)
                                            set)]})
         date-attribute [:between
                         (or (first range) earliest-date)
                         (or (last range) latest-date)]}
-       model-type))))
+       entity-type))))
 
 (defn ->criteria
   [account & [opts]]

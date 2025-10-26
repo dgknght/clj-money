@@ -12,10 +12,10 @@
 
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
-  (put [this models] "Saves the specified models to the data store")
-  (select [this criteria options] "Retrieves models from the data store")
+  (put [this entities] "Saves the specified entities to the data store")
+  (select [this criteria options] "Retrieves entities from the data store")
   (update [this changes criteria] "Performs a batch data update")
-  (delete [this models] "Removes models from the data store")
+  (delete [this entities] "Removes entities from the data store")
   (close [this] "Releases an resources held by the instance")
   (reset [this] "Deletes all data in the data store")) ; This is only ever needed for testing. Maybe there's a better way than putting it here?
 
@@ -42,23 +42,23 @@
 (defn tracing-storage
   [storage prefix]
   (reify Storage
-    (put [_ models]
+    (put [_ entities]
       (with-tracing [span (format "%s/put %s"
                                   prefix
-                                  (-> models first util/model-type))]
-        (put storage models)))
+                                  (-> entities first util/entity-type))]
+        (put storage entities)))
 
     (select [_ criteria opts]
       (with-tracing [span (format "%s/select %s"
                                   prefix
-                                  (util/model-type criteria))]
+                                  (util/entity-type criteria))]
         (select storage criteria opts)))
 
-    (delete [_ models]
+    (delete [_ entities]
       (with-tracing [span (format "%s/delete %s"
                                   prefix
-                                  (-> models first util/model-type))]
-        (delete storage models)))
+                                  (-> entities first util/entity-type))]
+        (delete storage entities)))
 
     (update [_ changes criteria]
       (with-tracing [span (format "%s/update %s"

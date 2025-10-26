@@ -36,8 +36,8 @@
         (select-keys [:trade/transactions
                       :trade/lot
                       :trade/lots])
-        (update-in [:trade/lot :lot/account] util/->model-ref)
-        (update-in [:trade/lot :lot/commodity] util/->model-ref)
+        (update-in [:trade/lot :lot/account] util/->entity-ref)
+        (update-in [:trade/lot :lot/commodity] util/->entity-ref)
         api/creation-response)))
 
 (def routes

@@ -16,8 +16,8 @@
                               :trade/account
                               :trade/commodity
                               :trade/dividend-account])
-                (update-in-if [:trade/account] util/->model-ref)
-                (update-in-if [:trade/commodity] util/->model-ref)
-                (update-in-if [:trade/dividend-account] util/->model-ref)
+                (update-in-if [:trade/account] util/->entity-ref)
+                (update-in-if [:trade/commodity] util/->entity-ref)
+                (update-in-if [:trade/dividend-account] util/->entity-ref)
                 (dissoc :trade/entity))
             (add-error-handler opts "Unable to create the trading transaction: %s")))

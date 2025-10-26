@@ -1,11 +1,11 @@
 (ns clj-money.db.datomic.util
   (:require [clj-money.util :as util]))
 
-(defn- extract-model-id
+(defn- extract-entity-id
   ([x]
    (if (map-entry? x)
-     (update-in x [1] extract-model-id)
-     (if (util/model-ref? x)
+     (update-in x [1] extract-entity-id)
+     (if (util/entity-ref? x)
        (:id x)
        x))))
 
@@ -25,4 +25,4 @@
     (->> m
          (remove #(= :id (key %)))
          (map (comp (->datom id)
-                    extract-model-id)))))
+                    extract-entity-id)))))

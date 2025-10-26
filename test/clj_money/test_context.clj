@@ -5,10 +5,10 @@
             [clojure.java.io :as io]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.util :as util :refer [model=]]
-            [clj-money.models :as models]
+            [clj-money.util :as util :refer [entity=]]
+            [clj-money.entities :as entities]
             [clj-money.images :as images]
-            [clj-money.models.propagation :as prop]
+            [clj-money.entities.propagation :as prop]
             [clj-money.transactions :refer [expand]]
             [clj-money.trading :as trading]))
 
@@ -124,11 +124,11 @@
 (defn find-grant
   ([identifier] (find-grant *context* identifier))
   ([context [entity user]]
-   (let [e (util/->model-ref
+   (let [e (util/->entity-ref
              (if (map? entity)
                entity
                (find-entity context entity)))
-         u (util/->model-ref
+         u (util/->entity-ref
              (if (map? user)
                user
                (find-user context user)))]
@@ -210,7 +210,7 @@
      (->> context
           (filter #(= transaction-date (:transaction/transaction-date %)))
           (mapcat :transaction/items)
-          (filter #(and (model= act (:transaction-item/account %))
+          (filter #(and (entity= act (:transaction-item/account %))
                         (= quantity (:transaction-item/quantity %))))
           (map #(assoc % :transaction/transaction-date transaction-date))
           first))))
@@ -224,7 +224,7 @@
   ([identifier]
    (find-reconciliation *context* identifier))
   ([ctx [account end-of-period]]
-   (let [act (util/->model-ref (if (map? account)
+   (let [act (util/->entity-ref (if (map? account)
                                  account
                                  (find-account ctx account)))]
      (find ctx
@@ -234,10 +234,10 @@
 (defn find-lot
   ([identifier] (find-lot *context* identifier))
   ([ctx [account commodity]]
-   (let [act (util/->model-ref (if (map? account)
+   (let [act (util/->entity-ref (if (map? account)
                                  account
                                  (find-account ctx account)))
-         cmd (util/->model-ref (if (map? commodity)
+         cmd (util/->entity-ref (if (map? commodity)
                                  commodity
                                  (find-commodity ctx commodity)))]
      (find ctx
@@ -306,7 +306,7 @@
 
   (update-in item
              [:transaction-item/account]
-             (comp util/->model-ref
+             (comp util/->entity-ref
                    #(find-account ctx %))))
 
 (defmethod prepare :scheduled-transaction-item
@@ -369,7 +369,7 @@
   (-> attr
       (update-in [:import/user] (find-user ctx))
       (update-in [:import/images] (fn [img-refs]
-                                    (mapv (comp util/->model-ref
+                                    (mapv (comp util/->entity-ref
                                                 (find-image ctx))
                                           img-refs)))))
 
@@ -398,7 +398,7 @@
       (update-in [:trade/entity] (find-entity ctx))
       (resolve-trade-accounts ctx)))
 
-(def ^:private extract-purchase-models
+(def ^:private extract-purchase-entities
   (comp flatten
         (juxt :trade/transactions
               :trade/commodity-account
@@ -406,26 +406,26 @@
 
 (defn- buy
   [trade]
-  (extract-purchase-models (trading/buy trade)))
+  (extract-purchase-entities (trading/buy trade)))
 
-(def ^:private extract-sale-models
+(def ^:private extract-sale-entities
   (comp flatten (juxt :trade/transactions)))
 
 (defn- sell
   [trade]
-  (extract-sale-models (trading/sell trade)))
+  (extract-sale-entities (trading/sell trade)))
 
 (defn- process
   [m]
-  (case (util/model-type m)
+  (case (util/entity-type m)
     :trade (do
              (assert (#{:sale :purchase} (:trade/type m)))
              (if (= :purchase (:trade/type m))
                (buy m)
                (sell m)))
-    [(models/put m)]))
+    [(entities/put m)]))
 
-(defmulti post-process util/model-type)
+(defmulti post-process util/entity-type)
 
 (defmethod post-process :default [m] m)
 
@@ -433,14 +433,14 @@
   [entity]
   (if (get-in entity [:entity/settings :settings/default-commodity])
     entity
-    (if-let [commodity (models/find-by {:commodity/entity entity
+    (if-let [commodity (entities/find-by {:commodity/entity entity
                                         :commodity/type :currency})]
       (-> entity
-          models/find
+          entities/find
           (assoc-in [:entity/settings
                      :settings/default-commodity]
-                    (util/->model-ref commodity))
-          models/put)
+                    (util/->entity-ref commodity))
+          entities/put)
       entity)))
 
 (defn realize

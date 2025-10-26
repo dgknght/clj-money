@@ -7,8 +7,8 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.ref]
+            [clj-money.entities :as entities]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -144,7 +144,7 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)
-          retrieved (models/select #:transaction{:entity entity
+          retrieved (entities/select #:transaction{:entity entity
                                                  :transaction-date (t/local-date 2016 3 2)})]
       [response retrieved])))
 
@@ -162,18 +162,18 @@
                          #:transaction{:description "Paycheck"
                                        :transaction-date (t/local-date 2016 03 02)
                                        :memo "Seems like there should be more"
-                                       :items [#:transaction-item{:account (util/->model-ref checking)
+                                       :items [#:transaction-item{:account (util/->entity-ref checking)
                                                                   :action :debit
                                                                   :quantity 1000M
                                                                   :memo "checking item"}
-                                               #:transaction-item{:account (util/->model-ref salary)
+                                               #:transaction-item{:account (util/->entity-ref salary)
                                                                   :action :credit
                                                                   :quantity 1000M
                                                                   :memo "salary item"}]})
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
-      [response (models/select #:transaction{:entity entity
+      [response (entities/select #:transaction{:entity entity
                                              :transaction-date (t/local-date 2016 3 2)})])))
 
 (defn- assert-successful-create
@@ -222,7 +222,7 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
-      [response (models/find-by
+      [response (entities/find-by
                   (select-keys transaction
                                [:id
                                 :transaction/transaction-date]))])))
@@ -263,7 +263,7 @@
                                                   (:id transaction)))
                        (add-auth (find-user email))
                        app)]
-      [response (models/find transaction)])))
+      [response (entities/find transaction)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]

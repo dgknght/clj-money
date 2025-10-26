@@ -6,7 +6,7 @@
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db
@@ -20,7 +20,7 @@
                                             find-account
                                             find-transaction
                                             find-attachment]]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -54,7 +54,7 @@
                        parse-edn-body)]
       [response
        (when-let [id (get-in response [:edn-body :id])]
-         (models/find id :attachment))])))
+         (entities/find id :attachment))])))
 
 (defn- assert-successful-create
   [[{:keys [edn-body] :as response} retrieved]]
@@ -153,7 +153,7 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
-      [response (models/find attachment)])))
+      [response (entities/find attachment)])))
 
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
@@ -188,7 +188,7 @@
                        (edn-body (assoc attachment :caption "Updated caption"))
                        (add-auth (find-user email))
                        app)]
-      [response (models/find attachment)])))
+      [response (entities/find attachment)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]

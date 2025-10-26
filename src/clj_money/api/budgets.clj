@@ -10,9 +10,9 @@
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.budgets :refer [create-items-from-history]]
-            [clj-money.models.transaction-items :as trx-items]
+            [clj-money.entities.transaction-items :as trx-items]
             [clj-money.authorization.budgets]))
 
 (defn- extract-criteria
@@ -20,13 +20,13 @@
   (-> params
       (select-keys [:entity-id])
       (rename-keys {:entity-id :budget/entity})
-      (update-in [:budget/entity] util/->model-ref)
+      (update-in [:budget/entity] util/->entity-ref)
       (+scope :budget authenticated)))
 
 (defn- index
   [req]
   (api/response
-    (models/select (extract-criteria req)
+    (entities/select (extract-criteria req)
                    {:sort [[:budget/start-date :desc]]})))
 
 (defn- extract-budget
@@ -40,7 +40,7 @@
   [{:budget/keys [entity period]} start-date]
   (let [end-date (t/plus start-date
                          (dates/period period))]
-    (models/select (util/model-type
+    (entities/select (util/entity-type
                      #:transaction-item{:transaction/entity entity
                                         :transaction/transaction-date [:between> start-date end-date]
                                         :account/type [:in #{:income :expense}]}
@@ -60,7 +60,7 @@
            start-date
            end-date)
          (map #(assoc % :budget-item/budget budget))
-         models/put-many)))
+         entities/put-many)))
 
 (defn- append-items
   [budget start-date]
@@ -75,7 +75,7 @@
       extract-budget
       (assoc :budget/entity {:id (:entity-id params)} )
       (authorize ::auth/create authenticated)
-      models/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
+      entities/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
       (append-items (:budget/auto-create-start-date params))
       api/creation-response))
 
@@ -84,7 +84,7 @@
   (when-let [budget (-> params
                         (select-keys [:id])
                         (+scope :budget authenticated)
-                        (models/find-by {:include #{:budget/items}}))]
+                        (entities/find-by {:include #{:budget/items}}))]
     (authorize budget action authenticated)))
 
 (defn- show
@@ -98,7 +98,7 @@
   (if-let [budget (find-and-auth req ::auth/update)]
     (-> budget
         (merge (extract-budget req))
-        models/put
+        entities/put
         api/update-response)
     api/not-found))
 
@@ -106,7 +106,7 @@
   [req]
   (if-let [budget (find-and-auth req ::auth/destroy)]
     (do
-      (models/delete budget)
+      (entities/delete budget)
       (api/response))
     api/not-found))
 

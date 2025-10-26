@@ -461,8 +461,8 @@
        (filter identity)
        range-boundaries))
 
-(defn push-model-boundary
-  "Given a model and a key where a date range exists, adjust the boundary
+(defn push-entity-boundary
+  "Given a entity and a key where a date range exists, adjust the boundary
   if necessary to include the specified date"
   [m k & ds]
   {:pre [(every? identity ds)]}

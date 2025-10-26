@@ -7,7 +7,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-helpers :refer [reset-db
@@ -66,13 +66,13 @@
           user (find-user email)
           attr (cond-> #:trade{:date (t/local-date 2016 3 2)
                                :action :buy
-                               :entity (util/->model-ref entity)
+                               :entity (util/->entity-ref entity)
                                :shares 100M
                                :value 1000M
-                               :commodity (util/->model-ref aapl)
-                               :account (util/->model-ref ira)
+                               :commodity (util/->entity-ref aapl)
+                               :account (util/->entity-ref ira)
                                :dividend? dividend?
-                               :dividend-account (util/->model-ref dividends)})]
+                               :dividend-account (util/->entity-ref dividends)})]
       [(-> (req/request :post (path :api
                                     :entities
                                     (:id entity)
@@ -81,7 +81,7 @@
            (add-auth user)
            app
            parse-edn-body)
-       (models/select #:transaction{:entity entity
+       (entities/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)}
                       {:order-by [:transaction/created-at]})])))
 
@@ -141,11 +141,11 @@
           ira (find-account "IRA")
           attr #:trade{:date (t/local-date 2016 3 2)
                        :action :sell
-                       :entity (util/->model-ref entity)
+                       :entity (util/->entity-ref entity)
                        :shares 100M
                        :value 1100M
-                       :commodity (util/->model-ref aapl)
-                       :account (util/->model-ref ira)}]
+                       :commodity (util/->entity-ref aapl)
+                       :account (util/->entity-ref ira)}]
       [(-> (req/request :post (path :api
                                     :entities
                                     (:id entity)
@@ -154,9 +154,9 @@
            (add-auth user)
            app
            parse-edn-body)
-       (models/select #:transaction{:entity entity
+       (entities/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)})
-       (models/find-by #:lot{:account ira
+       (entities/find-by #:lot{:account ira
                              :commodity aapl})])))
 
 (defn- assert-successful-sale

@@ -22,16 +22,16 @@
         (empty? (grouped false)))))
 
 (s/def ::id (s/or :uuid uuid? :string string? :int int? :key keyword?)) ; keyword is for testing
-(s/def ::model-ref (s/keys :req-un [::id]))
+(s/def ::entity-ref (s/keys :req-un [::id]))
 (s/def :receipt-item/quantity d/decimal?)
-(s/def :receipt-item/account ::model-ref)
+(s/def :receipt-item/account ::entity-ref)
 (s/def :receipt-item/memo (s/nilable string?))
 (s/def ::receipt-item (s/keys :opt [:receipt-item/account
                                     :receipt-item/quantity
                                     :receipt-item/memo]))
 (s/def :receipt/transaction-date dates/local-date?)
 (s/def :receipt/description string?)
-(s/def :receipt/payment-account ::model-ref)
+(s/def :receipt/payment-account ::entity-ref)
 (s/def :receipt/items (s/coll-of ::receipt-item))
 (s/def :receipt/transaction-id ::id)
 (s/def ::receipt (s/and (s/keys :req [:receipt/transaction-date

@@ -7,8 +7,8 @@
              :as authorization]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
+            [clj-money.entities :as entities]
+            [clj-money.entities.propagation :as prop]
             [clj-money.authorization.commodities]))
 
 (defn- extract-criteria
@@ -22,12 +22,12 @@
 (defn- count
   [req]
   (api/response
-    {:count (models/count (extract-criteria req))}))
+    {:count (entities/count (extract-criteria req))}))
 
 (defn- fetch-current-price
   [{:as commodity :commodity/keys [price-date-range]}]
   (when price-date-range
-    (models/find-by #:price{:commodity commodity
+    (entities/find-by #:price{:commodity commodity
                             :trade-date (apply vector :between price-date-range)}
                     {:sort [[:price/trade-date :desc]]})))
 
@@ -42,7 +42,7 @@
 (defn- append-shares-owned
   [commodities]
   (if (seq commodities)
-    (let [lots (->> (models/select #:lot{:commodity [:in (map util/->model-ref commodities)]
+    (let [lots (->> (entities/select #:lot{:commodity [:in (map util/->entity-ref commodities)]
                                          :shares-owned [:> 0]})
                     (group-by (comp :id :lot/commodity))
                     (map #(update-in % [1] (fn [lots]
@@ -56,7 +56,7 @@
 
 (defn- index
   [req]
-  (->> (models/select (extract-criteria req)
+  (->> (entities/select (extract-criteria req)
                       {:sort [:commodity/symbol]})
        append-current-prices
        append-shares-owned
@@ -67,7 +67,7 @@
   (-> params
       (select-keys [:id])
       (+scope :commodity authenticated)
-      models/find-by
+      entities/find-by
       (authorize action authenticated)))
 
 (defn- show
@@ -107,7 +107,7 @@
   [req]
   (if-let [commodity (find-and-authorize req ::authorization/destroy)]
     (do
-      (models/delete commodity)
+      (entities/delete commodity)
       (api/response))
     api/not-found))
 

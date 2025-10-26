@@ -1,7 +1,7 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
   (:require [cljs.pprint :refer [pprint]]
-            [clj-money.models.schema :as schema]
+            [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]
             [clj-money.state :refer [current-entity]]))
 
