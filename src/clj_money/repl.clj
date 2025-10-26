@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [clj-money.web.server :as s]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.util :as util]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
@@ -26,8 +26,8 @@
                       :email
                       :password])
         (util/qualify-keys :user)
-        models/validate
-        models/put)
+        entities/validate
+        entities/put)
     (catch Exception e
       (println "Unable to save the user: " (ex-message e))
       (when-let [data (ex-data e)]
@@ -35,32 +35,32 @@
 
 (defn set-password
   [& {:keys [email password]}]
-  (-> (models/find-by {:user/email email})
+  (-> (entities/find-by {:user/email email})
       (assoc :user/password password)
-      models/put))
+      entities/put))
 
 (defn propagate-all
   [entity-name]
-  (prop/propagate-all (models/find-by {:entity/name entity-name})
+  (prop/propagate-all (entities/find-by {:entity/name entity-name})
                       {}))
 
 (defn- find-account
   [names entity]
-  (models/find-by (cond-> {:account/name (last names)
+  (entities/find-by (cond-> {:account/name (last names)
                            :account/entity entity}
                     (< 1 (count names)) (assoc :account/parent
                                                (find-account (butlast names) entity)))))
 
 (defn propagate-account
   [entity-name  & account-names]
-  (let [entity (models/find-by {:entity/name entity-name})]
+  (let [entity (entities/find-by {:entity/name entity-name})]
     (trx/propagate-account-from-start
       entity
       (find-account account-names entity))))
 
 (defn propagate-prices
   [entity-name]
-  (prices/propagate-all (models/find-by {:entity/name entity-name})
+  (prices/propagate-all (entities/find-by {:entity/name entity-name})
                         {}))
 
 (defn parse-performance-logs

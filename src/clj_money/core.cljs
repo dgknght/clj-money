@@ -236,7 +236,7 @@
 (defn- sign-in-from-cookie []
   (if @current-user
     (do
-      (if (util/model-ref? @current-user)
+      (if (util/entity-ref? @current-user)
         (users/me :on-success #(reset! current-user %))
         (fetch-entities))
       (fetch-entities))

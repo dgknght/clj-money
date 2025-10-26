@@ -4,8 +4,8 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.models :as models]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
+            [clj-money.entities :as entities]
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
             [clj-money.test-helpers :refer [dbtest]]
             [clj-money.test-context :refer [with-context
@@ -202,7 +202,7 @@
     (let [attrs #:scheduled-transaction{:period [2 :week]}
           trx (find-scheduled-transaction "Paycheck")]
       (is (comparable? attrs
-                       (models/put
+                       (entities/put
                          (-> trx
                              (merge attrs)
                              (assoc-in [:scheduled-transaction/items
@@ -214,7 +214,7 @@
                                         :scheduled-transaction-item/quantity]
                                        1001M))))
           "The return value has the updated attributes")
-      (let [{:as retrieved :scheduled-transaction/keys [items]} (models/find trx)]
+      (let [{:as retrieved :scheduled-transaction/keys [items]} (entities/find trx)]
         (is (comparable? attrs retrieved)
             "The retrieved value has the updated attributes")
         (is (seq-of-maps-like? [#:scheduled-transaction-item{:quantity 901M}
@@ -226,7 +226,7 @@
 (dbtest add-an-item
   (with-context update-context
     (let [trx (find-scheduled-transaction "Paycheck")
-          result (models/put
+          result (entities/put
                    (-> trx
                        (assoc-in [:scheduled-transaction/items
                                   0
@@ -237,7 +237,7 @@
                                   #:scheduled-transaction-item{:action :debit
                                                                :account (find-account "Medicare")
                                                                :quantity 50M})
-                       models/put))]
+                       entities/put))]
       (is (seq-of-maps-like? [#:scheduled-transaction-item{:quantity 850M}
                               #:scheduled-transaction-item{:quantity 100M}
                               #:scheduled-transaction-item{:quantity 1000M}
@@ -248,7 +248,7 @@
                               #:scheduled-transaction-item{:quantity 100M}
                               #:scheduled-transaction-item{:quantity 1000M}
                               #:scheduled-transaction-item{:quantity 50M}]
-                             (:scheduled-transaction/items (models/find result)))
+                             (:scheduled-transaction/items (entities/find result)))
           "The returned value has the updated items"))))
 
 (dbtest delete-a-scheduled-transaction

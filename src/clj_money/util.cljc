@@ -56,38 +56,38 @@
    (pprint {m (transform v)})
    v))
 
-(def model-types
-  (->> schema/models
+(def entity-types
+  (->> schema/entities
        (map :id)
        set))
 
-(def valid-model-type? model-types)
+(def valid-entity-type? entity-types)
 
-(declare model-type)
+(declare entity-type)
 
-(defn model-type-dispatch [x & _]
+(defn entity-type-dispatch [x & _]
   {:pre [x]}
-  (model-type x))
+  (entity-type x))
 
-(defn- extract-model-type
+(defn- extract-entity-type
   [m-or-t]
   (if (keyword? m-or-t)
     m-or-t
-    (model-type m-or-t)))
+    (entity-type m-or-t)))
 
-(defmulti ^:private model-type* type)
+(defmulti ^:private entity-type* type)
 
 ; We expect this to be a criteria with a conjunction
-(defmethod model-type* ::vector
+(defmethod entity-type* ::vector
   [[_conj & cs :as x]]
-  (or (-> x meta :clj-money/model-type)
-      (let [ts (set (map model-type cs))]
+  (or (-> x meta :clj-money/entity-type)
+      (let [ts (set (map entity-type cs))]
         (when (= 1 (count ts))
           (first ts)))))
 
-(defmethod model-type* ::map
+(defmethod entity-type* ::map
   [x]
-  (or (-> x meta :clj-money/model-type)
+  (or (-> x meta :clj-money/entity-type)
       (->> (keys x)
            (map namespace)
            (filter identity)
@@ -98,37 +98,37 @@
            first
            keyword)))
 
-(defmethod model-type* ::keyword
+(defmethod entity-type* ::keyword
   [x]
-  #(model-type % x))
+  #(entity-type % x))
 
-(defn model-type
-  "The 1 arity, when given a model, retrieves the type for the given model.
-  When given a keyword, returns a function that sets the model type when given
-  a model.
-  The 2 arity sets the type for the given model in the meta data. The 2nd argument is either a
-  key identyfying the model type, or another model from which the type is to be
+(defn entity-type
+  "The 1 arity, when given a entity, retrieves the type for the given entity.
+  When given a keyword, returns a function that sets the entity type when given
+  a entity.
+  The 2 arity sets the type for the given entity in the meta data. The 2nd argument is either a
+  key identyfying the entity type, or another entity from which the type is to be
   extracted"
   ([x]
    {:pre [x]}
-   (model-type* x))
-  ([m model-or-type]
+   (entity-type* x))
+  ([m entity-or-type]
    {:pre [(or (map? m)
               (vector? m))
-          (or (map? model-or-type)
-              (keyword? model-or-type))]}
-   (let [t (extract-model-type model-or-type)]
-     (assert (valid-model-type? t))
-     (vary-meta m assoc :clj-money/model-type t))))
+          (or (map? entity-or-type)
+              (keyword? entity-or-type))]}
+   (let [t (extract-entity-type entity-or-type)]
+     (assert (valid-entity-type? t))
+     (vary-meta m assoc :clj-money/entity-type t))))
 
-(defn model-type?
-  "The 2 arity checks if the model has the specified type. The 1 arity
+(defn entity-type?
+  "The 2 arity checks if the entity has the specified type. The 1 arity
   returns a predicate function that returns true if given an argument
-  that has the specified model type."
+  that has the specified entity type."
   ([m-type]
-   #(model-type? % m-type))
-  ([model m-type]
-   (= m-type (model-type model))))
+   #(entity-type? % m-type))
+  ([entity m-type]
+   (= m-type (entity-type entity))))
 
 (defn format
   [msg & args]
@@ -256,7 +256,7 @@
 
 (defn qualify-keys
   "Creates fully-qualified entity attributes by applying
-  the :model-type from the meta data to the keys of the map."
+  the :entity-type from the meta data to the keys of the map."
   [m ns-key & {:keys [ignore]}]
   {:pre [(map? m)]}
   (let [qualifier (if (keyword? ns-key)
@@ -272,39 +272,39 @@
 
 (defn id=
   "Given a list of maps, returns true if they all have the same :id attribute"
-  [& models]
-  (->> models
+  [& entities]
+  (->> entities
        (map :id)
        (apply =)))
 
-(defn model=
+(defn entity=
   "Given a list of maps, returns true if they all have the same :id
-  attribute and do not have conflicting db/model-type values"
-  [& models]
-  (let [types (->> models
-                   (map model-type)
+  attribute and do not have conflicting db/entity-type values"
+  [& entities]
+  (let [types (->> entities
+                   (map entity-type)
                    (filter identity)
                    set)]
     (and (<= (count types) 1)
-         (apply id= models))))
+         (apply id= entities))))
 
-(defn ->model-ref
+(defn ->entity-ref
   [map-or-id]
   (if (map? map-or-id)
     (select-keys map-or-id [:id])
     {:id map-or-id}))
 
-(defn model-ref?
+(defn entity-ref?
   [x]
   (and (map? x)
        (= #{:id} (set (keys x)))))
 
 (defn reconstruct
-  "Given a list of models and a few options, aggregates child models into their parents."
-  [{:keys [children-key parent? child?]} models]
-  {:pre [(seq models) children-key parent? child?]}
+  "Given a list of entities and a few options, aggregates child entities into their parents."
+  [{:keys [children-key parent? child?]} entities]
+  {:pre [(seq entities) children-key parent? child?]}
   ; This logic assumes the order established in deconstruct is maintained
-  (loop [input models output [] current nil]
+  (loop [input entities output [] current nil]
     (if-let [mdl (first input)]
       (cond
         (and current
@@ -352,14 +352,14 @@
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn +temp-id
-  [model]
-  (assoc model :id (temp-id)))
+  [entity]
+  (assoc entity :id (temp-id)))
 
 (defn temp-id?
-  "Given a model or an id, returns true if the model has a temporary
+  "Given a entity or an id, returns true if the entity has a temporary
   id or if the specified id is a temporary id"
-  [id-or-model]
-  (when-let [id (->id id-or-model)]
+  [id-or-entity]
+  (when-let [id (->id id-or-entity)]
     (and (string? id)
          (string/starts-with? id "temp-"))))
 
@@ -399,13 +399,13 @@
     :clj-money.db/update})
 
 (defn simplify
-  "Return the given model maps with non-essentail attributes removed
+  "Return the given entity maps with non-essentail attributes removed
 
   (simplify account) -> {:account/name \"Checking\"}
   (simplify account :include [:account/value]) -> {:account/name \"Checking\" :account/value 100M}
   (simplify [a1 a2]) -> [{:account/name \"Checking\"} {:account/name \"Savings\"}]
   (simplify [a1 a2] :include [:account/value]) -> [{:account/name \"Checking\" :account/value 100M} {:account/name \"Savings\" :account/value 1000M}]
-  (simplify :include [:account/value]) -> fn that can be applied to a model or sequence of models"
+  (simplify :include [:account/value]) -> fn that can be applied to a entity or sequence of entities"
   [& [a1 & args]]
   (cond
     ; the args are the options, return a function with the specified options
@@ -422,7 +422,7 @@
     (map #(apply simplify % args)
          a1)
 
-    ; apply to a model map
+    ; apply to a entity map
     (map? a1)
     (let [{:keys [include]} (apply hash-map args)
           selected (select-keys a1 (concat simple-keys include))]
@@ -445,11 +445,11 @@
   ([m {:keys [sort-key comp] :or {sort-key identity comp compare}} coll]
    (sort-by #(sort-key %)
             comp
-            (cons m (remove #(model= m %) coll)))))
+            (cons m (remove #(entity= m %) coll)))))
 
 (defn match?
   "Given a search term and a list of keys, returns a predicate function that
-  indicates whether or not a given model map matches the search term."
+  indicates whether or not a given entity map matches the search term."
   [term & ks]
   (let [t (string/lower-case term)
         fns (map (fn [k]
@@ -556,12 +556,12 @@
               normalized))))
 
 (defn apply-sort
-  "Given a sequence of models, apply the sort specified in the options map"
-  [opts models]
+  "Given a sequence of entities, apply the sort specified in the options map"
+  [opts entities]
   (if-let [sort-spec ((some-fn :order-by :sort) opts)]
     (sort (->comparator sort-spec)
-          models)
-    models))
+          entities)
+    entities))
 
 (defn ->range
   "Given a sequence of values, return a tuple with the minimum value

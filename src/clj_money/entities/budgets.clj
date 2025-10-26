@@ -6,7 +6,7 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.budgets :as budgets]))
 
 (defn- accounts-belong-to-budget-entity?
@@ -14,7 +14,7 @@
   (->> items
        (map :budget-item/account)
        set
-       (map #(models/resolve-ref % :account))
+       (map #(entities/resolve-ref % :account))
        (every? #(id= (:account/entity %)
                      entity))))
 
@@ -32,13 +32,13 @@
             {:message "Must have the number of periods specified by the budget"
              :path [:budget-item/periods]})
 
-(s/def :budget/items (s/nilable (s/coll-of ::models/budget-item)))
+(s/def :budget/items (s/nilable (s/coll-of ::entities/budget-item)))
 (s/def :budget/name v/non-empty-string?)
 (s/def :budget/start-date t/local-date?)
 (s/def :budget/period ::dates/period)
-(s/def :budget/entity ::models/model-ref)
+(s/def :budget/entity ::entities/entity-ref)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::models/budget (s/and (s/keys :req [:budget/name
+(s/def ::entities/budget (s/and (s/keys :req [:budget/name
                                             :budget/start-date
                                             :budget/period
                                             :budget/entity]
@@ -46,7 +46,7 @@
                               accounts-belong-to-budget-entity?
                               period-counts-match?))
 
-(defmethod models/before-save :budget
+(defmethod entities/before-save :budget
   [budget]
   (assoc budget :budget/end-date (budgets/end-date budget)))
 
@@ -57,7 +57,7 @@
          (:id entity)
          date
          (t/local-date? date)]}
-  (models/find-by #:budget{:start-date [:<= date]
+  (entities/find-by #:budget{:start-date [:<= date]
                            :end-date [:>= date]
                            :entity entity}
                   {:include #{:budget/items}}))
@@ -68,7 +68,7 @@
   {:pre [(seq items)]}
   (let [ids (if (seq child-ids)
               (conj (into #{} child-ids) account-id)
-              (->> (models/select (util/model-type
+              (->> (entities/select (util/entity-type
                                     {:id account-id}
                                     :account)
                                   {:include-children? true})

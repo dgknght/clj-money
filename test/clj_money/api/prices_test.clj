@@ -19,7 +19,7 @@
                                             edn-body
                                             parse-edn-body]]
             [clj-money.prices.yahoo :as yahoo]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -53,7 +53,7 @@
            (add-auth (find-user email))
            app
            parse-edn-body)
-       (models/select #:price{:commodity commodity
+       (entities/select #:price{:commodity commodity
                               :trade-date (t/local-date 2016 3 2)})])))
 
 (defn- assert-successful-create
@@ -143,7 +143,7 @@
            (add-auth (find-user email))
            app
            parse-edn-body)
-       (models/find price)])))
+       (entities/find price)])))
 
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
@@ -179,7 +179,7 @@
                                       (:id price)))
            (add-auth (find-user email))
            app)
-       (models/find price)])))
+       (entities/find price)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]
@@ -247,15 +247,15 @@
   (is (http-success? response))
   (let [expected [#:price{:trade-date (t/local-date 2015 3 2)
                           :value 10.01M
-                          :commodity (util/->model-ref (find-commodity "AAPL"))}
+                          :commodity (util/->entity-ref (find-commodity "AAPL"))}
                   #:price{:trade-date (t/local-date 2015 3 2)
                           :value 5.01M
-                          :commodity (util/->model-ref (find-commodity "MSFT"))}]]
+                          :commodity (util/->entity-ref (find-commodity "MSFT"))}]]
     (is (seq-of-maps-like? expected
                            (:edn-body response))
         "The prices are returned in the response")
     (is (seq-of-maps-like? expected
-                           (models/select #:price{:trade-date (t/local-date 2015 3 2)}))
+                           (entities/select #:price{:trade-date (t/local-date 2015 3 2)}))
         "The prices are written to the database")))
 
 (deftest a-user-can-fetch-current-commodity-prices

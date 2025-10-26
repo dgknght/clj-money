@@ -10,4 +10,4 @@
 
 (defmethod authorization/scope :commodity
   [_ user]
-  (util/model-type {:entity/user user} :commodity))
+  (util/entity-type {:entity/user user} :commodity))

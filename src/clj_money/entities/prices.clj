@@ -10,7 +10,7 @@
             [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]))
 
 (defn- trade-date-unique?
@@ -20,16 +20,16 @@
         (select-keys [:price/commodity
                       :price/trade-date])
         (assoc-if :id (when id [:!= id]))
-        (util/model-type :price)
-        models/count)))
+        (util/entity-type :price)
+        entities/count)))
 (v/reg-spec trade-date-unique? {:message "%s already exists"
                                 :path [:price/trade-date]})
 
-(s/def :price/commodity ::models/model-ref)
+(s/def :price/commodity ::entities/entity-ref)
 (s/def :price/trade-date t/local-date?)
 (s/def :price/value decimal?)
 (s/def ::id uuid?)
-(s/def ::models/price (s/and (s/keys :req [:price/commodity
+(s/def ::entities/price (s/and (s/keys :req [:price/commodity
                                            :price/trade-date
                                            :price/value]
                                      :opt [::id])
@@ -43,7 +43,7 @@
 
    (let [[earliest
           latest] (-> commodity
-                      (models/resolve-ref :commodity)
+                      (entities/resolve-ref :commodity)
                       (:commodity/price-date-range))]
      (cond
        (every? nil? [earliest latest])
@@ -53,7 +53,7 @@
            (:id commodity)
            (:commodity/symbol commodity))
          (when (env :allow-unbounded-queries)
-           (models/find-by #:price{:commodity commodity
+           (entities/find-by #:price{:commodity commodity
                                    :trade-date [:<= as-of]}
                            {:sort [[:price/trade-date :desc]]})))
 
@@ -67,7 +67,7 @@
          earliest)
 
        :else
-       (models/find-by #:price{:commodity commodity
+       (entities/find-by #:price{:commodity commodity
                                :trade-date [:between
                                             earliest
                                             (or as-of
@@ -89,13 +89,13 @@
 (defn- apply-to-accounts
   [{:as price :price/keys [commodity]} & {:as opts}]
   (map (apply-to-account price opts)
-       (models/select {:account/commodity commodity})))
+       (entities/select {:account/commodity commodity})))
 
 (defn- push-entity-bounds
   [{:price/keys [trade-date commodity]}]
   (-> (:commodity/entity commodity)
-      (models/find :entity)
-      (dates/push-model-boundary :entity/price-date-range trade-date)))
+      (entities/find :entity)
+      (dates/push-entity-boundary :entity/price-date-range trade-date)))
 
 (defn- after-latest?
   [{:price/keys [trade-date commodity]}]
@@ -107,7 +107,7 @@
   [{:price/keys [commodity trade-date]}]
   (when (or (nil? (:commodity/price-date-range commodity))
             (dates/outside? trade-date (:commodity/price-date-range commodity)))
-    (dates/push-model-boundary commodity :commodity/price-date-range trade-date)))
+    (dates/push-entity-boundary commodity :commodity/price-date-range trade-date)))
 
 (defn- push-boundaries
   [price]
@@ -138,13 +138,13 @@
     (assoc commodity
            :commodity/price-date-range
            (if-let [new-start (-> (->criteria commodity)
-                                  (models/find-by {:sort [:price/trade-date]})
+                                  (entities/find-by {:sort [:price/trade-date]})
                                   :price/trade-date)]
              [new-start end]
              nil))
 
     (= end trade-date)
-    (let [new-end (models/find-by (->criteria commodity)
+    (let [new-end (entities/find-by (->criteria commodity)
                                   {:sort [[:price/trade-date :desc]]})]
       (cons (assoc commodity
                    :commodity/price-date-range
@@ -157,10 +157,10 @@
   [[before after]]
   (if after
     (-> after
-        (update-in [:price/commodity] (models/find :commodity))
+        (update-in [:price/commodity] (entities/find :commodity))
         push-boundaries)
     (-> before
-        (update-in [:price/commodity] (models/find :commodity))
+        (update-in [:price/commodity] (entities/find :commodity))
         pull-boundaries)))
 
 (defn- aggregate
@@ -177,20 +177,20 @@
 
 (defn apply-agg-to-entity
   [entity {:keys [date-range]}]
-  (apply dates/push-model-boundary entity :entity/price-date-range date-range))
+  (apply dates/push-entity-boundary entity :entity/price-date-range date-range))
 
 (defn apply-agg-to-commodities-and-accounts
   [agg]
   (mapcat (fn [[commodity {:keys [current date-range]}]]
-            (-> (models/find commodity :commodity)
+            (-> (entities/find commodity :commodity)
                 (assoc :commodity/price-date-range date-range)
                 (cons (apply-to-accounts current))))
           (:commodities agg)))
 
 (defn- fetch-prices
   [entity]
-  (models/select
-    (util/model-type {:commodity/entity entity}
+  (entities/select
+    (util/entity-type {:commodity/entity entity}
                      :price)))
 
 (defn propagate-all
@@ -203,7 +203,7 @@
                        (-> entity
                            (apply-agg-to-entity agg)
                            (cons (apply-agg-to-commodities-and-accounts agg))
-                           models/put-many
+                           entities/put-many
                            first)))
                    entity)]
 

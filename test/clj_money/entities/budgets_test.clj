@@ -5,9 +5,9 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
             [clj-money.db.ref]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.ref]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-updated
                                                          assert-deleted]]
             [clj-money.entities.budgets :as budgets]
@@ -96,7 +96,7 @@
                     #:budget{:name "edited"
                              :start-date (t/local-date 2015 1 1)})
     (is (= (t/local-date 2015 12 31)
-           (:budget/end-date (models/find-by {:budget/name "edited"})))
+           (:budget/end-date (entities/find-by {:budget/name "edited"})))
         "The end-date is recalculated")))
 
 (dbtest find-a-budget-by-date
@@ -134,7 +134,7 @@
 
 (dbtest get-items-by-account
   (with-context get-items-context
-    (let [items (models/select (util/model-type {:budget/name "2015"}
+    (let [items (entities/select (util/entity-type {:budget/name "2015"}
                                                 :budget-item))]
       (testing "a leaf account"
         (let [account (find-account "Food")

@@ -8,7 +8,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
                                             parse-edn-body]]
@@ -58,16 +58,16 @@
                 parse-edn-body))]
       (is (http-success? response))
       (is (comparable? #:entity{:name "Personal"
-                                :user (util/->model-ref user)}
+                                :user (util/->entity-ref user)}
                        entity)
           "The newly created entity is returned in the response")
       (is (comparable? #:import{:entity-name "Personal"
                                 :options options
-                                :user (util/->model-ref user)}
+                                :user (util/->entity-ref user)}
                        import)
           "The newly created import is returned in the response")
       (is (seq-of-maps-like? [{:import/entity-name "Personal"}]
-                             (models/select {:import/user user}))
+                             (entities/select {:import/user user}))
           "The new record can be retrieved from the database")
       (let [[c :as cs] @calls]
         (is (= 1 (count cs))
@@ -151,7 +151,7 @@
       [(-> (req/request :delete (path :api :imports (:id imp)))
            (add-auth (find-user email))
            app)
-       (models/find imp)])))
+       (entities/find imp)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]

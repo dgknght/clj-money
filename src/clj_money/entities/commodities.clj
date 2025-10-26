@@ -7,7 +7,7 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]))
 
 (defn- name-is-unique?
@@ -16,7 +16,7 @@
               [:commodity/name
                :commodity/exchange
                :commodity/entity])
-    (= 0 (models/count
+    (= 0 (entities/count
            (-> commodity
                (select-keys [:commodity/name
                              :commodity/type
@@ -31,7 +31,7 @@
 (defn- symbol-is-unique?
   [{:keys [id] :as commodity}]
   (zero?
-    (models/count
+    (entities/count
       (-> commodity
           (select-keys [:commodity/symbol
                         :commodity/type
@@ -49,7 +49,7 @@
 (v/reg-spec exchange-is-satisfied? {:message "%s is required"
                                     :path [:commodity/exchange]})
 
-(s/def :commodity/entity ::models/model-ref)
+(s/def :commodity/entity ::entities/entity-ref)
 (s/def :commodity/name string?)
 (s/def :commodity/symbol string?)
 (s/def :commodity/type #{:currency :stock :fund})
@@ -59,7 +59,7 @@
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
 
-(s/def ::models/commodity (s/and (s/keys :req [:commodity/type
+(s/def ::entities/commodity (s/and (s/keys :req [:commodity/type
                                                :commodity/name
                                                :commodity/symbol
                                                :commodity/entity]
@@ -70,7 +70,7 @@
                                  symbol-is-unique?
                                  exchange-is-satisfied?))
 
-(defmethod models/before-validation :commodity
+(defmethod entities/before-validation :commodity
   [comm]
   (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
 
@@ -84,16 +84,16 @@
     (do (log/info "entity already has a default commodity")
         entity)
     (if-let [currencies (seq
-                          (models/select {:commodity/entity entity
+                          (entities/select {:commodity/entity entity
                                           :commodity/type :currency}))]
       (do (when (< 1 (clojure.core/count currencies))
             (log/warnf "Found multiple currencies for entity %s, defaulting to %s."
                        (select-keys entity [:id :entity/name])
                        (select-keys (first currencies) [:id :commodity/name :commodity/symbol])))
-          (let [updated (models/put (assoc-in entity
+          (let [updated (entities/put (assoc-in entity
                                               [:entity/settings
                                                :settings/default-commodity]
-                                              (util/->model-ref (first currencies))))]
+                                              (util/->entity-ref (first currencies))))]
             (log/infof "[propagation] finish entity %s"
                        (:entity/name entity))
             updated))

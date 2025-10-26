@@ -4,7 +4,7 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.lots]))
 
@@ -15,9 +15,9 @@
               (select-keys [:account-id :commodity-id])
               (update-in-if [:account-id] (fn [x]
                                             (if (sequential? x)
-                                              [:in (map util/->model-ref x)]
-                                              (util/->model-ref x))))
-              (update-in-if [:commodity-id] util/->model-ref)
+                                              [:in (map util/->entity-ref x)]
+                                              (util/->entity-ref x))))
+              (update-in-if [:commodity-id] util/->entity-ref)
               (rename-keys {:account-id :lot/account
                             :commodity-id :lot/commodity}))
     (:non-zero-shares params) (assoc :lot/shares-owned [:!= 0M])))
@@ -27,7 +27,7 @@
   (-> req
       extract-criteria
       (+scope :lot authenticated)
-      (models/select {:sort [[:lot/purchase-date :asc]]})
+      (entities/select {:sort [[:lot/purchase-date :asc]]})
       api/response))
 
 (def routes

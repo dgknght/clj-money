@@ -6,11 +6,11 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [clj-money.core]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :refer [propagation-xf
                                                   put-and-propagate
                                                   delete-and-propagate]]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.db.ref]
             [clj-money.entities.ref]
@@ -57,14 +57,14 @@
     (let [{:as attr :price/keys [trade-date]} (attributes)
           entity (find-entity "Personal")
           out-chan (a/chan 1 propagation-xf)]
-      (models/put attr :out-chan out-chan)
+      (entities/put attr :out-chan out-chan)
       (a/alts!! [out-chan (a/timeout 1000)])
       (is (comparable? #:commodity{:price-date-range [trade-date trade-date]}
-                       (models/find-by {:commodity/symbol "AAPL"
+                       (entities/find-by {:commodity/symbol "AAPL"
                                         :commodity/entity entity}))
           "The commodity price date range is updated")
       (is (comparable? #:entity{:price-date-range [trade-date trade-date]}
-                       (models/find entity))
+                       (entities/find entity))
           "The entity price date range is updated"))))
 
 (dbtest commodity-is-required
@@ -110,9 +110,9 @@
 (dbtest delete-a-price
   (with-context existing-price-context
     (let [price (find-price ["AAPL" (t/local-date 2017 3 2)])]
-      (models/delete price)
-      (is (nil? (models/find price))
-          "The model is not retrieved after delete"))))
+      (entities/delete price)
+      (is (nil? (entities/find price))
+          "The entity is not retrieved after delete"))))
 
 (def ^:private multi-price-context
   (conj price-context
@@ -130,10 +130,10 @@
   (with-context multi-price-context
     (testing "When at least one price exists"
       (is (comparable? {:price/value 12.20M}
-                       (prices/most-recent (models/find-by {:commodity/symbol "AAPL"})))
+                       (prices/most-recent (entities/find-by {:commodity/symbol "AAPL"})))
           "The most recent price is returned"))
     (testing "When no prices exist"
-      (let [price (prices/most-recent (models/find-by {:commodity/symbol "USD"}))]
+      (let [price (prices/most-recent (entities/find-by {:commodity/symbol "USD"}))]
         (is (nil? price) "The nil is returned")))))
 
 (dbtest deleting-a-commodity-deletes-the-prices
@@ -143,11 +143,11 @@
                            :trade-date [:between
                                         (t/local-date 2016 1 1)
                                         (t/local-date 2017 12 31)]}
-          prices-before (models/select criteria)
-          _ (models/delete commodity)]
+          prices-before (entities/select criteria)
+          _ (entities/delete commodity)]
       (is (seq prices-before)
           "The commodity prices exist before delete")
-      (is (empty? (models/select criteria))
+      (is (empty? (entities/select criteria))
           "The commodity prices are absent after delete"))))
 
 (def ^:private account-summary-context
@@ -182,10 +182,10 @@
                 :trade-date (t/local-date 2015 1 15)
                 :value 9M})
       (is (comparable? #:account{:value 1000M}
-                       (models/find-by {:account/name "AAPL"}))
+                       (entities/find-by {:account/name "AAPL"}))
           "An account tracking the commodity is unchanged after the update")
       (is (comparable? #:account{:value 1000M} ; value is just the value of the account itself, exclusive of children
-                       (models/find-by {:account/name "IRA"}))
+                       (entities/find-by {:account/name "IRA"}))
           "Parents of accounts tracking the commodity are changed after the update"))
     (testing "a most recent price"
       (put-and-propagate
@@ -193,10 +193,10 @@
                 :trade-date (t/local-date 2015 3 1)
                 :value 12M})
       (is (comparable? #:account{:value 1200M}
-                       (models/find-by {:account/name "AAPL"}))
+                       (entities/find-by {:account/name "AAPL"}))
           "An account tracking the commodity has an updated value after the update")
       (is (comparable? #:account{:value 1000M}
-                       (models/find-by {:account/name "IRA"}))
+                       (entities/find-by {:account/name "IRA"}))
           "Parents of accounts tracking the commodity have an updated value after the update"))))
 
 (def ^:private account-summary-context-for-update
@@ -208,7 +208,7 @@
 (dbtest updating-a-price-updates-account-summary-data
   (with-context account-summary-context-for-update
     (testing "before the update"
-      (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
+      (is (= 1200M (:account/value (entities/find-by {:account/name "AAPL"})))
           "The account value reflects the price before update"))
 
     (-> (find-price ["AAPL" (t/local-date 2015 2 2)])
@@ -217,13 +217,13 @@
         put-and-propagate)
 
     (testing "after the update"
-      (is (= 1300M (:account/value (models/find-by {:account/name "AAPL"})))
+      (is (= 1300M (:account/value (entities/find-by {:account/name "AAPL"})))
           "The account value reflects the previous price after update")
       (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 2 1)
                                       :value 10M}
                               #:price{:trade-date (t/local-date 2016 1 1)
                                       :value 13M}]
-                             (models/select {:price/trade-date [:between
+                             (entities/select {:price/trade-date [:between
                                                                 (t/local-date 2015 1 1)
                                                                 (t/local-date 2016 12 31)]}
                                             {:sort [:price/trade-date]}))
@@ -232,15 +232,15 @@
 (dbtest deleting-a-price-updates-account-summary-data
   (with-context account-summary-context-for-update
     (testing "before delete"
-      (is (= 1200M (:account/value (models/find-by {:account/name "AAPL"})))
+      (is (= 1200M (:account/value (entities/find-by {:account/name "AAPL"})))
           "The account value reflects the price before delete"))
 
     (delete-and-propagate (find-price ["AAPL" (t/local-date 2015 2 2)]))
 
     (testing "after delete"
       (is (comparable? {:account/value 1000M}
-                       (models/find-by {:account/name "AAPL"}))
+                       (entities/find-by {:account/name "AAPL"}))
           "The account value reflects the previous price after delete")
       (is (comparable? {:account/value 1000M}
-                       (models/find-by {:account/name "IRA"}))
+                       (entities/find-by {:account/name "IRA"}))
           "The parent account value reflects the previous price after delete"))))

@@ -11,7 +11,7 @@
                 slurp
                 io/resource
                 #(format "datomic/schema/%s.edn" %))
-          ["model"
+          ["entity"
            "cached_price"
            "user"
            "identity"

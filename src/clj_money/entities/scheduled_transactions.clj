@@ -4,7 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.dates :as dates]
             [clj-money.entities.transactions :as trans]))
 
@@ -30,16 +30,16 @@
 (v/reg-msg greater-than-zero? "%s must be greater than zero")
 
 (s/def :scheduled-transaction-item/action trans/actions)
-(s/def :scheduled-transaction-item/account ::models/model-ref)
+(s/def :scheduled-transaction-item/account ::entities/entity-ref)
 (s/def :scheduled-transaction-item/quantity v/positive-big-dec?)
-(s/def ::models/scheduled-transaction-item (s/keys :req [:scheduled-transaction-item/action
+(s/def ::entities/scheduled-transaction-item (s/keys :req [:scheduled-transaction-item/action
                                                          :scheduled-transaction-item/account
                                                          :scheduled-transaction-item/quantity]))
 
-(s/def :scheduled-transaction/items (s/and (s/coll-of ::models/scheduled-transaction-item
+(s/def :scheduled-transaction/items (s/and (s/coll-of ::entities/scheduled-transaction-item
                                                       :min-count 2)
                                            debit-credit-balanced?))
-(s/def :scheduled-transaction/entity ::models/model-ref)
+(s/def :scheduled-transaction/entity ::entities/entity-ref)
 (s/def :scheduled-transaction/description string?)
 (s/def :scheduled-transaction/period ::dates/period)
 (s/def :scheduled-transaction/start-date t/local-date?)
@@ -56,7 +56,7 @@
                          :weekly (s/keys :req-un [::days])))
 (s/def :scheduled-transaction/date-spec ::date-spec)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::models/scheduled-transaction (s/keys :req [:scheduled-transaction/entity
+(s/def ::entities/scheduled-transaction (s/keys :req [:scheduled-transaction/entity
                                                     :scheduled-transaction/description
                                                     :scheduled-transaction/period
                                                     :scheduled-transaction/start-date

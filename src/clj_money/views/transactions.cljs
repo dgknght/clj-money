@@ -27,7 +27,7 @@
                                      +busy
                                      -busy]]
             [clj-money.dnd :as dnd]
-            [clj-money.util :as util :refer [debounce model=]]
+            [clj-money.util :as util :refer [debounce entity=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :as accounts :refer [polarize-quantity
@@ -118,7 +118,7 @@
                                                  {:fetch-xf (comp
                                                               (map (fn [[start end :as range]]
                                                                      (when (seq range)
-                                                                       {:transaction-item/account (util/->model-ref account)
+                                                                       {:transaction-item/account (util/->entity-ref account)
                                                                         :transaction/transaction-date [:between> start end]})))
                                                               fetch-items)
                                                   :chunk-size 100}))]
@@ -281,7 +281,7 @@
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
-                                     #(model= @account
+                                     #(entity= @account
                                               (:transaction-item/account %)))))]
     (fn []
       [:table.table.table-striped.table-hover

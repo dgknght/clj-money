@@ -7,8 +7,8 @@
             [clj-money.util :as util]
             [clj-money.db.ref]
             [clj-money.entities.ref]
-            [clj-money.models :as models]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
+            [clj-money.entities :as entities]
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -17,7 +17,7 @@
             [clj-money.test-helpers :refer [dbtest]]))
 
 (defn- attributes []
-  #:budget-item{:account (util/->model-ref (find-account "Groceries")) 
+  #:budget-item{:account (util/->entity-ref (find-account "Groceries")) 
                 :periods [101M 102M 103M]})
 
 (def ^:private ctx
@@ -121,11 +121,11 @@
   (with-context existing-context
     (let [out-chan (a/chan)
           budget (find-budget "2016")
-          result (models/put (assoc budget :budget/items [])
+          result (entities/put (assoc budget :budget/items [])
                              :out-chan out-chan)]
       (is (nil? (seq (:budget/items result)))
           "The item is removed from the return value")
-      (is (nil? (seq (:budget/items (models/find budget))))
+      (is (nil? (seq (:budget/items (entities/find budget))))
           "The item is removed from the retrieved value")
       (let [[[before after] _ch] (a/alts!! [out-chan (a/timeout 1000)])]
         (is (= budget before)

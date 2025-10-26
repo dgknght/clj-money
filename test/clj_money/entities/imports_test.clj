@@ -7,14 +7,14 @@
             [clj-money.images.sql]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-image
                                             find-import]]
             [clj-money.test-helpers :refer [dbtest]]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]))
 
 (def import-context
@@ -31,7 +31,7 @@
                      :st-capital-gains-account "Investments/Short-Term Gains"
                      :lt-capital-loss-account "Long-Term Losses"
                      :st-capital-loss-account "Short-Term Losses"}
-           :images [(util/->model-ref (find-image "sample.gnucash"))]})
+           :images [(util/->entity-ref (find-image "sample.gnucash"))]})
 
 (defn- assert-created
   [attr]
@@ -52,7 +52,7 @@
     (is (seq-of-maps-like?
           [#:import{:entity-name "import entity"
                     :entity-exists? false}]
-          (models/select #:import{:user (find-user "john@doe.com")})))))
+          (entities/select #:import{:user (find-user "john@doe.com")})))))
 
 (dbtest user-is-required
   (with-context import-context
@@ -76,11 +76,11 @@
                      (-> (find-import "import entity")
                          (assoc :import/progress {:account {:total 20
                                                             :processed 0}})
-                         models/put))
+                         entities/put))
         "The return value contains the updated attributes")
     (is (comparable? {:import/progress {:account {:total 20
                                                   :processed 0}}}
-                     (models/find (find-import "import entity")))
+                     (entities/find (find-import "import entity")))
         "The retrieved value contains the updated attributes")))
 
 (def ^:private delete-context
@@ -101,17 +101,17 @@
     (let [user (find-user "john@doe.com")]
       (testing "deleting an import deletes the associated files"
         (prop/delete-and-propagate (find-import "import entity"))
-        (is (empty? (models/select #:import{:user user
+        (is (empty? (entities/select #:import{:user user
                                             :entity-name "import entity"}))
             "The import record is removed")
-        (is (empty? (models/select #:image{:user user
+        (is (empty? (entities/select #:image{:user user
                                            :original-filename "sample.gnucash"}))
             "The image record is removed also"))
       (testing "deleting an import preserves associated files linked to other imports"
-        (models/delete (find-import "same entity"))
-        (is (empty? (models/select #:import{:user user
+        (entities/delete (find-import "same entity"))
+        (is (empty? (entities/select #:import{:user user
                                             :entity-name "same entity"}))
             "The import record is removed")
-        (is (seq (models/select #:image{:user (:id user)
+        (is (seq (entities/select #:image{:user (:id user)
                                         :original-filename "sample_with_commodities.gnucash"}))
             "The image record is preserved")))))

@@ -25,11 +25,11 @@
                          :min-count 1
                          :kind set?))
 (s/def ::primary-key (s/coll-of keyword?))
-(s/def ::model (s/keys :req-un [::id
-                                ::fields]
-                       :opt-un [::refs
-                                ::primary-key]))
-(def models
+(s/def ::entity (s/keys :req-un [::id
+                                 ::fields]
+                        :opt-un [::refs
+                                 ::primary-key]))
+(def entities
   [{:id :user
     :fields #{{:id :email
                :type :string}
@@ -279,16 +279,16 @@
               {:id :value
                :type :decimal}}}])
 
-(assert (s/valid? (s/coll-of ::model) models)
+(assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")
 
-(def indexed-models
-  (index-by :id models))
+(def indexed-entities
+  (index-by :id entities))
 
 (def ref-id (some-fn :id identity))
 
-(def model-ref-keys
-  (->> models
+(def entity-ref-keys
+  (->> entities
        (mapcat (fn [{:keys [refs id]}]
                  (map (fn [ref]
                         (keyword (name id)
@@ -297,51 +297,51 @@
        set))
 
 (def relationships
-  (->> models
+  (->> entities
        (mapcat (fn [{:keys [id refs]}]
                        (map #(vector (ref-id %) id)
                             refs)))
        set))
 
 (defn- extract-attributes
-        [{:keys [fields refs] :as model}]
+        [{:keys [fields refs] :as entity}]
         (concat (map (fn [{:keys [id]}]
-                             (keyword (name (:id model))
+                             (keyword (name (:id entity))
                                       (name id)))
                      fields)
                 (map (fn [m]
-                             (keyword (name (:id model))
+                             (keyword (name (:id entity))
                                       (name m)))
                      refs)))
 
 (def attributes
-  (->> models
+  (->> entities
        (map (juxt :id extract-attributes))
        (into {})))
 
 (defn- extract-reference-attributes
-  [{:keys [refs] :as model}]
+  [{:keys [refs] :as entity}]
   (map (fn [m]
-               (keyword (name (:id model))
+               (keyword (name (:id entity))
                         (name m)))
        refs))
 
 (def reference-attributes
-  (->> models
+  (->> entities
        (map (juxt :id extract-reference-attributes))
        (into {})))
 
 (defn- simplify-references
-  [model model-type]
+  [entity entity-type]
   (reduce (fn [m ref]
                   (update-in-if m [ref] #(select-keys % [:id])))
-          model
-          (reference-attributes model-type)))
+          entity
+          (reference-attributes entity-type)))
 
 (defn prune
-  "Given a model, remove keys that don't belong to the model
-  and reduce references to a simple model ref"
-  [model model-type]
-  (-> model
-      (select-keys (cons :id (attributes model-type)))
-      (simplify-references model-type)))
+  "Given a entity, remove keys that don't belong to the entity
+  and reduce references to a simple entity ref"
+  [entity entity-type]
+  (-> entity
+      (select-keys (cons :id (attributes entity-type)))
+      (simplify-references entity-type)))

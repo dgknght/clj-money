@@ -832,7 +832,7 @@
 ; latest price $20 on 2017-02-01
 (defn expected-commodities-account-summary []
   [{:report/caption "Apple, Inc. (AAPL)"
-    :report/commodity (util/->model-ref (find-commodity "AAPL"))
+    :report/commodity (util/->entity-ref (find-commodity "AAPL"))
     :report/shares 150M
     :report/price 20M
     :report/cost 1000M
@@ -840,7 +840,7 @@
     :report/gain 2000M
     :report/style :data}
    {:report/caption "Microsoft Corp (MSFT)"
-    :report/commodity (util/->model-ref (find-commodity "MSFT"))
+    :report/commodity (util/->entity-ref (find-commodity "MSFT"))
     :report/shares 50M
     :report/price 5M
     :report/cost 500M

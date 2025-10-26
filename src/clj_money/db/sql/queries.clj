@@ -7,7 +7,7 @@
             [clj-money.util :as util]))
 
 (def ^:private joins
-  (->> schema/models
+  (->> schema/entities
        (filter #(some map? (:refs %)))
        (mapcat (fn [{:keys [refs id]}]
                  (->> refs
@@ -39,7 +39,7 @@
 (defn criteria->query
   [criteria & [options]]
   {:pre [criteria
-         (util/model-type criteria)]}
+         (util/entity-type criteria)]}
   (-> criteria
       (self->id)
       (sql/->query (merge default-options options))))

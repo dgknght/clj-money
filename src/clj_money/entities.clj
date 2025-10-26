@@ -10,66 +10,66 @@
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.json] ; to ensure encoders are registered
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util :refer [entity=]]
             [clj-money.db :as db]))
 
-(s/def ::model (s/and map?
-                      util/model-type))
-(s/def ::puttable (s/or :map       ::model
-                        :operation (s/tuple ::db/operation ::model)))
+(s/def ::data-entity (s/and map?
+                       util/entity-type))
+(s/def ::puttable (s/or :map       ::data-entity
+                        :operation (s/tuple ::db/operation ::data-entity)))
 (s/def ::puttables (s/coll-of ::puttable :min-count 1))
 
 (def exchanges #{:nyse :nasdaq :amex :otc})
 
 (s/def ::id (some-fn uuid? int? util/temp-id?))
-(s/def ::model-ref (s/keys :req-un [::id]))
+(s/def ::entity-ref (s/keys :req-un [::id]))
 
-(defmulti prepare-criteria util/model-type-dispatch)
+(defmulti prepare-criteria util/entity-type-dispatch)
 (defmethod prepare-criteria :default [m] m)
 
-(defmulti before-validation util/model-type-dispatch)
+(defmulti before-validation util/entity-type-dispatch)
 (defmethod before-validation :default [m & _] m)
 
-(defmulti before-save util/model-type-dispatch)
+(defmulti before-save util/entity-type-dispatch)
 (defmethod before-save :default [m & _] m)
 
-(defmulti after-save util/model-type-dispatch)
+(defmulti after-save util/entity-type-dispatch)
 (defmethod after-save :default [m & _] m)
 
-(defmulti after-read util/model-type-dispatch)
+(defmulti after-read util/entity-type-dispatch)
 (defmethod after-read :default [m & _] m)
 
-(defmulti before-delete util/model-type-dispatch)
+(defmulti before-delete util/entity-type-dispatch)
 (defmethod before-delete :default [m & _] m)
 
 (defn- validation-key
   [m]
   (keyword "clj-money.entities"
-           (-> m util/model-type name)))
+           (-> m util/entity-type name)))
 
 (defn validate
-  [model]
-  (let [validated (v/validate model (validation-key model))]
+  [entity]
+  (let [validated (v/validate entity (validation-key entity))]
     (when-let [errors (seq (::v/errors validated))]
-      (log/debugf "[validation] Invalid model %s: %s"
-                  model
+      (log/debugf "[validation] Invalid entity %s: %s"
+                  entity
                   errors)
       (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
-  model)
+  entity)
 
 (defn before
-  ([model]
-   (-> model
+  ([entity]
+   (-> entity
        meta
        ::before))
-  ([model k]
-   (-> model
+  ([entity k]
+   (-> entity
        before
        k)))
 
 (defn- append-before
-  [model]
-  (vary-meta model assoc ::before model))
+  [entity]
+  (vary-meta entity assoc ::before entity))
 
 (defn select
   ([criteria] (select criteria {}))
@@ -90,47 +90,47 @@
    (first (select criteria (assoc options :limit 1)))))
 
 (defn find-many
-  [m-or-ids model-type]
-  (select (util/model-type {:id [:in (mapv ->id m-or-ids)]}
-                           model-type)))
+  [m-or-ids entity-type]
+  (select (util/entity-type {:id [:in (mapv ->id m-or-ids)]}
+                           entity-type)))
 
 (defn find
-  "Find a model by id or by reference map.
+  "Find a entity by id or by reference map.
 
   When given one argument:
-    - If the argument is a model reference, return the model
-    - If the argument is a keyword, a function that will look up models of the specified type
-  When given two arguments, look up a model of the spcified type having the specified id"
+    - If the argument is a entity reference, return the entity
+    - If the argument is a keyword, a function that will look up entities of the specified type
+  When given two arguments, look up a entity of the spcified type having the specified id"
   ([arg]
    (if (keyword? arg)
      #(find % arg)
      (do
        (assert (:id arg) "The argument must have an id")
-       (assert (util/model-type arg) "The argument must have a model type")
+       (assert (util/entity-type arg) "The argument must have a entity type")
        (find (:id arg)
-             (keyword (util/model-type arg)))))) ; TODO: can we remove the call to keyword?
-  ([id-or-ref model-type-or-opts]
-   (let [[model-type opts] (if (keyword? model-type-or-opts)
-                             [model-type-or-opts {}]
-                             [(or (:model-type model-type-or-opts)
-                                  (util/model-type id-or-ref))
-                              model-type-or-opts])]
-     (find-by (util/model-type
-                (util/->model-ref id-or-ref)
-                model-type)
+             (keyword (util/entity-type arg)))))) ; TODO: can we remove the call to keyword?
+  ([id-or-ref entity-type-or-opts]
+   (let [[entity-type opts] (if (keyword? entity-type-or-opts)
+                             [entity-type-or-opts {}]
+                             [(or (:entity-type entity-type-or-opts)
+                                  (util/entity-type id-or-ref))
+                              entity-type-or-opts])]
+     (find-by (util/entity-type
+                (util/->entity-ref id-or-ref)
+                entity-type)
               opts))))
 
 (def ^:private mergeable?
   (every-pred map? :id))
 
 (defn- merge-dupes
-  "Given a sequence of models, merge any that have the same id"
+  "Given a sequence of entities, merge any that have the same id"
   [puttables]
   (loop [input puttables output []]
     (if-let [puttable (first input)]
       (if (mergeable? puttable)
         (let [{dupes true
-               others false} (group-by #(model= puttable %)
+               others false} (group-by #(entity= puttable %)
                                        (rest input))]
           (recur others (conj output (apply merge puttable dupes))))
         (recur (rest input) (conj output puttable)))
@@ -141,7 +141,7 @@
   (->> ms
        (remove vector?)
        (filter :id)
-       (map (juxt util/model-type :id))
+       (map (juxt util/entity-type :id))
        (frequencies)
        (remove (comp #{1} second))
        seq))
@@ -149,7 +149,7 @@
 (defn- throw-on-duplicate
   [ms]
   (when (duplicate-present? ms)
-    (throw (ex-info "Duplicate model found" {:models ms})))
+    (throw (ex-info "Duplicate entity found" {:entities ms})))
   ms)
 
 (defn- handle-dupes
@@ -160,9 +160,9 @@
     (throw (ex-info "Invalid on-duplicate value" {:on-duplicate on-duplicate}))))
 
 (defn- dispatch
-  "Returns a function that accepts either a naked model or a model wrapped in a
+  "Returns a function that accepts either a naked entity or a entity wrapped in a
   vector with a db operator in the first position, and applies the function to
-  the model, unless it's a delete operation."
+  the entity, unless it's a delete operation."
   ([f]
    #(dispatch f %))
   ([f x]
@@ -203,8 +203,8 @@
     after [:inserted (util/simplify after)]))
 
 (defn- calc-changes
-  "Given a sequence of models that are to be saved and the corresponding sequence
-  of saved models, calculate the difference tuples"
+  "Given a sequence of entities that are to be saved and the corresponding sequence
+  of saved entities, calculate the difference tuples"
   [to-save saved]
   (->> saved
        (interleave to-save)
@@ -233,26 +233,32 @@
             (a/>! ctrl-chan :finish)))))))
 
 (defn put-many
-  "Save a sequence of models to the database, providing lifecycle hooks that
-  are dispatched by model type, including: before-validation, before-save,
+  "Save a sequence of entities to the database, providing lifecycle hooks that
+  are dispatched by entity type, including: before-validation, before-save,
   after-save, etc.
 
   Options:
   :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
   :out-chan     - An async channel that when passed, receives change tuples
-                  containing before and after versions of each model affected
+                  containing before and after versions of each entity affected
                   by the operation.
   :close-chan?  - A boolean value indicating whether or not the out-chan should be
                   closed automatically once all pending results have been sent.
   :ctrl-chan    - Gets a message (:start) when changes are about to be emitted
                   another (:finish) when the changes have been emitted"
-  ([models] (put-many {} models))
+  ([entities] (put-many {} entities))
   ([{:as opts
      :keys [storage]}
-    models]
-   {:pre [(s/valid? ::puttables models)]}
+    entities]
 
-   (let [to-save (->> models
+   (when-not (s/valid? ::puttables entities)
+     (s/explain ::puttables entities)
+     (throw (ex-info "Invalid entity" {:entities entities})))
+
+
+   #_{:pre [(s/valid? ::puttables entities)]}
+
+   (let [to-save (->> entities
                       (handle-dupes opts)
                       (map (dispatch
                              (comp ensure-id
@@ -272,40 +278,40 @@
      result)))
 
 (defn put
-  [model & {:as opts}]
-  (first (put-many opts [model])))
+  [entity & {:as opts}]
+  (first (put-many opts [entity])))
 
 (defn update
   [changes criteria]
   (db/update (db/storage) changes criteria))
 
 (defn delete-many
-  ([models] (delete-many {} models))
-  ([{:keys [out-chan]} models]
-   {:pre [(seq (filter identity models))]}
-   (let [result (->> models
+  ([entities] (delete-many {} entities))
+  ([{:keys [out-chan]} entities]
+   {:pre [(seq (filter identity entities))]}
+   (let [result (->> entities
                      (map before-delete)
                      (db/delete (db/storage)))]
      (when out-chan
        (a/go
-         (->> models
+         (->> entities
               (map #(vector % nil))
               (a/onto-chan!! out-chan))))
      result)))
 
 (defn delete
-  [model & {:as opts}]
-  {:pre [model]}
-  (delete-many opts [model]))
+  [entity & {:as opts}]
+  {:pre [entity]}
+  (delete-many opts [entity]))
 
 (defn resolve-ref
-  ([model-type]
-   (fn [model-or-ref]
-     (resolve-ref model-or-ref model-type)))
-  ([model-or-ref model-type]
-   (if (util/model-ref? model-or-ref)
-     (find model-or-ref model-type)
-     model-or-ref)))
+  ([entity-type]
+   (fn [entity-or-ref]
+     (resolve-ref entity-or-ref entity-type)))
+  ([entity-or-ref entity-type]
+   (if (util/entity-ref? entity-or-ref)
+     (find entity-or-ref entity-type)
+     entity-or-ref)))
 
 (def sensitive-keys
   #{:user/email

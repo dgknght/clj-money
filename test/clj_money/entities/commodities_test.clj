@@ -3,9 +3,9 @@
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.db.ref]
             [clj-money.entities.ref]
             [clj-money.factories.user-factory]
@@ -93,7 +93,7 @@
 
 (dbtest name-can-be-duplicated-between-exchanges
   (with-context existing-context
-    (let [commodity (models/put
+    (let [commodity (entities/put
                       (assoc (attributes)
                              :commodity/exchange :nyse
                              :commodity/symbol "AAPL"))]
@@ -103,7 +103,7 @@
 
 (dbtest name-can-be-duplicated-between-entities
   (with-context existing-context
-    (let [commodity (models/put
+    (let [commodity (entities/put
                       (assoc (attributes)
                              :commodity/entity (find-entity "Business")))]
       (is (comparable? #:commodity{:name "Apple, Inc."
@@ -176,7 +176,7 @@
 (dbtest a-commodity-can-be-updated
   (with-context existing-context
     (let [commodity (find-commodity "AAPL")
-          result (models/put (-> commodity
+          result (entities/put (-> commodity
                                          (assoc :commodity/name "New name")
                                          (assoc-in [:commodity/price-config :price-config/enabled] false)))]
       (is (comparable? {:commodity/name "New name"
@@ -185,7 +185,7 @@
           "The return value has the updated attributes")
       (is (comparable? {:commodity/name "New name"
                         :commodity/price-config {:price-config/enabled false}}
-                       (models/find commodity))
+                       (entities/find commodity))
           "The retrieved value has the updated attributes"))))
 
 (dbtest a-commodity-can-be-deleted
@@ -215,4 +215,4 @@
 
 (dbtest get-a-count-of-commodities
   (with-context count-context
-    (is  (= 3 (models/count {:commodity/entity (find-entity "Personal")})))))
+    (is  (= 3 (entities/count {:commodity/entity (find-entity "Personal")})))))

@@ -19,7 +19,7 @@
             [clj-money.test-helpers :refer [reset-db
                                             account-ref]]
             [clj-money.accounts :refer [system-tagged?]]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data] :as imp]
             [clj-money.import.gnucash]
@@ -76,8 +76,8 @@
     :report/style :summary}])
 
 (defn- expected-accounts []
-  (let [usd (util/->model-ref
-              (models/find-by
+  (let [usd (util/->entity-ref
+              (entities/find-by
                 {:commodity/symbol "USD"}))]
     [#:account{:name "Checking"
                :type :asset
@@ -121,23 +121,23 @@
       (is (comparable? {:entity/name "Personal"}
                        entity)
           "It returns the new entity"))
-    (testing "models"
+    (testing "entities"
       (is (comparable? #:entity{:name "Personal"
                                 :transaction-date-range [(t/local-date 2015 1 1)
                                                          (t/local-date 2015 1 18)]
-                                :settings #:settings{:default-commodity (util/->model-ref (models/find-by #:commodity{:symbol "USD" :entity entity}))}}
-                       (models/find entity)))
+                                :settings #:settings{:default-commodity (util/->entity-ref (entities/find-by #:commodity{:symbol "USD" :entity entity}))}}
+                       (entities/find entity)))
       "The entity can be retrieved"
       (is (seq-of-maps-like? (expected-accounts)
-                             (models/select {:account/entity entity}
+                             (entities/select {:account/entity entity}
                                             {:sort [:account/name]}))
           "The accounts are created")
-      (is (seq-of-maps-like? [#:reconciliation{:account (util/->model-ref (models/find-by {:account/name "Checking"}))
+      (is (seq-of-maps-like? [#:reconciliation{:account (util/->entity-ref (entities/find-by {:account/name "Checking"}))
                                                :status :completed
                                                :end-of-period (t/local-date 2015 1 15)
                                                :balance 800M}]
-                             (models/select
-                               (util/model-type
+                             (entities/select
+                               (util/entity-type
                                  {:account/entity entity}
                                  :reconciliation)))
           "Reconciliations can be retrieved"))
@@ -214,10 +214,10 @@
 
 (deftest halt-on-failure
   (with-context gnucash-context
-    (let [og-put-many models/put-many]
-      (with-redefs [models/put-many (fn [& args]
+    (let [og-put-many entities/put-many]
+      (with-redefs [entities/put-many (fn [& args]
                                       (if (and (= 2 (count args))
-                                               (util/model-type? (first (second args))
+                                               (util/entity-type? (first (second args))
                                                                  :commodity))
                                         (throw (ex-info "Induced error" {:one 1}))
                                         (apply og-put-many args)))]
@@ -286,7 +286,7 @@
 
 (defn- last-trx-item
   [account]
-  (models/find-by {:tranaction-item/account (util/->model-ref account)}
+  (entities/find-by {:tranaction-item/account (util/->entity-ref account)}
                   {:sort [[:transaction-item/date :desc]
                           [:transaction-item/index :desc]]}))
 
@@ -299,16 +299,16 @@
                             st-capital-gains-account
                             lt-capital-loss-account
                             st-capital-loss-account]} :entity/settings}
-          (models/find entity)]
+          (entities/find entity)]
       (testing "entity settings"
         (is (empty? notifications) "No errors or warnings are reported")
-        (is (util/model-ref? lt-capital-gains-account)
+        (is (util/entity-ref? lt-capital-gains-account)
             "The long-term capital gains account id is set")
-        (is (util/model-ref? st-capital-gains-account)
+        (is (util/entity-ref? st-capital-gains-account)
             "The short-term capital gains account id is set")
-        (is (util/model-ref? lt-capital-loss-account)
+        (is (util/entity-ref? lt-capital-loss-account)
             "The long-term capital losses account id is set")
-        (is (util/model-ref? st-capital-loss-account)
+        (is (util/entity-ref? st-capital-loss-account)
             "The short-term capital losses account id is set"))
       (testing "commodities"
         (is (comparable?
@@ -317,7 +317,7 @@
                           :price-config #:price-config{:enabled true}
                           :price-date-range [(t/local-date 2015 1 17)
                                              (t/local-date 2015 5 1)]}
-              (models/find-by {:commodity/symbol "AAPL"}))
+              (entities/find-by {:commodity/symbol "AAPL"}))
             "The traded commodity is created"))
       (testing "transactions"
         (is (seq-of-maps-like? [#:transaction-item{:action :credit
@@ -326,7 +326,7 @@
                                                    :value 102.50M
                                                    :balance 102.50M
                                                    :memo "Sell 100.000000 shares of AAPL at 6.000"}]
-               (models/select {:transaction-item/account st-capital-gains-account})))))))
+               (entities/select {:transaction-item/account st-capital-gains-account})))))))
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
@@ -347,10 +347,10 @@
     (let [imp (find-import "Personal")
           {:keys [entity wait-chan]} (import-data imp)]
       (a/alts!! [wait-chan (a/timeout 5000)])
-      (let [retrieved (models/select {:budget/entity entity}
+      (let [retrieved (entities/select {:budget/entity entity}
                                      {:include #{:budget/items}})]
         (is (seq-of-maps-like? [#:budget{:name "2017"
-                                         :entity (util/->model-ref entity)
+                                         :entity (util/->entity-ref entity)
                                          :period [12 :month]
                                          :start-date (t/local-date 2017 1 1)
                                          :end-date (t/local-date 2017 12 31)}]
@@ -395,14 +395,14 @@
                                     :shares-purchased 100M
                                     :shares-owned 100M
                                     :purchase-price 10M}]
-                             (models/select #:lot{:account (account-ref "401k")}))
+                             (entities/select #:lot{:account (account-ref "401k")}))
           "The lots can be retrieved")
       (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2015 1 17)
                                       :value 10M}
                               #:price{:trade-date (t/local-date 2015 1 30)
                                       :value 12M}]
-                             (models/select
-                               (util/model-type
+                             (entities/select
+                               (util/entity-type
                                  {:price/trade-date [:between>
                                                      (t/local-date 2015 1 1)
                                                      (t/local-date 2016 1 1)]
@@ -415,27 +415,27 @@
   (with-context ext-context
     (let [{:keys [entity wait-chan]} (import-data (find-import "Personal"))
           _ (a/alts!! [wait-chan (a/timeout 5000)])
-          four-oh-one-k (models/find-by {:account/name "401k"})
-          ira (models/find-by {:account/name "IRA"
+          four-oh-one-k (entities/find-by {:account/name "401k"})
+          ira (entities/find-by {:account/name "IRA"
                                :account/entity entity})
-          aapl (models/find-by {:commodity/symbol "AAPL"
+          aapl (entities/find-by {:commodity/symbol "AAPL"
                                 :commodity/entity entity})]
       (testing "entity"
-        (let [entity (models/find entity)
-              lt-gains (models/find-by {:account/name "Long-Term Gains"})
-              st-gains (models/find-by {:account/name "Short-Term Gains"})
-              lt-loss (models/find-by {:account/name "Long-Term Losses"})
-              st-loss (models/find-by {:account/name "Short-Term Losses"})]
+        (let [entity (entities/find entity)
+              lt-gains (entities/find-by {:account/name "Long-Term Gains"})
+              st-gains (entities/find-by {:account/name "Short-Term Gains"})
+              lt-loss (entities/find-by {:account/name "Long-Term Losses"})
+              st-loss (entities/find-by {:account/name "Short-Term Losses"})]
           (is (empty? (select-keys (:entity/settings entity)
                                    [:lt-capital-gains-account
                                     :st-capital-gains-account
                                     :lt-capital-loss-account
                                     :st-capital-loss-account]))
               "The naked keys are not set")
-          (is (comparable? {:settings/lt-capital-gains-account (util/->model-ref lt-gains)
-                            :settings/st-capital-gains-account (util/->model-ref st-gains)
-                            :settings/lt-capital-loss-account (util/->model-ref lt-loss)
-                            :settings/st-capital-loss-account (util/->model-ref st-loss)}
+          (is (comparable? {:settings/lt-capital-gains-account (util/->entity-ref lt-gains)
+                            :settings/st-capital-gains-account (util/->entity-ref st-gains)
+                            :settings/lt-capital-loss-account (util/->entity-ref lt-loss)
+                            :settings/st-capital-loss-account (util/->entity-ref st-loss)}
                            (:entity/settings entity))
               "The entity settings are updated with specified gains accounts")))
 
@@ -445,9 +445,9 @@
                      :shares-purchased 200M
                      :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
                      :purchase-price 4.975M ; originally purchased 100 shares at $9.95/share
-                     :commodity (util/->model-ref aapl)
-                     :account (util/->model-ref ira)}]
-              (models/select {:lot/commodity aapl}))
+                     :commodity (util/->entity-ref aapl)
+                     :account (util/->entity-ref ira)}]
+              (entities/select {:lot/commodity aapl}))
             "The shares lost due to reverse split are subtracted from the lot"))
 
       (testing "accounts"
@@ -461,9 +461,9 @@
             "The IRA quantity reflects the sale proceeds and cash in lieu"))
 
       (testing "transactions"
-        (let [ira-aapl (models/find-by #:account{:parent ira
+        (let [ira-aapl (entities/find-by #:account{:parent ira
                                                  :commodity aapl})
-              inv-exp (models/find-by #:account{:name "Investment Expenses"
+              inv-exp (entities/find-by #:account{:name "Investment Expenses"
                                                 :entity entity})]
           (is (seq-of-maps-like?
                 [{:transaction/transaction-date (t/local-date 2015 1 17)
@@ -480,8 +480,8 @@
                   :transaction-item/balance 15M
                   :transaction-item/action :debit
                   :transaction-item/index 1}]
-                (models/select
-                  (util/model-type
+                (entities/select
+                  (util/entity-type
                     {:transaction-item/account inv-exp
                      :transaction/transaction-date [:between>
                                                     (t/local-date 2015 1 1)
@@ -513,8 +513,8 @@
                   :transaction-item/quantity 100M
                   :transaction-item/value 497.5M ; this is reflecting the original value, not the sale value...is that right?
                   :transaction-item/balance 100M}]
-                (models/select
-                  (util/model-type
+                (entities/select
+                  (util/entity-type
                     {:transaction-item/account ira-aapl
                      :transaction/transaction-date [:between>
                                                     (t/local-date 2015 1 1)
@@ -541,10 +541,10 @@
   (with-context sched-context
     (let [imp (find-import "Personal")
           {:keys [entity notifications]} (execute-import imp)
-          retrieved (models/select #:scheduled-transaction{:entity entity})]
+          retrieved (entities/select #:scheduled-transaction{:entity entity})]
       (is (empty? notifications) "No errors or warnings are reported")
       (is (seq-of-maps-like?
-            [#:scheduled-transaction{:entity (util/->model-ref entity)
+            [#:scheduled-transaction{:entity (util/->entity-ref entity)
                                      :description "Paycheck"
                                      :start-date (t/local-date 2016 1 15)
                                      :end-date (t/local-date 2018 12 31)

@@ -5,7 +5,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transaction-items :as itms]
             [clj-money.accounts :as acts]))
@@ -43,7 +43,7 @@
   "Returns the uncompleted reconciliation for the specified
   account, if one exists"
   [account]
-  (models/find-by #:reconciliation{:status :new
+  (entities/find-by #:reconciliation{:status :new
                                    :account account}))
 
 (defn- working-reconciliation-exists?
@@ -63,9 +63,9 @@
 (defn- items-belong-to-account?
   [{:reconciliation/keys [account] :as reconciliation}]
   (if-let [new-items (seq (get-meta reconciliation ::new-items))]
-    (let [account-ids (->> (models/select
-                             (util/model-type
-                               (util/->model-ref account)
+    (let [account-ids (->> (entities/select
+                             (util/entity-type
+                               (util/->entity-ref account)
                                :account)
                              {:include-children? true})
                            (map :id)
@@ -93,7 +93,7 @@
 (defn- can-be-updated?
   [recon]
   (or (nil? (:id recon))
-      (= :new (:reconciliation/status (models/find recon)))))
+      (= :new (:reconciliation/status (entities/find recon)))))
 
 (v/reg-spec can-be-updated?
             {:message "A completed reconciliation cannot be updated"
@@ -110,19 +110,19 @@
             {:message "%s must be after that latest reconciliation"
              :path [:reconciliation/end-of-period]})
 
-(s/def :reconciliation/account ::models/model-ref)
+(s/def :reconciliation/account ::entities/entity-ref)
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
                                                        ;NB this is required for :sql and optional for :datomic-peer
 (s/def :reconciliation/item (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
-                                                       :req-un [::models/id])
-                                  :full (s/and ::models/transaction-item
+                                                       :req-un [::entities/id])
+                                  :full (s/and ::entities/transaction-item
                                                        ;NB this is required for :sql and optional for :datomic-peer
                                                (s/keys :opt [:transaction/transaction-date]))))
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
-(s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
+(s/def ::entities/reconciliation (s/and (s/keys :req [:reconciliation/account
                                                     :reconciliation/end-of-period
                                                     :reconciliation/status
                                                     :reconciliation/balance]
@@ -137,13 +137,13 @@
 (defn- fetch-items
   [{:keys [id] :reconciliation/keys [account] :as recon}]
   (if id
-    (let [accounts (models/select (util/model-type
-                                    (util/->model-ref account)
+    (let [accounts (entities/select (util/entity-type
+                                    (util/->entity-ref account)
                                     :account)
                                   {:include-children? true})
           criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
-      (models/select criteria
+      (entities/select criteria
                      {:datalog/hints [:transaction-item/reconciliation
                                       :transaction-item/account]}))
     []))
@@ -160,7 +160,7 @@
     (fn [{:keys [id]}]
       (if-let [account (@cache id)]
         account
-        (let [account (models/find id :account)]
+        (let [account (entities/find id :account)]
           (swap! cache assoc id account)
           account)))))
 
@@ -168,7 +168,7 @@
   (let [find (find-account)]
     (fn [item]
       (update-in item [:transaction-item/account]
-                 #(if (util/model-ref? %)
+                 #(if (util/entity-ref? %)
                     (find %)
                     %)))))
 
@@ -180,12 +180,12 @@
   "Returns the last completed reconciliation for an account"
   [{:reconciliation/keys [account] :as recon}]
   (when account
-    (models/find-by (cond-> {:reconciliation/account account
+    (entities/find-by (cond-> {:reconciliation/account account
                              :reconciliation/status :completed}
                       (:id recon) (assoc :id [:!= (:id recon)]))
                     {:sort [[:reconciliation/end-of-period :desc]]})))
 
-(defmethod models/before-validation :reconciliation
+(defmethod entities/before-validation :reconciliation
   [{:reconciliation/keys [items] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items) items)]}
   (let [prep (prepare-item)
@@ -210,7 +210,7 @@
 
 (defn- fetch-transaction-items
   [{:as recon :reconciliation/keys [account]}]
-  (->> (models/select (util/model-type
+  (->> (entities/select (util/entity-type
                         {:transaction-item/reconciliation recon}
                         :transaction)
                       {:select-also :transaction/transaction-date
@@ -227,14 +227,14 @@
            :reconciliation/items
            (fetch-transaction-items recon))))
 
-(defmethod models/after-read :reconciliation
+(defmethod entities/after-read :reconciliation
   [recon _opts]
   (when recon
     (append-transaction-items recon)))
 
-(defmethod models/before-delete :reconciliation
+(defmethod entities/before-delete :reconciliation
   [{:as recon :reconciliation/keys [account end-of-period]}]
-  (when (< 0 (models/count {:reconciliation/account account
+  (when (< 0 (entities/count {:reconciliation/account account
                             :reconciliation/end-of-period [:> end-of-period]}))
     (throw (ex-info "Only the most recent reconciliation may be deleted" {:reconciliation recon})))
   recon)

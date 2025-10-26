@@ -21,7 +21,7 @@
                                             parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 (use-fixtures :each reset-db)
 
@@ -37,12 +37,12 @@
                                                 :accounts))
                        (edn-body {:account/name "Savings"
                                   :account/type :asset
-                                  :account/commodity (util/->model-ref usd)})
+                                  :account/commodity (util/->entity-ref usd)})
                        (add-auth user)
                        app
                        parse-edn-body)
           retrieved (when-let [id (get-in response [:edn-body :id])]
-                      (models/find id :account))]
+                      (entities/find id :account))]
       [response retrieved])))
 
 (defn- assert-successful-create
@@ -69,7 +69,7 @@
   (assert-blocked-create (create-an-account "jane@doe.com")))
 
 (def list-context
-  (filter #(or (not= :account (util/model-type %))
+  (filter #(or (not= :account (util/entity-type %))
                (= "Checking" (:account/name %)))
           basic-context))
 
@@ -205,7 +205,7 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)
-          retrieved (models/find account)]
+          retrieved (entities/find account)]
       [response retrieved])))
 
 (defn- assert-successful-update
@@ -242,7 +242,7 @@
                                                   (:id account)))
                        (add-auth (find-user email))
                        app)
-          retrieved (models/find account)]
+          retrieved (entities/find account)]
       [response retrieved])))
 
 (defn- assert-successful-delete

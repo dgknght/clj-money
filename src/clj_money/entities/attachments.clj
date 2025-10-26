@@ -5,18 +5,18 @@
             [clojure.tools.logging :as log]
             [dgknght.app-lib.core :refer [fmin]]
             [clj-money.util :as util]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]))
 
-(s/def :attachment/transaction ::models/model-ref)
-(s/def :attachment/image ::models/model-ref)
+(s/def :attachment/transaction ::entities/entity-ref)
+(s/def :attachment/image ::entities/entity-ref)
 (s/def :attachment/caption string?)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::models/attachment (s/keys :req [:attachment/transaction
+(s/def ::entities/attachment (s/keys :req [:attachment/transaction
                                          :attachment/image]
                                    :opt [:attachment/caption]))
 
-(defmethod models/before-validation :attachment
+(defmethod entities/before-validation :attachment
   [{:as att :attachment/keys [transaction]}]
   (if (and (:transaction/transaction-date transaction)
            (nil? (:attachment/transaction-date att)))
@@ -25,8 +25,8 @@
 
 (defn- find-trx
   [{:attachment/keys [transaction transaction-date]}]
-  (models/find-by
-    (cond-> (util/model-type {:id (:id transaction)}
+  (entities/find-by
+    (cond-> (util/entity-type {:id (:id transaction)}
                              :transaction)
       transaction-date (assoc :transaction/transaction-date
                               transaction-date))))
@@ -50,12 +50,12 @@
   [entity _opts]
   (log/debugf "[propagation] start entity %s"
               (:entity/name entity))
-  (let [updated (some->> (models/select
-                           (util/model-type {:transaction/entity entity}
+  (let [updated (some->> (entities/select
+                           (util/entity-type {:transaction/entity entity}
                                             :attachment))
                          seq
                          (map #(adjust-trx % inc))
-                         (models/put-many))]
+                         (entities/put-many))]
     (log/infof "[propagation] finish entity %s"
                (:entity/name entity))
     updated))

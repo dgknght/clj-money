@@ -8,8 +8,8 @@
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.find-in-chunks :as ch]
-            [clj-money.entities :as models]
-            [clj-money.util :as util :refer [id= model=]]
+            [clj-money.entities :as entities]
+            [clj-money.util :as util :refer [id= entity=]]
             [clj-money.dates :as dates :refer [earliest]]
             [clj-money.accounts :as accounts :refer [nest
                                                      unnest
@@ -68,8 +68,8 @@
                {:start-date as-of
                 :time-step (t/years 1)
                 :fetch-fn (fn [ids date]
-                            (models/select
-                              (util/model-type
+                            (entities/select
+                              (util/entity-type
                                 {:transaction-item/account [:in ids]
                                  :transaction/transaction-date [:<between
                                                                 (t/minus date (t/years 1))
@@ -113,12 +113,12 @@
         lots (when (seq trading-account-ids)
                (group-by (juxt (comp :id :lot/account)
                                (comp :id :lot/commodity))
-                         (models/select {:lot/account [:in trading-account-ids]
+                         (entities/select {:lot/account [:in trading-account-ids]
                                          :lot/purchase-date [:<= as-of]})))
         lot-items (when (seq lots)
                     (group-by (comp :id :lot-item/lot)
-                              (models/select
-                                (util/model-type
+                              (entities/select
+                                (util/entity-type
                                   {:lot-item/lot [:in (->> (vals lots)
                                                            (mapcat identity)
                                                            (mapv :id))]
@@ -227,7 +227,7 @@
    (let [[since as-of] (default-income-statement-range)]
      (income-statement entity since as-of)))
   ([entity since as-of]
-   (->> (models/select #:account{:entity entity
+   (->> (entities/select #:account{:entity entity
                                  :type [:in #{:income :expense}]})
         (valuate-accounts {:entity entity
                            :since since
@@ -324,7 +324,7 @@
   ([entity as-of]
    (-> {:entity entity
         :as-of as-of
-        :accounts (models/select {:account/entity entity})}
+        :accounts (entities/select {:account/entity entity})}
        apply-account-valuations
        (update-in [:accounts] nest)
        apply-account-summarization
@@ -547,7 +547,7 @@
 
 (defn- append-entity
   [{:keys [budget] :as ctx}]
-  (assoc ctx :entity (models/find (:budget/entity budget)
+  (assoc ctx :entity (entities/find (:budget/entity budget)
                                   :entity)))
 
 (defn- append-period-count
@@ -561,7 +561,7 @@
 
 (defn- calc-budget-records
   [{:keys [budget as-of entity] :as ctx}]
-  (->> (models/select #:account{:entity (:budget/entity budget)
+  (->> (entities/select #:account{:entity (:budget/entity budget)
                                 :type [:in [:income :expense]]})
        (valuate-accounts {:entity entity
                           :since (:budget/start-date budget)
@@ -634,7 +634,7 @@
                                 (apply /)))]
     (with-precision 5
       #:report{:caption (:account/name account)
-               :account (util/->model-ref account)
+               :account (util/->entity-ref account)
                :period (monitor-item period-budget period-actual percent-of-period)
                :budget (monitor-item total-budget total-actual percent-of-total)})))
 
@@ -652,9 +652,9 @@
 (defn- append-account-children
   [{:keys [account] :as ctx}]
   (let [children (remove
-                  #(model= %  account)
-                  (models/select (util/model-type
-                                   (util/->model-ref account)
+                  #(entity= %  account)
+                  (entities/select (util/entity-type
+                                   (util/->entity-ref account)
                                    :account)
                                  {:include-children? true}))]
     (-> ctx
@@ -683,14 +683,14 @@
                            :as-of as-of
                            :budget (update-in budget
                                               [:budget/entity]
-                                              (models/resolve-ref :entity))})
+                                              (entities/resolve-ref :entity))})
      #:report{:caption (:account/name account)
               :account account
               :message (format "There is no budget for %s" (dates/format-local-date as-of))})))
 
 (defn- summarize-commodity
   [[commodity-id lots]]
-  (let [commodity (models/find commodity-id :commodity)
+  (let [commodity (entities/find commodity-id :commodity)
         shares (sum :lot/shares-owned lots)
         cost (->> lots
                   (map #(* (:lot/shares-owned %)
@@ -702,7 +702,7 @@
     #:report{:caption (format "%s (%s)"
                               (:commodity/name commodity)
                               (:commodity/symbol commodity))
-             :commodity (util/->model-ref commodity)
+             :commodity (util/->entity-ref commodity)
              :style :data
              :depth 0
              :shares shares
@@ -715,7 +715,7 @@
   ([account]
    (commodities-account-summary account (t/local-date)))
   ([account as-of]
-   (let [records (conj (->> (models/select {:lot/account account
+   (let [records (conj (->> (entities/select {:lot/account account
                                             :lot/shares-owned [:!= 0M]})
                             (group-by (comp :id :lot/commodity))
                             (map #(summarize-commodity %))
@@ -771,20 +771,20 @@
   ([account]
    (lot-report account nil))
   ([account commodity]
-   (->> (models/select (cond-> {:lot/account account
+   (->> (entities/select (cond-> {:lot/account account
                                 :lot/shares-owned [:> 0]}
                          commodity
                          (assoc :lot/commodity commodity))
                        {:sort [[:lot/purchase-date :asc]]})
         (map #(assoc %
                      :lot/items
-                     (models/select
+                     (entities/select
                        {:lot-item/lot %}
                        {:sort [[:transaction/transaction-date :asc]]
                         :select-also [:transaction/transaction-date]})))
         (group-by (comp :id :lot/commodity))
         (map (comp #(apply valuate-lots %)
-                   #(update-in % [0] (fn [id] (models/find id :commodity)))))
+                   #(update-in % [0] (fn [id] (entities/find id :commodity)))))
         (sort-by :commodity/name))))
 
 (declare aggregate-portfolio-account)
@@ -942,10 +942,10 @@
     aggregate - The method, :by-commodity or :by-account, defaults to :by-commodity"
   [{:keys [entity] :as options}]
   {:pre [(:entity options)]}
-  (let [accounts (models/select {:account/entity entity
+  (let [accounts (entities/select {:account/entity entity
                                  :account/type :asset
                                  #_:account/system-tags #_[:&& #{:trading :tradable}]})
-        commodities (->> (models/select {:commodity/entity entity})
+        commodities (->> (entities/select {:commodity/entity entity})
                          (map (fn [c]
                                 (if (id= c
                                          (get-in entity [:entity/settings

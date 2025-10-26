@@ -5,14 +5,14 @@
             [dgknght.app-lib.core :refer [update-in-if
                                           index-by]]
             [dgknght.app-lib.api :as api]
-            [clj-money.util :as util :refer [model=]]
+            [clj-money.util :as util :refer [entity=]]
             [clj-money.comparatives :as comparatives]
             [clj-money.dates :as dates]
             [clj-money.prices :as p]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.prices.alpha-vantage :as alpha-vantage]
             [clj-money.prices.cache :as cache]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.authorization :refer [+scope
                                              authorize]
@@ -35,16 +35,16 @@
       (rename-keys {:commodity-id :price/commodity
                     :entity-id :commodity/entity
                     :trade-date :price/trade-date})
-      (update-in-if [:price/commodity] util/->model-ref)
-      (update-in-if [:commodity/entity] util/->model-ref)
+      (update-in-if [:price/commodity] util/->entity-ref)
+      (update-in-if [:commodity/entity] util/->entity-ref)
       (+scope :price authenticated)
-      (util/model-type :price)))
+      (util/entity-type :price)))
 
 (defn- index
   [req]
   (-> req
       extract-criteria
-      (models/select {:sort [[:price/trade-date :desc]]})
+      (entities/select {:sort [[:price/trade-date :desc]]})
       api/response))
 
 (defn- create
@@ -59,7 +59,7 @@
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
-  (authorize (models/find-by {:id (:id params)
+  (authorize (entities/find-by {:id (:id params)
                               :price/trade-date (dates/unserialize-local-date (:trade-date params))})
              action
              authenticated))
@@ -77,7 +77,7 @@
   [req]
   (if-let [price (find-and-authorize req ::authorization/destroy)]
     (do
-      (models/delete price)
+      (entities/delete price)
       (api/response))
     api/not-found))
 
@@ -88,8 +88,8 @@
 
 ; TODO: Move this to a better place
 (defn- fetch*
-  "Given a sequence of commodity models, fetches prices from external services
-  and returns the price models."
+  "Given a sequence of commodity entities, fetches prices from external services
+  and returns the price entities."
   [commodities]
   (let [->key (juxt :commodity/exchange
                     :commodity/symbol)
@@ -105,7 +105,7 @@
                                                :cached-price/trade-date trade-date
                                                :cached-price/symbol symbol
                                                :cached-price/exchange exchange}))
-                                       models/put-many
+                                       entities/put-many
                                        doall)
                                   prices))))]
     (:prices (reduce (fn [{:keys [commodities] :as m}
@@ -126,7 +126,7 @@
                                (update-in [:prices] concat prices)
                                (update-in [:commodities] (fn [cs]
                                                            (remove (fn [c]
-                                                                     (some #(model= (:price/commodity %)
+                                                                     (some #(entity= (:price/commodity %)
                                                                                     c)
                                                                            prices))
                                                                    cs)))))))
@@ -145,10 +145,10 @@
   "Return prices for a specified list of commodities"
   [{:keys [params]}]
   (->> (:commodity-id params)
-       (map (models/find :commodity))
+       (map (entities/find :commodity))
        fetch*
-       models/put-many
-       (map #(update-in % [:price/commodity] util/->model-ref))
+       entities/put-many
+       (map #(update-in % [:price/commodity] util/->entity-ref))
        api/response))
 
 (def routes

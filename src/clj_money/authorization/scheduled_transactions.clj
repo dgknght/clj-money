@@ -11,4 +11,4 @@
 
 (defmethod authorization/scope :scheduled-transaction
   [_ user]
-  (util/model-type {:entity/user user} :scheduled-transaction))
+  (util/entity-type {:entity/user user} :scheduled-transaction))

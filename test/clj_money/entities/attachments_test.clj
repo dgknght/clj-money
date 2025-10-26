@@ -4,14 +4,14 @@
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.images.sql]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :refer [put-and-propagate
                                                   delete-and-propagate]]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
-            [clj-money.model-helpers :as helpers :refer [assert-deleted
+            [clj-money.entity-helpers :as helpers :refer [assert-deleted
                                                          assert-updated
                                                          assert-invalid]]
             [clj-money.test-context :refer [with-context
@@ -52,7 +52,7 @@
   (with-context attach-context
     (put-and-propagate (attributes))
     (is (comparable? {:transaction/attachment-count 1}
-                     (models/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
+                     (entities/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
                                                    :description "Paycheck"}))
         "The attachment count is incremented for the associated transaction")))
 
@@ -86,7 +86,7 @@
 (dbtest propagate-attachment-deletion
   (with-context update-context
     (let [att (find-attachment "receipt")
-          trx (models/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
+          trx (entities/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
                                             :description "Paycheck"})]
       (is (comparable? {:transaction/attachment-count 1}
                        trx)
@@ -95,5 +95,5 @@
       (delete-and-propagate att)
 
       (is (comparable? {:transaction/attachment-count 0}
-                       (models/find trx))
+                       (entities/find trx))
           "The attachment count is decremented for the associated transaction"))))

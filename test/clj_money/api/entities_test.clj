@@ -4,7 +4,7 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.db.ref]
             [clj-money.entities.ref]
             [clj-money.factories.user-factory]
@@ -36,7 +36,7 @@
       (is (comparable? #:entity{:user (select-keys user [:id])
                                 :name "Personal"
                                 :settings {:settings/inventory-method :fifo}}
-                       (models/find (get-in response [:edn-body :id])
+                       (entities/find (get-in response [:edn-body :id])
                                     :entity))
           "The entity can be retrieved"))))
 
@@ -64,7 +64,7 @@
                        (add-auth user)
                        app
                        parse-edn-body)]
-      [response (models/find entity)])))
+      [response (entities/find entity)])))
 
 (defn- assert-successful-edit
   [[response retrieved]]
@@ -100,7 +100,7 @@
                        app)]
       (is (http-unauthorized? response))
       (is (comparable? {:entity/name "Personal"}
-                       (models/find entity))
+                       (entities/find entity))
           "The retrieved value has not been changed."))))
 
 (defn- get-a-list
@@ -142,7 +142,7 @@
                               (:id entity)))
            (add-auth (find-user email))
            app)
-       (models/find entity)])))
+       (entities/find entity)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]

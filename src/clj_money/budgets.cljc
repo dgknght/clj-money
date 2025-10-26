@@ -177,7 +177,7 @@
 (defn create-items-from-history
   [budget since as-of trx-items]
   (->> trx-items
-       (group-by (comp util/->model-ref
+       (group-by (comp util/->entity-ref
                        :transaction-item/account))
        (map (trx-items->budget-item budget
                                     since

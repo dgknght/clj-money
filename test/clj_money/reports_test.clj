@@ -6,7 +6,7 @@
             [clj-money.reports.fixtures :as fixtures]
             [clj-money.db.ref]
             [clj-money.entities.ref]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.core]
             [clj-money.test-context :refer [with-context
                                             find-entity
@@ -19,7 +19,7 @@
 (deftest create-an-income-statement
   (with-context fixtures/report-context
     (is (seq-of-maps-like? fixtures/expected-income-statement
-                           (reports/income-statement (models/find (find-entity "Personal"))
+                           (reports/income-statement (entities/find (find-entity "Personal"))
                                                      (t/local-date 2016 1 1)
                                                      (t/local-date 2016 1 31)))
         "The return is a report data structure with income and expense accounts")))
@@ -27,7 +27,7 @@
 (deftest create-a-balance-sheet-report
   (with-context fixtures/report-context
     (is (seq-of-maps-like? fixtures/expected-balance-sheet
-                           (reports/balance-sheet (models/find (find-entity "Personal"))
+                           (reports/balance-sheet (entities/find (find-entity "Personal"))
                                                   (t/local-date 2016 1 31)))
         "The report include assets, liabilities, and equity totals")))
 
@@ -35,7 +35,7 @@
 (deftest balance-sheet-report-with-commodities
   (with-context fixtures/commodities-context
     (is (seq-of-maps-like? fixtures/expected-balance-sheet-with-commodities
-                           (reports/balance-sheet (models/find (find-entity "Personal"))
+                           (reports/balance-sheet (entities/find (find-entity "Personal"))
                                                   (t/local-date 2017 3 2)))
         "The balance sheet includes unrealized gains")))
 
@@ -44,13 +44,13 @@
     (is (seq-of-maps-like? (fixtures/expected-commodities-account-summary)
                            (-> "IRA"
                                find-account
-                               models/find
+                               entities/find
                                (reports/commodities-account-summary (t/local-date 2017 3 2))))
         "The report contains the commodities in the account and their current values based on most recent available price")))
 
 (deftest create-a-budget-report
   (with-context fixtures/budget-context
-    (let [report (reports/budget (models/find-by {:budget/name "2016"}
+    (let [report (reports/budget (entities/find-by {:budget/name "2016"}
                                                  {:include #{:budget/items}})
                                  {:as-of (t/local-date 2016 2 29)})]
       (is (= (:title fixtures/expected-budget-report)
@@ -63,7 +63,7 @@
 
 (deftest create-a-budget-report-grouped-by-tags
   (with-context fixtures/budget-context
-    (let [report (reports/budget (models/find-by {:budget/name "2016"}
+    (let [report (reports/budget (entities/find-by {:budget/name "2016"}
                                                  {:include #{:budget/items}})
                                  {:as-of (t/local-date 2016 2 29)
                                   :tags [:tax :mandatory :discretionary]})]
@@ -77,7 +77,7 @@
 
 (deftest create-a-budget-monitor
   (with-context fixtures/budget-context
-    (let [groceries (models/find-by {:account/name "Groceries"})
+    (let [groceries (entities/find-by {:account/name "Groceries"})
           ; half-way through january
           report (reports/monitor groceries
                                   (t/local-date 2016 1 15))]
@@ -103,7 +103,7 @@
 
 (defn- test-portfolio
   [as-of grouping]
-  (let [entity (models/find (find-entity "Personal"))
+  (let [entity (entities/find (find-entity "Personal"))
         expected (get-in fixtures/expected-portfolio-report
                          [grouping as-of])]
     (is (seq-of-maps-like? expected

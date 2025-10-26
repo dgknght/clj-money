@@ -1,7 +1,7 @@
 (ns clj-money.entities.grants
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 (def resource-types
   #{:account
@@ -18,13 +18,13 @@
 (def actions
   #{:show :create :update :delete :index})
 
-(s/def :grant/entity ::models/model-ref)
-(s/def :grant/user ::models/model-ref)
+(s/def :grant/entity ::entities/entity-ref)
+(s/def :grant/user ::entities/entity-ref)
 (s/def :grant/permissions (s/map-of resource-types
                                     (s/coll-of actions
                                                :min-count 1
                                                :kind set?)))
-(s/def ::models/grant (s/keys :req [:grant/entity
+(s/def ::entities/grant (s/keys :req [:grant/entity
                                     :grant/user
                                     :grant/permissions]))
 

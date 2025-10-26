@@ -3,17 +3,17 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
-            [clj-money.util :as util :refer [model=
-                                             ->model-ref]]
+            [clj-money.util :as util :refer [entity=
+                                             ->entity-ref]]
             [clj-money.json]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [dbtest]]
             [clj-money.accounts :as acts]
-            [clj-money.model-helpers
+            [clj-money.entity-helpers
              :refer [assert-invalid
                      assert-deleted]
              :as helpers]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
             [clj-money.test-context :refer [with-context
@@ -86,7 +86,7 @@
   (with-context reconciliation-context
     (assert-created (attributes))
     (testing "transaction items are not marked as reconciled"
-      (is (->> (models/select {:transaction/entity (find-entity "Personal")})
+      (is (->> (entities/select {:transaction/entity (find-entity "Personal")})
                   (mapcat :transaction/items)
                   (not-any? :transaction/recondiliation))
           "None of the transaction items should be marked as reconcilied"))))
@@ -94,7 +94,7 @@
 (dbtest create-a-completed-reconciliation
   (with-context reconciliation-context
     (let [checking (find-account "Checking")
-          checking-items (models/select {:transaction-item/account checking
+          checking-items (entities/select {:transaction-item/account checking
                                          :transaction-item/quantity [:!= 45M]}
                                         {:select-also [:transaction/transaction-date]})]
       (assert-created (assoc (attributes)
@@ -105,9 +105,9 @@
                (every? :transaction/reconciliation))
           "specified transaction items are marked as reconciled")
       (is (not-any? :transaction/reconciliation
-                    (remove #(util/model= checking (:transaction-item/account %))
-                            (models/select
-                              (util/model-type
+                    (remove #(util/entity= checking (:transaction-item/account %))
+                            (entities/select
+                              (util/entity-type
                                 {:transaction/entity (find-entity "Personal")}
                                 :transaction-item))))
           "All other transaction items are not marked as reconcilied"))))
@@ -189,11 +189,11 @@
           car (find-account "Car")
           reserve (find-account "Reserve")
           items (->> *context*
-                     (filter (util/model-type? :transaction))
+                     (filter (util/entity-type? :transaction))
                      (mapcat :transaction/items)
-                     (filter #(or (model= reserve
+                     (filter #(or (entity= reserve
                                           (:transaction-item/account %))
-                                  (model= car
+                                  (entity= car
                                           (:transaction-item/account %)))))
           _ (assert (= 2 (count items)) "Expected 2 items for the test")
           created (assert-created
@@ -205,7 +205,7 @@
           simplify #(select-keys % [:transaction-item/action
                                     :transaction-item/account
                                     :transaction-item/quantity])
-          retrieved (models/select {:transaction-item/reconciliation created})]
+          retrieved (entities/select {:transaction-item/reconciliation created})]
       (is (= (->> items
                   (map simplify)
                   set)
@@ -238,8 +238,8 @@
       #:reconciliation{:account (find-account "Checking")
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
-                       :items (models/select
-                                (util/model-type
+                       :items (entities/select
+                                (util/entity-type
                                   {:transaction/transaction-date (t/local-date 2017 1 1)
                                    :transaction-item/quantity 1000M
                                    :account/name "Checking"}
@@ -251,12 +251,12 @@
     (let [result (-> (find-reconciliation ["Checking"
                                            (t/local-date 2017 1 3)])
                      (assoc :reconciliation/balance 1499M)
-                     models/put)]
+                     entities/put)]
       (is (comparable? {:reconciliation/balance 1499M}
                        result)
           "The result has the correct balance after update")
       (is (comparable? {:reconciliation/balance 1499M}
-                       (models/find result))
+                       (entities/find result))
           "The retrieved value has the correct balance after update"))))
 
 (dbtest a-working-reconciliation-can-be-completed
@@ -269,30 +269,30 @@
           result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
                      (assoc :reconciliation/status :completed)
                      (update-in [:reconciliation/items] conj item)
-                     models/put)]
+                     entities/put)]
       (is (comparable? #:reconciliation {:status :completed}
                        result)
           "The result reflects the updated attributes")
       (is (comparable? #:reconciliation{:status :completed}
-                       (models/find result :reconciliation))
+                       (entities/find result :reconciliation))
           "The retrieved record reflects the updated attributes")
       (is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 1 1)
                                :transaction-item/quantity 1000M
-                               :transaction-item/reconciliation (->model-ref previous-rec)}
+                               :transaction-item/reconciliation (->entity-ref previous-rec)}
                               {:transaction/transaction-date (t/local-date 2017 1 2)
                                :transaction-item/quantity 500M
-                               :transaction-item/reconciliation (->model-ref result)}
+                               :transaction-item/reconciliation (->entity-ref result)}
                               {:transaction/transaction-date (t/local-date 2017 1 3)
                                :transaction-item/quantity 45M
-                               :transaction-item/reconciliation (->model-ref result)}
+                               :transaction-item/reconciliation (->entity-ref result)}
                               {:transaction/transaction-date (t/local-date 2017 1 10)
                                :transaction-item/quantity 53M
                                :transaction-item/reconciliation nil}]
                              (map #(update-in %
                                               [:transaction-item/reconciliation]
                                               identity)
-                                  (models/select
-                                    (-> checking models/find acts/->criteria)
+                                  (entities/select
+                                    (-> checking entities/find acts/->criteria)
                                     {:sort [:transaction/transaction-date]
                                      :select-also [:transaction/transaction-date]})))
           "The retrieved transaction items have the new reconciliation reference"))))
@@ -335,9 +335,9 @@
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
       (prop/delete-and-propagate reconciliation)
-      (is (empty? (models/select
-                    (util/model-type
-                      {:transaction-item/reconciliation (->model-ref reconciliation)
+      (is (empty? (entities/select
+                    (util/entity-type
+                      {:transaction-item/reconciliation (->entity-ref reconciliation)
                        :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
                       :transaction-item)))
           "The reconciliation is not associated with any items after delete"))))
@@ -348,10 +348,10 @@
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
                             (prop/delete-and-propagate reconciliation))
           "an exception is thrown")
-      (is (models/find reconciliation) "The reconciliation can still be retrieved")
-      (is (seq (models/select
-                 (util/model-type
-                   {:transaction-item/reconciliation (->model-ref reconciliation)
+      (is (entities/find reconciliation) "The reconciliation can still be retrieved")
+      (is (seq (entities/select
+                 (util/entity-type
+                   {:transaction-item/reconciliation (->entity-ref reconciliation)
                     :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
                    :transaction-item)))
           "The transaction items are still associated with the reconciliation"))))

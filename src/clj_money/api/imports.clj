@@ -15,7 +15,7 @@
             [clj-money.db.ref]
             [clj-money.images.sql]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.images :as images]
             [clj-money.import :refer [import-data progress-xf]]
             [clj-money.import.gnucash]
@@ -82,7 +82,7 @@
 (defn- create-images
   [user source-files]
   (let [content-type (infer-content-type (first source-files))]
-    (mapv (comp util/->model-ref
+    (mapv (comp util/->entity-ref
                 images/find-or-create
                 (->image user content-type))
           source-files)))
@@ -106,7 +106,7 @@
       (assoc :import/images
              (create-images authenticated
                             (source-files params)))
-      models/put
+      entities/put
       launch-and-track
       (api/response 201)))
 
@@ -114,9 +114,9 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (util/model-type :import)
+          (util/entity-type :import)
           (+scope :import authenticated)
-          models/find-by
+          entities/find-by
           (authorize action authenticated)))
 
 (defn- show
@@ -139,7 +139,7 @@
 
 (defn- index
   [{:keys [authenticated params]}]
-  (api/response (models/select (-> params
+  (api/response (entities/select (-> params
                                    (select-keys [:import/entity-name])
                                    (+scope :import authenticated)))))
 
@@ -147,7 +147,7 @@
   [req]
   (if-let [imp (find-and-authorize req ::authorization/show)]
     (do
-      (models/delete imp)
+      (entities/delete imp)
       (api/response))
     api/not-found))
 

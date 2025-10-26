@@ -4,19 +4,19 @@
             [clojure.spec.alpha :as s]
             [dgknght.app-lib.validation :as v]
             [clj-money.images :as images]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 (defn- image-is-unique?
   [img]
-  (= 0 (count (models/select (select-keys img [:image/uuid :image/user])))))
+  (= 0 (count (entities/select (select-keys img [:image/uuid :image/user])))))
 (v/reg-spec image-is-unique? {:message "The image has already been added"
                                   :path [:image/uuid]})
 
-(s/def :image/user ::models/model-ref)
+(s/def :image/user ::entities/entity-ref)
 (s/def :image/original-filename string?)
 (s/def :image/content-type string?)
 (s/def :image/uuid string?)
-(s/def ::models/image (s/and (s/keys :req [:image/user
+(s/def ::entities/image (s/and (s/keys :req [:image/user
                                            :image/original-filename
                                            :image/content-type
                                            :image/uuid])
@@ -28,9 +28,9 @@
          (:image/user image)]}
   (let [uuid (images/put content)]
     (or
-      (models/find-by {:image/uuid uuid
+      (entities/find-by {:image/uuid uuid
                        :image/user user})
       (-> image
           (assoc :image/uuid uuid)
           (dissoc :image/content)
-          models/put))))
+          entities/put))))

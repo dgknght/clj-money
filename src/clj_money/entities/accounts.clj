@@ -8,14 +8,14 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util :refer [live-id
                                              id=]]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 (defonce ^:dynamic *express-validation* false)
 
 (defn- name-is-unique?
   [account]
   (or *express-validation*
-      (= 0 (models/count (-> account
+      (= 0 (entities/count (-> account
                              (select-keys [:account/entity
                                            :account/parent
                                            :account/name
@@ -33,22 +33,22 @@
   (or *express-validation*
       (nil? parent)
       (= type
-         (:account/type (models/resolve-ref parent :account)))))
+         (:account/type (entities/resolve-ref parent :account)))))
 (v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
                                    :path [:account/type]})
 
-(s/def :account/entity ::models/model-ref)
+(s/def :account/entity ::entities/entity-ref)
 (s/def :account/name string?)
 (s/def :account/type #{:asset :liability :equity :income :expense})
-(s/def :account/commodity ::models/model-ref)
-(s/def :account/parent (s/nilable ::models/model-ref))
+(s/def :account/commodity ::entities/entity-ref)
+(s/def :account/parent (s/nilable ::entities/entity-ref))
 (s/def :account/system-tags (s/nilable (s/coll-of keyword? :kind set?)))
 (s/def :account/user-tags (s/nilable (s/coll-of keyword? :kind set?)))
 (s/def :account/allocations (s/nilable (s/map-of integer? decimal?)))
 (s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
                                                            dates/local-date?)))
 
-(s/def ::models/account (s/and (s/keys :req [:account/entity
+(s/def ::entities/account (s/and (s/keys :req [:account/entity
                                              :account/type
                                              :account/name
                                              :account/commodity]
@@ -65,8 +65,8 @@
 (defn- default-commodity
   [entity]
   (if-let [ref (get-in entity [:entity/settings :settings/default-commodity])]
-    (models/find ref :commodity)
-    (models/find-by #:commodity{:entity entity
+    (entities/find ref :commodity)
+    (entities/find-by #:commodity{:entity entity
                                 :type :currency})))
 
 (defn- ensure-commodity
@@ -76,15 +76,15 @@
              #(or %
                   (default-commodity entity))))
 
-(defmethod models/before-validation :account
+(defmethod entities/before-validation :account
   [{:as account :account/keys [commodity]}]
   (if commodity
     account
     (-> account
-        (update-in [:account/entity] (models/resolve-ref :entity))
+        (update-in [:account/entity] (entities/resolve-ref :entity))
         ensure-commodity)))
 
-(defmethod models/before-save :account
+(defmethod entities/before-save :account
   [account]
   (-> account
       (update-in [:account/quantity] (fnil identity 0M))
@@ -120,7 +120,7 @@
   [commodity]
   (let [{ancestors false
          accounts true} (group-by #(id= commodity (:account/commodity %))
-                                  (models/select {:account/commodity commodity}
+                                  (entities/select {:account/commodity commodity}
                                                  {:include-parents? true}))]
 
     (if accounts

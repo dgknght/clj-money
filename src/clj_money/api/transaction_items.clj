@@ -13,7 +13,7 @@
             [clj-money.comparatives :as comparatives]
             [clj-money.transactions :refer [summarize-items
                                             polarize-item-quantity]]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.transactions]))
@@ -24,8 +24,8 @@
     (update-in criteria
                [:transaction-item/account]
                (fn [id]
-                 [:in (map :id (models/select
-                                 (util/model-type {:id id}
+                 [:in (map :id (entities/select
+                                 (util/entity-type {:id id}
                                                   :account)
                                  {:include-children? true
                                   :select [:id]}))]))
@@ -36,7 +36,7 @@
   [{:keys [account-id] :as criteria}]
   (if (:transaction-date criteria)
     criteria
-    (merge criteria (->criteria (models/find account-id :account)))))
+    (merge criteria (->criteria (entities/find account-id :account)))))
 
 ; This could be done at the database layer with more sophisticated
 ; logic for specifying joins
@@ -48,7 +48,7 @@
                             set
                             seq)]
       (let [unreconciled? (complement
-                            (->> (models/select
+                            (->> (entities/select
                                    {:id [:in recon-ids]
                                     :reconciliation/status :completed})
                                  (map :id)
@@ -80,10 +80,10 @@
                     :entity-id :transaction/entity
                     :reconciliation-id :transaction-item/reconciliation})
       apply-account-recursion
-      (update-in-if [:transaction-item/account] util/->model-ref)
-      (update-in-if [:transaction-item/reconciliation] (comp util/->model-ref
+      (update-in-if [:transaction-item/account] util/->entity-ref)
+      (update-in-if [:transaction-item/reconciliation] (comp util/->entity-ref
                                                              uuid))
-      (update-in-if [:transaction/entity] util/->model-ref)
+      (update-in-if [:transaction/entity] util/->entity-ref)
       (select-keys [:transaction/transaction-date
                     :transaction-item/account
                     :transaction-item/reconciliation
@@ -108,8 +108,8 @@
   [items]
   (if (seq items)
     (let [accounts (index-by :id
-                             (models/select
-                               (util/model-type
+                             (entities/select
+                               (util/entity-type
                                  {:id [:in (set (map (comp :id :transaction-item/account)
                                                      items))]}
                                  :account)))]
@@ -120,18 +120,18 @@
            items))
     items))
 
-(defn- ->model-refs
+(defn- ->entity-refs
   [items]
   (map #(update-in %
                    [:transaction-item/account]
-                   util/->model-ref)
+                   util/->entity-ref)
        items))
 
 (defn- index
   [req]
   (->> (-> req
            extract-criteria
-           (models/select (assoc (extract-options req)
+           (entities/select (assoc (extract-options req)
                                  :sort [[:transaction/transaction-date :desc]
                                         [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
@@ -141,7 +141,7 @@
        (filter-reconciled req)
        (apply-limit req)
        polarize-quantities
-       ->model-refs
+       ->entity-refs
        api/response))
 
 (s/def ::serialized-date (partial re-matches #"^\d{4}-\d{2}-\d{2}$"))
@@ -164,8 +164,8 @@
                    (apply vector
                           :between>
                           (map dates/unserialize-local-date dates))))
-      (update-in-if [:transaction-item/account] util/->model-ref)
-      (update-in-if [:transaction/entity] util/->model-ref)
+      (update-in-if [:transaction-item/account] util/->entity-ref)
+      (update-in-if [:transaction/entity] util/->entity-ref)
       (select-keys [:transaction-item/account
                     :transaction/transaction-date
                     :transaction/entity])))
@@ -185,7 +185,7 @@
   [{:keys [authenticated] :as req}]
   (let [{[_ since as-of] :transaction/transaction-date
          :as criteria} (extract-summary-criteria req)]
-    (->> (models/select (+scope criteria
+    (->> (entities/select (+scope criteria
                                 :transaction-item
                                 authenticated)
                         {:select-also [:transaction/transaction-date]})

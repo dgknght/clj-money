@@ -24,7 +24,7 @@
   [^PgArray pg-arr]
   (->keyword-set (.getArray pg-arr)))
 
-(defmethod sql/model-keys :account [_]
+(defmethod sql/entity-keys :account [_]
   [:id
    :account/name
    :account/type

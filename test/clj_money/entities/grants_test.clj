@@ -5,8 +5,8 @@
             [clj-money.factories.user-factory]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.models :as models]
-            [clj-money.model-helpers :as helpers :refer [assert-deleted]]
+            [clj-money.entities :as entities]
+            [clj-money.entity-helpers :as helpers :refer [assert-deleted]]
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-user
@@ -47,14 +47,14 @@
                                 assoc :transaction #{:index :show})
                      (update-in [:grant/permissions :account] disj :index)
                      (update-in [:grant/permissions] dissoc :commodity)
-                     models/put)]
+                     entities/put)]
       (is (= {:transaction #{:index :show}
               :account #{:show}}
              (:grant/permissions result))
           "The returned value has the specified attributes") 
       (is (= {:transaction #{:index :show}
               :account #{:show}}
-             (:grant/permissions (models/find result)))
+             (:grant/permissions (entities/find result)))
           "The retrieved value has the specified attributes"))))
 
 (dbtest delete-a-grant

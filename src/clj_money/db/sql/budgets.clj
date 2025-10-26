@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [parse-int]]
             [clj-money.db :as db]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.db.sql :as sql]))
 
 (defmethod sql/before-save :budget
@@ -14,7 +14,7 @@
   (let [ids (->> items
                  (map :id)
                  set)]
-    (when-let [existing (seq (models/before budget :budget/items))]
+    (when-let [existing (seq (entities/before budget :budget/items))]
       (->> existing
            (remove #(ids (:id %)))
            (map #(vector ::db/delete %))))))

@@ -1,4 +1,4 @@
-(ns clj-money.model-helpers
+(ns clj-money.entity-helpers
   (:require [clojure.test :refer [is]]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
@@ -6,7 +6,7 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 (derive clojure.lang.PersistentVector ::vector)
 
@@ -28,14 +28,14 @@
   (update-in-if m (take 1 ks) #(simplify-refs % (vec (rest ks)))))
 
 (defmethod simplify-refs ::util/map
-  [model refs]
+  [entity refs]
   (reduce simplify-ref
-          (update-vals model #(simplify-refs % refs))
+          (update-vals entity #(simplify-refs % refs))
           refs))
 
 (defmethod simplify-refs ::util/vector
-  [models refs]
-  (mapv #(simplify-refs % refs) models))
+  [entities refs]
+  (mapv #(simplify-refs % refs) entities))
 
 (defn assert-created
   [attr & {:keys [refs
@@ -48,9 +48,9 @@
                 ignore-attributes []}}]
   (let [out-chan (a/chan)
         handle-nils (if ignore-nils? util/remove-nils identity)
-        result (handle-nils (models/put attr :out-chan out-chan))
+        result (handle-nils (entities/put attr :out-chan out-chan))
         fetched (when (:id result)
-                  (handle-nils (models/find result)))
+                  (handle-nils (entities/find result)))
         expected  (apply dissoc
                          (handle-nils (simplify-refs attr refs))
                          ignore-attributes)]
@@ -69,30 +69,30 @@
     fetched))
 
 (defn assert-updated
-  [model attr]
-  {:pre [model attr]}
+  [entity attr]
+  {:pre [entity attr]}
   (let [out-chan (a/chan)
-        result (models/put (merge model attr)
+        result (entities/put (merge entity attr)
                            :out-chan out-chan)]
     (is (comparable? attr result)
         "The return value contains the updated attributes")
-    (is (comparable? attr (models/find model))
+    (is (comparable? attr (entities/find entity))
         "The retrieved value contains the updated attributes")
     (let [[[before after] _ch] (a/alts!! [out-chan (a/timeout 1000)])]
-      (is (= model before)
+      (is (= entity before)
           "The before value is passed to the output channel")
       (is (= result after)
           "The after value is passed to the output channel"))))
 
 (defn assert-deleted
-  [model]
-  {:pre [model (:id model)]}
+  [entity]
+  {:pre [entity (:id entity)]}
   (let [out-chan (a/chan)]
-    (models/delete model :out-chan out-chan)
-    (is (nil? (models/find model))
-        "The model cannot be retrieved after being deleted")
+    (entities/delete entity :out-chan out-chan)
+    (is (nil? (entities/find entity))
+        "The entity cannot be retrieved after being deleted")
     (let [[[before after] _ch] (a/alts!! [out-chan (a/timeout 1000)])]
-      (is (= model before)
+      (is (= entity before)
           "The before value is passed to the output channel")
       (is (nil? after)
           "The after value passed to the output channel is nil"))))
@@ -102,5 +102,5 @@
   (is (thrown-with-ex-data?
         "Validation failed"
         {::v/errors errors}
-        (models/put attr))
+        (entities/put attr))
       (or message "Expected a validation error, but found none.")))

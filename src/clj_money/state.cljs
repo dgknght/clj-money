@@ -12,8 +12,8 @@
   race conditions with the tag reader registration"
   [state]
   (-> state
-      (lib/update-in-if [:current-user] util/->model-ref)
-      (lib/update-in-if [:current-entity] util/->model-ref)
+      (lib/update-in-if [:current-user] util/->entity-ref)
+      (lib/update-in-if [:current-entity] util/->entity-ref)
       (select-keys [:auth-token
                     :current-user
                     :current-entity])))
@@ -59,7 +59,7 @@
   [[entity :as entities]]
   (let [current (if-let [c @current-entity]
                   (->> entities
-                       (filter #(util/model= c %))
+                       (filter #(util/entity= c %))
                        first)
                   entity)]
     (swap! app-state assoc

@@ -4,7 +4,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test_assertions]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
@@ -12,7 +12,7 @@
                                             find-account
                                             find-commodity
                                             find-lot]]
-            [clj-money.model-helpers :refer [assert-invalid
+            [clj-money.entity-helpers :refer [assert-invalid
                                              assert-created]]
             [clj-money.test-helpers :refer [dbtest]]))
 
@@ -103,22 +103,22 @@
       (is (comparable? #:lot{:shares-owned 70M}
                        (-> lot
                            (assoc :lot/shares-owned 70M)
-                           models/put))
+                           entities/put))
           "The return value has the specified attributes")
       (is (comparable? #:lot{:shares-owned 70M}
-                       (models/find lot))
+                       (entities/find lot))
           "The retrieved value has the specified attributes"))))
 
 (dbtest search-lots-by-account
   (with-context existing-lot-context
     (let [ira (find-account "IRA")]
-      (is (seq-of-maps-like? [#:lot{:commodity (util/->model-ref (find-commodity "AAPL"))
-                                    :account (util/->model-ref ira)
+      (is (seq-of-maps-like? [#:lot{:commodity (util/->entity-ref (find-commodity "AAPL"))
+                                    :account (util/->entity-ref ira)
                                     :purchase-date (t/local-date 2016 3 2)
                                     :purchase-price 10M
                                     :shares-purchased 100M
                                     :shares-owned 100M}]
-                             (models/select {:lot/account (find-account "IRA")}))))))
+                             (entities/select {:lot/account (find-account "IRA")}))))))
 
 ; Test unrealized-gains with:
 ;   Date that precedes some purchases

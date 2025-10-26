@@ -9,6 +9,6 @@
 
 (defmethod authorization/scope :reconciliation
   [_ user]
-  (util/model-type
+  (util/entity-type
     {:entity/user user}
     :reconciliation))

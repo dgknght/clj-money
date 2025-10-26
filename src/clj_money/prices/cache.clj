@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-money.prices :as prices]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 (deftype CacheProvider []
   prices/PriceProvider
@@ -12,5 +12,5 @@
             :price/trade-date trade-date
             :commodity/exchange exchange
             :commodity/symbol symbol})
-         (models/select #:cached-price{:trade-date (t/local-date)
+         (entities/select #:cached-price{:trade-date (t/local-date)
                                        :symbol [:in symbols]}))))

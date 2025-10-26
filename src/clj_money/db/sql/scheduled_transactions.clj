@@ -39,6 +39,6 @@
   (map #(assoc %
                :scheduled-transaction/items
                (vec (db/select storage
-                               {:scheduled-transaction-item/scheduled-transaction (util/->model-ref %)}
+                               {:scheduled-transaction-item/scheduled-transaction (util/->entity-ref %)}
                                {})))
        trxs))

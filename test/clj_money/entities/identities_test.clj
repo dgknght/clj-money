@@ -9,7 +9,7 @@
             [clj-money.test-context :refer [with-context
                                             find-user]]
             [clj-money.test-helpers :refer [dbtest]]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid]]
             [clj-money.entities.identities :as idents]))
 
 (def ^:private create-context

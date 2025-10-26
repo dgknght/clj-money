@@ -6,16 +6,16 @@
             [clj-money.util :as util]
             [clj-money.images :as images]
             [clj-money.images.sql]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.authorization.images]))
 
 (defn- find-image
   [{:keys [params authenticated]}]
   (some-> params
           (select-keys [:id])
-          (util/model-type :image)
+          (util/entity-type :image)
           (+scope :image authenticated)
-          models/find-by))
+          entities/find-by))
 
 (defn- ->response
   [{:image/keys [uuid content-type]}]

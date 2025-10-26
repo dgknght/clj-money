@@ -9,7 +9,7 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.transaction-items :as trx-items]))
 
 (def ^:private context
@@ -30,8 +30,8 @@
 (dbtest realize-trx-item-accounts
   (with-context context
     (is (= #{"Checking" "Salary" "Groceries"}
-                           (->> (models/select
-                                  (util/model-type
+                           (->> (entities/select
+                                  (util/entity-type
                                     {:transaction/entity (find-entity "Personal")}
                                     :transaction-item)
                                   {:sort [[:transaction-item/index :asc]]})

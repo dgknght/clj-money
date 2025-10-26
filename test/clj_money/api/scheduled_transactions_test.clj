@@ -6,7 +6,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
@@ -92,11 +92,11 @@
                           :memo "biweekly"
                           :items [#:scheduled-transaction-item{:action :debit
                                                                :quantity 1000M
-                                                               :account (util/->model-ref (find-account "Checking"))
+                                                               :account (util/->entity-ref (find-account "Checking"))
                                                                :memo "checking"}
                                   #:scheduled-transaction-item{:action :credit
                                                                :quantity 1000M
-                                                               :account (util/->model-ref (find-account "Salary"))
+                                                               :account (util/->entity-ref (find-account "Salary"))
                                                                :memo "salary"}]})
 
 (defn- create-sched-tran
@@ -112,7 +112,7 @@
                      parse-edn-body)]
     [response
      (when-let [id (get-in response [:edn-body :id])]
-       (models/find id :scheduled-transaction))]))
+       (entities/find id :scheduled-transaction))]))
 
 (defn- assert-sched-tran-created
   [[{:keys [edn-body] :as response} retrieved]]
@@ -177,7 +177,7 @@
            (add-auth (find-user user-email))
            app
            parse-edn-body)
-       (models/find tran)])))
+       (entities/find tran)])))
 
 (defn- assert-successful-update
   [[{:keys [edn-body] :as response} retrieved]]
@@ -211,7 +211,7 @@
            (add-auth (find-user user-email))
            app
            parse-edn-body)
-       (models/find tran)])))
+       (entities/find tran)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]
@@ -242,13 +242,13 @@
              app
              parse-edn-body))
        (trxs/append-items
-         (models/select
+         (entities/select
            #:transaction{:transaction-date [:between>
                                             (t/local-date 2016 1 1)
                                             (t/local-date 2017 1 1)]
                          :entity (:scheduled-transaction/entity sched-tran)
                          :description "Paycheck"}))
-       (models/find sched-tran)])))
+       (entities/find sched-tran)])))
 
 (defn- assert-successful-realization
   [[response trxs retrieved]]
@@ -344,7 +344,7 @@
              app
              parse-edn-body))
        (trxs/append-items
-         (models/select #:transaction{:transaction-date [:between>
+         (entities/select #:transaction{:transaction-date [:between>
                                                          (t/local-date 2016 1 1)
                                                          (t/local-date 2017 1 1)]
                                       :entity entity}

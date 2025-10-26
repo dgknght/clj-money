@@ -23,7 +23,7 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.dates :refer [serialize-local-date]]
-            [clj-money.util :as util :refer [model= id=]]
+            [clj-money.util :as util :refer [entity= id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.components :refer [load-on-scroll
@@ -576,7 +576,7 @@
                     ; changes :latest-transaction-date
                     (let [account (get-in @page-state [:view-account])
                           updated (->> accounts
-                                       (filter #(model= account %))
+                                       (filter #(entity= account %))
                                        first)]
                       (swap! page-state assoc :view-account updated))
                     accounts))))
@@ -1062,7 +1062,7 @@
                          :on-click (fn []
                                      (swap! page-state
                                             assoc :selected
-                                            {:account/entity (util/->model-ref @current-entity)
+                                            {:account/entity (util/->entity-ref @current-entity)
                                              :account/type :asset
                                              :account/commodity @default-commodity})
                                      (set-focus "parent-id"))

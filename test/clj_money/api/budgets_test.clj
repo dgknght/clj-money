@@ -7,7 +7,7 @@
             [dgknght.app-lib.test]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.dates :refer [periodic-seq]]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
@@ -20,7 +20,7 @@
                                             find-account
                                             find-budget]]
             [clj-money.util :refer [make-series
-                                    model=]]
+                                    entity=]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -42,7 +42,7 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
-      [response (models/select {:budget/entity entity})])))
+      [response (entities/select {:budget/entity entity})])))
 
 (defn- assert-successful-create
   [[{:as response :keys [edn-body]} [retrieved]]]
@@ -118,7 +118,7 @@
               500.0M 400.0M 500.0M
               400.0M 400.0M 500.0M]
              (->> (:budget/items edn-body)
-                  (filter #(model= groceries (:budget-item/account %)))
+                  (filter #(entity= groceries (:budget-item/account %)))
                   (map :budget-item/periods)
                   first))
           "The response contains periods calculated from the transaction history for the groceries account")
@@ -127,7 +127,7 @@
               3000.0M 2000.0M 2000.0M
               2000.0M 2000.0M 3000.0M]
              (->> (:budget/items edn-body)
-                  (filter #(model= salary (:budget-item/account %)))
+                  (filter #(entity= salary (:budget-item/account %)))
                   (map :budget-item/periods)
                   first))
           "The response contains periods calculated from the transaction history for the salary account"))))
@@ -242,7 +242,7 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
-      [response (models/find budget)])))
+      [response (entities/find budget)])))
 
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
@@ -277,7 +277,7 @@
                                                   (:id budget)))
                        (add-auth (find-user email))
                        app)]
-      [response (models/find budget)])))
+      [response (entities/find budget)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]

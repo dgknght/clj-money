@@ -25,7 +25,7 @@
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-parse-id-params
                                           wrap-exceptions]]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.db.ref]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
@@ -82,7 +82,7 @@
   [_data]
   (internal-error))
 
-(defmethod handle-exception ::models/not-found
+(defmethod handle-exception ::entities/not-found
   [_data]
   (not-found))
 

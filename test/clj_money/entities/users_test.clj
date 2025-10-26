@@ -2,11 +2,11 @@
   (:require [clojure.test :refer [testing is]]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
-            [clj-money.model-helpers :refer [assert-created
+            [clj-money.entity-helpers :refer [assert-created
                                              assert-updated
                                              assert-invalid
                                              assert-deleted]]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.db.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.entities.users :as users]
@@ -126,7 +126,7 @@
 
 (dbtest find-or-create-a-user-by-oauth-profile
   (testing "an existing user without identity"
-    (let [user (models/put attributes)
+    (let [user (entities/put attributes)
           result (users/find-or-create-from-profile profile)]
       ; TODO: assert that the identity record is created
 

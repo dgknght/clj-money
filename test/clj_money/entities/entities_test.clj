@@ -9,10 +9,10 @@
                                             find-user
                                             find-entity]]
             [clj-factory.core :refer [factory]]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-updated
                                                          assert-deleted]]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [dbtest]]))
 
@@ -73,7 +73,7 @@
     (let [user (find-user "john@doe.com")]
       (is (seq-of-maps-like? [{:entity/name "Business"}
                               {:entity/name "Personal"}]
-                             (models/select {:entity/user user}
+                             (entities/select {:entity/user user}
                                             {:sort [[:entity/name :asc]]}))
           "Entities matching the criteria are returned"))))
 
@@ -91,7 +91,7 @@
 (dbtest inventory-method-can-be-lifo
   (with-context entity-context
     (is (comparable? {:entity/settings {:settings/inventory-method :lifo}}
-                     (models/put (assoc (attributes)
+                     (entities/put (assoc (attributes)
                                         :entity/settings {:settings/inventory-method :lifo}))))))
 
 (dbtest inventory-method-cannot-be-something-other-than-fifo-or-lifo

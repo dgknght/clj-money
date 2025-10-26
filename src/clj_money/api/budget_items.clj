@@ -8,7 +8,7 @@
              :refer [+scope
                      authorize]]
             [clj-money.util :as util]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.authorization.budget-items]))
 
 (defn- extract-criteria
@@ -16,7 +16,7 @@
   (-> params
       (select-keys [:budget-id])
       (rename-keys {:budget-id :budget-item/budget})
-      (update-in [:budget-item/budget] util/->model-ref)))
+      (update-in [:budget-item/budget] util/->entity-ref)))
 
 (defn- index
   [{:keys [authenticated] :as req}]
@@ -25,7 +25,7 @@
       (util/pp-> ::criteria)
       (+scope :budget-item authenticated)
       (util/pp-> ::scoped)
-      models/select
+      entities/select
       (util/pp-> ::selected)
       api/response))
 
@@ -40,8 +40,8 @@
 (defn- create
   [{:keys [authenticated params] :as req}]
   (if-let [budget (authorize
-                    (models/find-by
-                      (+scope (util/model-type {:id (:budget-id params)}
+                    (entities/find-by
+                      (+scope (util/entity-type {:id (:budget-id params)}
                                                :budget)
                               :budget
                               authenticated))
@@ -50,13 +50,13 @@
     (-> req
         extract-item
         (assoc :budget-item/budget budget)
-        models/put
+        entities/put
         api/creation-response)
     api/not-found))
 
 (defn- find-item
   [{:keys [params authenticated]}]
-  (models/find-by (+scope (util/model-type {:id (:id params)}
+  (entities/find-by (+scope (util/entity-type {:id (:id params)}
                                            :budget-item)
                           :budget-item
                           authenticated)))
@@ -66,7 +66,7 @@
   (or (some-> (find-item req)
               (authorize ::auth/update authenticated)
               (merge (extract-item req))
-              models/put
+              entities/put
               api/response)
       api/not-found))
 
@@ -76,7 +76,7 @@
     (do
       (-> item
           (authorize ::auth/destroy authenticated)
-          models/delete)
+          entities/delete)
       api/no-content)
     api/not-found))
 

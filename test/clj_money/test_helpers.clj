@@ -8,7 +8,7 @@
             [clj-money.decimal :as d]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 ; TODO: Remove this an just use the reset in the dbtest so that we don't have to duplicate the strategy selection logic
 (def active-db-config
@@ -29,9 +29,9 @@
 (defn account-ref
   [name]
   (-> {:account/name name}
-      models/find-by
+      entities/find-by
       (throw-if-nil (str "Account not found: " name))
-      util/->model-ref))
+      util/->entity-ref))
 
 (defn edn-body
   [req payload]

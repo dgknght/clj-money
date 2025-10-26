@@ -18,7 +18,7 @@
                                             find-account
                                             find-reconciliation]]
             [clj-money.web.server :refer [app]]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 (use-fixtures :each reset-db)
 
@@ -93,7 +93,7 @@
           account (find-account "Checking")
           items (if complete?
                   (map #(select-keys % [:id :transaction/transaction-date])
-                       (models/select {:transaction-item/account account
+                       (entities/select {:transaction-item/account account
                                        :transaction-item/quantity 101M
                                        :transaction/transaction-date (t/local-date 2015 1 10)}
                                       {:select-also [:transaction/transaction-date]}))
@@ -112,7 +112,7 @@
                        (add-auth user)
                        app
                        parse-edn-body)
-          retrieved (models/find-by
+          retrieved (entities/find-by
                       #:reconciliation{:account account
                                        :end-of-period (t/local-date 2015 2 4)})]
       [response retrieved])))
@@ -166,8 +166,8 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
-      [response (models/find-by
-                  (util/model-type
+      [response (entities/find-by
+                  (util/entity-type
                     (select-keys recon
                                  [:id
                                   :reconciliation/end-of-period])

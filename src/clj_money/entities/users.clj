@@ -10,14 +10,14 @@
                                           present?
                                           update-in-if]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.entities :as models])
+            [clj-money.entities :as entities])
   (:import java.util.UUID))
 
 (defn- email-is-unique?
   [{:keys [id] :as user}]
   (-> (select-keys user [:user/email])
       (assoc-if :id (when id [:!= id]))
-      models/find-by
+      entities/find-by
       nil?))
 (v/reg-spec email-is-unique? {:message "%s is already in use"
                               :path [:user/email]})
@@ -32,11 +32,11 @@
                       present?
                       v/email?))
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::models/user (s/and (s/keys :req [:user/first-name :user/last-name :user/email]
+(s/def ::entities/user (s/and (s/keys :req [:user/first-name :user/last-name :user/email]
                                     :opt [:user/password])
                             email-is-unique?))
 
-(defmethod models/before-save :user
+(defmethod entities/before-save :user
   [user]
   (update-in-if user [:user/password] hashers/derive))
 
@@ -45,7 +45,7 @@
     :user/token-expires-at
     :user/password})
 
-(defmethod models/after-read :user
+(defmethod entities/after-read :user
   [user {:keys [include-password?]}]
   (if include-password?
     user
@@ -54,12 +54,12 @@
 (defn find-by-email
   "Returns the user having the specified email"
   [email]
-  (models/find-by {:user/email email}))
+  (entities/find-by {:user/email email}))
 
 (defn find-by-token
   "Returns the user having the specified, unexpired password reset token"
   [token]
-  (models/find-by #:user{:password-reset-token token
+  (entities/find-by #:user{:password-reset-token token
                          :token-expires-at [:> (t/instant)]}
                   {:include-password? true}))
 
@@ -68,7 +68,7 @@
   The returned map contains the information cemerick friend
   needs to operate"
   [{:keys [username password]}]
-  (when-let [user (models/find-by {:user/email username} {:include-password? true})]
+  (when-let [user (entities/find-by {:user/email username} {:include-password? true})]
     (when (hashers/check password (:user/password user))
       (-> user
           (dissoc :user/password)
@@ -89,7 +89,7 @@
     (-> user
         (assoc :user/password-reset-token token
                :user/token-expires-at (t/plus (t/instant) (t/hours 24)))
-        models/put)
+        entities/put)
     token))
 
 (defn reset-password
@@ -101,9 +101,9 @@
         (assoc :user/password password
                :user/password-reset-token nil
                :user/token-expires-at nil)
-        models/put)
-    (throw+ {:type ::models/not-found})))
+        entities/put)
+    (throw+ {:type ::entities/not-found})))
 
 (defn find-or-create-from-profile
   [{:keys [email]}]
-  (models/find-by {:user/email email}))
+  (entities/find-by {:user/email email}))

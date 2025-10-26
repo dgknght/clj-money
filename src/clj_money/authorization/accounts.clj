@@ -10,5 +10,5 @@
 
 (defmethod auth/scope :account
   [_ user]
-  (util/model-type {:entity/user user}
+  (util/entity-type {:entity/user user}
                  :account))

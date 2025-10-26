@@ -6,16 +6,16 @@
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
+            [clj-money.entities :as entities]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-commodity
                                             find-account]]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-updated
                                                          assert-deleted]]
-            [clj-money.models :as models]
             [clj-money.entities.accounts :as accounts]
             [clj-money.test-helpers :refer [dbtest]]))
 
@@ -60,8 +60,8 @@
                               :quantity 0M
                               :value 0M
                               :entity (select-keys entity [:id])}]]
-      (is (seq-of-maps-like? expected (models/select #:account{:entity entity}
-                                                     {:sort [:account/name]}))
+      (is (seq-of-maps-like? expected (entities/select #:account{:entity entity}
+                                                       {:sort [:account/name]}))
           "It returns the accounts for the entity"))))
 
 (def ^:private nested-context
@@ -100,16 +100,16 @@
 (dbtest select-account-with-children
   (with-context nested-context
     (is (= #{"Savings" "Reserve" "Car" "Doug" "Eli"}
-           (->> (models/select {:account/name "Savings"}
-                               {:include-children? true})
+           (->> (entities/select {:account/name "Savings"}
+                                 {:include-children? true})
                 (map :account/name)
                 set)))))
 
 (dbtest select-account-with-parents
   (with-context nested-context
     (is (= #{"Savings" "Car" "Eli"}
-           (->> (models/select {:account/name "Eli"}
-                               {:include-parents? true})
+           (->> (entities/select {:account/name "Eli"}
+                                 {:include-parents? true})
                 (map :account/name)
                 set)))))
 
@@ -142,7 +142,7 @@
 (dbtest select-accounts-with-ancestors
   (with-context inv-context
     (let [chains (accounts/select-with-ancestors
-                    (find-commodity "AAPL"))
+                   (find-commodity "AAPL"))
           simplified (->> chains
                           (map #(mapv :account/name %))
                           set)]
@@ -181,10 +181,10 @@
 (dbtest select-accounts-by-tag
   (with-context tag-context
     (is (= #{"Rent" "Tax" "Dining"}
-           (->> (models/select {:account/user-tags [:&&
-                                                    #{:mandatory
-                                                      :discretionary}
-                                                    :text]}) ; TODO: this hint is specific to SQL. Move it to a sql ns
+           (->> (entities/select {:account/user-tags [:&&
+                                                      #{:mandatory
+                                                        :discretionary}
+                                                      :text]}) ; TODO: this hint is specific to SQL. Move it to a sql ns
                 (map :account/name)
                 set)))))
 
@@ -285,8 +285,8 @@
     (let [account (assert-created (dissoc (attributes)
                                           :account/commodity))]
       (is (comparable? {:commodity/symbol "USD"}
-                       (models/find (:id (get-in account [:account/commodity]))
-                                    :commodity))))))
+                       (entities/find (:id (get-in account [:account/commodity]))
+                                      :commodity))))))
 
 (def ^:private update-context
   (conj account-context
@@ -333,12 +333,12 @@
     (let [fixed-assets (find-account "Fixed assets")
           result (-> (find-account "House")
                      (assoc :account/parent fixed-assets)
-                     models/put)]
+                     entities/put)]
       (is (= (:id fixed-assets)
              (:id (:account/parent result)))
           "The returned account has the correct parent-id value")
       (is (comparable? (:id fixed-assets)
-                       (:id (:account/parent (models/find result))))
+                       (:id (:account/parent (entities/find result))))
           "The retrieved account has the correct parent-id value"))))
 
 (dbtest delete-an-account

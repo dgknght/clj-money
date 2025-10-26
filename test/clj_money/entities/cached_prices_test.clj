@@ -3,7 +3,7 @@
             [dgknght.app-lib.test]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.model-helpers :refer [assert-created
+            [clj-money.entity-helpers :refer [assert-created
                                              assert-invalid]]
             [clj-money.core]
             [clj-money.factories.user-factory]

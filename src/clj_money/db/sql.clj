@@ -17,7 +17,7 @@
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [temp-id?]]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.schema :as schema]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
@@ -26,30 +26,30 @@
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
-                          (util/model-type x))))
+                          (util/entity-type x))))
 (defmethod deconstruct :default [m] [m])
 
-(defmulti before-save util/model-type-dispatch)
+(defmulti before-save util/entity-type-dispatch)
 (defmethod before-save :default [m] m)
 
-(defmulti after-read util/model-type-dispatch)
+(defmulti after-read util/entity-type-dispatch)
 (defmethod after-read :default [m] m)
 
-(defmulti model-keys util/model-type-dispatch)
-(defmethod model-keys :default [_] [])
+(defmulti entity-keys util/entity-type-dispatch)
+(defmethod entity-keys :default [_] [])
 
 (defn- append-qualifiers
-  [[model-type :as entry]]
+  [[entity-type :as entry]]
   (update-in entry
              [1]
              (partial map (fn [k]
                             (if (= :id k)
                               k
-                              (keyword (name model-type)
+                              (keyword (name entity-type)
                                        (name k)))))))
 
 (def ^:private primary-keys
-  (->> schema/models
+  (->> schema/entities
        (filter :primary-key)
        (map (comp append-qualifiers
                   (juxt :id :primary-key)))
@@ -77,24 +77,24 @@
   (let [get-key (map-invert m)]
     (vec (cons stmt
                (map (fn [arg]
-                      (if (models/sensitive-keys (get-key arg))
+                      (if (entities/sensitive-keys (get-key arg))
                         "********"
                         arg))
                     args)))))
 
 (defn- reconstruct
-  [models]
-  (if-let [rules (->> models
-                   (map util/model-type)
+  [entities]
+  (if-let [rules (->> entities
+                   (map util/entity-type)
                    set
                    (mapcat reconstruction-rules)
                    (filter identity)
                    seq)]
     (reduce (fn [ms rule-map]
               (util/reconstruct rule-map ms))
-            models
+            entities
             rules)
-    models))
+    entities))
 
 ; post-read coercions
 (def ^:private coercions
@@ -110,10 +110,10 @@
 (def ^:private sql-ref-keys
   (mapv #(keyword (namespace %)
                   (str (name %) "-id"))
-        schema/model-ref-keys))
+        schema/entity-ref-keys))
 
-(def ^:private model->sql-ref-map
-  (zipmap schema/model-ref-keys sql-ref-keys))
+(def ^:private entity->sql-ref-map
+  (zipmap schema/entity-ref-keys sql-ref-keys))
 
 (defn- extract-ref-id
   [x]
@@ -121,7 +121,7 @@
     ; An operation, like [:between start end] or [:in '(1 2 3)]
     (vector? x) (apply vector (first x) (map extract-ref-id (rest x)))
 
-    ; A model or model reference, like {:id 1}
+    ; A entity or entity reference, like {:id 1}
     (map? x)    (if-let [id (:id x)] id x)
 
     ; A list of values in an :in clause, like [:in #{1 2 3}]
@@ -134,18 +134,18 @@
   [m]
   (reduce (fn [m k]
             (update-in-if m [k] extract-ref-id))
-          (rename-keys m model->sql-ref-map)
+          (rename-keys m entity->sql-ref-map)
           sql-ref-keys))
 
-(def ^:private sql->model-ref-map
-  (zipmap sql-ref-keys schema/model-ref-keys))
+(def ^:private sql->entity-ref-map
+  (zipmap sql-ref-keys schema/entity-ref-keys))
 
-(defn- ->model-refs
+(defn- ->entity-refs
   [m]
   (reduce (fn [m k]
-            (update-in-if m [k] util/->model-ref))
-          (rename-keys m sql->model-ref-map)
-          schema/model-ref-keys))
+            (update-in-if m [k] util/->entity-ref))
+          (rename-keys m sql->entity-ref-map)
+          schema/entity-ref-keys))
 
 ; convert keywords to strings (or can this be done with SettableParameter?)
 ; {:account/type :asset} -> {:account/type "asset"}
@@ -158,12 +158,12 @@
 (defmulti post-select
   (fn [_opts ms]
     (when-let [m1 (first ms)]
-      (util/model-type m1))))
+      (util/entity-type m1))))
 (defmethod post-select :default [_ ms] ms)
 
 (def ^:private infer-table-name
   (comp ->snake_case_keyword
-        util/model-type))
+        util/entity-type))
 
 (defn- quote
   [x]
@@ -177,52 +177,52 @@
    :builder-fn result-set/as-kebab-maps})
 
 (defn- insert
-  [db model]
-  (let [table (infer-table-name model)
+  [db entity]
+  (let [table (infer-table-name entity)
         s (for-insert table
-                      model
+                      entity
                       sql-opts)
         _ (log/debugf "database insert %s -> %s"
-                      (models/scrub-sensitive-data model)
-                      (scrub-values model s))
+                      (entities/scrub-sensitive-data entity)
+                      (scrub-values entity s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
     (get-in result [(keyword (name table) "id")])))
 
 (defn- update
-  [db model]
-  {:pre [(:id model)]}
-  (let [table (infer-table-name model)
+  [db entity]
+  {:pre [(:id entity)]}
+  (let [table (infer-table-name entity)
         s (for-update table
-                      (dissoc model :id)
-                      {:id (:id model)}
+                      (dissoc entity :id)
+                      {:id (:id entity)}
                       sql-opts)
         _ (log/debugf "database update %s -> %s"
-                      (models/scrub-sensitive-data model)
-                      (scrub-values model s))
+                      (entities/scrub-sensitive-data entity)
+                      (scrub-values entity s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
 
     (get-in result [(keyword (name table) "id")])))
 
 (defn delete-one
   [ds m]
-  (let [primary-key (primary-keys (util/model-type m) [:id])
+  (let [primary-key (primary-keys (util/entity-type m) [:id])
         s (for-delete (infer-table-name m)
                       (select-keys m primary-key)
                       sql-opts)]
 
     (log/debugf "database delete %s -> %s"
-                (models/scrub-sensitive-data m)
+                (entities/scrub-sensitive-data m)
                 s)
 
     (jdbc/execute! ds s)
     1))
 
 (defn- put-one
-  [ds [oper model]]
+  [ds [oper entity]]
   (case oper
-    ::db/insert (insert ds model)
-    ::db/update (update ds model)
-    ::db/delete (delete-one ds model)
+    ::db/insert (insert ds entity)
+    ::db/update (update ds entity)
+    ::db/delete (delete-one ds entity)
     (throw (ex-info "Invalid operation" {:operation oper}))))
 
 (def ^:private id?
@@ -230,7 +230,7 @@
 
 (defn- wrap-oper
   "Ensure that what we are passing on is a tuple with a database
-  operation in the 1st position and a model in the second."
+  operation in the 1st position and a entity in the second."
   [{:as m :keys [id]}]
   (cond
     (vector? m) m
@@ -238,12 +238,12 @@
     :else       [::db/insert m]))
 
 (defmulti resolve-temp-ids
-  "In a model-specific way, replace temporary ids with proper ids after a save."
-  util/model-type-dispatch)
+  "In a entity-specific way, replace temporary ids with proper ids after a save."
+  util/entity-type-dispatch)
 
 (defmethod resolve-temp-ids :default
-  [model _id-map]
-  model)
+  [entity _id-map]
+  entity)
 
 (defn- ref-to-attrs
   [ref]
@@ -268,8 +268,8 @@
     [t (conj attrs :id)]))
 
 (def attributes
-  "A map of model types to attributes for the type"
-  (-> (->> schema/models
+  "A map of entity types to attributes for the type"
+  (-> (->> schema/entities
            (map (comp build-attributes
                       (juxt :id :fields :refs)))
            (into {}))
@@ -280,7 +280,7 @@
 
 (defn- strip-unrecognized-keys
   [m]
-  (select-keys m (attributes (util/model-type m))))
+  (select-keys m (attributes (util/entity-type m))))
 
 (defn- execute-and-aggregate
   "Returns a function that executes the database operation, saves the result
@@ -302,10 +302,10 @@
 (s/def ::id (some-fn string?
                      integer?
                      uuid?))
-(s/def ::model (s/and (s/keys :req-un [::id])
-                      util/model-type))
-(s/def ::puttable (s/or :map ::model
-                        :operation (s/tuple ::db/operation ::model)))
+(s/def ::entity (s/and (s/keys :req-un [::id])
+                      util/entity-type))
+(s/def ::puttable (s/or :map ::entity
+                        :operation (s/tuple ::db/operation ::entity)))
 (s/def ::puttables (s/coll-of ::puttable))
 
 ; This is only exposed publicly to support tests that enforce
@@ -313,10 +313,10 @@
 (defn put*
   "Executes operations against the database. This function is not entended
   to be used directly."
-  [ds models]
-  {:pre [(s/valid? ::puttables models)]}
+  [ds entities]
+  {:pre [(s/valid? ::puttables entities)]}
   (let [result (jdbc/with-transaction [tx ds]
-                 (->> models
+                 (->> entities
                       (mapcat deconstruct)
                       (map (comp #(update-in % [1] (comp before-save
                                                          ->sql-refs))
@@ -326,12 +326,12 @@
                                :id-map {}})))]
     (->> (:saved result)
          (map (comp after-read
-                    ->model-refs))
+                    ->entity-refs))
          (reconstruct))))
 
 (defn- id-key
   [x]
-  (when-let [target (util/model-type x)]
+  (when-let [target (util/entity-type x)]
     (keyword (name target) "id")))
 
 (defn- massage-ids
@@ -343,16 +343,16 @@
       k (rename-keys {:id k}))))
 
 (defn- refine-qualifiers
-  "Removes the namespace for the id key for a model map and corrects
+  "Removes the namespace for the id key for a entity map and corrects
   missing keyword namespaces.
 
   The jdbc library doesn't supply the table name as the keyword namespace
   when a CTE is used to create a recursive query. In these cases, we have to
   supply the namespace ourselves."
-  [{:keys [include-children? include-parents? model-type]}]
+  [{:keys [include-children? include-parents? entity-type]}]
   (fn [m]
     (let [+ns (if (or include-children? include-parents?)
-                           #(keyword (name model-type)
+                           #(keyword (name entity-type)
                                      (name %))
                            identity)]
       (update-keys m (fn [k]
@@ -376,7 +376,7 @@
                 :keys [include-children?
                        include-parents?
                        nil-replacements]}]
-  (let [model-type (util/model-type criteria)
+  (let [entity-type (util/entity-type criteria)
         query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
@@ -385,15 +385,15 @@
                                    :quoted? true
                                    :column-fn ->snake_case
                                    :table-fn ->snake_case
-                                   :target model-type)
+                                   :target entity-type)
                       nil-replacements (assoc :nil-replacements
                                               (update-keys nil-replacements
                                                            ->snake-case))
-                      include-children? (assoc :recursion (recursions model-type))
-                      include-parents? (assoc :recursion (reverse (recursions model-type))))))]
+                      include-children? (assoc :recursion (recursions entity-type))
+                      include-parents? (assoc :recursion (reverse (recursions entity-type))))))]
 
     (log/debugf "database select %s with options %s -> %s"
-                (models/scrub-sensitive-data criteria)
+                (entities/scrub-sensitive-data criteria)
                 options
                 (scrub-values criteria query))
 
@@ -407,8 +407,8 @@
                           sql-opts)
            (map (comp after-read
                       apply-coercions
-                      ->model-refs
-                      (refine-qualifiers (assoc options :model-type model-type))))
+                      ->entity-refs
+                      (refine-qualifiers (assoc options :entity-type entity-type))))
            (post-select options)))))
 
 (defn- update*
@@ -416,16 +416,16 @@
   (let [sql (->update (->sql-refs changes)
                       (->sql-refs criteria))]
     (log/debugf "database bulk update: change %s for %s -> %s"
-                (models/scrub-sensitive-data changes)
-                (models/scrub-sensitive-data criteria)
+                (entities/scrub-sensitive-data changes)
+                (entities/scrub-sensitive-data criteria)
                 sql)
     (jdbc/execute! ds sql sql-opts)))
 
 (defn- delete*
-  [ds models]
-  {:pre [(s/valid? (s/coll-of map?) models)]}
+  [ds entities]
+  {:pre [(s/valid? (s/coll-of map?) entities)]}
 
-  (->> models
+  (->> entities
        (interleave (repeat ::db/delete))
        (partition 2)
        (map vec)
@@ -439,9 +439,9 @@
   [config]
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
-      (put [_ models] (put* ds models))
+      (put [_ entities] (put* ds entities))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
-      (delete [_ models] (delete* ds models))
+      (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))
       (close [_] #_noop)
       (reset [_] (reset* ds)))))

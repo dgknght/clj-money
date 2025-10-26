@@ -8,8 +8,8 @@
             [dgknght.app-lib.test_assertions]
             [clj-money.util :as util]
             [clj-money.db.sql :as sql]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
-            [clj-money.models :as models]
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
             [clj-money.entities.transactions :as transactions]
@@ -23,13 +23,13 @@
             [clj-money.test-helpers :refer [dbtest]]))
 
 (def ^:private reload-account
-  (comp models/find
+  (comp entities/find
         find-account))
 
 (defn- assert-account-quantities
   [& {:as balances}]
   (doseq [[account balance] balances]
-    (is (= balance (:account/quantity (models/find account)))
+    (is (= balance (:account/quantity (entities/find account)))
         (format "%s should have the quantity %s"
                 (:account/name account)
                 balance))))
@@ -99,7 +99,7 @@
       (prop/put-and-propagate (attributes))
       (testing "entity updates"
         (is (comparable? #:entity{:transaction-date-range [date date]}
-                         (models/find (find-entity "Personal")))
+                         (entities/find (find-entity "Personal")))
             "The entity is updated with the transaction dates"))
       (testing "account updates"
         (is (comparable? #:account{:transaction-date-range [date date]}
@@ -113,8 +113,8 @@
                                                    :balance 1000M}
                                 #:transaction-item{:index 0
                                                    :balance 1000M}]
-                               (models/select
-                                 (util/model-type
+                               (entities/select
+                                 (util/entity-type
                                    {:transaction/transaction-date date}
                                    :transaction-item)))
             "The item indices and balances are calculated")))))
@@ -353,7 +353,7 @@
 
 (dbtest get-a-transaction
   (with-context update-context
-    (let [retrieved (models/find-by
+    (let [retrieved (entities/find-by
                       {:transaction/transaction-date (t/local-date 2016 3 2)
                        :transaction/description "Paycheck"})]
       (is (comparable? {:transaction/value 1000M
@@ -402,7 +402,7 @@
     (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2017 6 15)
                                           :description "Paycheck"
                                           :value 170615M}]
-                           (models/select #:transaction{:transaction-date (t/local-date 2017 6 15)
+                           (entities/select #:transaction{:transaction-date (t/local-date 2017 6 15)
                                                         :entity (find-entity "Personal")}))
         "The transactions from the specified day are returned")))
 
@@ -411,7 +411,7 @@
     (is (seq-of-maps-like?
           [#:transaction{:transaction-date (t/local-date 2017 6 1)}
            #:transaction{:transaction-date (t/local-date 2017 6 15)}]
-          (models/select #:transaction{:transaction-date [:between
+          (entities/select #:transaction{:transaction-date [:between
                                                           (t/local-date 2017 6 1)
                                                           (t/local-date 2017 6 30)]
                                        :entity (find-entity "Personal")}))
@@ -419,11 +419,11 @@
 
 (defn- update-items
   [items change-map]
-  (let [indexed-items (index-by (comp util/->model-ref
+  (let [indexed-items (index-by (comp util/->entity-ref
                                       :transaction-item/account)
                                 items)]
     (->> change-map
-         (map #(update-in % [0] util/->model-ref))
+         (map #(update-in % [0] util/->entity-ref))
          (reduce (fn [items [account item]]
                    (update-in items [account] merge item))
                  indexed-items)
@@ -488,7 +488,7 @@
       (assert-account-quantities checking 797M groceries 203M)
       (testing "transaction is updated"
         (is (= (t/local-date 2016 3 10)
-               (:transaction/transaction-date (models/find result)))
+               (:transaction/transaction-date (entities/find result)))
             "The updated transaction can be retrieved")))))
 
 (dbtest update-a-transaction-cross-partition-boundary
@@ -525,7 +525,7 @@
       (assert-account-quantities checking 797M groceries 203M)
       (testing "transaction is updated"
         (is (= (t/local-date 2016 4 12)
-               (:transaction/transaction-date (models/find result)))
+               (:transaction/transaction-date (entities/find result)))
             "The retrieved transaction has the new date")))))
 
 (def short-circuit-context
@@ -573,9 +573,9 @@
   (with-context short-circuit-context
     (let [calls (atom [])
           orig-put sql/put*]
-      (with-redefs [sql/put* (fn [ds models]
-                               (swap! calls conj models)
-                               (orig-put ds models))]
+      (with-redefs [sql/put* (fn [ds entities]
+                               (swap! calls conj entities)
+                               (orig-put ds entities))]
         (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
             (assoc :transaction/transaction-date (t/local-date 2016 3 8))
             prop/put-and-propagate)
@@ -585,7 +585,7 @@
               "Two calls are made to write to storage (the primary and the propagation)")
           (is (seq-of-maps-like? [#:transaction{:description "Kroger"
                                                 :transaction-date (t/local-date 2016 3 8)}]
-                                 (filter (util/model-type? :transaction)
+                                 (filter (util/entity-type? :transaction)
                                          c1))
               "The updated transaction is written in the 1st call")
           (is (seq-of-maps-like? [#:transaction-item {:index 1
@@ -594,8 +594,8 @@
                                   #:transaction-item{:index 2
                                                      :quantity 101M
                                                      :balance 797M}]
-                                 (filterv (every-pred (util/model-type? :transaction-item)
-                                                      #(util/model= (:transaction-item/account %)
+                                 (filterv (every-pred (util/entity-type? :transaction-item)
+                                                      #(util/entity= (:transaction-item/account %)
                                                                     checking))
                                           c2))
               "The affected transaction items are written in the 2nd call")
@@ -603,7 +603,7 @@
           (is (empty? (filter #(#{3 4} (:transaction-item/index %))
                               (flatten cs)))
               "The unaffected transaction items are not written")
-          (is (empty? (filter (util/model-type? :account)
+          (is (empty? (filter (util/entity-type? :account)
                               (flatten cs)))
               "The account is not updated")
           (assert-account-quantities (find-account "Checking") 590M))))))
@@ -880,7 +880,7 @@
            salary
            groceries] (find-accounts "Checking" "Salary" "Groceries")]
       (transactions/with-delayed-propagation [out-chan ctrl-chan]
-        (mapv (comp #(models/put %
+        (mapv (comp #(entities/put %
                                  :out-chan out-chan
                                  :close-chan? false
                                  :ctrl-chan ctrl-chan)
@@ -904,14 +904,14 @@
           "The account balance is recalculated after the form exits")
       (is (comparable? {:entity/transaction-date-range [(t/local-date 2017 1 1)
                                                         (t/local-date 2017 2 1)]}
-                       (models/find entity))
+                       (entities/find entity))
           "The entity transaction date boundaries are updated"))))
 
 (dbtest use-simplified-items
   (with-context base-context
     (let [entity (find-entity "Personal")
           [checking salary] (find-accounts "Checking" "Salary")
-          trx (models/put #:transaction{:entity entity
+          trx (entities/put #:transaction{:entity entity
                                         :transaction-date (t/local-date 2017 3 2)
                                         :description "Paycheck"
                                         :quantity 1000M
@@ -919,10 +919,10 @@
                                         :credit-account salary})]
       (is (seq-of-maps-like? [#:transaction-item{:quantity 1000M
                                                  :action :debit
-                                                 :account (util/->model-ref checking)}
+                                                 :account (util/->entity-ref checking)}
                               #:transaction-item{:quantity 1000M
                                                  :action :credit
-                                                 :account (util/->model-ref salary)}]
+                                                 :account (util/->entity-ref salary)}]
                              (:transaction/items trx))))))
 
 (def ^:private existing-reconciliation-context
@@ -979,8 +979,8 @@
   (with-context existing-reconciliation-context
     (let [transaction (find-transaction [(t/local-date 2017 1 1) "Paycheck"])]
       (is (thrown? IllegalStateException
-                   (models/delete transaction)))
-      (is (models/find transaction)
+                   (entities/delete transaction)))
+      (is (entities/find transaction)
           "The transaction can be retrieved after failed delete attempt"))))
 
 (def ^:private migrate-context
@@ -1007,8 +1007,8 @@
           savings (find-account "Savings")]
       (transactions/migrate-account checking savings)
       (is (comparable? #:account{:quantity 0M}
-                       (models/find checking))
+                       (entities/find checking))
           "The from account has a zero balance after the transfer")
       (is (comparable? #:account{:quantity 900M}
-                       (models/find savings))
+                       (entities/find savings))
           "The to account has the balance the from account had before the transfer"))))

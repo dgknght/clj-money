@@ -12,7 +12,7 @@
             [clj-money.test-context :refer [with-context
                                             find-user]]
             [clj-money.test-helpers :refer [dbtest]]
-            [clj-money.model-helpers :refer [assert-invalid] :as helpers]))
+            [clj-money.entity-helpers :refer [assert-invalid] :as helpers]))
 
 (def image-context
   [#:user{:email "john@doe.com"

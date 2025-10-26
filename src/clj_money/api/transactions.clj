@@ -10,7 +10,7 @@
              :as authorization]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :refer [unserialize-local-date]]
-            [clj-money.entities :as models]
+            [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.authorization.transactions]
             [clj-money.transactions :refer [expand]]))
@@ -42,7 +42,7 @@
 (defn- index
   [req]
   (api/response
-   (models/select (->criteria req) (->options req))))
+   (entities/select (->criteria req) (->options req))))
 
 (defn- find-and-auth
   [{:keys [path-params authenticated]} action]
@@ -54,7 +54,7 @@
             (select-keys [:id])
             (assoc :transaction/transaction-date trans-date)
             (+scope authenticated)
-            models/find-by
+            entities/find-by
             (authorize action authenticated))))
 
 (defn- show

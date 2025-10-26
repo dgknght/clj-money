@@ -3,7 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clj-money.util :as util]
-            [clj-money.entities :as models]))
+            [clj-money.entities :as entities]))
 
 ; A map of priority number to sets of propagation fns
 (def ^:private full-propagations (atom {}))
@@ -16,12 +16,12 @@
        (apply comp)))
 
 (defn propagate-all
-  "Performs a full propagation for all models in the system.
+  "Performs a full propagation for all entities in the system.
 
   Model namespaces register a function with add-full-propagation so that when
   this function is called, all of the mode-specific propagations will be executed."
   ([opts]
-   (doseq [entity (models/select (util/model-type {} :entity))]
+   (doseq [entity (entities/select (util/entity-type {} :entity))]
      (propagate-all entity opts)))
   ([entity opts]
    (log/debugf "[propagation] start entity %s"
@@ -44,19 +44,19 @@
 
 (defmulti propagate #(->> %
                           (filter identity)
-                          (some util/model-type)))
+                          (some util/entity-type)))
 (defmethod propagate :default [[_before _after]] [])
 
 (def propagation-xf
   (comp (map propagate)
         (remove empty?)
         (map #(when (seq %)
-                (models/put-many %)))))
+                (entities/put-many %)))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defmacro with-propagation
   "Propagate puts that occur during the block. The two bindings must be
-  passed to models/put-many and are:
+  passed to entities/put-many and are:
     - out-chan: a channel for receiving changes emitted from the put
     - ctrl-chan: a channel for receiving notifications about the stopping and starting of the puts"
   [bindings & body]
@@ -89,18 +89,18 @@
 
 (defn +propagation
   [f]
-  (fn [model]
+  (fn [entity]
     (with-propagation [out-chan ctrl-chan]
-      (f model
+      (f entity
          :out-chan out-chan
          :ctrl-chan ctrl-chan
          :close-chan? false))))
 
 (defn- act-and-propagate
-  [model f {:as opts :keys [return-all?] :or {return-all? false}}]
+  [entity f {:as opts :keys [return-all?] :or {return-all? false}}]
   (let [out-chan (a/chan 1 propagation-xf)
         result (apply f
-                      model
+                      entity
                       (mapcat identity
                               (assoc opts
                                      :out-chan out-chan)))
@@ -110,9 +110,9 @@
       result)))
 
 (defn put-and-propagate
-  [model & {:as opts}]
-  (act-and-propagate model models/put (mapcat identity opts)))
+  [entity & {:as opts}]
+  (act-and-propagate entity entities/put (mapcat identity opts)))
 
 (defn delete-and-propagate
-  [model & {:as opts}]
-  (act-and-propagate model models/delete (mapcat identity opts)))
+  [entity & {:as opts}]
+  (act-and-propagate entity entities/delete (mapcat identity opts)))
