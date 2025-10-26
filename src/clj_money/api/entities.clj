@@ -9,11 +9,11 @@
 
 (defn- index
   [{:keys [authenticated params]}]
-  (api/response
-    (entities/select (-> params
-                       (select-keys [:name])
-                       (+scope :entity authenticated))
-                   {:sort [:entity/name]})))
+  (-> params
+      (select-keys [:name])
+      (+scope :entity authenticated)
+      (entities/select {:sort [:entity/name]})
+      api/response))
 
 (defn- extract-entity
   [{:keys [params authenticated]}]
