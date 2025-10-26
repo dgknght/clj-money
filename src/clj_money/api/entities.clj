@@ -4,16 +4,16 @@
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.authorization :refer [authorize +scope] :as authorization]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.authorization.entities]))
 
 (defn- index
   [{:keys [authenticated params]}]
-  (api/response
-    (models/select (-> params
-                       (select-keys [:name])
-                       (+scope :entity authenticated))
-                   {:sort [:entity/name]})))
+  (-> params
+      (select-keys [:name])
+      (+scope :entity authenticated)
+      (entities/select {:sort [:entity/name]})
+      api/response))
 
 (defn- extract-entity
   [{:keys [params authenticated]}]
@@ -26,16 +26,16 @@
   [req]
   (-> req
       extract-entity
-      models/put
+      entities/put
       api/creation-response))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (util/model-type :entity)
+          (util/entity-type :entity)
           (+scope :entity authenticated)
-          models/find-by
+          entities/find-by
           (authorize action authenticated)))
 
 (defn- update
@@ -43,7 +43,7 @@
   (if-let [entity (find-and-auth req ::authorization/update)]
     (-> entity
         (merge (extract-entity req))
-        models/put
+        entities/put
         api/update-response)
     api/not-found))
 
@@ -51,7 +51,7 @@
   [req]
   (if-let [entity (find-and-auth req ::authorization/destroy)]
     (do
-      (models/delete entity)
+      (entities/delete entity)
       (api/response))
     api/not-found))
 

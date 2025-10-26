@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.models.schema :as schema]
+            [clj-money.entities.schema :as schema]
             [clj-money.dates :as dates]
             [clj-money.util :as util :refer [update-keys]]
             [clj-money.api :as api :refer [add-error-handler]]))

@@ -39,7 +39,7 @@
                        (t/zone-offset 0 0))))
 
 (defn ->java-dates
-  "Given a model or criteria, replace all local-date instances with java dates"
+  "Given a entity or criteria, replace all local-date instances with java dates"
   [m]
   (postwalk (fn [x]
               (cond

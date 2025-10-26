@@ -5,8 +5,8 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
-            [clj-money.models :as models]
-            [clj-money.models.ref]
+            [clj-money.entities :as entities]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -151,7 +151,7 @@
                        app
                        parse-edn-body)]
       [response (when-let [id (-> response :edn-body :id)]
-                  (models/find id :commodity))])))
+                  (entities/find id :commodity))])))
 
 (defn- assert-successful-create
   [[{:as response :keys [edn-body]} retrieved]]
@@ -193,7 +193,7 @@
       (is (http-bad-request? response))
       (is (= ["Exchange must be amex, nasdaq, nyse, or otc"]
              (get-in response [:edn-body :commodity/exchange])))
-      (is (empty? (models/select {:commodity/entity entity
+      (is (empty? (entities/select {:commodity/entity entity
                                   :commodity/symbol "AAPL"}))
           "The record is not created"))))
 
@@ -208,7 +208,7 @@
                        (add-auth (find-user email))
                        app
                        parse-edn-body)]
-      [response (models/find msft)])))
+      [response (entities/find msft)])))
 
 (defn- assert-successful-update
   [[{:as response :keys [edn-body]} retrieved]]
@@ -242,7 +242,7 @@
                                                   (:id msft)))
                        (add-auth (find-user email))
                        app)
-          retrieved (models/find msft)]
+          retrieved (entities/find msft)]
       [response retrieved])))
 
 (defn- assert-successful-delete

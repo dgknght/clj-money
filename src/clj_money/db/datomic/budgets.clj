@@ -1,6 +1,6 @@
 (ns clj-money.db.datomic.budgets
   (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.db :as db]
             [clj-money.db.datomic :as datomic]))
 
@@ -10,7 +10,7 @@
 
 (defn- removals
   [{:as budget :budget/keys [items]}]
-  (when-let [before (seq (models/before budget :budget/items))]
+  (when-let [before (seq (entities/before budget :budget/items))]
     (let [ids (->> items
                    (map :id)
                    set)]

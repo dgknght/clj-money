@@ -327,11 +327,11 @@
                       end)
         "The range end date is in the second position of the return value.")))
 
-(deftest push-a-models-date-boundary
+(deftest push-a-entities-date-boundary
   (is (= [(dates/local-date "2020-02-01")
           (dates/local-date "2020-02-01")]
          (:commodity/price-date-range
-           (dates/push-model-boundary
+           (dates/push-entity-boundary
              {}
              :commodity/price-date-range
              (dates/local-date "2020-02-01"))))
@@ -339,7 +339,7 @@
   (is (= [(dates/local-date "2020-02-01")
           (dates/local-date "2020-02-02")]
          (:commodity/price-date-range
-           (dates/push-model-boundary
+           (dates/push-entity-boundary
              {:commodity/price-date-range [(dates/local-date "2020-02-01")
                                            (dates/local-date "2020-02-01")]}
              :commodity/price-date-range
@@ -348,7 +348,7 @@
   (is (= [(dates/local-date "2020-01-31")
           (dates/local-date "2020-02-01")]
          (:commodity/price-date-range
-           (dates/push-model-boundary
+           (dates/push-entity-boundary
              {:commodity/price-date-range [(dates/local-date "2020-02-01")
                                            (dates/local-date "2020-02-01")]}
              :commodity/price-date-range
@@ -357,7 +357,7 @@
   (is (= [(dates/local-date "2020-02-01")
           (dates/local-date "2020-02-02")]
          (:commodity/price-date-range
-           (dates/push-model-boundary
+           (dates/push-entity-boundary
              {:commodity/price-date-range [(dates/local-date "2020-02-01")
                                            (dates/local-date "2020-02-02")]}
              :commodity/price-date-range

@@ -177,7 +177,7 @@
         #:account{:name "Savings"
                   :type :asset
                   :entity "Personal"}
-        #:account{:name "Kitchen remodel"
+        #:account{:name "Kitchen reentity"
                   :type :asset
                   :entity "Personal"
                   :parent "Savings"}
@@ -206,7 +206,7 @@
         #:transaction{:transaction-date (t/local-date 2015 1 4)
                       :entity "Personal"
                       :description "For the sub-zero"
-                      :debit-account "Kitchen remodel"
+                      :debit-account "Kitchen reentity"
                       :credit-account "Checking"
                       :quantity 103M}))
 

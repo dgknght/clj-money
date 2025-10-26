@@ -19,10 +19,10 @@
 
 (defn- index
   [& inputs]
-  (let [[->key & models] (if (map? (first inputs))
-                           (cons util/->model-ref inputs)
+  (let [[->key & entities] (if (map? (first inputs))
+                           (cons util/->entity-ref inputs)
                            inputs)]
-    (->> models
+    (->> entities
          (map (juxt ->key identity))
          (into {}))))
 
@@ -248,7 +248,7 @@
                                {:find-account (:accounts trading-context)
                                 :find-commodity (:commodities trading-context)})]
     (is (= "2020-01-01" (:trade/trade-date tradified)) "The trade-date is taken from transaction-date")
-    (is (util/model= {:id :401k} (:trade/account tradified)) "The account is taken from the item for the trading account")
+    (is (util/entity= {:id :401k} (:trade/account tradified)) "The account is taken from the item for the trading account")
     (is (= :buy (:trade/action tradified)) "The action defauls to buy")
     (is (nil? (:trade/commodity tradified)) "The commodity id is nil")
     (is (nil? (:trade/shares tradified)) "The shares is nil")))
@@ -271,8 +271,8 @@
              (-> (trx/tradify standard
                               {:find-account (:accounts trading-context)
                                :find-commodity (:commodities trading-context)})
-                 (update-in [:trade/account] util/->model-ref)
-                 (update-in [:trade/commodity] util/->model-ref)))))
+                 (update-in [:trade/account] util/->entity-ref)
+                 (update-in [:trade/commodity] util/->entity-ref)))))
     (testing "a trade transaction can be converted to a standard"
       (is (= standard
              (update-in (trx/untradify tradified
@@ -281,7 +281,7 @@
                         (fn [items]
                           (map #(update-in %
                                            [:transaction-item/account]
-                                           util/->model-ref)
+                                           util/->entity-ref)
                                items))))))))
 
 (deftest tradify-a-sell-transaction
@@ -302,15 +302,15 @@
              (-> (trx/tradify standard
                               {:find-account (:accounts trading-context)
                                :find-commodity (:commodities trading-context)})
-                 (update-in [:trade/account] util/->model-ref)
-                 (update-in [:trade/commodity] util/->model-ref)))))
+                 (update-in [:trade/account] util/->entity-ref)
+                 (update-in [:trade/commodity] util/->entity-ref)))))
     (testing "a trade transaction can be converted to a standard"
       (is (= standard
              (update-in (trx/untradify tradified
                             {:find-account-with-commodity find-account-with-commodity})
                         [:transaction/items]
                         (fn [items]
-                          (mapv #(update-in % [:transaction-item/account] util/->model-ref)
+                          (mapv #(update-in % [:transaction-item/account] util/->entity-ref)
                                 items))))))))
 
 (deftest summarize-some-items

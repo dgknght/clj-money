@@ -130,7 +130,7 @@
                                 (t/years 1))
              (load-in-chunks {:fetch-xf (comp (map (fn [[start end :as range]]
                                                      (when (seq range)
-                                                       {:price/commodity (util/->model-ref commodity)
+                                                       {:price/commodity (util/->entity-ref commodity)
                                                         :price/trade-date [:between> start end]})))
                                               fetch-prices)}))]
     (swap! page-state assoc :ctl-chan ctl-ch)

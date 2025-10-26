@@ -1,12 +1,12 @@
 (ns clj-money.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.edn :as edn]
-            [clj-money.models.schema :as schema]
-            [clj-money.models.ref]
+            [clj-money.entities.schema :as schema]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.accounts :refer [nest unnest]]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.entities.transactions :as transactions]))
 
 (defn- usage?
   [{:keys [options]}]
@@ -60,15 +60,15 @@
 (defn migrate-account
   [& args]
   (with-options args migrate-account-cli-options [opts]
-    (let [user (models/find-by {:user/email (:user-email opts)})
+    (let [user (entities/find-by {:user/email (:user-email opts)})
           _ (assert user (format "Unable to find user with email address \"%s\"." (:user-email opts)))
-          entity (models/find-by {:entity/user user
+          entity (entities/find-by {:entity/user user
                                   :entity/name (:entity-name opts)})
           _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))
-          from-account (models/find-by #:account{:entity entity
+          from-account (entities/find-by #:account{:entity entity
                                                  :name (:from-account opts)})
           _ (assert from-account (format "Unable to find an account named \"%s\"." (:from-account opts)))
-          to-account (models/find-by #:account{:entity entity
+          to-account (entities/find-by #:account{:entity entity
                                                :name (:to-account opts)})]
       (assert to-account (format "Unable to find an account named \"%s\"." (:to-account opts)))
       (transactions/migrate-account from-account to-account))))
@@ -89,13 +89,13 @@
 (defn export-user-tags
   [& args]
   (with-options args export-user-tags-cli-options [opts]
-    (let [user (models/find-by {:user/email (:user-email opts)})
+    (let [user (entities/find-by {:user/email (:user-email opts)})
           _ (assert user (format "Unable to find a user with email address \"%s\"." (:user-email opts)))
-          entity (models/find-by #:entity{:user user
+          entity (entities/find-by #:entity{:user user
                                           :name (:entity-name opts)})
           _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))]
       (spit (:output-file opts)
-            (->> (models/select {:account/entity entity})
+            (->> (entities/select {:account/entity entity})
                  nest
                  unnest
                  (filter #(seq (:user-tags %)))
@@ -118,12 +118,12 @@
 (defn import-user-tags
   [& args]
   (with-options args import-user-tags-cli-options [opts]
-    (let [user (models/find-by {:user/email (:user-email opts)})
+    (let [user (entities/find-by {:user/email (:user-email opts)})
           _ (assert user (format "Unable to find a user with email address \"%s\"." (:user-email opts)))
-          entity (models/find-by #:entity{:user user
+          entity (entities/find-by #:entity{:user user
                                           :name (:entity-name opts)})
           _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))
-          accounts (->> (models/select #:account{:entity entity
+          accounts (->> (entities/select #:account{:entity entity
                                                  :type :expense})
                         nest
                         unnest
@@ -132,7 +132,7 @@
 
       (doseq [{:keys [path user-tags]} tags
               account (get-in accounts [path])]
-        (models/put (assoc account :account/user-tags user-tags))))))
+        (entities/put (assoc account :account/user-tags user-tags))))))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn er-diagram [& _args]
@@ -143,10 +143,10 @@
                                          (str "    " (name type) " " (name id)))
                                      fields)
                                 ["  }"]))
-                              schema/models)
+                              schema/entities)
                       (mapcat (fn [{:keys [refs id]}]
                                 (map (fn [ref]
                                        (str "  " (name ref) " ||--|{ " (name id) " : \"has many\""))
                                      refs))
-                              schema/models))]
+                              schema/entities))]
     (doseq [l lines] (println l))))

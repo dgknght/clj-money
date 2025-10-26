@@ -8,8 +8,8 @@
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.schema :as schema]
+            [clj-money.entities :as entities]
+            [clj-money.entities.schema :as schema]
             [clj-money.db.datomic.tasks :refer [apply-schema]]
             [clj-money.db.datomic.types :refer [coerce-id
                                                 apply-coercions
@@ -27,9 +27,9 @@
 
 ; TODO: Get this from the schema
 (defn- bounding-where-clause
-  [model-type]
-  {:pre [model-type]}
-  (case model-type
+  [entity-type]
+  {:pre [entity-type]}
+  (case entity-type
     :account               '[?x :account/type ?account-type]
     :attachment            '[?x :attachment/image ?attachment-image]
     :budget                '[?x :budget/start-date ?budget-start-date]
@@ -58,12 +58,12 @@
        empty?))
 
 (defn- ensure-bounding-where-clause
-  [query model-type]
+  [query entity-type]
   (if (unbounded? query)
     (update-in query
                [:where]
                (fnil conj '())
-               (bounding-where-clause model-type))
+               (bounding-where-clause entity-type))
     query))
 
 (defn- rearrange-query
@@ -78,20 +78,20 @@
   {:account :account/parent})
 
 (defn- recursion
-  [{:keys [include-children? include-parents?]} model-type]
+  [{:keys [include-children? include-parents?]} entity-type]
   (when (or include-children? include-parents?)
-    (if-let [k (recursion-keys model-type)]
+    (if-let [k (recursion-keys entity-type)]
       (cond-> [k]
         include-parents? (conj :upward))
-      (throw (IllegalArgumentException. (format "No recursion defined for model type %s" model-type))))))
+      (throw (IllegalArgumentException. (format "No recursion defined for entity type %s" entity-type))))))
 
 (defn- criteria->query
   [criteria {:as opts
              :keys [count
                     nil-replacements]
              :or {nil-replacements {}}}]
-  (let [m-type (or (util/model-type criteria)
-                   (:model-type opts))]
+  (let [m-type (or (util/entity-type criteria)
+                   (:entity-type opts))]
     (-> {:find (if count
                  '[(count ?x)]
                  '[(pull ?x [*])])
@@ -108,11 +108,11 @@
         (ensure-bounding-where-clause m-type)
         rearrange-query)))
 
-(defmulti deconstruct util/model-type)
-(defmulti before-save util/model-type)
-(defmulti after-read util/model-type)
-(defmulti prepare-criteria util/model-type)
-(defmulti propagate-delete util/model-type-dispatch)
+(defmulti deconstruct util/entity-type)
+(defmulti before-save util/entity-type)
+(defmulti after-read util/entity-type)
+(defmulti prepare-criteria util/entity-type)
+(defmulti propagate-delete util/entity-type-dispatch)
 
 (defmethod deconstruct :default [m] [m])
 (defmethod before-save :default [m] m)
@@ -131,7 +131,7 @@
               ->java-dates
               (util/deep-rename-keys {:id :db/id}))
           (->> nils
-               (filter #(get-in (-> m meta :clj-money.models/before) %))
+               (filter #(get-in (-> m meta :clj-money.entities/before) %))
                (map #(vector :db/retract
                              (get-in m (concat
                                          (butlast %)
@@ -144,7 +144,7 @@
 
 ; Here we expact that the datomic transaction has already been constructed
 ; like the following:
-; [:db/add model-id :user/given-name "John"]
+; [:db/add entity-id :user/given-name "John"]
 ;
 ; Potentially, it could also look like
 ; [::db/delete {:id 1 :user/given-name "John"}]
@@ -161,11 +161,11 @@
          (map #(vector :db/retract id %)))
     [(apply vector (action-map action action) args)]))
 
-(defn- models->refs
+(defn- entities->refs
   [m]
   (postwalk (fn [x]
               (if (and (map-entry? x)
-                       (schema/model-ref-keys (key x)))
+                       (schema/entity-ref-keys (key x)))
                 (update-in x [1] :id)
                 x))
             m))
@@ -183,12 +183,12 @@
       (f x))))
 
 (defn- put*
-  [models {:keys [api]}]
-  {:pre [(sequential? models)]}
-  (let [prepped (->> models
+  [entities {:keys [api]}]
+  {:pre [(sequential? entities)]}
+  (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
-                     (map (pass-through models->refs))
+                     (map (pass-through entities->refs))
                      (mapcat #(prep-for-put % api)))
         {:keys [tempids]} (transact api prepped {})]
     (->> prepped
@@ -216,7 +216,7 @@
               (comp #(= :id %)
                     first)))
 
-(def ^:private model-criterion?
+(def ^:private entity-criterion?
   (every-pred map-entry?
               (comp map? second)
               (comp :id second)))
@@ -226,21 +226,21 @@
               (comp (partial = "_self")
                     (comp name key))))
 
-(defn- model-in-criterion?
+(defn- entity-in-criterion?
   [x]
   (when (and (map-entry? x)
              (vector? (val x)))
     (let [[oper v] (val x)]
       (and (= :in oper)
-           (every? util/model-ref? v)))))
+           (every? util/entity-ref? v)))))
 
 (defn- normalize-criterion
   [x]
   (cond
     (id-criterion? x)       (update-in x [1] coerce-id)
-    (model-criterion? x)    (update-in x [1] select-keys [:id])
+    (entity-criterion? x)    (update-in x [1] select-keys [:id])
     (self-reference? x)     (update-in x [1] select-keys [:id])
-    (model-in-criterion? x) (update-in x [1] (fn [c]
+    (entity-in-criterion? x) (update-in x [1] (fn [c]
                                                (update-in c [1] #(->> %
                                                                       (map :id)
                                                                       set))))
@@ -256,7 +256,7 @@
     (vec x)
     (vector x)))
 
-(defn- extract-model
+(defn- extract-entity
   [{:keys [select-also]}]
   (let [attributes (->vector select-also)]
     (if (seq attributes)
@@ -302,7 +302,7 @@
         raw-result (with-performance-logging qry (query api qry))]
 
     (log/debugf "select %s -> %s"
-                (models/scrub-sensitive-data criteria)
+                (entities/scrub-sensitive-data criteria)
                 qry) ; TODO scrub the datalog query too
 
     (cond
@@ -314,7 +314,7 @@
 
       :else
       (->> raw-result
-           (map (extract-model options))
+           (map (extract-entity options))
            (remove naked-id?)
            (map (comp after-read
                       apply-coercions
@@ -337,11 +337,11 @@
     (transact api updates {})))
 
 (defn- delete*
-  [models {:keys [api] :as opts}]
-  {:pre [(and (sequential? models)
-              (not-any? nil? models))]}
+  [entities {:keys [api] :as opts}]
+  {:pre [(and (sequential? entities)
+              (not-any? nil? entities))]}
   (transact api
-            (->> models
+            (->> entities
                  (mapcat #(propagate-delete % opts))
                  (mapv #(vector :db/retractEntity (:id %))))
             {}))
@@ -396,9 +396,9 @@
   [config]
   (let [api (init-api config)]
     (reify db/Storage
-      (put [_ models]       (put* models {:api api}))
+      (put [_ entities]       (put* entities {:api api}))
       (select [_ crit opts] (select* crit opts {:api api}))
-      (delete [_ models]    (delete* models {:api api}))
+      (delete [_ entities]    (delete* entities {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
       (close [_])
       (reset [_]            (reset api)))))

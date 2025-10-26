@@ -11,12 +11,12 @@
             [clj-money.dates :as dates]
             [clj-money.progress :as prog]
             [clj-money.images :as images]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria
                                         expense?]]
             [clj-money.transactions :refer [polarize-item-quantity]]
-            [clj-money.models.accounts :as accounts]))
+            [clj-money.entities.accounts :as accounts]))
 
 (defmacro with-fatal-exceptions
   [& body]
@@ -80,7 +80,7 @@
                           ffirst)]
       (assoc-in entity
                 [:entity/settings (keyword "settings" (name setting))]
-                (util/->model-ref account))
+                (util/->entity-ref account))
       entity)))
 
 (defn- update-entity-default-commodity
@@ -93,7 +93,7 @@
       (assoc-in entity
                 [:entity/settings
                  :settings/default-commodity]
-                (util/->model-ref commodity))
+                (util/->entity-ref commodity))
       entity)))
 
 (defn- update-entity-settings
@@ -107,7 +107,7 @@
                         (update-entity-default-commodity context))]
         (if (= updated entity)
           entity
-          (models/put updated))))))
+          (entities/put updated))))))
 
 (defn- resolve-account-reference
   ([ctx] #(resolve-account-reference % ctx))
@@ -138,7 +138,7 @@
   [context transaction]
   (-> transaction
       (prepare-transaction context)
-      models/put
+      entities/put
       (log-transaction "standard"))
   context)
 
@@ -323,7 +323,7 @@
                             :account/commodity (find-commodity context commodity)
                             :account/parent (some-> parent-id account-ids accounts))
                      purge-import-keys
-                     models/put)]
+                     entities/put)]
       (log/infof "[import] imported account \"%s\": %s -> %s"
                  (:account/name result)
                  id
@@ -342,7 +342,7 @@
                              :reconciliation/status :new
                              :reconciliation/account {:id new-id})
                       purge-import-keys
-                      models/put)]
+                      entities/put)]
       ; We'll use this map later to assocate reconciled transactions
       ; for this account with this reconciliation
       (update-in context [:account-recons]
@@ -375,7 +375,7 @@
   ([{:as item :import/keys [reconciled? account-id]} ctx]
    (cond-> item
      reconciled? (assoc :transaction-item/reconciliation
-                        (util/->model-ref (find-reconciliation-id account-id ctx))))))
+                        (util/->entity-ref (find-reconciliation-id account-id ctx))))))
 
 (defn- remove-zero-quantity-items
   [items]
@@ -424,7 +424,7 @@
                   (update-in acts
                              [(:id account)]
                              #(-> %
-                                  (dates/push-model-boundary :account/transaction-date-range transaction-date)
+                                  (dates/push-entity-boundary :account/transaction-date-range transaction-date)
                                   (update-in [:account/quantity] + polarized-quantity)
                                   (update-in [:account/value] + polarized-quantity))))
                 accounts))))
@@ -473,7 +473,7 @@
               (update-in [:accounts] (apply-transaction-to-accounts trx))
               (update-last-trxs trx)
               (update-in [:entity]
-                         dates/push-model-boundary
+                         dates/push-entity-boundary
                          :entity/transaction-date-range 
                          (:transaction/transaction-date trx))))))))
 
@@ -492,7 +492,7 @@
                                             purge-import-keys))
                                       items)))
                     purge-import-keys
-                    models/put)]
+                    entities/put)]
     (log/infof "[import] imported scheduled transaction %s"
                (:scheduled-transaction/description created)))
   context)
@@ -525,10 +525,10 @@
   (let [imported (-> budget
                      (prepare-budget context)
                      (dissoc :budget/items)
-                     models/put)]
+                     entities/put)]
     (->> items
          (prepare-budget-items imported context)
-         models/put-many)
+         entities/put-many)
     (log/infof "[import] imported budget %s" (:budget/name imported))
     context))
 
@@ -538,7 +538,7 @@
       (select-keys [:price/trade-date
                     :price/value])
       (assoc :price/commodity (find-commodity ctx price))
-      models/put)
+      entities/put)
   ctx)
 
 (defmethod import-record* :commodity
@@ -549,7 +549,7 @@
                             (assoc :commodity/entity entity
                                    :commodity/price-config {:price-config/enabled true}) ; TODO: read this from import source
                             purge-import-keys
-                            models/put)]
+                            entities/put)]
       (log/infof "[import] imported commodity %s (%s)"
                  (:commodity/name created)
                  symbol)
@@ -598,12 +598,12 @@
   [{:reconciliation/keys [account]
     :keys [id]}
    {:keys [entity]}]
-  (let [accounts (models/select
-                   (util/model-type
+  (let [accounts (entities/select
+                   (util/entity-type
                      (select-keys account [:id])
                      :account)
                    {:include-children? true})]
-    (models/select
+    (entities/select
       (assoc
         (->>criteria
           {:earliest-date (get-in entity [:entity/transaction-date-range 0])
@@ -627,7 +627,7 @@
       (-> recon
           (assoc :reconciliation/balance balance
                  :reconciliation/status :completed)
-          models/put))
+          entities/put))
     (log/debugf "[import] processed reconciliation for account %s"
                 (:account/name account))
     {:import/record-type :finalize-reconciliation}
@@ -654,8 +654,8 @@
 
 (defn- process-reconciliations
   [{:keys [entity accounts] :as ctx} out-chan]
-  (let [reconciliations (models/select
-                          (util/model-type
+  (let [reconciliations (entities/select
+                          (util/entity-type
                             {:account/entity entity}
                             :reconciliation))
         ch (a/promise-chan)]
@@ -769,11 +769,11 @@
 
 (defn- import-data*
   [import-spec {:keys [out-chan]}]
-  (let [user (models/find (:import/user import-spec) :user)
-        images (map (models/find :image)
+  (let [user (entities/find (:import/user import-spec) :user)
+        images (map (entities/find :image)
                     (:import/images import-spec))
         source-type (get-source-type (first images))
-        entity ((some-fn models/find-by models/put)
+        entity ((some-fn entities/find-by entities/put)
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
         wait-chan (a/promise-chan)]
@@ -803,7 +803,7 @@
                              :sorted-trxs (sorted-map)
                              :entity entity})
                           a/<!!)]
-          (models/put-many (cons (:entity result) ; transaction-date-range has been updated
+          (entities/put-many (cons (:entity result) ; transaction-date-range has been updated
                                  (vals (:accounts result)))) ; indexes and balances have changed
           (when-not (::abend? result)
             (log/debugf "[import] data imported, start reconciliations for %s"

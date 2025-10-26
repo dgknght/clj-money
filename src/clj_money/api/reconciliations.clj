@@ -10,8 +10,8 @@
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
-            [clj-money.models :as models]
-            [clj-money.models.transaction-items :as itms]
+            [clj-money.entities :as entities]
+            [clj-money.entities.transaction-items :as itms]
             [clj-money.authorization.reconciliations]))
 
 (defn- symbolic-comparatives
@@ -54,7 +54,7 @@
 (defn- index
   [req]
   (api/response
-    (models/select (extract-criteria req)
+    (entities/select (extract-criteria req)
                    (extract-options req))))
 
 (defn- extract-recon
@@ -72,7 +72,7 @@
       (update-in-if [:reconciliation/items] itms/resolve-refs)
       (assoc :reconciliation/account {:id (:account-id params)})
       (authorize ::auth/create authenticated)
-      models/put
+      entities/put
       api/creation-response))
 
 (defn- find-and-auth
@@ -80,7 +80,7 @@
   (some-> params
           (select-keys [:id])
           (+scope :reconciliation authenticated)
-          models/find-by
+          entities/find-by
           (authorize action authenticated)))
 
 (defn- update
@@ -88,7 +88,7 @@
   (or (some-> req
               (find-and-auth ::auth/update)
               (merge (extract-recon req))
-              models/put
+              entities/put
               api/update-response)
       api/not-found))
 

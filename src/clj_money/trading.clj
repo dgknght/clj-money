@@ -10,28 +10,28 @@
             [clj-money.decimal :as d]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
-            [clj-money.models :as models]
-            [clj-money.models.propagation :as prop]
-            [clj-money.models.prices :as prices]
+            [clj-money.entities :as entities]
+            [clj-money.entities.propagation :as prop]
+            [clj-money.entities.prices :as prices]
             [clj-money.util :as util]
             [clj-money.db :as db])
   (:import java.math.BigDecimal))
 
-(s/def :trade/commodity ::models/model-ref)
-(s/def :trade/account ::models/model-ref)
-(s/def :trade/commodity-account ::models/model-ref)
+(s/def :trade/commodity ::entities/entity-ref)
+(s/def :trade/account ::entities/entity-ref)
+(s/def :trade/commodity-account ::entities/entity-ref)
 (s/def :trade/inventory-method #{:fifo :lifo})
-(s/def :trade/lt-capital-gains-account ::models/model-ref)
-(s/def :trade/lt-capital-loss-account ::models/model-ref)
-(s/def :trade/st-capital-gains-account ::models/model-ref)
-(s/def :trade/st-capital-loss-account ::models/model-ref)
+(s/def :trade/lt-capital-gains-account ::entities/entity-ref)
+(s/def :trade/lt-capital-loss-account ::entities/entity-ref)
+(s/def :trade/st-capital-gains-account ::entities/entity-ref)
+(s/def :trade/st-capital-loss-account ::entities/entity-ref)
 (s/def :trade/date t/local-date?)
 (s/def :trade/fee decimal?)
-(s/def :trade/fee-account ::models/model-ref)
+(s/def :trade/fee-account ::entities/entity-ref)
 (s/def :trade/shares decimal?)
 (s/def :trade/value decimal?)
 (s/def :trade/dividend? boolean?)
-(s/def :trade/dividend-account ::models/model-ref)
+(s/def :trade/dividend-account ::entities/entity-ref)
 
 (defmulti ^:private purchase-spec
   (fn [purchase]
@@ -60,7 +60,7 @@
                 :trade/dividend?
                 :trade/dividend-account]))
 
-(s/def ::models/purchase (s/multi-spec purchase-spec :trade/commodity-account))
+(s/def ::entities/purchase (s/multi-spec purchase-spec :trade/commodity-account))
 
 (defmulti ^:private sale-spec
   (fn [sale]
@@ -95,11 +95,11 @@
                 :trade/fee
                 :trade/fee-account]))
 
-(s/def ::models/sale (s/multi-spec sale-spec :trade/commodity-account))
+(s/def ::entities/sale (s/multi-spec sale-spec :trade/commodity-account))
 
 (defn- find-price
   [attr]
-  (or (models/find-by attr)
+  (or (entities/find-by attr)
       attr))
 
 (defn- create-price
@@ -116,7 +116,7 @@
   [{:trade/keys [date] :as trade}]
   (update-in trade
              [:trade/commodity]
-             dates/push-model-boundary
+             dates/push-entity-boundary
              :commodity/price-date-range
              date))
 
@@ -127,12 +127,12 @@
     (update-in account [:account/system-tags] (fnil conj #{}) tag)))
 
 (defn- append-commodity-account
-  "If the argument contains a commodity-account, ensure it is a full model map
+  "If the argument contains a commodity-account, ensure it is a full entity map
   and add the account and commodity refs to the result."
   [{:trade/keys [commodity-account] :as trade}]
   (if commodity-account
     (let [{:account/keys [parent commodity]
-           :as account} (models/find commodity-account :account)]
+           :as account} (entities/find commodity-account :account)]
       (assert account (format "Unable to load the commodity account: %s" commodity-account))
       (assoc trade
              :trade/commodity-account account
@@ -144,11 +144,11 @@
   "Given a trade map, appends the commodity"
   [{:trade/keys [commodity] :as trade}]
   {:pre [commodity]}
-  (update-in trade [:trade/commodity] (models/resolve-ref :commodity)))
+  (update-in trade [:trade/commodity] (entities/resolve-ref :commodity)))
 
 (defn- find-commodity-account
   [parent commodity]
-  (when-let [result (models/find-by #:account{:parent parent
+  (when-let [result (entities/find-by #:account{:parent parent
                                               :commodity commodity})]
     (ensure-tag result :tradable)))
 
@@ -176,10 +176,10 @@
   {:pre [(and account commodity)]}
   (-> trade
       (update-in [:trade/account]
-                 (models/resolve-ref :account))
+                 (entities/resolve-ref :account))
       (update-in [:trade/commodity-account]
                  #(if %
-                    (models/resolve-ref % :account)
+                    (entities/resolve-ref % :account)
                     (find-or-create-commodity-account account commodity)))))
 
 (defn- update-accounts
@@ -194,7 +194,7 @@
 
 (defn- append-entity
   [{{:account/keys [entity]} :trade/account :as trade}]
-  (update-in trade [:trade/entity] (fnil (models/resolve-ref :entity)
+  (update-in trade [:trade/entity] (fnil (entities/resolve-ref :entity)
                                          entity)))
 
 (defn- sale-transaction-description
@@ -437,8 +437,8 @@
                       transaction]]
                     (map #(filter identity %))
                     (filter seq)
-                    (mapcat (partial models/put-many opts))
-                    (group-by util/model-type))]
+                    (mapcat (partial entities/put-many opts))
+                    (group-by util/entity-type))]
     (assoc trade
            :trade/transactions (:transaction result)
            :trade/fee-account (->> (:account result)
@@ -465,12 +465,12 @@
 ; :trade/shares
 ; :trade/value
 ;
-; opts is passed to models/put-many
+; opts is passed to entities/put-many
 ; and can also include a fn for getting the previous
 ; index and balance for transaction item roll-ups
 (defn buy
   [purchase & {:as options}]
-  (with-ex-validation purchase ::models/purchase []
+  (with-ex-validation purchase ::entities/purchase []
     (let [opts (merge default-opts options)]
       (-> purchase
           append-commodity-account
@@ -491,17 +491,17 @@
 (defn unbuy
   "Reverses a commodity purchase"
   [trx & {:as opts}]
-  (let [lot (models/resolve-ref
+  (let [lot (entities/resolve-ref
               (get-in trx [:transaction/lot-items
                            0
                            :lot-item/lot])
               :lot)
-        commodity (models/resolve-ref (:lot/commodity lot)
+        commodity (entities/resolve-ref (:lot/commodity lot)
                                       :commodity)]
     (when (not= (:lot/shares-purchased lot) (:lot/shares-owned lot))
       (throw (IllegalStateException.
                "Cannot undo a purchase if shares have been sold from the lot")))
-    (models/delete-many opts [trx lot])
+    (entities/delete-many opts [trx lot])
     {:transaction trx
      :lot lot
      :commodity commodity}))
@@ -514,7 +514,7 @@
   shares that can be sold"
   [{:trade/keys [inventory-method commodity account entity] :as trade}]
   (assoc trade
-         :trade/lots (models/select #:lot{:commodity commodity
+         :trade/lots (entities/select #:lot{:commodity commodity
                                           :account account
                                           :shares-owned [:!= 0M]}
                                     {:sort [[:lot/purchase-date
@@ -611,14 +611,14 @@
                                    :trade/inventory-method])
                      (update-keys #(keyword "settings" (name %)))
                      (update-vals #(if (map? %)
-                                     (util/->model-ref %)
+                                     (util/->entity-ref %)
                                      %)))]
     (update-in trade
                [:trade/entity :entity/settings]
                #(merge settings %))))
  
 (def ^:private find-or-create-account
-  (some-fn models/find-by models/put))
+  (some-fn entities/find-by entities/put))
  
 (defn- find-or-create-gains-account
   [{:trade/keys [entity]} term result]
@@ -639,9 +639,9 @@
     (update-in trade
                [trade-key]
                (fn [account]
-                 (or (when account (models/find account :account))
+                 (or (when account (entities/find account :account))
                      (when-let [act (get-in entity [:entity/settings settings-key])]
-                       (models/find act :account))
+                       (entities/find act :account))
                      (find-or-create-gains-account trade term result))))))
 
 (defn- ensure-gains-accounts
@@ -682,8 +682,8 @@
                             transactions
                             updated-lots)
                     (filter identity)
-                    (models/put-many opts)
-                    (group-by util/model-type))]
+                    (entities/put-many opts)
+                    (group-by util/entity-type))]
     (assoc trade
            :trade/transactions (:transaction result)
            :trade/fee-account (->> (:account result)
@@ -700,7 +700,7 @@
 
 (defn sell
   [sale & {:as options}]
-  (with-ex-validation sale ::models/sale
+  (with-ex-validation sale ::entities/sale
     (let [opts (merge default-opts options)]
       (-> sale
           append-commodity-account
@@ -722,11 +722,11 @@
 
 (defn unsell
   [trx & {:as opts}]
-  (let [lot-items (models/select
-                    (util/model-type {:transaction/_self trx}
+  (let [lot-items (entities/select
+                    (util/entity-type {:transaction/_self trx}
                                      :lot-item))
         lots (index-by :id
-                       (models/select (util/model-type
+                       (entities/select (util/entity-type
                                         {:id [:in (map (comp :id :lot-item/lot)
                                                        lot-items)]}
                                         :lot)))
@@ -737,7 +737,7 @@
                                                 #(+ % (:lot-item/shares lot-item))))
                                    lots
                                    lot-items))]
-    (models/put-many opts
+    (entities/put-many opts
                      (cons [::db/delete trx]
                            updated-lots))))
 
@@ -750,11 +750,11 @@
                      commodity]
     :as transfer}]
   (-> transfer
-      (update-in [:transfer/from-account] (models/resolve-ref :account))
+      (update-in [:transfer/from-account] (entities/resolve-ref :account))
       (update-in [:transfer/to-account] (comp #(ensure-tag % :trading)
-                                              (models/resolve-ref :account)))
+                                              (entities/resolve-ref :account)))
       (assoc :transfer/from-commodity-account
-             (models/find-by #:account{:commodity commodity
+             (entities/find-by #:account{:commodity commodity
                                        :parent from-account}))
       (assoc :transfer/to-commodity-account
              (find-or-create-commodity-account to-account commodity))))
@@ -764,7 +764,7 @@
                     from-account
                     to-account
                     shares] :as context}]
-  (let [lots (->> (models/select #:lot{:commodity commodity
+  (let [lots (->> (entities/select #:lot{:commodity commodity
                                        :account from-account
                                        :shares-owned [:> 0M]}
                                  {:sort [:lot/purchase-date]})
@@ -836,24 +836,24 @@
   (let [result (->> (cond->> (cons transaction lots)
                       (util/temp-id? to-commodity-account)
                       (cons to-commodity-account))
-                    (models/put-many opts)
-                    (group-by util/model-type))]
+                    (entities/put-many opts)
+                    (group-by util/entity-type))]
     (merge transfer
            {:transfer/transaction (first (:transaction result))
             :transfer/lots (:lot result)})))
 
 (s/def :transfer/date t/local-date?)
-(s/def :transfer/from-account ::models/model-ref)
-(s/def :transfer/to-account ::models/model-ref)
-(s/def :transfer/commodity ::models/model-ref)
+(s/def :transfer/from-account ::entities/entity-ref)
+(s/def :transfer/to-account ::entities/entity-ref)
+(s/def :transfer/commodity ::entities/entity-ref)
 (s/def :transfer/shares decimal?)
-(s/def ::models/transfer (s/keys :req [:transfer/date
+(s/def ::entities/transfer (s/keys :req [:transfer/date
                                        :transfer/shares
                                        :transfer/from-account
                                        :transfer/to-account
                                        :transfer/commodity]))
 
-; opts is passed to models/put-many
+; opts is passed to entities/put-many
 ; and can contain a function item-basis to use to
 ; calculate item roll-ups
 (defn transfer
@@ -866,9 +866,9 @@
   :to-account   - the account to which the commodity is to be moved"
   [transfer & {:as options}]
   (let [opts (merge default-opts options)]
-    (with-ex-validation transfer ::models/transfer
+    (with-ex-validation transfer ::entities/transfer
       (some-> transfer
-              (update-in [:transfer/commodity] (models/resolve-ref :commodity))
+              (update-in [:transfer/commodity] (entities/resolve-ref :commodity))
               append-transfer-accounts
               append-most-recent-price
               process-transfer-lots
@@ -882,7 +882,7 @@
   [{:split/keys [commodity account] :as split}]
   (assoc split
          :split/lots
-         (models/select #:lot{:commodity commodity
+         (entities/select #:lot{:commodity commodity
                               :account account
                               :shares-owned [:!= 0M]})))
 
@@ -905,7 +905,7 @@
 (defn- fetch-and-adjust-lot-items
   [lot ratio]
   (mapv #(apply-ratio-to-lot-item % ratio)
-        (models/select #:lot-item{:lot lot})))
+        (entities/select #:lot-item{:lot lot})))
 
 (defn- apply-ratio-to-lot
   [lot ratio]
@@ -969,8 +969,8 @@
 (defn- append-split-accounts
   [{:as split :split/keys [commodity account]}]
   (-> split
-      (update-in [:split/account] (models/resolve-ref :account))
-      (assoc :split/commodity-account (models/find-by #:account{:commodity commodity
+      (update-in [:split/account] (entities/resolve-ref :account))
+      (assoc :split/commodity-account (entities/find-by #:account{:commodity commodity
                                                                 :parent account}))))
 
 (defn- put-split
@@ -980,18 +980,18 @@
                  ratio]}
    opts]
   (let [result (->> (cons transaction (concat lots lot-items))
-                    (models/put-many opts)
-                    (group-by util/model-type))]
+                    (entities/put-many opts)
+                    (group-by util/entity-type))]
     {:split/transaction (first (:transaction result))
      :split/lots (:lot result)
      :split/lot-items (:lot-item result)
      :split/ratio ratio}))
 
 (s/def :split/date t/local-date?)
-(s/def :split/commodity ::models/model-ref)
-(s/def :split/account ::models/model-ref)
+(s/def :split/commodity ::entities/entity-ref)
+(s/def :split/account ::entities/entity-ref)
 (s/def :split/shares-gained decimal?)
-(s/def ::models/split (s/keys :req [:split/date
+(s/def ::entities/split (s/keys :req [:split/date
                                     :split/commodity
                                     :split/account
                                     :split/shares-gained]))
@@ -1006,9 +1006,9 @@
 
   [split & {:as options}]
   (let [opts (merge default-opts options)]
-    (with-ex-validation split ::models/split
+    (with-ex-validation split ::entities/split
     (some-> split
-            (update-in [:split/commodity] (models/resolve-ref :commodity))
+            (update-in [:split/commodity] (entities/resolve-ref :commodity))
             append-split-accounts
             append-split-lots
             append-split-ratio

@@ -6,7 +6,7 @@
                                           parse-bool]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.authorization :as auth :refer [authorize
                                                       +scope]]
             [clj-money.authorization.accounts]))
@@ -48,7 +48,7 @@
 (defn- index
   [req]
   (api/response
-    (models/select (extract-criteria req)
+    (entities/select (extract-criteria req)
                    (extract-options req))))
 
 (defn- find-and-auth
@@ -56,7 +56,7 @@
   (some-> params
           (select-keys [:id])
           (+scope :account authenticated)
-          models/find-by
+          entities/find-by
           (authorize action authenticated)))
 
 (defn- show
@@ -82,7 +82,7 @@
       (select-keys attribute-keys)
       (assoc :account/entity {:id (:entity-id params)})
       (authorize ::auth/create authenticated)
-      models/put
+      entities/put
       api/creation-response))
 
 (defn- update
@@ -90,7 +90,7 @@
   (if-let [account (find-and-auth req ::auth/update)]
     (-> account
         (merge (select-keys params attribute-keys))
-        models/put
+        entities/put
         api/update-response)
     api/not-found))
 
@@ -98,7 +98,7 @@
   [req]
   (if-let [account (find-and-auth req ::auth/destroy)]
     (do
-      (models/delete account)
+      (entities/delete account)
       (api/response))
     api/not-found))
 

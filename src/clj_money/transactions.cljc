@@ -3,7 +3,7 @@
             [clojure.pprint :refer [pprint]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [clj-money.util :as util :refer [->model-ref model=]]
+            [clj-money.util :as util :refer [->entity-ref entity=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
             [clj-money.accounts :refer [polarize-quantity
@@ -33,14 +33,14 @@
   {:pre [(can-accountify? trx)
          ref-account]}
   (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
-         [other-item] false} (group-by #(model= ref-account
+         [other-item] false} (group-by #(entity= ref-account
                                                 (:transaction-item/account %))
                                        items)]
     (-> trx
         (assoc :transaction/other-account (:transaction-item/account other-item)
-               :transaction/other-item (->model-ref other-item)
+               :transaction/other-item (->entity-ref other-item)
                :transaction/account (:transaction-item/account account-item)
-               :transaction/item (->model-ref account-item)
+               :transaction/item (->entity-ref account-item)
                :transaction/quantity (polarize-quantity quantity action ref-account))
         (dissoc :transaction/items))))
 

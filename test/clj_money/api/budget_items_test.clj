@@ -5,7 +5,7 @@
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body
@@ -36,7 +36,7 @@
                                   :budgets
                                   (:id budget)
                                   :items))
-         (edn-body #:budget-item{:account (util/->model-ref groceries)
+         (edn-body #:budget-item{:account (util/->entity-ref groceries)
                                  :periods [100 101 102]})
          (add-auth (find-user user-email))
          app
@@ -53,13 +53,13 @@
                      (:edn-body res))
         "The created budget item is returned in the response")
     (is (comparable? expected
-                     (models/find (:edn-body res)))
+                     (entities/find (:edn-body res)))
         "The created budget item can be retrieved")))
 
 (defn- assert-not-found-create
   [[res {:keys [budget account]}]]
   (is (http-not-found? res))
-  (is (empty? (models/select {:budget-item/account account
+  (is (empty? (entities/select {:budget-item/account account
                               :budget/_self budget}))
       "The budget item is not created"))
 
@@ -99,14 +99,14 @@
                    (:edn-body res))
       "The updated budget item is returned in the response")
   (is (comparable? {:budget-item/periods [110M 111M 112M]}
-                   (models/find budget-item))
+                   (entities/find budget-item))
       "The updated budget item can be retrieved"))
 
 (defn- assert-not-found-update
   [[res {:keys [budget-item]}]]
   (is (http-not-found? res))
   (is (comparable? {:budget-item/periods [100M 101M 102M]}
-                   (models/find budget-item))
+                   (entities/find budget-item))
       "The budget item is not updated"))
 
 (deftest a-user-can-update-an-item-to-a-budget-in-his-entity
@@ -131,13 +131,13 @@
 (defn- assert-successful-delete
   [[res {:keys [budget-item]}]]
   (is (http-no-content? res))
-  (is (nil? (models/find budget-item))
+  (is (nil? (entities/find budget-item))
       "The budget item cannot be retrieved after delete"))
 
 (defn- assert-not-found-delete
   [[res {:keys [budget-item]}]]
   (is (http-not-found? res))
-  (is (models/find budget-item)
+  (is (entities/find budget-item)
       "The budget item can be retrieved after attempted delete"))
 
 (deftest a-user-can-delete-an-item-from-a-budget-in-his-entity

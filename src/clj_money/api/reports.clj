@@ -5,7 +5,7 @@
             [clj-money.util :as util]
             [clj-money.authorization :refer [+scope]]
             [clj-money.dates :as dates]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.reports :as rpt])
   (:import java.math.BigDecimal
            clojure.lang.Ratio))
@@ -13,9 +13,9 @@
 (defn- fetch-entity
   [{:keys [params authenticated]}]
   (-> {:id (:entity-id params)}
-      (util/model-type :entity)
+      (util/entity-type :entity)
       (+scope :entity authenticated)
-      models/find-by))
+      entities/find-by))
 
 (defn- income-statement
   [{{:keys [since as-of]} :params :as req}]
@@ -44,7 +44,7 @@
 
 (defn- budget
   [{:keys [params authenticated]}]
-  (or (some-> (models/find-by (+scope {:id (:budget-id params)}
+  (or (some-> (entities/find-by (+scope {:id (:budget-id params)}
                                       :budget
                                       authenticated))
               (rpt/budget (-> params
@@ -79,7 +79,7 @@
     (if-let [refs (seq (get-in entity
                                [:entity/settings
                                 :settings/monitored-accounts]))]
-      (->> (models/select (util/model-type {:id [:in (mapv :id refs)]}
+      (->> (entities/select (util/entity-type {:id [:in (mapv :id refs)]}
                                            :account))
            (map (comp serialize-monitor
                       rpt/monitor))

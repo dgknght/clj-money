@@ -14,8 +14,8 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
-            [clj-money.models :as models]
-            [clj-money.models.transactions :refer [with-delayed-propagation]]
+            [clj-money.entities :as entities]
+            [clj-money.entities.transactions :refer [with-delayed-propagation]]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
 
@@ -34,7 +34,7 @@
   (-> params
       (rename-keys {:entity-id :entity})
       (util/qualify-keys :scheduled-transaction)
-      (update-in [:scheduled-transaction/entity] util/->model-ref)
+      (update-in [:scheduled-transaction/entity] util/->entity-ref)
       (update-in-if [:scheduled-transaction/enabled] parse-bool)
       comparatives/symbolize
       (update-in-if [:scheduled-transaction/end-date] parse-date-param)
@@ -54,7 +54,7 @@
   [req]
   (-> req
       ->criteria
-      (models/select (select-options))
+      (entities/select (select-options))
       api/response))
 
 (defn- extract-sched-tran
@@ -76,7 +76,7 @@
       extract-sched-tran
       (assoc :scheduled-transaction/entity {:id (:entity-id params)})
       (authorize ::authorization/create authenticated)
-      models/put
+      entities/put
       api/creation-response))
 
 (defn- find-and-authorize
@@ -84,14 +84,14 @@
   (-> params
       (select-keys [:id])
       (+scope :scheduled-transaction authenticated)
-      models/find-by
+      entities/find-by
       (authorize action authenticated)))
 
 (defn- update
   [req]
   (or (some-> (find-and-authorize req ::authorization/update)
               (merge (extract-sched-tran req))
-              models/put
+              entities/put
               api/response)
       api/not-found))
 
@@ -99,17 +99,17 @@
   [req]
   (if-let [sched-tran (find-and-authorize req ::authorization/destroy)]
     (do
-      (models/delete sched-tran)
+      (entities/delete sched-tran)
       (api/response))
     api/not-found))
 
 (defn- put-many
-  [models]
-  (if (seq models)
+  [entities]
+  (if (seq entities)
     (with-delayed-propagation [out-chan ctrl-chan]
-      (models/put-many {:out-chan out-chan
+      (entities/put-many {:out-chan out-chan
                         :ctrl-chan ctrl-chan}
-                       models))
+                       entities))
     []))
 
 (defn- realize
@@ -123,15 +123,15 @@
 (defn- fetch-entity
   [{:keys [params authenticated]}]
   (some-> {:id (:entity-id params)}
-          (util/model-type :entity)
+          (util/entity-type :entity)
           (+scope :entity authenticated)
-          models/find-by))
+          entities/find-by))
 
 (defn- ready-to-realize
   [req]
   (when-let [entity (fetch-entity req)]
-    (models/select
-      #:scheduled-transaction{:entity (util/->model-ref entity)
+    (entities/select
+      #:scheduled-transaction{:entity (util/->entity-ref entity)
                               :enabled true
                               :start-date [:<= (t/local-date)]
                               :end-date [:>= (t/local-date)]}
@@ -144,7 +144,7 @@
          (filter #(allowed? % ::sched-trans-auth/realize authenticated))
          (mapcat sched-trans/realize)
          put-many
-         (filter (util/model-type? :transaction))
+         (filter (util/entity-type? :transaction))
          (sort-by :transaction/transaction-date t/before?)
          api/creation-response)
     api/not-found))

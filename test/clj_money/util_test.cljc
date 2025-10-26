@@ -7,34 +7,34 @@
             [clj-money.util :as util])
   #?(:clj (:import clojure.lang.ExceptionInfo)))
 
-(deftest model-typing
-  (testing "Retrieved the type of a model"
-    (is (= :user (util/model-type {:user/name "John"}))
-        "A model type is derived from the keyword namespace")
-    (is (= :user (util/model-type {:id 101
+(deftest entity-typing
+  (testing "Retrieved the type of a entity"
+    (is (= :user (util/entity-type {:user/name "John"}))
+        "A entity type is derived from the keyword namespace")
+    (is (= :user (util/entity-type {:id 101
                                    :user/name "John"}))
-        "A model type is derived from the keyword namespace if a non-namespace keyword is present")
-    (is (= :user (util/model-type {:id 101
+        "A entity type is derived from the keyword namespace if a non-namespace keyword is present")
+    (is (= :user (util/entity-type {:id 101
                                    :user/first-name "John"
                                    :user/last-name "Doe"
                                    :parent/first-name "Jane"}))
-        "A model type is derived from the most frequently occurring keyword namespace if more than one is present")
-    (is (= :user (util/model-type ^{:clj-money/model-type :user} {:id 101}))
-        "A model type is read from meta data, if present"))
-  (testing "Setting the type of a model"
-    (is (= :account (util/model-type (util/model-type {} :account)))
-        "A model type can be set excplictly")
-    (let [f (util/model-type :account)]
-      (is (= :account (util/model-type (f {}))))
-      "A fn that sets the model type is returned when given a keyword")
-    (let [source-model (util/model-type {}  :account)
-          target-model (util/model-type {} source-model)]
-      (is (= :account (util/model-type target-model)))
-      "The model type can be set from another model"))
-  (testing "Testing the type of a model"
-    (is (util/model-type? {:entity/name "Personal"} :entity))
-    (is (not (util/model-type? {:entity/name "Personal"} :account)))
-    (let [is-entity? (util/model-type? :entity)]
+        "A entity type is derived from the most frequently occurring keyword namespace if more than one is present")
+    (is (= :user (util/entity-type ^{:clj-money/entity-type :user} {:id 101}))
+        "A entity type is read from meta data, if present"))
+  (testing "Setting the type of a entity"
+    (is (= :account (util/entity-type (util/entity-type {} :account)))
+        "A entity type can be set excplictly")
+    (let [f (util/entity-type :account)]
+      (is (= :account (util/entity-type (f {}))))
+      "A fn that sets the entity type is returned when given a keyword")
+    (let [source-entity (util/entity-type {}  :account)
+          target-entity (util/entity-type {} source-entity)]
+      (is (= :account (util/entity-type target-entity)))
+      "The entity type can be set from another entity"))
+  (testing "Testing the type of a entity"
+    (is (util/entity-type? {:entity/name "Personal"} :entity))
+    (is (not (util/entity-type? {:entity/name "Personal"} :account)))
+    (let [is-entity? (util/entity-type? :entity)]
       (is (is-entity? {:entity/name "Personal"}))
       (is (not (is-entity? {:account/name "Checking"}))))))
 
@@ -54,7 +54,7 @@
 (deftest qualify-map-keys
   (is (= {:entity/name "Personal"}
          (util/qualify-keys {:name "Personal"} :entity))
-      "Unqualified keys are qualified with the model type")
+      "Unqualified keys are qualified with the entity type")
   (is (= {:util/id "x"}
          (util/qualify-keys {:util/id "x"} :entity))
       "Qualified keys are left as-is")
@@ -65,23 +65,23 @@
                            :ignore #{:id}))
       "Keys can be explicitly ignored"))
 
-(deftest compare-models-for-equality
-  (is (util/model= {:id 101}
+(deftest compare-entities-for-equality
+  (is (util/entity= {:id 101}
                    {:id 101})
       "Two maps with the same :id attribute are equal")
-  (is (util/model= {:id 101}
+  (is (util/entity= {:id 101}
                    {:id 101}
                    {:id 101})
       "Three maps with the same :id attribute are equal")
-  (is (util/model= {:id 101 :account/name "Checking"}
+  (is (util/entity= {:id 101 :account/name "Checking"}
                    {:id 101})
-      "A full model map is equal to a simplified model ref if the :id attribute is the same")
-  (is (not (util/model= {:id 101}
+      "A full entity map is equal to a simplified entity ref if the :id attribute is the same")
+  (is (not (util/entity= {:id 101}
                         {:id 102}))
       "Two maps with different :id attributes are not equal")
-  (is (not (util/model= {:id 101 :account/name "Checking"}
+  (is (not (util/entity= {:id 101 :account/name "Checking"}
                         {:id 101 :entity/name "Personal"}))
-      "Two maps with different model types are not equal"))
+      "Two maps with different entity types are not equal"))
 
 (deftest compare-maps-for-id-equality
   (is (util/id= {:id 101}
@@ -93,23 +93,23 @@
       "Three maps with the same :id attribute are equal")
   (is (util/id= {:id 101 :account/name "Checking"}
                 {:id 101})
-      "A full model map is equal to a simplified model ref if the :id attribute is the same")
+      "A full entity map is equal to a simplified entity ref if the :id attribute is the same")
   (is (not (util/id= {:id 101}
                      {:id 102}))
       "Two maps with different :id attributes are not equal")
   (is (util/id= {:id 101 :account/name "Checking"}
                 {:id 101 :entity/name "Personal"})
-      "Two maps with different model types but equal :id values are equal"))
+      "Two maps with different entity types but equal :id values are equal"))
 
-(deftest convert-something-into-a-model-ref
+(deftest convert-something-into-a-entity-ref
   (is (= {:id 101}
-         (util/->model-ref {:id 101 :account/name "Checking"}))
-      "A full model is simplified")
+         (util/->entity-ref {:id 101 :account/name "Checking"}))
+      "A full entity is simplified")
   (is (= {:id 101}
-         (util/->model-ref {:id 101}))
-      "A simple model ref is returned as-is")
+         (util/->entity-ref {:id 101}))
+      "A simple entity ref is returned as-is")
   (is (= {:id 101}
-         (util/->model-ref 101))
+         (util/->entity-ref 101))
       "A naked ID is wrapped in a map"))
 
 (deftest reassembly-an-entity-with-children
@@ -166,13 +166,13 @@
                             #:entity{:name "Personal"}]))
       "Each transaction receives the items until another transaction or the end of the list is encountered"))
 
-(deftest identity-a-model-ref
-  (is (util/model-ref? {:id 101})
-      "A  map with only an :id attribute is a model ref")
-  (is (not (util/model-ref? 101))
-      "A naked ID is not a model ref")
-  (is (not (util/model-ref? {:id 101 :account/name "Checking"}))
-      "A full model is not a model ref"))
+(deftest identity-a-entity-ref
+  (is (util/entity-ref? {:id 101})
+      "A  map with only an :id attribute is a entity ref")
+  (is (not (util/entity-ref? 101))
+      "A naked ID is not a entity ref")
+  (is (not (util/entity-ref? {:id 101 :account/name "Checking"}))
+      "A full entity is not a entity ref"))
 
 (deftest cachify-a-function
   (let [calls (atom [])
@@ -248,7 +248,7 @@
   (is (= "A" (util/presence-or "A" "B"))
       "A present value is returned"))
 
-(deftest update-a-collection-with-a-model
+(deftest update-a-collection-with-a-entity
     (is (= [{:id 2 :user/name "Jane"}
             {:id 1 :user/name "John"}]
            (util/upsert-into {:id 2 :user/name "Jane"}
@@ -263,7 +263,7 @@
                               {:id 1 :user/name "John"}]))
         "An existing item is replaed"))
 
-(deftest render-a-simplified-model
+(deftest render-a-simplified-entity
   (is (= {:account/name "Checking"}
          (util/simplify {:account/name "Checking"
                          :account/balance 100M}))
@@ -280,7 +280,7 @@
       "An unrecognized type is returned as-is")
   (is (= {:id 123}
          (util/simplify {:id 123}))
-      "A model ref is returned as-is")
+      "A entity ref is returned as-is")
   (let [f (util/simplify :include [:account/balance])]
     (is (= {:account/name "Checking"
             :account/balance 100M}
@@ -323,7 +323,7 @@
                        :compare t/before?))
       "Integers can be processed"))
 
-(deftest remove-nils-from-a-model
+(deftest remove-nils-from-a-entity
   (testing "one level"
     (is (= {:present :here}
            (util/remove-nils {:present :here
@@ -338,7 +338,7 @@
                                        {:one nil
                                         :two 2}]})))))
 
-(deftest locate-nils-in-a-model
+(deftest locate-nils-in-a-entity
   (is (= [[:absent]]
          (util/locate-nils {:present :here
                             :absent nil})))
@@ -350,7 +350,7 @@
                                      {:one nil
                                       :two 2}]}))))
 
-(deftest ensure-a-model-has-an-id
+(deftest ensure-a-entity-has-an-id
   (is (= {:id 1} (util/+id {} (constantly 1)))
       "An :id attribute is added if none is present")
   (is (= {:id 2} (util/+id {:id 2} (constantly 1)))

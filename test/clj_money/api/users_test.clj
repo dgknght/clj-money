@@ -4,7 +4,7 @@
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
-            [clj-money.models.ref]
+            [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db
                                             edn-body

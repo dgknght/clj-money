@@ -1,7 +1,7 @@
 (ns clj-money.db.datomic.grants
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :as set]
-            [clj-money.models :as models]
+            [clj-money.entities :as entities]
             [clj-money.db.datomic :as datomic]))
 
 (defn- removed-permissions
@@ -19,7 +19,7 @@
 (defmethod datomic/deconstruct :grant
   [grant]
   (cons grant
-        (removed-permissions (models/before grant) grant)))
+        (removed-permissions (entities/before grant) grant)))
 
 (defn- ->permission-entities
   [permissions]
