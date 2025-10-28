@@ -4,6 +4,10 @@
             [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
             [ring.util.response :refer [response status header]]
+            [muuntaja.middleware :refer [wrap-format-negotiate
+                                         wrap-format-request
+                                         wrap-format-response]]
+            [camel-snake-kebab.core :refer [->camelCaseKeyword]]
             [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
@@ -121,3 +125,36 @@
            response
            (status 500)
            (header "Content-Type" "application/json"))))))
+
+(defmulti ^:private conventionalize-content
+  (fn [_content content-type] content-type))
+
+(defmethod conventionalize-content :default
+  [content _]
+  content)
+
+(defmethod conventionalize-content "application/json"
+  [content _]
+  (postwalk (fn [x]
+              (if (map-entry? x)
+                (update-in x [0] (comp ->camelCaseKeyword
+                                       name))
+                x))
+            content))
+
+(defn- conventionalize-response
+  [res content-type]
+  (update-in res [:body] #(conventionalize-content % content-type)))
+
+(defn- wrap-conventionalize-response
+  [handler]
+  (fn [{:as req :muuntaja/keys [response]}]
+    (-> req
+        handler
+        (conventionalize-response (:format response)))))
+
+(def wrap-format
+  (comp wrap-format-negotiate
+        wrap-format-request
+        wrap-format-response
+        wrap-conventionalize-response))

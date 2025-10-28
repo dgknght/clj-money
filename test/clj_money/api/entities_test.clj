@@ -1,9 +1,10 @@
 (ns clj-money.api.entities-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.entities :as entities]
             [clj-money.db.ref]
             [clj-money.entities.ref]
@@ -25,20 +26,23 @@
 
 (deftest a-user-can-create-an-entity
   (with-context create-context
-    (let [user (find-user "john@doe.com")
-          response (-> (req/request :post (path :api :entities))
-                       (edn-body #:entity{:name "Personal"
-                                               :settings {:settings/inventory-method :fifo}})
-                       (add-auth user)
-                       app
-                       parse-edn-body)]
-      (is (http-success? response))
-      (is (comparable? #:entity{:user (select-keys user [:id])
-                                :name "Personal"
-                                :settings {:settings/inventory-method :fifo}}
-                       (entities/find (get-in response [:edn-body :id])
-                                    :entity))
-          "The entity can be retrieved"))))
+    (testing "default format (edn)"
+      (let [user (find-user "john@doe.com")
+            response (-> (req/request :post (path :api :entities))
+                         (edn-body #:entity{:name "Personal"
+                                            :settings {:settings/inventory-method :fifo}})
+                         (add-auth user)
+                         app
+                         parse-edn-body)]
+        (is (http-success? response))
+        (is (comparable? #:entity{:user (select-keys user [:id])
+                                  :name "Personal"
+                                  :settings {:settings/inventory-method :fifo}}
+                         (entities/find (get-in response [:edn-body :id])
+                                        :entity))
+            "The entity can be retrieved")))
+    (testing "json format"
+      (is false "need to write the test"))))
 
 (def ^:private list-context
   (conj create-context
@@ -104,21 +108,21 @@
           "The retrieved value has not been changed."))))
 
 (defn- get-a-list
-  [email]
-  (with-context list-context
-    (-> (req/request :get (path :api :entities))
-        (req/content-type "application/edn")
-        (req/header "Accept" "application/edn")
-        (add-auth (find-user email))
-        app
-        parse-edn-body)))
+  [email & {:keys [format parse]
+            :or {format "application/edn"
+                 parse parse-edn-body}}]
+  (-> (req/request :get (path :api :entities))
+      (req/content-type format)
+      (req/header "Accept" format)
+      (add-auth (find-user email))
+      app
+      parse))
 
 (defn- assert-successful-list
-  [{:as response :keys [edn-body]}]
+  [response & {:keys [expected response-key]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:entity/name "Business"}
-                          {:entity/name "Personal"}]
-                         edn-body)
+  (is (seq-of-maps-like? expected
+                         (response response-key))
       "The body contains the correct entities"))
 
 (defn- assert-blocked-list
@@ -127,10 +131,23 @@
   (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-his-entities
-  (assert-successful-list (get-a-list "john@doe.com")))
+  (with-context list-context
+    (testing "default format (edn)"
+      (assert-successful-list (get-a-list "john@doe.com")
+                              :response-key :edn-body
+                              :expected [{:entity/name "Business"}
+                                         {:entity/name "Personal"}]))
+    (testing "json format"
+      (assert-successful-list (get-a-list "john@doe.com"
+                                          :format "application/json"
+                                          :parse parse-json-body)
+                              :response-key :json-body
+                              :expected [{:name "Business"}
+                                         {:name "Personal"}]))))
 
 (deftest a-user-cannot-get-a-list-of-anothers-entities
-  (assert-blocked-list (get-a-list "jane@doe.com")))
+  (with-context list-context
+    (assert-blocked-list (get-a-list "jane@doe.com"))))
 
 (defn- delete-an-entity
   [email]
