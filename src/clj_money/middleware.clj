@@ -167,7 +167,7 @@
           (assoc :entity-type (singular final-segment))
           handler))))
 
-(defmulti ^:private apply-keyword-namespaces (comp :muuntaja/request :format))
+(defmulti ^:private apply-keyword-namespaces (comp :format :muuntaja/request))
 
 (defmethod apply-keyword-namespaces :default [req] req)
 
