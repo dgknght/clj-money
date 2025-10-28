@@ -3,14 +3,17 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
+            [clojure.string :as string]
             [ring.util.response :refer [response status header]]
             [muuntaja.middleware :refer [wrap-format-negotiate
                                          wrap-format-request
                                          wrap-format-response]]
+            [muuntaja.core :as muuntaja]
             [camel-snake-kebab.core :refer [->camelCaseKeyword]]
             [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.inflection :refer [singular]]
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
             [clj-money.api :refer [log-error]]))
@@ -153,8 +156,41 @@
         handler
         (conventionalize-response (:format response)))))
 
+(defn- wrap-infer-entity-type
+  [handler]
+  (fn [{:as req :reitit.core/keys [match]}]
+    (let [final-segment (->> (string/split (:template match) #"/")
+                             (remove #{"api"})
+                             (remove #(re-find #"^:" %))
+                             last)]
+      (-> req
+          (assoc :entity-type (singular final-segment))
+          handler))))
+
+(defmulti ^:private apply-keyword-namespaces (comp :muuntaja/request :format))
+
+(defmethod apply-keyword-namespaces :default [req] req)
+
+(defmethod apply-keyword-namespaces "application/json"
+  [{:as req :keys [entity-type]}]
+  (update-in req
+             [:body-params]
+             (partial postwalk
+                      (fn [x]
+                        (if (map-entry? x)
+                          (update-in x [0] #(keyword entity-type
+                                                     (name %)))
+                          x)))))
+
+(defn- wrap-apply-keyword-namespaces
+  [handler]
+  (fn [req]
+    (-> req apply-keyword-namespaces handler)))
+
 (def wrap-format
-  (comp wrap-format-negotiate
+  (comp #(wrap-format-negotiate % (assoc muuntaja/default-options :default-format "application/edn"))
         wrap-format-request
+        wrap-infer-entity-type
+        wrap-apply-keyword-namespaces
         wrap-format-response
         wrap-conventionalize-response))
