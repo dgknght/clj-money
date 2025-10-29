@@ -9,11 +9,11 @@
                                          wrap-format-request
                                          wrap-format-response]]
             [muuntaja.core :as muuntaja]
-            [camel-snake-kebab.core :refer [->camelCaseKeyword]]
             [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.inflection :refer [singular]]
+            [clj-money.formats :as fmts]
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
             [clj-money.api :refer [log-error]]))
@@ -138,16 +138,13 @@
 
 (defmethod conventionalize-content "application/json"
   [content _]
-  (postwalk (fn [x]
-              (if (map-entry? x)
-                (update-in x [0] (comp ->camelCaseKeyword
-                                       name))
-                x))
-            content))
+  (fmts/edn->json content))
 
 (defn- conventionalize-response
-  [res content-type]
-  (update-in res [:body] #(conventionalize-content % content-type)))
+  [{:as res :keys [status]} content-type]
+  (if (#{201 200} status)
+    (update-in res [:body] #(conventionalize-content % content-type))
+    res))
 
 (defn- wrap-conventionalize-response
   [handler]
@@ -167,30 +164,25 @@
           (assoc :entity-type (singular final-segment))
           handler))))
 
-(defmulti ^:private apply-keyword-namespaces (comp :format :muuntaja/request))
+(defmulti ^:private ->clj-keys (comp :format :muuntaja/request))
 
-(defmethod apply-keyword-namespaces :default [req] req)
+(defmethod ->clj-keys :default [req] req)
 
-(defmethod apply-keyword-namespaces "application/json"
-  [{:as req :keys [entity-type]}]
+(defmethod ->clj-keys "application/json"
+  [req]
   (update-in req
              [:body-params]
-             (partial postwalk
-                      (fn [x]
-                        (if (map-entry? x)
-                          (update-in x [0] #(keyword entity-type
-                                                     (name %)))
-                          x)))))
+             fmts/json->edn))
 
-(defn- wrap-apply-keyword-namespaces
+(defn- wrap-clj-request-keys
   [handler]
   (fn [req]
-    (-> req apply-keyword-namespaces handler)))
+    (-> req ->clj-keys handler)))
 
 (def wrap-format
   (comp #(wrap-format-negotiate % (assoc muuntaja/default-options :default-format "application/edn"))
         wrap-format-request
         wrap-infer-entity-type
-        wrap-apply-keyword-namespaces
+        wrap-clj-request-keys
         wrap-format-response
         wrap-conventionalize-response))

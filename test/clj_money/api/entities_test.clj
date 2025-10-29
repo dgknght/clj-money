@@ -28,37 +28,43 @@
   (with-context create-context
     (let [user (find-user "john@doe.com")]
       (testing "default format (edn)"
-        (let [response (-> (req/request :post (path :api :entities))
-                           (edn-body #:entity{:name "Personal"
-                                              :settings {:settings/inventory-method :fifo}})
-                           (add-auth user)
-                           app
-                           parse-edn-body)]
-          (is (http-success? response))
+        (let [{:as res
+               :keys [edn-body]}
+              (-> (req/request :post (path :api :entities))
+                  (edn-body #:entity{:name "Personal"
+                                     :settings {:settings/inventory-method :fifo}})
+                  (add-auth user)
+                  app
+                  parse-edn-body)]
+          (is (http-success? res))
           (is (comparable? #:entity{:user (select-keys user [:id])
                                     :name "Personal"
                                     :settings {:settings/inventory-method :fifo}}
-                           (entities/find (get-in response [:edn-body :id])
+                           (entities/find (:id edn-body)
                                           :entity))
               "The entity can be retrieved")))
       (testing "json format"
-        (let [response (-> (req/request :post (path :api :entities))
-                           (req/json-body {:name "Personal"
-                                           :settings {:inventory-method :fifo}})
-                           (req/header :accept "application/json")
-                           (add-auth user)
-                           app
-                           parse-json-body)]
-          (is (http-success? response))
+        (let [{:as res
+               :keys [json-body]}
+              (-> (req/request :post (path :api :entities))
+                  (req/json-body {:name "Alt-Personal"
+                                  :settings {:inventory-method :fifo
+                                             :_type :settings}
+                                  :_type :entity})
+                  (req/header :accept "application/json")
+                  (add-auth user)
+                  app
+                  parse-json-body)]
+          (is (http-success? res))
           (is (comparable? {:user (select-keys user [:id])
-                            :name "Personal"
-                            :settings {:inventory-method :fifo}}
-                           (:json-body response))
+                            :name "Alt-Personal"
+                            :settings {:inventoryMethod "fifo"}}
+                           json-body)
               "The created entity is returned")
           (is (comparable? #:entity{:user (select-keys user [:id])
-                                    :name "Personal"
+                                    :name "Alt-Personal"
                                     :settings {:settings/inventory-method :fifo}}
-                           (entities/find (get-in response [:edn-body :id])
+                           (entities/find (:id json-body)
                                           :entity))
               "The entity can be retrieved"))))))
 
