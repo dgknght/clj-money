@@ -82,10 +82,10 @@
                           :entity/settings
                           {:settings/monitored-accounts
                            #{{:id 1}
-                             {:id 2}}}}}}]
+                             {:id 2}}}}
+                 content-type "application/edn"}}]
   (let [user (find-user email)
         entity (find-entity "Personal")
-        content-type (or content-type "application/edn")
         response (-> (req/request :patch (path :api :entities (:id entity)))
                      (req/content-type content-type)
                      (req/header :accept content-type)
@@ -99,13 +99,10 @@
     [response (entities/find entity)]))
 
 (defn- assert-successful-edit
-  [[response retrieved] & {:keys [expected-response
-                                  response-key]
-                           :or {expected-response {:entity/name "New Name"}
-                                response-key :edn-body}}]
+  [[response retrieved]]
   (is (http-success? response))
-  (is (comparable? expected-response
-                   (response response-key))
+  (is (comparable? {:entity/name "New Name"}
+                   (:edn-body response))
       "The updated entity is returned in the response")
   (is (comparable? {:entity/name "New Name"}
                    retrieved)
@@ -123,19 +120,28 @@
     (testing "default format (edn)"
       (assert-successful-edit (edit-an-entity "john@doe.com")))
     (testing "json format"
-      (assert-successful-edit
-        (edit-an-entity "john@doe.com"
-                        :content-type "application/json"
-                        :changes {:name "json name"
-                                  :settings {:monitoredAccounts [{:id 1}
-                                                                 {:id 2}]
-                                             :_type :settings}
-                                  :_type :entity})
-        :expected-response {:name "json name"
-                            :settings {:monitoredAccounts [{:id 1}
-                                                           {:id 2}]}
-                            :_type "entity"}
-        :response-key :json-body))))
+      (let [[res retrieved] (edit-an-entity
+                              "john@doe.com"
+                              :content-type "application/json"
+                              :changes {:name "json name"
+                                        :settings {:monitoredAccounts [{:id 3}
+                                                                       {:id 4}]
+                                                   :_type :settings}
+                                        :_type :entity})]
+        (is (http-success? res))
+        (is (comparable? {:name "json name"
+                          :_type "entity"}
+                         (:json-body res))
+            "The response contains the updated entity")
+        (is (= #{3 4}
+               (->> (get-in res [:json-body :settings :monitoredAccounts])
+                    (map :id)
+                    set)))
+        (is (comparable? {:entity/name "json name"
+                          :entity/settings {:settings/monitored-accounts #{{:id 3}
+                                                                           {:id 4}}}}
+                         retrieved)
+            "The updated entity can be retrieved")))))
 
 (deftest a-user-cannot-edit-anothers-entity
   (with-context list-context
