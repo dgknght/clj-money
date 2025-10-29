@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
+            [muuntaja.core :as muuntaja]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.entities :as entities]
@@ -76,29 +77,35 @@
                  :name "Business"}))
 
 (defn- edit-an-entity
-  [email]
-  (with-context list-context
-    (let [user (find-user email)
-          entity (find-entity "Personal")
-          response (-> (req/request :patch (path :api :entities (:id entity)))
-                       (edn-body (-> entity
-                                     (assoc :entity/name "New Name")
-                                     (assoc-in [:entity/settings
-                                                :settings/monitored-accounts]
-                                               #{{:id 1}
-                                                 {:id 2}})
-                                     (select-keys [:entity/name
-                                                   :entity/settings])))
-                       (add-auth user)
-                       app
-                       parse-edn-body)]
-      [response (entities/find entity)])))
+  [email & {:keys [content-type changes]
+            :or {changes {:entity/name "New Name"
+                          :entity/settings
+                          {:settings/monitored-accounts
+                           #{{:id 1}
+                             {:id 2}}}}}}]
+  (let [user (find-user email)
+        entity (find-entity "Personal")
+        content-type (or content-type "application/edn")
+        response (-> (req/request :patch (path :api :entities (:id entity)))
+                     (req/content-type content-type)
+                     (req/header :accept content-type)
+                     (assoc :body (muuntaja/encode
+                                    content-type
+                                    changes))
+                     (add-auth user)
+                     app
+                     parse-edn-body
+                     parse-json-body)]
+    [response (entities/find entity)]))
 
 (defn- assert-successful-edit
-  [[response retrieved]]
+  [[response retrieved] & {:keys [expected-response
+                                  response-key]
+                           :or {expected-response {:entity/name "New Name"}
+                                response-key :edn-body}}]
   (is (http-success? response))
-  (is (comparable? {:entity/name "New Name"}
-                   (:edn-body response))
+  (is (comparable? expected-response
+                   (response response-key))
       "The updated entity is returned in the response")
   (is (comparable? {:entity/name "New Name"}
                    retrieved)
@@ -112,10 +119,27 @@
       "The retrieved value has not been changed"))
 
 (deftest a-user-can-edit-his-own-entity
-  (assert-successful-edit (edit-an-entity "john@doe.com")))
+  (with-context list-context
+    (testing "default format (edn)"
+      (assert-successful-edit (edit-an-entity "john@doe.com")))
+    (testing "json format"
+      (assert-successful-edit
+        (edit-an-entity "john@doe.com"
+                        :content-type "application/json"
+                        :changes {:name "json name"
+                                  :settings {:monitoredAccounts [{:id 1}
+                                                                 {:id 2}]
+                                             :_type :settings}
+                                  :_type :entity})
+        :expected-response {:name "json name"
+                            :settings {:monitoredAccounts [{:id 1}
+                                                           {:id 2}]}
+                            :_type "entity"}
+        :response-key :json-body))))
 
 (deftest a-user-cannot-edit-anothers-entity
-  (assert-blocked-edit (edit-an-entity "jane@doe.com")))
+  (with-context list-context
+    (assert-blocked-edit (edit-an-entity "jane@doe.com"))))
 
 (deftest an-unauthenticated-user-cannot-edit-an-entity
   (with-context list-context

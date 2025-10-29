@@ -43,7 +43,8 @@
 (defn json->edn
   [input]
   (postwalk (fn [x]
-              (if (map? x)
+              (if (and (map? x)
+                       (not= #{:id} (->> x keys set)))
                 (json-map->edn x)
                 x))
             input))

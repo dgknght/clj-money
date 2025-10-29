@@ -35,4 +35,7 @@
             :settings {:inventoryMethod :fifo
                        :_type :settings}
             :_type :entity}))
-      "A nest map also gets updated keys"))
+      "A nest map also gets updated keys")
+  (is (= {:id 1}
+         (fmts/json->edn {:id 1}))
+      "A map with just an ID is returned as-is"))
