@@ -27,23 +27,22 @@
 
 (defn- create-an-account
   [email]
-  (with-context
-    (let [user (find-user email)
-          entity (find-entity "Personal")
-          usd (find-commodity "USD")
-          response (-> (req/request :post (path :api
-                                                :entities
-                                                (:id entity)
-                                                :accounts))
-                       (edn-body {:account/name "Savings"
-                                  :account/type :asset
-                                  :account/commodity (util/->entity-ref usd)})
-                       (add-auth user)
-                       app
-                       parse-edn-body)
-          retrieved (when-let [id (get-in response [:edn-body :id])]
-                      (entities/find id :account))]
-      [response retrieved])))
+  (let [user (find-user email)
+        entity (find-entity "Personal")
+        usd (find-commodity "USD")
+        response (-> (req/request :post (path :api
+                                              :entities
+                                              (:id entity)
+                                              :accounts))
+                     (edn-body {:account/name "Savings"
+                                :account/type :asset
+                                :account/commodity (util/->entity-ref usd)})
+                     (add-auth user)
+                     app
+                     parse-edn-body)
+        retrieved (when-let [id (get-in response [:edn-body :id])]
+                    (entities/find id :account))]
+    [response retrieved]))
 
 (defn- assert-successful-create
   [[{:keys [edn-body] :as response} retrieved]]
@@ -63,10 +62,12 @@
   (is (nil? retrieved) "The account is not created"))
 
 (deftest a-user-can-create-an-account-in-his-entity
-  (assert-successful-create (create-an-account "john@doe.com")))
+  (with-context
+    (assert-successful-create (create-an-account "john@doe.com"))))
 
 (deftest a-user-cannot-create-an-account-in-anothers-entity
-  (assert-blocked-create (create-an-account "jane@doe.com")))
+  (with-context
+    (assert-blocked-create (create-an-account "jane@doe.com"))))
 
 (def list-context
   (filter #(or (not= :account (util/entity-type %))
