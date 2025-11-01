@@ -13,3 +13,8 @@
   java.time.LocalDateTime
   (fn [date-time gen]
     (.writeString gen (serialize-local-date-time date-time))))
+
+(add-encoder
+  java.math.BigDecimal
+  (fn [decimal gen]
+    (.writeNumber gen decimal)))

@@ -11,7 +11,7 @@
 (defn- edn-map->json
   [m]
   (let [type (util/single-ns m
-                             :ignore #{:id}
+                             :ignore #{:id :d} ; muuntaja uses {:d 1.23} for decimal values
                              :allow-none true)]
     (cond-> (update-keys m
                          (comp ->camelCase
@@ -35,16 +35,19 @@
 (defn- json-map->edn
   [m]
   {:pre [(:_type m)]}
-  (-> m
-      (dissoc :_type)
-      (update-keys (comp (+ns (:_type m))
-                         ->kebab-case))))
+  (let [keys (set (keys m))]
+    (if (or (= #{:id} keys)
+            (= #{:d} keys))
+      m
+      (-> m
+          (dissoc :_type)
+          (update-keys (comp (+ns (:_type m))
+                             ->kebab-case))))))
 
 (defn json->edn
   [input]
   (postwalk (fn [x]
-              (if (and (map? x)
-                       (not= #{:id} (->> x keys set)))
+              (if (map? x)
                 (json-map->edn x)
                 x))
             input))
