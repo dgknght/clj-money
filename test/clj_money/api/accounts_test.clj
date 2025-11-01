@@ -1,7 +1,6 @@
 (ns clj-money.api.accounts-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.pprint :refer [pprint]]
-            [ring.mock.request :as req]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
@@ -14,46 +13,45 @@
                                             basic-context
                                             find-user
                                             find-entity
-                                            find-commodity
                                             find-account]]
-            [clj-money.test-helpers :refer [reset-db
-                                            edn-body
-                                            parse-edn-body]]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.api.test-helper :refer [request
+                                               parse-body]]
             [clj-money.web.server :refer [app]]
             [clj-money.entities :as entities]))
 
 (use-fixtures :each reset-db)
 
 (defn- create-an-account
-  [email]
-  (let [user (find-user email)
-        entity (find-entity "Personal")
-        usd (find-commodity "USD")
-        response (-> (req/request :post (path :api
-                                              :entities
-                                              (:id entity)
-                                              :accounts))
-                     (edn-body {:account/name "Savings"
-                                :account/type :asset
-                                :account/commodity (util/->entity-ref usd)})
-                     (add-auth user)
+  [email & {:keys [content-type body]
+            :or {content-type "application/edn"
+                 body #:account{:name "Savings"
+                                  :type :asset
+                                  :commodity {:id 1}}}}]
+  (let [entity (find-entity "Personal")
+        response (-> (request :post (path :api
+                                          :entities
+                                          (:id entity)
+                                          :accounts)
+                              :user (find-user email)
+                              :content-type content-type
+                              :body body)
                      app
-                     parse-edn-body)
-        retrieved (when-let [id (get-in response [:edn-body :id])]
+                     parse-body)
+        retrieved (when-let [id (:id (:parsed-body response))]
                     (entities/find id :account))]
     [response retrieved]))
 
 (defn- assert-successful-create
-  [[{:keys [edn-body] :as response} retrieved]]
+  [[{:keys [parsed-body] :as response} retrieved]
+   & {:keys [expected expected-response]
+      :or {expected #:account{:name "Savings"
+                              :type :asset}}}]
   (is (http-success? response))
-  (is (comparable? #:account{:name "Savings"
-                             :type :asset}
-                   edn-body)
+  (is (comparable? (or expected-response expected)
+                   parsed-body)
       "The created account is returned in the response")
-  (is (comparable? #:account{:name "Savings"
-                             :type :asset}
-                   retrieved)
+  (is (comparable? expected retrieved)
       "The created account can be retrieved from the data store"))
 
 (defn- assert-blocked-create
@@ -63,7 +61,23 @@
 
 (deftest a-user-can-create-an-account-in-his-entity
   (with-context
-    (assert-successful-create (create-an-account "john@doe.com"))))
+    (testing "default format (edn)"
+      (assert-successful-create (create-an-account "john@doe.com")))
+    (testing "json format"
+      (assert-successful-create
+        (create-an-account "john@doe.com"
+                           :content-type "application/json"
+                           :body {:name "JSON Savings"
+                                  :type :asset
+                                  :commodity {:id 1}
+                                  :_type :account})
+        :expected #:account{:name "JSON Savings"
+                            :type :asset
+                            :commodity {:id 1}}
+        :expected-response {:name "JSON Savings"
+                            :type "asset"
+                            :commodity {:id 1}
+                            :_type "account"}))))
 
 (deftest a-user-cannot-create-an-account-in-anothers-entity
   (with-context
@@ -75,49 +89,58 @@
           basic-context))
 
 (defn- get-a-list
-  [email]
-  (with-context list-context
-    (-> (req/request :get (path :api
-                                :entities
-                                (:id (find-entity "Personal"))
-                                :accounts))
-        (add-auth (find-user email))
-        app
-        parse-edn-body)))
-
-(defn- assert-successful-list
-  [response]
-  (is (http-success? response))
-  (is (seq-of-maps-like? [#:account{:name "Checking"
-                                    :type :asset}] 
-                         (:edn-body response))
-      "The accounts are returned in the response"))
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
+  (-> (request :get (path :api
+                          :entities
+                          (:id (find-entity "Personal"))
+                          :accounts)
+               :content-type content-type
+               :user (find-user email))
+      app
+      parse-body))
 
 (defn- assert-blocked-list
   [response]
   (is (http-success? response))
-  (is (empty? (:edn-body response))))
+  (is (empty? (:parsed-body response))))
 
 (deftest a-user-can-get-a-list-of-accounts-in-his-entity
-  (assert-successful-list (get-a-list "john@doe.com")))
+  (with-context list-context
+    (testing "default format"
+      (let [res (get-a-list "john@doe.com")]
+        (is (http-success? res))
+        (is (seq-of-maps-like? [#:account{:name "Checking"
+                                          :type :asset}]
+                               (:parsed-body res))
+            "The accounts are returned in the response")))
+    (testing "json format"
+      (let [res (get-a-list "john@doe.com" :content-type "application/json")]
+        (is (http-success? res))
+        (is (seq-of-maps-like? [{:name "Checking"
+                                 :type "asset"
+                                 :_type "account"}]
+                               (:parsed-body res))
+            "The accounts are returned in the response")))))
 
 (deftest a-user-cannot-get-a-list-of-accounts-in-anothers-entity
-  (assert-blocked-list (get-a-list "jane@doe.com")))
+  (with-context list-context
+    (assert-blocked-list (get-a-list "jane@doe.com"))))
 
 (deftest a-user-can-get-a-list-of-accounts-by-name
   (with-context
-    (let [res (-> (req/request :get (str (path :api
-                                               :entities
-                                               (:id (find-entity "Personal"))
-                                               :accounts)
-                                         "?"
-                                         (map->query-string {:name "Checking"})))
-                  (add-auth (find-user "john@doe.com"))
+    (let [res (-> (request :get (str (path :api
+                                           :entities
+                                           (:id (find-entity "Personal"))
+                                           :accounts)
+                                     "?"
+                                     (map->query-string {:name "Checking"}))
+                          :user (find-user "john@doe.com"))
                   app
-                  parse-edn-body)]
+                  parse-body)]
       (is (http-success? res))
       (is (seq-of-maps-like? [{:account/name "Checking"}]
-                             (:edn-body res))))))
+                             (:parsed-body res))))))
 
 (def ^:private tag-context
   [#:user{:email "john@doe.com"
@@ -148,36 +171,36 @@
 
 (deftest a-user-can-get-a-list-of-accounts-by-tag
   (with-context tag-context
-    (let [res (-> (req/request :get (str (path :api
-                                               :entities
-                                               (:id (find-entity "Personal"))
-                                               :accounts)
-                                         "?"
-                                         (map->query-string
-                                           {:user-tags ["mandatory" "discretionary"]})))
-                  (add-auth (find-user "john@doe.com"))
+    (let [res (-> (request :get (str (path :api
+                                           :entities
+                                           (:id (find-entity "Personal"))
+                                           :accounts)
+                                     "?"
+                                     (map->query-string
+                                       {:user-tags ["mandatory" "discretionary"]}))
+                          :user (find-user "john@doe.com"))
                   app
-                  parse-edn-body)]
+                  parse-body)]
       (is (http-success? res))
       (is (= #{"Rent" "Tax" "Dining"}
-             (set (map :account/name (:edn-body res))))))))
+             (set (map :account/name (:parsed-body res))))))))
 
 (defn- get-an-account
   [email]
   (with-context
-    (-> (req/request :get (path :api
-                                :accounts
-                                (:id (find-account "Checking"))))
-        (add-auth (find-user email))
+    (-> (request :get (path :api
+                            :accounts
+                            (:id (find-account "Checking")))
+                 :user (find-user email))
         app
-        parse-edn-body)))
+        parse-body)))
 
 (defn- assert-successful-get
-  [{:keys [edn-body] :as response}]
+  [{:keys [parsed-body] :as response}]
   (is (http-success? response))
   (is (comparable? #:account{:name "Checking"
                              :type :asset}
-                   edn-body)
+                   parsed-body)
       "The accounts are returned in the response"))
 
 (defn- assert-blocked-get
@@ -191,34 +214,34 @@
   (assert-blocked-get (get-an-account "jane@doe.com")))
 
 (defn- update-an-account
-  [email]
-  (with-context
-    (let [account (find-account "Checking")
-          response (-> (req/request :patch (path :api
-                                                 :accounts
-                                                 (:id account)))
-                       (edn-body (-> account
-                                     (assoc :account/name "New Name")
-                                     (select-keys [:account/name
-                                                   :account/type
-                                                   :account/commodity
-                                                   :account/parent])))
-                       (add-auth (find-user email))
-                       app
-                       parse-edn-body)
-          retrieved (entities/find account)]
-      [response retrieved])))
+  [email & {:keys [content-type body]
+            :or {content-type "application/edn"
+                 body #:account{:name "New Name"
+                                :type :asset
+                                :commodity {:id 1}}}}]
+  (let [account (find-account "Checking")
+        response (-> (request :patch (path :api
+                                           :accounts
+                                           (:id account))
+                              :user (find-user email)
+                              :content-type content-type
+                              :body body)
+                     app
+                     parse-body)
+        retrieved (entities/find account)]
+    [response retrieved]))
 
 (defn- assert-successful-update
-  [[{:keys [edn-body] :as response} retrieved]]
+  [[{:keys [parsed-body] :as response} retrieved]
+   & {:keys [expected expected-response]
+      :or {expected {:account/name "New Name"}
+           expected-response {:account/name "New Name"}}}]
   (is (http-success? response))
-  (is (empty? (:dgknght.app-lib.validation/errors edn-body))
+  (is (empty? (:dgknght.app-lib.validation/errors parsed-body))
       "There are no validation errors")
-  (is (comparable? {:account/name "New Name"}
-                   edn-body)
+  (is (comparable? expected-response parsed-body)
       "The updated account is returned in the response")
-  (is (comparable? {:account/name "New Name"}
-                   retrieved)
+  (is (comparable? expected retrieved)
       "The retrieved value has the updated attributes"))
 
 (defn- assert-blocked-update
@@ -229,19 +252,34 @@
       "The retrieved value does not reflect an update."))
 
 (deftest a-user-can-update-an-account-in-his-entity
-  (assert-successful-update (update-an-account "john@doe.com")))
+  (with-context
+    (testing "default format"
+      (assert-successful-update (update-an-account "john@doe.com")))
+    (testing "json format"
+      (assert-successful-update
+        (update-an-account "john@doe.com"
+                           :content-type "application/json"
+                           :body {:name "JSON Name"
+                                  :type "asset"
+                                  :_type "account"})
+        :expected {:account/name "JSON Name"
+                   :account/type :asset}
+        :expected-response {:name "JSON Name"
+                            :type "asset"
+                            :_type "account"}))))
 
 (deftest a-user-cannot-update-an-account-in-anothers-entity
-  (assert-blocked-update (update-an-account "jane@doe.com")))
+  (with-context
+    (assert-blocked-update (update-an-account "jane@doe.com"))))
 
 (defn- delete-an-account
   [email]
   (with-context
     (let [account (find-account "Checking")
-          response (-> (req/request :delete (path :api
-                                                  :accounts
-                                                  (:id account)))
-                       (add-auth (find-user email))
+          response (-> (request :delete (path :api
+                                              :accounts
+                                              (:id account))
+                                :user (find-user email))
                        app)
           retrieved (entities/find account)]
       [response retrieved])))
