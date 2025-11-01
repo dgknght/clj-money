@@ -14,3 +14,9 @@
   `ring.mock.request/json-body`. Instead use `clj-money.api.test-helper/request`.
 - Do not use format-specified parse functions like `parse-json-body`. Instead use
   `clj-money.api.test-helper.parse-body`.
+- Tests should exercise both the default format (edn) and the JSON format.
+- `with-context` blocks should be nested directly within `deftest` functions, not
+  inside helper functions, as this impairs reusability.
+- The majority of the changes should be in the test namespaces, but some changes
+  may be necessary in the `clj-money.api` namespaces. Generally, this will be
+  because the JSON format cannot communicate the same types as EDN.

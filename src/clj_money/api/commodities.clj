@@ -5,6 +5,7 @@
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
@@ -85,20 +86,26 @@
    :commodity/type
    :commodity/price-config])
 
-(defn- create
-  [{:keys [authenticated params]}]
+(defn- extract-commodity
+  [{:keys [params]}]
   (-> params
       (select-keys attribute-keys)
+      (update-in-if [:commodity/type] util/ensure-keyword)
+      (update-in-if [:commodity/exchange] util/ensure-keyword)))
+
+(defn- create
+  [{:keys [authenticated params] :as req}]
+  (-> (extract-commodity req)
       (assoc :commodity/entity {:id (:entity-id params)})
       (authorize ::authorization/create authenticated)
       prop/put-and-propagate
       api/creation-response))
 
 (defn- update
-  [{:keys [params] :as req}]
+  [req]
   (or
     (some-> (find-and-authorize req ::authorization/update)
-            (merge (select-keys params attribute-keys))
+            (merge (extract-commodity req))
             prop/put-and-propagate
             api/update-response)
     api/not-found))

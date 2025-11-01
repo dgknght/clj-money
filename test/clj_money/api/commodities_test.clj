@@ -1,7 +1,6 @@
 (ns clj-money.api.commodities-test
-  (:require [clojure.test :refer [deftest use-fixtures is]]
+  (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [clojure.pprint :refer [pprint]]
-            [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
@@ -13,10 +12,9 @@
                                             find-user
                                             find-entity
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db
-                                            edn-body
-                                            parse-edn-body]]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.api.test-helper :refer [request
+                                               parse-body]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -39,86 +37,100 @@
                        :entity "Personal"}]))
 
 (defn- get-a-count-of-commodities
-  [email]
-  (with-context context
-    (-> (req/request :get (path :api
-                                :entities
-                                (:id (find-entity "Personal"))
-                                :commodities
-                                :count))
-        (add-auth (find-user email))
-        app
-        parse-edn-body)))
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
+  (-> (request :get (path :api
+                          :entities
+                          (:id (find-entity "Personal"))
+                          :commodities
+                          :count)
+               :user (find-user email)
+               :content-type content-type)
+      app
+      parse-body))
 
 (defn- assert-successful-count
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [parsed-body]}]
   (is (http-success? response))
-  (is (= {:count 2} edn-body) "The body contains the count"))
+  (is (= {:count 2} parsed-body) "The body contains the count"))
 
 (defn- assert-blocked-count
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [parsed-body]}]
   (is (http-success? response))
-  (is (= {:count 0} edn-body) "The body contains a count of zero"))
+  (is (= {:count 0} parsed-body) "The body contains a count of zero"))
 
 (deftest a-user-can-get-a-count-of-commodities-in-his-entity
-  (assert-successful-count (get-a-count-of-commodities "john@doe.com")))
+  (with-context context
+    (testing "default format (edn)"
+      (assert-successful-count (get-a-count-of-commodities "john@doe.com")))
+    (testing "json format"
+      (assert-successful-count (get-a-count-of-commodities "john@doe.com"
+                                                           :content-type "application/json")))))
 
 (deftest a-user-cannot-get-a-count-of-commodities-in-anothers-entity
-  (assert-blocked-count (get-a-count-of-commodities "jane@doe.com")))
+  (with-context context
+    (assert-blocked-count (get-a-count-of-commodities "jane@doe.com"))))
 
 (defn- get-a-list-of-commodities
-  [email]
-  (with-context context
-    (-> (req/request :get (path :api
-                                :entities
-                                (:id (find-entity "Personal"))
-                                :commodities))
-        (add-auth (find-user email))
-        app
-        parse-edn-body)))
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
+  (-> (request :get (path :api
+                          :entities
+                          (:id (find-entity "Personal"))
+                          :commodities)
+               :user (find-user email)
+               :content-type content-type)
+      app
+      parse-body))
 
 (defn- assert-successful-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [parsed-body]}
+   & {:keys [expected]
+      :or {expected [#:commodity{:name "Microsoft, Inc"
+                                 :symbol "MSFT"
+                                 :type :stock
+                                 :exchange :nasdaq}
+                     #:commodity{:name "US Dollar"
+                                 :symbol "USD"
+                                 :type :currency}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:commodity{:name "Microsoft, Inc"
-                                      :symbol "MSFT"
-                                      :type :stock
-                                      :exchange :nasdaq}
-                          #:commodity{:name "US Dollar"
-                                      :symbol "USD"
-                                      :type :currency}]
-                         edn-body)
+  (is (seq-of-maps-like? expected parsed-body)
       "The body contains the list of commodities"))
 
 (defn- assert-blocked-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [parsed-body]}]
   (is (http-success? response))
-  (is (empty? edn-body) "The body is empty"))
+  (is (empty? parsed-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-commodities-in-his-entity
-  (assert-successful-list (get-a-list-of-commodities "john@doe.com")))
+  (with-context context
+    (testing "default format (edn)"
+      (assert-successful-list (get-a-list-of-commodities "john@doe.com")))))
 
 (deftest a-user-cannot-get-a-list-of-commodities-in-anothers-entity
-  (assert-blocked-list (get-a-list-of-commodities "jane@doe.com")))
+  (with-context context
+    (assert-blocked-list (get-a-list-of-commodities "jane@doe.com"))))
 
 (defn- get-a-commodity
-  [email]
-  (with-context context
-    (-> (req/request :get (path :api
-                                :commodities
-                                (:id (find-commodity "MSFT"))))
-        (add-auth (find-user email))
-        app
-        parse-edn-body)))
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
+  (-> (request :get (path :api
+                          :commodities
+                          (:id (find-commodity "MSFT")))
+               :user (find-user email)
+               :content-type content-type)
+      app
+      parse-body))
 
 (defn- assert-successful-get
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [parsed-body]}
+   & {:keys [expected]
+      :or {expected #:commodity{:name "Microsoft, Inc"
+                                :symbol "MSFT"
+                                :type :stock
+                                :exchange :nasdaq}}}]
   (is (http-success? response))
-  (is (comparable? #:commodity{:name "Microsoft, Inc"
-                               :symbol "MSFT"
-                               :type :stock
-                               :exchange :nasdaq}
-                   edn-body)
+  (is (comparable? expected parsed-body)
       "The specified commodity is returned in the response"))
 
 (defn- assert-blocked-get
@@ -126,10 +138,13 @@
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-commodity-in-his-entity
-  (assert-successful-get (get-a-commodity "john@doe.com")))
+  (with-context context
+    (testing "default format (edn)"
+      (assert-successful-get (get-a-commodity "john@doe.com")))))
 
 (deftest a-user-cannot-get-a-commodity-in-anothers-entity
-  (assert-blocked-get (get-a-commodity "jane@doe.com")))
+  (with-context context
+    (assert-blocked-get (get-a-commodity "jane@doe.com"))))
 
 (def ^:private attributes
   #:commodity{:type :stock
@@ -139,31 +154,33 @@
               :price-config {:price-config/enabled true}})
 
 (defn- create-a-commodity
-  [email]
-  (with-context context
-    (let [entity (find-entity "Personal")
-          response (-> (req/request :post (path :api
-                                                :entities
-                                                (:id entity)
-                                                :commodities))
-                       (edn-body attributes)
-                       (add-auth (find-user email))
-                       app
-                       parse-edn-body)]
-      [response (when-let [id (-> response :edn-body :id)]
-                  (entities/find id :commodity))])))
+  [email & {:keys [content-type body]
+            :or {content-type "application/edn"
+                 body attributes}}]
+  (let [entity (find-entity "Personal")
+        response (-> (request :post (path :api
+                                          :entities
+                                          (:id entity)
+                                          :commodities)
+                              :user (find-user email)
+                              :content-type content-type
+                              :body body)
+                     app
+                     parse-body)
+        retrieved (when-let [id (:id (:parsed-body response))]
+                    (entities/find id :commodity))]
+    [response retrieved]))
 
 (defn- assert-successful-create
-  [[{:as response :keys [edn-body]} retrieved]]
+  [[{:as response :keys [parsed-body]} retrieved]
+   & {:keys [expected expected-response]
+      :or {expected attributes
+           expected-response attributes}}]
   (is (http-created? response))
-  (is (comparable? attributes
-                   edn-body)
+  (is (comparable? expected-response
+                   parsed-body)
       "The newly created commodity is returned in the response")
-  (is (comparable? #:commodity{:type :stock
-                               :name "Apple, Inc."
-                               :symbol "AAPL"
-                               :exchange :nasdaq
-                               :price-config {:price-config/enabled true}}
+  (is (comparable? expected
                    retrieved)
       "The new commodity can be retrieved from the database"))
 
@@ -174,49 +191,76 @@
       "The commodity is not created"))
 
 (deftest a-user-can-create-a-commodity-in-his-entity
-  (assert-successful-create (create-a-commodity "john@doe.com")))
+  (with-context context
+    (testing "default format (edn)"
+      (assert-successful-create (create-a-commodity "john@doe.com")))
+    (testing "json format"
+      (assert-successful-create
+        (create-a-commodity "john@doe.com"
+                           :content-type "application/json"
+                           :body {:type "stock"
+                                  :name "Google, Inc."
+                                  :symbol "GOOG"
+                                  :exchange "nasdaq"
+                                  :_type "commodity"})
+        :expected #:commodity{:type :stock
+                              :name "Google, Inc."
+                              :symbol "GOOG"
+                              :exchange :nasdaq}
+        :expected-response {:type "stock"
+                            :name "Google, Inc."
+                            :symbol "GOOG"
+                            :exchange "nasdaq"
+                            :_type "commodity"}))))
 
 (deftest a-user-cannot-create-an-commodity-in-anothers-entity
-  (assert-blocked-create (create-a-commodity "jane@doe.com")))
+  (with-context context
+    (assert-blocked-create (create-a-commodity "jane@doe.com"))))
 
 (deftest attempt-to-create-an-invalid-commodity
   (with-context context
     (let [entity (find-entity "Personal")
-          response (-> (req/request :post (path :api
-                                                :entities
-                                                (:id entity)
-                                                :commodities))
-                       (edn-body (assoc attributes :commodity/exchange "notvalid"))
-                       (add-auth (find-user "john@doe.com"))
+          response (-> (request :post (path :api
+                                            :entities
+                                            (:id entity)
+                                            :commodities)
+                                :user (find-user "john@doe.com")
+                                :content-type "application/edn"
+                                :body (assoc attributes :commodity/exchange "notvalid"))
                        app
-                       parse-edn-body)]
+                       parse-body)]
       (is (http-bad-request? response))
       (is (= ["Exchange must be amex, nasdaq, nyse, or otc"]
-             (get-in response [:edn-body :commodity/exchange])))
+             (get-in response [:parsed-body :commodity/exchange])))
       (is (empty? (entities/select {:commodity/entity entity
                                   :commodity/symbol "AAPL"}))
           "The record is not created"))))
 
 (defn- update-a-commodity
-  [email]
-  (with-context context
-    (let [msft (find-commodity "MSFT")
-          response (-> (req/request :patch (path :api
-                                                 :commodities
-                                                 (:id msft)))
-                       (edn-body (assoc msft :commodity/name "Microsoft, Ltd."))
-                       (add-auth (find-user email))
-                       app
-                       parse-edn-body)]
-      [response (entities/find msft)])))
+  [email & {:keys [content-type body]
+            :or {content-type "application/edn"
+                 body #:commodity{:name "Microsoft, Ltd."}}}]
+  (let [msft (find-commodity "MSFT")
+        response (-> (request :patch (path :api
+                                           :commodities
+                                           (:id msft))
+                              :user (find-user email)
+                              :content-type content-type
+                              :body body)
+                     app
+                     parse-body)]
+    [response (entities/find msft)]))
 
 (defn- assert-successful-update
-  [[{:as response :keys [edn-body]} retrieved]]
+  [[{:as response :keys [parsed-body]} retrieved]
+   & {:keys [expected expected-response]
+      :or {expected {:commodity/name "Microsoft, Ltd."}
+           expected-response {:commodity/name "Microsoft, Ltd."}}}]
   (is (http-success? response))
-  (is (comparable? {:commodity/name "Microsoft, Ltd."}
-                   edn-body)
+  (is (comparable? expected-response
+                   parsed-body)
       "The returned value has the updated attributes")
-  (is (comparable? {:commodity/name "Microsoft, Ltd."}
+  (is (comparable? expected
                    retrieved)
       "The retrieved value has the updated attributes"))
 
@@ -228,22 +272,33 @@
       "The retrieved value has the original attributes"))
 
 (deftest a-user-can-update-a-commodity-in-his-entity
-  (assert-successful-update (update-a-commodity "john@doe.com")))
+  (with-context context
+    (testing "default format (edn)"
+      (assert-successful-update (update-a-commodity "john@doe.com")))
+    (testing "json format"
+      (assert-successful-update
+        (update-a-commodity "john@doe.com"
+                           :content-type "application/json"
+                           :body {:name "JSON Corporation"
+                                  :_type "commodity"})
+        :expected {:commodity/name "JSON Corporation"}
+        :expected-response {:name "JSON Corporation"
+                            :_type "commodity"}))))
 
 (deftest a-user-cannot-update-a-commodity-in-anothers-entity
-  (assert-blocked-update (update-a-commodity "jane@doe.com")))
+  (with-context context
+    (assert-blocked-update (update-a-commodity "jane@doe.com"))))
 
 (defn- delete-a-commodity
   [email]
-  (with-context context
-    (let [msft (find-commodity "MSFT")
-          response (-> (req/request :delete (path :api
-                                                  :commodities
-                                                  (:id msft)))
-                       (add-auth (find-user email))
-                       app)
-          retrieved (entities/find msft)]
-      [response retrieved])))
+  (let [msft (find-commodity "MSFT")
+        response (-> (request :delete (path :api
+                                            :commodities
+                                            (:id msft))
+                              :user (find-user email))
+                     app)
+        retrieved (entities/find msft)]
+    [response retrieved]))
 
 (defn- assert-successful-delete
   [[response retrieved]]
@@ -258,7 +313,10 @@
       "The commodity can be retrieved after failed delete"))
 
 (deftest a-user-can-delete-a-commodity-in-his-entity
-  (assert-successful-delete (delete-a-commodity "john@doe.com")))
+  (with-context context
+    (testing "default format (edn)"
+      (assert-successful-delete (delete-a-commodity "john@doe.com")))))
 
 (deftest a-user-cannot-delete-a-commodity-in-anothers-entity
-  (assert-blocked-delete (delete-a-commodity "jane@doe.com")))
+  (with-context context
+    (assert-blocked-delete (delete-a-commodity "jane@doe.com"))))
