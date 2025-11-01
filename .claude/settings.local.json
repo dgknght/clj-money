@@ -7,7 +7,8 @@
       "Bash(lein clean:*)",
       "Read(//tmp/**)",
       "Bash(lein compile:*)",
-      "Bash(clj-kondo --lint:*)"
+      "Bash(clj-kondo --lint:*)",
+      "Bash(lein clj-kondo:*)"
     ],
     "deny": [],
     "ask": []
