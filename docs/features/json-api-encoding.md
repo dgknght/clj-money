@@ -10,3 +10,7 @@
 ## Implementation
 - Each API namespace needs to support JSON requests and responses.
 - Change one test file at a time to keep git commits small.
+- Do not use the format-specific helper methods like
+  `ring.mock.request/json-body`. Instead use `clj-money.api.test-helper/request`.
+- Do not use format-specified parse functions like `parse-json-body`. Instead use
+  `clj-money.api.test-helper.parse-body`.
