@@ -1,22 +1,23 @@
 (ns clj-money.api.prices-test
-  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.pprint :refer [pprint]]
+            [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [java-time.api :as t]
-            [clj-money.json]
             [clj-money.util :as util]
             [clj-money.factories.user-factory]
             [clj-money.dates :as dates :refer [with-fixed-time]]
-            [clj-money.api.test-helper :refer [request
-                                               parse-body]]
+            [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            edn-body
+                                            parse-edn-body]]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.entities :as entities]
             [clj-money.web.server :refer [app]]))
@@ -40,62 +41,41 @@
                :type :fund}])
 
 (defn- create-a-price
-  [email & {:keys [content-type body]
-            :or {content-type "application/edn"
-                 body #:price{:value 12.34M
-                              :trade-date (t/local-date 2016 3 2)}}}]
-  (let [commodity (find-commodity "AAPL")
-        response (-> (request :post (path :api
-                                          :commodities
-                                          (:id commodity)
-                                          :prices)
-                              :user (find-user email)
-                              :content-type content-type
-                              :body body)
-                     app
-                     parse-body)
-        retrieved (entities/select #:price{:commodity commodity
-                                           :trade-date (t/local-date 2016 3 2)})]
-    [response retrieved]))
+  [email]
+  (with-context context
+    (let [commodity (find-commodity "AAPL")]
+      [(-> (req/request :post (path :api
+                                    :commodities
+                                    (:id commodity)
+                                    :prices))
+           (edn-body #:price{:value 12.34M
+                             :trade-date (t/local-date 2016 3 2)})
+           (add-auth (find-user email))
+           app
+           parse-edn-body)
+       (entities/select #:price{:commodity commodity
+                              :trade-date (t/local-date 2016 3 2)})])))
 
 (defn- assert-successful-create
-  [[{:as response :keys [parsed-body]} retrieved]
-   & {:keys [expected expected-response]
-      :or {expected #:price{:value 12.34M
-                            :trade-date (t/local-date 2016 3 2)}
-           expected-response #:price{:value 12.34M
-                                     :trade-date (t/local-date 2016 3 2)}}}]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? expected-response parsed-body)
-      "The created price is returned in the response")
-  (is (seq-of-maps-like? [expected] retrieved)
-      "The price is created in the database"))
+  (let [expected #:price{:value 12.34M
+                         :trade-date (t/local-date 2016 3 2)}]
+    (is (comparable? expected edn-body)
+        "The created price is returned in the response")
+    (is (seq-of-maps-like? [expected] retrieved)
+        "The price is created in the database")))
 
 (defn- assert-blocked-create
-  [[response retrieved]]
+  [[response _ retrieved]]
   (is (http-not-found? response))
   (is (empty? retrieved) "The database record is not created"))
 
 (deftest a-user-can-create-a-price-for-a-commodity-in-his-entity
-  (with-context context
-    #_(testing "default format (edn)"
-      (assert-successful-create (create-a-price "john@doe.com")))
-    (testing "json format"
-      (assert-successful-create
-        (create-a-price "john@doe.com"
-                        :content-type "application/json"
-                        :body {:value {:d 12.34}
-                               :tradeDate (t/local-date 2016 3 2)
-                               :_type "price"})
-        :expected #:price{:value 12.34M
-                          :trade-date (t/local-date 2016 3 2)}
-        :expected-response {:value {:d 12.34}
-                            :tradeDate (t/local-date 2016 3 2)
-                            :_type "price"}))))
+  (assert-successful-create (create-a-price "john@doe.com")))
 
 (deftest a-user-cannot-create-a-price-for-a-commodity-in-anothers-entity
-  (with-context context
-    (assert-blocked-create (create-a-price "jane@doe.com"))))
+  (assert-blocked-create (create-a-price "jane@doe.com")))
 
 (def ^:private list-context
   (conj context
@@ -113,86 +93,67 @@
                 :value 9.99M}))
 
 (defn- get-a-list-by-commodity
-  [email & {:keys [content-type]
-            :or {content-type "application/edn"}}]
-  (let [commodity (find-commodity "AAPL")
-        url (-> (uri (path :api
-                         :commodities
-                         (:id commodity)
-                         :prices))
-                (assoc :query
-                       (map->query-string
-                         {:trade-date-on-or-after "2016-01-01"
-                          :trade-date-before "2017-01-01"}))
-                str)]
-    (-> (request :get url
-                 :user (find-user email)
-                 :content-type content-type)
-        app
-        parse-body)))
+  [email]
+  (with-context list-context
+    (let [commodity (find-commodity "AAPL")
+          url (-> (uri (path :api
+                             :commodities
+                             (:id commodity)
+                             :prices))
+                  (assoc :query
+                         (map->query-string
+                           {:trade-date-on-or-after "2016-01-01"
+                            :trade-date-before "2017-01-01"}))
+                  str)]
+      (-> (req/request :get url)
+          (req/header "Accept" "application/edn")
+          (add-auth (find-user email))
+          app
+          parse-edn-body))))
 
 (defn- assert-successful-list
-  [{:as response :keys [parsed-body]}
-   & {:keys [expected]
-      :or {expected [#:price{:trade-date (t/local-date 2016 3 2)
-                             :value 11.0M}
-                     #:price{:trade-date (t/local-date 2016 2 27)
-                             :value 10.0M}]}}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? expected parsed-body)))
+  (is (seq-of-maps-like? [#:price{:trade-date (t/local-date 2016 3 2)
+                                  :value 11.0M}
+                          #:price{:trade-date (t/local-date 2016 2 27)
+                                  :value 10.0M}]
+                         edn-body)))
 
 (defn- assert-blocked-list
-  [{:as response :keys [parsed-body]}]
+  [{:as response :keys [edn-body]}]
   (is (http-success? response))
-  (is (empty? parsed-body) "The body is empty"))
+  (is (empty? edn-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-prices-from-his-entity
-  (with-context list-context
-    (testing "default format (edn)"
-      (assert-successful-list (get-a-list-by-commodity "john@doe.com")))
-    (testing "json format"
-      (assert-successful-list
-        (get-a-list-by-commodity "john@doe.com" :content-type "application/json")
-        :expected [{:trade-date (t/local-date 2016 3 2)
-                    :value 11.0
-                    :_type "price"}
-                   {:trade-date (t/local-date 2016 2 27)
-                    :value 10.0
-                    :_type "price"}]))))
+  (assert-successful-list (get-a-list-by-commodity "john@doe.com")))
 
 (deftest a-user-cannot-get-a-list-of-prices-from-anothers-entity
-  (with-context list-context
-    (assert-blocked-list (get-a-list-by-commodity "jane@doe.com"))))
+  (assert-blocked-list (get-a-list-by-commodity "jane@doe.com")))
 
 (defn- update-a-price
-  [email & {:keys [content-type body]
-            :or {content-type "application/edn"
-                 body #:price{:value 9.99M}}}]
-  (let [price (find-price ["AAPL" (t/local-date 2016 2 27)])
-        response (-> (request :patch (path :api
-                                           :prices
-                                           (dates/serialize-local-date (:price/trade-date price))
-                                           (:id price))
-                              :user (find-user email)
-                              :content-type content-type
-                              :body body)
-                     app
-                     parse-body)
-        retrieved (entities/find price)]
-    [response retrieved]))
+  [email]
+  (with-context list-context
+    (let [price (find-price ["AAPL" (t/local-date 2016 2 27)])]
+      [(-> (req/request :patch (path :api
+                                     :prices
+                                     (dates/serialize-local-date (:price/trade-date price))
+                                     (:id price)))
+           (edn-body #:price{:value 9.99M})
+           (add-auth (find-user email))
+           app
+           parse-edn-body)
+       (entities/find price)])))
 
 (defn- assert-successful-update
-  [[{:as response :keys [parsed-body]} retrieved]
-   & {:keys [expected expected-response]
-      :or {expected #:price{:trade-date (t/local-date 2016 2 27)
-                            :value 9.99M}
-           expected-response #:price{:trade-date (t/local-date 2016 2 27)
-                                     :value 9.99M}}}]
+  [[{:as response :keys [edn-body]} retrieved]]
   (is (http-success? response))
-  (is (comparable? expected-response parsed-body)
-      "The response contains the updated price")
-  (is (comparable? expected retrieved)
-      "The database record is updated"))
+  (let [expected #:price{:trade-date (t/local-date 2016 2 27)
+                         :value 9.99M}]
+    (is (comparable? expected edn-body)
+        "The response contains the updated price")
+    (is (comparable? expected retrieved)
+        "The database record is updated")))
 
 (defn- assert-blocked-update
   [[response retrieved]]
@@ -203,36 +164,22 @@
       "The database record is not updated"))
 
 (deftest a-user-can-update-a-price-for-a-commodity-is-his-entity
-  (with-context list-context
-    (testing "default format (edn)"
-      (assert-successful-update (update-a-price "john@doe.com")))
-    (testing "json format"
-      (assert-successful-update
-        (update-a-price "john@doe.com"
-                        :content-type "application/json"
-                        :body {:value 9.99
-                               :_type :price})
-        :expected #:price{:trade-date (t/local-date 2016 2 27)
-                          :value 9.99M}
-        :expected-response {:trade-date (t/local-date 2016 2 27)
-                            :value 9.99
-                            :_type "price"}))))
+  (assert-successful-update (update-a-price "john@doe.com")))
 
 (deftest a-user-cannot-update-a-price-for-a-commodity-in-anothers-entity
-  (with-context list-context
-    (assert-blocked-update (update-a-price "jane@doe.com"))))
+  (assert-blocked-update (update-a-price "jane@doe.com")))
 
 (defn- delete-a-price
   [email]
-  (let [price (find-price ["AAPL" (t/local-date 2016 2 27)])
-        response (-> (request :delete (path :api
-                                            :prices
-                                            (dates/serialize-local-date (:price/trade-date price))
-                                            (:id price))
-                              :user (find-user email))
-                     app)
-        retrieved (entities/find price)]
-    [response retrieved]))
+  (with-context list-context
+    (let [price (find-price ["AAPL" (t/local-date 2016 2 27)])]
+      [(-> (req/request :delete (path :api
+                                      :prices
+                                      (dates/serialize-local-date (:price/trade-date price))
+                                      (:id price)))
+           (add-auth (find-user email))
+           app)
+       (entities/find price)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]
@@ -245,12 +192,10 @@
   (is retrieved "The price can still be retrieved after blocked delete."))
 
 (deftest a-user-can-delete-a-price-in-his-entity
-  (with-context list-context
-    (assert-successful-delete (delete-a-price "john@doe.com"))))
+  (assert-successful-delete (delete-a-price "john@doe.com")))
 
 (deftest a-user-cannot-delete-a-price-in-anothers-entity
-  (with-context list-context
-    (assert-blocked-delete (delete-a-price "jane@doe.com"))))
+  (assert-blocked-delete (delete-a-price "jane@doe.com")))
 
 (def ^:private fetch-context
   [#:user{:first-name "John"
@@ -271,8 +216,7 @@
                :type :stock}])
 
 (defn- fetch-some-prices
-  [username & {:keys [content-type]
-               :or {content-type "application/edn"}}]
+  [username]
   (let [appl (find-commodity "AAPL")
         msft (find-commodity "MSFT")]
     (with-redefs [yahoo/get-quotes (fn [symbols]
@@ -285,51 +229,38 @@
                                              :regularMarketTime (t/local-date 2015 3 2)})
                                           symbols))]
       (with-fixed-time "2015-03-02T12:00:00Z"
-        (-> (request :get (str (path :api
-                                     :prices
-                                     :fetch)
-                               "?commodity-id="
-                               (:id appl)
-                               "&commodity-id="
-                               (:id msft))
-                     :user (when username
-                             (find-user username))
-                     :content-type content-type)
+        (-> (req/request :get (str (path :api
+                                         :prices
+                                         :fetch)
+                                   "?commodity-id="
+                                   (:id appl)
+                                   "&commodity-id="
+                                   (:id msft)))
+            (add-auth
+              (when username
+                (find-user username)))
             app
-            parse-body)))))
+            parse-edn-body)))))
 
 (defn- assert-successful-fetch
-  [response
-   & {:keys [expected]
-      :or {expected [#:price{:trade-date (t/local-date 2015 3 2)
-                             :value 10.01M
-                             :commodity (util/->entity-ref (find-commodity "AAPL"))}
-                     #:price{:trade-date (t/local-date 2015 3 2)
-                             :value 5.01M
-                             :commodity (util/->entity-ref (find-commodity "MSFT"))}]}}]
+  [response]
   (is (http-success? response))
-  (is (seq-of-maps-like? expected
-                         (:parsed-body response))
-      "The prices are returned in the response")
-  (is (seq-of-maps-like? (map #(dissoc % :_type) expected)
-                         (entities/select #:price{:trade-date (t/local-date 2015 3 2)}))
-      "The prices are written to the database"))
+  (let [expected [#:price{:trade-date (t/local-date 2015 3 2)
+                          :value 10.01M
+                          :commodity (util/->entity-ref (find-commodity "AAPL"))}
+                  #:price{:trade-date (t/local-date 2015 3 2)
+                          :value 5.01M
+                          :commodity (util/->entity-ref (find-commodity "MSFT"))}]]
+    (is (seq-of-maps-like? expected
+                           (:edn-body response))
+        "The prices are returned in the response")
+    (is (seq-of-maps-like? expected
+                           (entities/select #:price{:trade-date (t/local-date 2015 3 2)}))
+        "The prices are written to the database")))
 
 (deftest a-user-can-fetch-current-commodity-prices
   (with-context fetch-context
-    (testing "default format (edn)"
-      (assert-successful-fetch (fetch-some-prices "john@doe.com")))
-    (testing "json format"
-      (assert-successful-fetch
-        (fetch-some-prices "john@doe.com" :content-type "application/json")
-        :expected [{:trade-date (t/local-date 2015 3 2)
-                    :value 10.01
-                    :commodity (util/->entity-ref (find-commodity "AAPL"))
-                    :_type "price"}
-                   {:trade-date (t/local-date 2015 3 2)
-                    :value 5.01
-                    :commodity (util/->entity-ref (find-commodity "MSFT"))
-                    :_type "price"}]))))
+    (assert-successful-fetch (fetch-some-prices "john@doe.com"))))
 
 (deftest an-unauthenticated-user-cannot-fetch-commodity-prices
   (with-context fetch-context
@@ -341,16 +272,16 @@
           appl (find-commodity "AAPL")
           msft (find-commodity "MSFT")
           calls (atom [])
-          make-req #(-> (request :get (str (path :api
-                                                 :prices
-                                                 :fetch)
-                                           "?commodity-id="
-                                           (:id appl)
-                                           "&commodity-id="
-                                           (:id msft))
-                                 :user user)
+          make-req #(-> (req/request :get (str (path :api
+                                                     :prices
+                                                     :fetch)
+                                               "?commodity-id="
+                                               (:id appl)
+                                               "&commodity-id="
+                                               (:id msft)))
+                        (add-auth user)
                         app
-                        parse-body)]
+                        parse-edn-body)]
       (with-redefs [yahoo/get-quotes (fn [symbols]
                                        (swap! calls conj symbols)
                                        (map (fn [s]
