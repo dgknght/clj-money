@@ -1,10 +1,12 @@
 (ns clj-money.api.transactions-test
   (:require [clojure.test :refer [use-fixtures deftest is testing]]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [uri map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.formats :as fmt]
             [clj-money.json]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
@@ -96,10 +98,11 @@
     (testing "json format"
       (assert-successful-list
         (get-a-list "john@doe.com" :content-type "application/json")
-        :expected {:transaction-date "2016-02-01"
-                   :description "Paycheck"
+        :expected {:description "Paycheck"
+                   :transactionDate "2016-02-01"
                    :memo "Pre-existing transaction"
-                   :value 1000.0M}))))
+                   :value {:d 1000.0}
+                   :_type "transaction"}))))
 
 (deftest a-user-cannot-get-transactions-in-anothers-entity
   (with-context context
@@ -140,10 +143,10 @@
     (testing "json format"
       (assert-successful-get
         (get-a-transaction "john@doe.com" :content-type "application/json")
-        :expected {:transaction-date "2016-02-01"
+        :expected {:transactionDate "2016-02-01"
                    :description "Paycheck"
                    :memo "Pre-existing transaction"
-                   :value 1000.0M}))))
+                   :value {:d 1000.0}}))))
 
 (deftest a-user-cannot-get-a-transaction-from-anothers-entity
   (with-context context
@@ -239,19 +242,21 @@
           (create-a-transaction "john@doe.com"
                                 :content-type "application/json"
                                 :body {:description "Paycheck"
-                                       :transaction-date "2016-03-02"
+                                       :transactionDate "2016-03-02"
                                        :memo "Seems like there should be more"
                                        :items [{:account {:id (:id checking)}
                                                 :action "debit"
-                                                :quantity 1000M
-                                                :memo "checking item"}
+                                                :quantity 1000
+                                                :memo "checking item"
+                                                :_type "transaction-item"}
                                                {:account {:id (:id salary)}
                                                 :action "credit"
-                                                :quantity 1000M
-                                                :memo "salary item"}]
+                                                :quantity 1000
+                                                :memo "salary item"
+                                                :_type "transaction-item"}]
                                        :_type "transaction"})
           :expected-response {:description "Paycheck"
-                              :transaction-date "2016-03-02"
+                              :transactionDate "2016-03-02"
                               :memo "Seems like there should be more"
                               :_type "transaction"})))))
 
@@ -270,16 +275,18 @@
 (defn- update-a-transaction
   [email & {:keys [content-type body]
             :or {content-type "application/edn"}}]
-  (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
-        default-body (assoc transaction :transaction/description "Just got paid today")
-        request-body (or body default-body)
+  (let [transaction (find-transaction [(t/local-date 2016 2 1)
+                                       "Paycheck"])
         response (-> (request :patch (path :api
-                                         :transactions
-                                         (serialize-local-date (:transaction/transaction-date transaction))
-                                         (:id transaction))
+                                           :transactions
+                                           (serialize-local-date (:transaction/transaction-date transaction))
+                                           (:id transaction))
                               :user (find-user email)
                               :content-type content-type
-                              :body request-body)
+                              :body (or body
+                                        (merge transaction
+                                               {:transaction/description
+                                                "Just got paid today"})))
                      app
                      parse-body)]
     [response (entities/find-by
@@ -289,18 +296,18 @@
 
 (defn- assert-successful-update
   [[{:as response :keys [parsed-body]} retrieved]
-   & {:keys [expected-response]
-      :or {expected-response #:transaction{:description "Just got paid today"
-                                           :transaction-date (t/local-date 2016 2 1)
-                                           :memo "Pre-existing transaction"}}}]
+   & {:keys [expected
+             expected-response]
+      :or {expected #:transaction{:description "Just got paid today"
+                                  :transaction-date (t/local-date 2016 2 1)
+                                  :memo "Pre-existing transaction"}}}]
   (is (http-success? response))
-  (is (comparable? expected-response parsed-body)
+  (is (comparable? (or expected-response
+                       expected)
+                   parsed-body)
       "The updated transaction is returned in the response")
-  (let [expected #:transaction{:description "Just got paid today"
-                               :transaction-date (t/local-date 2016 2 1)
-                               :memo "Pre-existing transaction"}]
-    (is (comparable? expected retrieved)
-        "The transaction is updated in the database")))
+  (is (comparable? expected retrieved)
+      "The transaction is updated in the database"))
 
 (defn- assert-blocked-update
   [[response retrieved]]
@@ -316,14 +323,18 @@
     (testing "default format (edn)"
       (assert-successful-update (update-a-transaction "john@doe.com")))
     (testing "json format"
-      (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
-            body (assoc transaction :transaction/description "Just got paid today")]
+      (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])]
         (assert-successful-update
           (update-a-transaction "john@doe.com"
                                 :content-type "application/json"
-                                :body body)
-          :expected-response {:description "Just got paid today"
-                              :transaction-date "2016-02-01"
+                                :body (-> transaction
+                                          fmt/edn->json
+                                          (assoc :description "Got me a pocket full of change")))
+          :expected #:transaction{:description "Got me a pocket full of change"
+                                  :transaction-date (t/local-date 2016 2 1)
+                                  :memo "Pre-existing transaction"}
+          :expected-response {:description "Got me a pocket full of change"
+                              :transactionDate "2016-02-01"
                               :memo "Pre-existing transaction"
                               :_type "transaction"})))))
 
