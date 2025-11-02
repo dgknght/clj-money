@@ -4,11 +4,13 @@
             [clj-money.formats :as fmts]))
 
 (deftest convert-edn-to-json
-  (is (= {:firstName "John"
+  (is (= {:id 101
+          :firstName "John"
           :lastName "Doe"
           :_type :user}
          (fmts/edn->json
-           {:user/first-name "John"
+           {:id 101
+            :user/first-name "John"
             :user/last-name "Doe"}))
       "A 1-level map get updated keys")
   (is (= {:name "Personal"
@@ -21,10 +23,12 @@
       "A nested map also gets updated keys"))
 
 (deftest convert-json-to-edn
-  (is (= {:user/first-name "John"
+  (is (= {:id 101
+          :user/first-name "John"
           :user/last-name "Doe"}
          (fmts/json->edn
-           {:firstName "John"
+           {:id 101
+            :firstName "John"
             :lastName "Doe"
             :_type :user}))
       "A 1-level map get updated keys")

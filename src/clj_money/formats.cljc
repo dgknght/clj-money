@@ -2,21 +2,29 @@
   (:require [clojure.walk :refer [postwalk]]
             [clojure.pprint :refer [pprint]]
             [camel-snake-kebab.core :refer [->camelCase
-                                            ->kebab-case]]
-            [clj-money.util :as util]))
+                                            ->kebab-case]]))
 
 (def ^:private strip-ns
   (comp keyword name))
 
-(defn- edn-map->json
+(defn- dominant-ns
   [m]
-  (let [type (util/single-ns m
-                             :ignore #{:id}
-                             :allow-none true)]
-    (cond-> (update-keys m
-                         (comp ->camelCase
-                               strip-ns))
-      type (assoc :_type type))))
+  (->> (keys m)
+       (map namespace)
+       frequencies
+       (sort-by second >)
+       (map (comp keyword first))
+       first))
+
+(defn- edn-map->json
+  [{:as m :keys [id]}]
+  (let [type (dominant-ns m)]
+    (cond-> (-> m
+                (dissoc :id)
+                (update-keys (comp ->camelCase
+                                   strip-ns)))
+      type (assoc :_type type)
+      id (assoc :id id))))
 
 (defn edn->json
   [input]
@@ -33,18 +41,19 @@
       (keyword n-str (name k)))))
 
 (defn- json-map->edn
-  [m]
-  {:pre [(:_type m)]}
-  (-> m
-      (dissoc :_type)
-      (update-keys (comp (+ns (:_type m))
-                         ->kebab-case))))
+  [{:as m :keys [id]}]
+  (if-let [type (:_type m)]
+    (cond-> (-> m
+                (dissoc :_type :id)
+                (update-keys (comp (+ns type)
+                                   ->kebab-case)))
+      id (assoc :id id))
+    m))
 
 (defn json->edn
   [input]
   (postwalk (fn [x]
-              (if (and (map? x)
-                       (not= #{:id} (->> x keys set)))
+              (if (map? x)
                 (json-map->edn x)
                 x))
             input))
