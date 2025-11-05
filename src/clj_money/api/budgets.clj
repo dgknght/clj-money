@@ -7,6 +7,7 @@
              :as auth
              :refer [+scope
                      authorize]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
@@ -34,7 +35,9 @@
   (-> params
       (select-keys [:budget/name
                     :budget/start-date
-                    :budget/period])))
+                    :budget/period])
+      (update-in-if [:budget/period 1] util/ensure-keyword)
+      (update-in-if [:budget/start-date] dates/ensure-local-date)))
 
 (defn- historical-items
   [{:budget/keys [entity period]} start-date]
@@ -76,7 +79,7 @@
       (assoc :budget/entity {:id (:entity-id params)} )
       (authorize ::auth/create authenticated)
       entities/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (append-items (:budget/auto-create-start-date params))
+      (append-items (dates/ensure-local-date (:budget/auto-create-start-date params)))
       api/creation-response))
 
 (defn- find-and-auth
@@ -95,11 +98,11 @@
 
 (defn- update
   [req]
-  (if-let [budget (find-and-auth req ::auth/update)]
-    (-> budget
-        (merge (extract-budget req))
-        entities/put
-        api/update-response)
+  (or
+    (some-> (find-and-auth req ::auth/update)
+            (merge (extract-budget req))
+            entities/put
+            api/update-response)
     api/not-found))
 
 (defn- delete
