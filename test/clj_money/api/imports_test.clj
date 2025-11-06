@@ -1,5 +1,5 @@
 (ns clj-money.api.imports-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
@@ -97,12 +97,11 @@
 (defn- get-a-list
   [email & {:keys [content-type]
             :or {content-type "application/edn"}}]
-  (with-context list-context
-    (-> (request :get (path :api :imports)
-                 :content-type content-type
-                 :user (find-user email))
-        app
-        parse-body)))
+  (-> (request :get (path :api :imports)
+               :content-type content-type
+               :user (find-user email))
+      app
+      parse-body))
 
 (defn- assert-successful-list
   [{:as response :keys [edn-body parsed-body]}
@@ -122,28 +121,30 @@
         "No imports are included in the response")))
 
 (deftest a-user-can-get-a-list-of-his-imports
-  (assert-successful-list (get-a-list "john@doe.com"))
-  (assert-successful-list
-    (get-a-list "john@doe.com" :content-type "application/json")
-    :expected [{:entityName "Personal"
-                :_type "import"}
-               {:entityName "Business"
-                :_type "import"}]))
+  (with-context list-context
+    (testing "default format"
+      (assert-successful-list (get-a-list "john@doe.com")))
+    (assert-successful-list
+      (get-a-list "john@doe.com" :content-type "application/json")
+      :expected [{:entityName "Personal"
+                  :_type "import"}
+                 {:entityName "Business"
+                  :_type "import"}])))
 
 (deftest a-user-cannot-get-a-list-of-anothers-imports
-  (assert-other-user-list (get-a-list "jane@doe.com")))
+  (with-context list-context
+    (assert-other-user-list (get-a-list "jane@doe.com"))))
 
 (defn- get-an-import
   [email & {:keys [content-type]
             :or {content-type "application/edn"}}]
-  (with-context list-context
     (-> (request :get (path :api
                             :imports
                             (:id (find-import "Personal")))
                  :content-type content-type
                  :user (find-user email))
         app
-        parse-body)))
+        parse-body))
 
 (defn- assert-successful-get
   [{:as response :keys [edn-body parsed-body]}
@@ -159,13 +160,19 @@
   (is (http-not-found? response)))
 
 (deftest a-user-can-view-his-own-import
-  (assert-successful-get (get-an-import "john@doe.com"))
-  (assert-successful-get (get-an-import "john@doe.com" :content-type "application/json")
-                         :expected {:entityName "Personal"
-                                    :_type "import"}))
+  (with-context list-context
+    (testing "default format"
+      (assert-successful-get (get-an-import "john@doe.com")))
+    (testing "json format"
+      (assert-successful-get
+        (get-an-import "john@doe.com"
+                       :content-type "application/json")
+        :expected {:entityName "Personal"
+                   :_type "import"}))))
 
 (deftest a-user-cannot-view-anothers-import
-  (assert-blocked-get (get-an-import "jane@doe.com")))
+  (with-context list-context
+    (assert-blocked-get (get-an-import "jane@doe.com"))))
 
 (defn- delete-import
   [email & {:keys [content-type]
@@ -191,8 +198,12 @@
       "The import is retrievable after attempted delete"))
 
 (deftest a-user-can-delete-his-import
-  (assert-successful-delete (delete-import "john@doe.com"))
-  (assert-successful-delete (delete-import "john@doe.com" :content-type "application/json")))
+  (assert-successful-delete (delete-import "john@doe.com")))
+
+(deftest a-user-can-delete-his-import-in-json-format
+  (assert-successful-delete
+    (delete-import "john@doe.com"
+                   :content-type "application/json")))
 
 (deftest a-user-cannot-delete-anothers-import
   (assert-blocked-delete (delete-import "jane@doe.com")))
@@ -200,25 +211,22 @@
 (defn- start-import
   [email & {:keys [content-type]
             :or {content-type "application/edn"}}]
-  (with-context list-context
-    (let [imp (find-import "Personal")
-          calls (atom [])
-          response (with-redefs [imports-api/launch-and-track (mock-launch-and-track calls)]
-                     (-> (request :patch (path :api :imports (:id imp))
-                                  :content-type content-type
-                                  :user (find-user email))
-                         app
-                         parse-body))]
-      [response calls])))
+  (let [imp (find-import "Personal")
+        calls (atom [])
+        response (with-redefs [imports-api/launch-and-track (mock-launch-and-track calls)]
+                   (-> (request :patch (path :api :imports (:id imp))
+                                :content-type content-type
+                                :user (find-user email))
+                       app
+                       parse-body))]
+    [response calls]))
 
 (defn- assert-successful-start
-  [[{:as response :keys [edn-body parsed-body]} calls]
-   & {:keys [response-keys]
-      :or {response-keys #{:entity :import}}}]
+  [[{:as response :keys [parsed-body]} calls]]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)]
-    (is (= response-keys (-> body keys set))
-        "The response contains the relevant entity and import"))
+  (is (= #{:entity :import}
+         (-> parsed-body keys set))
+        "The response contains the relevant entity and import")
   (let [[c :as cs] @calls]
     (is (= 1 (count cs))
         "Exactly one call is made to launch-and-track")
@@ -233,14 +241,20 @@
       "No imports are started"))
 
 (deftest a-user-can-start-his-import
-  (assert-successful-start (start-import "john@doe.com"))
-  (assert-successful-start (start-import "john@doe.com" :content-type "application/json")
-                           :response-keys #{"entity" "import"}))
+  (with-context list-context
+    (testing "default format"
+      (assert-successful-start (start-import "john@doe.com")))))
+
+(deftest a-user-can-start-his-import-in-json-format
+  (with-context list-context
+    (assert-successful-start
+      (start-import "john@doe.com"
+                    :content-type "application/json"))))
 
 (deftest a-user-cannot-start-anothers-import
-  (assert-blocked-start (start-import "jane@doe.com")))
+  (with-context list-context
+    (assert-blocked-start (start-import "jane@doe.com"))))
 
 (deftest halt-on-fatal-error
   (with-context list-context
-    (let [_imp (find-import "Personal")])
-    ))
+    (let [_imp (find-import "Personal")])))
