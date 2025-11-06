@@ -6,6 +6,8 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.test]
+            [clj-money.json]
             [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
@@ -13,6 +15,8 @@
             [clj-money.test-helpers :refer [reset-db
                                             parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
+                                               parse-body
+                                               request
                                                build-multipart-request]]
             [clj-money.test-context :refer [with-context
                                             find-user
@@ -91,65 +95,86 @@
                  :images ["sample.gnucash"]}))
 
 (defn- get-a-list
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
-    (-> (req/request :get (path :api :imports))
-        (add-auth (find-user email))
+    (-> (request :get (path :api :imports)
+                 :content-type content-type
+                 :user (find-user email))
         app
-        parse-edn-body)))
+        parse-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected [#:import{:entity-name "Personal"}
+                     #:import{:entity-name "Business"}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:import{:entity-name "Personal"}
-                          #:import{:entity-name "Business"}]
-                         edn-body)
-      "The response contains the user's imports"))
+  (let [body (or parsed-body edn-body)]
+    (is (seq-of-maps-like? expected body)
+        "The response contains the user's imports")))
 
 (defn- assert-other-user-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (empty? edn-body)
-      "No imports are included in the response"))
+  (let [body (or parsed-body edn-body)]
+    (is (empty? body)
+        "No imports are included in the response")))
 
 (deftest a-user-can-get-a-list-of-his-imports
-  (assert-successful-list (get-a-list "john@doe.com")))
+  (assert-successful-list (get-a-list "john@doe.com"))
+  (assert-successful-list
+    (get-a-list "john@doe.com" :content-type "application/json")
+    :expected [{:entityName "Personal"
+                :_type "import"}
+               {:entityName "Business"
+                :_type "import"}]))
 
 (deftest a-user-cannot-get-a-list-of-anothers-imports
   (assert-other-user-list (get-a-list "jane@doe.com")))
 
 (defn- get-an-import
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
-    (-> (req/request :get (path :api
-                                :imports
-                                (:id (find-import "Personal"))))
-        (add-auth (find-user email))
+    (-> (request :get (path :api
+                            :imports
+                            (:id (find-import "Personal")))
+                 :content-type content-type
+                 :user (find-user email))
         app
-        parse-edn-body)))
+        parse-body)))
 
 (defn- assert-successful-get
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected {:import/entity-name "Personal"}}}]
   (is (http-success? response))
-  (is (comparable? {:import/entity-name "Personal"} edn-body)
-      "The import is returned in the response"))
+  (let [body (or parsed-body edn-body)]
+    (is (comparable? expected body)
+        "The import is returned in the response")))
 
 (defn- assert-blocked-get
   [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-view-his-own-import
-  (assert-successful-get (get-an-import "john@doe.com")))
+  (assert-successful-get (get-an-import "john@doe.com"))
+  (assert-successful-get (get-an-import "john@doe.com" :content-type "application/json")
+                         :expected {:entityName "Personal"
+                                    :_type "import"}))
 
 (deftest a-user-cannot-view-anothers-import
   (assert-blocked-get (get-an-import "jane@doe.com")))
 
 (defn- delete-import
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
     (let [imp (find-import "Personal")]
-      [(-> (req/request :delete (path :api :imports (:id imp)))
-           (add-auth (find-user email))
+      [(-> (request :delete (path :api :imports (:id imp))
+                    :content-type content-type
+                    :user (find-user email))
            app)
        (entities/find imp)])))
 
@@ -166,28 +191,34 @@
       "The import is retrievable after attempted delete"))
 
 (deftest a-user-can-delete-his-import
-  (assert-successful-delete (delete-import "john@doe.com")))
+  (assert-successful-delete (delete-import "john@doe.com"))
+  (assert-successful-delete (delete-import "john@doe.com" :content-type "application/json")))
 
 (deftest a-user-cannot-delete-anothers-import
   (assert-blocked-delete (delete-import "jane@doe.com")))
 
 (defn- start-import
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
     (let [imp (find-import "Personal")
           calls (atom [])
           response (with-redefs [imports-api/launch-and-track (mock-launch-and-track calls)]
-                     (-> (req/request :patch (path :api :imports (:id imp)))
-                         (add-auth (find-user email))
+                     (-> (request :patch (path :api :imports (:id imp))
+                                  :content-type content-type
+                                  :user (find-user email))
                          app
-                         parse-edn-body))]
+                         parse-body))]
       [response calls])))
 
 (defn- assert-successful-start
-  [[{:as response :keys [edn-body]} calls]]
+  [[{:as response :keys [edn-body parsed-body]} calls]
+   & {:keys [response-keys]
+      :or {response-keys #{:entity :import}}}]
   (is (http-success? response))
-  (is (= #{:entity :import} (-> edn-body keys set))
-      "The response contains the relevant entity and import")
+  (let [body (or parsed-body edn-body)]
+    (is (= response-keys (-> body keys set))
+        "The response contains the relevant entity and import"))
   (let [[c :as cs] @calls]
     (is (= 1 (count cs))
         "Exactly one call is made to launch-and-track")
@@ -202,7 +233,9 @@
       "No imports are started"))
 
 (deftest a-user-can-start-his-import
-  (assert-successful-start (start-import "john@doe.com")))
+  (assert-successful-start (start-import "john@doe.com"))
+  (assert-successful-start (start-import "john@doe.com" :content-type "application/json")
+                           :response-keys #{"entity" "import"}))
 
 (deftest a-user-cannot-start-anothers-import
   (assert-blocked-start (start-import "jane@doe.com")))
