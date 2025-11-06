@@ -1,5 +1,5 @@
 (ns clj-money.api.budget-items-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
@@ -56,9 +56,8 @@
                    (:parsed-body res))
       "The created budget item is returned in the response")
   (is (comparable? expected
-                   (entities/find (if (:edn-body res)
-                                    (:edn-body res)
-                                    (:parsed-body res))))
+                   (entities/find (:id (:parsed-body res))
+                                  :budget-item))
       "The created budget item can be retrieved"))
 
 (defn- assert-not-found-create
@@ -70,7 +69,21 @@
 
 (deftest a-user-can-add-an-item-to-a-budget-in-his-entity
   (with-context ctx
-    (assert-successful-create (create-budget-item "john@doe.com"))))
+    (testing "default format"
+      (assert-successful-create (create-budget-item "john@doe.com")))
+    (testing "json format"
+      (let [rent (util/->entity-ref (find-account "Rent"))]
+        (assert-successful-create
+          (create-budget-item "john@doe.com"
+                              :content-type "application/json"
+                              :body {:account rent
+                                     :periods [200 201 202]
+                                     :_type "budget-item"})
+          :expected #:budget-item{:account rent
+                                  :periods [200M 201M 202M]}
+          :expected-response {:account rent
+                              :periods [{:d 200} {:d 201} {:d 202}]
+                              :_type "budget-item"})))))
 
 (deftest a-user-cannot-add-an-item-to-a-budget-in-anothers-entity
   (with-context ctx
@@ -121,7 +134,15 @@
 
 (deftest a-user-can-update-an-item-to-a-budget-in-his-entity
   (with-context update-ctx
-    (assert-successful-update (update-budget-item "john@doe.com"))))
+    (testing "default format"
+      (assert-successful-update (update-budget-item "john@doe.com")))
+    (testing "json format"
+      (assert-successful-update
+        (update-budget-item "john@doe.com"
+                           :content-type "application/json"
+                           :body {:periods [110 111 112]
+                                  :_type "budget-item"})
+        :expected-response {:periods [{:d 110} {:d 111} {:d 112}]}))))
 
 (deftest a-user-cannot-update-an-item-to-a-budget-in-anothers-entity
   (with-context update-ctx

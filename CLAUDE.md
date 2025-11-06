@@ -12,3 +12,7 @@
     3. Run the entire test suite. (We should have high confidence that all
        tests will pass before performing this step.)
 - Do not start more than one test run at a time.
+
+## Commits
+- Avoid committing code that fails the linting rules.
+- Avoid committing code that fails the test suite.
