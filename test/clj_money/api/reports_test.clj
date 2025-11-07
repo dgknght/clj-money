@@ -1,16 +1,17 @@
 (ns clj-money.api.reports-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
-            [ring.mock.request :as req]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.test]
+            [clj-money.json]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.dates :refer [with-fixed-time]]
-            [clj-money.test-helpers :refer [reset-db
-                                            parse-edn-body]]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.api.test-helper :refer [parse-body
+                                               request]]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-account
@@ -31,70 +32,86 @@
                       :quantity 1000M}))
 
 (defn- get-income-statement
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context report-context
     (let [entity (find-entity "Personal")]
-      (-> (req/request :get (path :api
-                                  :entities
-                                  (:id entity)
-                                  :reports
-                                  :income-statement
-                                  "2016-01-01"
-                                  "2016-01-31"))
-          (add-auth (find-user email))
+      (-> (request :get (path :api
+                              :entities
+                              (:id entity)
+                              :reports
+                              :income-statement
+                              "2016-01-01"
+                              "2016-01-31")
+                   :content-type content-type
+                   :user (find-user email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- assert-successful-income-statement
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (= ["Income" "Expense" "Net"]
-         (->> edn-body
-              (filter #(#{:header :summary}
-                         (:report/style %)))
-              (map :report/caption)))
-      "The body contains the income statement report for the specified entity"))
+  (let [body (or parsed-body edn-body)
+        caption-key (if parsed-body :caption :report/caption)
+        style-key (if parsed-body :style :report/style)]
+    (is (= ["Income" "Expense" "Net"]
+           (->> body
+                (filter #(#{:header :summary "header" "summary"}
+                           (get % style-key)))
+                (map #(get % caption-key))))
+        "The body contains the income statement report for the specified entity")))
 
 (defn- assert-blocked-income-statement
   [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-income-statement-for-his-entity
-  (assert-successful-income-statement (get-income-statement "john@doe.com")))
+  (testing "default format"
+    (assert-successful-income-statement (get-income-statement "john@doe.com")))
+  (testing "json format"
+    (assert-successful-income-statement (get-income-statement "john@doe.com" :content-type "application/json"))))
 
 (deftest a-user-cannot-get-an-income-statement-for-anothers-entity
   (assert-blocked-income-statement (get-income-statement "jane@doe.com")))
 
 (defn- get-balance-sheet
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context report-context
     (let [entity (find-entity "Personal")]
       (with-fixed-time "2016-02-02T00:00:00Z"
-        (-> (req/request :get (path :api
-                                    :entities
-                                    (:id entity)
-                                    :reports
-                                    :balance-sheet
-                                    "2016-01-31"))
-            (add-auth (find-user email))
+        (-> (request :get (path :api
+                                :entities
+                                (:id entity)
+                                :reports
+                                :balance-sheet
+                                "2016-01-31")
+                     :content-type content-type
+                     :user (find-user email))
             app
-            parse-edn-body)))))
+            parse-body)))))
 
 (defn- assert-successful-balance-sheet
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
-         (->> edn-body
-              (filter #(#{:summary :header} (:report/style %)))
-              (map :report/caption)))
-      "The body contains the balance sheet report"))
+  (let [body (or parsed-body edn-body)
+        caption-key (if parsed-body :caption :report/caption)
+        style-key (if parsed-body :style :report/style)]
+    (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
+           (->> body
+                (filter #(#{:summary :header "summary" "header"} (get % style-key)))
+                (map #(get % caption-key))))
+        "The body contains the balance sheet report")))
 
 (defn- assert-blocked-balance-sheet
   [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-balance-sheet-for-his-entity
-  (assert-successful-balance-sheet (get-balance-sheet "john@doe.com")))
+  (testing "default format"
+    (assert-successful-balance-sheet (get-balance-sheet "john@doe.com")))
+  (testing "json format"
+    (assert-successful-balance-sheet (get-balance-sheet "john@doe.com" :content-type "application/json"))))
 
 (deftest a-user-cannot-get-an-balance-sheet-for-anothers-entity
   (assert-blocked-balance-sheet (get-balance-sheet "jane@doe.com")))
@@ -107,35 +124,43 @@
                  :period [12 :month]}))
 
 (defn- get-budget-report
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context budget-context
     (let [budget (find-budget "2016")]
-      (-> (req/request :get (path :api
-                                  :reports
-                                  :budget
-                                  (:id budget)))
-          (add-auth (find-user email))
+      (-> (request :get (path :api
+                              :reports
+                              :budget
+                              (:id budget))
+                   :content-type content-type
+                   :user (find-user email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- assert-successful-budget-report
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (= "2016: January to December"
-         (:title edn-body))
-      "The response contains the report tital")
-  (is (= ["Income" "Expense" "Net"]
-         (->> (:items edn-body)
-              (filter #(#{:header :summary} (:report/style %)))
-              (map :report/caption)))
-      "The reponse contains the budget report at the :items key"))
+  (let [body (or parsed-body edn-body)
+        caption-key (if parsed-body :caption :report/caption)
+        style-key (if parsed-body :style :report/style)]
+    (is (= "2016: January to December"
+           (:title body))
+        "The response contains the report tital")
+    (is (= ["Income" "Expense" "Net"]
+           (->> (:items body)
+                (filter #(#{:header :summary "header" "summary"} (get % style-key)))
+                (map #(get % caption-key))))
+        "The reponse contains the budget report at the :items key")))
 
 (defn- assert-blocked-budget-report
   [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-budget-report-for-his-entity
-  (assert-successful-budget-report (get-budget-report "john@doe.com")))
+  (testing "default format"
+    (assert-successful-budget-report (get-budget-report "john@doe.com")))
+  (testing "json format"
+    (assert-successful-budget-report (get-budget-report "john@doe.com" :content-type "application/json"))))
 
 (deftest a-user-cannot-get-a-budget-report-for-anothers-entity
   (assert-blocked-budget-report (get-budget-report "jane@doe.com")))
@@ -156,7 +181,8 @@
                       :credit-account "Checking"}))
 
 (defn- get-monitor-list
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context monitor-context
     (let [entity (find-entity "Personal")]
 
@@ -169,37 +195,56 @@
                              (util/->entity-ref (find-account "Groceries"))))
 
       (with-fixed-time "2016-01-07T00:00:00Z"
-        (-> (req/request :get (path :api
-                                    :entities
-                                    (:id entity)
-                                    :reports
-                                    :budget-monitors))
-            (add-auth (find-user email))
+        (-> (request :get (path :api
+                                :entities
+                                (:id entity)
+                                :reports
+                                :budget-monitors)
+                     :content-type content-type
+                     :user (find-user email))
             app
-            parse-edn-body)))))
+            parse-body)))))
 
 (defn- assert-successful-monitor-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected [#:report{:caption "Groceries"
+                              :period #:report{:total-budget 200M
+                                               :actual 85M
+                                               :percentage 0.2258M
+                                               :prorated-budget 45.162M
+                                               :actual-percent 0.425M}
+                              :budget #:report{:total-budget 2400M
+                                               :actual 85M
+                                               :percentage 0.0191M
+                                               :prorated-budget 45.902M
+                                               :actual-percent 0.035417M}}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:report{:caption "Groceries"
-                                   :period #:report{:total-budget 200M
-                                                    :actual 85M
-                                                    :percentage 0.2258M
-                                                    :prorated-budget 45.162M
-                                                    :actual-percent 0.425M}
-                                   :budget #:report{:total-budget 2400M
-                                                    :actual 85M
-                                                    :percentage 0.0191M
-                                                    :prorated-budget 45.902M
-                                                    :actual-percent 0.035417M}}]
-                         edn-body)))
+  (let [body (or parsed-body edn-body)]
+    (is (seq-of-maps-like? expected body))))
 
 (defn- assert-blocked-monitor-list
   [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-budget-monitors-for-his-entity
-  (assert-successful-monitor-list (get-monitor-list "john@doe.com")))
+  (testing "default format"
+    (assert-successful-monitor-list (get-monitor-list "john@doe.com")))
+  (testing "json format"
+    (assert-successful-monitor-list
+      (get-monitor-list "john@doe.com" :content-type "application/json")
+      :expected [{:caption "Groceries"
+                  :period {:totalBudget {:d 200}
+                           :actual {:d 85}
+                           :percentage {:d 0.2258}
+                           :proratedBudget {:d 45.162}
+                           :actualPercent {:d 0.425}}
+                  :budget {:totalBudget {:d 2400}
+                           :actual {:d 85}
+                           :percentage {:d 0.0191}
+                           :proratedBudget {:d 45.902}
+                           :actualPercent {:d 0.035417}}
+                  :_type "report"}])))
 
 (deftest a-user-cannot-get-budget-monitors-for-anothers-entity
   (assert-blocked-monitor-list (get-monitor-list "jane@doe.com")))
@@ -230,34 +275,42 @@
                 :value  1000M}))
 
 (defn- get-portfolio-report
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context portfolio-context
     (let [entity (find-entity "Personal")]
-      (-> (req/request :get (str (path :api
-                                       :entities
-                                       (:id entity)
-                                       :reports
-                                       :portfolio)
-                                 "?aggregate=by-account"))
-          (add-auth (find-user email))
+      (-> (request :get (str (path :api
+                                   :entities
+                                   (:id entity)
+                                   :reports
+                                   :portfolio)
+                             "?aggregate=by-account")
+                   :content-type content-type
+                   :user (find-user email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- assert-successful-portfolio-report
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (= ["IRA" "Total"]
-         (->> edn-body
-              (filter #(#{:header :summary} (:report/style %)))
-              (map :report/caption)))
-      "The body contains the correct captions"))
+  (let [body (or parsed-body edn-body)
+        caption-key (if parsed-body :caption :report/caption)
+        style-key (if parsed-body :style :report/style)]
+    (is (= ["IRA" "Total"]
+           (->> body
+                (filter #(#{:header :summary "header" "summary"} (get % style-key)))
+                (map #(get % caption-key))))
+        "The body contains the correct captions")))
 
 (defn- assert-blocked-portfolio-report
   [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-portfolio-report-for-his-entity
-  (assert-successful-portfolio-report (get-portfolio-report "john@doe.com")))
+  (testing "default format"
+    (assert-successful-portfolio-report (get-portfolio-report "john@doe.com")))
+  (testing "json format"
+    (assert-successful-portfolio-report (get-portfolio-report "john@doe.com" :content-type "application/json"))))
 
 (deftest a-user-cannot-get-a-portfolio-report-for-anothers-entity
  (assert-blocked-portfolio-report (get-portfolio-report "jane@doe.com")))
