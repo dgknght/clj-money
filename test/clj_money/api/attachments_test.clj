@@ -6,13 +6,17 @@
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.test]
+            [clj-money.json]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db
-                                            edn-body
                                             parse-edn-body]]
             [clj-money.api.test-helper :refer [add-auth
+                                               parse-body
+                                               request
                                                build-multipart-request]]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -89,78 +93,96 @@
                      :image "receipt.jpg"}))
 
 (defn- list-trx-attachments
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
     (let [transaction (find-transaction [(t/local-date 2015 1 1)
                                          "Paycheck"])]
-      (-> (req/request :get (path :api
-                                  :transactions
-                                  (:id transaction)
-                                  (dates/serialize-local-date
-                                    (:transaction/transaction-date transaction))
-                                  :attachments))
-          (add-auth (find-user email))
+      (-> (request :get (path :api
+                              :transactions
+                              (:id transaction)
+                              (dates/serialize-local-date
+                                (:transaction/transaction-date transaction))
+                              :attachments)
+                   :content-type content-type
+                   :user (find-user email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- list-account-attachments
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
     (let [account (find-account "Checking")]
-      (-> (req/request :get (path :api
-                                  :accounts
-                                  (:id account)
-                                  :attachments
-                                  "2015-01-01"
-                                  "2015-02-01"))
-          (add-auth (find-user email))
+      (-> (request :get (path :api
+                              :accounts
+                              (:id account)
+                              :attachments
+                              "2015-01-01"
+                              "2015-02-01")
+                   :content-type content-type
+                   :user (find-user email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- assert-successful-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected [{:attachment/caption "Receipt"}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:attachment/caption "Receipt"}]
-                         edn-body)
-      "The list of attachments is returned."))
+  (let [body (or parsed-body edn-body)]
+    (is (seq-of-maps-like? expected body)
+        "The list of attachments is returned.")))
 
 (defn- assert-blocked-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (empty? edn-body) "No records are returned"))
+  (let [body (or parsed-body edn-body)]
+    (is (empty? body) "No records are returned")))
 
 (deftest a-user-can-get-a-list-of-attachments-for-a-trx-in-his-entity
-  (assert-successful-list (list-trx-attachments "john@doe.com")))
+  (assert-successful-list (list-trx-attachments "john@doe.com"))
+  (assert-successful-list (list-trx-attachments "john@doe.com" :content-type "application/json")
+                          :expected [{:caption "Receipt"
+                                      :_type "attachment"}]))
 
 (deftest a-user-cannot-get-a-list-of-attachments-for-a-trx-in-anothers-entity
   (assert-blocked-list (list-trx-attachments "jane@doe.com")))
 
 (deftest a-user-can-get-a-list-of-attachments-for-an-account-in-his-entity
-  (assert-successful-list (list-account-attachments "john@doe.com")))
+  (assert-successful-list (list-account-attachments "john@doe.com"))
+  (assert-successful-list (list-account-attachments "john@doe.com" :content-type "application/json")
+                          :expected [{:caption "Receipt"
+                                      :_type "attachment"}]))
 
 (deftest a-user-cannot-get-a-list-of-attachments-for-an-account-in-anothers-entity
   (assert-blocked-list (list-account-attachments "jane@doe.com")))
 
 (defn- update-attachment
-  [email]
+  [email & {:keys [content-type body]
+            :or {content-type "application/edn"
+                 body nil}}]
   (with-context list-context
     (let [attachment (find-attachment "Receipt")
-          response (-> (req/request :patch (path :api
-                                                 :attachments
-                                                 (:id attachment)))
-                       (edn-body (assoc attachment
-                                        :attachment/caption "Updated caption"))
-                       (add-auth (find-user email))
+          default-body (assoc attachment :attachment/caption "Updated caption")
+          response (-> (request :patch (path :api
+                                            :attachments
+                                            (:id attachment))
+                               :content-type content-type
+                               :body (or body default-body)
+                               :user (find-user email))
                        app
-                       parse-edn-body)]
+                       parse-body)]
       [response (entities/find attachment)])))
 
 (defn- assert-successful-update
-  [[{:as response :keys [edn-body]} retrieved]]
+  [[{:as response :keys [edn-body parsed-body]} retrieved]
+   & {:keys [expected]
+      :or {expected {:attachment/caption "Updated caption"}}}]
   (is (http-success? response))
-  (is (comparable? {:attachment/caption "Updated caption"}
-                   edn-body)
-      "The updated attachment is returned")
+  (let [body (or parsed-body edn-body)]
+    (is (comparable? expected body)
+        "The updated attachment is returned"))
   (is (comparable? {:attachment/caption "Updated caption"}
                    retrieved)
       "The database is updated"))
@@ -173,20 +195,27 @@
       "The retrieved attachment has the original values"))
 
 (deftest a-user-can-update-an-attachment-in-his-entity
-  (assert-successful-update (update-attachment "john@doe.com")))
+  (assert-successful-update (update-attachment "john@doe.com"))
+  (assert-successful-update (update-attachment "john@doe.com"
+                                              :content-type "application/json"
+                                              :body {:caption "Updated caption"
+                                                     :_type "attachment"})
+                           :expected {:caption "Updated caption"
+                                      :_type "attachment"}))
 
 (deftest a-user-cannot-update-an-attachment-in-anothers-entity
   (assert-blocked-update (update-attachment "jane@doe.com")))
 
 (defn- delete-attachment
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
     (let [attachment (find-attachment "Receipt")
-          response (-> (req/request :delete (path :api
-                                                  :attachments
-                                                  (:id attachment)))
-                       (edn-body (assoc attachment :caption "Updated caption"))
-                       (add-auth (find-user email))
+          response (-> (request :delete (path :api
+                                              :attachments
+                                              (:id attachment))
+                               :content-type content-type
+                               :user (find-user email))
                        app)]
       [response (entities/find attachment)])))
 
@@ -201,7 +230,8 @@
   (is retrieved "The attachment can be retrieved after a blocked delete"))
 
 (deftest a-user-can-delete-an-attachment-in-his-entity
-  (assert-successful-delete (delete-attachment "john@doe.com")))
+  (assert-successful-delete (delete-attachment "john@doe.com"))
+  (assert-successful-delete (delete-attachment "john@doe.com" :content-type "application/json")))
 
 (deftest a-user-cannot-delete-an-attachment-in-anothers-entity
   (assert-blocked-delete (delete-attachment "jane@doe.com")))
