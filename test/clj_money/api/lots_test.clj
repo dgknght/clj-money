@@ -1,19 +1,20 @@
 (ns clj-money.api.lots-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.test]
+            [clj-money.json]
             [clj-money.factories.user-factory]
             [java-time.api :as t]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.api.test-helper :refer [parse-body
+                                               request]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-account
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db
-                                            parse-edn-body]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -69,61 +70,90 @@
            :value 35M}])
 
 (defn- get-lots-for-an-account
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
     (let [account (find-account "IRA")
           commodity (find-commodity "FND")]
-      (-> (req/request :get (str (path :api
-                                       :accounts
-                                       (:id account)
-                                       :lots)
-                                 "?"
-                                 (map->query-string
-                                   {:commodity-id (:id commodity)})))
-          (add-auth (find-user email))
+      (-> (request :get (str (path :api
+                                   :accounts
+                                   (:id account)
+                                   :lots)
+                             "?"
+                             (map->query-string
+                               {:commodity-id (:id commodity)}))
+                   :content-type content-type
+                   :user (find-user email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- assert-successful-get
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected [#:lot{:purchase-date (t/local-date 2016 2 1)
+                           :shares-purchased 10.0M
+                           :purchase-price 5.0M
+                           :shares-owned 5.0M}
+                     #:lot{:purchase-date (t/local-date 2016 3 1)
+                           :shares-purchased 10.0M
+                           :purchase-price 6.0M
+                           :shares-owned 10.0M}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 2 1)
-                                :shares-purchased 10.0M
-                                :purchase-price 5.0M
-                                :shares-owned 5.0M}
-                          #:lot{:purchase-date (t/local-date 2016 3 1)
-                                :shares-purchased 10.0M
-                                :purchase-price 6.0M
-                                :shares-owned 10.0M}]
-                         edn-body)
-      "The response body contains the lot data"))
+  (let [body (or parsed-body edn-body)]
+    (is (seq-of-maps-like? expected body)
+        "The response body contains the lot data")))
 
 (defn- assert-blocked-get
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (empty? edn-body) "The body is empty"))
+  (let [body (or parsed-body edn-body)]
+    (is (empty? body) "The body is empty")))
 
 (deftest a-user-can-get-lots-for-an-account-in-his-entity
-  (assert-successful-get (get-lots-for-an-account "john@doe.com")))
+  (assert-successful-get (get-lots-for-an-account "john@doe.com"))
+  (assert-successful-get (get-lots-for-an-account "john@doe.com" :content-type "application/json")
+                         :expected [{:purchaseDate "2016-02-01"
+                                     :sharesPurchased {:d 10.0}
+                                     :purchasePrice {:d 5.0}
+                                     :sharesOwned {:d 5.0}
+                                     :_type "lot"}
+                                    {:purchaseDate "2016-03-01"
+                                     :sharesPurchased {:d 10.0}
+                                     :purchasePrice {:d 6.0}
+                                     :sharesOwned {:d 10.0}
+                                     :_type "lot"}]))
 
 (deftest a-user-cannot-get-lots-for-an-account-in-anothers-entity
   (assert-blocked-get (get-lots-for-an-account "jane@doe.com")))
 
 (defn- get-lots-for-multiple-accounts
-  [email]
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
   (with-context list-context
     (let [ira (find-account "IRA")
           opening (find-account "Opening Balances")]
-      (-> (req/request :get (str (path :api
-                                       :lots)
-                                 "?"
-                                 (map->query-string {:account-id (map :id [ira opening])})))
-          (add-auth (find-user email))
+      (-> (request :get (str (path :api
+                                   :lots)
+                             "?"
+                             (map->query-string {:account-id (map :id [ira opening])}))
+                   :content-type content-type
+                   :user (find-user email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (deftest a-user-can-get-lots-for-multiple-accounts-in-his-entity
-  (assert-successful-get (get-lots-for-multiple-accounts "john@doe.com")))
+  (assert-successful-get (get-lots-for-multiple-accounts "john@doe.com"))
+  (assert-successful-get (get-lots-for-multiple-accounts "john@doe.com" :content-type "application/json")
+                         :expected [{:purchaseDate "2016-02-01"
+                                     :sharesPurchased {:d 10.0}
+                                     :purchasePrice {:d 5.0}
+                                     :sharesOwned {:d 5.0}
+                                     :_type "lot"}
+                                    {:purchaseDate "2016-03-01"
+                                     :sharesPurchased {:d 10.0}
+                                     :purchasePrice {:d 6.0}
+                                     :sharesOwned {:d 10.0}
+                                     :_type "lot"}]))
 
 (deftest a-user-cannot-get-lots-for-multiple-accounts-in-anothers-entity
   (assert-blocked-get (get-lots-for-multiple-accounts "jane@doe.com")))
