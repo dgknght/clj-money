@@ -57,13 +57,25 @@
     (entities/select (extract-criteria req)
                    (extract-options req))))
 
+(defn- refine-item
+  [item]
+  (update-in-if item [:transaction/transaction-date] dates/ensure-local-date))
+
+(defn- refine-items
+  [items]
+  (map refine-item items))
+
 (defn- extract-recon
   [{:keys [params]}]
-  (select-keys params
-               [:reconciliation/end-of-period
-                :reconciliation/balance
-                :reconciliation/status
-                :reconciliation/items]))
+  (-> params
+      (update-in-if [:reconciliation/end-of-period] dates/ensure-local-date)
+      (update-in-if [:reconciliation/status] util/ensure-keyword)
+      (update-in-if [:reconciliation/balance] bigdec)
+      (update-in-if [:reconciliation/items] refine-items)
+      (select-keys [:reconciliation/end-of-period
+                    :reconciliation/balance
+                    :reconciliation/status
+                    :reconciliation/items])))
 
 (defn- create
   [{:keys [authenticated params] :as req}]
