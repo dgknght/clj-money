@@ -9,6 +9,7 @@
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
+            [clj-money.prices.fetch :as fetch]
             [clj-money.authorization :refer [+scope
                                              authorize]
              :as authorization]
@@ -81,7 +82,7 @@
   [{:keys [params]}]
   (->> (:commodity-id params)
        (map (entities/find :commodity))
-       f/fetch
+       fetch/fetch
        entities/put-many
        (map #(update-in % [:price/commodity] util/->entity-ref))
        api/response))

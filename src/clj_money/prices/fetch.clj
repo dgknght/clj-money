@@ -3,7 +3,6 @@
             [dgknght.app-lib.core :refer [index-by]]
             [clj-money.entities :as entities]
             [clj-money.prices :as p]
-            [clj-money.prices.fetch :as f]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.prices.alpha-vantage :as alpha-vantage]
             [clj-money.prices.cache :as cache]))
