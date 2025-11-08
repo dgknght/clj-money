@@ -7,6 +7,7 @@
 (deftype CacheProvider []
   prices/PriceProvider
   (fetch-prices [_ symbols]
+    (assert (seq symbols) "No symbols given")
     (map (fn [{:cached-price/keys [price trade-date exchange symbol]}]
            {:price/value price
             :price/trade-date trade-date
