@@ -23,6 +23,9 @@
 
 (use-fixtures :each reset-db)
 
+(def ^:private transactions
+  (some-fn :trade/transaction :transaction))
+
 (def ^:private buy-context
   [(factory :user {:user/email "john@doe.com"})
    (factory :user {:user/email "jane@doe.com"})
@@ -60,72 +63,69 @@
   [email & {:keys [dividend? content-type]
             :or {dividend? false
                  content-type "application/edn"}}]
-  (with-context buy-context
-    (let [entity (find-entity "Personal")
-          aapl (find-commodity "AAPL")
-          ira (find-account "IRA")
-          dividends (find-account "Dividends")
-          user (find-user email)
-          attr (if (= content-type "application/json")
-                 (cond-> {:date "2016-03-02"
-                          :action "buy"
-                          :entity (util/->entity-ref entity)
-                          :shares 100
-                          :value 1000
-                          :commodity (util/->entity-ref aapl)
-                          :account (util/->entity-ref ira)
-                          :_type "trade"}
-                   dividend? (assoc :dividend true
-                                    :dividendAccount (util/->entity-ref dividends)))
-                 (cond-> #:trade{:date (t/local-date 2016 3 2)
-                                 :action :buy
-                                 :entity (util/->entity-ref entity)
-                                 :shares 100M
-                                 :value 1000M
-                                 :commodity (util/->entity-ref aapl)
-                                 :account (util/->entity-ref ira)
-                                 :dividend? dividend?
-                                 :dividend-account (util/->entity-ref dividends)}))]
-      [(-> (request :post (path :api
-                                :entities
-                                (:id entity)
-                                :trades)
-                    :content-type content-type
-                    :body attr
-                    :user user)
-           app
-           parse-body)
-       (entities/select #:transaction{:entity entity
+  (let [entity (find-entity "Personal")
+        aapl (find-commodity "AAPL")
+        ira (find-account "IRA")
+        dividends (find-account "Dividends")
+        user (find-user email)
+        attr (if (= content-type "application/json")
+               (cond-> {:date "2016-03-02"
+                        :action "buy"
+                        :entity (util/->entity-ref entity)
+                        :shares 100
+                        :value 1000
+                        :commodity (util/->entity-ref aapl)
+                        :account (util/->entity-ref ira)
+                        :_type "trade"}
+                 dividend? (assoc :dividend true
+                                  :dividendAccount (util/->entity-ref dividends)))
+               (cond-> #:trade{:date (t/local-date 2016 3 2)
+                               :action :buy
+                               :entity (util/->entity-ref entity)
+                               :shares 100M
+                               :value 1000M
+                               :commodity (util/->entity-ref aapl)
+                               :account (util/->entity-ref ira)
+                               :dividend? dividend?
+                               :dividend-account (util/->entity-ref dividends)}))]
+    [(-> (request :post (path :api
+                              :entities
+                              (:id entity)
+                              :trades)
+                  :content-type content-type
+                  :body attr
+                  :user user)
+         app
+         parse-body)
+     (entities/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)}
-                      {:order-by [:transaction/created-at]})])))
+                      {:order-by [:transaction/created-at]})]))
 
 (defn- assert-successful-purchase
-  [[{:as response :keys [edn-body parsed-body]} retrieved]
+  [[{:as response :keys [parsed-body]} retrieved]
    & {:keys [expected expected-response]
       :or {expected [#:transaction{:transaction-date (t/local-date 2016 3 2)
                                    :description "Purchase 100.000 shares of AAPL at 10.000"}]}}]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)
-        transactions-key (if parsed-body :transactions :trade/transactions)]
-    (is (seq-of-maps-like? (or expected-response expected) (get body transactions-key))
-        "The creating transaction is returned in the response")
-    (is (seq-of-maps-like? expected retrieved)
-        "The new transaction can be retrieved from the database")))
+  (is (seq-of-maps-like? (or expected-response expected)
+                         (transactions parsed-body))
+      "The creating transaction is returned in the response")
+  (is (seq-of-maps-like? expected retrieved)
+      "The new transaction can be retrieved from the database"))
 
 (defn- assert-successful-reinvestment
-  [[{:as response :keys [edn-body parsed-body]} retrieved]
+  [[{:as response :keys [parsed-body]} retrieved]
    & {:keys [expected expected-response]
       :or {expected [#:transaction{:transaction-date (t/local-date 2016 3 2)
                                    :description "Dividend received from AAPL"}
                      #:transaction{:transaction-date (t/local-date 2016 3 2)
                                    :description "Reinvest dividend of 1,000.00: purchase 100.000 shares of AAPL at 10.000"}]}}]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)
-        transactions-key (if parsed-body :transactions :trade/transactions)]
-    (is (seq-of-maps-like? (or expected-response expected) (get body transactions-key))
-        "The new transactions are returned")
-    (is (seq-of-maps-like? expected retrieved)
-        "The new transactions can be retrieved")))
+  (is (seq-of-maps-like? (or expected-response expected)
+                         (transactions parsed-body))
+      "The new transactions are returned")
+  (is (seq-of-maps-like? expected retrieved)
+      "The new transactions can be retrieved"))
 
 (defn- assert-blocked-purchase
   [[response retrieved]]
@@ -144,12 +144,16 @@
                            :_type "transaction"}])))
 
 (deftest a-user-cannot-purchase-a-commodity-in-anothers-entity
-  (assert-blocked-purchase (buy-a-commodity "jane@doe.com")))
+  (with-context buy-context
+    (assert-blocked-purchase (buy-a-commodity "jane@doe.com"))))
 
 (deftest a-user-can-reinvest-a-dividend-in-his-entity
-  (testing "default format"
-    (assert-successful-reinvestment (buy-a-commodity "john@doe.com" :dividend? true)))
-  (testing "json format"
+  (with-context buy-context
+    (assert-successful-reinvestment
+      (buy-a-commodity "john@doe.com" :dividend? true))))
+
+(deftest a-user-can-reinvest-a-dividend-in-his-entity-with-json
+  (with-context buy-context
     (assert-successful-reinvestment
       (buy-a-commodity "john@doe.com" :dividend? true :content-type "application/json")
       :expected-response [{:transactionDate "2016-03-02"
@@ -172,54 +176,51 @@
 (defn- sell-a-commodity
   [email & {:keys [content-type]
             :or {content-type "application/edn"}}]
-  (with-context sell-context
-    (let [user (find-user email)
-          entity (find-entity "Personal")
-          aapl (find-commodity "AAPL")
-          ira (find-account "IRA")
-          attr (if (= content-type "application/json")
-                 {:date "2016-03-02"
-                  :action "sell"
-                  :entity (util/->entity-ref entity)
-                  :shares 100
-                  :value 1100
-                  :commodity (util/->entity-ref aapl)
-                  :account (util/->entity-ref ira)
-                  :_type "trade"}
-                 #:trade{:date (t/local-date 2016 3 2)
-                         :action :sell
-                         :entity (util/->entity-ref entity)
-                         :shares 100M
-                         :value 1100M
-                         :commodity (util/->entity-ref aapl)
-                         :account (util/->entity-ref ira)})]
-      [(-> (request :post (path :api
-                                :entities
-                                (:id entity)
-                                :trades)
-                    :content-type content-type
-                    :body attr
-                    :user user)
-           app
-           parse-body)
-       (entities/select #:transaction{:entity entity
+  (let [user (find-user email)
+        entity (find-entity "Personal")
+        aapl (find-commodity "AAPL")
+        ira (find-account "IRA")
+        attr (if (= content-type "application/json")
+               {:date "2016-03-02"
+                :action "sell"
+                :entity (util/->entity-ref entity)
+                :shares 100
+                :value 1100
+                :commodity (util/->entity-ref aapl)
+                :account (util/->entity-ref ira)
+                :_type "trade"}
+               #:trade{:date (t/local-date 2016 3 2)
+                       :action :sell
+                       :entity (util/->entity-ref entity)
+                       :shares 100M
+                       :value 1100M
+                       :commodity (util/->entity-ref aapl)
+                       :account (util/->entity-ref ira)})]
+    [(-> (request :post (path :api
+                              :entities
+                              (:id entity)
+                              :trades)
+                  :content-type content-type
+                  :body attr
+                  :user user)
+         app
+         parse-body)
+     (entities/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)})
-       (entities/find-by #:lot{:account ira
-                             :commodity aapl})])))
+     (entities/find-by #:lot{:account ira
+                             :commodity aapl})]))
 
 (defn- assert-successful-sale
-  [[{:as response :keys [edn-body parsed-body]} transactions lot]
+  [[{:as response :keys [parsed-body]} trxs lot]
    & {:keys [expected expected-response]
       :or {expected #:transaction{:transaction-date (t/local-date 2016 3 2)
                                   :description "Sell 100.000 shares of AAPL at 11.000"}}}]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)
-        transactions-key (if parsed-body :transactions :trade/transactions)]
-    (is (seq-of-maps-like? [(or expected-response expected)]
-                     (get body transactions-key))
-        "The created transaction is included in the response")
-    (is (seq-with-map-like? expected transactions)
-        "The created transaction can be retrieved"))
+  (is (seq-of-maps-like? [(or expected-response expected)]
+                         (transactions parsed-body))
+      "The created transaction is included in the response")
+  (is (seq-with-map-like? expected trxs)
+      "The created transaction can be retrieved")
   (is  (comparable? #:lot{:shares-owned 0M}
                     lot)
       "The shares are no longer owned"))
@@ -234,9 +235,11 @@
       "The shares are still owned"))
 
 (deftest a-user-can-sell-a-commodity-in-his-entity
-  (testing "default format"
-    (assert-successful-sale (sell-a-commodity "john@doe.com")))
-  (testing "json format"
+  (with-context sell-context
+    (assert-successful-sale (sell-a-commodity "john@doe.com"))))
+
+(deftest a-user-can-sell-a-commodity-in-his-entity-with-json
+  (with-context sell-context
     (assert-successful-sale
       (sell-a-commodity "john@doe.com" :content-type "application/json")
       :expected-response {:transactionDate "2016-03-02"
@@ -244,4 +247,5 @@
                           :_type "transaction"})))
 
 (deftest a-user-cannot-sell-a-commodity-in-anothers-entity
-  (assert-blocked-sale (sell-a-commodity "jane@doe.com")))
+  (with-context sell-context
+    (assert-blocked-sale (sell-a-commodity "jane@doe.com"))))
