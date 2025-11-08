@@ -31,13 +31,15 @@
                doall))
         prices))))
 
+(def ^:private ->key
+  (juxt :commodity/exchange
+        :commodity/symbol))
+
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
   and returns the price entities."
   [commodities]
-  (let [->key (juxt :commodity/exchange
-                    :commodity/symbol)
-        mapped-commodities (index-by ->key commodities)]
+  (let [mapped-commodities (index-by ->key commodities)]
     (:prices (reduce (fn [{:keys [commodities] :as m}
                           {:keys [provider types]}]
                        (if (empty? commodities)
