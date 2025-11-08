@@ -24,7 +24,7 @@
 (s/def :cached-price/exchange entities/exchanges)
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/cached-price (s/and (s/keys :req [:cached-price/trade-date
-                                                  :cached-price/value
-                                                  :cached-price/exchange
-                                                  :cached-price/symbol])
-                                    trade-date-unique?))
+                                                    :cached-price/value
+                                                    :cached-price/exchange
+                                                    :cached-price/symbol])
+                                      trade-date-unique?))
