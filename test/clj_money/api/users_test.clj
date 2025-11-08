@@ -37,7 +37,7 @@
         (is (comparable? #:user{:email "john@doe.com"
                                 :first-name "John"
                                 :last-name "Doe"}
-                         (:edn-body response)))))
+                         (:parsed-body response)))))
     (testing "json format"
       (let [response (-> (request :get (path :api
                                              :users
@@ -73,15 +73,14 @@
                          app
                          parse-body)]
         (is (http-success? response))
-        (is (:auth-token (:edn-body response)))))
+        (is (:auth-token (:parsed-body response)))))
     (testing "json format"
       (let [response (-> (request :post (path :oapi
                                               :users
                                               :authenticate)
                                   :content-type "application/json"
                                   :body {:email "john@doe.com"
-                                         :password "please01"
-                                         :_type "user"})
+                                         :password "please01"})
                          app
                          parse-body)]
         (is (http-success? response))
