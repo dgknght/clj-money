@@ -48,6 +48,16 @@
                      (dissoc :commodity/exchange
                              :commodity/symbol)))))))
 
+(defn- remove-commodities
+  "Given a list of commodities, remove the commodities that have a price
+  in the given list of prices"
+  [prices commodities]
+  (remove (fn [c]
+            (some #(entity= (:price/commodity %)
+                            c)
+                  prices))
+          commodities))
+
 (defn- process-commodities
   [mapped-commodities]
   (fn [{:keys [commodities] :as m}
@@ -60,12 +70,8 @@
                                  commodities)]
         (-> m
             (update-in [:prices] concat prices)
-            (update-in [:commodities] (fn [cs]
-                                        (remove (fn [c]
-                                                  (some #(entity= (:price/commodity %)
-                                                                  c)
-                                                        prices))
-                                                cs))))))))
+            (update-in [:commodities] (partial remove-commodities prices)))))))
+
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
   and returns the price entities."
