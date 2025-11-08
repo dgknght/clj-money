@@ -32,14 +32,16 @@
                                    (->> symbols
                                         (map yahoo-data)
                                         (filter identity)))]
-    (is (= [{:price/commodity #:commodity{:symbol "AAPL"
-                                          :exchange :nasdaq
-                                          :type :stock}
+    (is (= [{:price/commodity {:id 1
+                               :commodity/symbol "AAPL"
+                               :commodity/exchange :nasdaq
+                               :commodity/type :stock}
              :price/value 10M
              :price/trade-date (t/local-date 2016 1 1)}]
-           (f/fetch [#:commodity{:symbol "AAPL"
-                                 :exchange :nasdaq
-                                 :type :stock}]))
+           (f/fetch [{:id 1
+                      :commodity/symbol "AAPL"
+                      :commodity/exchange :nasdaq
+                      :commodity/type :stock}]))
         "The prices are returned")
     (is (comparable? {:cached-price/value 10M}
                      (e/find-by {:cached-price/symbol "AAPL"}))
