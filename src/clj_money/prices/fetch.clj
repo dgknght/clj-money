@@ -14,28 +14,30 @@
   (fn [{:commodity/keys [type]}]
     (types type)))
 
+(defn- cache-writing-provider
+  [provider]
+  (reify p/PriceProvider
+    (fetch-prices [_ symbols]
+      (let [prices (p/fetch-prices provider symbols)]
+        (when (seq prices)
+          (->> prices
+               (map (fn [{:price/keys [value trade-date]
+                          :commodity/keys [symbol exchange]}]
+                      {:cached-price/value value
+                       :cached-price/trade-date trade-date
+                       :cached-price/symbol symbol
+                       :cached-price/exchange exchange}))
+               entities/put-many
+               doall))
+        prices))))
+
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
   and returns the price entities."
   [commodities]
   (let [->key (juxt :commodity/exchange
                     :commodity/symbol)
-        mapped-commodities (index-by ->key commodities)
-        with-cache-writes (fn [p]
-                            (reify p/PriceProvider
-                              (fetch-prices [_ symbols]
-                                (let [prices (p/fetch-prices p symbols)]
-                                  (when (seq prices)
-                                    (->> prices
-                                         (map (fn [{:price/keys [value trade-date]
-                                                    :commodity/keys [symbol exchange]}]
-                                                {:cached-price/value value
-                                                 :cached-price/trade-date trade-date
-                                                 :cached-price/symbol symbol
-                                                 :cached-price/exchange exchange}))
-                                         entities/put-many
-                                         doall))
-                                  prices))))]
+        mapped-commodities (index-by ->key commodities)]
     (:prices (reduce (fn [{:keys [commodities] :as m}
                           {:keys [provider types]}]
                        (if (empty? commodities)
@@ -62,9 +64,9 @@
                       :prices []}
                      [{:provider (cache/->CacheProvider)
                        :types #{:fund :stock :currency}}
-                      {:provider (with-cache-writes
+                      {:provider (cache-writing-provider
                                    (yahoo/->YahooProvider))
                        :types #{:fund :stock}}
-                      {:provider (with-cache-writes
+                      {:provider (cache-writing-provider
                                    (alpha-vantage/->AlphaVantageProvider))
                        :types #{:currency :stock :fund}}]))))
