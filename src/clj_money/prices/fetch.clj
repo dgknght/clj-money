@@ -51,12 +51,13 @@
 (defn- remove-commodities
   "Given a list of commodities, remove the commodities that have a price
   in the given list of prices"
-  [prices commodities]
-  (remove (fn [c]
-            (some #(entity= (:price/commodity %)
-                            c)
-                  prices))
-          commodities))
+  [prices]
+  (let [ids (->> prices
+                 (map (comp :id
+                            :price/commodity))
+                 set)]
+    (fn [commodities]
+      (remove (comp ids :id) commodities))))
 
 (defn- process-commodities
   [mapped-commodities]
@@ -70,7 +71,7 @@
                                  commodities)]
         (-> m
             (update-in [:prices] concat prices)
-            (update-in [:commodities] (partial remove-commodities prices)))))))
+            (update-in [:commodities] (remove-commodities prices)))))))
 
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
