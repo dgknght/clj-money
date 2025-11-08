@@ -48,27 +48,30 @@
                      (dissoc :commodity/exchange
                              :commodity/symbol)))))))
 
+(defn- process-commodities
+  [mapped-commodities]
+  (fn [{:keys [commodities] :as m}
+       {:keys [provider types]}]
+    (if (empty? commodities)
+      (reduced m)
+      (let [prices (fetch-prices {:mapped-commodities mapped-commodities
+                                  :types types
+                                  :provider provider}
+                                 commodities)]
+        (-> m
+            (update-in [:prices] concat prices)
+            (update-in [:commodities] (fn [cs]
+                                        (remove (fn [c]
+                                                  (some #(entity= (:price/commodity %)
+                                                                  c)
+                                                        prices))
+                                                cs))))))))
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
   and returns the price entities."
   [commodities]
   (let [mapped-commodities (index-by ->key commodities)]
-    (:prices (reduce (fn [{:keys [commodities] :as m}
-                          {:keys [provider types]}]
-                       (if (empty? commodities)
-                         (reduced m)
-                         (let [prices (fetch-prices {:mapped-commodities mapped-commodities
-                                                     :types types
-                                                     :provider provider}
-                                                    commodities)]
-                           (-> m
-                               (update-in [:prices] concat prices)
-                               (update-in [:commodities] (fn [cs]
-                                                           (remove (fn [c]
-                                                                     (some #(entity= (:price/commodity %)
-                                                                                     c)
-                                                                           prices))
-                                                                   cs)))))))
+    (:prices (reduce (process-commodities mapped-commodities)
                      {:commodities commodities
                       :prices []}
                      [{:provider (cache/->CacheProvider)
