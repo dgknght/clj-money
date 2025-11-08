@@ -35,6 +35,19 @@
   (juxt :commodity/exchange
         :commodity/symbol))
 
+(defn- fetch-prices
+  [{:keys [types provider mapped-commodities]} commodities]
+  (->> commodities
+       (filter (commodity-type? types))
+       (map :commodity/symbol)
+       (p/fetch-prices provider)
+       (mapv (fn [p]
+               (let [c (mapped-commodities (->key p))]
+                 (-> p
+                     (assoc :price/commodity c)
+                     (dissoc :commodity/exchange
+                             :commodity/symbol)))))))
+
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
   and returns the price entities."
@@ -44,16 +57,10 @@
                           {:keys [provider types]}]
                        (if (empty? commodities)
                          (reduced m)
-                         (let [prices (->> commodities
-                                           (filter (commodity-type? types))
-                                           (map :commodity/symbol)
-                                           (p/fetch-prices provider)
-                                           (mapv (fn [p]
-                                                   (let [c (mapped-commodities (->key p))]
-                                                     (-> p
-                                                         (assoc :price/commodity c)
-                                                         (dissoc :commodity/exchange
-                                                                 :commodity/symbol))))))]
+                         (let [prices (fetch-prices {:mapped-commodities mapped-commodities
+                                                     :types types
+                                                     :provider provider}
+                                                    commodities)]
                            (-> m
                                (update-in [:prices] concat prices)
                                (update-in [:commodities] (fn [cs]
