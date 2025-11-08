@@ -1,7 +1,6 @@
 (ns clj-money.prices.fetch
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [index-by]]
-            [clj-money.util :refer [entity=]]
             [clj-money.entities :as entities]
             [clj-money.prices :as p]
             [clj-money.prices.fetch :as f]
