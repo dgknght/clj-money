@@ -16,3 +16,6 @@
 ## Commits
 - Avoid committing code that fails the linting rules.
 - Avoid committing code that fails the test suite.
+
+## Style
+- Avoid lines with more than 80 characters
