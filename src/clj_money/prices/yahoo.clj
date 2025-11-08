@@ -21,7 +21,7 @@
                                         :region "US"}))
       str))
 
-(defn get-quotes
+(defn- raw-quotes
   [symbols]
   (let [url (get-quotes-uri symbols)
         _ (log/infof "get-quotes %s" url)
@@ -46,19 +46,23 @@
   (when yahoo-name
     (get-in exchange-names [yahoo-name] (->kebab-case-keyword yahoo-name))))
 
+(defn get-quotes
+  [symbols]
+  (->> symbols
+       raw-quotes
+       (map #(-> %
+                 (rename-keys {:regularMarketPrice :price/value
+                               :regularMarketTime :price/trade-date
+                               :fullExchangeName :commodity/exchange
+                               :symbol :commodity/symbol})
+                 (update-in [:price/trade-date] t/local-date)
+                 (update-in [:commodity/exchange] map-exchange-name)
+                 (select-keys [:price/value
+                               :price/trade-date
+                               :commodity/symbol
+                               :commodity/exchange])))))
+
 (deftype YahooProvider []
   prices/PriceProvider
   (prices/fetch-prices [_ symbols]
-    (->> symbols
-         get-quotes
-         (map #(-> %
-                   (rename-keys {:regularMarketPrice :price/value
-                                 :regularMarketTime :price/trade-date
-                                 :fullExchangeName :commodity/exchange
-                                 :symbol :commodity/symbol})
-                   (update-in [:price/trade-date] t/local-date)
-                   (update-in [:commodity/exchange] map-exchange-name)
-                   (select-keys [:price/value
-                                 :price/trade-date
-                                 :commodity/symbol
-                                 :commodity/exchange]))))))
+    (get-quotes symbols)))
