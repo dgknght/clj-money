@@ -1,6 +1,7 @@
 (ns clj-money.prices.alpha-vantage-test
   (:require [clojure.test :refer [deftest is] :as test]
             [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-http.core :as http]
             [dgknght.app-lib.test]
@@ -16,25 +17,10 @@
 
 (deftest get-price-quote
   (with-web-mocks [calls] mocks
-    (is (comparable? {:meta-data {:information "Daily Prices and Volumes for Digital Currency"
-                                  :digital-currency-code "BTC"
-                                  :digital-currency-name "Bitcoin"
-                                  :market-code "USD"
-                                  :market-name "United States Dollar"
-                                  :last-refreshed (t/local-date-time 2022 1 6 0 0 0)
-                                  :time-zone "UTC"}
-                      :time-series {(t/local-date 2022 1 6) {"USD" {:open 43451.14M
-                                                                    :high 43689.99M
-                                                                    :low 43261.62M
-                                                                    :close 43681.73M
-                                                                    :market-cap 1505.96873M}
-                                                             :volume 1505.96873M}
-                                    (t/local-date 2022 1 5) {"USD" {:open 45832.01M
-                                                                    :high 47070M
-                                                                    :low 42500M
-                                                                    :close 43451.13M
-                                                                    :market-cap 51784.11857M}
-                                                             :volume 51784.11857M}}}
+    (is (comparable? {:price/value 43681.73M
+                      :price/trade-date (t/local-date 2022 1 6)
+                      :commodity/symbol "BTC"
+                      :commodity/exchange :currency}
                      (alpha-vantage/get-quote "BTC")))
     (is (called-with-headers?
           :once

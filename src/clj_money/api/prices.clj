@@ -2,18 +2,14 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [dgknght.app-lib.core :refer [update-in-if
-                                          index-by]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
-            [clj-money.util :as util :refer [entity=]]
+            [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
             [clj-money.dates :as dates]
-            [clj-money.prices :as p]
-            [clj-money.prices.yahoo :as yahoo]
-            [clj-money.prices.alpha-vantage :as alpha-vantage]
-            [clj-money.prices.cache :as cache]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
+            [clj-money.prices.fetch :as fetch]
             [clj-money.authorization :refer [+scope
                                              authorize]
              :as authorization]
@@ -81,72 +77,12 @@
       (api/response))
     api/not-found))
 
-(defn- commodity-type?
-  [types]
-  (fn [{:commodity/keys [type]}]
-    (types type)))
-
-; TODO: Move this to a better place
-(defn- fetch*
-  "Given a sequence of commodity entities, fetches prices from external services
-  and returns the price entities."
-  [commodities]
-  (let [->key (juxt :commodity/exchange
-                    :commodity/symbol)
-        mapped-commodities (index-by ->key commodities)
-        with-cache-writes (fn [p]
-                            (reify p/PriceProvider
-                              (fetch-prices [_ symbols]
-                                (let [prices (p/fetch-prices p symbols)]
-                                  (->> prices
-                                       (map (fn [{:price/keys [value trade-date]
-                                                  :commodity/keys [symbol exchange]}]
-                                              {:cached-price/value value
-                                               :cached-price/trade-date trade-date
-                                               :cached-price/symbol symbol
-                                               :cached-price/exchange exchange}))
-                                       entities/put-many
-                                       doall)
-                                  prices))))]
-    (:prices (reduce (fn [{:keys [commodities] :as m}
-                          {:keys [provider types]}]
-                       (if (empty? commodities)
-                         (reduced m)
-                         (let [prices (->> commodities
-                                           (filter (commodity-type? types))
-                                           (map :commodity/symbol)
-                                           (p/fetch-prices provider)
-                                           (mapv (fn [p]
-                                                   (let [c (mapped-commodities (->key p))]
-                                                     (-> p
-                                                         (assoc :price/commodity c)
-                                                         (dissoc :commodity/exchange
-                                                                 :commodity/symbol))))))]
-                           (-> m
-                               (update-in [:prices] concat prices)
-                               (update-in [:commodities] (fn [cs]
-                                                           (remove (fn [c]
-                                                                     (some #(entity= (:price/commodity %)
-                                                                                    c)
-                                                                           prices))
-                                                                   cs)))))))
-                     {:commodities commodities
-                      :prices []}
-                     [{:provider (cache/->CacheProvider)
-                       :types #{:fund :stock :currency}}
-                      {:provider (with-cache-writes
-                                   (yahoo/->YahooProvider))
-                       :types #{:fund :stock}}
-                      {:provider (with-cache-writes
-                                   (alpha-vantage/->AlphaVantageProvider))
-                       :types #{:currency}}]))))
-
 (defn- fetch
   "Return prices for a specified list of commodities"
   [{:keys [params]}]
   (->> (:commodity-id params)
        (map (entities/find :commodity))
-       fetch*
+       fetch/fetch
        entities/put-many
        (map #(update-in % [:price/commodity] util/->entity-ref))
        api/response))

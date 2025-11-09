@@ -18,15 +18,18 @@
 (deftest get-price-quotes
   (with-web-mocks [calls] mocks
     (let [result (yahoo/get-quotes ["AMD" "IBM" "AAPL"])]
-      (is (seq-of-maps-like? [{:symbol "AMD"
-                               :regularMarketTime (t/instant "2021-12-10T19:08:35Z")
-                               :regularMarketPrice 137.51M}
-                              {:symbol "IBM"
-                               :regularMarketTime (t/instant "2021-12-10T19:08:35Z")
-                               :regularMarketPrice 123.55M}
-                              {:symbol "AAPL"
-                               :regularMarketTime (t/instant "2021-12-10T19:08:41Z")
-                               :regularMarketPrice 177.78M}]
+      (is (seq-of-maps-like? [{:commodity/symbol "AMD"
+                               :commodity/exchange :nasdaq
+                               :price/value 137.51M
+                               :price/trade-date (t/local-date 2021 12 10)}
+                              {:commodity/symbol "IBM"
+                               :commodity/exchange :nyse
+                               :price/value 123.55M
+                               :price/trade-date (t/local-date 2021 12 10)}
+                              {:commodity/symbol "AAPL"
+                               :commodity/exchange :nasdaq
+                               :price/trade-date (t/local-date 2021 12 10)
+                               :price/value 177.78M}]
                              result)))
     (is (called-with-headers? :once
                               calls
