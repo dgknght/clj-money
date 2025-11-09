@@ -100,4 +100,7 @@
 (deftype AlphaVantageProvider []
   prices/PriceProvider
   (prices/fetch-prices [_ symbols]
-    (mapv get-quote symbols)))
+    (->> symbols
+         (map get-quote)
+         (filter identity)
+         (into []))))
