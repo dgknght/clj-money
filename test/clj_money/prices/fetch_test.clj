@@ -20,7 +20,7 @@
                                 :commodity/exchange :nasdaq}]))
 
 (def ^:private yahoo-data
-  (index-by :commodity-symbol [{:price/value 11M
+  (index-by :commodity/symbol [{:price/value 11M
                                 :price/trade-date (t/local-date 2016 1 1)
                                 :commodity/symbol "MSFT"
                                 :commodity/exchange :nasdaq}]))
@@ -32,16 +32,27 @@
                                    (->> symbols
                                         (map yahoo-data)
                                         (filter identity)))]
-    (is (= [{:price/commodity {:id 1
-                               :commodity/symbol "AAPL"
-                               :commodity/exchange :nasdaq
-                               :commodity/type :stock}
-             :price/value 10M
-             :price/trade-date (t/local-date 2016 1 1)}]
-           (f/fetch [{:id 1
-                      :commodity/symbol "AAPL"
-                      :commodity/exchange :nasdaq
-                      :commodity/type :stock}]))
+    (is (= #{{:price/commodity {:id 1
+                                :commodity/symbol "AAPL"
+                                :commodity/exchange :nasdaq
+                                :commodity/type :stock}
+              :price/value 10M
+              :price/trade-date (t/local-date 2016 1 1)}
+             {:price/commodity {:id 1
+                                :commodity/symbol "MSFT"
+                                :commodity/exchange :nasdaq
+                                :commodity/type :stock}
+              :price/value 11M
+              :price/trade-date (t/local-date 2016 1 1)}}
+           (set
+             (f/fetch [{:id 1
+                        :commodity/symbol "AAPL"
+                        :commodity/exchange :nasdaq
+                        :commodity/type :stock}
+                       {:id 1
+                        :commodity/symbol "MSFT"
+                        :commodity/exchange :nasdaq
+                        :commodity/type :stock}])))
         "The prices are returned")
     (is (comparable? {:cached-price/value 10M}
                      (e/find-by {:cached-price/symbol "AAPL"}))
