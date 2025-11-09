@@ -46,6 +46,10 @@
   (when yahoo-name
     (get-in exchange-names [yahoo-name] (->kebab-case-keyword yahoo-name))))
 
+(defn ->new-york-local-date
+  [instant]
+  (t/local-date instant (t/zone-id "America/New_York")))
+
 (defn get-quotes
   [symbols]
   (->> symbols
@@ -55,7 +59,7 @@
                                :regularMarketTime :price/trade-date
                                :fullExchangeName :commodity/exchange
                                :symbol :commodity/symbol})
-                 (update-in [:price/trade-date] t/local-date)
+                 (update-in [:price/trade-date] ->new-york-local-date)
                  (update-in [:commodity/exchange] map-exchange-name)
                  (select-keys [:price/value
                                :price/trade-date
