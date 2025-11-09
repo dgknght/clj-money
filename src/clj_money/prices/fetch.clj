@@ -51,27 +51,12 @@
 (defn- remove-commodities
   "Given a list of commodities, remove the commodities that have a price
   in the given list of prices"
-  [prices]
+  [prices commodities]
   (let [ids (->> prices
                  (map (comp :id
                             :price/commodity))
                  set)]
-    (fn [commodities]
-      (remove (comp ids :id) commodities))))
-
-(defn- process-commodities
-  [mapped-commodities]
-  (fn [{:keys [commodities] :as m}
-       {:keys [provider types]}]
-    (if (empty? commodities)
-      (reduced m)
-      (let [prices (map (apply-commodity mapped-commodities)
-                        (fetch-prices {:types types
-                                       :provider provider}
-                                      commodities))]
-        (-> m
-            (update-in [:prices] concat prices)
-            (update-in [:commodities] (remove-commodities prices)))))))
+    (remove (comp ids :id) commodities)))
 
 (defn- providers []
   [{:provider (cache/->CacheProvider)
@@ -88,7 +73,15 @@
   and returns the price entities."
   [commodities]
   (let [mapped-commodities (index-by ->key commodities)]
-    (:prices (reduce (process-commodities mapped-commodities)
-                     {:commodities commodities
-                      :prices []}
-                     (providers)))))
+    (loop [providers (providers)
+           comms commodities
+           prices []]
+      (let [provider (first providers)]
+        (if (and provider (seq comms))
+          (let [fetched (mapv (apply-commodity mapped-commodities)
+                              (fetch-prices provider
+                                            commodities))]
+            (recur (rest providers)
+                   (remove-commodities prices comms)
+                   (concat prices fetched)))
+          prices)))))
