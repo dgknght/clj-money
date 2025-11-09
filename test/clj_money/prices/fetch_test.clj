@@ -3,6 +3,8 @@
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.core :refer [index-by]]
+            [clj-money.test-context :refer [with-context]]
+            [clj-money.dates :refer [with-fixed-time]]
             [clj-money.util :as util]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.entities.ref]
@@ -26,6 +28,30 @@
                                 :commodity/symbol "MSFT"
                                 :commodity/exchange :nasdaq}]))
 
+(def ^:private expected-prices
+  #{{:price/commodity {:id 1
+                       :commodity/symbol "AAPL"
+                       :commodity/exchange :nasdaq
+                       :commodity/type :stock}
+     :price/value 10M
+     :price/trade-date (t/local-date 2016 1 1)}
+    {:price/commodity {:id 2
+                       :commodity/symbol "MSFT"
+                       :commodity/exchange :nasdaq
+                       :commodity/type :stock}
+     :price/value 11M
+     :price/trade-date (t/local-date 2016 1 1)}})
+
+(def ^:private commodities
+  [{:id 1
+    :commodity/symbol "AAPL"
+    :commodity/exchange :nasdaq
+    :commodity/type :stock}
+   {:id 2
+    :commodity/symbol "MSFT"
+    :commodity/exchange :nasdaq
+    :commodity/type :stock}])
+
 (deftest fetch-prices-from-alpha-vantage
   (let [calls (atom {:alpha []
                      :yahoo []})]
@@ -37,27 +63,9 @@
                                      (->> symbols
                                           (map yahoo-data)
                                           (filter identity)))]
-      (is (= #{{:price/commodity {:id 1
-                                  :commodity/symbol "AAPL"
-                                  :commodity/exchange :nasdaq
-                                  :commodity/type :stock}
-                :price/value 10M
-                :price/trade-date (t/local-date 2016 1 1)}
-               {:price/commodity {:id 2
-                                  :commodity/symbol "MSFT"
-                                  :commodity/exchange :nasdaq
-                                  :commodity/type :stock}
-                :price/value 11M
-                :price/trade-date (t/local-date 2016 1 1)}}
-             (set
-               (f/fetch [{:id 1
-                          :commodity/symbol "AAPL"
-                          :commodity/exchange :nasdaq
-                          :commodity/type :stock}
-                         {:id 2
-                          :commodity/symbol "MSFT"
-                          :commodity/exchange :nasdaq
-                          :commodity/type :stock}])))
+      (is (= expected-prices
+             (set (with-fixed-time "2016-01-01T12:00:00Z"
+                      (f/fetch commodities))))
           "The prices are returned")
       (is (seq-of-maps-like? [{:cached-price/value 10M
                                :cached-price/symbol "AAPL"}
@@ -72,3 +80,32 @@
       (is (= #{["MSFT"]}
              (set (:yahoo @calls)))
           "The Yahoo API is called once with all symbols for which Alpha Vantage does not return a response"))))
+
+(def ^:private cache-ctx
+  [#:cached-price{:trade-date (t/local-date 2016 1 1)
+                  :symbol "MSFT"
+                  :exchange :nasdaq
+                  :value 11M}
+   #:cached-price{:trade-date (t/local-date 2016 1 1)
+                  :symbol "AAPL"
+                  :exchange :nasdaq
+                  :value 10M}])
+
+(deftest get-quotes-cached-locally
+  (with-context cache-ctx
+    (let [calls (atom {:alpha []
+                       :yahoo []})]
+      (with-redefs [alpha/get-quote (fn [symbol]
+                                      (swap! calls update-in [:alpha] conj symbol)
+                                      nil)
+                    yahoo/get-quotes (fn [symbols]
+                                       (swap! calls update-in [:yahoo] conj symbols)
+                                       [])]
+        (is (= expected-prices
+               (set (with-fixed-time "2016-01-01T12:00:00Z"
+                      (f/fetch commodities))))
+            "The prices are returned")
+        (is (zero? (count (:alpha @calls)))
+            "The Alpha Vantage API is not called")
+        (is (zero? (count (:yahoo @calls)))
+            "The Yahoo API is not called")))))
