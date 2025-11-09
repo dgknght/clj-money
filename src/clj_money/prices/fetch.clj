@@ -33,15 +33,13 @@
   (juxt :commodity/exchange
         :commodity/symbol))
 
-(defn- apply-commodities
-  [mapped-commodities prices]
-  (map (fn [p]
-         (let [c (mapped-commodities (->key p))]
-           (-> p
-               (assoc :price/commodity c)
-               (dissoc :commodity/exchange
-                       :commodity/symbol))))
-       prices))
+(defn- apply-commodity
+  [mapped-commodities]
+  (fn [price]
+    (-> price
+        (assoc :price/commodity (mapped-commodities (->key price)))
+        (dissoc :commodity/exchange
+                :commodity/symbol))))
 
 (defn- fetch-prices
   [{:keys [types provider]} commodities]
@@ -67,11 +65,10 @@
        {:keys [provider types]}]
     (if (empty? commodities)
       (reduced m)
-      (let [prices (apply-commodities
-                     mapped-commodities
-                     (fetch-prices {:types types
-                                    :provider provider}
-                                   commodities))]
+      (let [prices (map (apply-commodity mapped-commodities)
+                        (fetch-prices {:types types
+                                       :provider provider}
+                                      commodities))]
         (-> m
             (update-in [:prices] concat prices)
             (update-in [:commodities] (remove-commodities prices)))))))
