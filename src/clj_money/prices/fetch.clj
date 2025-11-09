@@ -33,18 +33,22 @@
   (juxt :commodity/exchange
         :commodity/symbol))
 
+(defn- apply-commodities
+  [mapped-commodities prices]
+  (map (fn [p]
+         (let [c (mapped-commodities (->key p))]
+           (-> p
+               (assoc :price/commodity c)
+               (dissoc :commodity/exchange
+                       :commodity/symbol))))
+       prices))
+
 (defn- fetch-prices
-  [{:keys [types provider mapped-commodities]} commodities]
+  [{:keys [types provider]} commodities]
   (->> commodities
        (filter (commodity-type? types))
        (map :commodity/symbol)
-       (p/fetch-prices provider)
-       (mapv (fn [p]
-               (let [c (mapped-commodities (->key p))]
-                 (-> p
-                     (assoc :price/commodity c)
-                     (dissoc :commodity/exchange
-                             :commodity/symbol)))))))
+       (p/fetch-prices provider)))
 
 (defn- remove-commodities
   "Given a list of commodities, remove the commodities that have a price
@@ -63,10 +67,11 @@
        {:keys [provider types]}]
     (if (empty? commodities)
       (reduced m)
-      (let [prices (fetch-prices {:mapped-commodities mapped-commodities
-                                  :types types
-                                  :provider provider}
-                                 commodities)]
+      (let [prices (apply-commodities
+                     mapped-commodities
+                     (fetch-prices {:types types
+                                    :provider provider}
+                                   commodities))]
         (-> m
             (update-in [:prices] concat prices)
             (update-in [:commodities] (remove-commodities prices)))))))
