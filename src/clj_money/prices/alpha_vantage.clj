@@ -1,6 +1,7 @@
 (ns clj-money.prices.alpha-vantage
   (:require [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [clojure.pprint :refer [pprint]]
             [clj-http.client :as http]
             [java-time.api :as t]
             [clj-money.config :refer [env]]
