@@ -71,6 +71,16 @@
             (update-in [:prices] concat prices)
             (update-in [:commodities] (remove-commodities prices)))))))
 
+(defn- providers []
+  [{:provider (cache/->CacheProvider)
+    :types #{:fund :stock :currency}}
+   {:provider (cache-writing-provider
+                (yahoo/->YahooProvider))
+    :types #{:fund :stock}}
+   {:provider (cache-writing-provider
+                (alpha-vantage/->AlphaVantageProvider))
+    :types #{:currency :stock :fund}}])
+
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
   and returns the price entities."
@@ -79,11 +89,4 @@
     (:prices (reduce (process-commodities mapped-commodities)
                      {:commodities commodities
                       :prices []}
-                     [{:provider (cache/->CacheProvider)
-                       :types #{:fund :stock :currency}}
-                      {:provider (cache-writing-provider
-                                   (yahoo/->YahooProvider))
-                       :types #{:fund :stock}}
-                      {:provider (cache-writing-provider
-                                   (alpha-vantage/->AlphaVantageProvider))
-                       :types #{:currency :stock :fund}}]))))
+                     (providers)))))
