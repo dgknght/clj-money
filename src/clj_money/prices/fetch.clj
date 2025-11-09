@@ -52,21 +52,23 @@
   "Given a list of commodities, remove the commodities that have a price
   in the given list of prices"
   [prices commodities]
-  (let [ids (->> prices
-                 (map (comp :id
-                            :price/commodity))
-                 set)]
-    (remove (comp ids :id) commodities)))
+  (if (seq prices)
+    (let [ids (->> prices
+                   (map (comp :id
+                              :price/commodity))
+                   set)]
+      (remove (comp ids :id) commodities))
+    commodities))
 
 (defn- providers []
   [{:provider (cache/->CacheProvider)
     :types #{:fund :stock :currency}}
    {:provider (cache-writing-provider
-                (yahoo/->YahooProvider))
-    :types #{:fund :stock}}
-   {:provider (cache-writing-provider
                 (alpha-vantage/->AlphaVantageProvider))
-    :types #{:currency :stock :fund}}])
+    :types #{:currency :stock :fund}}
+   {:provider (cache-writing-provider
+                (yahoo/->YahooProvider))
+    :types #{:fund :stock}}])
 
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
@@ -75,13 +77,13 @@
   (let [mapped-commodities (index-by ->key commodities)]
     (loop [providers (providers)
            comms commodities
-           prices []]
+           result []]
       (let [provider (first providers)]
         (if (and provider (seq comms))
           (let [fetched (mapv (apply-commodity mapped-commodities)
                               (fetch-prices provider
-                                            commodities))]
+                                            comms))]
             (recur (rest providers)
-                   (remove-commodities prices comms)
-                   (concat prices fetched)))
-          prices)))))
+                   (remove-commodities fetched comms)
+                   (concat result fetched)))
+          result)))))

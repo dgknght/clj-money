@@ -3,6 +3,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.core :refer [index-by]]
+            [clj-money.util :as util]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.entities.ref]
             [clj-money.entities :as e]
@@ -26,34 +27,48 @@
                                 :commodity/exchange :nasdaq}]))
 
 (deftest fetch-prices-from-alpha-vantage
-  (with-redefs [alpha/get-quote (fn [symbol]
-                                  (alpha-data symbol))
-                yahoo/get-quotes (fn [symbols]
-                                   (->> symbols
-                                        (map yahoo-data)
-                                        (filter identity)))]
-    (is (= #{{:price/commodity {:id 1
-                                :commodity/symbol "AAPL"
-                                :commodity/exchange :nasdaq
-                                :commodity/type :stock}
-              :price/value 10M
-              :price/trade-date (t/local-date 2016 1 1)}
-             {:price/commodity {:id 1
-                                :commodity/symbol "MSFT"
-                                :commodity/exchange :nasdaq
-                                :commodity/type :stock}
-              :price/value 11M
-              :price/trade-date (t/local-date 2016 1 1)}}
-           (set
-             (f/fetch [{:id 1
-                        :commodity/symbol "AAPL"
-                        :commodity/exchange :nasdaq
-                        :commodity/type :stock}
-                       {:id 1
-                        :commodity/symbol "MSFT"
-                        :commodity/exchange :nasdaq
-                        :commodity/type :stock}])))
-        "The prices are returned")
-    (is (comparable? {:cached-price/value 10M}
-                     (e/find-by {:cached-price/symbol "AAPL"}))
-        "The cached price record is created")))
+  (let [calls (atom {:alpha []
+                     :yahoo []})]
+    (with-redefs [alpha/get-quote (fn [symbol]
+                                    (swap! calls update-in [:alpha] conj symbol)
+                                    (alpha-data symbol))
+                  yahoo/get-quotes (fn [symbols]
+                                     (swap! calls update-in [:yahoo] conj symbols)
+                                     (->> symbols
+                                          (map yahoo-data)
+                                          (filter identity)))]
+      (is (= #{{:price/commodity {:id 1
+                                  :commodity/symbol "AAPL"
+                                  :commodity/exchange :nasdaq
+                                  :commodity/type :stock}
+                :price/value 10M
+                :price/trade-date (t/local-date 2016 1 1)}
+               {:price/commodity {:id 2
+                                  :commodity/symbol "MSFT"
+                                  :commodity/exchange :nasdaq
+                                  :commodity/type :stock}
+                :price/value 11M
+                :price/trade-date (t/local-date 2016 1 1)}}
+             (set
+               (f/fetch [{:id 1
+                          :commodity/symbol "AAPL"
+                          :commodity/exchange :nasdaq
+                          :commodity/type :stock}
+                         {:id 2
+                          :commodity/symbol "MSFT"
+                          :commodity/exchange :nasdaq
+                          :commodity/type :stock}])))
+          "The prices are returned")
+      (is (seq-of-maps-like? [{:cached-price/value 10M
+                               :cached-price/symbol "AAPL"}
+                              {:cached-price/value 11M
+                               :cached-price/symbol "MSFT"}]
+                             (e/select (util/entity-type {} :cached-price)
+                                       {:sort [:cached-price/symbol]}))
+          "The cached price records are created")
+      (is (= #{"MSFT" "AAPL"}
+             (set (:alpha @calls)))
+          "The Alpha Vantage API is called once for each symbol")
+      (is (= #{["MSFT"]}
+             (set (:yahoo @calls)))
+          "The Yahoo API is called once with all symbols for which Alpha Vantage does not return a response"))))
