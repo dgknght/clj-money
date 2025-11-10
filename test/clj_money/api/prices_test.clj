@@ -18,7 +18,7 @@
                                             find-price
                                             find-commodity]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.prices.yahoo :as yahoo]
+            [clj-money.prices.alpha-vantage :as alpha]
             [clj-money.entities :as entities]
             [clj-money.web.server :refer [app]]))
 
@@ -270,15 +270,13 @@
                :or {content-type "application/edn"}}]
   (let [appl (find-commodity "AAPL")
         msft (find-commodity "MSFT")]
-    (with-redefs [yahoo/get-quotes (fn [symbols]
-                                     (map (fn [s]
-                                            {:symbol s
-                                             :fullExchangeName "NasdaqGS"
-                                             :regularMarketPrice ({"AAPL" 10.01M
-                                                                   "MSFT" 5.01M}
-                                                                  s)
-                                             :regularMarketTime (t/local-date 2015 3 2)})
-                                          symbols))]
+    (with-redefs [alpha/get-quote (fn [symbol]
+                                    {:commodity/symbol symbol
+                                     :commodity/exchange :nasdaq
+                                     :price/trade-date (t/local-date 2015 3 2)
+                                     :price/value ({"AAPL" 10.01M
+                                                    "MSFT" 5.01M}
+                                                   symbol)})]
       (with-fixed-time "2015-03-02T12:00:00Z"
         (-> (request :get (str (path :api
                                      :prices
@@ -348,21 +346,17 @@
                                  :content-type "application/edn"
                                  :user user)
                         app
-                        parse-body)]
-      (with-redefs [yahoo/get-quotes (fn [symbols]
-                                       (swap! calls conj symbols)
-                                       (map (fn [s]
-                                              {:symbol s
-                                               :regularMarketPrice 10.01M
-                                               :regularMarketTime (t/local-date-time 2015 3 2 12 0 0)
-                                               :fullExchangeName "NasdaqGS"})
-                                            symbols))]
+                        parse-edn-body)]
+      (with-redefs [alpha/get-quote (fn [symbol]
+                                      (swap! calls conj symbol)
+                                      {:commodity/symbol symbol
+                                       :commodity/exchange :nasdaq
+                                       :price/value 10.01M
+                                       :price/trade-date (t/local-date 2015 3 2)})]
         (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
           (make-req)
           (make-req))
-        (let [[c :as cs ] @calls]
-          (is (= 1 (count cs))
-            "The external service is called exactly one time")
-          (is (= ["AAPL" "MSFT"]
-                 c)
-              "The external service is called with the specified commodity symbols"))))))
+        (is (= {"MSFT" 1
+                "AAPL" 1}
+               (frequencies @calls))
+            "The external service is called exactly one time for each symbol")))))
