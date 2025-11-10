@@ -1,6 +1,7 @@
 (ns clj-money.prices.alpha-vantage
   (:require [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [clojure.pprint :refer [pprint]]
             [clj-http.client :as http]
             [java-time.api :as t]
             [clj-money.config :refer [env]]
@@ -37,7 +38,7 @@
   (and (string? k)
        (not (re-find #"[A-Z]{3}" k))))
 
-(def ^:private adj-key 
+(def ^:private adj-key
   (comp ->kebab-case-keyword
         strip-parenthetical
         strip-ordinal))
@@ -48,7 +49,13 @@
                      %)
                   m))
 
-(defn- extract-currency-map [m]
+(defn- extract-currency-map
+  "Extract the currency a price value from the map entry.
+
+  E.g.
+  {\"1a. open (USD)\": \"43451.14000000\"} => {\"USD\" {\"open\" 43451.14M}}
+  {\"5. volume\": \"1505.96873\"} => {\"volume\" 43451.14M}"
+  [m]
   (reduce-kv (fn [r k v]
                (let [[_ quote-type currency] (re-find #"([a-z ]+)(?: \(([A-Z]+)\))?$" k)]
                  (if currency
@@ -66,7 +73,7 @@
                     (map #(update-in % [0] (partial t/local-date date-formatter)))
                     (into {})))))
 
-(defn get-quote
+(defn- raw-quote
   [sym]
   (let [url (get-quote-uri sym)
         _ (log/infof "get-quote %s" url)
@@ -87,9 +94,14 @@
      :commodity/symbol (get-in m [:meta-data :digital-currency-code])
      :commodity/exchange :currency}))
 
+(def get-quote
+  (comp transform-quote
+        raw-quote))
+
 (deftype AlphaVantageProvider []
   prices/PriceProvider
   (prices/fetch-prices [_ symbols]
-    (mapv (comp transform-quote
-                get-quote)
-          symbols)))
+    (->> symbols
+         (map get-quote)
+         (filter identity)
+         (into []))))
