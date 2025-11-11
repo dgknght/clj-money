@@ -411,6 +411,10 @@
                       (refine-qualifiers (assoc options :entity-type entity-type))))
            (post-select options)))))
 
+(defn- find*
+  [ds id]
+  (select* ds))
+
 (defn- update*
   [ds changes criteria]
   (let [sql (->update (->sql-refs changes)
@@ -440,6 +444,7 @@
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
       (put [_ entities] (put* ds entities))
+      (find [_ id] (find* ds id))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))

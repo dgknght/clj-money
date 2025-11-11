@@ -22,6 +22,7 @@
 
 (defprotocol DatomicAPI
   (transact [this tx-data options])
+  (pull [this id])
   (query [this arg-map])
   (reset [this]))
 
@@ -292,6 +293,9 @@
                       (into [])))
      result#))
 
+(defn- find*
+  [id {:keys [api]}])
+
 (defn- select*
   [criteria {:as options :keys [count select]} {:keys [api]}]
   (let [qry (-> criteria
@@ -356,6 +360,10 @@
               (d-peer/connect uri)
               tx-data
               (mapcat identity options)))
+    (pull [_ id]
+      (d-peer/pull (-> uri d-peer/connect d-peer/db)
+                   '[*]
+                   id))
     (query [_ {:keys [query args]}]
       ; TODO: take in the as-of date-time
       (apply d-peer/q
@@ -375,6 +383,10 @@
                conn
                {:tx-data tx-data}
                (mapcat identity options)))
+      (pull [_ id]
+        (d-client/pull (d-client/db conn)
+                       '[*]
+                       id))
       (query [_ {:keys [query args]}]
         ; TODO: take in the as-of date-time
         (apply d-client/q
@@ -397,7 +409,8 @@
   (let [api (init-api config)]
     (reify db/Storage
       (put [_ entities]       (put* entities {:api api}))
-      (select [_ crit opts] (select* crit opts {:api api}))
+      (find [_ id]            (find* id {:api api}))
+      (select [_ crit opts]   (select* crit opts {:api api}))
       (delete [_ entities]    (delete* entities {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
       (close [_])

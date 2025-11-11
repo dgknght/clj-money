@@ -89,36 +89,10 @@
   ([criteria options]
    (first (select criteria (assoc options :limit 1)))))
 
-(defn find-many
-  [m-or-ids entity-type]
-  (select (util/entity-type {:id [:in (mapv ->id m-or-ids)]}
-                           entity-type)))
-
 (defn find
-  "Find a entity by id or by reference map.
-
-  When given one argument:
-    - If the argument is a entity reference, return the entity
-    - If the argument is a keyword, a function that will look up entities of the specified type
-  When given two arguments, look up a entity of the spcified type having the specified id"
-  ([arg]
-   (if (keyword? arg)
-     #(find % arg)
-     (do
-       (assert (:id arg) "The argument must have an id")
-       (assert (util/entity-type arg) "The argument must have a entity type")
-       (find (:id arg)
-             (keyword (util/entity-type arg)))))) ; TODO: can we remove the call to keyword?
-  ([id-or-ref entity-type-or-opts]
-   (let [[entity-type opts] (if (keyword? entity-type-or-opts)
-                             [entity-type-or-opts {}]
-                             [(or (:entity-type entity-type-or-opts)
-                                  (util/entity-type id-or-ref))
-                              entity-type-or-opts])]
-     (find-by (util/entity-type
-                (util/->entity-ref id-or-ref)
-                entity-type)
-              opts))))
+  "Return the entity having the specified ID"
+  [id]
+  (db/find (db/storage) id))
 
 (def ^:private mergeable?
   (every-pred map? :id))
@@ -305,13 +279,10 @@
   (delete-many opts [entity]))
 
 (defn resolve-ref
-  ([entity-type]
-   (fn [entity-or-ref]
-     (resolve-ref entity-or-ref entity-type)))
-  ([entity-or-ref entity-type]
-   (if (util/entity-ref? entity-or-ref)
-     (find entity-or-ref entity-type)
-     entity-or-ref)))
+  [entity-or-ref]
+  (if (util/entity-ref? entity-or-ref)
+    (find (:id entity-or-ref))
+    entity-or-ref))
 
 (def sensitive-keys
   #{:user/email

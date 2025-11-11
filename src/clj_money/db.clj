@@ -1,5 +1,5 @@
 (ns clj-money.db
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
             [clj-money.otel :refer [with-tracing]]
@@ -13,6 +13,7 @@
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
   (put [this entities] "Saves the specified entities to the data store")
+  (find [this id] "Fetches the entity with the given id")
   (select [this criteria options] "Retrieves entities from the data store")
   (update [this changes criteria] "Performs a batch data update")
   (delete [this entities] "Removes entities from the data store")
