@@ -8,7 +8,6 @@
             [clojure.walk :refer [postwalk]]
             [clojure.tools.logging :as log]
             [dgknght.app-lib.validation :as v]
-            [dgknght.app-lib.models :refer [->id]]
             [clj-money.json] ; to ensure encoders are registered
             [clj-money.util :as util :refer [entity=]]
             [clj-money.db :as db]))
@@ -89,10 +88,15 @@
   ([criteria options]
    (first (select criteria (assoc options :limit 1)))))
 
+(def ^:private ->id
+  (some-fn :id identity))
+
 (defn find
   "Return the entity having the specified ID"
-  [id]
-  (db/find (db/storage) id))
+  [id-or-entity]
+  (after-read
+    (db/find (db/storage) (->id id-or-entity))
+    {}))
 
 (def ^:private mergeable?
   (every-pred map? :id))
