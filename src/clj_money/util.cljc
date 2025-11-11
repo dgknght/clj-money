@@ -576,10 +576,19 @@
 (defn single-ns
   "Given a map, return the one namespace of all the keys in the map.
   Throw an exception if more than one namespace is found."
-  [m]
-  (let [names (->> (keys m)
+  [m & {:keys [ignore allow-none]}]
+  (let [ignore? (or ignore (constantly false))
+        names (->> (keys m)
+                   (remove ignore?)
                    (map namespace)
                    (into #{}))]
-    (if (= 1 (count names))
+    (cond
+      (= 1 (count names))
       (keyword (first names))
+
+      (= 0 (count names))
+      (when-not allow-none
+        (throw (ex-info "No namespace found. Cannot apply the update" m)))
+
+      :else
       (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))

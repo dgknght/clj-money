@@ -6,6 +6,7 @@
             clj-money.entities.grants
             clj-money.entities.commodities
             clj-money.entities.cached-prices
+            clj-money.entities.prices
             clj-money.entities.accounts
             clj-money.entities.transactions
             clj-money.entities.lots

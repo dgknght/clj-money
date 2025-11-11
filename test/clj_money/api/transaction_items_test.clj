@@ -1,13 +1,16 @@
 (ns clj-money.api.transaction-items-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [java-time.api :as t]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
+            [clj-money.json]
             [clj-money.util :as util]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.api.test-helper :refer [add-auth
+                                               parse-body
+                                               request]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [basic-context
                                             with-context
@@ -113,64 +116,94 @@
                          :status :new}))
 
 (defn- get-a-list
-  [email]
-  (with-context context
-    (let [account (find-account "Checking")]
-      (-> (req/request :get (str (path :api
-                                       :accounts
-                                       (:id account)
-                                       :transaction-items)
-                                 "?"
-                                 (map->query-string
-                                   {:limit 5
-                                    :unreconciled true
-                                    :transaction-date-on-or-after "2017-01-01"
-                                    :transaction-date-before "2017-02-01"})))
-          (add-auth (find-user email))
-          app
-          parse-edn-body))))
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
+  (let [account (find-account "Checking")]
+    (-> (request :get (str (path :api
+                                 :accounts
+                                 (:id account)
+                                 :transaction-items)
+                           "?"
+                           (map->query-string
+                             {:limit 5
+                              :unreconciled true
+                              :transaction-date-on-or-after "2017-01-01"
+                              :transaction-date-before "2017-02-01"}))
+                 :content-type content-type
+                 :user (find-user email))
+        app
+        parse-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected [{:transaction/transaction-date (t/local-date 2017 01 29)
+                      :transaction/description "Kroger"
+                      :transaction-item/quantity 100M
+                      :transaction-item/polarized-quantity -100M
+                      :transaction-item/action :credit}
+                     {:transaction/transaction-date (t/local-date 2017 01 22)
+                      :transaction/description "Kroger"
+                      :transaction-item/quantity 100M
+                      :transaction-item/polarized-quantity -100M
+                      :transaction-item/action :credit}
+                     {:transaction/transaction-date (t/local-date 2017 01 15)
+                      :transaction/description "Paycheck"
+                      :transaction-item/quantity 1000M
+                      :transaction-item/polarized-quantity 1000M
+                      :transaction-item/action :debit}
+                     {:transaction/transaction-date (t/local-date 2017 01 14)
+                      :transaction/description "Kroger"
+                      :transaction-item/quantity 100M
+                      :transaction-item/polarized-quantity -100M
+                      :transaction-item/action :credit}
+                     {:transaction/transaction-date (t/local-date 2017 01 01)
+                      :transaction/description "Kroger"
+                      :transaction-item/quantity 100M
+                      :transaction-item/polarized-quantity -100M
+                      :transaction-item/action :credit}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 01 29)
-                           :transaction/description "Kroger"
-                           :transaction-item/quantity 100M
-                           :transaction-item/polarized-quantity -100M
-                           :transaction-item/action :credit}
-                          {:transaction/transaction-date (t/local-date 2017 01 22)
-                           :transaction/description "Kroger"
-                           :transaction-item/quantity 100M
-                           :transaction-item/polarized-quantity -100M
-                           :transaction-item/action :credit}
-                          {:transaction/transaction-date (t/local-date 2017 01 15)
-                           :transaction/description "Paycheck"
-                           :transaction-item/quantity 1000M
-                           :transaction-item/polarized-quantity 1000M
-                           :transaction-item/action :debit}
-                          {:transaction/transaction-date (t/local-date 2017 01 14)
-                           :transaction/description "Kroger"
-                           :transaction-item/quantity 100M
-                           :transaction-item/polarized-quantity -100M
-                           :transaction-item/action :credit}
-                          {:transaction/transaction-date (t/local-date 2017 01 01)
-                           :transaction/description "Kroger"
-                           :transaction-item/quantity 100M
-                           :transaction-item/polarized-quantity -100M
-                           :transaction-item/action :credit}]
-                         edn-body)
-      "The transaction items are returned in the response"))
+  (let [body (or parsed-body edn-body)]
+    (is (seq-of-maps-like? expected body)
+        "The transaction items are returned in the response")))
 
 (defn- assert-blocked-list
-  [response]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (empty? (:edn-body response)) "No transaction items are returned"))
+  (let [body (or parsed-body edn-body)]
+    (is (empty? body) "No transaction items are returned")))
 
 (deftest a-user-can-get-a-list-of-transaction-items-in-his-entity
-  (assert-successful-list (get-a-list "john@doe.com")))
+  (with-context context
+    (testing "default format (edn)"
+      (assert-successful-list (get-a-list "john@doe.com")))
+    (testing "json format"
+      (assert-successful-list
+        (get-a-list "john@doe.com" :content-type "application/json")
+        :expected [{:description "Kroger"
+                    :quantity {:d 100.0}
+                    :action "credit"
+                    :_type "transaction-item"}
+                   {:description "Kroger"
+                    :quantity {:d 100.0}
+                    :action "credit"
+                    :_type "transaction-item"}
+                   {:description "Paycheck"
+                    :quantity {:d 1000.0}
+                    :action "debit"
+                    :_type "transaction-item"}
+                   {:description "Kroger"
+                    :quantity {:d 100.0}
+                    :action "credit"
+                    :_type "transaction-item"}
+                   {:description "Kroger"
+                    :quantity {:d 100.0}
+                    :action "credit"
+                    :_type "transaction-item"}]))))
 
 (deftest a-user-cannot-get-a-list-of-transaction-items-in-anothers-entity
-  (assert-blocked-list (get-a-list "jane@doe.com")))
+  (with-context context
+    (assert-blocked-list (get-a-list "jane@doe.com"))))
 
 (def ^:private children-context
   (conj basic-context

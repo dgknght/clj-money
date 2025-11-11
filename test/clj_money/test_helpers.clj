@@ -44,6 +44,7 @@
   (test/parse-edn-body res :readers {'clj-money/local-date t/local-date
                                      'clj-money/local-date-time t/local-date-time
                                      'clj-money/decimal d/d}))
+
 (def ^:dynamic *strategy* nil)
 
 (defn ->set

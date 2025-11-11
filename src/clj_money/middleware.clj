@@ -3,10 +3,17 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
+            [clojure.string :as string]
             [ring.util.response :refer [response status header]]
+            [muuntaja.middleware :refer [wrap-format-negotiate
+                                         wrap-format-request
+                                         wrap-format-response]]
+            [muuntaja.core :as muuntaja]
             [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.inflection :refer [singular]]
+            [clj-money.formats :as fmts]
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
             [clj-money.api :refer [log-error]]))
@@ -121,3 +128,61 @@
            response
            (status 500)
            (header "Content-Type" "application/json"))))))
+
+(defmulti ^:private conventionalize-content
+  (fn [_content content-type] content-type))
+
+(defmethod conventionalize-content :default
+  [content _]
+  content)
+
+(defmethod conventionalize-content "application/json"
+  [content _]
+  (fmts/edn->json content))
+
+(defn- conventionalize-response
+  [{:as res :keys [status]} content-type]
+  (if (#{201 200} status)
+    (update-in res [:body] #(conventionalize-content % content-type))
+    res))
+
+(defn- wrap-conventionalize-response
+  [handler]
+  (fn [{:as req :muuntaja/keys [response]}]
+    (-> req
+        handler
+        (conventionalize-response (:format response)))))
+
+(defn- wrap-infer-entity-type
+  [handler]
+  (fn [{:as req :reitit.core/keys [match]}]
+    (let [final-segment (->> (string/split (:template match) #"/")
+                             (remove #{"api"})
+                             (remove #(re-find #"^:" %))
+                             last)]
+      (-> req
+          (assoc :entity-type (singular final-segment))
+          handler))))
+
+(defmulti ^:private ->clj-keys (comp :format :muuntaja/request))
+
+(defmethod ->clj-keys :default [req] req)
+
+(defmethod ->clj-keys "application/json"
+  [req]
+  (update-in req
+             [:body-params]
+             fmts/json->edn))
+
+(defn- wrap-clj-request-keys
+  [handler]
+  (fn [req]
+    (-> req ->clj-keys handler)))
+
+(def wrap-format
+  (comp #(wrap-format-negotiate % (assoc muuntaja/default-options :default-format "application/edn"))
+        wrap-format-request
+        wrap-infer-entity-type
+        wrap-clj-request-keys
+        wrap-format-response
+        wrap-conventionalize-response))

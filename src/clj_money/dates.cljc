@@ -395,6 +395,12 @@
   #?(:clj (t/local-date (t/formatter :iso-date) date-str)
      :cljs (tf/parse-local-date (tf/formatters :date) date-str)))
 
+(defn ensure-local-date
+  [d]
+  (if (string? d)
+    (unserialize-local-date d)
+    d))
+
 (defn serialize-local-date-time
   [local-date-time]
   #?(:clj (t/format (t/formatter "yyyy-MM-dd'T'hh:mm:ss") local-date-time)

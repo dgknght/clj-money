@@ -7,7 +7,20 @@
       "Bash(lein clean:*)",
       "Read(//tmp/**)",
       "Bash(lein compile:*)",
-      "Bash(clj-kondo --lint:*)"
+      "Bash(clj-kondo --lint:*)",
+      "Bash(lein clj-kondo:*)",
+      "Bash(git add:*)",
+      "Bash(xargs:*)",
+      "Bash(for file in /home/doug/code/dgknght/clj-money/test/clj_money/api/*_test.clj)",
+      "Bash(do)",
+      "Bash(if grep -q 'testing \"\"json format\"\"' \"$file\")",
+      "Bash(then)",
+      "Bash(else)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(git commit:*)",
+      "Bash(for test in prices reconciliations reports trading users)",
+      "Bash(do echo \"Testing clj-money.api.$test-test:\" lein test clj-money.api.$test-test)"
     ],
     "deny": [],
     "ask": []

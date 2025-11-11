@@ -45,10 +45,9 @@
                                                       com.cognitect/transit-clj
                                                       prismatic/schema
                                                       com.fasterxml.jackson.core/jackson-core]]
-                 [metosin/ring-middleware-format "0.6.0" :exclusions [org.clojure/tools.reader
-                                                                      org.clojure/tools.analyzer.jvm
-                                                                      org.clojure/core.memoize
-                                                                      ring]]
+                 [metosin/muuntaja "0.6.11" :exclusions [com.fasterxml.jackson.core/jackson-annotations
+                                                         com.fasterxml.jackson.core/jackson-databind
+                                                         com.fasterxml.jackson.core/jackson-core]]
                  [com.cognitect/transit-clj "1.0.333"]
                  [hiccup "2.0.0" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.48" :exclusions [org.clojure/tools.reader
@@ -111,7 +110,7 @@
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.37"
+                  "0.3.38"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java

@@ -2,14 +2,16 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.core :refer [index-by
+                                          update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.comparatives :as comparatives]
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
-            [clj-money.util :as util :refer [id=]]
-            [clj-money.dates :refer [unserialize-local-date]]
+            [clj-money.util :as util]
+            [clj-money.dates :refer [unserialize-local-date
+                                     ensure-local-date]]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.authorization.transactions]
@@ -75,12 +77,28 @@
    :transaction/credit-account
    :transaction/quantity])
 
+(def ^:private item-keys
+  [:id
+   :transaction-item/account
+   :transaction-item/action
+   :transaction-item/quantity
+   :transaction-item/memo])
+
+(defn- refine-item
+  [item]
+  (-> item
+      (select-keys item-keys)
+      (update-in-if [:transaction-item/action] util/ensure-keyword)
+      (update-in-if [:transaction-item/quantity] bigdec)))
+
 (defn- extract-transaction
   [{:keys [params]}]
   (-> params
       (dissoc :id)
       expand
-      (select-keys attribute-keys)))
+      (select-keys attribute-keys)
+      (update-in-if [:transaction/transaction-date] ensure-local-date)
+      (update-in-if [:transaction/items] (partial map refine-item))))
 
 (defn- create
   [{:keys [authenticated params] :as req}]
@@ -92,16 +110,17 @@
       api/creation-response))
 
 (defn- apply-to-existing
-  [updated-item items]
-  (if-let [existing (->> items
-                         (filter #(id= % updated-item))
-                         first)]
-    (merge existing updated-item)
-    updated-item))
+  [mapped]
+  (fn [{:keys [id] :as incoming}]
+    (if-let [existing (when id (mapped id))]
+      (merge existing incoming)
+      incoming)))
 
 (defn- apply-item-updates
   [items updates]
-  (mapv #(apply-to-existing % items) updates))
+  (let [mapped (index-by :id items)]
+    (mapv (apply-to-existing mapped)
+          updates)))
 
 (defn- apply-update
   [transaction req]
