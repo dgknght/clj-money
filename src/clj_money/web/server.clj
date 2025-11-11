@@ -43,8 +43,10 @@
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
+            [clj-money.api.cli-auth :as cli-auth-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
             [clj-money.web.apps :as apps]
+            [clj-money.web.cli-auth :as cli-auth]
             [cljs.pprint :as pprint]))
 
 (defn- not-found []
@@ -139,6 +141,10 @@
                                          wrap-merge-params
                                          wrap-request-logging]}
                    web-auth/routes]
+                  ["cli/" {:middleware [:site
+                                        wrap-merge-params
+                                        wrap-request-logging]}
+                   cli-auth/routes]
                   ["app/" {:middleware [:site
                                         :wrap-format
                                         wrap-merge-params
@@ -153,7 +159,8 @@
                                          wrap-parse-id-params
                                          wrap-exceptions
                                          wrap-request-logging]}
-                   users-api/unauthenticated-routes]
+                   users-api/unauthenticated-routes
+                   cli-auth-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
                                         :wrap-format
                                         wrap-decimals
@@ -177,7 +184,8 @@
                    reports-api/routes
                    trading-api/routes
                    transaction-items-api/routes
-                   sched-trans-api/routes]]
+                   sched-trans-api/routes
+                   cli-auth-api/authenticated-routes]]
                  {:conflicts (fn [conflicts]
                                (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))
                   ::middleware/registry {:site (wrap-site)
