@@ -520,12 +520,14 @@
 
 (defn deep-rename-keys
   "Given a data structure, rename keys in all contained maps"
-  [x key-map]
-  (postwalk (fn [x*]
-              (if (map? x*)
-                (rename-keys x* key-map)
-                x*))
-            x))
+  ([key-map]
+   #(deep-rename-keys % key-map))
+  ([x key-map]
+   (postwalk (fn [x*]
+               (if (map? x*)
+                 (rename-keys x* key-map)
+                 x*))
+             x)))
 
 (defn- normalize-sort-key
   [x]
