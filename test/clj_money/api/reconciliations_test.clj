@@ -1,17 +1,18 @@
 (ns clj-money.api.reconciliations-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
-            [ring.mock.request :as req]
+            [clojure.set :refer [rename-keys]]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]
+            [clj-money.json]
             [clj-money.entities.ref]
             [clj-money.util :as util]
             [clj-money.db.ref]
-            [clj-money.test-helpers :refer [reset-db
-                                            edn-body
-                                            parse-edn-body]]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.api.test-helper :refer [parse-body
+                                               request]]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-user
@@ -57,93 +58,155 @@
                                  [(t/local-date 2015 1 3) 100M]]}))
 
 (defn- get-reconciliations
-  [email]
-  (with-context recon-context
-    (-> (req/request :get (path :api
-                                :accounts
-                                (:id (find-account "Checking"))
-                                :reconciliations))
-        (add-auth (find-user email))
-        app
-        parse-edn-body)))
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
+  (-> (request :get (path :api
+                          :accounts
+                          (:id (find-account "Checking"))
+                          :reconciliations)
+               :content-type content-type
+               :user (find-user email))
+      app
+      parse-body))
 
 (defn- assert-successful-get
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected [#:reconciliation{:end-of-period (t/local-date 2015 1 4)
+                                      :balance 400M}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [#:reconciliation{:end-of-period (t/local-date 2015 1 4)
-                                           :balance 400M}]
-                         edn-body)
-      "The response contains the list of reconciliations"))
+  (let [body (or parsed-body edn-body)]
+    (is (seq-of-maps-like? expected body)
+        "The response contains the list of reconciliations")))
 
 (defn- assert-blocked-get
-  [{:as response :keys [edn-body]}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (empty? edn-body) "No reconciliations are returned"))
+  (let [body (or parsed-body edn-body)]
+    (is (empty? body) "No reconciliations are returned")))
 
 (deftest a-user-can-get-reconciliations-from-his-entity
-  (assert-successful-get (get-reconciliations "john@doe.com")))
+  (with-context recon-context
+    (testing "default format"
+      (assert-successful-get (get-reconciliations "john@doe.com")))
+    (testing "json format"
+      (assert-successful-get
+        (get-reconciliations "john@doe.com" :content-type "application/json")
+        :expected [{:endOfPeriod "2015-01-04"
+                    :balance {:d 400.0}
+                    :_type "reconciliation"}]))))
 
 (deftest a-user-cannot-get-reconciliations-from-anothers-entity
-  (assert-blocked-get (get-reconciliations "jane@doe.com")))
+  (with-context recon-context
+    (assert-blocked-get (get-reconciliations "jane@doe.com"))))
 
 (defn- create-reconciliation
-  [email complete?]
-  (with-context recon-context
-    (let [user (find-user email)
-          account (find-account "Checking")
-          items (if complete?
-                  (map #(select-keys % [:id :transaction/transaction-date])
-                       (entities/select {:transaction-item/account account
-                                       :transaction-item/quantity 101M
-                                       :transaction/transaction-date (t/local-date 2015 1 10)}
-                                      {:select-also [:transaction/transaction-date]}))
-                  [])
-          status (if complete?
-                   :completed
-                   :new)
-          response (-> (req/request :post (path :api
-                                                :accounts
-                                                (:id account)
-                                                :reconciliations))
-                       (edn-body #:reconciliation{:end-of-period (t/local-date 2015 2 4)
-                                                  :balance 299.0M
-                                                  :status status
-                                                  :items items})
-                       (add-auth user)
-                       app
-                       parse-edn-body)
-          retrieved (entities/find-by
-                      #:reconciliation{:account account
-                                       :end-of-period (t/local-date 2015 2 4)})]
-      [response retrieved])))
+  [email & {:keys [content-type body]
+            :or {content-type "application/edn"}}]
+  (let [account (find-account "Checking")
+        user (find-user email)
+        response (-> (request :post (path :api
+                                          :accounts
+                                          (:id account)
+                                          :reconciliations)
+                              :content-type content-type
+                              :body body
+                              :user user)
+                     app
+                     parse-body)
+        retrieved (entities/find-by
+                    #:reconciliation{:account account
+                                     :end-of-period (t/local-date 2015 2 4)})]
+    [response retrieved]))
 
 (defn- assert-create-succeeded
-  [[{:as response :keys [edn-body]} retrieved]]
+  [[{:as response :keys [parsed-body]} retrieved]
+   & {:keys [expected expected-response]
+      :or {expected #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                     :balance 299M}}}]
   (is (http-created? response))
-  (is (valid? edn-body))
-  (let [expected #:reconciliation{:end-of-period (t/local-date 2015 2 4)
-                                  :balance 299M}]
-    (is (comparable? expected edn-body)
-        "The body contains the created reconciliation")
-    (is (comparable? expected retrieved)
-        "The newly created reconciliation can be retrieved")))
+  (is (valid? parsed-body))
+  (is (comparable? (or expected-response expected)
+                   parsed-body)
+      "The body contains the created reconciliation")
+  (is (comparable? expected retrieved)
+      "The newly created reconciliation can be retrieved"))
 
 (defn- assert-blocked-create
   [[response retrieved]]
   (is (http-not-found? response))
   (is (nil? retrieved) "The reconciliation is not created"))
 
+(defn- select-recon-items []
+  (map #(select-keys % [:id :transaction/transaction-date])
+       (entities/select {:transaction-item/account (find-account "Checking")
+                         :transaction-item/quantity 101M
+                         :transaction/transaction-date (t/local-date 2015 1 10)}
+                        {:select-also [:transaction/transaction-date]})))
+
+(defn- build-recon
+  [status]
+  (cond-> #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                           :balance 299.0M
+                           :status status}
+    (= :completed status)
+    (assoc :reconciliation/items (select-recon-items))))
+
+(defn- build-json-recon
+  [status]
+  (cond-> {:endOfPeriod (t/local-date 2015 2 4)
+           :balance 299.0M
+           :status status
+           :_type "reconciliation"}
+    (= :completed status)
+    (assoc :items (map (comp #(rename-keys % {:transaction/transaction-date
+                                              :transactionDate})
+                             #(assoc % :_type "transaction"))
+                       (select-recon-items)))))
+
 (deftest a-user-can-create-a-completed-reconciliation-in-his-entity
-  (assert-create-succeeded (create-reconciliation "john@doe.com" true)))
+  (with-context recon-context
+    (assert-create-succeeded
+      (create-reconciliation "john@doe.com"
+                             :body (build-recon :completed)))))
+
+(deftest a-user-can-create-a-completed-reconciliation-in-his-entity-with-json
+  (with-context recon-context
+    (assert-create-succeeded
+      (create-reconciliation "john@doe.com"
+                             :content-type "application/json"
+                             :body (build-json-recon :completed))
+      :expected-response {:endOfPeriod "2015-02-04"
+                          :balance {:d 299.0}
+                          :_type "reconciliation"})))
 
 (deftest a-user-can-create-an-incomplete-reconciliation-in-his-entity
-  (assert-create-succeeded (create-reconciliation "john@doe.com" false)))
+  (with-context recon-context
+    (assert-create-succeeded
+        (create-reconciliation "john@doe.com"
+                               :body (build-recon :new)))))
+
+(deftest a-user-can-create-an-incomplete-reconciliation-in-his-entity-with-json
+  (with-context recon-context
+    (assert-create-succeeded
+      (create-reconciliation "john@doe.com"
+                             :content-type "application/json"
+                             :body (build-json-recon :new))
+      :expected-response {:endOfPeriod "2015-02-04"
+                          :balance {:d 299.0}
+                          :_type "reconciliation"})))
 
 (deftest a-user-cannot-create-a-completed-reconciliation-in-anothers-entity
-  (assert-blocked-create (create-reconciliation "jane@doe.com" true)))
+  (with-context recon-context
+    (assert-blocked-create
+      (create-reconciliation "jane@doe.com"
+                             :body (build-recon :completed)))))
 
 (deftest a-user-cannot-create-an-incomplete-reconciliation-in-anothers-entity
-  (assert-blocked-create (create-reconciliation "jane@doe.com" false)))
+  (with-context recon-context
+    (assert-blocked-create
+      (create-reconciliation "jane@doe.com"
+                             :body (build-recon :new)))))
 
 (def ^:private update-context
   (conj recon-context
@@ -154,30 +217,37 @@
                          :items [[(t/local-date 2015 1 10) 101M]]}))
 
 (defn- update-reconciliation
-  [email]
-  (with-context update-context
-    (let [recon (find-reconciliation ["Checking" (t/local-date 2015 2 4)])
-          response (-> (req/request :patch (path :api
-                                                 :reconciliations
-                                                 (:id recon)))
-                       (edn-body (-> recon
-                                     (dissoc :id :reconciliation/items)
-                                     (assoc :reconciliation/status :completed)))
-                       (add-auth (find-user email))
-                       app
-                       parse-edn-body)]
-      [response (entities/find-by
-                  (util/entity-type
-                    (select-keys recon
-                                 [:id
-                                  :reconciliation/end-of-period])
-                    :reconciliation))])))
+  [email & {:keys [content-type]
+            :or {content-type "application/edn"}}]
+  (let [recon (find-reconciliation ["Checking" (t/local-date 2015 2 4)])
+        body (if (= content-type "application/json")
+               {:status "completed"
+                :_type "reconciliation"}
+               (-> recon
+                   (dissoc :id :reconciliation/items)
+                   (assoc :reconciliation/status :completed)))
+        response (-> (request :patch (path :api
+                                           :reconciliations
+                                           (:id recon))
+                              :content-type content-type
+                              :body body
+                              :user (find-user email))
+                     app
+                     parse-body)]
+    [response (entities/find-by
+                (util/entity-type
+                  (select-keys recon
+                               [:id
+                                :reconciliation/end-of-period])
+                  :reconciliation))]))
 
 (defn- assert-successful-update
-  [[{:as response :keys [edn-body]} retrieved]]
+  [[{:as response :keys [edn-body parsed-body]} retrieved]
+   & {:keys [expected expected-response]
+      :or {expected {:reconciliation/status :completed}}}]
   (is (http-success? response))
-  (let [expected {:reconciliation/status :completed}]
-    (is (comparable? expected edn-body)
+  (let [body (or parsed-body edn-body)]
+    (is (comparable? (or expected-response expected) body)
         "The response includes the updated reconciliation")
     (is (comparable? expected retrieved)
         "The reconciliation is updated in the database")))
@@ -190,7 +260,16 @@
       "The reconciliation is not updated in the database"))
 
 (deftest a-user-can-update-a-reconciliation-in-his-entity
-  (assert-successful-update (update-reconciliation "john@doe.com")))
+  (with-context update-context
+    (assert-successful-update (update-reconciliation "john@doe.com"))))
+
+(deftest a-user-can-update-a-reconciliation-in-his-entity-with-json
+  (with-context update-context
+    (assert-successful-update
+      (update-reconciliation "john@doe.com" :content-type "application/json")
+      :expected-response {:status "completed"
+                          :_type "reconciliation"})))
 
 (deftest a-user-cannot-update-a-reconciliation-in-anothers-entity
-  (assert-blocked-update (update-reconciliation "jane@doe.com")))
+  (with-context update-context
+    (assert-blocked-update (update-reconciliation "jane@doe.com"))))

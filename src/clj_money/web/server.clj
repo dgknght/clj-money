@@ -12,7 +12,6 @@
                                               api-defaults]]
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.format :refer [wrap-restful-format]]
             [ring.middleware.session.cookie :refer [cookie-store]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
@@ -24,7 +23,8 @@
             [clj-money.web.auth :as web-auth]
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-parse-id-params
-                                          wrap-exceptions]]
+                                          wrap-exceptions
+                                          wrap-format]]
             [clj-money.entities :as entities]
             [clj-money.db.ref]
             [clj-money.api.users :as users-api]
@@ -109,10 +109,10 @@
                     (pprint res)))
       res)))
 
-(defn- wrap-merge-path-params
+(defn- wrap-merge-params
   [handler]
-  (fn [{:keys [path-params] :as req}]
-    (handler (update-in req [:params] merge path-params))))
+  (fn [{:keys [path-params body-params] :as req}]
+    (handler (update-in req [:params] merge path-params body-params))))
 
 (defn- wrap-site []
   (let [c-store (cookie-store)]
@@ -130,32 +130,34 @@
         handler
         (update-in [:body] d/wrap-decimals))))
 
+
 (def app
   (ring/ring-handler
     (ring/router ["/" {:middleware [otel/wrap-otel]}
                   apps/routes
                   ["auth/" {:middleware [:site
-                                         wrap-merge-path-params
+                                         wrap-merge-params
                                          wrap-request-logging]}
                    web-auth/routes]
                   ["app/" {:middleware [:site
-                                        wrap-merge-path-params
+                                        :wrap-format
+                                        wrap-merge-params
                                         wrap-parse-id-params
                                         :authentication
                                         wrap-request-logging]}
                    images/routes]
                   ["oapi/" {:middleware [:api
-                                         :wrap-restful-format
+                                         :wrap-format
                                          wrap-decimals
-                                         wrap-merge-path-params
+                                         wrap-merge-params
                                          wrap-parse-id-params
                                          wrap-exceptions
                                          wrap-request-logging]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
-                                        :wrap-restful-format
+                                        :wrap-format
                                         wrap-decimals
-                                        wrap-merge-path-params
+                                        wrap-merge-params
                                         wrap-parse-id-params
                                         :authentication
                                         wrap-exceptions
@@ -182,8 +184,7 @@
                                          :api [wrap-defaults (-> api-defaults
                                                                  (assoc-in [:params :multipart] true)
                                                                  (assoc-in [:security :anti-forgery] false))]
-                                         :wrap-restful-format [wrap-restful-format
-                                                               {:formats [:edn :json]}]
+                                         :wrap-format wrap-format
                                          :authentication [api/wrap-authentication
                                                           {:authenticate-fn find-user-by-auth-token}]}})
     (ring/routes

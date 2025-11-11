@@ -57,18 +57,32 @@
       (entities/select (select-options))
       api/response))
 
+(defn- refine-item
+  [item]
+  (-> item
+      (update-in-if [:scheduled-transaction-item/quantity] bigdec)
+      (update-in-if [:scheduled-transaction-item/action] util/ensure-keyword)))
+
 (defn- extract-sched-tran
   [{:keys [params]}]
-  (select-keys params [:scheduled-transaction/start-date
-                       :scheduled-transaction/end-date
-                       :scheduled-transaction/enabled
-                       :scheduled-transaction/last-occurrence
-                       :scheduled-transaction/date-spec
-                       :scheduled-transaction/period
-                       :scheduled-transaction/entity
-                       :scheduled-transaction/description
-                       :scheduled-transaction/memo
-                       :scheduled-transaction/items]))
+  (-> params
+      (select-keys [:scheduled-transaction/start-date
+                    :scheduled-transaction/end-date
+                    :scheduled-transaction/enabled
+                    :scheduled-transaction/last-occurrence
+                    :scheduled-transaction/date-spec
+                    :scheduled-transaction/period
+                    :scheduled-transaction/entity
+                    :scheduled-transaction/description
+                    :scheduled-transaction/memo
+                    :scheduled-transaction/items])
+      (update-in-if [:scheduled-transaction/start-date] dates/ensure-local-date)
+      (update-in-if [:scheduled-transaction/end-date] dates/ensure-local-date)
+      (update-in-if [:scheduled-transaction/period 1] util/ensure-keyword)
+      (update-in-if [:scheduled-transaction/date-spec :days] #(->> %
+                                                                   (map util/ensure-keyword)
+                                                                   set))
+      (update-in-if [:scheduled-transaction/items] (partial map refine-item))))
 
 (defn- create
   [{:keys [params authenticated] :as req}]

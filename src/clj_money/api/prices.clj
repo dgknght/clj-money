@@ -43,11 +43,17 @@
       (entities/select {:sort [[:price/trade-date :desc]]})
       api/response))
 
-(defn- create
-  [{:keys [authenticated params]}]
+(defn- extract-price
+  [{:keys [params]}]
   (-> params
       (select-keys [:price/trade-date
                     :price/value])
+      (update-in-if [:price/value] bigdec)
+      (update-in-if [:price/trade-date] dates/ensure-local-date)))
+
+(defn- create
+  [{:keys [authenticated params] :as req}]
+  (-> (extract-price req)
       (assoc :price/commodity {:id (:commodity-id params)})
       (authorize ::authorization/create authenticated)
       prop/put-and-propagate
@@ -61,10 +67,9 @@
              authenticated))
 
 (defn- update
-  [{:as req :keys [params]}]
+  [req]
   (or (some-> (find-and-authorize req ::authorization/update)
-              (merge (select-keys params [:price/value
-                                          :price/trade-date]))
+              (merge (extract-price req))
               prop/put-and-propagate
               api/update-response)
       api/not-found))

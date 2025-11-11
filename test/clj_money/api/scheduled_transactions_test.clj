@@ -1,14 +1,17 @@
 (ns clj-money.api.scheduled-transactions-test
-  (:require [clojure.test :refer [use-fixtures deftest is]]
+  (:require [clojure.test :refer [use-fixtures deftest is testing]]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.json]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.dates :as dates :refer [with-fixed-time]]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.api.test-helper :refer [add-auth
+                                               parse-body
+                                               request]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -18,7 +21,6 @@
                                             find-scheduled-transaction]]
             [clj-money.entities.transactions :as trxs]
             [clj-money.test-helpers :refer [reset-db
-                                            edn-body
                                             parse-edn-body]]
             [clj-money.web.server :refer [app]]))
 
@@ -45,44 +47,65 @@
                                                                      :memo "rent"}]}))
 
 (defn- get-list
-  [user-email]
-  (with-context sched-trans-context
-    (let [entity (find-entity "Personal")]
-      (-> (req/request :get (path :api
-                                  :entities
-                                  (:id entity)
-                                  :scheduled-transactions))
-          (add-auth (find-user user-email))
-          app
-          parse-edn-body))))
+  [user-email & {:keys [content-type]
+                 :or {content-type "application/edn"}}]
+  (let [entity (find-entity "Personal")]
+    (-> (request :get (path :api
+                            :entities
+                            (:id entity)
+                            :scheduled-transactions)
+                 :content-type content-type
+                 :user (find-user user-email))
+        app
+        parse-body)))
 
 (defn- assert-successful-list
-  [{:keys [edn-body] :as response}]
+  [{:as response :keys [edn-body parsed-body]}
+   & {:keys [expected]
+      :or {expected [#:scheduled-transaction{:start-date (t/local-date 2004 03 02)
+                                             :description "Landlord"
+                                             :memo "automatically created"
+                                             :period [1 :year]
+                                             :items [#:scheduled-transaction-item{:action :credit
+                                                                                  :quantity 50M
+                                                                                  :memo "checking"}
+                                                     #:scheduled-transaction-item{:action :debit
+                                                                                  :quantity 50M
+                                                                                  :memo "rent"}]}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like?
-        [#:scheduled-transaction{:start-date (t/local-date 2004 03 02)
-                                 :description "Landlord"
-                                 :memo "automatically created"
-                                 :period [1 :year]
-                                 :items [#:scheduled-transaction-item{:action :credit
-                                                                      :quantity 50M
-                                                                      :memo "checking"}
-                                         #:scheduled-transaction-item{:action :debit
-                                                                      :quantity 50M
-                                                                      :memo "rent"}]}]
-        edn-body)
-      "The body contains the existing scheduled transactions"))
+  (let [body (or parsed-body edn-body)]
+    (is (seq-of-maps-like? expected body)
+        "The body contains the existing scheduled transactions")))
 
 (defn- assert-blocked-list
-  [{:keys [edn-body] :as response}]
+  [{:as response :keys [edn-body parsed-body]}]
   (is (http-success? response))
-  (is (empty? edn-body)))
+  (let [body (or parsed-body edn-body)]
+    (is (empty? body))))
 
 (deftest a-user-can-get-a-list-of-scheduled-transactions-in-his-entity
-  (assert-successful-list (get-list "john@doe.com")))
+  (with-context sched-trans-context
+    (testing "default format (edn)"
+      (assert-successful-list (get-list "john@doe.com")))
+    (testing "json format"
+      (assert-successful-list
+        (get-list "john@doe.com" :content-type "application/json")
+        :expected [{:description "Landlord"
+                    :startDate "2004-03-02"
+                    :period [1 "year"]
+                    :items [{:action "credit"
+                             :quantity {:d 50.0}
+                             :memo "checking"
+                             :_type "scheduled-transaction-item"}
+                            {:action "debit"
+                             :quantity {:d 50.0}
+                             :memo "rent"
+                             :_type "scheduled-transaction-item"}]
+                    :_type "scheduled-transaction"}]))))
 
 (deftest a-user-cannot-get-a-list-of-scheduled-transactions-for-anothers-entity
-  (assert-blocked-list (get-list "jane@doe.com")))
+  (with-context sched-trans-context
+    (assert-blocked-list (get-list "jane@doe.com"))))
 
 (defn- attr []
   #:scheduled-transaction{:description "Paycheck"
@@ -100,39 +123,48 @@
                                                                :memo "salary"}]})
 
 (defn- create-sched-tran
-  [user-email]
+  [user-email & {:keys [content-type body]
+                 :or {content-type "application/edn"}}]
   (let [entity (find-entity "Personal")
-        response (-> (req/request :post (path :api
-                                              :entities
-                                              (:id entity)
-                                              :scheduled-transactions))
-                     (edn-body (attr))
-                     (add-auth (find-user user-email))
+        default-body (attr)
+        request-body (or body default-body)
+        response (-> (request :post (path :api
+                                          :entities
+                                          (:id entity)
+                                          :scheduled-transactions)
+                             :content-type content-type
+                             :body request-body
+                             :user (find-user user-email))
                      app
-                     parse-edn-body)]
+                     parse-body)]
     [response
-     (when-let [id (get-in response [:edn-body :id])]
+     (when-let [id (or (get-in response [:parsed-body :id])
+                       (get-in response [:edn-body :id]))]
        (entities/find id :scheduled-transaction))]))
 
 (defn- assert-sched-tran-created
-  [[{:keys [edn-body] :as response} retrieved]]
+  [[{:as response :keys [parsed-body]} retrieved]
+   & {:keys [expected
+             expected-response]
+      :or {expected #:scheduled-transaction{:description "Paycheck"
+                                            :start-date (t/local-date 2021 1 1)
+                                            :date-spec {:days #{:friday}}
+                                            :period [2 :week]
+                                            :memo "biweekly"
+                                            :items [#:scheduled-transaction-item{:action :debit
+                                                                                 :quantity 1000M
+                                                                                 :memo "checking"}
+                                                    #:scheduled-transaction-item{:action :credit
+                                                                                 :quantity 1000M
+                                                                                 :memo "salary"}]}}}]
   (is (http-created? response))
-  (is (:id edn-body) "The return value contains an :id")
-  (let [expected #:scheduled-transaction{:description "Paycheck"
-                                         :start-date (t/local-date 2021 1 1)
-                                         :date-spec {:days #{:friday}}
-                                         :period [2 :week]
-                                         :memo "biweekly"
-                                         :items [#:scheduled-transaction-item{:action :debit
-                                                                              :quantity 1000M
-                                                                              :memo "checking"}
-                                                 #:scheduled-transaction-item{:action :credit
-                                                                              :quantity 1000M
-                                                                              :memo "salary"}]}]
-    (is (comparable? expected edn-body)
-        "The return value contains the created schedule transaction")
-    (is (comparable? expected retrieved)
-        "The scheduled transaction can be retrieved")))
+  (is (:id parsed-body) "The return value contains an :id")
+  (is (comparable? (or expected-response
+                       expected)
+                   parsed-body)
+      "The return value contains the created schedule transaction")
+  (is (comparable? expected retrieved)
+      "The scheduled transaction can be retrieved"))
 
 (defn- assert-blocked-create
   [[response retrieved]]
@@ -141,7 +173,53 @@
 
 (deftest a-user-can-create-a-scheduled-transaction-in-his-entity
   (with-context sched-trans-context
-    (assert-sched-tran-created (create-sched-tran "john@doe.com"))))
+    (testing "default format (edn)"
+        (assert-sched-tran-created (create-sched-tran "john@doe.com")))
+    (testing "json format"
+      (assert-sched-tran-created
+        (create-sched-tran "john@doe.com"
+                           :content-type "application/json"
+                           :body {:description "Rent"
+                                  :startDate "2020-01-01"
+                                  :dateSpec {:days ["friday"]}
+                                  :period [2 "week"]
+                                  :memo "biweekly"
+                                  :_type "scheduled-transaction"
+                                  :items [{:action "debit"
+                                           :account (util/->entity-ref (find-account "Rent"))
+                                           :quantity 1000
+                                           :memo "rent"
+                                           :_type "scheduled-transaction-item"}
+                                          {:action "credit"
+                                           :account (util/->entity-ref (find-account "Checking"))
+                                           :quantity 1000
+                                           :memo "checking"
+                                           :_type "scheduled-transaction-item"}]})
+        :expected #:scheduled-transaction{:description "Rent"
+                                          :start-date (t/local-date 2020 1 1)
+                                          :date-spec {:days #{:friday}}
+                                          :period [2 :week]
+                                          :memo "biweekly"
+                                          :items [#:scheduled-transaction-item{:action :debit
+                                                                               :quantity 1000M
+                                                                               :memo "rent"}
+                                                  #:scheduled-transaction-item{:action :credit
+                                                                               :quantity 1000M
+                                                                               :memo "checking"}]}
+        :expected-response {:description "Rent"
+                            :startDate "2020-01-01"
+                            :dateSpec {:days ["friday"]}
+                            :period [2 "week"]
+                            :memo "biweekly"
+                            :_type "scheduled-transaction"
+                            :items [{:action "debit"
+                                     :quantity {:d 1000}
+                                     :memo "rent"
+                                     :_type "scheduled-transaction-item"}
+                                    {:action "credit"
+                                     :quantity {:d 1000}
+                                     :memo "checking"
+                                     :_type "scheduled-transaction-item"}]}))))
 
 (deftest a-user-cannot-create-a-scheduled-transaction-in-anothers-entity
   (with-context sched-trans-context
@@ -163,29 +241,30 @@
                                                                      :account "Salary"
                                                                      :quantity 1000M}]}))
 
-(def ^:private update-attr
-  #:scheduled-transaction{:period [2 :week]})
-
 (defn- update-sched-tran
-  [user-email]
-  (with-context update-context
-    (let [tran (find-scheduled-transaction "Paycheck")]
-      [(-> (req/request :patch (path :api
-                                     :scheduled-transactions
-                                     (:id tran)))
-           (edn-body update-attr)
-           (add-auth (find-user user-email))
-           app
-           parse-edn-body)
-       (entities/find tran)])))
+  [user-email & {:keys [content-type body]
+                 :or {content-type "application/edn"
+                      body #:scheduled-transaction{:period [2 :week]}}}]
+  (let [tran (find-scheduled-transaction "Paycheck")]
+    [(-> (request :patch (path :api
+                               :scheduled-transactions
+                               (:id tran))
+                  :content-type content-type
+                  :body body
+                  :user (find-user user-email))
+         app
+         parse-body)
+     (entities/find tran)]))
 
 (defn- assert-successful-update
-  [[{:keys [edn-body] :as response} retrieved]]
+  [[{:keys [parsed-body] :as response} retrieved]
+   & {:keys [expected expected-response]
+    :or {expected #:scheduled-transaction{:period [2 :week]}}}]
   (is (http-success? response))
-  (is (comparable? #:scheduled-transaction{:period [2 :week]}
-                   edn-body)
+  (is (comparable? (or expected-response expected)
+                   parsed-body)
       "The updated scheduled transaction is returned")
-  (is (comparable? update-attr retrieved)
+  (is (comparable? expected retrieved)
       "The database is updated correctly"))
 
 (defn- assert-blocked-update
@@ -196,10 +275,22 @@
       "The database is not updated"))
 
 (deftest a-user-can-edit-a-scheduled-transaction-in-his-entity
-  (assert-successful-update (update-sched-tran "john@doe.com")))
+  (with-context update-context
+    (testing "default format (edn)"
+      (assert-successful-update (update-sched-tran "john@doe.com")))
+    (testing "json format"
+      (assert-successful-update
+        (update-sched-tran "john@doe.com"
+                           :content-type "application/json"
+                           :body {:period [5 :month]
+                                  :_type "scheduled-transaction"})
+        :expected #:scheduled-transaction{:period [5 :month]}
+        :expected-response {:period [5 "month"]
+                            :_type "scheduled-transaction"}))))
 
 (deftest a-user-cannot-edit-a-scheduled-transaction-in-anothers-entity
-  (assert-blocked-update (update-sched-tran "jane@doe.com")))
+  (with-context update-context
+    (assert-blocked-update (update-sched-tran "jane@doe.com"))))
 
 (defn- delete-sched-tran
   [user-email]

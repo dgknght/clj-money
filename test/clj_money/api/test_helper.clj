@@ -1,8 +1,10 @@
 (ns clj-money.api.test-helper
-  (:require [clojure.tools.logging :as log]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
+            [ring.util.response :as res]
+            [muuntaja.core :as muuntaja]
             [clj-money.web.auth :as auth])
   (:import [java.io File ByteArrayOutputStream]
            [org.apache.http.entity ContentType]
@@ -52,15 +54,29 @@
      :headers {"content-type" content-type
                "content-length" (str content-length)}}))
 
-(defn parse-json-body
+(defn no-content?
+  [{:keys [status]}]
+  (= 204 status))
+
+(def has-content?
+  (complement no-content?))
+
+(defn parse-body
   [{:keys [body] :as res}]
-  (if-let [parsed (try
-                    (json/parse-string body true)
-                    (catch Exception e
-                      (log/warnf "Unable to parse json body because of %s (%s): %s"
-                                 (.getMessage e)
-                                 (.getClass e)
-                                 body)
-                      nil))]
-    (assoc res :json-body parsed)
+  (if (has-content? res)
+    (let [content-type (-> res
+                           (res/get-header "content-type")
+                           (string/split #";")
+                           first)]
+      (assoc res :parsed-body (muuntaja/decode content-type body)))
     res))
+
+(defn request
+  [method path & {:keys [accept content-type body user]
+                  :or {content-type "application/edn"}}]
+  (let [accept (or accept content-type)]
+    (cond-> (req/request method path)
+      content-type (req/content-type content-type)
+      accept (req/header :accept accept)
+      body (assoc :body (muuntaja/encode content-type body))
+      user (add-auth user))))

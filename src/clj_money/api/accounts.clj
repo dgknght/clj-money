@@ -76,20 +76,25 @@
    :account/parent
    :account/allocations])
 
-(defn- create
-  [{:keys [params authenticated]}]
+(defn- extract-account
+  [{:keys [params]}]
   (-> params
       (select-keys attribute-keys)
+      (update-in-if [:account/type] util/ensure-keyword)))
+
+(defn- create
+  [{:keys [params authenticated] :as req}]
+  (-> (extract-account req)
       (assoc :account/entity {:id (:entity-id params)})
       (authorize ::auth/create authenticated)
       entities/put
       api/creation-response))
 
 (defn- update
-  [{:keys [params] :as req}]
+  [req]
   (if-let [account (find-and-auth req ::auth/update)]
     (-> account
-        (merge (select-keys params attribute-keys))
+        (merge (extract-account req))
         entities/put
         api/update-response)
     api/not-found))

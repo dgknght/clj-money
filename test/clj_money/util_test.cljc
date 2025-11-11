@@ -427,7 +427,23 @@
     (is (= :user
            (util/single-ns {:user/first-name "John"
                             :user/last-name "Doe"}))))
-  (testing "failure"
+  (testing "ignored attribute"
+    (is (= :user
+           (util/single-ns {:id 101
+                            :user/first-name "John"
+                            :user/last-name "Doe"}
+                           :ignore #{:id}))))
+  (testing "allow none"
+    (is (nil? (util/single-ns {:id 101}
+                              :ignore #{:id}
+                              :allow-none true))))
+  (testing "not enought"
+    (is (thrown-with-msg? #?(:clj ExceptionInfo
+                             :cljs js/Error)
+                          #"(?i)no namespace"
+                          (util/single-ns {:id 101}
+                                          :ignore #{:id}))))
+  (testing "too many"
     (is (thrown-with-msg? #?(:clj ExceptionInfo
                              :cljs js/Error)
                           #"(?i)more than one namespace"
