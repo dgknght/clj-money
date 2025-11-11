@@ -49,6 +49,11 @@
                                   (-> entities first util/entity-type))]
         (put storage entities)))
 
+    (find [_ id]
+      (with-tracing [span (format "%s/find %s"
+                                  prefix
+                                  id)]
+        (find storage id)))
     (select [_ criteria opts]
       (with-tracing [span (format "%s/select %s"
                                   prefix
