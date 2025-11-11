@@ -39,7 +39,8 @@
 (defn criteria->query
   [criteria & [options]]
   {:pre [criteria
-         (util/entity-type criteria)]}
+         (or (:entity-type options)
+             (util/entity-type criteria))]}
   (-> criteria
       (self->id)
       (sql/->query (merge default-options options))))
