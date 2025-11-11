@@ -24,3 +24,39 @@ security implications carefully.
 
 ## Additional Requirements
 Create documentation for implementing the client.
+
+## Diagrams
+```mermaid
+sequenceDiagram
+  actor User
+  participant CLI
+  participant Browser
+  participant Service
+  User->>CLI: auth
+  activate CLI
+  CLI->>Service: init-auth
+  activate Service
+  Service->>CLI: auth-url
+  par poll for result
+    loop every n-seconds
+      CLI->>Service: poll-for-token
+      alt has succeded
+        Service->>CLI: auth-token
+        CLI->>User: Success!
+        CLI->>CLI: store-token
+      else has failed
+        Service->>CLI: error
+        CLI->>User: Failure!
+      else
+        Service->>CLI: wait
+      end
+    end
+  and finish authentication
+    User->>Browser: visit(auth-url)
+    Browser->>Service: continue-auth
+    Service->>Browser: done
+  end
+  deactivate Service
+  Browser->>User: Close Window
+  deactivate CLI
+```
