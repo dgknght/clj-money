@@ -34,13 +34,13 @@
         (api/response {:error "expired_token"
                        :error-description
                        "The device code has expired"}
-                      :status 400)
+                      400)
 
         (= :denied (:cli-auth-session/status session))
         (api/response {:error "access_denied"
                        :error-description
                        "The user denied the authorization request"}
-                      :status 403)
+                      403)
 
         (= :approved (:cli-auth-session/status session))
         (let [user {:id (:cli-auth-session/user-id session)}
@@ -53,10 +53,10 @@
         (api/response {:error "authorization_pending"
                        :error-description
                        "The user has not yet completed authorization"}
-                      :status 400))
+                      400))
       (api/response {:error "invalid_request"
                      :error-description "Invalid device_code"}
-                    :status 400))))
+                    400))))
 
 (defn- approve-session
   "Approves a CLI auth session for the authenticated user"
@@ -65,11 +65,11 @@
     (if-let [session (cli-sessions/find-by-user-code user-code)]
       (cond
         (cli-sessions/expired? session)
-        (api/response {:error "Session has expired"} :status 400)
+        (api/response {:error "Session has expired"} 400)
 
         (not= :pending (:cli-auth-session/status session))
         (api/response {:error "Session has already been processed"}
-                      :status 400)
+                      400)
 
         :else
         (do
@@ -85,11 +85,11 @@
     (if-let [session (cli-sessions/find-by-user-code user-code)]
       (cond
         (cli-sessions/expired? session)
-        (api/response {:error "Session has expired"} :status 400)
+        (api/response {:error "Session has expired"} 400)
 
         (not= :pending (:cli-auth-session/status session))
         (api/response {:error "Session has already been processed"}
-                      :status 400)
+                      400)
 
         :else
         (do

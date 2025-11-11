@@ -4,6 +4,7 @@
 - You value code that is readable and self-documenting.
 - You avoid repeating yourself in code.
 - Work in small, focused commits.
+- Ensure that your code does not produce any linter warnings.
 
 ## Tests
 - The entire test suite takes a long time to run. When verifying that changes

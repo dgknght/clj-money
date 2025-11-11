@@ -1,8 +1,6 @@
 (ns clj-money.web.cli-auth
   (:require [clojure.tools.logging :as log]
-            [ring.util.response :as res]
             [hiccup.page :refer [html5 include-js]]
-            [hiccup.form :as form]
             [clj-money.config :refer [env]]))
 
 (defn- head []
