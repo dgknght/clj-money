@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys map-invert]]
             [clojure.spec.alpha :as s]
+            [clojure.string :as string]
             [camel-snake-kebab.core :refer [->snake_case_keyword
                                             ->snake_case_string
                                             ->snake_case
@@ -308,27 +309,6 @@
                         :operation (s/tuple ::db/operation ::entity)))
 (s/def ::puttables (s/coll-of ::puttable))
 
-; This is only exposed publicly to support tests that enforce
-; short-circuting transaction propagation
-(defn put*
-  "Executes operations against the database. This function is not entended
-  to be used directly."
-  [ds entities]
-  {:pre [(s/valid? ::puttables entities)]}
-  (let [result (jdbc/with-transaction [tx ds]
-                 (->> entities
-                      (mapcat deconstruct)
-                      (map (comp #(update-in % [1] (comp before-save
-                                                         ->sql-refs))
-                                 wrap-oper))
-                      (reduce (execute-and-aggregate tx)
-                              {:saved []
-                               :id-map {}})))]
-    (->> (:saved result)
-         (map (comp after-read
-                    ->entity-refs))
-         (reconstruct))))
-
 (defn- id-key
   [x]
   (when-let [target (util/entity-type x)]
@@ -352,7 +332,8 @@
   [{:keys [include-children? include-parents? entity-type]}]
   (fn [m]
     (let [+ns (if (or include-children? include-parents?)
-                           #(keyword (name entity-type)
+                           #(keyword (name (or entity-type
+                                               (util/entity-type m)))
                                      (name %))
                            identity)]
       (update-keys m (fn [k]
@@ -371,49 +352,107 @@
   (keyword (->snake_case_string (namespace k))
            (->snake_case_string (name k))))
 
+(defn- make-query
+  [criteria {:as options
+             :keys [include-children?
+                    include-parents?
+                    nil-replacements
+                    entity-type]}]
+  (-> criteria
+      (crt/apply-to massage-ids)
+      prepare-criteria
+      (criteria->query
+        (cond-> (assoc options
+                       :quoted? true
+                       :column-fn ->snake_case
+                       :table-fn ->snake_case
+                       :target entity-type)
+          nil-replacements (assoc :nil-replacements
+                                  (update-keys nil-replacements
+                                               ->snake-case))
+          include-children? (assoc :recursion (recursions entity-type))
+          include-parents? (assoc :recursion (reverse (recursions entity-type)))))))
+
+(defn- refine-id
+  ([entity-type]
+   #(refine-id % entity-type))
+  ([e entity-type]
+   (update-in e [:id] #(format "%s:%s" % (name (or entity-type
+                                                   (util/entity-type e)))))))
+
+(defn- after-read*
+  ([] (after-read* {}))
+  ([{:as options :keys [entity-type]}]
+   (comp after-read
+         apply-coercions
+         ->entity-refs
+         (refine-qualifiers options)
+         (refine-id entity-type))))
+
+; This is only exposed publicly to support tests that enforce
+; short-circuting transaction propagation
+(defn put*
+  "Executes operations against the database. This function is not entended
+  to be used directly."
+  [ds entities]
+  {:pre [(s/valid? ::puttables entities)]}
+  (let [result (jdbc/with-transaction [tx ds]
+                 (->> entities
+                      (mapcat deconstruct)
+                      (map (comp #(update-in % [1] (comp before-save
+                                                         ->sql-refs))
+                                 wrap-oper))
+                      (reduce (execute-and-aggregate tx)
+                              {:saved []
+                               :id-map {}})))]
+    (->> (:saved result)
+         (map (after-read*))
+         (reconstruct))))
+
+(defn- extract-entities
+  [ds query options]
+  (->> (jdbc/execute! ds query sql-opts)
+       (map (after-read* options))
+       (post-select options)))
+
+(defn- extract-count
+  [ds query]
+  (:record-count
+    (jdbc/execute-one! ds
+                       query
+                       sql-opts)))
+
 (defn- select*
-  [ds criteria {:as options
-                :keys [include-children?
-                       include-parents?
-                       nil-replacements]}]
-  (let [entity-type (util/entity-type criteria)
-        query (-> criteria
-                  (crt/apply-to massage-ids)
-                  prepare-criteria
-                  (criteria->query
-                    (cond-> (assoc options
-                                   :quoted? true
-                                   :column-fn ->snake_case
-                                   :table-fn ->snake_case
-                                   :target entity-type)
-                      nil-replacements (assoc :nil-replacements
-                                              (update-keys nil-replacements
-                                                           ->snake-case))
-                      include-children? (assoc :recursion (recursions entity-type))
-                      include-parents? (assoc :recursion (reverse (recursions entity-type))))))]
-
-    (log/debugf "database select %s with options %s -> %s"
-                (entities/scrub-sensitive-data criteria)
-                options
-                (scrub-values criteria query))
-
+  [ds criteria opts]
+  (let [options (update-in opts
+                           [:entity-type]
+                           #(or % (util/entity-type criteria)))
+        query (make-query criteria options)
+        _ (log/debugf "database select %s with options %s -> %s"
+                      (entities/scrub-sensitive-data criteria)
+                      options
+                      (scrub-values criteria query))]
     (if (:count options)
-      (:record-count
-        (jdbc/execute-one! ds
-                           query
-                           sql-opts))
-      (->> (jdbc/execute! ds
-                          query
-                          sql-opts)
-           (map (comp after-read
-                      apply-coercions
-                      ->entity-refs
-                      (refine-qualifiers (assoc options :entity-type entity-type))))
-           (post-select options)))))
+      (extract-count ds query)
+      (extract-entities ds query options))))
+
+(defn- parse-id
+  [id]
+  (update-in (string/split id #":")
+             [0]
+             parse-long))
+
+(def ^:private ->id
+  (some-fn :id identity))
 
 (defn- find*
-  [ds id]
-  (select* ds))
+  [ds composite-id]
+  (let [[id entity-type] (-> composite-id ->id parse-id)]
+    (first
+      (select* ds
+               {:id id}
+               {:limit 1
+                :entity-type (keyword entity-type)}))))
 
 (defn- update*
   [ds changes criteria]
