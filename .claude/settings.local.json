@@ -20,7 +20,10 @@
       "Bash(done)",
       "Bash(git commit:*)",
       "Bash(for test in prices reconciliations reports trading users)",
-      "Bash(do echo \"Testing clj-money.api.$test-test:\" lein test clj-money.api.$test-test)"
+      "Bash(do echo \"Testing clj-money.api.$test-test:\" lein test clj-money.api.$test-test)",
+      "WebSearch",
+      "Bash(lein run:*)",
+      "Bash(lein migrate:*)"
     ],
     "deny": [],
     "ask": []

@@ -277,7 +277,21 @@
               {:id :exchange
                :type :keyword}
               {:id :value
-               :type :decimal}}}])
+               :type :decimal}}}
+   {:id :cli-auth-session
+    :fields #{{:id :device-code
+               :type :string}
+              {:id :user-code
+               :type :string}
+              {:id :status
+               :type :keyword}
+              {:id :expires-at
+               :type :date-time}
+              {:id :created-at
+               :type :date-time}
+              {:id :approved-at
+               :type :date-time}}
+    :refs #{:user}}])
 
 (assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")

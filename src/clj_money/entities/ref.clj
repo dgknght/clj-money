@@ -15,4 +15,5 @@
             clj-money.entities.attachments
             clj-money.entities.scheduled-transactions
             clj-money.entities.budgets
-            clj-money.entities.budget-items))
+            clj-money.entities.budget-items
+            clj-money.entities.cli-auth-sessions))
