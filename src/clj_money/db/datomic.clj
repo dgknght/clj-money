@@ -274,36 +274,27 @@
     (take limit vs)
     vs))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(defmacro with-performance-logging
-  [query & body]
-  `(let [f# (fn* [] ~@body)
-         start# (System/nanoTime)
-         result# (f#)
-         duration# (/ (- (System/nanoTime)
-                         start#)
-                      1000000.0)]
-     (log/debugf "[performance] {:query %s :millis %.2f :stack %s}"
-                 ~query
-                 duration#
-                 (->> (.getStackTrace (Thread/currentThread))
-                      (map #(.toString %))
-                      (filter #(re-find #"clj_money" %))
-                      (take 20)
-                      (into [])))
-     result#))
+(def ^:private after-read*
+  (comp after-read
+        apply-coercions
+        (util/deep-rename-keys {:db/id :id})))
 
 (defn- find*
-  [id {:keys [api]}])
+  [id {:keys [api]}]
+  (after-read* (pull api id)))
+
+(defn- make-query
+  [criteria options]
+  (-> criteria
+      normalize-criteria
+      prepare-criteria
+      ->java-dates
+      (criteria->query options)))
 
 (defn- select*
   [criteria {:as options :keys [count select]} {:keys [api]}]
-  (let [qry (-> criteria
-                normalize-criteria
-                prepare-criteria
-                ->java-dates
-                (criteria->query options))
-        raw-result (with-performance-logging qry (query api qry))]
+  (let [qry (make-query criteria options)
+        raw-result (query api qry)]
 
     (log/debugf "select %s -> %s"
                 (entities/scrub-sensitive-data criteria)
@@ -320,9 +311,7 @@
       (->> raw-result
            (map (extract-entity options))
            (remove naked-id?)
-           (map (comp after-read
-                      apply-coercions
-                      #(util/deep-rename-keys % {:db/id :id})))
+           (map after-read*)
            (util/apply-sort options)
            (apply-limit options)))))
 
@@ -361,9 +350,10 @@
               tx-data
               (mapcat identity options)))
     (pull [_ id]
-      (d-peer/pull (-> uri d-peer/connect d-peer/db)
-                   '[*]
-                   id))
+      (-> uri
+          d-peer/connect
+          d-peer/db
+          (d-peer/pull '[*] id)))
     (query [_ {:keys [query args]}]
       ; TODO: take in the as-of date-time
       (apply d-peer/q
