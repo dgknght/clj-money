@@ -1,5 +1,5 @@
 (ns clj-money.api.trading-test
-  (:require [clojure.test :refer [deftest use-fixtures is testing]]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [java-time.api :as t]
@@ -24,7 +24,7 @@
 (use-fixtures :each reset-db)
 
 (def ^:private transactions
-  (some-fn :trade/transaction :transaction))
+  (some-fn :trade/transactions :transactions))
 
 (def ^:private buy-context
   [(factory :user {:user/email "john@doe.com"})
@@ -59,41 +59,41 @@
                  :credit-account "Opening Balances"
                  :quantity 1000M}])
 
-(defn- buy-a-commodity
-  [email & {:keys [dividend? content-type]
-            :or {dividend? false
-                 content-type "application/edn"}}]
-  (let [entity (find-entity "Personal")
-        aapl (find-commodity "AAPL")
+(defn- buy-body
+  [content-type dividend?]
+  (let [aapl (find-commodity "AAPL")
         ira (find-account "IRA")
-        dividends (find-account "Dividends")
-        user (find-user email)
-        attr (if (= content-type "application/json")
-               (cond-> {:date "2016-03-02"
-                        :action "buy"
-                        :entity (util/->entity-ref entity)
-                        :shares 100
-                        :value 1000
-                        :commodity (util/->entity-ref aapl)
-                        :account (util/->entity-ref ira)
-                        :_type "trade"}
-                 dividend? (assoc :dividend true
-                                  :dividendAccount (util/->entity-ref dividends)))
-               (cond-> #:trade{:date (t/local-date 2016 3 2)
-                               :action :buy
-                               :entity (util/->entity-ref entity)
-                               :shares 100M
-                               :value 1000M
-                               :commodity (util/->entity-ref aapl)
-                               :account (util/->entity-ref ira)
-                               :dividend? dividend?
-                               :dividend-account (util/->entity-ref dividends)}))]
+        dividends (find-account "Dividends")]
+    (if (= content-type "application/json")
+      (cond-> {:date "2016-03-02"
+               :action "buy"
+               :shares 100
+               :value 1000
+               :commodity (util/->entity-ref aapl)
+               :account (util/->entity-ref ira)
+               :_type "trade"}
+        dividend? (assoc :dividend? true
+                         :dividendAccount (util/->entity-ref dividends)))
+      (cond-> #:trade{:date (t/local-date 2016 3 2)
+                      :action :buy
+                      :shares 100M
+                      :value 1000M
+                      :commodity (util/->entity-ref aapl)
+                      :account (util/->entity-ref ira)}
+        dividend? (assoc :trade/dividend? true
+                         :trade/dividend-account (util/->entity-ref dividends))))))
+
+(defn- buy-a-commodity
+  [email & {:keys [content-type dividend?]
+            :or {content-type "application/edn"}}]
+  (let [entity (find-entity "Personal")
+        user (find-user email)]
     [(-> (request :post (path :api
                               :entities
                               (:id entity)
                               :trades)
                   :content-type content-type
-                  :body attr
+                  :body (buy-body content-type dividend?)
                   :user user)
          app
          parse-body)
@@ -134,9 +134,11 @@
       "No transactions are not created"))
 
 (deftest a-user-can-purchase-a-commodity-in-his-entity
-  (testing "default format"
-    (assert-successful-purchase (buy-a-commodity "john@doe.com")))
-  (testing "json format"
+  (with-context buy-context
+    (assert-successful-purchase (buy-a-commodity "john@doe.com"))))
+
+(deftest a-user-can-purchase-a-commodity-in-his-entity-with-json
+  (with-context buy-context
     (assert-successful-purchase
       (buy-a-commodity "john@doe.com" :content-type "application/json")
       :expected-response [{:transactionDate "2016-03-02"
