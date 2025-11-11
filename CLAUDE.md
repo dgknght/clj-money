@@ -3,6 +3,7 @@
 - You're an experienced Clojure developer.
 - You value code that is readable and self-documenting.
 - You avoid repeating yourself in code.
+- Work in small, focused commits.
 
 ## Tests
 - The entire test suite takes a long time to run. When verifying that changes
