@@ -89,21 +89,24 @@
   (set-parameter [^clojure.lang.PersistentHashMap m ^PreparedStatement s ^long i]
     (.setObject s i (map->pg-object m))))
 
-(defmulti coerce-id type)
+(defn- parse-uuid-id
+  [x]
+  (when (re-find #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z" x)
+    (parse-uuid x)))
 
-(defmethod coerce-id ::id [id] id)
+(defn- parse-int-id
+  [x]
+  (when-let [match (re-find #"\A(\d+)(:[a-z]+)?\z" x)]
+    (parse-long (nth match 1))))
 
-(defmethod coerce-id ::string
-  [s]
+(def ^:private parse-id
+  (some-fn parse-uuid-id
+           parse-int-id
+           identity))
+
+(defn coerce-id
+  [x]
   (cond
-    (temp-id? s)            s
-    (re-find #"^[0-9]+$" s) (parse-long s)
-    :else                   (java.util.UUID/fromString s)))
-
-(defmethod coerce-id ::vector
-  [v]
-  (mapv (fn [x]
-          (if (string? x)
-            (coerce-id x)
-            x))
-        v))
+    (vector? x) (mapv coerce-id x)
+    (string? x) (parse-id x)
+    :else       x))

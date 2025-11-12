@@ -185,7 +185,6 @@
 
 (defn- put*
   [entities {:keys [api]}]
-  {:pre [(sequential? entities)]}
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))

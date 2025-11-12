@@ -17,7 +17,8 @@
             [next.jdbc.result-set :as result-set]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.util :as util :refer [temp-id?]]
+            [clj-money.util :as util :refer [temp-id?
+                                             live-id?]]
             [clj-money.entities :as entities]
             [clj-money.entities.schema :as schema]
             [clj-money.db :as db]
@@ -192,6 +193,7 @@
 (defn- update
   [db entity]
   {:pre [(:id entity)]}
+
   (let [table (infer-table-name entity)
         s (for-update table
                       (dissoc entity :id)
@@ -226,17 +228,14 @@
     ::db/delete (delete-one ds entity)
     (throw (ex-info "Invalid operation" {:operation oper}))))
 
-(def ^:private id?
-  (every-pred identity (complement temp-id?)))
-
 (defn- wrap-oper
   "Ensure that what we are passing on is a tuple with a database
   operation in the 1st position and a entity in the second."
   [{:as m :keys [id]}]
   (cond
-    (vector? m) m
-    (id? id)    [::db/update m]
-    :else       [::db/insert m]))
+    (vector? m)      m
+    (live-id? id)    [::db/update m]
+    :else            [::db/insert m]))
 
 (defmulti resolve-temp-ids
   "In a entity-specific way, replace temporary ids with proper ids after a save."
@@ -395,12 +394,12 @@
   "Executes operations against the database. This function is not entended
   to be used directly."
   [ds entities]
-  {:pre [(s/valid? ::puttables entities)]}
   (let [result (jdbc/with-transaction [tx ds]
                  (->> entities
                       (mapcat deconstruct)
                       (map (comp #(update-in % [1] (comp before-save
-                                                         ->sql-refs))
+                                                         ->sql-refs
+                                                         massage-ids))
                                  wrap-oper))
                       (reduce (execute-and-aggregate tx)
                               {:saved []
@@ -457,7 +456,7 @@
 (defn- update*
   [ds changes criteria]
   (let [sql (->update (->sql-refs changes)
-                      (->sql-refs criteria))]
+                      (-> criteria massage-ids ->sql-refs))]
     (log/debugf "database bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
                 (entities/scrub-sensitive-data criteria)

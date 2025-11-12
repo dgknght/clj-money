@@ -368,7 +368,12 @@
   (when-not (temp-id? id)
     id))
 
-(def live-id? (complement temp-id?))
+(defn live-id?
+  [id-or-entity]
+  (when-let [id (->id id-or-entity)]
+    (if (string? id)
+      (not (string/starts-with? id "temp-"))
+      true)))
 
 (def simple-keys
   [:user/email

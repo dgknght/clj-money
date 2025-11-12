@@ -229,13 +229,7 @@
   ([{:as opts
      :keys [storage]}
     entities]
-
-   (when-not (s/valid? ::puttables entities)
-     (s/explain ::puttables entities)
-     (throw (ex-info "Invalid entity" {:entities entities})))
-
-
-   #_{:pre [(s/valid? ::puttables entities)]}
+   {:pre [(s/valid? ::puttables entities)]}
 
    (let [to-save (->> entities
                       (handle-dupes opts)
