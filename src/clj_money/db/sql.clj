@@ -372,9 +372,9 @@
           include-children? (assoc :recursion (recursions entity-type))
           include-parents? (assoc :recursion (reverse (recursions entity-type)))))))
 
-(defn- refine-id
+(defn- encode-entity-type-in-id
   ([entity-type]
-   #(refine-id % entity-type))
+   #(encode-entity-type-in-id % entity-type))
   ([e entity-type]
    (update-in e [:id] #(format "%s:%s" % (name (or entity-type
                                                    (util/entity-type e)))))))
@@ -386,7 +386,7 @@
          apply-coercions
          ->entity-refs
          (refine-qualifiers options)
-         (refine-id entity-type))))
+         (encode-entity-type-in-id entity-type))))
 
 ; This is only exposed publicly to support tests that enforce
 ; short-circuting transaction propagation
