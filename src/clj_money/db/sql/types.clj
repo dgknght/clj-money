@@ -4,8 +4,7 @@
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
-            [next.jdbc.date-time]
-            [clj-money.util :refer [temp-id?]])
+            [next.jdbc.date-time])
   (:import org.postgresql.util.PGobject
            [java.sql Array Connection ParameterMetaData PreparedStatement]))
 
