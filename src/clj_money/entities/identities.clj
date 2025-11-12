@@ -15,11 +15,11 @@
 
 (defn- find-by-identity
   [[provider {:keys [id]}]]
-  (when-let [ident (entities/find-by
-                     #:identity{:provider provider
-                                :provider-id id})]
-    (entities/find (:identity/user ident)
-                 :user)))
+  (some-> #:identity{:provider provider
+                     :provider-id id}
+          entities/find-by
+          :identity/user
+          entities/find))
 
 (defn- find-by-email
   [[provider {:keys [email id]}]]

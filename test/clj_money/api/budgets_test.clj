@@ -49,7 +49,7 @@
     [response (-> response
                   :parsed-body
                   :id
-                  (entities/find :budget))]))
+                  entities/find)]))
 
 (defn- assert-successful-create
   [[{:as response :keys [parsed-body]} retrieved]

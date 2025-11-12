@@ -285,8 +285,10 @@
     (let [account (assert-created (dissoc (attributes)
                                           :account/commodity))]
       (is (comparable? {:commodity/symbol "USD"}
-                       (entities/find (:id (get-in account [:account/commodity]))
-                                      :commodity))))))
+                       (-> account
+                           :account/commodity
+                           :id
+                           entities/find))))))
 
 (def ^:private update-context
   (conj account-context

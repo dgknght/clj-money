@@ -56,8 +56,7 @@
                    (:parsed-body res))
       "The created budget item is returned in the response")
   (is (comparable? expected
-                   (entities/find (:id (:parsed-body res))
-                                  :budget-item))
+                   (-> res :parsed-body :id entities/find))
       "The created budget item can be retrieved"))
 
 (defn- assert-not-found-create

@@ -132,15 +132,16 @@
                                           :entities
                                           (:id entity)
                                           :scheduled-transactions)
-                             :content-type content-type
-                             :body request-body
-                             :user (find-user user-email))
+                              :content-type content-type
+                              :body request-body
+                              :user (find-user user-email))
                      app
                      parse-body)]
     [response
-     (when-let [id (or (get-in response [:parsed-body :id])
-                       (get-in response [:edn-body :id]))]
-       (entities/find id :scheduled-transaction))]))
+     (-> response
+         :parsed-body
+         :id
+         entities/find)]))
 
 (defn- assert-sched-tran-created
   [[{:as response :keys [parsed-body]} retrieved]

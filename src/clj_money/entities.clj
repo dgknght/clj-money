@@ -94,9 +94,10 @@
 (defn find
   "Return the entity having the specified ID"
   [id-or-entity]
-  (after-read
-    (db/find (db/storage) (->id id-or-entity))
-    {}))
+  (when id-or-entity
+    (after-read
+      (db/find (db/storage) (->id id-or-entity))
+      {})))
 
 (def ^:private mergeable?
   (every-pred map? :id))

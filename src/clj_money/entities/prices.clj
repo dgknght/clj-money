@@ -29,6 +29,7 @@
 (s/def :price/trade-date t/local-date?)
 (s/def :price/value decimal?)
 (s/def ::id uuid?)
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/price (s/and (s/keys :req [:price/commodity
                                            :price/trade-date
                                            :price/value]
@@ -43,7 +44,7 @@
 
    (let [[earliest
           latest] (-> commodity
-                      (entities/resolve-ref :commodity)
+                      entities/resolve-ref
                       (:commodity/price-date-range))]
      (cond
        (every? nil? [earliest latest])
@@ -94,7 +95,7 @@
 (defn- push-entity-bounds
   [{:price/keys [trade-date commodity]}]
   (-> (:commodity/entity commodity)
-      (entities/find :entity)
+      entities/find
       (dates/push-entity-boundary :entity/price-date-range trade-date)))
 
 (defn- after-latest?
@@ -182,7 +183,7 @@
 (defn apply-agg-to-commodities-and-accounts
   [agg]
   (mapcat (fn [[commodity {:keys [current date-range]}]]
-            (-> (entities/find commodity :commodity)
+            (-> (entities/find commodity)
                 (assoc :commodity/price-date-range date-range)
                 (cons (apply-to-accounts current))))
           (:commodities agg)))
