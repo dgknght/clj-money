@@ -547,8 +547,7 @@
 
 (defn- append-entity
   [{:keys [budget] :as ctx}]
-  (assoc ctx :entity (entities/find (:budget/entity budget)
-                                  :entity)))
+  (assoc ctx :entity (-> budget :budget/entity entities/find)))
 
 (defn- append-period-count
   [{:keys [budget as-of] :as ctx}]
@@ -690,7 +689,7 @@
 
 (defn- summarize-commodity
   [[commodity-id lots]]
-  (let [commodity (entities/find commodity-id :commodity)
+  (let [commodity (entities/find commodity-id)
         shares (sum :lot/shares-owned lots)
         cost (->> lots
                   (map #(* (:lot/shares-owned %)
@@ -784,7 +783,7 @@
                         :select-also [:transaction/transaction-date]})))
         (group-by (comp :id :lot/commodity))
         (map (comp #(apply valuate-lots %)
-                   #(update-in % [0] (fn [id] (entities/find id :commodity)))))
+                   #(update-in % [0] entities/find)))
         (sort-by :commodity/name))))
 
 (declare aggregate-portfolio-account)

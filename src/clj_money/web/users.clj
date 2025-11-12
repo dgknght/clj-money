@@ -20,7 +20,8 @@
 
 (defn find-user-by-auth-token
   [req]
-  (when-let [token (extract-auth-token req)]
-    (entities/find (:user-id (jwt/unsign token
-                                       (env :secret)))
-                 :user)))
+  (some-> req
+          extract-auth-token
+          (jwt/unsign (env :secret))
+          :user-id
+          entities/find))

@@ -115,6 +115,8 @@
 ; will only have 1
 (s/def :transaction/items (s/and (s/coll-of ::entities/transaction-item :min-count 1)
                                  sum-of-credits-equals-sum-of-debits?))
+
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/transaction (s/and (s/keys :req [:transaction/description
                                                  :transaction/transaction-date
                                                  :transaction/entity]
@@ -318,8 +320,7 @@
                                 (map #(assoc % :transaction-item/account account))))
           account (update-in (:transaction-item/account (first items))
                              [:account/commodity]
-                             entities/resolve-ref
-                             :commodity)]
+                             entities/resolve-ref)]
       (re-index (if delete?
                   account
                   (dates/push-entity-boundary
@@ -379,7 +380,7 @@
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
   [[before {:transaction/keys [transaction-date] :as after}]]
-  (let [entity (entities/find (:transaction/entity after) :entity)]
+  (let [entity (entities/find (:transaction/entity after))]
     (->> (:transaction/items after)
          (map #(assoc % :transaction/transaction-date transaction-date))
          (realize-accounts entity)
@@ -397,7 +398,7 @@
                      (map (comp :id
                                 :transaction-item/account))
                      set)
-        entity (entities/find (:transaction/entity (or after before)) :entity)]
+        entity (entities/find (:transaction/entity (or after before)))]
     (->> (:transaction/items before)
          (remove (comp act-ids
                        :id
@@ -430,7 +431,7 @@
          others false} (group-by (belongs-to-trx? trx)
                                  (propagate-items change))
         entity (-> (:transaction/entity trx)
-                   (entities/find :entity)
+                   entities/find
                    (dates/push-entity-boundary
                      :entity/transaction-date-range
                      transaction-date))
@@ -572,7 +573,7 @@
   [from-account to-account]
   {:pre [(id= (:account/entity from-account)
               (:account/entity to-account))]}
-  (let [entity (entities/find (:account/entity from-account) :entity)
+  (let [entity (-> from-account :account/entity entities/find)
         as-of (or (get-in from-account [:account/transaction-date-range 0])
                   (get-in entity [:entity/transaction-date-range 0]))]
     (assert as-of "Unable to find the earliest transaction date.")
@@ -588,7 +589,7 @@
   "Takes a map of account ids to dates and recalculates indices and balances for those
   accounts as of the associated dates."
   [{:keys [accounts entity-id] :as x}]
-  (let [entity (entities/find entity-id :entity)]
+  (let [entity (entities/find entity-id)]
     (entities/put-many
       (cons (update-in entity
                        [:entity/transaction-date-range]
@@ -604,8 +605,8 @@
                                            (entities/select {:transaction-item/account account}
                                                           {:select-also [:transaction/transaction-date]}))})
                             #(assoc-in % [0 :account/entity] entity)
-                            #(update-in % [0 :account/commodity] entities/resolve-ref :commodity)
-                            #(update-in % [0] entities/find :account)))
+                            #(update-in % [0 :account/commodity] entities/resolve-ref)
+                            #(update-in % [0] entities/find)))
                  (mapcat (fn [{:keys [account items basis]}]
                            (re-index account basis items))))))))
 

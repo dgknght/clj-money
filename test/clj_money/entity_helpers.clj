@@ -73,7 +73,7 @@
   {:pre [entity attr]}
   (let [out-chan (a/chan)
         result (entities/put (merge entity attr)
-                           :out-chan out-chan)]
+                             :out-chan out-chan)]
     (is (comparable? attr result)
         "The return value contains the updated attributes")
     (is (comparable? attr (entities/find entity))

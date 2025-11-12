@@ -769,7 +769,7 @@
 
 (defn- import-data*
   [import-spec {:keys [out-chan]}]
-  (let [user (entities/find (:import/user import-spec) :user)
+  (let [user (-> import-spec :import/user entities/find)
         images (map (entities/find :image)
                     (:import/images import-spec))
         source-type (get-source-type (first images))

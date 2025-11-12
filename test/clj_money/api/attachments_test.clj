@@ -58,7 +58,7 @@
      (some-> response
              :parsed-body
              :id
-             (entities/find :attachment))]))
+             entities/find)]))
 
 (defn- assert-successful-create
   [[{:keys [parsed-body] :as response} retrieved]]

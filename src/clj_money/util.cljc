@@ -368,7 +368,12 @@
   (when-not (temp-id? id)
     id))
 
-(def live-id? (complement temp-id?))
+(defn live-id?
+  [id-or-entity]
+  (when-let [id (->id id-or-entity)]
+    (if (string? id)
+      (not (string/starts-with? id "temp-"))
+      true)))
 
 (def simple-keys
   [:user/email
@@ -520,12 +525,14 @@
 
 (defn deep-rename-keys
   "Given a data structure, rename keys in all contained maps"
-  [x key-map]
-  (postwalk (fn [x*]
-              (if (map? x*)
-                (rename-keys x* key-map)
-                x*))
-            x))
+  ([key-map]
+   #(deep-rename-keys % key-map))
+  ([x key-map]
+   (postwalk (fn [x*]
+               (if (map? x*)
+                 (rename-keys x* key-map)
+                 x*))
+             x)))
 
 (defn- normalize-sort-key
   [x]

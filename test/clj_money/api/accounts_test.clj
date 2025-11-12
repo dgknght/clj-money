@@ -26,8 +26,8 @@
   [email & {:keys [content-type body]
             :or {content-type "application/edn"
                  body #:account{:name "Savings"
-                                  :type :asset
-                                  :commodity {:id 1}}}}]
+                                :type :asset
+                                :commodity {:id 1}}}}]
   (let [entity (find-entity "Personal")
         response (-> (request :post (path :api
                                           :entities
@@ -38,8 +38,10 @@
                               :body body)
                      app
                      parse-body)
-        retrieved (when-let [id (:id (:parsed-body response))]
-                    (entities/find id :account))]
+        retrieved (-> response
+                      :parsed-body
+                      :id
+                      entities/find)]
     [response retrieved]))
 
 (defn- assert-successful-create
