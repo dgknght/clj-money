@@ -4,9 +4,65 @@
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
-            [next.jdbc.date-time])
+            [next.jdbc.date-time]
+            [clj-money.entities :as e]
+            [clj-money.util :as util])
   (:import org.postgresql.util.PGobject
            [java.sql Array Connection ParameterMetaData PreparedStatement]))
+
+(deftype QualifiedID [id entity-type]
+  e/CompositeID
+  (components [_] {:id id :entity-type entity-type})
+
+  Object
+  (toString [_] (format "%s:%s" (name entity-type) id))
+  (equals [_ other]
+    (and (instance? QualifiedID other)
+         (= id (.id other))
+         (= (.entity-type other)
+            entity-type))))
+
+; TODO: Also handle UUID values
+(defn unserialize-id
+  [^String s]
+  (when-let [match (re-find #"\A(\d+)(:[a-z]+)?\z" s)]
+    (->QualifiedID (parse-long (nth match 1))
+          (keyword (nth match 2)))))
+
+(defn qualify-id
+  ([entity-or-type]
+   (cond
+     (map? entity-or-type)
+     (update-in entity-or-type
+                [:id]
+                qualify-id
+                (util/entity-type entity-or-type))
+
+     (or (nil? entity-or-type)
+         (keyword? entity-or-type))
+     (fn [x]
+       (qualify-id x entity-or-type))
+
+     :else
+     (throw (ex-info "Unrecognized entity-or-type" {:entity-or-type entity-or-type}))))
+  ([id-or-entity entity-type]
+   {:pre [id-or-entity
+          (or entity-type
+              (map? id-or-entity))]}
+   (cond
+     (map? id-or-entity)
+     (update-in id-or-entity
+                [:id]
+                qualify-id
+                (or entity-type
+                    (util/entity-type id-or-entity)))
+
+     :else
+     (->QualifiedID id-or-entity entity-type))))
+
+(defn unqualify-id
+  [^QualifiedID qid]
+  (.id qid))
 
 (derive java.lang.Integer ::integer)
 (derive java.lang.Long ::integer)
@@ -87,25 +143,3 @@
   clojure.lang.PersistentHashMap
   (set-parameter [^clojure.lang.PersistentHashMap m ^PreparedStatement s ^long i]
     (.setObject s i (map->pg-object m))))
-
-(defn- parse-uuid-id
-  [x]
-  (when (re-find #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z" x)
-    (parse-uuid x)))
-
-(defn- parse-int-id
-  [x]
-  (when-let [match (re-find #"\A(\d+)(:[a-z]+)?\z" x)]
-    (parse-long (nth match 1))))
-
-(def ^:private parse-id
-  (some-fn parse-uuid-id
-           parse-int-id
-           identity))
-
-(defn coerce-id
-  [x]
-  (cond
-    (vector? x) (mapv coerce-id x)
-    (string? x) (parse-id x)
-    :else       x))

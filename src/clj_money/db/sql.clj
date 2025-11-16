@@ -4,7 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys map-invert]]
             [clojure.spec.alpha :as s]
-            [clojure.string :as string]
+            [clojure.walk :refer [prewalk]]
             [camel-snake-kebab.core :refer [->snake_case_keyword
                                             ->snake_case_string
                                             ->snake_case
@@ -22,9 +22,10 @@
             [clj-money.entities :as entities]
             [clj-money.entities.schema :as schema]
             [clj-money.db :as db]
+            [clj-money.db.sql.types :as types]
             [clj-money.db.sql.queries :refer [criteria->query
-                                              ->update]]
-            [clj-money.db.sql.types :refer [coerce-id]]))
+                                              ->update]])
+  (:import clj_money.db.sql.types.QualifiedID))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
@@ -120,14 +121,22 @@
 (defn- extract-ref-id
   [x]
   (cond
-    ; An operation, like [:between start end] or [:in '(1 2 3)]
-    (vector? x) (apply vector (first x) (map extract-ref-id (rest x)))
+    (instance? QualifiedID x)
+    (.id x)
+
+    ; An operation, like [:in '(1 2 3)]
+    (vector? x)
+    (apply vector (first x) (map extract-ref-id (rest x)))
 
     ; A entity or entity reference, like {:id 1}
-    (map? x)    (if-let [id (:id x)] id x)
+    (map? x)
+    (if-let [id (:id x)]
+      (extract-ref-id id)
+      x)
 
     ; A list of values in an :in clause, like [:in #{1 2 3}]
-    (coll? x)    (set (map extract-ref-id x))
+    (coll? x)
+    (set (map extract-ref-id x))
 
     ; a value that can be used as-is
     :else x))
@@ -143,19 +152,21 @@
   (zipmap sql-ref-keys schema/entity-ref-keys))
 
 (defn- ->entity-refs
-  [m]
-  (reduce (fn [m k]
-            (update-in-if m [k] util/->entity-ref))
-          (rename-keys m sql->entity-ref-map)
-          schema/entity-ref-keys))
+  "Convert SQL foreign key columns into entity references.
 
-; convert keywords to strings (or can this be done with SettableParameter?)
-; {:account/type :asset} -> {:account/type "asset"}
-; maybe convert java-time to sql? I think next-jdbc.date-time already handles this
-; {:transaction/transaction-date (t/local-date 2020 1 1)} -> {:transaction/transaction-date "2020-01-01"}
-(defn- prepare-criteria
-  [criteria]
-  (crt/apply-to criteria ->sql-refs))
+  E.g.
+  (->entity-refs {:entity/name \"Personal\" :entity/user-id 123}) =>
+  {:entity/name \"Personal\" :entity/user {:id (->QualifiedID 123 :user)}} "
+  [m]
+  (let [renamed (rename-keys m sql->entity-ref-map)]
+    (->> schema/entity-ref-keys
+         (filter #(contains? renamed %))
+         (reduce (fn [m k]
+                   (update-in m
+                              [k]
+                              (comp util/->entity-ref
+                                    (types/qualify-id (-> k name keyword)))))
+                 renamed))))
 
 (defmulti post-select
   (fn [_opts ms]
@@ -308,18 +319,13 @@
                         :operation (s/tuple ::db/operation ::entity)))
 (s/def ::puttables (s/coll-of ::puttable))
 
-(defn- id-key
-  [x]
-  (when-let [target (util/entity-type x)]
-    (keyword (name target) "id")))
-
-(defn- massage-ids
-  "Coerces ids and appends the appropriate namespace
-  to the :id key"
-  [m]
-  (let [k (id-key m)]
-    (cond-> (crt/apply-to m #(update-in-if % [:id] coerce-id))
-      k (rename-keys {:id k}))))
+(defn- ->sql-ids
+  [criteria]
+  (prewalk (fn [x]
+             (if (instance? QualifiedID x)
+               (.id x)
+               x))
+           criteria))
 
 (defn- refine-qualifiers
   "Removes the namespace for the id key for a entity map and corrects
@@ -358,8 +364,8 @@
                     nil-replacements
                     entity-type]}]
   (-> criteria
-      (crt/apply-to massage-ids)
-      prepare-criteria
+      (crt/apply-to ->sql-ids)
+      (crt/apply-to ->sql-refs)
       (criteria->query
         (cond-> (assoc options
                        :quoted? true
@@ -372,21 +378,14 @@
           include-children? (assoc :recursion (recursions entity-type))
           include-parents? (assoc :recursion (reverse (recursions entity-type)))))))
 
-(defn- encode-entity-type-in-id
-  ([entity-type]
-   #(encode-entity-type-in-id % entity-type))
-  ([e entity-type]
-   (update-in e [:id] #(format "%s:%s" % (name (or entity-type
-                                                   (util/entity-type e)))))))
-
 (defn- after-read*
   ([] (after-read* {}))
   ([{:as options :keys [entity-type]}]
    (comp after-read
          apply-coercions
          ->entity-refs
-         (refine-qualifiers options)
-         (encode-entity-type-in-id entity-type))))
+         (types/qualify-id entity-type)
+         (refine-qualifiers options))))
 
 ; This is only exposed publicly to support tests that enforce
 ; short-circuting transaction propagation
@@ -399,7 +398,7 @@
                       (mapcat deconstruct)
                       (map (comp #(update-in % [1] (comp before-save
                                                          ->sql-refs
-                                                         massage-ids))
+                                                         ->sql-ids))
                                  wrap-oper))
                       (reduce (execute-and-aggregate tx)
                               {:saved []
@@ -435,28 +434,19 @@
       (extract-count ds query)
       (extract-entities ds query options))))
 
-(defn- parse-id
-  [id]
-  (update-in (string/split id #":")
-             [0]
-             parse-long))
-
-(def ^:private ->id
-  (some-fn :id identity))
-
 (defn- find*
-  [ds composite-id]
-  (let [[id entity-type] (-> composite-id ->id parse-id)]
-    (first
-      (select* ds
-               {:id id}
-               {:limit 1
-                :entity-type (keyword entity-type)}))))
+  [ds ^QualifiedID qualified-id]
+  {:pre [(instance? QualifiedID qualified-id)]}
+  (first
+    (select* ds
+             {:id qualified-id}
+             {:limit 1
+              :entity-type (.entity-type qualified-id)})))
 
 (defn- update*
   [ds changes criteria]
   (let [sql (->update (->sql-refs changes)
-                      (-> criteria massage-ids ->sql-refs))]
+                      (-> criteria ->sql-ids ->sql-refs))]
     (log/debugf "database bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
                 (entities/scrub-sensitive-data criteria)
@@ -468,6 +458,7 @@
   {:pre [(s/valid? (s/coll-of map?) entities)]}
 
   (->> entities
+       (map #(update-in % [:id] types/unqualify-id))
        (interleave (repeat ::db/delete))
        (partition 2)
        (map vec)

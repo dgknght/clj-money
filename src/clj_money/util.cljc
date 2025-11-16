@@ -343,7 +343,7 @@
           (swap! cache assoc id retrieved)
           retrieved)))))
 
-(def ^:private ->id (some-fn :id identity))
+(def ->id (some-fn :id identity))
 
 (defn temp-id
   "Generates a new temporary id"

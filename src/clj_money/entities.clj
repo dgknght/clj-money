@@ -20,7 +20,13 @@
 
 (def exchanges #{:nyse :nasdaq :amex :otc})
 
-(s/def ::id (some-fn uuid? int? util/temp-id?))
+(defprotocol CompositeID
+  (components [this] "Returns the components of the ID"))
+
+(s/def ::id (some-fn string?
+                     uuid?
+                     integer?
+                     (partial satisfies? CompositeID)))
 (s/def ::entity-ref (s/keys :req-un [::id]))
 
 (defmulti prepare-criteria util/entity-type-dispatch)
@@ -88,16 +94,17 @@
   ([criteria options]
    (first (select criteria (assoc options :limit 1)))))
 
-(def ^:private ->id
-  (some-fn :id identity))
+(defn- db-find
+  [x]
+  (db/find (db/storage) x))
 
 (defn find
   "Return the entity having the specified ID"
   [id-or-entity]
-  (when id-or-entity
-    (after-read
-      (db/find (db/storage) (->id id-or-entity))
-      {})))
+  (some-> id-or-entity
+          util/->id
+          db-find
+          after-read))
 
 (def ^:private mergeable?
   (every-pred map? :id))
