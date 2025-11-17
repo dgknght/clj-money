@@ -121,9 +121,6 @@
 (defn- extract-ref-id
   [x]
   (cond
-    (instance? QualifiedID x)
-    (.id x)
-
     ; An operation, like [:in '(1 2 3)]
     (vector? x)
     (apply vector (first x) (map extract-ref-id (rest x)))
@@ -319,14 +316,6 @@
                         :operation (s/tuple ::db/operation ::entity)))
 (s/def ::puttables (s/coll-of ::puttable))
 
-(defn- ->sql-ids
-  [criteria]
-  (prewalk (fn [x]
-             (if (instance? QualifiedID x)
-               (.id x)
-               x))
-           criteria))
-
 (defn- refine-qualifiers
   "Removes the namespace for the id key for a entity map and corrects
   missing keyword namespaces.
@@ -364,7 +353,7 @@
                     nil-replacements
                     entity-type]}]
   (-> criteria
-      (crt/apply-to ->sql-ids)
+      (crt/apply-to types/->sql-ids)
       (crt/apply-to ->sql-refs)
       (criteria->query
         (cond-> (assoc options
@@ -387,6 +376,25 @@
          (types/qualify-id entity-type)
          (refine-qualifiers options))))
 
+; To save an entity, we need to convert from this:
+; {:id <QualifiedID: id=201, entity-type=:entity />
+;  :entity/name "Personal"
+;  :entity/user {:id <QualifiedID: id=101 entity-type=:user />
+;                :user/email "john@doe.com"}}
+;
+; To this:
+; {:entity/id 201
+;  :entity/name "Personal"
+;  :entity/user-id 101}
+;
+; The logical steps are:
+; 1. Replace all QualifiedID instance with the raw ID value.
+; 2. Rename the primary key attribute from :id to :<entity-type>/id
+; 3. Replace any references to other entities:
+;     a. Extract the value at the :id attribute
+;     b. Rename the attribute from :<entity>/<foreign-entity>
+;        to :<entity>/<foreign-entity>-id
+;
 ; This is only exposed publicly to support tests that enforce
 ; short-circuting transaction propagation
 (defn put*
@@ -398,7 +406,7 @@
                       (mapcat deconstruct)
                       (map (comp #(update-in % [1] (comp before-save
                                                          ->sql-refs
-                                                         ->sql-ids))
+                                                         types/->sql-ids))
                                  wrap-oper))
                       (reduce (execute-and-aggregate tx)
                               {:saved []
@@ -446,7 +454,7 @@
 (defn- update*
   [ds changes criteria]
   (let [sql (->update (->sql-refs changes)
-                      (-> criteria ->sql-ids ->sql-refs))]
+                      (-> criteria types/->sql-ids ->sql-refs))]
     (log/debugf "database bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
                 (entities/scrub-sensitive-data criteria)

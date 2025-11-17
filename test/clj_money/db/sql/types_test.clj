@@ -38,3 +38,13 @@
 (deftest test-for-equalify-between-qualified-ids
   (is (= (types/->QualifiedID 123 :user)
          (types/->QualifiedID 123 :user))))
+
+(deftest convert-qualified-ids-to-raw-ids
+  (is (= {:id 201
+          :entity/name "Personal"
+          :entity/user {:id 101
+                        :user/email "john@doe.com"}}
+         (types/->sql-ids {:id (types/->QualifiedID 201 :entity)
+                           :entity/name "Personal"
+                           :entity/user {:id (types/->QualifiedID 101 :user)
+                                         :user/email "john@doe.com"}}))))

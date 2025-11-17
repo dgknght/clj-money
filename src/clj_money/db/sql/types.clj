@@ -1,6 +1,7 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
+            [clojure.walk :refer [prewalk]]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
@@ -143,3 +144,11 @@
   clojure.lang.PersistentHashMap
   (set-parameter [^clojure.lang.PersistentHashMap m ^PreparedStatement s ^long i]
     (.setObject s i (map->pg-object m))))
+
+(defn ->sql-ids
+  [criteria]
+  (prewalk (fn [x]
+             (if (instance? QualifiedID x)
+               (.id x)
+               x))
+           criteria))
