@@ -48,3 +48,11 @@
                            :entity/name "Personal"
                            :entity/user {:id (types/->QualifiedID 101 :user)
                                          :user/email "john@doe.com"}}))))
+
+(deftest convert-references-into-sql-style
+  (is (= {:entity/id 201
+          :entity/name "Personal"
+          :entity/user-id 101}
+         (types/->sql-refs {:entity/id 201
+                            :entity/name "Personal"
+                            :entity/user {:id 101}}))))

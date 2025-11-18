@@ -4,7 +4,6 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys map-invert]]
             [clojure.spec.alpha :as s]
-            [clojure.walk :refer [prewalk]]
             [camel-snake-kebab.core :refer [->snake_case_keyword
                                             ->snake_case_string
                                             ->snake_case
@@ -114,36 +113,6 @@
   (mapv #(keyword (namespace %)
                   (str (name %) "-id"))
         schema/entity-ref-keys))
-
-(def ^:private entity->sql-ref-map
-  (zipmap schema/entity-ref-keys sql-ref-keys))
-
-(defn- extract-ref-id
-  [x]
-  (cond
-    ; An operation, like [:in '(1 2 3)]
-    (vector? x)
-    (apply vector (first x) (map extract-ref-id (rest x)))
-
-    ; A entity or entity reference, like {:id 1}
-    (map? x)
-    (if-let [id (:id x)]
-      (extract-ref-id id)
-      x)
-
-    ; A list of values in an :in clause, like [:in #{1 2 3}]
-    (coll? x)
-    (set (map extract-ref-id x))
-
-    ; a value that can be used as-is
-    :else x))
-
-(defn- ->sql-refs
-  [m]
-  (reduce (fn [m k]
-            (update-in-if m [k] extract-ref-id))
-          (rename-keys m entity->sql-ref-map)
-          sql-ref-keys))
 
 (def ^:private sql->entity-ref-map
   (zipmap sql-ref-keys schema/entity-ref-keys))
@@ -354,7 +323,7 @@
                     entity-type]}]
   (-> criteria
       (crt/apply-to types/->sql-ids)
-      (crt/apply-to ->sql-refs)
+      (crt/apply-to types/->sql-refs)
       (criteria->query
         (cond-> (assoc options
                        :quoted? true
@@ -405,7 +374,7 @@
                  (->> entities
                       (mapcat deconstruct)
                       (map (comp #(update-in % [1] (comp before-save
-                                                         ->sql-refs
+                                                         types/->sql-refs
                                                          types/->sql-ids))
                                  wrap-oper))
                       (reduce (execute-and-aggregate tx)
@@ -453,8 +422,8 @@
 
 (defn- update*
   [ds changes criteria]
-  (let [sql (->update (->sql-refs changes)
-                      (-> criteria types/->sql-ids ->sql-refs))]
+  (let [sql (->update (types/->sql-refs changes)
+                      (-> criteria types/->sql-ids types/->sql-refs))]
     (log/debugf "database bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
                 (entities/scrub-sensitive-data criteria)

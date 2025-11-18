@@ -146,9 +146,21 @@
     (.setObject s i (map->pg-object m))))
 
 (defn ->sql-ids
-  [criteria]
+  [entity]
   (prewalk (fn [x]
              (if (instance? QualifiedID x)
                (.id x)
                x))
-           criteria))
+           entity))
+
+(defn ->sql-refs
+  [entity]
+  (prewalk (fn [x]
+             (if (and (map-entry? x)
+                      (map? (second x)))
+               (-> x
+                   (update-in [0] #(keyword (namespace %)
+                                            (str (name %) "-id")))
+                   (update-in [1] :id))
+               x))
+           entity))
