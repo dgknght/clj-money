@@ -1,7 +1,6 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
-            [clojure.set :refer [rename-keys]]
             [clojure.walk :refer [prewalk]]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
