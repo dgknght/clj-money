@@ -56,3 +56,12 @@
          (types/->sql-refs {:entity/id 201
                             :entity/name "Personal"
                             :entity/user {:id 101}}))))
+
+(deftest convert-an-entity-for-sql-storage
+  (is (= {:entity/id 201
+          :entity/name "Personal"
+          :entity/user-id 101}
+         (types/sqlize {:id (types/->QualifiedID 201 :entity)
+                        :entity/name "Personal"
+                        :entity/user {:id (types/->QualifiedID 101 :user)
+                                      :user/email "john@doe.com"}}))))

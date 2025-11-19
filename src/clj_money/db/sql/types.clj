@@ -1,6 +1,7 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
+            [clojure.set :refer [rename-keys]]
             [clojure.walk :refer [prewalk]]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
@@ -22,6 +23,9 @@
          (= id (.id other))
          (= (.entity-type other)
             entity-type))))
+
+(def ^:private qualified-id?
+  (partial instance? QualifiedID))
 
 ; TODO: Also handle UUID values
 (defn unserialize-id
@@ -145,10 +149,25 @@
   (set-parameter [^clojure.lang.PersistentHashMap m ^PreparedStatement s ^long i]
     (.setObject s i (map->pg-object m))))
 
+(defn- sqlize*
+  [x]
+  (cond
+    (qualified-id? x)
+    (.id x)
+
+    (and (map-entry? x)
+         (map? (second x)))
+    (-> x
+        (update-in [0] #(keyword (namespace %)
+                                 (str (name %) "-id")))
+        (update-in [1] :id))
+
+    :else x))
+
 (defn ->sql-ids
   [entity]
   (prewalk (fn [x]
-             (if (instance? QualifiedID x)
+             (if (qualified-id? x)
                (.id x)
                x))
            entity))
@@ -164,3 +183,11 @@
                    (update-in [1] :id))
                x))
            entity))
+
+(defn sqlize
+  [entity]
+  (prewalk sqlize*
+           entity
+           #_(rename-keys entity
+                        {:id (keyword (util/dominant-ns entity :as :string)
+                                      "id")})))
