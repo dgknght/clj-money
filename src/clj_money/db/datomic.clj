@@ -211,6 +211,15 @@
               #(= 1 (count %))
               #(= :db/id (first (keys %)))))
 
+(def ^:private present?
+  (every-pred map?
+              (complement naked-id?)))
+
+(defn- presence
+  [entity]
+  (when (present? entity)
+    entity))
+
 (def ^:private id-criterion?
   (every-pred map-entry?
               (comp #(= :id %)
@@ -280,7 +289,9 @@
 
 (defn- find*
   [id {:keys [api]}]
-  (after-read* (pull api id)))
+  (some-> (pull api id)
+          presence
+          after-read*))
 
 (defn- make-query
   [criteria options]
