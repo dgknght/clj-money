@@ -161,7 +161,7 @@
         s (for-insert table
                       entity
                       sql-opts)
-        _ (log/debugf "database insert %s -> %s"
+        _ (log/infof "insert %s -> %s"
                       (entities/scrub-sensitive-data entity)
                       (scrub-values entity s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
@@ -176,7 +176,7 @@
                       (dissoc entity :id)
                       {:id (:id entity)}
                       sql-opts)
-        _ (log/debugf "database update %s -> %s"
+        _ (log/infof "update %s -> %s"
                       (entities/scrub-sensitive-data entity)
                       (scrub-values entity s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
@@ -190,7 +190,7 @@
                       (select-keys m primary-key)
                       sql-opts)]
 
-    (log/debugf "database delete %s -> %s"
+    (log/infof "delete %s -> %s"
                 (entities/scrub-sensitive-data m)
                 s)
 
@@ -374,8 +374,7 @@
                  (->> entities
                       (mapcat deconstruct)
                       (map (comp #(update-in % [1] (comp before-save
-                                                         types/->sql-refs
-                                                         types/->sql-ids))
+                                                         types/sqlize))
                                  wrap-oper))
                       (reduce (execute-and-aggregate tx)
                               {:saved []
@@ -403,7 +402,7 @@
                            [:entity-type]
                            #(or % (util/entity-type criteria)))
         query (make-query criteria options)
-        _ (log/debugf "database select %s with options %s -> %s"
+        _ (log/infof "select %s with options %s -> %s"
                       (entities/scrub-sensitive-data criteria)
                       options
                       (scrub-values criteria query))]
@@ -422,9 +421,9 @@
 
 (defn- update*
   [ds changes criteria]
-  (let [sql (->update (types/->sql-refs changes)
+  (let [sql (->update (types/sqlize changes)
                       (-> criteria types/->sql-ids types/->sql-refs))]
-    (log/debugf "database bulk update: change %s for %s -> %s"
+    (log/infof "bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
                 (entities/scrub-sensitive-data criteria)
                 sql)
