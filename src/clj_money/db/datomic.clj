@@ -334,6 +334,8 @@
               (not-any? nil? entities))]}
   (transact api
             (->> entities
+                 ; TODO: move this into the put* so that the propagations are
+                 ; returned instead of executed
                  (mapcat #(propagate-delete % opts))
                  (mapv #(vector :db/retractEntity (:id %))))
             {}))
