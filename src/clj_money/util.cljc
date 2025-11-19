@@ -599,3 +599,25 @@
 
       :else
       (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))
+
+(defn- raise-on-tie
+  [frequencies]
+  (when (and (< 1 (count frequencies))
+             (apply = (->> frequencies
+                           (take 2)
+                           (map second))))
+    (throw (ex-info "No dominant namespace" {:frequences frequencies})))
+  frequencies)
+
+(defn dominant-ns
+  "Given a map, return the most common namespace of the keys"
+  [m & {:keys [as]}]
+  (let [ns (->> (keys m)
+                (map namespace)
+                frequencies
+                (sort-by second >)
+                raise-on-tie
+                ffirst)]
+    (if (= :string as)
+      ns
+      (keyword ns))))
