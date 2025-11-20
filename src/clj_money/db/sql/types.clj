@@ -23,6 +23,10 @@
          (= (.entity-type other)
             entity-type))))
 
+(defn qid
+  [id entity-type]
+  (->QualifiedID id entity-type))
+
 (def ^:private qualified-id?
   (partial instance? QualifiedID))
 
@@ -50,19 +54,14 @@
      :else
      (throw (ex-info "Unrecognized entity-or-type" {:entity-or-type entity-or-type}))))
   ([id-or-entity entity-type]
-   {:pre [id-or-entity
-          (or entity-type
-              (map? id-or-entity))]}
-   (cond
-     (map? id-or-entity)
-     (update-in id-or-entity
-                [:id]
-                qualify-id
-                (or entity-type
-                    (util/entity-type id-or-entity)))
-
-     :else
-     (->QualifiedID id-or-entity entity-type))))
+   (when id-or-entity
+     (if (map? id-or-entity)
+       (update-in id-or-entity
+                  [:id]
+                  qualify-id
+                  (or entity-type
+                      (util/entity-type id-or-entity)))
+       (->QualifiedID id-or-entity entity-type)))))
 
 (defn unqualify-id
   [^QualifiedID qid]
@@ -149,44 +148,24 @@
     (.setObject s i (map->pg-object m))))
 
 (defn- sqlize*
-  [x]
-  (cond
-    (qualified-id? x)
-    (.id x)
+  [{:keys [ref-keys]}]
+  (fn [x]
+    (cond
+      (qualified-id? x)
+      (.id x)
 
-    (and (map-entry? x)
-         (map? (second x)))
-    (-> x
-        (update-in [0] #(keyword (namespace %)
-                                 (str (name %) "-id")))
-        (update-in [1] :id))
+      (and (map-entry? x)
+           (ref-keys (key x)))
+      (-> x
+          (update-in [0] #(keyword (namespace %)
+                                   (str (name %) "-id")))
+          (update-in [1] :id))
 
-    :else x))
-
-(defn ->sql-ids
-  [entity]
-  (prewalk (fn [x]
-             (if (qualified-id? x)
-               (.id x)
-               x))
-           entity))
-
-(defn ->sql-refs
-  [entity]
-  (prewalk (fn [x]
-             (if (and (map-entry? x)
-                      (map? (second x)))
-               (-> x
-                   (update-in [0] #(keyword (namespace %)
-                                            (str (name %) "-id")))
-                   (update-in [1] :id))
-               x))
-           entity))
+      :else x)))
 
 (defn sqlize
-  [entity]
-  (prewalk sqlize*
-           entity
-           #_(rename-keys entity
-                        {:id (keyword (util/dominant-ns entity :as :string)
-                                      "id")})))
+  ([opts]
+   #(sqlize % opts))
+  ([entity opts]
+   (prewalk (sqlize* opts)
+            entity)))

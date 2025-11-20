@@ -19,6 +19,8 @@
   (is (= (types/->QualifiedID 123 :user)
          (types/qualify-id 123 :user))
       "A id with an entity type is returned as QualifiedID")
+  (is (nil? (types/qualify-id nil :user))
+      "Given nil, nil is returned")
   (testing "higher order function arity"
     (let [f (types/qualify-id :user)]
       (is (= (types/->QualifiedID 123 :user)
@@ -39,29 +41,30 @@
   (is (= (types/->QualifiedID 123 :user)
          (types/->QualifiedID 123 :user))))
 
-(deftest convert-qualified-ids-to-raw-ids
-  (is (= {:id 201
-          :entity/name "Personal"
-          :entity/user {:id 101
-                        :user/email "john@doe.com"}}
-         (types/->sql-ids {:id (types/->QualifiedID 201 :entity)
-                           :entity/name "Personal"
-                           :entity/user {:id (types/->QualifiedID 101 :user)
-                                         :user/email "john@doe.com"}}))))
-
-(deftest convert-references-into-sql-style
-  (is (= {:entity/id 201
-          :entity/name "Personal"
-          :entity/user-id 101}
-         (types/->sql-refs {:entity/id 201
-                            :entity/name "Personal"
-                            :entity/user {:id 101}}))))
-
 (deftest convert-an-entity-for-sql-storage
-  (is (= {:entity/id 201
-          :entity/name "Personal"
-          :entity/user-id 101}
-         (types/sqlize {:id (types/->QualifiedID 201 :entity)
-                        :entity/name "Personal"
-                        :entity/user {:id (types/->QualifiedID 101 :user)
-                                      :user/email "john@doe.com"}}))))
+  (testing "a referenced entity"
+    (is (= {:id 201
+            :entity/name "Personal"
+            :entity/user-id 101}
+           (types/sqlize {:id (types/->QualifiedID 201 :entity)
+                          :entity/name "Personal"
+                          :entity/user {:id (types/->QualifiedID 101 :user)
+                                        :user/email "john@doe.com"}}
+                         {:ref-keys #{:entity/user}}))))
+  (testing "a nested map that is not an entity"
+    (is (= {:id "temp"
+            :commodity/symbol "USD"
+            :commodity/type :currency
+            :commodity/name "US Dollar"
+            :commodity/entity-id 201
+            :commodity/price-config #:price-config{:enabled true}}
+           (types/sqlize {:id "temp"
+                          :commodity/symbol "USD"
+                          :commodity/type :currency
+                          :commodity/name "US Dollar"
+                          :commodity/entity
+                          {:id (types/qid 201 :entity)
+                           :entity/name "Personal"
+                           :entity/user {:id (types/qid 101 :user)}}
+                          :commodity/price-config #:price-config{:enabled true}}
+                         {:ref-keys #{:commodity/entity}})))))

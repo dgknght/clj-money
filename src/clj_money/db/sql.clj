@@ -315,6 +315,9 @@
   (keyword (->snake_case_string (namespace k))
            (->snake_case_string (name k))))
 
+(def ^:private sqlize
+  (types/sqlize {:ref-keys (set schema/entity-ref-keys)}))
+
 (defn- make-query
   [criteria {:as options
              :keys [include-children?
@@ -322,8 +325,7 @@
                     nil-replacements
                     entity-type]}]
   (-> criteria
-      (crt/apply-to types/->sql-ids)
-      (crt/apply-to types/->sql-refs)
+      (crt/apply-to sqlize)
       (criteria->query
         (cond-> (assoc options
                        :quoted? true
@@ -373,8 +375,10 @@
   (let [result (jdbc/with-transaction [tx ds]
                  (->> entities
                       (mapcat deconstruct)
-                      (map (comp #(update-in % [1] (comp before-save
-                                                         types/sqlize))
+                      (map (comp #(update-in %
+                                             [1]
+                                             (comp before-save
+                                                   sqlize))
                                  wrap-oper))
                       (reduce (execute-and-aggregate tx)
                               {:saved []
@@ -401,11 +405,12 @@
   (let [options (update-in opts
                            [:entity-type]
                            #(or % (util/entity-type criteria)))
-        query (make-query criteria options)
-        _ (log/infof "select %s with options %s -> %s"
-                      (entities/scrub-sensitive-data criteria)
-                      options
-                      (scrub-values criteria query))]
+        query (make-query criteria options)]
+    (log/infof "select %s with options %s -> %s"
+               (entities/scrub-sensitive-data criteria)
+               options
+               (scrub-values criteria query))
+
     (if (:count options)
       (extract-count ds query)
       (extract-entities ds query options))))
@@ -422,7 +427,7 @@
 (defn- update*
   [ds changes criteria]
   (let [sql (->update (types/sqlize changes)
-                      (-> criteria types/->sql-ids types/->sql-refs))]
+                      (crt/apply-to criteria sqlize))]
     (log/infof "bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
                 (entities/scrub-sensitive-data criteria)
