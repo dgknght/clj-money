@@ -1,7 +1,8 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
-            [clojure.walk :refer [prewalk]]
+            [clojure.walk :refer [prewalk
+                                  postwalk]]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
@@ -24,8 +25,13 @@
             entity-type))))
 
 (defn qid
-  [id entity-type]
-  (->QualifiedID id entity-type))
+  ([entity-type]
+   #(qid % entity-type))
+  ([id entity-type]
+   {:pre [(integer? id)
+          (keyword? entity-type)
+          (not (namespace entity-type))]}
+   (->QualifiedID id entity-type)))
 
 (def ^:private qualified-id?
   (partial instance? QualifiedID))
@@ -169,3 +175,46 @@
   ([entity opts]
    (prewalk (sqlize* opts)
             entity)))
+
+(def ^:private id-entry?
+  (every-pred map-entry?
+              #(= :id (key %))))
+
+(defn- generalize-id-entry
+  [{:keys [entity-type]}]
+  (fn [x]
+    (when (id-entry? x)
+      (update-in x [1] (qid entity-type)))))
+
+(defn- ref-entry?
+  [x {:keys [ref-keys]}]
+  (and (map-entry? x)
+       (ref-keys (key x))))
+
+(defn- generalize-ref-entry
+  [opts]
+  (fn [x]
+    (when (ref-entry? x opts)
+      (update-in x [1] (comp (partial hash-map :id)
+                             (qid (keyword (name (key x))))))))); TODO: Need to look up the right entity type
+
+(defn- generalize-ref-key
+  [_]
+  (fn [x]
+    (when (keyword? x)
+      (when-let [match (re-find #"\A(.+)-id\z" (name x))]
+        (keyword (namespace x)
+                 (second match))))))
+
+(defn- generalize*
+  [opts]
+  (some-fn (generalize-ref-key opts)
+           (generalize-ref-entry opts)
+           (generalize-id-entry opts)
+           identity))
+
+(defn generalize
+  [entity opts]
+  (postwalk (generalize* (assoc opts
+                                :entity-type (util/entity-type entity)))
+            entity))

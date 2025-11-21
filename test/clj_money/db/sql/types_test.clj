@@ -68,3 +68,13 @@
                            :entity/user {:id (types/qid 101 :user)}}
                           :commodity/price-config #:price-config{:enabled true}}
                          {:ref-keys #{:commodity/entity}})))))
+
+(deftest convert-an-entity-from-sql-storage
+  (testing "a referenced entity"
+    (is (= {:id (types/qid 201 :entity)
+            :entity/name "Personal"
+            :entity/user {:id (types/qid 101 :user)}}
+           (types/generalize {:id 201
+                              :entity/name "Personal"
+                              :entity/user-id 101}
+                             {:ref-keys #{:entity/user}})))))
