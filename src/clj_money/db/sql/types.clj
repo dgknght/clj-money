@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [clojure.walk :refer [prewalk
                                   postwalk]]
+            [clojure.spec.alpha :as s]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
@@ -186,17 +187,13 @@
     (when (id-entry? x)
       (update-in x [1] (qid entity-type)))))
 
-(defn- ref-entry?
-  [x {:keys [ref-keys]}]
-  (and (map-entry? x)
-       (ref-keys (key x))))
-
 (defn- generalize-ref-entry
-  [opts]
+  [{:keys [ref-keys]}]
   (fn [x]
-    (when (ref-entry? x opts)
-      (update-in x [1] (comp (partial hash-map :id)
-                             (qid (keyword (name (key x))))))))); TODO: Need to look up the right entity type
+    (when (map-entry? x)
+      (when-let [entity-type (ref-keys (key x))]
+        (update-in x [1] (comp (partial hash-map :id)
+                               (qid entity-type)))))))
 
 (defn- generalize-ref-key
   [_]
@@ -213,8 +210,25 @@
            (generalize-id-entry opts)
            identity))
 
+(s/def ::ref-key (s/or :simple keyword?
+                       :named (s/tuple keyword? keyword?)))
+(s/def ::ref-keys (s/coll-of ::ref-key))
+(s/def ::generalize-opts (s/keys :opt-un [::ref-keys]))
+
+(defn- infer-types
+  "Given the :key-refs options, return a map of keys
+  to entity types"
+  [ks]
+  (->> ks
+       (map #(if (keyword? %)
+               [% (-> % name keyword)]
+               %))
+       (into {})))
+
 (defn generalize
   [entity opts]
-  (postwalk (generalize* (assoc opts
-                                :entity-type (util/entity-type entity)))
+  {:pre [(s/valid? ::generalize-opts opts)]}
+  (postwalk (generalize* (-> opts
+                             (update-in [:ref-keys] infer-types)
+                             (assoc :entity-type (util/entity-type entity))))
             entity))
