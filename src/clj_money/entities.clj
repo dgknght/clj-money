@@ -286,6 +286,7 @@
 
 (defn resolve-ref
   [entity-or-ref]
+  {:pre [(map? entity-or-ref)]}
   (if (util/entity-ref? entity-or-ref)
     (find (:id entity-or-ref))
     entity-or-ref))

@@ -82,7 +82,7 @@
   (if commodity
     account
     (-> account
-        (update-in [:account/entity] (entities/resolve-ref :entity))
+        (update-in [:account/entity] entities/resolve-ref)
         ensure-commodity)))
 
 (defmethod entities/before-save :account
