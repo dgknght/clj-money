@@ -33,7 +33,7 @@
   (or *express-validation*
       (nil? parent)
       (= type
-         (:account/type (entities/resolve-ref parent :account)))))
+         (:account/type (entities/resolve-ref parent)))))
 (v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
                                    :path [:account/type]})
 
@@ -48,6 +48,7 @@
 (s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
                                                            dates/local-date?)))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/account (s/and (s/keys :req [:account/entity
                                              :account/type
                                              :account/name
@@ -65,9 +66,9 @@
 (defn- default-commodity
   [entity]
   (if-let [ref (get-in entity [:entity/settings :settings/default-commodity])]
-    (entities/find ref :commodity)
+    (entities/find ref)
     (entities/find-by #:commodity{:entity entity
-                                :type :currency})))
+                                  :type :currency})))
 
 (defn- ensure-commodity
   [{:as account :account/keys [entity]}]
@@ -81,7 +82,7 @@
   (if commodity
     account
     (-> account
-        (update-in [:account/entity] (entities/resolve-ref :entity))
+        (update-in [:account/entity] entities/resolve-ref)
         ensure-commodity)))
 
 (defmethod entities/before-save :account

@@ -22,6 +22,7 @@
 
 (defprotocol DatomicAPI
   (transact [this tx-data options])
+  (pull [this id])
   (query [this arg-map])
   (reset [this]))
 
@@ -184,7 +185,6 @@
 
 (defn- put*
   [entities {:keys [api]}]
-  {:pre [(sequential? entities)]}
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
@@ -210,6 +210,15 @@
   (every-pred map?
               #(= 1 (count %))
               #(= :db/id (first (keys %)))))
+
+(def ^:private present?
+  (every-pred map?
+              (complement naked-id?)))
+
+(defn- presence
+  [entity]
+  (when (present? entity)
+    entity))
 
 (def ^:private id-criterion?
   (every-pred map-entry?
@@ -273,33 +282,29 @@
     (take limit vs)
     vs))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(defmacro with-performance-logging
-  [query & body]
-  `(let [f# (fn* [] ~@body)
-         start# (System/nanoTime)
-         result# (f#)
-         duration# (/ (- (System/nanoTime)
-                         start#)
-                      1000000.0)]
-     (log/debugf "[performance] {:query %s :millis %.2f :stack %s}"
-                 ~query
-                 duration#
-                 (->> (.getStackTrace (Thread/currentThread))
-                      (map #(.toString %))
-                      (filter #(re-find #"clj_money" %))
-                      (take 20)
-                      (into [])))
-     result#))
+(def ^:private after-read*
+  (comp after-read
+        apply-coercions
+        (util/deep-rename-keys {:db/id :id})))
+
+(defn- find*
+  [id {:keys [api]}]
+  (some-> (pull api id)
+          presence
+          after-read*))
+
+(defn- make-query
+  [criteria options]
+  (-> criteria
+      normalize-criteria
+      prepare-criteria
+      ->java-dates
+      (criteria->query options)))
 
 (defn- select*
   [criteria {:as options :keys [count select]} {:keys [api]}]
-  (let [qry (-> criteria
-                normalize-criteria
-                prepare-criteria
-                ->java-dates
-                (criteria->query options))
-        raw-result (with-performance-logging qry (query api qry))]
+  (let [qry (make-query criteria options)
+        raw-result (query api qry)]
 
     (log/debugf "select %s -> %s"
                 (entities/scrub-sensitive-data criteria)
@@ -316,9 +321,7 @@
       (->> raw-result
            (map (extract-entity options))
            (remove naked-id?)
-           (map (comp after-read
-                      apply-coercions
-                      #(util/deep-rename-keys % {:db/id :id})))
+           (map after-read*)
            (util/apply-sort options)
            (apply-limit options)))))
 
@@ -342,6 +345,8 @@
               (not-any? nil? entities))]}
   (transact api
             (->> entities
+                 ; TODO: move this into the put* so that the propagations are
+                 ; returned instead of executed
                  (mapcat #(propagate-delete % opts))
                  (mapv #(vector :db/retractEntity (:id %))))
             {}))
@@ -356,6 +361,11 @@
               (d-peer/connect uri)
               tx-data
               (mapcat identity options)))
+    (pull [_ id]
+      (-> uri
+          d-peer/connect
+          d-peer/db
+          (d-peer/pull '[*] id)))
     (query [_ {:keys [query args]}]
       ; TODO: take in the as-of date-time
       (apply d-peer/q
@@ -375,6 +385,10 @@
                conn
                {:tx-data tx-data}
                (mapcat identity options)))
+      (pull [_ id]
+        (d-client/pull (d-client/db conn)
+                       '[*]
+                       id))
       (query [_ {:keys [query args]}]
         ; TODO: take in the as-of date-time
         (apply d-client/q
@@ -397,7 +411,8 @@
   (let [api (init-api config)]
     (reify db/Storage
       (put [_ entities]       (put* entities {:api api}))
-      (select [_ crit opts] (select* crit opts {:api api}))
+      (find [_ id]            (find* id {:api api}))
+      (select [_ crit opts]   (select* crit opts {:api api}))
       (delete [_ entities]    (delete* entities {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
       (close [_])

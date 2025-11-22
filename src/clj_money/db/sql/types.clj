@@ -1,13 +1,78 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
+            [clojure.walk :refer [prewalk
+                                  postwalk]]
+            [clojure.spec.alpha :as s]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
             [next.jdbc.date-time]
-            [clj-money.util :refer [temp-id?]])
+            [clj-money.entities :as e]
+            [clj-money.util :as util])
   (:import org.postgresql.util.PGobject
            [java.sql Array Connection ParameterMetaData PreparedStatement]))
+
+(deftype QualifiedID [id entity-type]
+  e/CompositeID
+  (components [_] {:id id :entity-type entity-type})
+
+  Object
+  (toString [_] (format "%s:%s" (name entity-type) id))
+  (equals [_ other]
+    (and (instance? QualifiedID other)
+         (= id (.id other))
+         (= (.entity-type other)
+            entity-type))))
+
+(defn qid
+  ([entity-type]
+   #(qid % entity-type))
+  ([id entity-type]
+   {:pre [(integer? id)
+          (keyword? entity-type)
+          (not (namespace entity-type))]}
+   (->QualifiedID id entity-type)))
+
+(def ^:private qualified-id?
+  (partial instance? QualifiedID))
+
+; TODO: Also handle UUID values
+(defn unserialize-id
+  [^String s]
+  (when-let [match (re-find #"\A(\d+)(:[a-z]+)?\z" s)]
+    (->QualifiedID (parse-long (nth match 1))
+          (keyword (nth match 2)))))
+
+(defn qualify-id
+  ([entity-or-type]
+   (cond
+     (map? entity-or-type)
+     (update-in entity-or-type
+                [:id]
+                qualify-id
+                (util/entity-type entity-or-type))
+
+     (or (nil? entity-or-type)
+         (keyword? entity-or-type))
+     (fn [x]
+       (qualify-id x entity-or-type))
+
+     :else
+     (throw (ex-info "Unrecognized entity-or-type" {:entity-or-type entity-or-type}))))
+  ([id-or-entity entity-type]
+   (when id-or-entity
+     (if (map? id-or-entity)
+       (update-in id-or-entity
+                  [:id]
+                  qualify-id
+                  (or entity-type
+                      (util/entity-type id-or-entity)))
+       (->QualifiedID id-or-entity entity-type)))))
+
+(defn unqualify-id
+  [^QualifiedID qid]
+  (.id qid))
 
 (derive java.lang.Integer ::integer)
 (derive java.lang.Long ::integer)
@@ -89,21 +154,85 @@
   (set-parameter [^clojure.lang.PersistentHashMap m ^PreparedStatement s ^long i]
     (.setObject s i (map->pg-object m))))
 
-(defmulti coerce-id type)
+(defn- sqlize*
+  [{:keys [ref-keys]}]
+  (fn [x]
+    (cond
+      (qualified-id? x)
+      (.id x)
 
-(defmethod coerce-id ::id [id] id)
+      (and (map-entry? x)
+           (ref-keys (key x)))
+      (-> x
+          (update-in [0] #(keyword (namespace %)
+                                   (str (name %) "-id")))
+          (update-in [1] :id))
 
-(defmethod coerce-id ::string
-  [s]
-  (cond
-    (temp-id? s)            s
-    (re-find #"^[0-9]+$" s) (parse-long s)
-    :else                   (java.util.UUID/fromString s)))
+      :else x)))
 
-(defmethod coerce-id ::vector
-  [v]
-  (mapv (fn [x]
-          (if (string? x)
-            (coerce-id x)
-            x))
-        v))
+(defn sqlize
+  ([opts]
+   #(sqlize % opts))
+  ([entity opts]
+   (prewalk (sqlize* opts)
+            entity)))
+
+(def ^:private id-entry?
+  (every-pred map-entry?
+              #(= :id (key %))))
+
+(defn- generalize-id-entry
+  [{:keys [entity-type]}]
+  (fn [x]
+    (when (id-entry? x)
+      (update-in x [1] (qid entity-type)))))
+
+(defn- generalize-ref-entry
+  [{:keys [ref-keys]}]
+  (fn [x]
+    (when (and (map-entry? x)
+               (val x))
+      (when-let [entity-type (ref-keys (key x))]
+        (update-in x [1] (comp (partial hash-map :id)
+                               (qid entity-type)))))))
+
+(defn- generalize-ref-key
+  [_]
+  (fn [x]
+    (when (keyword? x)
+      (when-let [match (re-find #"\A(.+)-id\z" (name x))]
+        (keyword (namespace x)
+                 (second match))))))
+
+(defn- generalize*
+  [opts]
+  (some-fn (generalize-ref-key opts)
+           (generalize-ref-entry opts)
+           (generalize-id-entry opts)
+           identity))
+
+(s/def ::ref-key (s/or :simple keyword?
+                       :named (s/tuple keyword? keyword?)))
+(s/def ::ref-keys (s/or :implicit (s/coll-of ::ref-key)
+                        :explicit (s/map-of keyword? keyword?)))
+(s/def ::generalize-opts (s/keys :opt-un [::ref-keys]))
+
+(defn- infer-types
+  "Given the :key-refs options, return a map of keys
+  to entity types"
+  [ks]
+  (if (map? ks)
+    ks
+    (->> ks
+         (map #(if (keyword? %)
+                 [% (-> % name keyword)]
+                 %))
+         (into {}))))
+
+(defn generalize
+  [entity opts]
+  {:pre [(s/valid? ::generalize-opts opts)]}
+  (postwalk (generalize* (-> opts
+                             (update-in [:ref-keys] infer-types)
+                             (assoc :entity-type (util/entity-type entity))))
+            entity))

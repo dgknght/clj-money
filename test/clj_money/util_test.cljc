@@ -449,3 +449,34 @@
                           #"(?i)more than one namespace"
                           (util/single-ns {:user/first-name "John"
                                            :company/name "Doe, Inc."})))))
+
+(deftest extract-the-dominant-namespace-from-a-map
+  (testing "only one"
+    (is (= :user
+           (util/dominant-ns {:user/first-name "John"
+                              :user/last-name "Doe"}))))
+  (testing "as string"
+    (is (= "user"
+           (util/dominant-ns {:user/first-name "John"
+                              :user/last-name "Doe"}
+                             :as :string))))
+  (testing "attributes without ns"
+    (is (= :user
+           (util/dominant-ns {:id 101
+                              :user/first-name "John"
+                              :user/last-name "Doe"}))))
+  (testing "more than one"
+    (testing "success"
+      (is (= :user
+             (util/dominant-ns {:user/first-name "John"
+                                :user/last-name "Doe"
+                                :company/name "Doe, Inc."}))))
+    (testing "no winner"
+      (is (thrown-with-msg? #?(:clj ExceptionInfo
+                               :cljs js/Error)
+                            #"(?i)no dominant namespace"
+                            (util/dominant-ns
+                              {:user/first-name "John"
+                               :user/last-name "Doe"
+                               :company/name "Doe, Inc."
+                               :company/website "http://www.doe.com"}))))))

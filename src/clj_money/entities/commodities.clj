@@ -59,16 +59,18 @@
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
 
-(s/def ::entities/commodity (s/and (s/keys :req [:commodity/type
-                                               :commodity/name
-                                               :commodity/symbol
-                                               :commodity/entity]
-                                         :opt [:commodity/price-config
-                                               :commodity/exchange
-                                               :commodity/price-date-range])
-                                 name-is-unique?
-                                 symbol-is-unique?
-                                 exchange-is-satisfied?))
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
+(s/def ::entities/commodity
+  (s/and (s/keys :req [:commodity/type
+                       :commodity/name
+                       :commodity/symbol
+                       :commodity/entity]
+                 :opt [:commodity/price-config
+                       :commodity/exchange
+                       :commodity/price-date-range])
+         name-is-unique?
+         symbol-is-unique?
+         exchange-is-satisfied?))
 
 (defmethod entities/before-validation :commodity
   [comm]

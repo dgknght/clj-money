@@ -2,23 +2,15 @@
   (:require [clojure.walk :refer [postwalk]]
             [clojure.pprint :refer [pprint]]
             [camel-snake-kebab.core :refer [->camelCase
-                                            ->kebab-case]]))
+                                            ->kebab-case]]
+            [clj-money.util :as util]))
 
 (def ^:private strip-ns
   (comp keyword name))
 
-(defn- dominant-ns
-  [m]
-  (->> (keys m)
-       (map namespace)
-       frequencies
-       (sort-by second >)
-       (map (comp keyword first))
-       first))
-
 (defn- edn-map->json
   [{:as m :keys [id]}]
-  (let [type (dominant-ns m)]
+  (let [type (util/dominant-ns m)]
     (cond-> (-> m
                 (dissoc :id)
                 (update-keys (comp ->camelCase
