@@ -79,18 +79,35 @@
                               :entity/user-id 101}
                              {:ref-keys #{:entity/user}}))))
   (testing "a referenced entity with attribute/type mismatch"
-    (is (= {:id (types/qid 402 :account)
-            :account/name "Car",
-            :account/type :asset,
-            :account/commodity {:id (types/qid 301 :commodity)},
-            :account/parent {:id (types/qid 401 :account)},
-            :account/entity {:id (types/qid 101 :entity)}}
-           (types/generalize {:id 402
-                              :account/name "Car",
-                              :account/type :asset,
-                              :account/commodity 301,
-                              :account/parent 401,
-                              :account/entity 101}
-                             {:ref-keys #{[:account/parent :account]
-                                          :account/entity
-                                          :account/commodity}})))))
+    (testing "with implicit reference types"
+      (is (= {:id (types/qid 402 :account)
+              :account/name "Car",
+              :account/type :asset,
+              :account/commodity {:id (types/qid 301 :commodity)},
+              :account/parent {:id (types/qid 401 :account)},
+              :account/entity {:id (types/qid 101 :entity)}}
+             (types/generalize {:id 402
+                                :account/name "Car",
+                                :account/type :asset,
+                                :account/commodity 301,
+                                :account/parent 401,
+                                :account/entity 101}
+                               {:ref-keys #{[:account/parent :account]
+                                            :account/entity
+                                            :account/commodity}}))))
+    (testing "with explicit reference types"
+      (is (= {:id (types/qid 402 :account)
+              :account/name "Car",
+              :account/type :asset,
+              :account/commodity {:id (types/qid 301 :commodity)},
+              :account/parent {:id (types/qid 401 :account)},
+              :account/entity {:id (types/qid 101 :entity)}}
+             (types/generalize {:id 402
+                                :account/name "Car",
+                                :account/type :asset,
+                                :account/commodity 301,
+                                :account/parent 401,
+                                :account/entity 101}
+                               {:ref-keys {:account/parent :account
+                                           :account/entity :entity
+                                           :account/commodity :commodity}}))))))

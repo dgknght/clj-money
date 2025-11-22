@@ -190,7 +190,8 @@
 (defn- generalize-ref-entry
   [{:keys [ref-keys]}]
   (fn [x]
-    (when (map-entry? x)
+    (when (and (map-entry? x)
+               (val x))
       (when-let [entity-type (ref-keys (key x))]
         (update-in x [1] (comp (partial hash-map :id)
                                (qid entity-type)))))))
@@ -212,18 +213,21 @@
 
 (s/def ::ref-key (s/or :simple keyword?
                        :named (s/tuple keyword? keyword?)))
-(s/def ::ref-keys (s/coll-of ::ref-key))
+(s/def ::ref-keys (s/or :implicit (s/coll-of ::ref-key)
+                        :explicit (s/map-of keyword? keyword?)))
 (s/def ::generalize-opts (s/keys :opt-un [::ref-keys]))
 
 (defn- infer-types
   "Given the :key-refs options, return a map of keys
   to entity types"
   [ks]
-  (->> ks
-       (map #(if (keyword? %)
-               [% (-> % name keyword)]
-               %))
-       (into {})))
+  (if (map? ks)
+    ks
+    (->> ks
+         (map #(if (keyword? %)
+                 [% (-> % name keyword)]
+                 %))
+         (into {}))))
 
 (defn generalize
   [entity opts]
