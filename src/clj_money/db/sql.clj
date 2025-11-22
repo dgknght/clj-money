@@ -213,14 +213,16 @@
 
 (defn- ref-to-attrs
   [ref]
-  (if (keyword? ref)
+  (if
+    (keyword? ref)
     [(str (name ref) "-id")]
-    (let [{:keys [columns]} ref]
+    (if-let [columns (seq (:columns ref))]
       (map (fn [c]
              (if (keyword? c)
                c
                (second c)))
-           columns))))
+           columns)
+      [(str (name (:id ref)) "-id")])))
 
 (defn- build-attributes
   [[t fields refs]]
@@ -342,7 +344,7 @@
 ;                :user/email "john@doe.com"}}
 ;
 ; To this:
-; {:entity/id 201
+; {:id 201
 ;  :entity/name "Personal"
 ;  :entity/user-id 101}
 ;
