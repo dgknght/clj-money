@@ -68,34 +68,42 @@
   (conj select-context
         #:account{:name "Savings"
                   :type :asset
-                  :entity "Personal"}
+                  :entity "Personal"
+                  :commodity "USD"}
         #:account{:name "Reserve"
                   :type :asset
                   :parent "Savings"
-                  :entity "Personal"}
+                  :entity "Personal"
+                  :commodity "USD"}
         #:account{:name "Car"
                   :type :asset
                   :parent "Savings"
-                  :entity "Personal"}
+                  :entity "Personal"
+                  :commodity "USD"}
         #:account{:name "Doug"
                   :type :asset
                   :parent "Car"
-                  :entity "Personal"}
+                  :entity "Personal"
+                  :commodity "USD"}
         #:account{:name "Eli"
                   :type :asset
                   :parent "Car"
-                  :entity "Personal"}
+                  :entity "Personal"
+                  :commodity "USD"}
         #:account{:name "Taxes"
                   :type :expense
-                  :entity "Personal"}
+                  :entity "Personal"
+                  :commodity "USD"}
         #:account{:name "Federal Income Tax"
                   :type :expense
                   :parent "Taxes"
-                  :entity "Personal"}
+                  :entity "Personal"
+                  :commodity "USD"}
         #:account{:name "Social Security"
                   :type :expense
                   :parent "Taxes"
-                  :entity "Personal"}))
+                  :entity "Personal"
+                  :commodity "USD"}))
 
 (dbtest select-account-with-children
   (with-context nested-context
