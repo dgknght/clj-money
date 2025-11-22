@@ -110,29 +110,18 @@
           coercions))
 
 (def ^:private sql-ref-keys
-  (mapv #(keyword (namespace %)
-                  (str (name %) "-id"))
-        schema/entity-ref-keys))
-
-(def ^:private sql->entity-ref-map
-  (zipmap sql-ref-keys schema/entity-ref-keys))
-
-(defn- ->entity-refs
-  "Convert SQL foreign key columns into entity references.
-
-  E.g.
-  (->entity-refs {:entity/name \"Personal\" :entity/user-id 123}) =>
-  {:entity/name \"Personal\" :entity/user {:id (->QualifiedID 123 :user)}} "
-  [m]
-  (let [renamed (rename-keys m sql->entity-ref-map)]
-    (->> schema/entity-ref-keys
-         (filter #(contains? renamed %))
-         (reduce (fn [m k]
-                   (update-in m
-                              [k]
-                              (comp util/->entity-ref
-                                    (types/qualify-id (-> k name keyword)))))
-                 renamed))))
+  (->> schema/entities
+       (mapcat (fn [{:keys [refs id]}]
+                 (map #(vector id %) refs)))
+       (map (fn [[id ref]]
+              (if (map? ref)
+                [(keyword (name id)
+                          (name (:id ref)))
+                 (or (:type ref) (:id ref))]
+                [(keyword (name id)
+                          (name ref))
+                 ref])))
+       (into {})))
 
 (defmulti post-select
   (fn [_opts ms]
@@ -340,11 +329,10 @@
 
 (defn- after-read*
   ([] (after-read* {}))
-  ([{:as options :keys [entity-type]}]
+  ([options]
    (comp after-read
          apply-coercions
-         ->entity-refs
-         (types/qualify-id entity-type)
+         #(types/generalize % {:ref-keys sql-ref-keys})
          (refine-qualifiers options))))
 
 ; To save an entity, we need to convert from this:
