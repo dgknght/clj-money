@@ -17,8 +17,9 @@
 (s/def ::column-spec (s/or :simple keyword?
                            :complex (s/tuple keyword? keyword?)))
 (s/def ::columns (s/coll-of ::column-spec))
-(s/def ::join-spec (s/keys :req-un [::id
-                                    ::columns]))
+(s/def ::join-spec (s/keys :req-un [::id]
+                           :opt-un [::columns
+                                    ::type]))
 (s/def ::ref (s/or :simple keyword?
                    :complex ::join-spec))
 (s/def ::refs (s/coll-of ::ref
@@ -134,7 +135,8 @@
                :transient? true}}
     :refs #{:entity
             :commodity
-            :parent}}
+            {:id :parent
+             :type :account}}}
    {:id :transaction
     :primary-key [:transaction-date :id]
     :fields #{{:id :transaction-date
@@ -282,10 +284,7 @@
 (assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")
 
-(def indexed-entities
-  (index-by :id entities))
-
-(def ref-id (some-fn :id identity))
+(def ^:private ref-id (some-fn :id identity))
 
 (def entity-ref-keys
   (->> entities

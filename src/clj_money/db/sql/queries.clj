@@ -11,7 +11,8 @@
        (filter #(some map? (:refs %)))
        (mapcat (fn [{:keys [refs id]}]
                  (->> refs
-                      (filter map?)
+                      (filter (every-pred map?
+                                          :columns))
                       (map (fn [{:keys [columns] :as ref}]
                              [[(:id ref) id]
                               columns])))))
