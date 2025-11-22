@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys map-invert]]
+            [clojure.set :refer [map-invert]]
             [clojure.spec.alpha :as s]
             [camel-snake-kebab.core :refer [->snake_case_keyword
                                             ->snake_case_string

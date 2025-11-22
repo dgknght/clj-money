@@ -1,7 +1,6 @@
 (ns clj-money.entities.schema
   (:require [clojure.spec.alpha :as s]
-            [dgknght.app-lib.core :refer [index-by
-                                          update-in-if]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
