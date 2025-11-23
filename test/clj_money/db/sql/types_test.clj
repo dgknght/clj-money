@@ -4,11 +4,11 @@
             [clj-money.db.sql.types :as types]))
 
 (deftest serialize-an-id
-  (is (= "user:123" (str (types/qid 123 :user)))))
+  (is (= "123:user" (str (types/qid 123 :user)))))
 
 (deftest unserialize-an-id
   (is (types/qid 123 :user)
-      (types/unserialize-id "user:123")))
+      (types/unserialize-qid "123:user")))
 
 (deftest qualify-an-id
   (is (= {:id (types/qid 123 :user)
