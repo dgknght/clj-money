@@ -332,9 +332,9 @@
 (defn- after-read*
   ([] (after-read* {}))
   ([options]
-   (comp after-read
+   (comp #(types/generalize % {:ref-keys sql-ref-keys})
+         after-read
          apply-coercions
-         #(types/generalize % {:ref-keys sql-ref-keys})
          (refine-qualifiers options))))
 
 ; To save an entity, we need to convert from this:

@@ -3,11 +3,17 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util]
-            [clj-money.db.sql :as sql]))
-
+            [clj-money.db.sql :as sql]
+            [clj-money.db.sql.types :as types]))
 (defmethod sql/after-read :entity
   [entity]
   (-> entity
+      (update-in-if [:entity/settings
+                     :settings/default-commodity
+                     :id]
+                    #(if (types/qid? %)
+                       %
+                       (types/qid % :commodity)))
       (update-in-if [:entity/settings :settings/monitored-accounts] set)
       (update-in-if [:entity/settings :settings/inventory-method] keyword)
       (update-in-if [:entity/transaction-date-range 0] t/local-date)

@@ -41,8 +41,10 @@
     (qid (parse-long id) ; TODO: Might this be a uuid?
          (keyword entity-type))))
 
-(def ^:private qualified-id?
+(def qualified-id?
   (partial instance? QualifiedID))
+
+(def qid? qualified-id?)
 
 (defmethod print-method QualifiedID
   [this ^java.io.Writer w]
