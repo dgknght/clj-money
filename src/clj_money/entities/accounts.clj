@@ -44,7 +44,7 @@
 (s/def :account/parent (s/nilable ::entities/entity-ref))
 (s/def :account/system-tags (s/nilable (s/coll-of keyword? :kind set?)))
 (s/def :account/user-tags (s/nilable (s/coll-of keyword? :kind set?)))
-(s/def :account/allocations (s/nilable (s/map-of integer? decimal?)))
+(s/def :account/allocations (s/nilable (s/map-of ::entities/id decimal?)))
 (s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
                                                            dates/local-date?)))
 
