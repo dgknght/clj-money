@@ -111,3 +111,7 @@
                                {:ref-keys {:account/parent :account
                                            :account/entity :entity
                                            :account/commodity :commodity}}))))))
+
+(deftest parse-a-qualified-id
+  (is (types/qid 1 :user)
+      (types/parse-qid (str (types/qid 1 :user)))))

@@ -5,6 +5,7 @@
                                   postwalk]]
             [clojure.spec.alpha :as s]
             [cheshire.core :as json]
+            [cheshire.generate :refer [add-encoder]]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
             [next.jdbc.date-time]
@@ -34,8 +35,26 @@
           (not (namespace entity-type))]}
    (->QualifiedID id entity-type)))
 
+(defn parse-qid
+  [s]
+  (let [[entity-type id] (str/split s #":")]
+    (qid (parse-long id) ; TODO: Might this be a uuid?
+         (keyword entity-type))))
+
 (def ^:private qualified-id?
   (partial instance? QualifiedID))
+
+(defmethod print-method QualifiedID
+  [this ^java.io.Writer w]
+  (doto w
+    (.write "#clj-money/qid \"")
+    (.write (str this))
+    (.write "\"")))
+
+(add-encoder
+  QualifiedID
+  (fn [id gen]
+    (.writeString gen (str id))))
 
 ; TODO: Also handle UUID values
 (defn unserialize-id
@@ -184,7 +203,8 @@
 (defn- generalize-id-entry
   [{:keys [entity-type]}]
   (fn [x]
-    (when (id-entry? x)
+    (when (and (id-entry? x)
+               (not (qualified-id? (val x))))
       (update-in x [1] (qid entity-type)))))
 
 (defn- generalize-ref-entry
