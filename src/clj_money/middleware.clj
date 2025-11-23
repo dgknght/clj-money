@@ -9,10 +9,10 @@
                                          wrap-format-request
                                          wrap-format-response]]
             [muuntaja.core :as muuntaja]
-            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.inflection :refer [singular]]
+            [clj-money.db :refer [unserialize-id]]
             [clj-money.formats :as fmts]
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
@@ -24,17 +24,12 @@
     (name specified-name)
     specified-name))
 
-(def ^:private long-pattern #"\A\d+\z")
-(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
-
 (defn- parse-id
   [v]
   (cond
     (string? v)
-    (cond
-      (re-find long-pattern v) (parse-long v)
-      (re-find uuid-pattern v) (uuid v)
-      :else v)
+    (or (unserialize-id v)
+        v)
 
     (coll? v)
     (mapv parse-id v)

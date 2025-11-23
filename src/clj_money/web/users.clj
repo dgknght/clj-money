@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.config :refer [env]]
             [buddy.sign.jwt :as jwt]
+            [clj-money.db :refer [unserialize-id]]
             [clj-money.entities :as entities]))
 
 (defn- extract-header-auth-token
@@ -24,4 +25,5 @@
           extract-auth-token
           (jwt/unsign (env :secret))
           :user-id
+          unserialize-id
           entities/find))

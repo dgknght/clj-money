@@ -9,6 +9,7 @@
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
             [next.jdbc.date-time]
+            [clj-money.db :as db]
             [clj-money.entities :as e]
             [clj-money.util :as util])
   (:import org.postgresql.util.PGobject
@@ -19,7 +20,7 @@
   (components [_] {:id id :entity-type entity-type})
 
   Object
-  (toString [_] (format "%s:%s" (name entity-type) id))
+  (toString [_] (format "%s:%s" id (name entity-type)))
   (equals [_ other]
     (and (instance? QualifiedID other)
          (= id (.id other))
@@ -37,7 +38,7 @@
 
 (defn parse-qid
   [s]
-  (let [[entity-type id] (str/split s #":")]
+  (let [[id entity-type] (str/split s #":")]
     (qid (parse-long id) ; TODO: Might this be a uuid?
          (keyword entity-type))))
 
@@ -59,11 +60,34 @@
     (.writeString gen (str id))))
 
 ; TODO: Also handle UUID values
-(defn unserialize-id
-  [^String s]
-  (when-let [match (re-find #"\A(\d+)(:[a-z]+)?\z" s)]
+(defn unserialize-qid
+  [s]
+  (when-let [match (when (string? s)
+                     (re-find #"\A(\d+)(?::([a-z\-]+))?\z" s))]
     (->QualifiedID (parse-long (nth match 1))
           (keyword (nth match 2)))))
+
+(db/register-id-unserializer unserialize-qid)
+
+(def ^:private long-pattern #"\A\d+\z")
+
+(defn- unserialize-integer-id
+  [s]
+  (when-let [match (when (string? s)
+                     (re-find long-pattern s))]
+    (parse-long (first match))))
+
+(db/register-id-unserializer unserialize-integer-id)
+
+(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
+
+(defn- unserialize-uuid
+  [s]
+  (when-let [match (when (string? s)
+                     (re-find uuid-pattern s))]
+    (parse-uuid (first match))))
+
+(db/register-id-unserializer unserialize-uuid)
 
 (defn qualify-id
   ([entity-or-type]

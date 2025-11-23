@@ -81,3 +81,14 @@
       (with-tracing [span (format "%s/reset"
                                   prefix)]
         (reset storage)))))
+
+(def ^:private unserializers (atom [#(when-not (string? %) %)]))
+
+(defn unserialize-id
+  [s]
+  (let [f (apply some-fn @unserializers)]
+    (f s)))
+
+(defn register-id-unserializer
+  [f]
+  (swap! unserializers conj f))

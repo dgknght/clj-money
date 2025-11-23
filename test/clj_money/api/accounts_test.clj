@@ -4,6 +4,7 @@
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.db :as db]
             [clj-money.json]
             [clj-money.util :as util]
             [clj-money.entities.ref]
@@ -41,6 +42,7 @@
         retrieved (-> response
                       :parsed-body
                       :id
+                      db/unserialize-id
                       entities/find)]
     [response retrieved]))
 
