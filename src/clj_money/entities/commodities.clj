@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update count find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
