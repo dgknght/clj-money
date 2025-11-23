@@ -100,11 +100,11 @@
 
 (defn find
   "Return the entity having the specified ID"
-  [id-or-entity]
+  [id-or-entity & [opts]]
   (some-> id-or-entity
           util/->id
           db-find
-          after-read))
+          (after-read opts)))
 
 (def ^:private mergeable?
   (every-pred map? :id))
