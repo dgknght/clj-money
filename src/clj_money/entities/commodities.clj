@@ -76,30 +76,22 @@
   [comm]
   (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
 
+(defn- assign-default-commodity
+  [entity]
+  (if-let [currency (entities/find-by {:commodity/entity entity
+                                       :commodity/type :currency})]
+    (entities/put (assoc-in entity
+                            [:entity/settings
+                             :settings/default-commodity]
+                            (util/->entity-ref currency)))
+    entity))
+
 (defn propagate-all
   [entity _opts]
   {:pre [entity]}
-  (log/debugf "[propagation] start entity %s"
-              (:entity/name entity))
   (if (get-in entity [:entity/settings
                       :settings/default-commodity])
-    (do (log/info "entity already has a default commodity")
-        entity)
-    (if-let [currencies (seq
-                          (entities/select {:commodity/entity entity
-                                          :commodity/type :currency}))]
-      (do (when (< 1 (clojure.core/count currencies))
-            (log/warnf "Found multiple currencies for entity %s, defaulting to %s."
-                       (select-keys entity [:id :entity/name])
-                       (select-keys (first currencies) [:id :commodity/name :commodity/symbol])))
-          (let [updated (entities/put (assoc-in entity
-                                              [:entity/settings
-                                               :settings/default-commodity]
-                                              (util/->entity-ref (first currencies))))]
-            (log/infof "[propagation] finish entity %s"
-                       (:entity/name entity))
-            updated))
-      (do (log/info "No currencies to set as the default commodity")
-          entity))))
+    entity
+    (assign-default-commodity entity)))
 
 (prop/add-full-propagation propagate-all :priority 5)
