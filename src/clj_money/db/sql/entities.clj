@@ -5,6 +5,7 @@
             [clj-money.util :as util]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :as types]))
+
 (defmethod sql/after-read :entity
   [entity]
   (-> entity
@@ -14,7 +15,11 @@
                     #(if (types/qid? %)
                        %
                        (types/qid % :commodity)))
-      (update-in-if [:entity/settings :settings/monitored-accounts] set)
+      (update-in-if [:entity/settings :settings/monitored-accounts]
+                    (fn [refs]
+                      (->> refs
+                           (map #(update-in % [:id] (types/qid :account)))
+                           set)))
       (update-in-if [:entity/settings :settings/inventory-method] keyword)
       (update-in-if [:entity/transaction-date-range 0] t/local-date)
       (update-in-if [:entity/transaction-date-range 1] t/local-date)
