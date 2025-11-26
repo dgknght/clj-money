@@ -21,6 +21,7 @@
 
   Object
   (toString [_] (format "%s:%s" id (name entity-type)))
+  (hashCode [this] (.hashCode (.toString this)))
   (equals [_ other]
     (and (instance? QualifiedID other)
          (= id (.id other))
