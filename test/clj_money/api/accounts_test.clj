@@ -14,6 +14,7 @@
                                             basic-context
                                             find-user
                                             find-entity
+                                            find-commodity
                                             find-account]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [request
@@ -65,23 +66,24 @@
 
 (deftest a-user-can-create-an-account-in-his-entity
   (with-context
-    (testing "default format (edn)"
-      (assert-successful-create (create-an-account "john@doe.com")))
-    (testing "json format"
-      (assert-successful-create
-        (create-an-account "john@doe.com"
-                           :content-type "application/json"
-                           :body {:name "JSON Savings"
-                                  :type :asset
-                                  :commodity {:id 1}
-                                  :_type :account})
-        :expected #:account{:name "JSON Savings"
-                            :type :asset
-                            :commodity {:id 1}}
-        :expected-response {:name "JSON Savings"
-                            :type "asset"
-                            :commodity {:id 1}
-                            :_type "account"}))))
+    (let [commodity (find-commodity "USD")]
+      (testing "default format (edn)"
+        (assert-successful-create (create-an-account "john@doe.com")))
+      (testing "json format"
+        (assert-successful-create
+          (create-an-account "john@doe.com"
+                             :content-type "application/json"
+                             :body {:name "JSON Savings"
+                                    :type :asset
+                                    :commodity {:id (str (:id commodity))}
+                                    :_type :account})
+          :expected #:account{:name "JSON Savings"
+                              :type :asset
+                              :commodity (util/->entity-ref commodity)}
+          :expected-response {:name "JSON Savings"
+                              :type "asset"
+                              :commodity {:id (str (:id commodity))}
+                              :_type "account"})))))
 
 (deftest a-user-cannot-create-an-account-in-anothers-entity
   (with-context
