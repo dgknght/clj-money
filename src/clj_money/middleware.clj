@@ -16,7 +16,8 @@
             [clj-money.formats :as fmts]
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
-            [clj-money.api :refer [log-error]]))
+            [clj-money.api :refer [log-error]])
+  (:import com.fasterxml.jackson.core.JsonGenerator))
 
 (defn- param-name
   [specified-name]
@@ -174,10 +175,21 @@
   (fn [req]
     (-> req ->clj-keys handler)))
 
+(def ^:private muuntoptions
+  (-> muuntaja/default-options
+      (assoc :default-format "application/edn")
+      (assoc-in [:formats "application/json" :encoder-opts]
+                {:encoders {clj_money.entities.CompositeID
+                            (fn [x ^JsonGenerator gen]
+                              (.writeString gen (str x)))}})))
+
+(def ^:private muunstance
+  (muuntaja/create muuntoptions))
+
 (def wrap-format
-  (comp #(wrap-format-negotiate % (assoc muuntaja/default-options :default-format "application/edn"))
-        wrap-format-request
+  (comp #(wrap-format-negotiate % muunstance)
+        #(wrap-format-request % muunstance)
         wrap-infer-entity-type
         wrap-clj-request-keys
-        wrap-format-response
+        #(wrap-format-response % muunstance)
         wrap-conventionalize-response))
