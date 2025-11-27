@@ -125,8 +125,9 @@
 
 (defmulti post-select
   (fn [_opts ms]
-    (when-let [m1 (first ms)]
-      (util/entity-type m1))))
+    (some-> ms
+            first
+            util/entity-type)))
 (defmethod post-select :default [_ ms] ms)
 
 (def ^:private infer-table-name
@@ -394,7 +395,7 @@
   [ds criteria opts]
   (let [options (update-in opts
                            [:entity-type]
-                           #(or % (util/entity-type criteria)))
+                           (fnil identity (util/entity-type criteria)))
         query (make-query criteria options)]
     (log/infof "select %s with options %s -> %s"
                (entities/scrub-sensitive-data criteria)
