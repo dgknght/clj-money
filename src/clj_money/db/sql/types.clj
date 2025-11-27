@@ -201,6 +201,28 @@
   (set-parameter [^clojure.lang.PersistentHashMap m ^PreparedStatement s ^long i]
     (.setObject s i (map->pg-object m))))
 
+(defn- ref-entry?
+  [ref-keys]
+  (every-pred map-entry?
+              (comp ref-keys key)))
+
+(defn- sqlize-ref-entry
+  [entry]
+  (-> entry
+      (update-in [0] #(keyword (namespace %)
+                               (str (name %) "-id")))
+      (update-in [1] #(cond
+                        (vector? %) ; criterion with operator, like [:in `(1 2 3)]
+                        (apply vector
+                               (first %)
+                               (map (some-fn :id identity)
+                                    (rest %)))
+
+                        (map? %) ; an entity or a reference
+                        (:id %)
+
+                        :else %))))
+
 (defn- sqlize*
   [{:keys [ref-keys]}]
   (fn [x]
@@ -208,12 +230,12 @@
       (qualified-id? x)
       (.id x)
 
+      ((ref-entry? ref-keys) x)
+      (sqlize-ref-entry x)
+
       (and (map-entry? x)
-           (ref-keys (key x)))
-      (-> x
-          (update-in [0] #(keyword (namespace %)
-                                   (str (name %) "-id")))
-          (update-in [1] :id))
+           (keyword (val x)))
+      (update-in x [1] name)
 
       :else x)))
 
