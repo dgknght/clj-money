@@ -32,7 +32,8 @@
   ([entity-type]
    #(qid % entity-type))
   ([id entity-type]
-   {:pre [(integer? id)
+   {:pre [(or (integer? id)
+              (uuid? id))
           (keyword? entity-type)
           (not (namespace entity-type))]}
    (->QualifiedID id entity-type)))
