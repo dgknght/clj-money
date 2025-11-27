@@ -407,13 +407,14 @@
       (extract-entities ds query options))))
 
 (defn- find*
-  [ds ^QualifiedID qualified-id]
+  [ds ^QualifiedID qualified-id opts]
   {:pre [(instance? QualifiedID qualified-id)]}
   (first
     (select* ds
              {:id qualified-id}
-             {:limit 1
-              :entity-type (.entity-type qualified-id)})))
+             (assoc opts
+                    :limit 1
+                    :entity-type (.entity-type qualified-id)))))
 
 (defn- update*
   [ds changes criteria]
@@ -445,7 +446,7 @@
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
       (put [_ entities] (put* ds entities))
-      (find [_ id] (find* ds id))
+      (find [this id] (find* ds id {:storage this}))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))
