@@ -32,12 +32,12 @@
 (defn- create-from-profile
   [[provider {:keys [email id given_name family_name]}]]
   (let [user (entities/put #:user{:email email
-                                :first-name given_name
-                                :last-name family_name
-                                :password "please001!"})
+                                  :first-name given_name
+                                  :last-name family_name
+                                  :password "please001!"})
         ident (entities/put #:identity{:provider provider
-                                     :provider-id id
-                                     :user user})]
+                                       :provider-id id
+                                       :user user})]
     (log/debugf "created user from profile %s" (prn-str user))
     (log/debugf "created identity from profile %s" (prn-str ident))
     user))
