@@ -262,22 +262,18 @@
   (fn [x]
     (when (and (map-entry? x)
                (val x))
-      (when-let [entity-type (ref-keys (key x))]
-        (update-in x [1] (comp (partial hash-map :id)
-                               (qid entity-type)))))))
-
-(defn- generalize-ref-key
-  [_]
-  (fn [x]
-    (when (keyword? x)
-      (when-let [match (re-find #"\A(.+)-id\z" (name x))]
-        (keyword (namespace x)
-                 (second match))))))
+      (when-let [key-root (re-find #"\A.+(?=-id\z)" (name (key x)))]
+        (let [k (keyword (namespace (key x))
+                         key-root)]
+          (when-let [entity-type (ref-keys k)]
+            (-> x
+                (assoc-in [0] k)
+                (update-in [1] (comp (partial hash-map :id)
+                                     (qid entity-type))))))))))
 
 (defn- generalize*
   [opts]
-  (some-fn (generalize-ref-key opts)
-           (generalize-ref-entry opts)
+  (some-fn (generalize-ref-entry opts)
            (generalize-id-entry opts)
            identity))
 
