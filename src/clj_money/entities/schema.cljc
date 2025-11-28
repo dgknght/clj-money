@@ -5,7 +5,8 @@
                :cljs [cljs.pprint :refer [pprint]])))
 
 (s/def ::id keyword?)
-(s/def ::type keyword?)
+(s/def ::type (s/or :singular keyword?
+                    :plural (s/tuple keyword?)))
 (s/def ::transient? boolean?)
 (s/def ::field (s/keys :req-un [::id
                                 ::type]
@@ -60,7 +61,8 @@
                :type :map
                :transient? true}}
     :refs #{:user
-            :image}}
+            {:id :images
+             :type [:image]}}} ; the vector indicates a vector of images
    {:id :image
     :fields #{{:id :original-filename
                :type :string}
@@ -283,7 +285,7 @@
 (assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")
 
-(def ^:private ref-id (some-fn :id identity))
+(def ref-id (some-fn :id identity))
 
 (def entity-ref-keys
   (->> entities

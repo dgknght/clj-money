@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [map-invert]]
             [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [camel-snake-kebab.core :refer [->snake_case_keyword
                                             ->snake_case_string
                                             ->snake_case
@@ -294,7 +295,18 @@
            (->snake_case_string (name k))))
 
 (def ^:private sqlize
-  (types/sqlize {:ref-keys (set schema/entity-ref-keys)}))
+  (types/sqlize
+    {:ref-keys (->> schema/entities
+                    (mapcat (fn [{:keys [refs id]}]
+                              (map (fn [ref]
+                                     [(keyword (name id)
+                                               (name (schema/ref-id ref)))
+                                      (or (:type ref)
+                                          (-> (or (:id ref) ref)
+                                              name
+                                              keyword))])
+                                   refs)))
+                    (into {}))}))
 
 (defn- make-query
   [criteria {:as options
@@ -316,25 +328,38 @@
           include-children? (assoc :recursion (recursions entity-type))
           include-parents? (assoc :recursion (reverse (recursions entity-type)))))))
 
+(defn- ref-spec->sql-key
+  [[id ref]]
+  ; TODO: Handle plural key, like :images -> :image-ids
+  (let [attr-type (or (:type ref)
+                      (:id ref)
+                      ref)
+        attr-id (or (:id ref) ref)
+        attr-name (if (vector? attr-type)
+                    (str (str/replace
+                           (name attr-id)
+                           #"s\z"
+                           "")
+                         "-ids")
+                    (str (name attr-id)
+                         "-id"))]
+    [(keyword (name id)
+              attr-name)
+     (if (vector? attr-type)
+       (first attr-type)
+       attr-type)]))
+
 (def ^:private sql-ref-keys
   (->> schema/entities
        (mapcat (fn [{:keys [refs id]}]
                  (map #(vector id %) refs)))
-       (map (fn [[id ref]]
-              (let [attr-name (str (name (or (:id ref) ref))
-                                   "-id")
-                    attr-type (or (:type ref)
-                                  (:id ref)
-                                  ref)]
-                [(keyword (name id)
-                          attr-name)
-                 attr-type])))
+       (map ref-spec->sql-key)
        (into {})))
 
 (defn- after-read*
   ([] (after-read* {}))
   ([options]
-   (comp #(types/generalize % {:ref-keys sql-ref-keys})
+   (comp #(types/generalize % {:sql-ref-keys sql-ref-keys})
          after-read
          apply-coercions
          (refine-qualifiers options))))

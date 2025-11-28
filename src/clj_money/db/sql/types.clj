@@ -9,6 +9,7 @@
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
             [next.jdbc.date-time]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db :as db]
             [clj-money.entities :as e]
             [clj-money.util :as util])
@@ -28,26 +29,29 @@
          (= (.entity-type other)
             entity-type))))
 
+(def qualified-id?
+  (partial instance? QualifiedID))
+
+(def qid? qualified-id?)
+
 (defn qid
   ([entity-type]
    #(qid % entity-type))
   ([id entity-type]
-   {:pre [(or (integer? id)
+   {:pre [(or (qid? id)
+              (integer? id)
               (uuid? id))
           (keyword? entity-type)
           (not (namespace entity-type))]}
-   (->QualifiedID id entity-type)))
+   (if (qid? id)
+     id
+     (->QualifiedID id entity-type))))
 
 (defn parse-qid
   [s]
   (let [[id entity-type] (str/split s #":")]
     (qid (parse-long id) ; TODO: Might this be a uuid?
          (keyword entity-type))))
-
-(def qualified-id?
-  (partial instance? QualifiedID))
-
-(def qid? qualified-id?)
 
 (defmethod print-method QualifiedID
   [this ^java.io.Writer w]
@@ -207,21 +211,34 @@
               (comp ref-keys key)))
 
 (defn- sqlize-ref-entry
-  [entry]
-  (-> entry
-      (update-in [0] #(keyword (namespace %)
-                               (str (name %) "-id")))
-      (update-in [1] #(cond
-                        (vector? %) ; criterion with operator, like [:in `(1 2 3)]
-                        (apply vector
-                               (first %)
-                               (map (some-fn :id identity)
-                                    (rest %)))
+  [ref-keys]
+  (fn [entry]
+    (let [type-spec (ref-keys (key entry))
+          [entity-type plural] (if (vector? type-spec)
+                                 [(first type-spec) true]
+                                 [type-spec false])]
+      (-> entry
+          (update-in [0] #(if plural
+                            (keyword (namespace %)
+                                     (str (str/replace 
+                                            (name %)
+                                            #"s\z"
+                                            "") "-ids"))
+                            (keyword (namespace %)
+                                     (str (name %) "-id"))))
+          (update-in [1] #(cond
+                            (vector? %) ; criterion with operator, like [:in `(1 2 3)], or a plural value like {:import/images [{:id 1} {:id 2}]}
+                            (mapv (fn [x]
+                                    (if (keyword? x)
+                                      x
+                                      (qid (or (:id x) x)
+                                           entity-type))) 
+                                  %)
 
-                        (map? %) ; an entity or a reference
-                        (:id %)
+                            (map? %) ; an entity or a reference
+                            (:id %)
 
-                        :else %))))
+                            :else %))))))
 
 (defn- sqlize*
   [{:keys [ref-keys]}]
@@ -231,7 +248,7 @@
       (.id x)
 
       ((ref-entry? ref-keys) x)
-      (sqlize-ref-entry x)
+      ((sqlize-ref-entry ref-keys) x)
 
       (and (map-entry? x)
            (keyword (val x)))
@@ -239,16 +256,42 @@
 
       :else x)))
 
+(defn- normalize-sqlize-ref-keys
+  [ks]
+  (->> ks
+       (map #(if (keyword? %)
+               [% :singular]
+               %))
+       (into {})))
+
+(defn- normalize-sqlize-opts
+  [opts]
+  (update-in-if opts [:ref-keys] normalize-sqlize-ref-keys))
+
+(s/def ::ref-key (s/or :implicit keyword?
+                       :explicit (s/tuple keyword?
+                                          (s/or :singular keyword?
+                                                :plural (s/tuple keyword?)))))
+(s/def ::ref-keys (s/coll-of ::ref-key))
+(s/def ::sqlize-options (s/keys :req-un [::ref-keys]))
+
 (defn sqlize
   "Given a domain entity map, convert it to a SQL record map.
 
   The option :ref-keys is a list of keys that have entity reference values.
-  E.g. #{:entity/user}"
+  E.g. #{:entity/user}.
+
+  The :ref-keys can also include the type of the value, especially when
+  necessary to indicate plurality.
+  Elg. #{:import/user
+         [:import/images [:image]]}"
   ([opts]
    #(sqlize % opts))
   ([entity opts]
-   (prewalk (sqlize* opts)
-            entity)))
+   {:pre [(s/valid? ::sqlize-options opts)]}
+   (let [options (normalize-sqlize-opts opts)]
+     (prewalk (sqlize* options)
+            entity))))
 
 (def ^:private id-entry?
   (every-pred map-entry?
@@ -262,10 +305,10 @@
       (update-in x [1] (qid entity-type)))))
 
 (defn- generalize-ref-entry
-  [{:keys [ref-keys]}]
+  [{:keys [sql-ref-keys]}]
   (fn [x]
     (when (map-entry? x)
-      (when-let [entity-type (ref-keys (key x))]
+      (when-let [entity-type (sql-ref-keys (key x))]
         (-> x
             (update-in [0] #(keyword (namespace %)
                                      (str/replace (name %)
@@ -286,11 +329,11 @@
            (generalize-id-entry opts)
            identity))
 
-(s/def ::ref-key (s/or :simple keyword?
-                       :named (s/tuple keyword? keyword?)))
-(s/def ::ref-keys (s/or :implicit (s/coll-of ::ref-key)
-                        :explicit (s/map-of keyword? keyword?)))
-(s/def ::generalize-opts (s/keys :opt-un [::ref-keys]))
+(s/def ::sql-ref-key (s/or :simple keyword?
+                           :named (s/tuple keyword? keyword?)))
+(s/def ::sql-ref-keys (s/or :implicit (s/coll-of ::sql-ref-key)
+                            :explicit (s/map-of keyword? keyword?)))
+(s/def ::generalize-opts (s/keys :req-un [::sql-ref-keys]))
 
 (defn- infer-types
   "Given the :key-refs options, return a map of keys
@@ -320,6 +363,6 @@
   [entity opts]
   {:pre [(s/valid? ::generalize-opts opts)]}
   (postwalk (generalize* (-> opts
-                             (update-in [:ref-keys] infer-types)
+                             (update-in [:sql-ref-keys] infer-types)
                              (assoc :entity-type (util/entity-type entity))))
             entity))

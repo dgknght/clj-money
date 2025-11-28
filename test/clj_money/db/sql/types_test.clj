@@ -72,7 +72,19 @@
                            :entity/name "Personal"
                            :entity/user {:id (types/qid 101 :user)}}
                           :commodity/price-config #:price-config{:enabled true}}
-                         {:ref-keys #{:commodity/entity}})))))
+                         {:ref-keys #{:commodity/entity}}))))
+  (testing "a plural attribute"
+    (is (= {:id 101
+            :import/user-id 201
+            :import/image-ids [301 302]
+            :import/name "Personal"}
+           (types/sqlize {:id (types/qid 101 :import)
+                          :import/user {:id (types/qid 201 :user)}
+                          :import/images [(types/qid 301 :image)
+                                          (types/qid 302 :image)]
+                          :import/name "Personal"}
+                         {:ref-keys #{:import/user
+                                      [:import/images [:image]]}})))))
 
 (deftest convert-an-entity-from-sql-storage
   (testing "a referenced entity"
@@ -82,7 +94,7 @@
            (types/generalize {:id 201
                               :entity/name "Personal"
                               :entity/user-id 101}
-                             {:ref-keys #{:entity/user-id}}))))
+                             {:sql-ref-keys #{:entity/user-id}}))))
   (testing "a referenced entity with attribute/type mismatch"
     (testing "with implicit reference type"
       (is (= {:id (types/qid 402 :account)
@@ -97,9 +109,9 @@
                                 :account/commodity-id 301,
                                 :account/parent-id 401,
                                 :account/entity-id 101}
-                               {:ref-keys #{[:account/parent-id :account]
-                                            :account/entity-id
-                                            :account/commodity-id}}))))
+                               {:sql-ref-keys #{[:account/parent-id :account]
+                                                :account/entity-id
+                                                :account/commodity-id}}))))
     (testing "with explicit reference type"
       (is (= {:id (types/qid 402 :account)
               :account/name "Car",
@@ -113,9 +125,9 @@
                                 :account/commodity-id 301,
                                 :account/parent-id 401,
                                 :account/entity-id 101}
-                               {:ref-keys {:account/parent-id :account
-                                           :account/entity-id :entity
-                                           :account/commodity-id :commodity}})))))
+                               {:sql-ref-keys {:account/parent-id :account
+                                               :account/entity-id :entity
+                                               :account/commodity-id :commodity}})))))
   (testing "an id attribute that is not a local reference"
     (is (= {:id (types/qid 101 :identity)
             :identity/user {:id (types/qid 201 :user)}
@@ -123,7 +135,7 @@
            (types/generalize {:id 101
                               :identity/user-id 201
                               :identity/provider-id "abc123"}
-                             {:ref-keys #{:identity/user-id}}))))
+                             {:sql-ref-keys #{:identity/user-id}}))))
   (testing "A list of references"
     (is (= {:id (types/qid 101 :import)
             :import/user {:id (types/qid 201 :user)}
@@ -134,5 +146,5 @@
                               :import/user-id 201
                               :import/entity-name "Personal"
                               :import/image-ids [301 302]}
-                             {:ref-keys #{:import/user-id
-                                          [:import/image-ids :image]}})))))
+                             {:sql-ref-keys #{:import/user-id
+                                              [:import/image-ids :image]}})))))
