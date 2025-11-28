@@ -269,9 +269,15 @@
         (-> x
             (update-in [0] #(keyword (namespace %)
                                      (str/replace (name %)
-                                                  #"-id\z"
-                                                  "")))
-            (update-in [1] #(when %
+                                                  #"-id(s)?\z"
+                                                  (fn [m]
+                                                    (or (second m)
+                                                        "")))))
+            (update-in [1] #(cond
+                              (sequential? %)
+                              (mapv (qid entity-type) %)
+
+                              %
                               {:id (qid % entity-type)})))))))
 
 (defn- generalize*

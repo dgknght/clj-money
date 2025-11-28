@@ -123,4 +123,16 @@
            (types/generalize {:id 101
                               :identity/user-id 201
                               :identity/provider-id "abc123"}
-                             {:ref-keys #{:identity/user-id}})))))
+                             {:ref-keys #{:identity/user-id}}))))
+  (testing "A list of references"
+    (is (= {:id (types/qid 101 :import)
+            :import/user {:id (types/qid 201 :user)}
+            :import/entity-name "Personal"
+            :import/images [(types/qid 301 :image)
+                            (types/qid 302 :image)]}
+           (types/generalize {:id 101
+                              :import/user-id 201
+                              :import/entity-name "Personal"
+                              :import/image-ids [301 302]}
+                             {:ref-keys #{:import/user-id
+                                          [:import/image-ids :image]}})))))
