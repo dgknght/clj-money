@@ -144,7 +144,7 @@
   "Given a trade map, appends the commodity"
   [{:trade/keys [commodity] :as trade}]
   {:pre [commodity]}
-  (update-in trade [:trade/commodity] (entities/resolve-ref :commodity)))
+  (update-in trade [:trade/commodity] entities/resolve-ref))
 
 (defn- find-commodity-account
   [parent commodity]
@@ -176,7 +176,7 @@
   {:pre [(and account commodity)]}
   (-> trade
       (update-in [:trade/account]
-                 (entities/resolve-ref :account))
+                 entities/resolve-ref)
       (update-in [:trade/commodity-account]
                  #(if %
                     (entities/resolve-ref %)
@@ -194,7 +194,7 @@
 
 (defn- append-entity
   [{{:account/keys [entity]} :trade/account :as trade}]
-  (update-in trade [:trade/entity] (fnil (entities/resolve-ref :entity)
+  (update-in trade [:trade/entity] (fnil entities/resolve-ref
                                          entity)))
 
 (defn- sale-transaction-description
