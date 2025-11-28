@@ -49,8 +49,10 @@
   (let [out-chan (a/chan)
         handle-nils (if ignore-nils? util/remove-nils identity)
         result (handle-nils (entities/put attr :out-chan out-chan))
-        fetched (when (:id result)
-                  (handle-nils (entities/find result)))
+        fetched (some-> result
+                        :id
+                        entities/find
+                        handle-nils)
         expected  (apply dissoc
                          (handle-nils (simplify-refs attr refs))
                          ignore-attributes)]
