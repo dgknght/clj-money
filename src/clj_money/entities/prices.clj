@@ -158,10 +158,10 @@
   [[before after]]
   (if after
     (-> after
-        (update-in [:price/commodity] (entities/find :commodity))
+        (update-in [:price/commodity] entities/find)
         push-boundaries)
     (-> before
-        (update-in [:price/commodity] (entities/find :commodity))
+        (update-in [:price/commodity] entities/find)
         pull-boundaries)))
 
 (defn- aggregate
