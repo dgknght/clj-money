@@ -10,6 +10,11 @@
   (is (types/qid 123 :user)
       (types/unserialize-qid "123:user")))
 
+; TODO: Do we need both of these?
+(deftest parse-a-qualified-id
+  (is (types/qid 1 :user)
+      (types/parse-qid (str (types/qid 1 :user)))))
+
 (deftest qualify-an-id
   (is (= {:id (types/qid 123 :user)
           :user/first-name "John"}
@@ -54,7 +59,7 @@
   (testing "a nested map that is not an entity"
     (is (= {:id "temp"
             :commodity/symbol "USD"
-            :commodity/type :currency
+            :commodity/type "currency"
             :commodity/name "US Dollar"
             :commodity/entity-id 201
             :commodity/price-config #:price-config{:enabled true}}
@@ -77,9 +82,9 @@
            (types/generalize {:id 201
                               :entity/name "Personal"
                               :entity/user-id 101}
-                             {:ref-keys #{:entity/user}}))))
+                             {:ref-keys #{:entity/user-id}}))))
   (testing "a referenced entity with attribute/type mismatch"
-    (testing "with implicit reference types"
+    (testing "with implicit reference type"
       (is (= {:id (types/qid 402 :account)
               :account/name "Car",
               :account/type :asset,
@@ -89,13 +94,13 @@
              (types/generalize {:id 402
                                 :account/name "Car",
                                 :account/type :asset,
-                                :account/commodity 301,
-                                :account/parent 401,
-                                :account/entity 101}
-                               {:ref-keys #{[:account/parent :account]
-                                            :account/entity
-                                            :account/commodity}}))))
-    (testing "with explicit reference types"
+                                :account/commodity-id 301,
+                                :account/parent-id 401,
+                                :account/entity-id 101}
+                               {:ref-keys #{[:account/parent-id :account]
+                                            :account/entity-id
+                                            :account/commodity-id}}))))
+    (testing "with explicit reference type"
       (is (= {:id (types/qid 402 :account)
               :account/name "Car",
               :account/type :asset,
@@ -105,13 +110,17 @@
              (types/generalize {:id 402
                                 :account/name "Car",
                                 :account/type :asset,
-                                :account/commodity 301,
-                                :account/parent 401,
-                                :account/entity 101}
-                               {:ref-keys {:account/parent :account
-                                           :account/entity :entity
-                                           :account/commodity :commodity}}))))))
-
-(deftest parse-a-qualified-id
-  (is (types/qid 1 :user)
-      (types/parse-qid (str (types/qid 1 :user)))))
+                                :account/commodity-id 301,
+                                :account/parent-id 401,
+                                :account/entity-id 101}
+                               {:ref-keys {:account/parent-id :account
+                                           :account/entity-id :entity
+                                           :account/commodity-id :commodity}})))))
+  (testing "an id attribute that is not a local reference"
+    (is (= {:id (types/qid 101 :identity)
+            :identity/user {:id (types/qid 201 :user)}
+            :identity/provider-id "abc123"}
+           (types/generalize {:id 101
+                              :identity/user-id 201
+                              :identity/provider-id "abc123"}
+                             {:ref-keys #{:identity/user-id}})))))

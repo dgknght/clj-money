@@ -109,20 +109,6 @@
           x
           coercions))
 
-(def ^:private sql-ref-keys
-  (->> schema/entities
-       (mapcat (fn [{:keys [refs id]}]
-                 (map #(vector id %) refs)))
-       (map (fn [[id ref]]
-              (if (map? ref)
-                [(keyword (name id)
-                          (name (:id ref)))
-                 (or (:type ref) (:id ref))]
-                [(keyword (name id)
-                          (name ref))
-                 ref])))
-       (into {})))
-
 (defmulti post-select
   (fn [_opts ms]
     (some-> ms
@@ -329,6 +315,21 @@
                                                ->snake-case))
           include-children? (assoc :recursion (recursions entity-type))
           include-parents? (assoc :recursion (reverse (recursions entity-type)))))))
+
+(def ^:private sql-ref-keys
+  (->> schema/entities
+       (mapcat (fn [{:keys [refs id]}]
+                 (map #(vector id %) refs)))
+       (map (fn [[id ref]]
+              (let [attr-name (str (name (or (:id ref) ref))
+                                   "-id")
+                    attr-type (or (:type ref)
+                                  (:id ref)
+                                  ref)]
+                [(keyword (name id)
+                          attr-name)
+                 attr-type])))
+       (into {})))
 
 (defn- after-read*
   ([] (after-read* {}))

@@ -240,6 +240,10 @@
       :else x)))
 
 (defn sqlize
+  "Given a domain entity map, convert it to a SQL record map.
+
+  The option :ref-keys is a list of keys that have entity reference values.
+  E.g. #{:entity/user}"
   ([opts]
    #(sqlize % opts))
   ([entity opts]
@@ -260,16 +264,15 @@
 (defn- generalize-ref-entry
   [{:keys [ref-keys]}]
   (fn [x]
-    (when (and (map-entry? x)
-               (val x))
-      (when-let [key-root (re-find #"\A.+(?=-id\z)" (name (key x)))]
-        (let [k (keyword (namespace (key x))
-                         key-root)]
-          (when-let [entity-type (ref-keys k)]
-            (-> x
-                (assoc-in [0] k)
-                (update-in [1] (comp (partial hash-map :id)
-                                     (qid entity-type))))))))))
+    (when (map-entry? x)
+      (when-let [entity-type (ref-keys (key x))]
+        (-> x
+            (update-in [0] #(keyword (namespace %)
+                                     (str/replace (name %)
+                                                  #"-id\z"
+                                                  "")))
+            (update-in [1] #(when %
+                              {:id (qid % entity-type)})))))))
 
 (defn- generalize*
   [opts]
@@ -290,12 +293,24 @@
   (if (map? ks)
     ks
     (->> ks
-         (map #(if (keyword? %)
-                 [% (-> % name keyword)]
-                 %))
+         (map (fn [x]
+                (if (keyword? x)
+                  [x (->> x
+                          name
+                          (re-find #"\A.+(?=-id\z)")
+                          keyword)]
+                  x)))
          (into {}))))
 
 (defn generalize
+  "Given a map as read from a SQL database, convert it to a generalized
+  map for the application domain.
+
+  The option :ref-keys is a list of:
+    - An attribute key. E.g. :entity/user-id
+    - An attribute key and type. E.g. [:account/parent-id :account]
+  Or it can be a map of attribute keys to types. E.g.
+    {:account/parent-id :account}"
   [entity opts]
   {:pre [(s/valid? ::generalize-opts opts)]}
   (postwalk (generalize* (-> opts
