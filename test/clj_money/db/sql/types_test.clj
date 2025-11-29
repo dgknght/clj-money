@@ -80,8 +80,8 @@
             :import/name "Personal"}
            (types/sqlize {:id (types/qid 101 :import)
                           :import/user {:id (types/qid 201 :user)}
-                          :import/images [(types/qid 301 :image)
-                                          (types/qid 302 :image)]
+                          :import/images [{:id (types/qid 301 :image)}
+                                          {:id (types/qid 302 :image)}]
                           :import/name "Personal"}
                          {:ref-keys #{:import/user
                                       [:import/images [:image]]}}))))
