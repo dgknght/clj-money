@@ -95,8 +95,8 @@
    (first (select criteria (assoc options :limit 1)))))
 
 (defn- db-find
-  [x]
-  (db/find (db/storage) x))
+  [id]
+  (db/find (db/storage) id))
 
 (defn find
   "Return the entity having the specified ID"
