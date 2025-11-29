@@ -23,10 +23,12 @@
 (defprotocol CompositeID
   (components [this] "Returns the components of the ID"))
 
+(def composite-id? (partial satisfies? CompositeID))
+
 (s/def ::id (some-fn string?
                      uuid?
                      integer?
-                     (partial satisfies? CompositeID)))
+                     composite-id?))
 (s/def ::entity-ref (s/keys :req-un [::id]))
 
 (defmulti prepare-criteria util/entity-type-dispatch)

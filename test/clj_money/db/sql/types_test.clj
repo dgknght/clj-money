@@ -146,8 +146,8 @@
     (is (= {:id (types/qid 101 :import)
             :import/user {:id (types/qid 201 :user)}
             :import/entity-name "Personal"
-            :import/images [(types/qid 301 :image)
-                            (types/qid 302 :image)]}
+            :import/images [{:id (types/qid 301 :image)}
+                            {:id (types/qid 302 :image)}]}
            (types/generalize {:id 101
                               :import/user-id 201
                               :import/entity-name "Personal"

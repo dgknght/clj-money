@@ -316,24 +316,33 @@
                (not (qualified-id? (val x))))
       (update-in x [1] (qid entity-type)))))
 
+(defn- generalize-ref-key
+  [k]
+  (keyword (namespace k)
+           (str/replace (name k)
+                        #"-id(s)?\z"
+                        (fn [m]
+                          (or (second m)
+                              "")))))
+
+(defn- generalize-ref-val
+  ([entity-type] #(generalize-ref-val % entity-type))
+  ([v entity-type]
+   (cond
+     (sequential? v)
+     (mapv #(generalize-ref-val % entity-type) v)
+
+     v
+     {:id (qid v entity-type)})))
+
 (defn- generalize-ref-entry
   [{:keys [sql-ref-keys]}]
   (fn [x]
     (when (map-entry? x)
       (when-let [entity-type (sql-ref-keys (key x))]
         (-> x
-            (update-in [0] #(keyword (namespace %)
-                                     (str/replace (name %)
-                                                  #"-id(s)?\z"
-                                                  (fn [m]
-                                                    (or (second m)
-                                                        "")))))
-            (update-in [1] #(cond
-                              (sequential? %)
-                              (mapv (qid entity-type) %)
-
-                              %
-                              {:id (qid % entity-type)})))))))
+            (update-in [0] generalize-ref-key)
+            (update-in [1] (generalize-ref-val entity-type)))))))
 
 (defn- generalize*
   [opts]
