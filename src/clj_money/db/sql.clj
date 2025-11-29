@@ -444,7 +444,7 @@
 
 (defn- update*
   [ds changes criteria]
-  (let [sql (->update (types/sqlize changes)
+  (let [sql (->update (sqlize changes)
                       (crt/apply-to criteria sqlize))]
     (log/infof "bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
