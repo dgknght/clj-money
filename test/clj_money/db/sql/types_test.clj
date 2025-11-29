@@ -84,7 +84,13 @@
                                           (types/qid 302 :image)]
                           :import/name "Personal"}
                          {:ref-keys #{:import/user
-                                      [:import/images [:image]]}})))))
+                                      [:import/images [:image]]}}))))
+  (testing "a criterion with operator"
+    (is (= {:budget-item/budget-id [:in '(101 102)]}
+           (types/sqlize {:budget-item/budget [:in (list
+                                                     {:id (types/qid 101 :budget)}
+                                                     {:id (types/qid 102 :budget)})]}
+                         {:ref-keys #{:budget-item/budget}})))))
 
 (deftest convert-an-entity-from-sql-storage
   (testing "a referenced entity"

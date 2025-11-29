@@ -210,35 +210,47 @@
   (every-pred map-entry?
               (comp ref-keys key)))
 
+(defn- sqlize-ref-key
+  [plural?]
+  (fn
+    [k]
+    (if plural?
+      (keyword (namespace k)
+               (str (str/replace 
+                      (name k)
+                      #"s\z"
+                      "") "-ids"))
+      (keyword (namespace k)
+               (str (name k) "-id")))))
+
+(defn- sqlize-ref-val
+  [v]
+  (cond
+    (vector? v) ; criterion with operator, like [:in `(1 2 3)], or a plural value like {:import/images [{:id 1} {:id 2}]}
+    (if (keyword? (first v))
+      [(first v)
+       (if (sequential? (second v))
+         (map sqlize-ref-val (second v)) ; e.g. [:in '({:id 101} {:id 102})]
+         (sqlize-ref-val (second v)))]   ; e.g. [:!= {:id 101}]
+      (mapv sqlize-ref-val v))
+
+    (map? v) ; an entity or a reference
+    (:id v)
+
+    :else v))
+
+; Entities:
+; - {:entity/user {:id 1}} -> {:entity/user-id 1}
+; - {:import/images [{:id 1} {:id 2}]} -> {:import/image-ids [1 2]}
+; Criteria:
+; - {:budget-item/budget [:in '({:id 1} {:id 2})]} -> {:budget-item/budget-id [:in '(1 2)]}
 (defn- sqlize-ref-entry
   [ref-keys]
   (fn [entry]
-    (let [type-spec (ref-keys (key entry))
-          [entity-type plural] (if (vector? type-spec)
-                                 [(first type-spec) true]
-                                 [type-spec false])]
+    (let [type-spec (ref-keys (key entry))]
       (-> entry
-          (update-in [0] #(if plural
-                            (keyword (namespace %)
-                                     (str (str/replace 
-                                            (name %)
-                                            #"s\z"
-                                            "") "-ids"))
-                            (keyword (namespace %)
-                                     (str (name %) "-id"))))
-          (update-in [1] #(cond
-                            (vector? %) ; criterion with operator, like [:in `(1 2 3)], or a plural value like {:import/images [{:id 1} {:id 2}]}
-                            (mapv (fn [x]
-                                    (if (keyword? x)
-                                      x
-                                      (qid (or (:id x) x)
-                                           entity-type))) 
-                                  %)
-
-                            (map? %) ; an entity or a reference
-                            (:id %)
-
-                            :else %))))))
+          (update-in [0] (sqlize-ref-key (vector? type-spec)))
+          (update-in [1] sqlize-ref-val)))))
 
 (defn- sqlize*
   [{:keys [ref-keys]}]
