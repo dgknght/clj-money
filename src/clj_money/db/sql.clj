@@ -433,14 +433,14 @@
       (extract-entities ds query options))))
 
 (defn- find*
-  [ds ^QualifiedID qualified-id opts]
-  {:pre [(instance? QualifiedID qualified-id)]}
+  [ds ^QualifiedID qid opts]
+  {:pre [(instance? QualifiedID qid)]}
   (first
     (select* ds
-             {:id qualified-id}
+             {:id qid}
              (assoc opts
                     :limit 1
-                    :entity-type (.entity-type qualified-id)))))
+                    :entity-type (.entity-type qid)))))
 
 (defn- update*
   [ds changes criteria]
