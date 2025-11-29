@@ -13,7 +13,8 @@
             [clj-money.db.datomic.tasks :refer [apply-schema]]
             [clj-money.db.datomic.types :refer [coerce-id
                                                 apply-coercions
-                                                ->java-dates]]
+                                                ->java-dates
+                                                datomize]]
             [clj-money.db.datomic.queries :as queries]
             [clj-money.db.datomic.util :refer [->datoms]]))
 
@@ -162,14 +163,6 @@
          (map #(vector :db/retract id %)))
     [(apply vector (action-map action action) args)]))
 
-(defn- entities->refs
-  [m]
-  (postwalk (fn [x]
-              (if (and (map-entry? x)
-                       (schema/entity-ref-keys (key x)))
-                (update-in x [1] :id)
-                x))
-            m))
 
 (defn- pass-through
   "Returns a fn that takes a single argument and if that
@@ -188,8 +181,9 @@
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
-                     (map (pass-through entities->refs))
+                     (map (pass-through (datomize {:ref-keys schema/entity-ref-keys})))
                      (mapcat #(prep-for-put % api)))
+
         {:keys [tempids]} (transact api prepped {})]
     (->> prepped
          (filter (every-pred map?
