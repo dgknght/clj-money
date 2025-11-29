@@ -288,7 +288,8 @@
 (s/def ::sqlize-options (s/keys :req-un [::ref-keys]))
 
 (defn sqlize
-  "Given a domain entity map, convert it to a SQL record map.
+  "Given a domain entity map, criteria, or change set, adjust keys and values
+  for SQL storage.
 
   The option :ref-keys is a list of keys that have entity reference values.
   E.g. #{:entity/user}.
@@ -298,12 +299,13 @@
   Elg. #{:import/user
          [:import/images [:image]]}"
   ([opts]
+   {:pre [(s/valid? ::sqlize-options opts)]}
    #(sqlize % opts))
-  ([entity opts]
+  ([x opts]
    {:pre [(s/valid? ::sqlize-options opts)]}
    (let [options (normalize-sqlize-opts opts)]
      (prewalk (sqlize* options)
-            entity))))
+              x))))
 
 (def ^:private id-entry?
   (every-pred map-entry?
