@@ -2,7 +2,8 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.db.sql :as sql])
+            [clj-money.db.sql :as sql]
+            [clj-money.db.sql.types :as types])
   (:import org.postgresql.jdbc.PgArray))
 
 (defn- ->array
@@ -50,9 +51,9 @@
 
 (defn- parse-allocations
   [allocations]
-  (when allocations
-    (update-vals allocations
-                 bigdec)))
+  (some-> allocations
+          (update-vals bigdec)
+          (update-keys (types/qid :account))))
 
 (defmethod sql/after-read :account
   [account]

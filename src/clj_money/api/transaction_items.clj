@@ -36,7 +36,9 @@
   [{:keys [account-id] :as criteria}]
   (if (:transaction-date criteria)
     criteria
-    (merge criteria (->criteria (entities/find account-id :account)))))
+    (merge criteria (-> account-id
+                        entities/find
+                        ->criteria))))
 
 ; This could be done at the database layer with more sophisticated
 ; logic for specifying joins

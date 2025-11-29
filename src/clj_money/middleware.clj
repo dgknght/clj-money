@@ -9,14 +9,15 @@
                                          wrap-format-request
                                          wrap-format-response]]
             [muuntaja.core :as muuntaja]
-            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.inflection :refer [singular]]
+            [clj-money.db :refer [unserialize-id]]
             [clj-money.formats :as fmts]
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
-            [clj-money.api :refer [log-error]]))
+            [clj-money.api :refer [log-error]])
+  (:import com.fasterxml.jackson.core.JsonGenerator))
 
 (defn- param-name
   [specified-name]
@@ -24,17 +25,12 @@
     (name specified-name)
     specified-name))
 
-(def ^:private long-pattern #"\A\d+\z")
-(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
-
 (defn- parse-id
   [v]
   (cond
     (string? v)
-    (cond
-      (re-find long-pattern v) (parse-long v)
-      (re-find uuid-pattern v) (uuid v)
-      :else v)
+    (or (unserialize-id v)
+        v)
 
     (coll? v)
     (mapv parse-id v)
@@ -179,10 +175,21 @@
   (fn [req]
     (-> req ->clj-keys handler)))
 
+(def ^:private muuntoptions
+  (-> muuntaja/default-options
+      (assoc :default-format "application/edn")
+      (assoc-in [:formats "application/json" :encoder-opts]
+                {:encoders {clj_money.entities.CompositeID
+                            (fn [x ^JsonGenerator gen]
+                              (.writeString gen (str x)))}})))
+
+(def ^:private muunstance
+  (muuntaja/create muuntoptions))
+
 (def wrap-format
-  (comp #(wrap-format-negotiate % (assoc muuntaja/default-options :default-format "application/edn"))
-        wrap-format-request
+  (comp #(wrap-format-negotiate % muunstance)
+        #(wrap-format-request % muunstance)
         wrap-infer-entity-type
         wrap-clj-request-keys
-        wrap-format-response
+        #(wrap-format-response % muunstance)
         wrap-conventionalize-response))

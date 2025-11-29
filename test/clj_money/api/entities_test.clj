@@ -44,8 +44,7 @@
           (is (comparable? #:entity{:user (select-keys user [:id])
                                     :name "Personal"
                                     :settings {:settings/inventory-method :fifo}}
-                           (entities/find (:id parsed-body)
-                                          :entity))
+                           (-> parsed-body :id entities/find))
               "The entity can be retrieved")))
       (testing "json format"
         (let [{:as res
@@ -65,8 +64,7 @@
           (is (comparable? #:entity{:user (select-keys user [:id])
                                     :name "Alt-Personal"
                                     :settings {:settings/inventory-method :fifo}}
-                           (entities/find (:id parsed-body)
-                                          :entity))
+                           (-> parsed-body :id entities/find))
               "The entity can be retrieved"))))))
 
 (def ^:private list-context

@@ -1,12 +1,12 @@
 (ns clj-money.entities.schema
   (:require [clojure.spec.alpha :as s]
-            [dgknght.app-lib.core :refer [index-by
-                                          update-in-if]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
 (s/def ::id keyword?)
-(s/def ::type keyword?)
+(s/def ::type (s/or :singular keyword?
+                    :plural (s/tuple keyword?)))
 (s/def ::transient? boolean?)
 (s/def ::field (s/keys :req-un [::id
                                 ::type]
@@ -17,8 +17,9 @@
 (s/def ::column-spec (s/or :simple keyword?
                            :complex (s/tuple keyword? keyword?)))
 (s/def ::columns (s/coll-of ::column-spec))
-(s/def ::join-spec (s/keys :req-un [::id
-                                    ::columns]))
+(s/def ::join-spec (s/keys :req-un [::id]
+                           :opt-un [::columns
+                                    ::type]))
 (s/def ::ref (s/or :simple keyword?
                    :complex ::join-spec))
 (s/def ::refs (s/coll-of ::ref
@@ -60,7 +61,8 @@
                :type :map
                :transient? true}}
     :refs #{:user
-            :image}}
+            {:id :images
+             :type [:image]}}} ; the vector indicates a vector of images
    {:id :image
     :fields #{{:id :original-filename
                :type :string}
@@ -134,7 +136,8 @@
                :transient? true}}
     :refs #{:entity
             :commodity
-            :parent}}
+            {:id :parent
+             :type :account}}}
    {:id :transaction
     :primary-key [:transaction-date :id]
     :fields #{{:id :transaction-date
@@ -281,9 +284,6 @@
 
 (assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")
-
-(def indexed-entities
-  (index-by :id entities))
 
 (def ref-id (some-fn :id identity))
 

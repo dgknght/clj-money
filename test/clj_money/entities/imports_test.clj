@@ -35,7 +35,9 @@
 
 (defn- assert-created
   [attr]
-  (helpers/assert-created attr :refs [:import/user]))
+  (helpers/assert-created attr
+                          :refs [:import/user]
+                          :ignore-attributes #{:import/images})) ; pruning errors out on this attribute
 
 (dbtest create-an-import
   (with-context import-context

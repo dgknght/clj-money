@@ -1,6 +1,7 @@
 (ns clj-money.db.datomic.types
-  (:require [clojure.walk :refer [postwalk]]
+  (:require [clojure.walk :refer [prewalk postwalk]]
             [clojure.pprint :refer [pprint]]
+            [clojure.spec.alpha :as s]
             [java-time.api :as t]
             [clj-money.dates :as dates]))
 
@@ -78,3 +79,37 @@
                                             identity))
                 x))
             m))
+
+(defn- datomize-ref-val
+  [x]
+  (cond
+    (map? x)
+    (:id x)
+
+    (sequential? x)
+    (if (keyword? (first x))
+      [(first x)
+       (datomize-ref-val (second x))]
+      (mapv datomize-ref-val x))
+
+    :else x))
+
+(defn- datomize*
+  [{:keys [ref-keys]}]
+  (fn [x]
+    (cond
+      (and (map-entry? x)
+           (ref-keys (key x)))
+      (update-in x [1] datomize-ref-val)
+
+      :else x)))
+
+(s/def ::ref-keys (s/coll-of keyword? :kind set?))
+(s/def ::datomize-opts (s/keys :opt-un [::ref-keys]))
+
+(defn datomize
+  ([opts] #(datomize % opts))
+  ([m opts]
+   {:pre [(s/valid? ::datomize-opts opts)]}
+   (prewalk (datomize* opts)
+            m)))

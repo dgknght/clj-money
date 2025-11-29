@@ -68,7 +68,10 @@
                            (res/get-header "content-type")
                            (string/split #";")
                            first)]
-      (assoc res :parsed-body (muuntaja/decode content-type body)))
+      (assoc res :parsed-body (try
+                                (muuntaja/decode content-type body)
+                                (catch Exception e
+                                  {:error (ex-message e)}))))
     res))
 
 (defn request

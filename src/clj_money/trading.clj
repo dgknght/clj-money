@@ -132,7 +132,7 @@
   [{:trade/keys [commodity-account] :as trade}]
   (if commodity-account
     (let [{:account/keys [parent commodity]
-           :as account} (entities/find commodity-account :account)]
+           :as account} (entities/find commodity-account)]
       (assert account (format "Unable to load the commodity account: %s" commodity-account))
       (assoc trade
              :trade/commodity-account account
@@ -144,7 +144,7 @@
   "Given a trade map, appends the commodity"
   [{:trade/keys [commodity] :as trade}]
   {:pre [commodity]}
-  (update-in trade [:trade/commodity] (entities/resolve-ref :commodity)))
+  (update-in trade [:trade/commodity] entities/resolve-ref))
 
 (defn- find-commodity-account
   [parent commodity]
@@ -176,10 +176,10 @@
   {:pre [(and account commodity)]}
   (-> trade
       (update-in [:trade/account]
-                 (entities/resolve-ref :account))
+                 entities/resolve-ref)
       (update-in [:trade/commodity-account]
                  #(if %
-                    (entities/resolve-ref % :account)
+                    (entities/resolve-ref %)
                     (find-or-create-commodity-account account commodity)))))
 
 (defn- update-accounts
@@ -194,7 +194,7 @@
 
 (defn- append-entity
   [{{:account/keys [entity]} :trade/account :as trade}]
-  (update-in trade [:trade/entity] (fnil (entities/resolve-ref :entity)
+  (update-in trade [:trade/entity] (fnil entities/resolve-ref
                                          entity)))
 
 (defn- sale-transaction-description
@@ -491,13 +491,10 @@
 (defn unbuy
   "Reverses a commodity purchase"
   [trx & {:as opts}]
-  (let [lot (entities/resolve-ref
-              (get-in trx [:transaction/lot-items
-                           0
-                           :lot-item/lot])
-              :lot)
-        commodity (entities/resolve-ref (:lot/commodity lot)
-                                      :commodity)]
+  (let [lot (-> trx
+                (get-in [:transaction/lot-items 0 :lot-item/lot])
+                entities/resolve-ref)
+        commodity (-> lot :lot/commodity entities/resolve-ref)]
     (when (not= (:lot/shares-purchased lot) (:lot/shares-owned lot))
       (throw (IllegalStateException.
                "Cannot undo a purchase if shares have been sold from the lot")))
@@ -639,9 +636,9 @@
     (update-in trade
                [trade-key]
                (fn [account]
-                 (or (when account (entities/find account :account))
+                 (or (when account (entities/find account))
                      (when-let [act (get-in entity [:entity/settings settings-key])]
-                       (entities/find act :account))
+                       (entities/find act))
                      (find-or-create-gains-account trade term result))))))
 
 (defn- ensure-gains-accounts

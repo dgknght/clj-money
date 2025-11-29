@@ -434,7 +434,7 @@
   (if (get-in entity [:entity/settings :settings/default-commodity])
     entity
     (if-let [commodity (entities/find-by {:commodity/entity entity
-                                        :commodity/type :currency})]
+                                          :commodity/type :currency})]
       (-> entity
           entities/find
           (assoc-in [:entity/settings

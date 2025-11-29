@@ -274,7 +274,7 @@
                        result)
           "The result reflects the updated attributes")
       (is (comparable? #:reconciliation{:status :completed}
-                       (entities/find result :reconciliation))
+                       (entities/find result))
           "The retrieved record reflects the updated attributes")
       (is (seq-of-maps-like? [{:transaction/transaction-date (t/local-date 2017 1 1)
                                :transaction-item/quantity 1000M
