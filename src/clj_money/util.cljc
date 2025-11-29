@@ -614,6 +614,7 @@
   [m & {:keys [as]}]
   (let [ns (->> (keys m)
                 (map namespace)
+                (filter identity)
                 frequencies
                 (sort-by second >)
                 raise-on-tie
