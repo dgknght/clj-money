@@ -105,6 +105,7 @@
   [id-or-entity & [opts]]
   (some-> id-or-entity
           util/->id
+          db/unserialize-id
           db-find
           (after-read opts)))
 
