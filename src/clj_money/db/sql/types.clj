@@ -69,7 +69,7 @@
 (defn unserialize-qid
   [s]
   (when-let [match (when (string? s)
-                     (re-find #"\A(\d+)(?::([a-z\-]+))?\z" s))]
+                     (re-find #"\A(\d+):([a-z\-]+)?\z" s))]
     (->QualifiedID (parse-long (nth match 1))
           (keyword (nth match 2)))))
 
