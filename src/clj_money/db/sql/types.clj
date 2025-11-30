@@ -38,7 +38,8 @@
   ([entity-type]
    #(qid % entity-type))
   ([id entity-type]
-   {:pre [(or (qid? id)
+   {:pre [id
+          (or (qid? id)
               (integer? id)
               (uuid? id))
           (keyword? entity-type)
@@ -46,12 +47,6 @@
    (if (qid? id)
      id
      (->QualifiedID id entity-type))))
-
-(defn parse-qid
-  [s]
-  (let [[id entity-type] (str/split s #":")]
-    (qid (parse-long id) ; TODO: Might this be a uuid?
-         (keyword entity-type))))
 
 (defmethod print-method QualifiedID
   [this ^java.io.Writer w]
@@ -65,35 +60,27 @@
   (fn [id gen]
     (.writeString gen (str id))))
 
-; TODO: Also handle UUID values
 (defn unserialize-qid
   [s]
   (when-let [match (when (string? s)
                      (re-find #"\A(\d+):([a-z\-]+)?\z" s))]
     (->QualifiedID (parse-long (nth match 1))
-          (keyword (nth match 2)))))
+                   (keyword (nth match 2)))))
 
 (db/register-id-unserializer unserialize-qid)
 
-(def ^:private long-pattern #"\A\d+\z")
-
-(defn- unserialize-integer-id
+(defn unserialize-uuid-qid
   [s]
   (when-let [match (when (string? s)
-                     (re-find long-pattern s))]
-    (parse-long (first match))))
+                     (re-find #"\A([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}):([a-z\-]+)?\z" s))]
+    (->QualifiedID (parse-uuid (nth match 1))
+                   (keyword (nth match 2)))))
 
-(db/register-id-unserializer unserialize-integer-id)
+(db/register-id-unserializer unserialize-uuid-qid)
 
-(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
-
-(defn- unserialize-uuid
-  [s]
-  (when-let [match (when (string? s)
-                     (re-find uuid-pattern s))]
-    (parse-uuid (first match))))
-
-(db/register-id-unserializer unserialize-uuid)
+(def parse-qid
+  (some-fn unserialize-qid
+           unserialize-uuid-qid))
 
 (defn qualify-id
   ([entity-or-type]

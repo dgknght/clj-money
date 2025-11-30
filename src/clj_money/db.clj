@@ -92,3 +92,23 @@
 (defn register-id-unserializer
   [f]
   (swap! unserializers conj f))
+
+(def ^:private long-pattern #"\A\d+\z")
+
+(defn- unserialize-integer-id
+  [s]
+  (when-let [match (when (string? s)
+                     (re-find long-pattern s))]
+    (parse-long match)))
+
+(register-id-unserializer unserialize-integer-id)
+
+(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
+
+(defn- unserialize-uuid
+  [s]
+  (when-let [match (when (string? s)
+                     (re-find uuid-pattern s))]
+    (parse-uuid (first match))))
+
+(register-id-unserializer unserialize-uuid)
