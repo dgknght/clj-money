@@ -7,6 +7,7 @@
             [muuntaja.core :as muuntaja]
             [clj-money.web.auth :as auth])
   (:import [java.io File ByteArrayOutputStream]
+           [com.fasterxml.jackson.core JsonGenerator]
            [org.apache.http.entity ContentType]
            [org.apache.http.entity.mime MultipartEntity]
            [org.apache.http.entity.mime.content StringBody FileBody]))
@@ -74,6 +75,14 @@
                                   {:error (ex-message e)}))))
     res))
 
+(def muunstance
+  (muuntaja/create
+    (assoc-in muuntaja/default-options
+              [:formats "application/json" :encoder-opts]
+              {:encoders {clj_money.entities.CompositeID
+                          (fn [x ^JsonGenerator gen]
+                            (.writeString gen (str x)))}})))
+
 (defn request
   [method path & {:keys [accept content-type body user]
                   :or {content-type "application/edn"}}]
@@ -81,5 +90,5 @@
     (cond-> (req/request method path)
       content-type (req/content-type content-type)
       accept (req/header :accept accept)
-      body (assoc :body (muuntaja/encode content-type body))
+      body (assoc :body (muuntaja/encode muunstance content-type body))
       user (add-auth user))))
