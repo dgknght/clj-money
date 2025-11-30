@@ -143,7 +143,8 @@
   [{:as response :keys [parsed-body]}]
   (let [salary (find-account "Salary")
         groceries (find-account "Groceries")
-        items (entities/select {:budget-item/budget (util/->entity-ref parsed-body)})]
+        budget (entities/find (:id parsed-body))
+        items (entities/select {:budget-item/budget budget})]
     (is (http-created? response))
     (is (= 2 (count items))
         "The created budget contains an item for each income statement account with transaction items in the specified time frame")
