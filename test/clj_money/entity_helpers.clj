@@ -10,32 +10,38 @@
 
 (derive clojure.lang.PersistentVector ::vector)
 
-(defmulti ^:private simplify-refs util/type-dispatch)
+(declare simplify-refs)
 
-(defmethod simplify-refs :default
-  [x _]
-  x)
-
-(defmulti ^:private simplify-ref
-  (fn [_ k] (type k)))
-
-(defmethod simplify-ref :default
+(defn simplify-ref
   [m k]
-  (update-in-if m [k] select-keys [:id]))
+  (if (vector? k)
+    (update-in-if m (take 1 k) #(simplify-refs % (vec (rest k))))
+    (update-in-if m [k] select-keys [:id])))
 
-(defmethod simplify-ref ::vector
-  [m ks]
-  (update-in-if m (take 1 ks) #(simplify-refs % (vec (rest ks)))))
-
-(defmethod simplify-refs ::util/map
+(defn- simplify-map-refs
   [entity refs]
   (reduce simplify-ref
           (update-vals entity #(simplify-refs % refs))
           refs))
 
-(defmethod simplify-refs ::util/vector
+(defn- simplify-vector-refs
   [entities refs]
   (mapv #(simplify-refs % refs) entities))
+
+(defn simplify-refs
+  [x refs]
+  (cond
+    (vector? x)
+    (simplify-vector-refs x refs)
+
+    (map? x)
+    (simplify-map-refs x refs)
+
+    (entities/composite-id? x)
+    (str x)
+
+    :else
+    x))
 
 (defn assert-created
   [attr & {:keys [refs

@@ -3,12 +3,15 @@
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
+            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.db.ref]
             [clj-money.entities.ref]
             [clj-money.factories.user-factory]
+            [clj-money.entity-helpers :refer [simplify-refs]]
             [clj-money.test-context :refer [with-context
                                             find-user
+                                            find-account
                                             find-entity]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [request
@@ -41,7 +44,7 @@
                :keys [parsed-body]}
               (create-entity :user user)]
           (is (http-success? res))
-          (is (comparable? #:entity{:user (select-keys user [:id])
+          (is (comparable? #:entity{:user (util/->entity-ref user)
                                     :name "Personal"
                                     :settings {:settings/inventory-method :fifo}}
                            (-> parsed-body :id entities/find))
@@ -52,16 +55,18 @@
               (create-entity :user user
                              :content-type "application/json"
                              :body {:name "Alt-Personal"
-                                  :settings {:inventory-method :fifo
-                                             :_type :settings}
-                                  :_type :entity})]
+                                    :settings {:inventory-method :fifo
+                                               :_type :settings}
+                                    :_type :entity})]
           (is (http-success? res))
-          (is (comparable? {:user (select-keys user [:id])
-                            :name "Alt-Personal"
-                            :settings {:inventoryMethod "fifo"}}
+          (is (comparable? (simplify-refs
+                             {:user user
+                              :name "Alt-Personal"
+                              :settings {:inventoryMethod "fifo"}}
+                             [:user])
                            parsed-body)
               "The created entity is returned")
-          (is (comparable? #:entity{:user (select-keys user [:id])
+          (is (comparable? #:entity{:user (util/->entity-ref user)
                                     :name "Alt-Personal"
                                     :settings {:settings/inventory-method :fifo}}
                            (-> parsed-body :id entities/find))
@@ -72,17 +77,29 @@
         #:entity{:user "john@doe.com"
                  :name "Personal"}
         #:entity{:user "john@doe.com"
-                 :name "Business"}))
+                 :name "Business"}
+        #:commodity{:entity "Personal"
+                    :type :currency
+                    :name "US Dollar"
+                    :symbol "USD"}
+        #:account{:entity "Personal"
+                  :type :expense
+                  :name "Dining"}
+        #:account{:entity "Personal"
+                  :type :expense
+                  :name "Groceries"}))
 
 (defn- edit-an-entity
-  [email & {:keys [content-type changes]
-            :or {changes {:entity/name "New Name"
-                          :entity/settings
-                          {:settings/monitored-accounts
-                           #{{:id 1}
-                             {:id 2}}}}
-                 content-type "application/edn"}}]
-  (let [entity (find-entity "Personal")
+  [email & {:as opts
+            :keys [content-type]
+            :or {content-type "application/edn"}}]
+  (let [changes (or (:changes opts)
+                    {:entity/name "New Name"
+                     :entity/settings
+                     {:settings/monitored-accounts
+                      #{(util/->entity-ref (find-account "Dining"))
+                        (util/->entity-ref (find-account "Groceries"))}}})
+        entity (find-entity "Personal")
         response (-> (request :patch (path :api :entities (:id entity))
                               :user (when email (find-user email))
                               :content-type content-type
@@ -113,12 +130,14 @@
     (testing "default format (edn)"
       (assert-successful-edit (edit-an-entity "john@doe.com")))
     (testing "json format"
-      (let [[res retrieved] (edit-an-entity
+      (let [monitors (map (comp util/->entity-ref
+                                find-account)
+                          ["Dining" "Groceries"])
+            [res retrieved] (edit-an-entity
                               "john@doe.com"
                               :content-type "application/json"
                               :changes {:name "json name"
-                                        :settings {:monitoredAccounts [{:id 3}
-                                                                       {:id 4}]
+                                        :settings {:monitoredAccounts monitors
                                                    :_type :settings}
                                         :_type :entity})]
         (is (http-success? res))
@@ -126,13 +145,17 @@
                           :_type "entity"}
                          (:parsed-body res))
             "The response contains the updated entity")
-        (is (= #{3 4}
+        (is (= (->> monitors
+                    (map (comp #(if (entities/composite-id? %)
+                                  (str %)
+                                  %)
+                               :id))
+                    set)
                (->> (get-in res [:parsed-body :settings :monitoredAccounts])
                     (map :id)
                     set)))
         (is (comparable? {:entity/name "json name"
-                          :entity/settings {:settings/monitored-accounts #{{:id 3}
-                                                                           {:id 4}}}}
+                          :entity/settings {:settings/monitored-accounts (set monitors)}}
                          retrieved)
             "The updated entity can be retrieved")))))
 
