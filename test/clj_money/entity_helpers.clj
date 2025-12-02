@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [is]]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
+            [clojure.walk :refer [postwalk]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
@@ -42,6 +43,14 @@
 
     :else
     x))
+
+(defn jsonify
+  [data]
+  (postwalk (fn [x]
+              (if (entities/composite-id? x)
+                (str x)
+                x))
+            data))
 
 (defn assert-created
   [attr & {:keys [refs

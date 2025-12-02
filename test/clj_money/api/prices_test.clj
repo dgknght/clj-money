@@ -20,6 +20,7 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.prices.alpha-vantage :as alpha]
             [clj-money.entities :as entities]
+            [clj-money.entity-helpers :refer [jsonify]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -313,18 +314,20 @@
 
 (deftest a-user-can-fetch-current-commodity-prices-with-json
   (with-context fetch-context
-    (let [aapl-ref (util/->entity-ref (find-commodity "AAPL"))
-          msft-ref (util/->entity-ref (find-commodity "MSFT"))]
+    (let [[aapl msft] (map (comp util/->entity-ref
+                                 find-commodity)
+                           ["AAPL" "MSFT"])]
       (assert-successful-fetch
         (fetch-some-prices "john@doe.com" :content-type "application/json")
-        :expected-response [{:tradeDate "2015-03-02"
-                             :value {:d 10.01}
-                             :commodity aapl-ref
-                             :_type "price"}
-                            {:tradeDate "2015-03-02"
-                             :value {:d 5.01}
-                             :commodity msft-ref
-                             :_type "price"}]))))
+        :expected-response (jsonify
+                             [{:tradeDate "2015-03-02"
+                               :value {:d 10.01}
+                               :commodity aapl
+                               :_type "price"}
+                              {:tradeDate "2015-03-02"
+                               :value {:d 5.01}
+                               :commodity msft
+                               :_type "price"}])))))
 
 (deftest an-unauthenticated-user-cannot-fetch-commodity-prices
   (with-context fetch-context
