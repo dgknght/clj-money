@@ -442,6 +442,15 @@
                     :limit 1
                     :entity-type (.entity-type qid)))))
 
+(defn- find-many*
+  [ds qids opts]
+  (->> qids
+       (group-by #(.entity-type %))
+       (mapcat (fn [[entity-type qids]]
+                 (select* ds
+                          {:id [:in (map #(.id %) qids)]}
+                          (assoc opts :entity-type entity-type))))))
+
 (defn- update*
   [ds changes criteria]
   (let [sql (->update (sqlize changes)
@@ -473,6 +482,7 @@
     (reify db/Storage
       (put [_ entities] (put* ds entities))
       (find [this id] (find* ds id {:storage this}))
+      (find-many [this ids] (find-many* ds ids {:storage this}))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))

@@ -24,6 +24,7 @@
 (defprotocol DatomicAPI
   (transact [this tx-data options])
   (pull [this id])
+  (pull-many [this ids])
   (query [this arg-map])
   (reset [this]))
 
@@ -287,6 +288,11 @@
           presence
           after-read*))
 
+(defn- find-many*
+  [ids {:keys [api]}]
+  (map after-read*
+       (pull-many api ids)))
+
 (defn- make-query
   [criteria options]
   (-> criteria
@@ -360,6 +366,11 @@
           d-peer/connect
           d-peer/db
           (d-peer/pull '[*] id)))
+    (pull-many [_ ids]
+      (-> uri
+          d-peer/connect
+          d-peer/db
+          (d-peer/pull-many '[*] ids)))
     (query [_ {:keys [query args]}]
       ; TODO: take in the as-of date-time
       (apply d-peer/q
@@ -406,6 +417,7 @@
     (reify db/Storage
       (put [_ entities]       (put* entities {:api api}))
       (find [_ id]            (find* id {:api api}))
+      (find-many [_ ids]      (find-many* ids {:api api}))
       (select [_ crit opts]   (select* crit opts {:api api}))
       (delete [_ entities]    (delete* entities {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))

@@ -109,6 +109,15 @@
           db-find
           (after-read opts)))
 
+(defn find-many
+  "Returns the entities having the specified IDs"
+  [ids-or-entities & [opts]]
+  (->> ids-or-entities
+       util/->id
+       db/unserialize-id
+       (db/find-many (db/storage))
+       (map #(after-read % opts))))
+
 (def ^:private mergeable?
   (every-pred map? :id))
 

@@ -14,6 +14,7 @@
   "Defines the functions necessary to store and retrieve data"
   (put [this entities] "Saves the specified entities to the data store")
   (find [this id] "Fetches the entity with the given id")
+  (find-many [this ids] "Fetches the entities with the given ids")
   (select [this criteria options] "Retrieves entities from the data store")
   (update [this changes criteria] "Performs a batch data update")
   (delete [this entities] "Removes entities from the data store")
@@ -54,6 +55,11 @@
                                   prefix
                                   id)]
         (find storage id)))
+    (find-many [_ ids]
+      (with-tracing [span (format "%s/find-many %s"
+                                  prefix
+                                  ids)]
+        (find-many storage ids)))
     (select [_ criteria opts]
       (with-tracing [span (format "%s/select %s"
                                   prefix
