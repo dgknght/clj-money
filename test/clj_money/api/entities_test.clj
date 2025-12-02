@@ -145,14 +145,11 @@
                           :_type "entity"}
                          (:parsed-body res))
             "The response contains the updated entity")
-        (is (= (->> monitors
-                    (map (comp #(if (entities/composite-id? %)
-                                  (str %)
-                                  %)
-                               :id))
-                    set)
+        (is (= (set monitors)
                (->> (get-in res [:parsed-body :settings :monitoredAccounts])
-                    (map :id)
+                    (map (comp util/->entity-ref
+                               entities/find
+                               :id))
                     set)))
         (is (comparable? {:entity/name "json name"
                           :entity/settings {:settings/monitored-accounts (set monitors)}}
