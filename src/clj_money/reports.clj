@@ -682,7 +682,7 @@
                            :as-of as-of
                            :budget (update-in budget
                                               [:budget/entity]
-                                              (entities/resolve-ref :entity))})
+                                              entities/resolve-ref)})
      #:report{:caption (:account/name account)
               :account account
               :message (format "There is no budget for %s" (dates/format-local-date as-of))})))

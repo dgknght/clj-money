@@ -149,7 +149,7 @@
 (defn- find-commodity-account
   [parent commodity]
   (when-let [result (entities/find-by #:account{:parent parent
-                                              :commodity commodity})]
+                                                :commodity commodity})]
     (ensure-tag result :tradable)))
 
 (defn- create-commodity-account
@@ -747,9 +747,9 @@
                      commodity]
     :as transfer}]
   (-> transfer
-      (update-in [:transfer/from-account] (entities/resolve-ref :account))
+      (update-in [:transfer/from-account] entities/resolve-ref)
       (update-in [:transfer/to-account] (comp #(ensure-tag % :trading)
-                                              (entities/resolve-ref :account)))
+                                              entities/resolve-ref))
       (assoc :transfer/from-commodity-account
              (entities/find-by #:account{:commodity commodity
                                        :parent from-account}))
@@ -865,7 +865,7 @@
   (let [opts (merge default-opts options)]
     (with-ex-validation transfer ::entities/transfer
       (some-> transfer
-              (update-in [:transfer/commodity] (entities/resolve-ref :commodity))
+              (update-in [:transfer/commodity] entities/resolve-ref)
               append-transfer-accounts
               append-most-recent-price
               process-transfer-lots
@@ -966,7 +966,7 @@
 (defn- append-split-accounts
   [{:as split :split/keys [commodity account]}]
   (-> split
-      (update-in [:split/account] (entities/resolve-ref :account))
+      (update-in [:split/account] entities/resolve-ref)
       (assoc :split/commodity-account (entities/find-by #:account{:commodity commodity
                                                                 :parent account}))))
 
@@ -1005,7 +1005,7 @@
   (let [opts (merge default-opts options)]
     (with-ex-validation split ::entities/split
     (some-> split
-            (update-in [:split/commodity] (entities/resolve-ref :commodity))
+            (update-in [:split/commodity] entities/resolve-ref)
             append-split-accounts
             append-split-lots
             append-split-ratio
