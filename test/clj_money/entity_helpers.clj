@@ -38,9 +38,6 @@
     (map? x)
     (simplify-map-refs x refs)
 
-    (entities/composite-id? x)
-    (str x)
-
     :else
     x))
 
