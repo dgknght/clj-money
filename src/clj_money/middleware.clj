@@ -136,6 +136,14 @@
   [content _]
   (fmts/edn->json content))
 
+(defmethod conventionalize-content "application/edn"
+  [content _]
+  (postwalk (fn [x]
+              (if (entities/composite-id? x)
+                (str x)
+                x))
+            content))
+
 (defn- conventionalize-response
   [{:as res :keys [status]} content-type]
   (if (#{201 200} status)
