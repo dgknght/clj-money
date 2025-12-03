@@ -72,7 +72,8 @@
       (assoc res :parsed-body (try
                                 (muuntaja/decode content-type body)
                                 (catch Exception e
-                                  {:error (ex-message e)}))))
+                                  {:error (ex-message e)
+                                   :body body}))))
     res))
 
 (def muunstance
