@@ -9,12 +9,16 @@
 (defmethod sql/after-read :entity
   [entity]
   (-> entity
-      (update-in-if [:entity/settings
-                     :settings/default-commodity
-                     :id]
-                    #(if (types/qid? %)
-                       %
-                       (types/qid % :commodity)))
+      (update-in-if [:entity/settings :settings/default-commodity :id]
+                    (types/qid :commodity))
+      (update-in-if [:entity/settings :settings/lt-capital-gains-account :id]
+                    (types/qid :account))
+      (update-in-if [:entity/settings :settings/lt-capital-loss-account :id]
+                    (types/qid :account))
+      (update-in-if [:entity/settings :settings/st-capital-gains-account :id]
+                    (types/qid :account))
+      (update-in-if [:entity/settings :settings/st-capital-loss-account :id]
+                    (types/qid :account))
       (update-in-if [:entity/settings :settings/monitored-accounts]
                     (fn [refs]
                       (->> refs
