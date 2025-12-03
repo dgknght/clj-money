@@ -9,14 +9,14 @@
             [dgknght.app-lib.test]
             [clj-money.json]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
                                                request
-                                               build-multipart-request]]
+                                               build-multipart-request
+                                               ->json-entity-ref]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-import]]
@@ -61,12 +61,12 @@
                 parse-body))]
       (is (http-success? response))
       (is (comparable? #:entity{:name "Personal"
-                                :user (util/->entity-ref user)}
+                                :user (->json-entity-ref user)}
                        entity)
           "The newly created entity is returned in the response")
       (is (comparable? #:import{:entity-name "Personal"
                                 :options options
-                                :user (util/->entity-ref user)}
+                                :user (->json-entity-ref user)}
                        import)
           "The newly created import is returned in the response")
       (is (seq-of-maps-like? [{:import/entity-name "Personal"}]

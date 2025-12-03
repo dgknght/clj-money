@@ -8,14 +8,14 @@
             [clj-money.db.ref]
             [clj-money.entities.ref]
             [clj-money.factories.user-factory]
-            [clj-money.entity-helpers :refer [simplify-refs]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-account
                                             find-entity]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [request
-                                               parse-body]]
+                                               parse-body
+                                               ->json-entity-ref]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -59,11 +59,9 @@
                                                :_type :settings}
                                     :_type :entity})]
           (is (http-success? res))
-          (is (comparable? (simplify-refs
-                             {:user user
-                              :name "Alt-Personal"
-                              :settings {:inventoryMethod "fifo"}}
-                             [:user])
+          (is (comparable? {:user (->json-entity-ref user)
+                            :name "Alt-Personal"
+                            :settings {:inventoryMethod "fifo"}}
                            parsed-body)
               "The created entity is returned")
           (is (comparable? #:entity{:user (util/->entity-ref user)

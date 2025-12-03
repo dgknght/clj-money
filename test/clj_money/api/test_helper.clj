@@ -93,3 +93,9 @@
       accept (req/header :accept accept)
       body (assoc :body (muuntaja/encode muunstance content-type body))
       user (add-auth user))))
+
+(defn ->json-entity-ref
+  [{:keys [id]}]
+  {:id (if (integer? id)
+         id
+         (str id))})
