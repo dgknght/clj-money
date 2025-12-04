@@ -148,8 +148,8 @@
 
 (s/def ::serialized-date (partial re-matches #"^\d{4}-\d{2}-\d{2}$"))
 (s/def ::transaction-date (s/coll-of ::serialized-date :count 2))
-(s/def ::account-id int?)
-(s/def ::entity-id int?)
+(s/def ::account-id ::entities/id)
+(s/def ::entity-id ::entities/id)
 (s/def ::raw-summary-criteria (s/keys :req-un [::transaction-date]
                                       :opt-un [::account-id
                                                ::entity-id]))
