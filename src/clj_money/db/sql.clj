@@ -359,7 +359,7 @@
 (defn- after-read*
   ([] (after-read* {}))
   ([options]
-   (comp #(types/generalize % {:sql-ref-keys sql-ref-keys})
+   (comp #(types/generalize % (assoc options :sql-ref-keys sql-ref-keys))
          after-read
          apply-coercions
          (refine-qualifiers options))))

@@ -374,5 +374,6 @@
   {:pre [(s/valid? ::generalize-opts opts)]}
   (postwalk (generalize* (-> opts
                              (update-in [:sql-ref-keys] infer-types)
-                             (assoc :entity-type (util/entity-type entity))))
+                             (update-in [:entity-type]
+                                        #(or % (util/entity-type entity)))))
             entity))
