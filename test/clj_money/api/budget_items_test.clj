@@ -8,7 +8,8 @@
             [clj-money.json]
             [clj-money.entities :as entities]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               ->json-entity-ref]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -49,10 +50,13 @@
 (defn- assert-successful-create
   [[res {:keys [account]}]
    & {:keys [expected expected-response]
-      :or {expected #:budget-item{:account {:id (:id account)}
+      :or {expected #:budget-item{:account (util/->entity-ref account)
                                   :periods [100M 101M 102M]}}}]
   (is (http-created? res))
-  (is (comparable? (or expected-response expected)
+  (is (comparable? (or expected-response
+                       (update-in expected
+                                  [:budget-item/account]
+                                  ->json-entity-ref))
                    (:parsed-body res))
       "The created budget item is returned in the response")
   (is (comparable? expected

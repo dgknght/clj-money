@@ -12,7 +12,8 @@
             [clj-money.factories.user-factory]
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               ->json-entity-ref]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-price
@@ -301,7 +302,11 @@
                              :value 5.01M
                              :commodity (util/->entity-ref (find-commodity "MSFT"))}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? (or expected-response expected)
+  (is (seq-of-maps-like? (or expected-response
+                             (map #(update-in %
+                                              [:price/commodity]
+                                              ->json-entity-ref)
+                                  expected))
                          parsed-body)
       "The prices are returned in the response")
   (is (seq-of-maps-like? expected
