@@ -122,6 +122,7 @@
                                                (s/keys :opt [:transaction/transaction-date]))))
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
+^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/reconciliation (s/and (s/keys :req [:reconciliation/account
                                                     :reconciliation/end-of-period
                                                     :reconciliation/status
@@ -160,7 +161,7 @@
     (fn [{:keys [id]}]
       (if-let [account (@cache id)]
         account
-        (let [account (entities/find id :account)]
+        (let [account (entities/find id)]
           (swap! cache assoc id account)
           account)))))
 

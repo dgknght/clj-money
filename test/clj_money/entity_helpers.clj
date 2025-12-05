@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [is]]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
+            [clojure.walk :refer [postwalk]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
@@ -10,32 +11,43 @@
 
 (derive clojure.lang.PersistentVector ::vector)
 
-(defmulti ^:private simplify-refs util/type-dispatch)
+(declare simplify-refs)
 
-(defmethod simplify-refs :default
-  [x _]
-  x)
-
-(defmulti ^:private simplify-ref
-  (fn [_ k] (type k)))
-
-(defmethod simplify-ref :default
+(defn simplify-ref
   [m k]
-  (update-in-if m [k] select-keys [:id]))
+  (if (vector? k)
+    (update-in-if m (take 1 k) #(simplify-refs % (vec (rest k))))
+    (update-in-if m [k] select-keys [:id])))
 
-(defmethod simplify-ref ::vector
-  [m ks]
-  (update-in-if m (take 1 ks) #(simplify-refs % (vec (rest ks)))))
-
-(defmethod simplify-refs ::util/map
+(defn- simplify-map-refs
   [entity refs]
   (reduce simplify-ref
           (update-vals entity #(simplify-refs % refs))
           refs))
 
-(defmethod simplify-refs ::util/vector
+(defn- simplify-vector-refs
   [entities refs]
   (mapv #(simplify-refs % refs) entities))
+
+(defn simplify-refs
+  [x refs]
+  (cond
+    (vector? x)
+    (simplify-vector-refs x refs)
+
+    (map? x)
+    (simplify-map-refs x refs)
+
+    :else
+    x))
+
+(defn jsonify
+  [data]
+  (postwalk (fn [x]
+              (if (entities/composite-id? x)
+                (str x)
+                x))
+            data))
 
 (defn assert-created
   [attr & {:keys [refs
@@ -49,8 +61,10 @@
   (let [out-chan (a/chan)
         handle-nils (if ignore-nils? util/remove-nils identity)
         result (handle-nils (entities/put attr :out-chan out-chan))
-        fetched (when (:id result)
-                  (handle-nils (entities/find result)))
+        fetched (some-> result
+                        :id
+                        entities/find
+                        handle-nils)
         expected  (apply dissoc
                          (handle-nils (simplify-refs attr refs))
                          ignore-attributes)]
@@ -73,7 +87,7 @@
   {:pre [entity attr]}
   (let [out-chan (a/chan)
         result (entities/put (merge entity attr)
-                           :out-chan out-chan)]
+                             :out-chan out-chan)]
     (is (comparable? attr result)
         "The return value contains the updated attributes")
     (is (comparable? attr (entities/find entity))

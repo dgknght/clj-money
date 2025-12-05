@@ -11,7 +11,8 @@
        (filter #(some map? (:refs %)))
        (mapcat (fn [{:keys [refs id]}]
                  (->> refs
-                      (filter map?)
+                      (filter (every-pred map?
+                                          :columns))
                       (map (fn [{:keys [columns] :as ref}]
                              [[(:id ref) id]
                               columns])))))
@@ -39,7 +40,8 @@
 (defn criteria->query
   [criteria & [options]]
   {:pre [criteria
-         (util/entity-type criteria)]}
+         (or (:entity-type options)
+             (util/entity-type criteria))]}
   (-> criteria
       (self->id)
       (sql/->query (merge default-options options))))

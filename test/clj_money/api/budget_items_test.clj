@@ -8,7 +8,8 @@
             [clj-money.json]
             [clj-money.entities :as entities]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               ->json-entity-ref]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -49,15 +50,17 @@
 (defn- assert-successful-create
   [[res {:keys [account]}]
    & {:keys [expected expected-response]
-      :or {expected #:budget-item{:account {:id (:id account)}
+      :or {expected #:budget-item{:account (util/->entity-ref account)
                                   :periods [100M 101M 102M]}}}]
   (is (http-created? res))
-  (is (comparable? (or expected-response expected)
+  (is (comparable? (or expected-response
+                       (update-in expected
+                                  [:budget-item/account]
+                                  ->json-entity-ref))
                    (:parsed-body res))
       "The created budget item is returned in the response")
   (is (comparable? expected
-                   (entities/find (:id (:parsed-body res))
-                                  :budget-item))
+                   (-> res :parsed-body :id entities/find))
       "The created budget item can be retrieved"))
 
 (defn- assert-not-found-create
@@ -81,7 +84,7 @@
                                      :_type "budget-item"})
           :expected #:budget-item{:account rent
                                   :periods [200M 201M 202M]}
-          :expected-response {:account rent
+          :expected-response {:account (update-in rent [:id] str)
                               :periods [{:d 200} {:d 201} {:d 202}]
                               :_type "budget-item"})))))
 

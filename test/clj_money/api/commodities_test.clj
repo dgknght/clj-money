@@ -167,8 +167,10 @@
                               :body body)
                      app
                      parse-body)
-        retrieved (when-let [id (:id (:parsed-body response))]
-                    (entities/find id :commodity))]
+        retrieved (-> response
+                      :parsed-body
+                      :id
+                      entities/find)]
     [response retrieved]))
 
 (defn- assert-successful-create

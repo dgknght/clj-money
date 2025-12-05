@@ -343,7 +343,7 @@
           (swap! cache assoc id retrieved)
           retrieved)))))
 
-(def ^:private ->id (some-fn :id identity))
+(def ->id (some-fn :id identity))
 
 (defn temp-id
   "Generates a new temporary id"
@@ -368,7 +368,12 @@
   (when-not (temp-id? id)
     id))
 
-(def live-id? (complement temp-id?))
+(defn live-id?
+  [id-or-entity]
+  (when-let [id (->id id-or-entity)]
+    (if (string? id)
+      (not (string/starts-with? id "temp-"))
+      true)))
 
 (def simple-keys
   [:user/email
@@ -520,12 +525,14 @@
 
 (defn deep-rename-keys
   "Given a data structure, rename keys in all contained maps"
-  [x key-map]
-  (postwalk (fn [x*]
-              (if (map? x*)
-                (rename-keys x* key-map)
-                x*))
-            x))
+  ([key-map]
+   #(deep-rename-keys % key-map))
+  ([x key-map]
+   (postwalk (fn [x*]
+               (if (map? x*)
+                 (rename-keys x* key-map)
+                 x*))
+             x)))
 
 (defn- normalize-sort-key
   [x]
@@ -592,3 +599,26 @@
 
       :else
       (throw (ex-info "More than one namespace found. Cannot apply the update" m)))))
+
+(defn- raise-on-tie
+  [frequencies]
+  (when (and (< 1 (count frequencies))
+             (apply = (->> frequencies
+                           (take 2)
+                           (map second))))
+    (throw (ex-info "No dominant namespace" {:frequences frequencies})))
+  frequencies)
+
+(defn dominant-ns
+  "Given a map, return the most common namespace of the keys"
+  [m & {:keys [as]}]
+  (let [ns (->> (keys m)
+                (map namespace)
+                (filter identity)
+                frequencies
+                (sort-by second >)
+                raise-on-tie
+                ffirst)]
+    (if (= :string as)
+      ns
+      (keyword ns))))
