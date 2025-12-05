@@ -302,15 +302,23 @@
                              :value 5.01M
                              :commodity (util/->entity-ref (find-commodity "MSFT"))}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? (or expected-response
-                             (map #(update-in %
-                                              [:price/commodity]
-                                              ->json-entity-ref)
-                                  expected))
-                         parsed-body)
+  (is (= (set
+           (or expected-response
+               (map #(update-in %
+                                [:price/commodity]
+                                ->json-entity-ref)
+                    expected)))
+         (->> parsed-body
+              (map #(dissoc % :id))
+              set))
       "The prices are returned in the response")
-  (is (seq-of-maps-like? expected
-                         (entities/select #:price{:trade-date (t/local-date 2015 3 2)}))
+  (is (= (set expected)
+         (->> (entities/select #:price{:trade-date (t/local-date 2015 3 2)})
+              (map #(dissoc %
+                            :id
+                            :price/created-at
+                            :price/updated-at))
+              set))
       "The prices are written to the database"))
 
 (deftest a-user-can-fetch-current-commodity-prices
