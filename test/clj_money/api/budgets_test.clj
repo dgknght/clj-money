@@ -3,7 +3,8 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [ring.mock.request :as req]
-            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.web :refer [path
+                                         format-decimal]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.test]
             [clj-money.json]
@@ -143,8 +144,7 @@
   [{:as response :keys [parsed-body]}]
   (let [salary (find-account "Salary")
         groceries (find-account "Groceries")
-        budget (entities/find (:id parsed-body))
-        items (entities/select {:budget-item/budget budget})]
+        {:budget/keys [items]} (entities/find (:id parsed-body))]
     (is (http-created? response))
     (is (= 2 (count items))
         "The created budget contains an item for each income statement account with transaction items in the specified time frame")
@@ -299,15 +299,18 @@
         (is (http-success? res))
         (is (= 3 (count (:items parsed-body)))
             "The items are included in resposne")
-        (is (= #{{:periods #{1000.0}}
-                 {:periods #{500.0}}
-                 {:periods #{200.0}}}
+        (is (= #{{:periods #{"1,000.00"}}
+                 {:periods #{"500.00"}}
+                 {:periods #{"200.00"}}}
                (->> (:items parsed-body)
                     (map (fn [item]
                            (-> item
                                (select-keys [:periods])
-                               (update-in [:periods] (comp set
-                                                           #(map :d %))))))
+                               (update-in [:periods]
+                                          (comp set
+                                                #(map (comp format-decimal
+                                                            :d)
+                                                      %))))))
                     set))
             "The budget items are included in the response.")))))
 

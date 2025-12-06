@@ -84,7 +84,7 @@
                                      :_type "budget-item"})
           :expected #:budget-item{:account rent
                                   :periods [200M 201M 202M]}
-          :expected-response {:account (update-in rent [:id] str)
+          :expected-response {:account (->json-entity-ref rent)
                               :periods [{:d 200} {:d 201} {:d 202}]
                               :_type "budget-item"})))))
 

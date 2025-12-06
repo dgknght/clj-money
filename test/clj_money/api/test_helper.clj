@@ -2,9 +2,11 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
+            [clojure.walk :refer [postwalk]]
             [ring.mock.request :as req]
             [ring.util.response :as res]
             [muuntaja.core :as muuntaja]
+            [dgknght.app-lib.web :refer [format-decimal]]
             [clj-money.web.auth :as auth])
   (:import [java.io File ByteArrayOutputStream]
            [com.fasterxml.jackson.core JsonGenerator]
@@ -99,3 +101,13 @@
   {:id (if (integer? id)
          id
          (str id))})
+
+(defn jsonize-decimals
+  [data]
+  (postwalk (fn [x]
+              (if (and (map? x)
+                       (= #{:d}
+                          (-> x keys set)))
+                (-> x :d format-decimal)
+                x))
+            data))

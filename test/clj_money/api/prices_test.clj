@@ -13,7 +13,8 @@
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [parse-body
                                                request
-                                               ->json-entity-ref]]
+                                               ->json-entity-ref
+                                               jsonize-decimals]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-price
@@ -138,7 +139,7 @@
                      #:price{:trade-date (t/local-date 2016 2 27)
                              :value 10.0M}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? expected parsed-body)))
+  (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))))
 
 (defn- assert-blocked-list
   [{:as response :keys [parsed-body]}]
@@ -153,10 +154,10 @@
       (assert-successful-list
         (get-a-list-by-commodity "john@doe.com" :content-type "application/json")
         :expected [{:tradeDate "2016-03-02"
-                    :value {:d 11.0}
+                    :value "11.00"
                     :_type "price"}
                    {:tradeDate "2016-02-27"
-                    :value {:d 10.0}
+                    :value "10.00"
                     :_type "price"}]))))
 
 (deftest a-user-cannot-get-a-list-of-prices-from-anothers-entity

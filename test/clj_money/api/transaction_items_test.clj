@@ -10,7 +10,8 @@
             [clj-money.util :as util]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
-                                               request]]
+                                               request
+                                               jsonize-decimals]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [basic-context
                                             with-context
@@ -135,7 +136,7 @@
         parse-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [edn-body parsed-body]}
+  [{:as response :keys [parsed-body]}
    & {:keys [expected]
       :or {expected [{:transaction/transaction-date (t/local-date 2017 01 29)
                       :transaction/description "Kroger"
@@ -163,9 +164,8 @@
                       :transaction-item/polarized-quantity -100M
                       :transaction-item/action :credit}]}}]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)]
-    (is (seq-of-maps-like? expected body)
-        "The transaction items are returned in the response")))
+  (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))
+      "The transaction items are returned in the response"))
 
 (defn- assert-blocked-list
   [{:as response :keys [edn-body parsed-body]}]
@@ -181,23 +181,23 @@
       (assert-successful-list
         (get-a-list "john@doe.com" :content-type "application/json")
         :expected [{:description "Kroger"
-                    :quantity {:d 100.0}
+                    :quantity "100.00"
                     :action "credit"
                     :_type "transaction-item"}
                    {:description "Kroger"
-                    :quantity {:d 100.0}
+                    :quantity "100.00"
                     :action "credit"
                     :_type "transaction-item"}
                    {:description "Paycheck"
-                    :quantity {:d 1000.0}
+                    :quantity "1,000.00"
                     :action "debit"
                     :_type "transaction-item"}
                    {:description "Kroger"
-                    :quantity {:d 100.0}
+                    :quantity "100.00"
                     :action "credit"
                     :_type "transaction-item"}
                    {:description "Kroger"
-                    :quantity {:d 100.0}
+                    :quantity "100.00"
                     :action "credit"
                     :_type "transaction-item"}]))))
 

@@ -17,7 +17,8 @@
                                             find-account]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [request
-                                               parse-body]]
+                                               parse-body
+                                               ->json-entity-ref]]
             [clj-money.web.server :refer [app]]
             [clj-money.entities :as entities]))
 
@@ -73,14 +74,14 @@
                              :content-type "application/json"
                              :body {:name "JSON Savings"
                                     :type :asset
-                                    :commodity {:id (str (:id commodity))}
+                                    :commodity (->json-entity-ref commodity)
                                     :_type :account})
           :expected #:account{:name "JSON Savings"
                               :type :asset
                               :commodity (util/->entity-ref commodity)}
           :expected-response {:name "JSON Savings"
                               :type "asset"
-                              :commodity {:id (str (:id commodity))}
+                              :commodity (->json-entity-ref commodity)
                               :_type "account"})))))
 
 (deftest a-user-cannot-create-an-account-in-anothers-entity

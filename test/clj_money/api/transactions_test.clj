@@ -14,7 +14,8 @@
             [clj-money.db.ref]
             [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               jsonize-decimals]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-user
@@ -77,13 +78,13 @@
 (defn- assert-successful-list
   [{:as response :keys [parsed-body]}
    & {:keys [expected]
-      :or {expected #:transaction{:transaction-date (t/local-date 2016 02 01)
-                                  :description "Paycheck"
-                                  :memo "Pre-existing transaction"
-                                  :value 1000.0M}}}]
+      :or {expected [#:transaction{:transaction-date (t/local-date 2016 02 01)
+                                   :description "Paycheck"
+                                   :memo "Pre-existing transaction"
+                                   :value 1000.0M}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [expected]
-                         parsed-body)
+  (is (seq-of-maps-like? expected
+                         (jsonize-decimals parsed-body))
       "The response contains the transaction for the specified entity in the specified date range"))
 
 (defn- assert-blocked-list
@@ -98,11 +99,11 @@
     (testing "json format"
       (assert-successful-list
         (get-a-list "john@doe.com" :content-type "application/json")
-        :expected {:description "Paycheck"
-                   :transactionDate "2016-02-01"
-                   :memo "Pre-existing transaction"
-                   :value {:d 1000.0}
-                   :_type "transaction"}))))
+        :expected [{:description "Paycheck"
+                    :transactionDate "2016-02-01"
+                    :memo "Pre-existing transaction"
+                    :value "1,000.00"
+                    :_type "transaction"}]))))
 
 (deftest a-user-cannot-get-transactions-in-anothers-entity
   (with-context context
@@ -129,7 +130,7 @@
                                   :memo "Pre-existing transaction"
                                   :value 1000.0M}}}]
   (is (http-success? response))
-  (is (comparable? expected parsed-body)
+  (is (comparable? expected (jsonize-decimals parsed-body))
       "The response body contains the transaction details"))
 
 (defn- assert-blocked-get
@@ -146,7 +147,7 @@
         :expected {:transactionDate "2016-02-01"
                    :description "Paycheck"
                    :memo "Pre-existing transaction"
-                   :value {:d 1000.0}}))))
+                   :value "1,000.00"}))))
 
 (deftest a-user-cannot-get-a-transaction-from-anothers-entity
   (with-context context

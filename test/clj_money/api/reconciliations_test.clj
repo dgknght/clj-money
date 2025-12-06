@@ -12,7 +12,8 @@
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               jsonize-decimals]]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-user
@@ -70,14 +71,13 @@
       parse-body))
 
 (defn- assert-successful-get
-  [{:as response :keys [edn-body parsed-body]}
+  [{:as response :keys [parsed-body]}
    & {:keys [expected]
       :or {expected [#:reconciliation{:end-of-period (t/local-date 2015 1 4)
                                       :balance 400M}]}}]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)]
-    (is (seq-of-maps-like? expected body)
-        "The response contains the list of reconciliations")))
+  (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))
+        "The response contains the list of reconciliations"))
 
 (defn- assert-blocked-get
   [{:as response :keys [edn-body parsed-body]}]
@@ -93,7 +93,7 @@
       (assert-successful-get
         (get-reconciliations "john@doe.com" :content-type "application/json")
         :expected [{:endOfPeriod "2015-01-04"
-                    :balance {:d 400.0}
+                    :balance "400.00"
                     :_type "reconciliation"}]))))
 
 (deftest a-user-cannot-get-reconciliations-from-anothers-entity
