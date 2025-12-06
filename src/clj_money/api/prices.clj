@@ -85,8 +85,7 @@
 (defn- fetch
   "Return prices for a specified list of commodities"
   [{:keys [params]}]
-  (->> (:commodity-id params)
-       (map (entities/find :commodity))
+  (->> (entities/find-many (:commodity-id params))
        fetch/fetch
        entities/put-many
        (map #(update-in % [:price/commodity] util/->entity-ref))

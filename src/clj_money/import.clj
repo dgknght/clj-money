@@ -769,9 +769,10 @@
 
 (defn- import-data*
   [import-spec {:keys [out-chan]}]
-  (let [user (entities/find (:import/user import-spec) :user)
-        images (map (entities/find :image)
-                    (:import/images import-spec))
+  (let [user (-> import-spec :import/user entities/find)
+        images (->> (:import/images import-spec)
+                    (map :id)
+                    entities/find-many)
         source-type (get-source-type (first images))
         entity ((some-fn entities/find-by entities/put)
                 {:entity/user user
@@ -804,7 +805,7 @@
                              :entity entity})
                           a/<!!)]
           (entities/put-many (cons (:entity result) ; transaction-date-range has been updated
-                                 (vals (:accounts result)))) ; indexes and balances have changed
+                                   (vals (:accounts result)))) ; indexes and balances have changed
           (when-not (::abend? result)
             (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))

@@ -2,8 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys map-invert]]
+            [clojure.set :refer [map-invert]]
             [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [camel-snake-kebab.core :refer [->snake_case_keyword
                                             ->snake_case_string
                                             ->snake_case
@@ -16,13 +17,15 @@
             [next.jdbc.result-set :as result-set]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.util :as util :refer [temp-id?]]
+            [clj-money.util :as util :refer [temp-id?
+                                             live-id?]]
             [clj-money.entities :as entities]
             [clj-money.entities.schema :as schema]
             [clj-money.db :as db]
+            [clj-money.db.sql.types :as types]
             [clj-money.db.sql.queries :refer [criteria->query
-                                              ->update]]
-            [clj-money.db.sql.types :refer [coerce-id]]))
+                                              ->update]])
+  (:import clj_money.db.sql.types.QualifiedID))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
@@ -107,58 +110,11 @@
           x
           coercions))
 
-(def ^:private sql-ref-keys
-  (mapv #(keyword (namespace %)
-                  (str (name %) "-id"))
-        schema/entity-ref-keys))
-
-(def ^:private entity->sql-ref-map
-  (zipmap schema/entity-ref-keys sql-ref-keys))
-
-(defn- extract-ref-id
-  [x]
-  (cond
-    ; An operation, like [:between start end] or [:in '(1 2 3)]
-    (vector? x) (apply vector (first x) (map extract-ref-id (rest x)))
-
-    ; A entity or entity reference, like {:id 1}
-    (map? x)    (if-let [id (:id x)] id x)
-
-    ; A list of values in an :in clause, like [:in #{1 2 3}]
-    (coll? x)    (set (map extract-ref-id x))
-
-    ; a value that can be used as-is
-    :else x))
-
-(defn- ->sql-refs
-  [m]
-  (reduce (fn [m k]
-            (update-in-if m [k] extract-ref-id))
-          (rename-keys m entity->sql-ref-map)
-          sql-ref-keys))
-
-(def ^:private sql->entity-ref-map
-  (zipmap sql-ref-keys schema/entity-ref-keys))
-
-(defn- ->entity-refs
-  [m]
-  (reduce (fn [m k]
-            (update-in-if m [k] util/->entity-ref))
-          (rename-keys m sql->entity-ref-map)
-          schema/entity-ref-keys))
-
-; convert keywords to strings (or can this be done with SettableParameter?)
-; {:account/type :asset} -> {:account/type "asset"}
-; maybe convert java-time to sql? I think next-jdbc.date-time already handles this
-; {:transaction/transaction-date (t/local-date 2020 1 1)} -> {:transaction/transaction-date "2020-01-01"}
-(defn- prepare-criteria
-  [criteria]
-  (crt/apply-to criteria ->sql-refs))
-
 (defmulti post-select
   (fn [_opts ms]
-    (when-let [m1 (first ms)]
-      (util/entity-type m1))))
+    (some-> ms
+            first
+            util/entity-type)))
 (defmethod post-select :default [_ ms] ms)
 
 (def ^:private infer-table-name
@@ -182,7 +138,7 @@
         s (for-insert table
                       entity
                       sql-opts)
-        _ (log/debugf "database insert %s -> %s"
+        _ (log/infof "insert %s -> %s"
                       (entities/scrub-sensitive-data entity)
                       (scrub-values entity s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
@@ -191,12 +147,13 @@
 (defn- update
   [db entity]
   {:pre [(:id entity)]}
+
   (let [table (infer-table-name entity)
         s (for-update table
                       (dissoc entity :id)
                       {:id (:id entity)}
                       sql-opts)
-        _ (log/debugf "database update %s -> %s"
+        _ (log/infof "update %s -> %s"
                       (entities/scrub-sensitive-data entity)
                       (scrub-values entity s))
         result (jdbc/execute-one! db s {:return-keys [:id]})]
@@ -210,7 +167,7 @@
                       (select-keys m primary-key)
                       sql-opts)]
 
-    (log/debugf "database delete %s -> %s"
+    (log/infof "delete %s -> %s"
                 (entities/scrub-sensitive-data m)
                 s)
 
@@ -225,17 +182,14 @@
     ::db/delete (delete-one ds entity)
     (throw (ex-info "Invalid operation" {:operation oper}))))
 
-(def ^:private id?
-  (every-pred identity (complement temp-id?)))
-
 (defn- wrap-oper
   "Ensure that what we are passing on is a tuple with a database
   operation in the 1st position and a entity in the second."
   [{:as m :keys [id]}]
   (cond
-    (vector? m) m
-    (id? id)    [::db/update m]
-    :else       [::db/insert m]))
+    (vector? m)      m
+    (live-id? id)    [::db/update m]
+    :else            [::db/insert m]))
 
 (defmulti resolve-temp-ids
   "In a entity-specific way, replace temporary ids with proper ids after a save."
@@ -247,14 +201,16 @@
 
 (defn- ref-to-attrs
   [ref]
-  (if (keyword? ref)
+  (if
+    (keyword? ref)
     [(str (name ref) "-id")]
-    (let [{:keys [columns]} ref]
+    (if-let [columns (seq (:columns ref))]
       (map (fn [c]
              (if (keyword? c)
                c
                (second c)))
-           columns))))
+           columns)
+      [(str (name (:id ref)) "-id")])))
 
 (defn- build-attributes
   [[t fields refs]]
@@ -308,40 +264,6 @@
                         :operation (s/tuple ::db/operation ::entity)))
 (s/def ::puttables (s/coll-of ::puttable))
 
-; This is only exposed publicly to support tests that enforce
-; short-circuting transaction propagation
-(defn put*
-  "Executes operations against the database. This function is not entended
-  to be used directly."
-  [ds entities]
-  {:pre [(s/valid? ::puttables entities)]}
-  (let [result (jdbc/with-transaction [tx ds]
-                 (->> entities
-                      (mapcat deconstruct)
-                      (map (comp #(update-in % [1] (comp before-save
-                                                         ->sql-refs))
-                                 wrap-oper))
-                      (reduce (execute-and-aggregate tx)
-                              {:saved []
-                               :id-map {}})))]
-    (->> (:saved result)
-         (map (comp after-read
-                    ->entity-refs))
-         (reconstruct))))
-
-(defn- id-key
-  [x]
-  (when-let [target (util/entity-type x)]
-    (keyword (name target) "id")))
-
-(defn- massage-ids
-  "Coerces ids and appends the appropriate namespace
-  to the :id key"
-  [m]
-  (let [k (id-key m)]
-    (cond-> (crt/apply-to m #(update-in-if % [:id] coerce-id))
-      k (rename-keys {:id k}))))
-
 (defn- refine-qualifiers
   "Removes the namespace for the id key for a entity map and corrects
   missing keyword namespaces.
@@ -352,7 +274,8 @@
   [{:keys [include-children? include-parents? entity-type]}]
   (fn [m]
     (let [+ns (if (or include-children? include-parents?)
-                           #(keyword (name entity-type)
+                           #(keyword (name (or entity-type
+                                               (util/entity-type m)))
                                      (name %))
                            identity)]
       (update-keys m (fn [k]
@@ -371,51 +294,168 @@
   (keyword (->snake_case_string (namespace k))
            (->snake_case_string (name k))))
 
-(defn- select*
-  [ds criteria {:as options
-                :keys [include-children?
-                       include-parents?
-                       nil-replacements]}]
-  (let [entity-type (util/entity-type criteria)
-        query (-> criteria
-                  (crt/apply-to massage-ids)
-                  prepare-criteria
-                  (criteria->query
-                    (cond-> (assoc options
-                                   :quoted? true
-                                   :column-fn ->snake_case
-                                   :table-fn ->snake_case
-                                   :target entity-type)
-                      nil-replacements (assoc :nil-replacements
-                                              (update-keys nil-replacements
-                                                           ->snake-case))
-                      include-children? (assoc :recursion (recursions entity-type))
-                      include-parents? (assoc :recursion (reverse (recursions entity-type))))))]
+(def ^:private sqlize
+  (types/sqlize
+    {:ref-keys (->> schema/entities
+                    (mapcat (fn [{:keys [refs id]}]
+                              (map (fn [ref]
+                                     [(keyword (name id)
+                                               (name (schema/ref-id ref)))
+                                      (or (:type ref)
+                                          (-> (or (:id ref) ref)
+                                              name
+                                              keyword))])
+                                   refs)))
+                    (into {}))}))
 
-    (log/debugf "database select %s with options %s -> %s"
-                (entities/scrub-sensitive-data criteria)
-                options
-                (scrub-values criteria query))
+(defn- make-query
+  [criteria {:as options
+             :keys [include-children?
+                    include-parents?
+                    nil-replacements
+                    entity-type]}]
+  (-> criteria
+      (crt/apply-to sqlize)
+      (criteria->query
+        (cond-> (assoc options
+                       :quoted? true
+                       :column-fn ->snake_case
+                       :table-fn ->snake_case
+                       :target entity-type)
+          nil-replacements (assoc :nil-replacements
+                                  (update-keys nil-replacements
+                                               ->snake-case))
+          include-children? (assoc :recursion (recursions entity-type))
+          include-parents? (assoc :recursion (reverse (recursions entity-type)))))))
+
+(defn- ref-spec->sql-key
+  [[id ref]]
+  ; TODO: Handle plural key, like :images -> :image-ids
+  (let [attr-type (or (:type ref)
+                      (:id ref)
+                      ref)
+        attr-id (or (:id ref) ref)
+        attr-name (if (vector? attr-type)
+                    (str (str/replace
+                           (name attr-id)
+                           #"s\z"
+                           "")
+                         "-ids")
+                    (str (name attr-id)
+                         "-id"))]
+    [(keyword (name id)
+              attr-name)
+     (if (vector? attr-type)
+       (first attr-type)
+       attr-type)]))
+
+(def ^:private sql-ref-keys
+  (->> schema/entities
+       (mapcat (fn [{:keys [refs id]}]
+                 (map #(vector id %) refs)))
+       (map ref-spec->sql-key)
+       (into {})))
+
+(defn- after-read*
+  ([] (after-read* {}))
+  ([options]
+   (comp #(types/generalize % (assoc options :sql-ref-keys sql-ref-keys))
+         after-read
+         apply-coercions
+         (refine-qualifiers options))))
+
+; To save an entity, we need to convert from this:
+; {:id <QualifiedID: id=201, entity-type=:entity />
+;  :entity/name "Personal"
+;  :entity/user {:id <QualifiedID: id=101 entity-type=:user />
+;                :user/email "john@doe.com"}}
+;
+; To this:
+; {:id 201
+;  :entity/name "Personal"
+;  :entity/user-id 101}
+;
+; The logical steps are:
+; 1. Replace all QualifiedID instance with the raw ID value.
+; 2. Rename the primary key attribute from :id to :<entity-type>/id
+; 3. Replace any references to other entities:
+;     a. Extract the value at the :id attribute
+;     b. Rename the attribute from :<entity>/<foreign-entity>
+;        to :<entity>/<foreign-entity>-id
+;
+; This is only exposed publicly to support tests that enforce
+; short-circuting transaction propagation
+(defn put*
+  "Executes operations against the database. This function is not entended
+  to be used directly."
+  [ds entities]
+  (let [result (jdbc/with-transaction [tx ds]
+                 (->> entities
+                      (mapcat deconstruct)
+                      (map (comp #(update-in %
+                                             [1]
+                                             (comp before-save
+                                                   sqlize))
+                                 wrap-oper))
+                      (reduce (execute-and-aggregate tx)
+                              {:saved []
+                               :id-map {}})))]
+    (->> (:saved result)
+         (map (after-read*))
+         (reconstruct))))
+
+(defn- extract-entities
+  [ds query options]
+  (->> (jdbc/execute! ds query sql-opts)
+       (map (after-read* options))
+       (post-select options)))
+
+(defn- extract-count
+  [ds query]
+  (:record-count
+    (jdbc/execute-one! ds
+                       query
+                       sql-opts)))
+
+(defn- select*
+  [ds criteria opts]
+  (let [options (update-in opts
+                           [:entity-type]
+                           (fnil identity (util/entity-type criteria)))
+        query (make-query criteria options)]
+    (log/infof "select %s with options %s -> %s"
+               (entities/scrub-sensitive-data criteria)
+               options
+               (scrub-values criteria query))
 
     (if (:count options)
-      (:record-count
-        (jdbc/execute-one! ds
-                           query
-                           sql-opts))
-      (->> (jdbc/execute! ds
-                          query
-                          sql-opts)
-           (map (comp after-read
-                      apply-coercions
-                      ->entity-refs
-                      (refine-qualifiers (assoc options :entity-type entity-type))))
-           (post-select options)))))
+      (extract-count ds query)
+      (extract-entities ds query options))))
+
+(defn- find*
+  [ds ^QualifiedID qid opts]
+  {:pre [(instance? QualifiedID qid)]}
+  (first
+    (select* ds
+             {:id qid}
+             (assoc opts
+                    :limit 1
+                    :entity-type (.entity-type qid)))))
+
+(defn- find-many*
+  [ds qids opts]
+  (->> qids
+       (group-by #(.entity-type %))
+       (mapcat (fn [[entity-type qids]]
+                 (select* ds
+                          {:id [:in (map #(.id %) qids)]}
+                          (assoc opts :entity-type entity-type))))))
 
 (defn- update*
   [ds changes criteria]
-  (let [sql (->update (->sql-refs changes)
-                      (->sql-refs criteria))]
-    (log/debugf "database bulk update: change %s for %s -> %s"
+  (let [sql (->update (sqlize changes)
+                      (crt/apply-to criteria sqlize))]
+    (log/infof "bulk update: change %s for %s -> %s"
                 (entities/scrub-sensitive-data changes)
                 (entities/scrub-sensitive-data criteria)
                 sql)
@@ -426,6 +466,7 @@
   {:pre [(s/valid? (s/coll-of map?) entities)]}
 
   (->> entities
+       (map #(update-in % [:id] types/unqualify-id))
        (interleave (repeat ::db/delete))
        (partition 2)
        (map vec)
@@ -440,6 +481,8 @@
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
       (put [_ entities] (put* ds entities))
+      (find [this id] (find* ds id {:storage this}))
+      (find-many [this ids] (find-many* ds ids {:storage this}))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))

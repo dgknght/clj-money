@@ -10,7 +10,7 @@
   (if (util/entity-ref? account-or-ref)
     (if-let [account (accounts (:id account-or-ref))]
       [account accounts]
-      (let [account (entities/find account-or-ref :account)]
+      (let [account (entities/find account-or-ref)]
         [account (assoc accounts (:id account) account)]))
     [account-or-ref accounts]))
 

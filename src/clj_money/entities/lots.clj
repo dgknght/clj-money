@@ -8,7 +8,7 @@
 (defn- asset-account?
   [account]
   (= :asset
-     (:account/type (entities/resolve-ref account :account))))
+     (:account/type (entities/resolve-ref account))))
 (v/reg-msg asset-account? "%s must be an asset")
 
 (s/def :lot/account (s/and ::entities/entity-ref

@@ -8,7 +8,6 @@
             [clojure.walk :refer [postwalk]]
             [clojure.tools.logging :as log]
             [dgknght.app-lib.validation :as v]
-            [dgknght.app-lib.models :refer [->id]]
             [clj-money.json] ; to ensure encoders are registered
             [clj-money.util :as util :refer [entity=]]
             [clj-money.db :as db]))
@@ -21,7 +20,15 @@
 
 (def exchanges #{:nyse :nasdaq :amex :otc})
 
-(s/def ::id (some-fn uuid? int? util/temp-id?))
+(defprotocol CompositeID
+  (components [this] "Returns the components of the ID"))
+
+(def composite-id? (partial satisfies? CompositeID))
+
+(s/def ::id (some-fn string?
+                     uuid?
+                     integer?
+                     composite-id?))
 (s/def ::entity-ref (s/keys :req-un [::id]))
 
 (defmulti prepare-criteria util/entity-type-dispatch)
@@ -89,36 +96,27 @@
   ([criteria options]
    (first (select criteria (assoc options :limit 1)))))
 
-(defn find-many
-  [m-or-ids entity-type]
-  (select (util/entity-type {:id [:in (mapv ->id m-or-ids)]}
-                           entity-type)))
+(defn- db-find
+  [id]
+  (db/find (db/storage) id))
 
 (defn find
-  "Find a entity by id or by reference map.
+  "Return the entity having the specified ID"
+  [id-or-entity & [opts]]
+  (some-> id-or-entity
+          util/->id
+          db/unserialize-id
+          db-find
+          (after-read opts)))
 
-  When given one argument:
-    - If the argument is a entity reference, return the entity
-    - If the argument is a keyword, a function that will look up entities of the specified type
-  When given two arguments, look up a entity of the spcified type having the specified id"
-  ([arg]
-   (if (keyword? arg)
-     #(find % arg)
-     (do
-       (assert (:id arg) "The argument must have an id")
-       (assert (util/entity-type arg) "The argument must have a entity type")
-       (find (:id arg)
-             (keyword (util/entity-type arg)))))) ; TODO: can we remove the call to keyword?
-  ([id-or-ref entity-type-or-opts]
-   (let [[entity-type opts] (if (keyword? entity-type-or-opts)
-                             [entity-type-or-opts {}]
-                             [(or (:entity-type entity-type-or-opts)
-                                  (util/entity-type id-or-ref))
-                              entity-type-or-opts])]
-     (find-by (util/entity-type
-                (util/->entity-ref id-or-ref)
-                entity-type)
-              opts))))
+(defn find-many
+  "Returns the entities having the specified IDs"
+  [ids-or-entities & [opts]]
+  (->> ids-or-entities
+       util/->id
+       db/unserialize-id
+       (db/find-many (db/storage))
+       (map #(after-read % opts))))
 
 (def ^:private mergeable?
   (every-pred map? :id))
@@ -250,13 +248,7 @@
   ([{:as opts
      :keys [storage]}
     entities]
-
-   (when-not (s/valid? ::puttables entities)
-     (s/explain ::puttables entities)
-     (throw (ex-info "Invalid entity" {:entities entities})))
-
-
-   #_{:pre [(s/valid? ::puttables entities)]}
+   {:pre [(s/valid? ::puttables entities)]}
 
    (let [to-save (->> entities
                       (handle-dupes opts)
@@ -305,13 +297,11 @@
   (delete-many opts [entity]))
 
 (defn resolve-ref
-  ([entity-type]
-   (fn [entity-or-ref]
-     (resolve-ref entity-or-ref entity-type)))
-  ([entity-or-ref entity-type]
-   (if (util/entity-ref? entity-or-ref)
-     (find entity-or-ref entity-type)
-     entity-or-ref)))
+  [entity-or-ref]
+  {:pre [(map? entity-or-ref)]}
+  (if (util/entity-ref? entity-or-ref)
+    (find (:id entity-or-ref))
+    entity-or-ref))
 
 (def sensitive-keys
   #{:user/email

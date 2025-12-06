@@ -2,11 +2,14 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
+            [clojure.walk :refer [postwalk]]
             [ring.mock.request :as req]
             [ring.util.response :as res]
             [muuntaja.core :as muuntaja]
+            [dgknght.app-lib.web :refer [format-decimal]]
             [clj-money.web.auth :as auth])
   (:import [java.io File ByteArrayOutputStream]
+           [com.fasterxml.jackson.core JsonGenerator]
            [org.apache.http.entity ContentType]
            [org.apache.http.entity.mime MultipartEntity]
            [org.apache.http.entity.mime.content StringBody FileBody]))
@@ -68,8 +71,20 @@
                            (res/get-header "content-type")
                            (string/split #";")
                            first)]
-      (assoc res :parsed-body (muuntaja/decode content-type body)))
+      (assoc res :parsed-body (try
+                                (muuntaja/decode content-type body)
+                                (catch Exception e
+                                  {:error (ex-message e)
+                                   :body body}))))
     res))
+
+(def muunstance
+  (muuntaja/create
+    (assoc-in muuntaja/default-options
+              [:formats "application/json" :encoder-opts]
+              {:encoders {clj_money.entities.CompositeID
+                          (fn [x ^JsonGenerator gen]
+                            (.writeString gen (str x)))}})))
 
 (defn request
   [method path & {:keys [accept content-type body user]
@@ -78,5 +93,21 @@
     (cond-> (req/request method path)
       content-type (req/content-type content-type)
       accept (req/header :accept accept)
-      body (assoc :body (muuntaja/encode content-type body))
+      body (assoc :body (muuntaja/encode muunstance content-type body))
       user (add-auth user))))
+
+(defn ->json-entity-ref
+  [{:keys [id]}]
+  {:id (if (integer? id)
+         id
+         (str id))})
+
+(defn jsonize-decimals
+  [data]
+  (postwalk (fn [x]
+              (if (and (map? x)
+                       (= #{:d}
+                          (-> x keys set)))
+                (-> x :d format-decimal)
+                x))
+            data))

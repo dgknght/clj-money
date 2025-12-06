@@ -1,5 +1,6 @@
 (ns clj-money.api.lots-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
@@ -9,7 +10,8 @@
             [clj-money.factories.user-factory]
             [java-time.api :as t]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               jsonize-decimals]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-account
@@ -87,7 +89,7 @@
         parse-body)))
 
 (defn- assert-successful-get
-  [{:as response :keys [edn-body parsed-body]}
+  [{:as response :keys [parsed-body]}
    & {:keys [expected]
       :or {expected [#:lot{:purchase-date (t/local-date 2016 2 1)
                            :shares-purchased 10.0M
@@ -98,9 +100,9 @@
                            :purchase-price 6.0M
                            :shares-owned 10.0M}]}}]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)]
-    (is (seq-of-maps-like? expected body)
-        "The response body contains the lot data")))
+  (is (seq-of-maps-like? expected
+                         (jsonize-decimals parsed-body))
+      "The response body contains the lot data"))
 
 (defn- assert-blocked-get
   [{:as response :keys [edn-body parsed-body]}]
@@ -117,14 +119,14 @@
         (get-lots-for-an-account "john@doe.com"
                                  :content-type "application/json")
         :expected [{:purchaseDate "2016-02-01"
-                    :sharesPurchased {:d 10.0}
-                    :purchasePrice {:d 5.0}
-                    :sharesOwned {:d 5.0}
+                    :sharesPurchased "10.00"
+                    :purchasePrice "5.00"
+                    :sharesOwned "5.00"
                     :_type "lot"}
                    {:purchaseDate "2016-03-01"
-                    :sharesPurchased {:d 10.0}
-                    :purchasePrice {:d 6.0}
-                    :sharesOwned {:d 10.0}
+                    :sharesPurchased "10.00"
+                    :purchasePrice "6.00"
+                    :sharesOwned "10.00"
                     :_type "lot"}]))))
 
 (deftest a-user-cannot-get-lots-for-an-account-in-anothers-entity
@@ -154,14 +156,14 @@
         (get-lots-for-multiple-accounts "john@doe.com"
                                         :content-type "application/json")
         :expected [{:purchaseDate "2016-02-01"
-                    :sharesPurchased {:d 10.0}
-                    :purchasePrice {:d 5.0}
-                    :sharesOwned {:d 5.0}
+                    :sharesPurchased "10.00"
+                    :purchasePrice "5.00"
+                    :sharesOwned "5.00"
                     :_type "lot"}
                    {:purchaseDate "2016-03-01"
-                    :sharesPurchased {:d 10.0}
-                    :purchasePrice {:d 6.0}
-                    :sharesOwned {:d 10.0}
+                    :sharesPurchased "10.00"
+                    :purchasePrice "6.00"
+                    :sharesOwned "10.00"
                     :_type "lot"}]))))
 
 (deftest a-user-cannot-get-lots-for-multiple-accounts-in-anothers-entity

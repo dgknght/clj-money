@@ -14,7 +14,7 @@
                                             find-commodity
                                             find-transaction]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.util :as util :refer [entity= id=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.entities :as entities]
             [clj-money.trading :as trading]))
 
@@ -25,7 +25,7 @@
   {:pre [acc transaction]}
 
   (->> (:transaction/items transaction)
-         (filter #(entity= acc (:transaction-item/account %)))
+         (filter #(id= acc (:transaction-item/account %)))
          first))
 
 (def ^:private base-context
@@ -256,7 +256,7 @@
     (let [result (trading/sell (sale-attributes))
           ltcg (find-account "Long-term Capital Gains")
           aapl-acc (entities/find-by #:account{:entity (find-entity "Personal")
-                                             :commodity (find-commodity "AAPL")})]
+                                               :commodity (find-commodity "AAPL")})]
       (testing "The price"
         (is (comparable? #:price{:value 15M
                                  :trade-date (t/local-date 2017 3 2)}
@@ -293,17 +293,17 @@
             "The capital gains account is credited the amount received above the original cost of the shares."))
       (testing "The entity"
         (let [entity (entities/find-by {:entity/name "Personal"})]
-          (is (entity= ltcg
-                      (get-in entity [:entity/settings :settings/lt-capital-gains-account]))
+          (is (id= ltcg
+                   (get-in entity [:entity/settings :settings/lt-capital-gains-account]))
               "The long-term capital gains account is saved")
-          (is (entity= (find-account "Short-term Capital Gains")
-                      (get-in entity [:entity/settings :settings/st-capital-gains-account]))
+          (is (id= (find-account "Short-term Capital Gains")
+                   (get-in entity [:entity/settings :settings/st-capital-gains-account]))
               "The short-term capital gains account is saved")
-          (is (entity= (find-account "Long-term Capital Losses")
-                      (get-in entity [:entity/settings :settings/lt-capital-loss-account]))
+          (is (id= (find-account "Long-term Capital Losses")
+                   (get-in entity [:entity/settings :settings/lt-capital-loss-account]))
               "The long-term capital losses account is saved")
-          (is (entity= (find-account "Short-term Capital Losses")
-                      (get-in entity [:entity/settings :settings/st-capital-loss-account]))
+          (is (id= (find-account "Short-term Capital Losses")
+                   (get-in entity [:entity/settings :settings/st-capital-loss-account]))
               "The short-term capital losses account is saved"))))))
 
 (deftest propagate-a-sale

@@ -14,7 +14,7 @@
   (->> items
        (map :budget-item/account)
        set
-       (map #(entities/resolve-ref % :account))
+       (map entities/resolve-ref)
        (every? #(id= (:account/entity %)
                      entity))))
 

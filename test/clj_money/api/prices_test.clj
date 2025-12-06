@@ -12,7 +12,9 @@
             [clj-money.factories.user-factory]
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               ->json-entity-ref
+                                               jsonize-decimals]]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-price
@@ -20,6 +22,7 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.prices.alpha-vantage :as alpha]
             [clj-money.entities :as entities]
+            [clj-money.entity-helpers :refer [jsonify]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -136,7 +139,7 @@
                      #:price{:trade-date (t/local-date 2016 2 27)
                              :value 10.0M}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? expected parsed-body)))
+  (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))))
 
 (defn- assert-blocked-list
   [{:as response :keys [parsed-body]}]
@@ -151,10 +154,10 @@
       (assert-successful-list
         (get-a-list-by-commodity "john@doe.com" :content-type "application/json")
         :expected [{:tradeDate "2016-03-02"
-                    :value {:d 11.0}
+                    :value "11.00"
                     :_type "price"}
                    {:tradeDate "2016-02-27"
-                    :value {:d 10.0}
+                    :value "10.00"
                     :_type "price"}]))))
 
 (deftest a-user-cannot-get-a-list-of-prices-from-anothers-entity
@@ -300,11 +303,23 @@
                              :value 5.01M
                              :commodity (util/->entity-ref (find-commodity "MSFT"))}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? (or expected-response expected)
-                         parsed-body)
+  (is (= (set
+           (or expected-response
+               (map #(update-in %
+                                [:price/commodity]
+                                ->json-entity-ref)
+                    expected)))
+         (->> parsed-body
+              (map #(dissoc % :id))
+              set))
       "The prices are returned in the response")
-  (is (seq-of-maps-like? expected
-                         (entities/select #:price{:trade-date (t/local-date 2015 3 2)}))
+  (is (= (set expected)
+         (->> (entities/select #:price{:trade-date (t/local-date 2015 3 2)})
+              (map #(dissoc %
+                            :id
+                            :price/created-at
+                            :price/updated-at))
+              set))
       "The prices are written to the database"))
 
 (deftest a-user-can-fetch-current-commodity-prices
@@ -313,18 +328,20 @@
 
 (deftest a-user-can-fetch-current-commodity-prices-with-json
   (with-context fetch-context
-    (let [aapl-ref (util/->entity-ref (find-commodity "AAPL"))
-          msft-ref (util/->entity-ref (find-commodity "MSFT"))]
+    (let [[aapl msft] (map (comp util/->entity-ref
+                                 find-commodity)
+                           ["AAPL" "MSFT"])]
       (assert-successful-fetch
         (fetch-some-prices "john@doe.com" :content-type "application/json")
-        :expected-response [{:tradeDate "2015-03-02"
-                             :value {:d 10.01}
-                             :commodity aapl-ref
-                             :_type "price"}
-                            {:tradeDate "2015-03-02"
-                             :value {:d 5.01}
-                             :commodity msft-ref
-                             :_type "price"}]))))
+        :expected-response (jsonify
+                             [{:tradeDate "2015-03-02"
+                               :value {:d 10.01}
+                               :commodity aapl
+                               :_type "price"}
+                              {:tradeDate "2015-03-02"
+                               :value {:d 5.01}
+                               :commodity msft
+                               :_type "price"}])))))
 
 (deftest an-unauthenticated-user-cannot-fetch-commodity-prices
   (with-context fetch-context

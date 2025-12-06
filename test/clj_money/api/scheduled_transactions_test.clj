@@ -11,7 +11,8 @@
             [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
-                                               request]]
+                                               request
+                                               jsonize-decimals]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             basic-context
@@ -60,7 +61,7 @@
         parse-body)))
 
 (defn- assert-successful-list
-  [{:as response :keys [edn-body parsed-body]}
+  [{:as response :keys [parsed-body]}
    & {:keys [expected]
       :or {expected [#:scheduled-transaction{:start-date (t/local-date 2004 03 02)
                                              :description "Landlord"
@@ -73,9 +74,8 @@
                                                                                   :quantity 50M
                                                                                   :memo "rent"}]}]}}]
   (is (http-success? response))
-  (let [body (or parsed-body edn-body)]
-    (is (seq-of-maps-like? expected body)
-        "The body contains the existing scheduled transactions")))
+  (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))
+        "The body contains the existing scheduled transactions"))
 
 (defn- assert-blocked-list
   [{:as response :keys [edn-body parsed-body]}]
@@ -94,11 +94,11 @@
                     :startDate "2004-03-02"
                     :period [1 "year"]
                     :items [{:action "credit"
-                             :quantity {:d 50.0}
+                             :quantity "50.00"
                              :memo "checking"
                              :_type "scheduled-transaction-item"}
                             {:action "debit"
-                             :quantity {:d 50.0}
+                             :quantity "50.00"
                              :memo "rent"
                              :_type "scheduled-transaction-item"}]
                     :_type "scheduled-transaction"}]))))
@@ -132,15 +132,16 @@
                                           :entities
                                           (:id entity)
                                           :scheduled-transactions)
-                             :content-type content-type
-                             :body request-body
-                             :user (find-user user-email))
+                              :content-type content-type
+                              :body request-body
+                              :user (find-user user-email))
                      app
                      parse-body)]
     [response
-     (when-let [id (or (get-in response [:parsed-body :id])
-                       (get-in response [:edn-body :id]))]
-       (entities/find id :scheduled-transaction))]))
+     (-> response
+         :parsed-body
+         :id
+         entities/find)]))
 
 (defn- assert-sched-tran-created
   [[{:as response :keys [parsed-body]} retrieved]
