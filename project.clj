@@ -159,7 +159,8 @@
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
   :plugins [[lein-cljfmt "0.7.0"]
-            [lein-cloverage "1.2.2"]]
+            [lein-cloverage "1.2.2"]
+            [lein-eftest "0.6.0"]]
   :hooks []
   :uberjar-name "clj-money.jar"
   :aot [clj-money.web.server]
@@ -184,7 +185,9 @@
             "fig:prod"              ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "prod"]
             "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
-            "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
+            "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]
+            "test-fast"             ["eftest"]
+            "test-api"              ["eftest" "clj-money.api"]}
 
   :jvm-opts ["-Duser.timezone=UTC"
              "-Xmx2g"
@@ -199,7 +202,10 @@
                                  #"clj-money.json"
                                  #"clj-money.repl"
                                  #"clj-money.tasks"]}
-  :profiles {:test {:dependencies [[peridot "0.5.2"]]
+  :eftest {:multithread? false
+           :capture-output? false}
+  :profiles {:test {:dependencies [[peridot "0.5.2"]
+                                  [eftest "0.6.0"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
              :dev {:dependencies [[com.bhauman/figwheel-main
                                    "0.2.17"
