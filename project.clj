@@ -202,7 +202,7 @@
                                  #"clj-money.json"
                                  #"clj-money.repl"
                                  #"clj-money.tasks"]}
-  :eftest {:multithread? false
+  :eftest {:multithread? :namespaces
            :capture-output? false}
   :profiles {:test {:dependencies [[peridot "0.5.2"]
                                   [eftest "0.6.0"]]

@@ -14,11 +14,22 @@
 (def active-db-config
   (get-in env [:db :strategies (get-in env [:db :active])]))
 
+(defn- thread-specific-config
+  "Creates a thread-specific database configuration to allow parallel test execution"
+  [config]
+  (if-let [uri (:uri config)]
+    ; For Datomic in-memory databases, append thread ID to URI
+    (assoc config :uri (str uri "_" (.getId (Thread/currentThread))))
+    ; For SQL databases, could be extended to use different database names
+    config))
+
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [f]
-  (db/reset (db/reify-storage active-db-config))
-  (f))
+  (let [config (thread-specific-config active-db-config)]
+    (db/with-storage [config]
+      (db/reset (db/storage))
+      (f))))
 
 (defn- throw-if-nil
   [x msg]
@@ -89,6 +100,7 @@
                                        (-> env :db :strategies))]
          (binding [*strategy* (keyword name#)]
            (testing (format "database strategy %s" name#)
-             (db/with-storage [config#]
-               (db/reset (db/storage))
-               ~@body)))))))
+             (let [thread-config# (thread-specific-config config#)]
+               (db/with-storage [thread-config#]
+                 (db/reset (db/storage))
+                 ~@body))))))))
