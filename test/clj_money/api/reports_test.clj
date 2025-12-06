@@ -11,7 +11,8 @@
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [parse-body
-                                               request]]
+                                               request
+                                               jsonize-decimals]]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-account
@@ -244,7 +245,7 @@
                                                :prorated-budget 45.902M
                                                :actual-percent 0.035417M}}]}}]
   (is (http-success? response))
-  (is (seq-of-maps-like? expected parsed-body)))
+  (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))))
 
 (defn- assert-blocked-monitor-list
   [response]
@@ -258,16 +259,16 @@
       (assert-successful-monitor-list
         (get-monitor-list "john@doe.com" :content-type "application/json")
         :expected [{:caption "Groceries"
-                    :period {:totalBudget {:d 200.0}
-                             :actual {:d 85.0}
-                             :percentage {:d 0.2258}
-                             :proratedBudget {:d 45.162}
-                             :actualPercent {:d 0.425}}
-                    :budget {:totalBudget {:d 2400.0}
-                             :actual {:d 85.0}
-                             :percentage {:d 0.0191}
-                             :proratedBudget {:d 45.902}
-                             :actualPercent {:d 0.035417}}
+                    :period {:totalBudget "200.00"
+                             :actual "85.00"
+                             :percentage "0.23"
+                             :proratedBudget "45.16"
+                             :actualPercent "0.42"}
+                    :budget {:totalBudget "2,400.00"
+                             :actual "85.00"
+                             :percentage "0.02"
+                             :proratedBudget "45.90"
+                             :actualPercent "0.04"}
                     :_type "report"}]))))
 
 (deftest a-user-cannot-get-budget-monitors-for-anothers-entity

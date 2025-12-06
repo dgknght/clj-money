@@ -43,5 +43,4 @@
       (update-in-if [:budget-item/spec :start-date] (fn [d]
                                                       (if (string? d)
                                                         (unserialize-local-date d)
-                                                        d)))
-      (dissoc :budget-item/budget-id)))
+                                                        d)))))

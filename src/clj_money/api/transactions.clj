@@ -12,6 +12,8 @@
             [clj-money.util :as util]
             [clj-money.dates :refer [unserialize-local-date
                                      ensure-local-date]]
+            [clj-money.db :refer [unserialize-id]]
+            [clj-money.db.ref]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.authorization.transactions]
@@ -54,6 +56,7 @@
                             :transaction-date]))]
     (some-> path-params
             (select-keys [:id])
+            (update-in [:id] unserialize-id)
             (assoc :transaction/transaction-date trans-date)
             (+scope authenticated)
             entities/find-by

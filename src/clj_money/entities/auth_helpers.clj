@@ -6,11 +6,7 @@
 
 (defmulti ^:private fetch-entity util/entity-type-dispatch)
 
-(defn- fetch-entity*
-  [entity-or-ref]
-  (if (util/entity-ref? entity-or-ref)
-    (entities/find entity-or-ref :entity)
-    entity-or-ref))
+(def ^:private fetch-entity* entities/find)
 
 (defmethod fetch-entity :entity
   [resource]

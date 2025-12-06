@@ -132,7 +132,7 @@
   [{:trade/keys [commodity-account] :as trade}]
   (if commodity-account
     (let [{:account/keys [parent commodity]
-           :as account} (entities/find commodity-account :account)]
+           :as account} (entities/find commodity-account)]
       (assert account (format "Unable to load the commodity account: %s" commodity-account))
       (assoc trade
              :trade/commodity-account account
@@ -144,12 +144,12 @@
   "Given a trade map, appends the commodity"
   [{:trade/keys [commodity] :as trade}]
   {:pre [commodity]}
-  (update-in trade [:trade/commodity] (entities/resolve-ref :commodity)))
+  (update-in trade [:trade/commodity] entities/resolve-ref))
 
 (defn- find-commodity-account
   [parent commodity]
   (when-let [result (entities/find-by #:account{:parent parent
-                                              :commodity commodity})]
+                                                :commodity commodity})]
     (ensure-tag result :tradable)))
 
 (defn- create-commodity-account
@@ -176,10 +176,10 @@
   {:pre [(and account commodity)]}
   (-> trade
       (update-in [:trade/account]
-                 (entities/resolve-ref :account))
+                 entities/resolve-ref)
       (update-in [:trade/commodity-account]
                  #(if %
-                    (entities/resolve-ref % :account)
+                    (entities/resolve-ref %)
                     (find-or-create-commodity-account account commodity)))))
 
 (defn- update-accounts
@@ -194,7 +194,7 @@
 
 (defn- append-entity
   [{{:account/keys [entity]} :trade/account :as trade}]
-  (update-in trade [:trade/entity] (fnil (entities/resolve-ref :entity)
+  (update-in trade [:trade/entity] (fnil entities/resolve-ref
                                          entity)))
 
 (defn- sale-transaction-description
@@ -491,13 +491,10 @@
 (defn unbuy
   "Reverses a commodity purchase"
   [trx & {:as opts}]
-  (let [lot (entities/resolve-ref
-              (get-in trx [:transaction/lot-items
-                           0
-                           :lot-item/lot])
-              :lot)
-        commodity (entities/resolve-ref (:lot/commodity lot)
-                                      :commodity)]
+  (let [lot (-> trx
+                (get-in [:transaction/lot-items 0 :lot-item/lot])
+                entities/resolve-ref)
+        commodity (-> lot :lot/commodity entities/resolve-ref)]
     (when (not= (:lot/shares-purchased lot) (:lot/shares-owned lot))
       (throw (IllegalStateException.
                "Cannot undo a purchase if shares have been sold from the lot")))
@@ -639,9 +636,9 @@
     (update-in trade
                [trade-key]
                (fn [account]
-                 (or (when account (entities/find account :account))
+                 (or (when account (entities/find account))
                      (when-let [act (get-in entity [:entity/settings settings-key])]
-                       (entities/find act :account))
+                       (entities/find act))
                      (find-or-create-gains-account trade term result))))))
 
 (defn- ensure-gains-accounts
@@ -750,9 +747,9 @@
                      commodity]
     :as transfer}]
   (-> transfer
-      (update-in [:transfer/from-account] (entities/resolve-ref :account))
+      (update-in [:transfer/from-account] entities/resolve-ref)
       (update-in [:transfer/to-account] (comp #(ensure-tag % :trading)
-                                              (entities/resolve-ref :account)))
+                                              entities/resolve-ref))
       (assoc :transfer/from-commodity-account
              (entities/find-by #:account{:commodity commodity
                                        :parent from-account}))
@@ -868,7 +865,7 @@
   (let [opts (merge default-opts options)]
     (with-ex-validation transfer ::entities/transfer
       (some-> transfer
-              (update-in [:transfer/commodity] (entities/resolve-ref :commodity))
+              (update-in [:transfer/commodity] entities/resolve-ref)
               append-transfer-accounts
               append-most-recent-price
               process-transfer-lots
@@ -969,7 +966,7 @@
 (defn- append-split-accounts
   [{:as split :split/keys [commodity account]}]
   (-> split
-      (update-in [:split/account] (entities/resolve-ref :account))
+      (update-in [:split/account] entities/resolve-ref)
       (assoc :split/commodity-account (entities/find-by #:account{:commodity commodity
                                                                 :parent account}))))
 
@@ -1008,7 +1005,7 @@
   (let [opts (merge default-opts options)]
     (with-ex-validation split ::entities/split
     (some-> split
-            (update-in [:split/commodity] (entities/resolve-ref :commodity))
+            (update-in [:split/commodity] entities/resolve-ref)
             append-split-accounts
             append-split-lots
             append-split-ratio

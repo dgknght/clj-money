@@ -1,5 +1,5 @@
 (ns clj-money.db
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
             [clj-money.otel :refer [with-tracing]]
@@ -13,6 +13,8 @@
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
   (put [this entities] "Saves the specified entities to the data store")
+  (find [this id] "Fetches the entity with the given id")
+  (find-many [this ids] "Fetches the entities with the given ids")
   (select [this criteria options] "Retrieves entities from the data store")
   (update [this changes criteria] "Performs a batch data update")
   (delete [this entities] "Removes entities from the data store")
@@ -48,6 +50,16 @@
                                   (-> entities first util/entity-type))]
         (put storage entities)))
 
+    (find [_ id]
+      (with-tracing [span (format "%s/find %s"
+                                  prefix
+                                  id)]
+        (find storage id)))
+    (find-many [_ ids]
+      (with-tracing [span (format "%s/find-many %s"
+                                  prefix
+                                  ids)]
+        (find-many storage ids)))
     (select [_ criteria opts]
       (with-tracing [span (format "%s/select %s"
                                   prefix
@@ -75,3 +87,34 @@
       (with-tracing [span (format "%s/reset"
                                   prefix)]
         (reset storage)))))
+
+(def ^:private unserializers (atom [#(when-not (string? %) %)]))
+
+(defn unserialize-id
+  [s]
+  (let [f (apply some-fn @unserializers)]
+    (f s)))
+
+(defn register-id-unserializer
+  [f]
+  (swap! unserializers conj f))
+
+(def ^:private long-pattern #"\A\d+\z")
+
+(defn- unserialize-integer-id
+  [s]
+  (when-let [match (when (string? s)
+                     (re-find long-pattern s))]
+    (parse-long match)))
+
+(register-id-unserializer unserialize-integer-id)
+
+(def ^:private uuid-pattern #"\A[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}\z")
+
+(defn- unserialize-uuid
+  [s]
+  (when-let [match (when (string? s)
+                     (re-find uuid-pattern s))]
+    (parse-uuid (first match))))
+
+(register-id-unserializer unserialize-uuid)

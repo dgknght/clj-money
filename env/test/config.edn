@@ -12,7 +12,7 @@
                    :datomic-peer
                    {:clj-money.db/strategy :clj-money.db/datomic-peer
                     :uri "datomic:mem://money_test"}}
-      :active :sql}
+      :active :datomic-peer}
  :detailed-import-logging "false"
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
                  :host "localhost"
