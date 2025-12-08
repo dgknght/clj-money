@@ -5,6 +5,7 @@
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clj-money.dates :as dates]
             [clj-money.decimal :refer [d]]
             [clj-money.util :as util]
             [clj-money.transactions :as trx]))
@@ -360,21 +361,55 @@
         "An expanded transaction is returned as-is")))
 
 (deftest calc-the-value-of-a-transaction
-  (is (= (d 100) (trx/value #:transaction{:items [#:transaction-item{:quantity (d 100)
-                                                                  :value (d 100)
-                                                                  :action :credit
-                                                                  :account {:id :checking}}
-                                               #:transaction-item{:quantity (d 100)
-                                                                  :value (d 100)
-                                                                  :action :debit
-                                                                  :account {:id :groceries}}]}))
+  (is (= (d 100)
+         (trx/value
+           #:transaction{:items [#:transaction-item{:quantity (d 100)
+                                                    :value (d 100)
+                                                    :action :credit
+                                                    :account {:id :checking}}
+                                 #:transaction-item{:quantity (d 100)
+                                                    :value (d 100)
+                                                    :action :debit
+                                                    :account {:id :groceries}}]}))
       "The value is the sum of credits (or debits)")
-  (is (nil? (trx/value #:transaction{:items [#:transaction-item{:quantity (d 101)
-                                                                :value (d 101)
-                                                                :action :credit
-                                                                :account {:id :checking}}
-                                             #:transaction-item{:quantity (d 100)
-                                                                :value (d 100)
-                                                                :action :debit
-                                                                :account {:id :groceries}}]}))
+  (is (nil?
+        (trx/value
+          #:transaction{:items [#:transaction-item{:quantity (d 101)
+                                                   :value (d 101)
+                                                   :action :credit
+                                                   :account {:id :checking}}
+                                #:transaction-item{:quantity (d 100)
+                                                   :value (d 100)
+                                                   :action :debit
+                                                   :account {:id :groceries}}]}))
       "The value is nil (undeterminable) if the credits and debits do not match"))
+
+(def ^:private simple-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/quantity (d 100)
+   :transaction/debit-account {:id "groceries"}
+   :transaction/credit-account {:id "checking"}})
+
+(def ^:private simple-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:transaction-item/quantity (d 100)
+                        :transaction-item/debit-account {:id "groceries"}
+                        :transaction-item/credit-account {:id "checking"}}]})
+
+(deftest convert-a-transaction-into-a-bilateral
+  (testing "a simple transaction"
+    (is (= simple-bilateral-trx
+           (trx/->bilateral simple-trx)))))
+
+(deftest simplify-a-transaction
+  (testing "a bilateral transaction with one item"
+    (is (= simple-trx
+           (trx/simplify simple-bilateral-trx)))))
