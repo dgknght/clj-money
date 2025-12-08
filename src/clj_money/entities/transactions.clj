@@ -55,21 +55,7 @@
 (v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
                                         :path []})
 
-(defn- sum-of-credits-equals-sum-of-debits?
-  [items]
-  (if (= 1 (count items))
-    (zero? (:transaction-item/value (first items))) ; a split transaction will have one item with a value of zero
-    (let [{:keys [debit credit]}
-        (->> items
-             (group-by :transaction-item/action)
-             (map #(update-in % [1] (fn [itms]
-                                      (->> itms
-                                           (map :transaction-item/value)
-                                           (reduce + 0M)))))
-             (into {}))]
-    (= debit credit))))
-
-(v/reg-msg sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
+(v/reg-msg trxs/sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
 
 (def actions
   "Set of valid transaction action values, includes :debit and :credit"
@@ -90,7 +76,6 @@
 ; A value can be zero for a transaction split. Otherwise, it must
 ; be positive.
 (s/def :transaction-item/value (s/and decimal? (complement neg?)))
-(s/def :transaction-item/memo (s/nilable string?))
 (s/def :transaction-item/index integer?)
 
 (s/def :transaction/description v/non-empty-string?)
@@ -105,26 +90,10 @@
                                        :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::entities/lot-item))
 
-(s/def ::entities/transaction-item (s/keys :req [:transaction-item/account
-                                               :transaction-item/action
-                                               :transaction-item/quantity]
-                                         :opt [:transaction-item/balance
-                                               :transaction-item/index
-                                               :transaction-item/memo]))
-; Most transactions need at least 2 items, but a commodity split
-; will only have 1
-(s/def :transaction/items (s/and (s/coll-of ::entities/transaction-item :min-count 1)
-                                 sum-of-credits-equals-sum-of-debits?))
-
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::entities/transaction (s/and (s/keys :req [:transaction/description
-                                                 :transaction/transaction-date
-                                                 :transaction/entity]
-                                           :opt [:transaction/memo
-                                                 :transaction/lot-items
-                                                 :transaction/items])
-                                   no-reconciled-quantities-changed?
-                                   new-transaction-has-items?))
+(s/def ::entities/transaction (s/and ::trxs/transaction
+                                     no-reconciled-quantities-changed?
+                                     new-transaction-has-items?))
 
 (defn- remove-empty-strings
   [entity & keys]

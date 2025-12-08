@@ -1,5 +1,6 @@
 (ns clj-money.transactions
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
@@ -8,6 +9,128 @@
             [clj-money.decimal :as d]
             [clj-money.accounts :refer [polarize-quantity
                                         ->transaction-item]]))
+
+; A simple transaction involves two accounts and one quantity
+; and is represented by a single map
+; E.g.
+; {:transaction/transaction-date "2020-01-01"
+;  :transaction/description "Coffee"
+;  :transaction/quantity 10M
+;  :transaction/debit-account {:id :credit-card}
+;  :transaction/credit-account {:id :dining}}
+
+; A bilateral transaction involves any number of transaction items
+;, each of which having a quantity, a debit account and a credit account
+; This is the way the transaction is stored
+; E.g.
+; {:transaction/transaction-date "2020-01-01"
+;  :transaction/description "Coffee"
+;  :transaction/items [{:transaction-item/quantity 5M
+;                       :transaction-item/debit-account {:id :credit-card}
+;                       :transaction-item/credit-account {:id :dining}}
+;                      {:transaction-item/quantity 5M
+;                       :transaction-item/debit-account {:id :credit-card}
+;                       :transaction-item/credit-account {:id :gifts}
+;                       :transaction-item/memo "Gift card for holiday party"}]}
+ 
+; A unilateral transaction involves any number of transaction items
+;, which of which having a quantity, an account, and an action
+; E.g.
+; {:transaction/transaction-date "2020-01-01"
+;  :transaction/description "Coffee"
+;  :transaction/items [{:transaction-item/quantity 10M
+;                       :transaction-item/action :debit
+;                       :transaction-item/account {:id :credit-card}}
+;                      {:transaction-item/quantity 5M
+;                       :transaction-item/action :credit
+;                       :transaction-item/account {:id :dining}}
+;                      {:transaction-item/quantity 5M
+;                       :transaction-item/action :credit
+;                       :transaction-item/account {:id :gifts}
+;                       :transaction-item/memo "Gift card for holiday party"}]}
+
+(defn sum-of-credits-equals-sum-of-debits?
+  [items]
+  (if (= 1 (count items))
+    (zero? (:transaction-item/value (first items))) ; a split transaction will have one item with a value of zero
+    (let [{:keys [debit credit]}
+        (->> items
+             (group-by :transaction-item/action)
+             (map #(update-in % [1] (fn [itms]
+                                      (->> itms
+                                           (map :transaction-item/value)
+                                           (reduce + 0M)))))
+             (into {}))]
+    (= debit credit))))
+
+(s/def ::id (some-fn integer?
+                     string?))
+(s/def ::entity-ref (s/keys :req-un [::id]))
+
+(s/def :transaction-item/quantity (s/and d/decimal? pos?))
+(s/def :transaction-item/account ::entity-ref)
+(s/def :transaction-item/action #{:debit :credit})
+(s/def :transaction-item/debit-account ::entity-ref)
+(s/def :transaction-item/credit-account ::entity-ref)
+(s/def :transaction-item/memo (s/nilable string?))
+(s/def :transaction/entity ::entity-ref)
+(s/def :transaction/transaction-date dates/local-date?)
+(s/def :transaction/debit-account ::entity-ref)
+(s/def :transaction/credit-account ::entity-ref)
+(s/def :transaction/items (s/coll-of ::transaction-item :min-count 1))
+(s/def :transaction/memo (s/nilable string?))
+
+(s/def ::common-transaction (s/keys :req [:transaction/entity
+                                          :transaction/description
+                                          :transaction/transaction-date]
+                                    :opt [:transaction/memo]))
+
+(s/def ::simple-transaction (s/merge ::common-transaction
+                                     (s/keys :req [:transaction/quantity
+                                                   :transaction/debit-account
+                                                   :transaction/credit-account])))
+
+(s/def ::unilateral-item (s/keys :req [:transaction-item/account
+                                       :transaction-item/action
+                                       :transaction-item/quantity]
+                                 :opt [:transaction-item/memo]))
+; I believe the min-count would be 2 except for split trading transactions
+(s/def ::unilateral-items (s/coll-of ::unilateral-item :min-count 1))
+
+(s/def ::bilateral-item (s/keys :req [:transaction-item/credit-account
+                                      :transaction-item/debit-account
+                                      :transaction-item/quantity]
+                                :opt [:transaction-item/memo]))
+(s/def ::bilateral-items (s/coll-of ::bilateral-item :min-count 1))
+
+(s/def ::transaction-item (s/or :unilateral ::unilateral-item
+                                :bilateral ::bilateral-item))
+
+(s/def :transaction/items (s/coll-of ::transaction-item))
+
+(s/def ::complex-transaction (s/merge ::common-transaction
+                                       (s/keys :req [:transaction/items])))
+
+(s/def ::bilateral-transaction (s/and ::complex-transaction
+                                      (fn [{:transaction/keys [items]}]
+                                        ; When using s/conform, each item
+                                        ; will have been conformed, so each entry
+                                        ; in the list will be a tuple with
+                                        ; the type of item in the 1st position
+                                        ; and the item in the 2nd
+                                        (->> items
+                                             (map #(if (vector? %)
+                                                     (second %)
+                                                     %))
+                                             (s/valid? ::bilateral-items)))))
+
+(s/def ::unilateral-transaction (s/and ::complex-transaction
+                                       #(s/valid? ::unilateral-items (:transaction/items %))
+                                       sum-of-credits-equals-sum-of-debits?))
+
+(s/def ::transaction (s/or :simple ::simple-transaction
+                           :unilateral ::unilateral-transaction
+                           :bilateral ::bilateral-transaction))
 
 (defn accountified?
   "Returns true if the accountify fn has been applied to the transaction."
@@ -222,3 +345,48 @@
                   set)]
     (when (= 1 (count sums))
       (first sums))))
+
+(defn- simple->bilateral
+  [{:transaction/keys [debit-account credit-account quantity] :as trx}]
+  (-> trx
+      (dissoc :transaction/debit-account
+              :transaction/credit-account
+              :transaction/quantity)
+      (assoc :transaction/items [{:transaction-item/quantity quantity
+                                  :transaction-item/debit-account debit-account
+                                  :transaction-item/credit-account credit-account}])))
+
+(defn- bilateral->simple
+  [{[[_ {:transaction-item/keys [debit-account
+                                 credit-account
+                                 quantity]}]]
+    :transaction/items
+    :as trx}]
+  ; The transaction has been conformed, so the items collection
+  ; is a list of tuples like [:item-type item]
+  (-> trx
+      (dissoc :transaction/items)
+      (assoc :transaction/debit-account debit-account
+             :transaction/credit-account credit-account
+             :transaction/quantity quantity)))
+
+(defn- conform-trx
+  [trx]
+  (let [conformed (s/conform ::transaction trx)]
+    (when (vector? conformed)
+      conformed)))
+
+(defn ->bilateral
+  [input]
+  (let [[type trx] (conform-trx input)]
+    (case type
+      :simple (simple->bilateral trx)
+      nil)))
+
+(defn simplify
+  [input]
+  (let [[type trx] (conform-trx input)]
+    (case type
+      :bilateral (when (= 1 (count (:transaction/items trx)))
+                   (bilateral->simple trx))
+      nil)))
