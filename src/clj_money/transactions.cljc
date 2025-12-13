@@ -391,6 +391,27 @@
        (map second)
        (group-by :transaction-item/action)))
 
+(defn- merge-sides
+  [out debits credits]
+  (let [d (first debits)
+        c (->> credits
+               (filter #(= (val-or-qty d)
+                           (val-or-qty %)))
+               first)]
+
+    (when-not c
+      (throw (ex-info "Imbalanced transaction" {:debits debits
+                                                :credits credits})))
+
+    [(conj out (-> d
+                   (dissoc :transaction-item/action)
+                   (rename-keys {:transaction-item/account
+                                 :transaction-item/debit-account})
+                   (assoc :transaction-item/credit-account (:transaction-item/account c))))
+     (rest debits)
+     (remove #(= c %)
+             credits)]))
+
 (defn- unilateral->bilateral-items
   [items]
   (let [grouped (group-items-by-action items)]
@@ -407,21 +428,8 @@
         (throw (ex-info "Imbalanced transaction" {:items items}))
 
         :else
-        (let [d (first debits)
-              c (->> credits
-                     (filter #(= (val-or-qty d)
-                                 (val-or-qty %)))
-                     first)]
-          (if c
-            (recur (conj out (-> d
-                                 (dissoc :transaction-item/action)
-                                 (rename-keys {:transaction-item/account
-                                               :transaction-item/debit-account})
-                                 (assoc :transaction-item/credit-account (:transaction-item/account c))))
-                   (rest debits)
-                   (remove #(= c %)
-                           credits))
-            (throw (ex-info "Imbalanced transaction" {:items items}))))))))
+        (let [[o d c] (merge-sides out debits credits)]
+          (recur o d c))))))
 
 (defn- unilateral->bilateral
   [trx]
