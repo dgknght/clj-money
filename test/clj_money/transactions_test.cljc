@@ -404,12 +404,45 @@
                         :transaction-item/debit-account {:id "groceries"}
                         :transaction-item/credit-account {:id "checking"}}]})
 
+(def ^:private simple-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:transaction-item/quantity (d 100)
+                        :transaction-item/action :debit
+                        :transaction-item/account {:id "groceries"}
+                        :transaction-item/credit-account {:id "checking"}}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/action :credit
+                        :transaction-item/account {:id "checking"}}]})
+
+(def ^:private complex-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:transaction-item/quantity (d 100)
+                        :transaction-item/debit-account {:id "groceries"}
+                        :transaction-item/credit-account {:id "checking"}}
+                       {:transaction-item/quantity (d 20)
+                        :transaction-item/debit-account {:id "supplements"}
+                        :transaction-item/credit-account {:id "checking"}}]})
+
 (deftest convert-a-transaction-into-a-bilateral
   (testing "a simple transaction"
     (is (= simple-bilateral-trx
-           (trx/->bilateral simple-trx)))))
+           (trx/->bilateral simple-trx))))
+  (testing "a unilateral transaction"
+    (is (= simple-bilateral-trx
+           (trx/->bilateral simple-unilateral-trx)))))
 
 (deftest simplify-a-transaction
   (testing "a bilateral transaction with one item"
     (is (= simple-trx
-           (trx/simplify simple-bilateral-trx)))))
+           (trx/simplify simple-bilateral-trx))))
+  (testing "a bilateral transaction with multiple items"
+    (is (nil? (trx/simplify complex-bilateral-trx))
+        "cannot be created")))
