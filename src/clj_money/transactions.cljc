@@ -10,6 +10,10 @@
             [clj-money.accounts :refer [polarize-quantity
                                         ->transaction-item]]))
 
+(def ^:private val-or-qty
+  (some-fn :transaction-item/value
+           :transaction-item/quantity))
+
 ; A simple transaction involves two accounts and one quantity
 ; and is represented by a single map
 ; E.g.
@@ -50,18 +54,19 @@
 ;                       :transaction-item/memo "Gift card for holiday party"}]}
 
 (defn sum-of-credits-equals-sum-of-debits?
-  [items]
+  [{:transaction/keys [items]}]
   (if (= 1 (count items))
     (zero? (:transaction-item/value (first items))) ; a split transaction will have one item with a value of zero
     (let [{:keys [debit credit]}
-        (->> items
-             (group-by :transaction-item/action)
-             (map #(update-in % [1] (fn [itms]
-                                      (->> itms
-                                           (map :transaction-item/value)
-                                           (reduce + 0M)))))
-             (into {}))]
-    (= debit credit))))
+          (->> items
+               (map second)
+               (group-by :transaction-item/action)
+               (map #(update-in % [1] (fn [itms]
+                                        (->> itms
+                                             (map val-or-qty)
+                                             (reduce + 0M)))))
+               (into {}))]
+      (= debit credit))))
 
 (s/def ::id (some-fn integer?
                      string?))
@@ -111,21 +116,31 @@
 (s/def ::complex-transaction (s/merge ::common-transaction
                                        (s/keys :req [:transaction/items])))
 
+(defn- just-maps
+  [items]
+  (map #(if (vector? %)
+          (second %)
+          %)
+       items))
+
+; When using s/conform, each item
+; will have been conformed, so each entry
+; in the list will be a tuple with
+; the type of item in the 1st position
+; and the item in the 2nd
+(defn- valid-items?
+  [spec items]
+  (->> items
+       just-maps
+       (s/valid? spec)))
+
 (s/def ::bilateral-transaction (s/and ::complex-transaction
                                       (fn [{:transaction/keys [items]}]
-                                        ; When using s/conform, each item
-                                        ; will have been conformed, so each entry
-                                        ; in the list will be a tuple with
-                                        ; the type of item in the 1st position
-                                        ; and the item in the 2nd
-                                        (->> items
-                                             (map #(if (vector? %)
-                                                     (second %)
-                                                     %))
-                                             (s/valid? ::bilateral-items)))))
+                                        (valid-items? ::bilateral-items items))))
 
 (s/def ::unilateral-transaction (s/and ::complex-transaction
-                                       #(s/valid? ::unilateral-items (:transaction/items %))
+                                       (fn [{:transaction/keys [items]}]
+                                         (valid-items? ::unilateral-items items))
                                        sum-of-credits-equals-sum-of-debits?))
 
 (s/def ::transaction (s/or :simple ::simple-transaction
@@ -370,6 +385,50 @@
              :transaction/credit-account credit-account
              :transaction/quantity quantity)))
 
+(defn- group-items-by-action
+  [items]
+  (->> items
+       (map second)
+       (group-by :transaction-item/action)))
+
+(defn- unilateral->bilateral-items
+  [items]
+  (let [grouped (group-items-by-action items)]
+    (loop [out []
+           debits (:debit grouped)
+           credits (:credit grouped)]
+      (cond
+        (and (empty? debits)
+             (empty? credits))
+        out
+
+        (or (empty? debits)
+            (empty? credits))
+        (throw (ex-info "Imbalanced transaction" {:items items}))
+
+        :else
+        (let [d (first debits)
+              c (->> credits
+                     (filter #(= (val-or-qty d)
+                                 (val-or-qty %)))
+                     first)]
+          (if c
+            (recur (conj out (-> d
+                                 (dissoc :transaction-item/action)
+                                 (rename-keys {:transaction-item/account
+                                               :transaction-item/debit-account})
+                                 (assoc :transaction-item/credit-account (:transaction-item/account c))))
+                   (rest debits)
+                   (remove #(= c %)
+                           credits))
+            (throw (ex-info "Imbalanced transaction" {:items items}))))))))
+
+(defn- unilateral->bilateral
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             unilateral->bilateral-items))
+
 (defn- conform-trx
   [trx]
   (let [conformed (s/conform ::transaction trx)]
@@ -381,6 +440,7 @@
   (let [[type trx] (conform-trx input)]
     (case type
       :simple (simple->bilateral trx)
+      :unilateral (unilateral->bilateral trx)
       nil)))
 
 (defn simplify
