@@ -36,7 +36,7 @@
 ;                       :transaction-item/debit-account {:id :credit-card}
 ;                       :transaction-item/credit-account {:id :gifts}
 ;                       :transaction-item/memo "Gift card for holiday party"}]}
- 
+
 ; A unilateral transaction involves any number of transaction items
 ;, which of which having a quantity, an account, and an action
 ; E.g.
@@ -114,7 +114,7 @@
 (s/def :transaction/items (s/coll-of ::transaction-item))
 
 (s/def ::complex-transaction (s/merge ::common-transaction
-                                       (s/keys :req [:transaction/items])))
+                                      (s/keys :req [:transaction/items])))
 
 (defn- just-maps
   [items]
@@ -172,7 +172,7 @@
          ref-account]}
   (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
          [other-item] false} (group-by #(entity= ref-account
-                                                (:transaction-item/account %))
+                                                 (:transaction-item/account %))
                                        items)]
     (-> trx
         (assoc :transaction/other-account (:transaction-item/account other-item)
@@ -190,8 +190,8 @@
   {:pre [(:transaction/account trx)]}
   (let [item-1 (merge item
                       (->transaction-item
-                        {:quantity quantity
-                         :account (find-account account)}))
+                       {:quantity quantity
+                        :account (find-account account)}))
         item-2 (when other-account
                  #:transaction-item{:quantity (d/abs quantity)
                                     :action (if (= :credit (:transaction-item/action item-1))
@@ -211,9 +211,9 @@
   [{:transaction-item/keys [quantity action] :as item}]
   (-> item
       (assoc :transaction-item/debit-quantity (when (= :debit action)
-                               quantity)
+                                                quantity)
              :transaction-item/credit-quantity (when (= :credit action)
-                                quantity))
+                                                 quantity))
       (dissoc :transaction-item/action
               :transaction-item/quantity)))
 
@@ -227,7 +227,7 @@
 
 (def ^:private has-quantity?
   (some-fn :transaction-item/debit-quantity
-            :transaction-item/credit-quantity))
+           :transaction-item/credit-quantity))
 
 (def ^:private empty-item?
   (complement has-quantity?))
@@ -305,8 +305,8 @@
   (if polarized-quantity
     item
     (assoc item
-         :transaction-item/polarized-quantity
-         (polarize-quantity quantity action account))))
+           :transaction-item/polarized-quantity
+           (polarize-quantity quantity action account))))
 
 (defn- summarize-period
   [[start-date end-date] items]
@@ -371,6 +371,19 @@
                                   :transaction-item/debit-account debit-account
                                   :transaction-item/credit-account credit-account}])))
 
+(defn- simple->unilateral
+  [{:transaction/keys [debit-account credit-account quantity] :as trx}]
+  (-> trx
+      (dissoc :transaction/debit-account
+              :transaction/credit-account
+              :transaction/quantity)
+      (assoc :transaction/items [{:transaction-item/quantity quantity
+                                  :transaction-item/action :debit
+                                  :transaction-item/account debit-account}
+                                 {:transaction-item/quantity quantity
+                                  :transaction-item/action :credit
+                                  :transaction-item/account credit-account}])))
+
 (defn- bilateral->simple
   [{[[_ {:transaction-item/keys [debit-account
                                  credit-account
@@ -431,11 +444,30 @@
         (let [[o d c] (merge-sides out debits credits)]
           (recur o d c))))))
 
+(defn- split-item
+  [[_ {:transaction-item/keys [debit-account credit-account quantity] :as item}]]
+  [{:transaction-item/quantity quantity
+    :transaction-item/action :debit
+    :transaction-item/account debit-account}
+   {:transaction-item/quantity quantity
+    :transaction-item/action :credit
+    :transaction-item/account credit-account}])
+
+(defn- bilateral->unilateral-items
+  [items]
+  (mapcat split-item items))
+
 (defn- unilateral->bilateral
   [trx]
   (update-in trx
              [:transaction/items]
              unilateral->bilateral-items))
+
+(defn- bilateral->unilateral
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             bilateral->unilateral-items))
 
 (defn- conform-trx
   [trx]
@@ -449,6 +481,14 @@
     (case type
       :simple (simple->bilateral trx)
       :unilateral (unilateral->bilateral trx)
+      nil)))
+
+(defn ->unilateral
+  [input]
+  (let [[type trx] (conform-trx input)]
+    (case type
+      :simple (simple->unilateral trx)
+      :bilateral (bilateral->unilateral trx)
       nil)))
 
 (defn simplify

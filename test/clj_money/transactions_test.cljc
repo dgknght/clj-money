@@ -21,8 +21,8 @@
 (defn- index
   [& inputs]
   (let [[->key & entities] (if (map? (first inputs))
-                           (cons util/->entity-ref inputs)
-                           inputs)]
+                             (cons util/->entity-ref inputs)
+                             inputs)]
     (->> entities
          (map (juxt ->key identity))
          (into {}))))
@@ -59,7 +59,7 @@
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :item {:id 1 }
+                               :item {:id 1}
                                :account (accounts :checking)
                                :other-item {:id 2} :other-account (accounts :groceries)
                                :quantity (d -10)}]
@@ -165,32 +165,32 @@
 
 (deftest simplifiability
   (is (trx/can-accountify?
-        {:transaction/items [#:transaction-item{:action :debit
-                                                :account {:id 1}
-                                                :quantity (d 10)}
-                             #:transaction-item{:action :credit
-                                                :account {:id 2}
-                                                :quantity (d 10)}]})
+       {:transaction/items [#:transaction-item{:action :debit
+                                               :account {:id 1}
+                                               :quantity (d 10)}
+                            #:transaction-item{:action :credit
+                                               :account {:id 2}
+                                               :quantity (d 10)}]})
       "A two-item transaction can be simplified")
   (is (trx/can-accountify?
-        {:transaction/items [#:transaction-item{:action :debit
-                                                :account {:id 1}
-                                                :quantity (d 10)}
-                             #:transaction-item{:action :credit
-                                                :account {:id 2}
-                                                :quantity (d 10)}
-                             {}]})
+       {:transaction/items [#:transaction-item{:action :debit
+                                               :account {:id 1}
+                                               :quantity (d 10)}
+                            #:transaction-item{:action :credit
+                                               :account {:id 2}
+                                               :quantity (d 10)}
+                            {}]})
       "A transaction with two full items and one emtpy item can be simplified")
   (is (not (trx/can-accountify?
-             {:transaction/items [#:transaction-item{:action :debit
-                                                     :account {:id 1}
-                                                     :quantity (d 10)}
-                                  #:transaction-item{:action :credit
-                                                     :account {:id 2}
-                                                     :quantity (d 6)}
-                                  #:transaction-item{:action :credit
-                                                     :account {:id 3}
-                                                     :quantity (d 4)}]}))
+            {:transaction/items [#:transaction-item{:action :debit
+                                                    :account {:id 1}
+                                                    :quantity (d 10)}
+                                 #:transaction-item{:action :credit
+                                                    :account {:id 2}
+                                                    :quantity (d 6)}
+                                 #:transaction-item{:action :credit
+                                                    :account {:id 3}
+                                                    :quantity (d 4)}]}))
       "A transaction with more than two non-empty items cannot be simplified"))
 
 (deftest ensure-an-empty-item
@@ -277,7 +277,7 @@
     (testing "a trade transaction can be converted to a standard"
       (is (= standard
              (update-in (trx/untradify tradified
-                            {:find-account-with-commodity find-account-with-commodity})
+                                       {:find-account-with-commodity find-account-with-commodity})
                         [:transaction/items]
                         (fn [items]
                           (map #(update-in %
@@ -308,7 +308,7 @@
     (testing "a trade transaction can be converted to a standard"
       (is (= standard
              (update-in (trx/untradify tradified
-                            {:find-account-with-commodity find-account-with-commodity})
+                                       {:find-account-with-commodity find-account-with-commodity})
                         [:transaction/items]
                         (fn [items]
                           (mapv #(update-in % [:transaction-item/account] util/->entity-ref)
@@ -363,25 +363,25 @@
 (deftest calc-the-value-of-a-transaction
   (is (= (d 100)
          (trx/value
-           #:transaction{:items [#:transaction-item{:quantity (d 100)
-                                                    :value (d 100)
-                                                    :action :credit
-                                                    :account {:id :checking}}
-                                 #:transaction-item{:quantity (d 100)
-                                                    :value (d 100)
-                                                    :action :debit
-                                                    :account {:id :groceries}}]}))
-      "The value is the sum of credits (or debits)")
-  (is (nil?
-        (trx/value
-          #:transaction{:items [#:transaction-item{:quantity (d 101)
-                                                   :value (d 101)
+          #:transaction{:items [#:transaction-item{:quantity (d 100)
+                                                   :value (d 100)
                                                    :action :credit
                                                    :account {:id :checking}}
                                 #:transaction-item{:quantity (d 100)
                                                    :value (d 100)
                                                    :action :debit
                                                    :account {:id :groceries}}]}))
+      "The value is the sum of credits (or debits)")
+  (is (nil?
+       (trx/value
+        #:transaction{:items [#:transaction-item{:quantity (d 101)
+                                                 :value (d 101)
+                                                 :action :credit
+                                                 :account {:id :checking}}
+                              #:transaction-item{:quantity (d 100)
+                                                 :value (d 100)
+                                                 :action :debit
+                                                 :account {:id :groceries}}]}))
       "The value is nil (undeterminable) if the credits and debits do not match"))
 
 (def ^:private simple-trx
@@ -412,8 +412,7 @@
    :transaction/memo "mid-week necessities"
    :transaction/items [{:transaction-item/quantity (d 100)
                         :transaction-item/action :debit
-                        :transaction-item/account {:id "groceries"}
-                        :transaction-item/credit-account {:id "checking"}}
+                        :transaction-item/account {:id "groceries"}}
                        {:transaction-item/quantity (d 100)
                         :transaction-item/action :credit
                         :transaction-item/account {:id "checking"}}]})
@@ -431,13 +430,43 @@
                         :transaction-item/debit-account {:id "supplements"}
                         :transaction-item/credit-account {:id "checking"}}]})
 
+(def ^:private complex-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:transaction-item/quantity (d 120)
+                        :transaction-item/account {:id "checking"}
+                        :transaction-item/action :credit}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/account {:id "groceries"}
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 20)
+                        :transaction-item/account {:id "supplements"}
+                        :transaction-item/action :debit}]})
+
 (deftest convert-a-transaction-into-a-bilateral
   (testing "a simple transaction"
     (is (= simple-bilateral-trx
            (trx/->bilateral simple-trx))))
-  (testing "a unilateral transaction"
+  (testing "a simple unilateral transaction"
     (is (= simple-bilateral-trx
-           (trx/->bilateral simple-unilateral-trx)))))
+           (trx/->bilateral simple-unilateral-trx))))
+  (testing "a complex unilateral transaction"
+    (is (= complex-bilateral-trx
+           (trx/->bilateral complex-unilateral-trx)))))
+
+(deftest convert-a-transaction-into-a-unilateral
+  (testing "a simple transaction"
+    (is (= simple-unilateral-trx
+           (trx/->unilateral simple-trx))))
+  (testing "a simple bilateral transaction"
+    (is (= simple-unilateral-trx
+           (trx/->unilateral simple-bilateral-trx))))
+  (testing "a complex bilateral transaction"
+    (is (= complex-unilateral-trx
+           (trx/->unilateral complex-bilateral-trx)))))
 
 (deftest simplify-a-transaction
   (testing "a bilateral transaction with one item"
