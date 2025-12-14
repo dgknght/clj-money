@@ -400,30 +400,66 @@
 
 (defn- group-items-by-action
   [items]
-  (->> items
-       (map second)
-       (group-by :transaction-item/action)))
+  (update-vals
+    (->> items
+         (map second)
+         (group-by :transaction-item/action))
+    (partial sort-by :transaction-item/quantity >)))
+
+(defn- merge-equals
+  [[d & debits] [c & credits]]
+  [(-> d
+       (dissoc :transaction-item/action)
+       (rename-keys {:transaction-item/account
+                     :transaction-item/debit-account})
+       (assoc :transaction-item/credit-account (:transaction-item/account c)))
+   debits
+   credits])
+
+(defn- merge-partial-credit
+  [[d & debits] [c & credits]]
+  [(-> d
+       (dissoc :transaction-item/action)
+       (rename-keys {:transaction-item/account
+                     :transaction-item/debit-account})
+       (assoc :transaction-item/credit-account (:transaction-item/account c)))
+   debits
+   (cons (update-in c
+                    [:transaction-item/quantity]
+                    -
+                    (:transaction-item/quantity d))
+         credits)])
+
+(defn- merge-partial-debit
+  [[d & debits] [c & credits]]
+  [(-> c
+       (dissoc :transaction-item/action)
+       (rename-keys {:transaction-item/account
+                     :transaction-item/credit-account})
+       (assoc :transaction-item/debit-account (:transaction-item/account d)))
+   (cons (update-in d
+                    [:transaction-item/quantity]
+                    -
+                    (:transaction-item/quantity c))
+         debits)
+   credits])
 
 (defn- merge-sides
-  [out debits credits]
-  (let [d (first debits)
-        c (->> credits
-               (filter #(= (val-or-qty d)
-                           (val-or-qty %)))
-               first)]
+  [out
+   [{d :transaction-item/quantity} :as debits]
+   [{c :transaction-item/quantity} :as credits]]
+  (let [[item ds cs] (cond
+                       (= d c)
+                       (merge-equals debits credits)
 
-    (when-not c
-      (throw (ex-info "Imbalanced transaction" {:debits debits
-                                                :credits credits})))
+                       (< d c)
+                       (merge-partial-credit debits credits)
 
-    [(conj out (-> d
-                   (dissoc :transaction-item/action)
-                   (rename-keys {:transaction-item/account
-                                 :transaction-item/debit-account})
-                   (assoc :transaction-item/credit-account (:transaction-item/account c))))
-     (rest debits)
-     (remove #(= c %)
-             credits)]))
+                       :else
+                       (merge-partial-debit debits credits))]
+    [(conj out item)
+     ds
+     cs]))
 
 (defn- unilateral->bilateral-items
   [items]

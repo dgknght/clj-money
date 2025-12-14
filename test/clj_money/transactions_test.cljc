@@ -455,7 +455,21 @@
            (trx/->bilateral simple-unilateral-trx))))
   (testing "a complex unilateral transaction"
     (is (= complex-bilateral-trx
-           (trx/->bilateral complex-unilateral-trx)))))
+           (trx/->bilateral complex-unilateral-trx))))
+  (testing "a complex unilateral transaction, swap debits and credits"
+    (is (= (-> complex-bilateral-trx
+               (update-in [:transaction/items]
+                          (fn [items]
+                            (mapv (fn [{:as i :transaction-item/keys [debit-account credit-account]}]
+                                    (assoc i
+                                           :transaction-item/debit-account credit-account
+                                           :transaction-item/credit-account debit-account))
+                                  items))))
+           (-> complex-unilateral-trx
+               (assoc-in [:transaction/items 0 :transaction-item/action] :debit)
+               (assoc-in [:transaction/items 1 :transaction-item/action] :credit)
+               (assoc-in [:transaction/items 2 :transaction-item/action] :credit)
+               trx/->bilateral)))))
 
 (defn- trx=
   "Compare two transactions for equality regardless of the
