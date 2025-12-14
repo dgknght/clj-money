@@ -446,6 +446,107 @@
                         :transaction-item/account {:id "supplements"}
                         :transaction-item/action :debit}]})
 
+; 4,250
+; 1,400
+;   400
+;   100
+;   200
+;   700
+;    50
+;    25
+;    25
+; -----
+; 7,150
+(def ^:private very-complex-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Paycheck"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/quantity (d 4250)
+                        :transaction-item/debit-account {:id "checking"}
+                        :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 1400)
+                        :transaction-item/debit-account {:id "fit"}
+                        :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 400)
+                        :transaction-item/debit-account {:id "social security"}
+                        :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/debit-account {:id "medicare"}
+                        :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 200)
+                        :transaction-item/debit-account {:id "health insurance"}
+                        :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 700)
+                        :transaction-item/debit-account {:id "401k"}
+                        :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 50)
+                        :transaction-item/debit-account {:id "insurance"}
+                        :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 25)
+                        :transaction-item/debit-account {:id "insurance"}
+                        :transaction-item/credit-account {:id "other income"}
+                        :transaction-item/memo "group term life insurance"}
+                       {:transaction-item/quantity (d 25)
+                        :transaction-item/debit-account {:id "insurance"}
+                        :transaction-item/credit-account {:id "other income"}
+                        :transaction-item/memo "cell phone reimbursement"}]})
+
+; 4,250 checking
+; 1,400 fit
+;   400 social security
+;   100 medicare
+;   200 health insurance
+;   700 401k
+;   100 insurance
+; -----
+; 7,150 debit
+;
+; 7,100 salary
+;    25 other income
+;    25 other income
+; -----
+; 7,150 credit
+(def ^:private very-complex-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Paycheck"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/quantity (d 4250)
+                        :transaction-item/account {:id "checking"}
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 1400)
+                        :transaction-item/account {:id "fit"}
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 400)
+                        :transaction-item/account {:id "social security"}
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/account {:id "medicare"}
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 200)
+                        :transaction-item/account {:id "health insurance"}
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 700)
+                        :transaction-item/account {:id "401k"}
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/account {:id "insurance"}
+                        :transaction-item/action :debit
+                        :transaction-item/memo "group term life insurance"}
+
+                       {:transaction-item/quantity (d 7100)
+                        :transaction-item/account {:id "salary"}
+                        :transaction-item/action :credit}
+                       {:transaction-item/quantity (d 25)
+                        :transaction-item/account {:id "other income"}
+                        :transaction-item/action :credit
+                        :transaction-item/memo "group term life insurance"}
+                       {:transaction-item/quantity (d 25)
+                        :transaction-item/account {:id "other income"}
+                        :transaction-item/action :credit
+                        :transaction-item/memo "cell phone reimbursement"}]})
+
 (deftest convert-a-transaction-into-a-bilateral
   (testing "a simple transaction"
     (is (= simple-bilateral-trx
@@ -469,7 +570,10 @@
                (assoc-in [:transaction/items 0 :transaction-item/action] :debit)
                (assoc-in [:transaction/items 1 :transaction-item/action] :credit)
                (assoc-in [:transaction/items 2 :transaction-item/action] :credit)
-               trx/->bilateral)))))
+               trx/->bilateral))))
+  (testing "a very complex unilateral transaction"
+    (is (= very-complex-bilateral-trx
+           (trx/->bilateral very-complex-unilateral-trx)))))
 
 (defn- trx=
   "Compare two transactions for equality regardless of the
@@ -487,10 +591,12 @@
   (testing "a simple bilateral transaction"
     (is (= simple-unilateral-trx
            (trx/->unilateral simple-bilateral-trx))))
-  ; TODO: Also test where an account has debit and credit values
   (testing "a complex bilateral transaction"
     (is (trx= complex-unilateral-trx
-              (trx/->unilateral complex-bilateral-trx)))))
+              (trx/->unilateral complex-bilateral-trx))))
+  (testing "a very complex bilateral transaction"
+    (is (trx= very-complex-unilateral-trx
+              (trx/->unilateral very-complex-bilateral-trx)))))
 
 (deftest simplify-a-transaction
   (testing "a bilateral transaction with one item"
