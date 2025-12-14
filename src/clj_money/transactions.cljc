@@ -445,7 +445,7 @@
           (recur o d c))))))
 
 (defn- split-item
-  [[_ {:transaction-item/keys [debit-account credit-account quantity] :as item}]]
+  [{:transaction-item/keys [debit-account credit-account quantity] :as item}]
   [{:transaction-item/quantity quantity
     :transaction-item/action :debit
     :transaction-item/account debit-account}
@@ -453,9 +453,25 @@
     :transaction-item/action :credit
     :transaction-item/account credit-account}])
 
+(defn- consolidate-items
+  [items]
+  (->> items
+       (group-by (comp :id
+                       :transaction-item/account))
+       (map (fn [[_ [i & is]]]
+              (update-in i
+                         [:transaction-item/quantity]
+                         +
+                         (->> is
+                              (map :transaction-item/quantity)
+                              (reduce +)))))))
+
 (defn- bilateral->unilateral-items
   [items]
-  (mapcat split-item items))
+  (->> items
+       (map second)
+       (mapcat split-item)
+       consolidate-items))
 
 (defn- unilateral->bilateral
   [trx]

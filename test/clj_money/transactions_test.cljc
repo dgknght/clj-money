@@ -457,6 +457,15 @@
     (is (= complex-bilateral-trx
            (trx/->bilateral complex-unilateral-trx)))))
 
+(defn- trx=
+  "Compare two transactions for equality regardless of the
+  order of the items"
+  [t1 t2]
+  (and (= (dissoc t1 :transaction/items)
+          (dissoc t2 :transaction/items))
+       (= (set (:transaction/items t1))
+          (set (:transaction/items t2)))))
+
 (deftest convert-a-transaction-into-a-unilateral
   (testing "a simple transaction"
     (is (= simple-unilateral-trx
@@ -464,9 +473,10 @@
   (testing "a simple bilateral transaction"
     (is (= simple-unilateral-trx
            (trx/->unilateral simple-bilateral-trx))))
+  ; TODO: Also test where an account has debit and credit values
   (testing "a complex bilateral transaction"
-    (is (= complex-unilateral-trx
-           (trx/->unilateral complex-bilateral-trx)))))
+    (is (trx= complex-unilateral-trx
+              (trx/->unilateral complex-bilateral-trx)))))
 
 (deftest simplify-a-transaction
   (testing "a bilateral transaction with one item"
