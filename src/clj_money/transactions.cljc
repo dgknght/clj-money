@@ -445,7 +445,7 @@
           (recur o d c))))))
 
 (defn- split-item
-  [{:transaction-item/keys [debit-account credit-account quantity] :as item}]
+  [{:transaction-item/keys [debit-account credit-account quantity]}]
   [{:transaction-item/quantity quantity
     :transaction-item/action :debit
     :transaction-item/account debit-account}
