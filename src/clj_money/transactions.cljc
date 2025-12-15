@@ -424,11 +424,12 @@
                      :transaction-item/debit-account})
        (assoc :transaction-item/credit-account (:transaction-item/account c)))
    debits
-   (cons (update-in c
+   (->> credits
+        (cons (update-in c
                     [:transaction-item/quantity]
                     -
-                    (:transaction-item/quantity d))
-         credits)])
+                    (:transaction-item/quantity d)))
+        (sort-by :transaction-item/quantity >))])
 
 (defn- merge-partial-debit
   [[d & debits] [c & credits]]
@@ -437,11 +438,12 @@
        (rename-keys {:transaction-item/account
                      :transaction-item/credit-account})
        (assoc :transaction-item/debit-account (:transaction-item/account d)))
-   (cons (update-in d
-                    [:transaction-item/quantity]
-                    -
-                    (:transaction-item/quantity c))
-         debits)
+   (->> debits
+        (cons (update-in d
+                         [:transaction-item/quantity]
+                         -
+                         (:transaction-item/quantity c)))
+        (sort-by :transaction-item/quantity >))
    credits])
 
 (defn- merge-sides
