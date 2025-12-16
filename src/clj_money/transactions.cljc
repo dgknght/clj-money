@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clojure.string :as string]
             [clj-money.util :as util :refer [->entity-ref entity=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
@@ -406,23 +407,30 @@
          (group-by :transaction-item/action))
     (partial sort-by :transaction-item/quantity >)))
 
+(defn- d+c
+  [d c]
+  (-> d
+      (dissoc :transaction-item/action)
+      (rename-keys {:transaction-item/account
+                    :transaction-item/debit-account})
+      (assoc :transaction-item/credit-account (:transaction-item/account c))))
+
+(defn- append-memo
+  [i & is]
+  (let [memo (->> is
+                  (map :transaction-item/memo)
+                  (filter identity)
+                  (string/join ", "))]))
+
 (defn- merge-equals
   [[d & debits] [c & credits]]
-  [(-> d
-       (dissoc :transaction-item/action)
-       (rename-keys {:transaction-item/account
-                     :transaction-item/debit-account})
-       (assoc :transaction-item/credit-account (:transaction-item/account c)))
+  [(d+c d c)
    debits
    credits])
 
 (defn- merge-partial-credit
   [[d & debits] [c & credits]]
-  [(-> d
-       (dissoc :transaction-item/action)
-       (rename-keys {:transaction-item/account
-                     :transaction-item/debit-account})
-       (assoc :transaction-item/credit-account (:transaction-item/account c)))
+  [(d+c d c)
    debits
    (->> credits
         (cons (update-in c
@@ -446,7 +454,31 @@
         (sort-by :transaction-item/quantity >))
    credits])
 
-(defn- merge-sides
+; TODO: Only do this if they match explicitly on :transaction-item/memo 
+(defn- pluck-matches
+  [out debits credits]
+  (let [grouped (->> credits
+                     (concat debits)
+                     (filter :transaction-item/memo)
+                     (reduce
+                       (fn [r i]
+                         (update-in
+                           r
+                           ((juxt (juxt :transaction-item/quantity
+                                        :transaction-item/memo)
+                                  :transaction-item/action)
+                            i)
+                           (fnil conj [])
+                           i))
+                       {})
+                     (filter #(< 1 (count (val %)))))]
+    (when (seq grouped)
+      (let [[_ {[d] :debit [c] :credit}] (first grouped)]
+        [(conj out (d+c d c))
+         (remove #(= d %) debits)
+         (remove #(= c %) credits)]))))
+
+(defn- apply-slices
   [out
    [{d :transaction-item/quantity} :as debits]
    [{c :transaction-item/quantity} :as credits]]
@@ -462,6 +494,11 @@
     [(conj out item)
      ds
      cs]))
+
+(defn- merge-sides
+  [out debits credits]
+  (or (pluck-matches out debits credits)
+      (apply-slices out debits credits)))
 
 (defn- unilateral->bilateral-items
   [items]
