@@ -446,67 +446,65 @@
                         :transaction-item/account {:id "supplements"}
                         :transaction-item/action :debit}]})
 
-; 4,250
-; 1,400
-;   400
-;   100
-;   200
-;   700
-;    50
-;    25
-;    25
+;       debit       credit
+;       --------    ------
+; 4,225 checking    salary
+; 1,400 fit         salary
+;   775 401k        salary
+;   400 soc. sec.   salary
+;   200 health ins. salary
+;   100 medicare    salary
+;   100 insurance   other income
+;    25 checking    other income
 ; -----
-; 7,150
+; 7,225
 (def ^:private very-complex-bilateral-trx
   {:id 101
    :transaction/transaction-date (dates/local-date "2020-01-01")
    :transaction/description "Paycheck"
    :transaction/entity {:id "personal"}
-   :transaction/items [{:transaction-item/quantity (d 4250)
+   :transaction/items [{:transaction-item/quantity (d 100)
+                        :transaction-item/debit-account {:id "insurance"}
+                        :transaction-item/credit-account {:id "other income"}
+                        :transaction-item/memo "group term life insurance"}
+                       {:transaction-item/quantity (d 4250)
                         :transaction-item/debit-account {:id "checking"}
                         :transaction-item/credit-account {:id "salary"}}
                        {:transaction-item/quantity (d 1400)
                         :transaction-item/debit-account {:id "fit"}
                         :transaction-item/credit-account {:id "salary"}}
+                       {:transaction-item/quantity (d 775)
+                        :transaction-item/debit-account {:id "401k"}
+                        :transaction-item/credit-account {:id "salary"}}
                        {:transaction-item/quantity (d 400)
                         :transaction-item/debit-account {:id "social security"}
-                        :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 100)
-                        :transaction-item/debit-account {:id "medicare"}
                         :transaction-item/credit-account {:id "salary"}}
                        {:transaction-item/quantity (d 200)
                         :transaction-item/debit-account {:id "health insurance"}
                         :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 700)
-                        :transaction-item/debit-account {:id "401k"}
-                        :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 50)
-                        :transaction-item/debit-account {:id "insurance"}
+                       {:transaction-item/quantity (d 75)
+                        :transaction-item/debit-account {:id "medicare"}
                         :transaction-item/credit-account {:id "salary"}}
                        {:transaction-item/quantity (d 25)
-                        :transaction-item/debit-account {:id "insurance"}
-                        :transaction-item/credit-account {:id "other income"}
-                        :transaction-item/memo "group term life insurance"}
-                       {:transaction-item/quantity (d 25)
-                        :transaction-item/debit-account {:id "insurance"}
+                        :transaction-item/debit-account {:id "medicare"}
                         :transaction-item/credit-account {:id "other income"}
                         :transaction-item/memo "cell phone reimbursement"}]})
 
 ; 4,250 checking
 ; 1,400 fit
+;   775 401k
 ;   400 social security
-;   100 medicare
 ;   200 health insurance
-;   700 401k
-;   100 insurance
+;   100 medicare
+;   100 insurance (life insurance)
 ; -----
-; 7,150 debit
+; 7,225 debit
 ;
 ; 7,100 salary
-;    25 other income
-;    25 other income
+;   100 other income (life insurance)
+;    25 other income (cell phone reimbursement)
 ; -----
-; 7,150 credit
+; 7,225 credit
 (def ^:private very-complex-unilateral-trx
   {:id 101
    :transaction/transaction-date (dates/local-date "2020-01-01")
@@ -518,17 +516,17 @@
                        {:transaction-item/quantity (d 1400)
                         :transaction-item/account {:id "fit"}
                         :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 775)
+                        :transaction-item/account {:id "401k"}
+                        :transaction-item/action :debit}
                        {:transaction-item/quantity (d 400)
                         :transaction-item/account {:id "social security"}
-                        :transaction-item/action :debit}
-                       {:transaction-item/quantity (d 100)
-                        :transaction-item/account {:id "medicare"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 200)
                         :transaction-item/account {:id "health insurance"}
                         :transaction-item/action :debit}
-                       {:transaction-item/quantity (d 700)
-                        :transaction-item/account {:id "401k"}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/account {:id "medicare"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 100)
                         :transaction-item/account {:id "insurance"}
@@ -538,7 +536,7 @@
                        {:transaction-item/quantity (d 7100)
                         :transaction-item/account {:id "salary"}
                         :transaction-item/action :credit}
-                       {:transaction-item/quantity (d 25)
+                       {:transaction-item/quantity (d 100)
                         :transaction-item/account {:id "other income"}
                         :transaction-item/action :credit
                         :transaction-item/memo "group term life insurance"}
