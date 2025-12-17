@@ -407,20 +407,26 @@
          (group-by :transaction-item/action))
     (partial sort-by :transaction-item/quantity >)))
 
+(defn merge-memos
+  "Merge memo attributes from all items into the first item and return it"
+  [& [item :as items]]
+  (if-let [memos (->> items
+                     (map :transaction-item/memo)
+                     set
+                     (filter identity)
+                     seq)]
+    (assoc item :transaction-item/memo (string/join ", " memos))
+    item))
+
 (defn- d+c
+  "Combine two unilateral items of the same quantity into one bilateral item"
   [d c]
   (-> d
       (dissoc :transaction-item/action)
       (rename-keys {:transaction-item/account
                     :transaction-item/debit-account})
-      (assoc :transaction-item/credit-account (:transaction-item/account c))))
-
-(defn- append-memo
-  [i & is]
-  (let [memo (->> is
-                  (map :transaction-item/memo)
-                  (filter identity)
-                  (string/join ", "))]))
+      (assoc :transaction-item/credit-account (:transaction-item/account c))
+      (merge-memos c)))
 
 (defn- merge-equals
   [[d & debits] [c & credits]]
@@ -445,7 +451,8 @@
        (dissoc :transaction-item/action)
        (rename-keys {:transaction-item/account
                      :transaction-item/credit-account})
-       (assoc :transaction-item/debit-account (:transaction-item/account d)))
+       (assoc :transaction-item/debit-account (:transaction-item/account d))
+       (merge-memos d))
    (->> debits
         (cons (update-in d
                          [:transaction-item/quantity]
@@ -454,7 +461,6 @@
         (sort-by :transaction-item/quantity >))
    credits])
 
-; TODO: Only do this if they match explicitly on :transaction-item/memo 
 (defn- pluck-matches
   [out debits credits]
   (let [grouped (->> credits
