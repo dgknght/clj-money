@@ -573,14 +573,11 @@
     (is (= very-complex-bilateral-trx
            (trx/->bilateral very-complex-unilateral-trx)))))
 
-(defn- trx=
-  "Compare two transactions for equality regardless of the
-  order of the items"
-  [t1 t2]
-  (and (= (dissoc t1 :transaction/items)
-          (dissoc t2 :transaction/items))
-       (= (set (:transaction/items t1))
-          (set (:transaction/items t2)))))
+(defn- comparable-trx
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             #(sort-by :transaction-item/quantity > %)))
 
 (deftest convert-a-transaction-into-a-unilateral
   (testing "a simple transaction"
@@ -590,11 +587,11 @@
     (is (= simple-unilateral-trx
            (trx/->unilateral simple-bilateral-trx))))
   (testing "a complex bilateral transaction"
-    (is (trx= complex-unilateral-trx
-              (trx/->unilateral complex-bilateral-trx))))
+    (is (= (comparable-trx complex-unilateral-trx)
+           (comparable-trx (trx/->unilateral complex-bilateral-trx)))))
   (testing "a very complex bilateral transaction"
-    (is (trx= very-complex-unilateral-trx
-              (trx/->unilateral very-complex-bilateral-trx)))))
+    (is (= (comparable-trx very-complex-unilateral-trx)
+           (comparable-trx (trx/->unilateral very-complex-bilateral-trx))))))
 
 (deftest simplify-a-transaction
   (testing "a bilateral transaction with one item"

@@ -526,19 +526,20 @@
           (recur o d c))))))
 
 (defn- split-item
-  [{:transaction-item/keys [debit-account credit-account quantity]}]
-  [{:transaction-item/quantity quantity
-    :transaction-item/action :debit
-    :transaction-item/account debit-account}
-   {:transaction-item/quantity quantity
-    :transaction-item/action :credit
-    :transaction-item/account credit-account}])
+  [{:transaction-item/keys [debit-account credit-account quantity memo]}]
+  (->> [#:transaction-item{:action :debit
+                           :account debit-account}
+        #:transaction-item{:action :credit
+                           :account credit-account}]
+       (map #(merge % (cond-> {:transaction-item/quantity quantity}
+                        memo (assoc :transaction-item/memo memo))))))
 
 (defn- consolidate-items
   [items]
   (->> items
-       (group-by (comp :id
-                       :transaction-item/account))
+       (group-by (juxt (comp :id
+                             :transaction-item/account)
+                       :transaction-item/memo))
        (map (fn [[_ [i & is]]]
               (update-in i
                          [:transaction-item/quantity]
