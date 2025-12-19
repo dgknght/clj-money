@@ -29,13 +29,19 @@
          :user (env :sql-adm-user)
          :password (env :sql-adm-password)))
 
-(defn ragtime-config []
-  {:datastore (sql-database (sql-ddl-config))
-   :migrations (load-resources "migrations")
-   :strategy apply-new})
+(defn ragtime-config
+  ([] (ragtime-config (sql-ddl-config)))
+  ([db-config]
+   {:datastore (sql-database db-config)
+    :migrations (load-resources "migrations")
+    :strategy apply-new}))
 
-(defn migrate []
-  (rt/migrate (ragtime-config)))
+(defn migrate
+  ([]
+   (rt/migrate (ragtime-config)))
+  ([db-config]
+   {:pre [db-config]}
+   (rt/migrate (ragtime-config db-config))))
 
 (defn rollback
   []
@@ -92,24 +98,25 @@
   We assume that by default there is a database with the same
   name as the user. We connect using that database, and then create
   the one that the app is configured to us."
-  []
-  (let [{:keys [dbname] :as cfg} (sql-adm-config)
-        missing (->> [:dbtype
-                      :dbname
-                      :user
-                      :password
-                      :host]
-                     (remove cfg)
-                     (into []))
-        _ (assert (empty? missing) (format "Missing config values for: %s" missing))
-        ds (jdbc/get-datasource (assoc cfg :dbname (:user cfg)))]
-    (doseq [{:keys [exists? create label]} (init-cmds dbname)]
-      (if (empty? (jdbc/execute! ds [exists?]))
-        (do
-          (println (format "Creating %s..." label))
-          (jdbc/execute! ds [create])
-          (println "done."))
-        (println (format "%s already exists." label))))))
+  ([] (create (sql-adm-config)))
+  ([config & {:keys [silent]}]
+   (let [{:keys [dbname] :as cfg} config
+         missing (->> [:dbtype
+                       :dbname
+                       :user
+                       :password
+                       :host]
+                      (remove cfg)
+                      (into []))
+         _ (assert (empty? missing) (format "Missing config values for: %s" missing))
+         ds (jdbc/get-datasource (assoc cfg :dbname (:user cfg)))]
+     (doseq [{:keys [exists? create label]} (init-cmds dbname)]
+       (if (empty? (jdbc/execute! ds [exists?]))
+         (do
+           (when-not silent (println (format "Creating %s..." label)))
+           (jdbc/execute! ds [create])
+           (when-not silent (println "done.")))
+         (when-not silent (println (format "%s already exists." label))))))))
 
 (def ^:private check-transaction-balances-options
   [["-e" "--entity" "The entity for which balances are to be checked"
