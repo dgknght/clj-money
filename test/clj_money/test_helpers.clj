@@ -14,14 +14,40 @@
 (def active-db-config
   (get-in env [:db :strategies (get-in env [:db :active])]))
 
-(defn- thread-specific-config
+(def thread-indices (atom {:next 1
+                           :saved {}}))
+
+(defn- thread-index []
+  (let [id (.getId (Thread/currentThread))]
+    (or (get-in @thread-indices [:saved id])
+        (get-in (swap! thread-indices
+                       (fn [{:keys [next saved] :as a}]
+                         (if (contains? saved id)
+                           a
+                           (-> a
+                               (assoc-in [:saved id] next)
+                               (update-in [:next] inc)))))
+                [:saved id]))))
+
+(defmulti thread-specific-config
   "Creates a thread-specific database configuration to allow parallel test execution"
+  ::db/strategy)
+
+(defmethod thread-specific-config ::db/datomic-peer
   [config]
-  (if-let [uri (:uri config)]
-    ; For Datomic in-memory databases, append thread ID to URI
-    (assoc config :uri (str uri "_" (.getId (Thread/currentThread))))
-    ; For SQL databases, could be extended to use different database names
-    config))
+  (update-in config
+             [:uri]
+             #(format "%s_%s"
+                      %
+                      (thread-index))))
+
+(defmethod thread-specific-config ::db/sql
+  [config]
+  (update-in config
+             [:dbname]
+             #(format "%s_%s"
+                      %
+                      (thread-index))))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
