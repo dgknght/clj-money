@@ -4,7 +4,6 @@
             [clojure.pprint :refer [pprint]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [clojure.string :as string]
             [clj-money.util :as util :refer [->entity-ref entity=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
@@ -79,6 +78,8 @@
 (s/def :transaction-item/debit-account ::entity-ref)
 (s/def :transaction-item/credit-account ::entity-ref)
 (s/def :transaction-item/memo (s/nilable string?))
+(s/def :transaction-item/debit-memo (s/nilable string?))
+(s/def :transaction-item/credit-memo (s/nilable string?))
 (s/def :transaction/entity ::entity-ref)
 (s/def :transaction/transaction-date dates/local-date?)
 (s/def :transaction/debit-account ::entity-ref)
@@ -106,7 +107,8 @@
 (s/def ::bilateral-item (s/keys :req [:transaction-item/credit-account
                                       :transaction-item/debit-account
                                       :transaction-item/quantity]
-                                :opt [:transaction-item/memo]))
+                                :opt [:transaction-item/credit-memo
+                                      :transaction-item/debit-memo]))
 (s/def ::bilateral-items (s/coll-of ::bilateral-item :min-count 1))
 
 (s/def ::transaction-item (s/or :unilateral ::unilateral-item
@@ -407,26 +409,18 @@
          (group-by :transaction-item/action))
     (partial sort-by :transaction-item/quantity >)))
 
-(defn merge-memos
-  "Merge memo attributes from all items into the first item and return it"
-  [& [item :as items]]
-  (if-let [memos (->> items
-                     (map :transaction-item/memo)
-                     set
-                     (filter identity)
-                     seq)]
-    (assoc item :transaction-item/memo (string/join ", " memos))
-    item))
-
 (defn- d+c
   "Combine two unilateral items of the same quantity into one bilateral item"
-  [d c]
-  (-> d
-      (dissoc :transaction-item/action)
-      (rename-keys {:transaction-item/account
-                    :transaction-item/debit-account})
-      (assoc :transaction-item/credit-account (:transaction-item/account c))
-      (merge-memos c)))
+  [d {:as c :transaction-item/keys [memo]}]
+  (cond->
+    (-> d
+        (dissoc :transaction-item/action)
+        (rename-keys {:transaction-item/account
+                      :transaction-item/debit-account
+                      :transaction-item/memo
+                      :transaction-item/debit-memo})
+        (assoc :transaction-item/credit-account (:transaction-item/account c)))
+    memo (assoc :transaction-item/credit-memo memo)))
 
 (defn- merge-equals
   [[d & debits] [c & credits]]
@@ -446,13 +440,16 @@
         (sort-by :transaction-item/quantity >))])
 
 (defn- merge-partial-debit
-  [[d & debits] [c & credits]]
-  [(-> c
-       (dissoc :transaction-item/action)
-       (rename-keys {:transaction-item/account
-                     :transaction-item/credit-account})
-       (assoc :transaction-item/debit-account (:transaction-item/account d))
-       (merge-memos d))
+  [[{:as d :transaction-item/keys [memo]} & debits] [c & credits]]
+  [(cond->
+     (-> c
+         (dissoc :transaction-item/action)
+         (rename-keys {:transaction-item/account
+                       :transaction-item/credit-account
+                       :transaction-item/memo
+                       :transaction-item/credit-memo})
+         (assoc :transaction-item/debit-account (:transaction-item/account d)))
+     memo (assoc :transaction-item/debit-memo memo))
    (->> debits
         (cons (update-in d
                          [:transaction-item/quantity]
@@ -526,13 +523,19 @@
           (recur o d c))))))
 
 (defn- split-item
-  [{:transaction-item/keys [debit-account credit-account quantity memo]}]
-  (->> [#:transaction-item{:action :debit
-                           :account debit-account}
-        #:transaction-item{:action :credit
-                           :account credit-account}]
-       (map #(merge % (cond-> {:transaction-item/quantity quantity}
-                        memo (assoc :transaction-item/memo memo))))))
+  [{:transaction-item/keys [debit-account
+                            credit-account
+                            quantity
+                            debit-memo
+                            credit-memo]}]
+  [(cond-> {:transaction-item/quantity quantity
+            :transaction-item/action :debit
+            :transaction-item/account debit-account}
+     debit-memo (assoc :transaction-item/memo debit-memo))
+   (cond-> {:transaction-item/quantity quantity
+            :transaction-item/action :credit
+            :transaction-item/account credit-account}
+     credit-memo (assoc :transaction-item/memo credit-memo))])
 
 (defn- consolidate-items
   [items]

@@ -466,7 +466,8 @@
    :transaction/items [{:transaction-item/quantity (d 100)
                         :transaction-item/debit-account {:id "insurance"}
                         :transaction-item/credit-account {:id "other income"}
-                        :transaction-item/memo "group term life insurance"}
+                        :transaction-item/debit-memo "group term life insurance"
+                        :transaction-item/credit-memo "group term life insurance"}
                        {:transaction-item/quantity (d 4250)
                         :transaction-item/debit-account {:id "checking"}
                         :transaction-item/credit-account {:id "salary"}}
@@ -488,7 +489,7 @@
                        {:transaction-item/quantity (d 25)
                         :transaction-item/debit-account {:id "medicare"}
                         :transaction-item/credit-account {:id "other income"}
-                        :transaction-item/memo "cell phone reimbursement"}]})
+                        :transaction-item/credit-memo "cell phone reimbursement"}]})
 
 ; 4,250 checking
 ; 1,400 fit
@@ -545,6 +546,10 @@
                         :transaction-item/action :credit
                         :transaction-item/memo "cell phone reimbursement"}]})
 
+(defn- comparable-trx
+  [trx]
+  (update-in trx [:transaction/items] set))
+
 (deftest convert-a-transaction-into-a-bilateral
   (testing "a simple transaction"
     (is (= simple-bilateral-trx
@@ -570,14 +575,8 @@
                (assoc-in [:transaction/items 2 :transaction-item/action] :credit)
                trx/->bilateral))))
   (testing "a very complex unilateral transaction"
-    (is (= very-complex-bilateral-trx
-           (trx/->bilateral very-complex-unilateral-trx)))))
-
-(defn- comparable-trx
-  [trx]
-  (update-in trx
-             [:transaction/items]
-             #(sort-by :transaction-item/quantity > %)))
+    (is (= (comparable-trx very-complex-bilateral-trx)
+           (comparable-trx (trx/->bilateral very-complex-unilateral-trx))))))
 
 (deftest convert-a-transaction-into-a-unilateral
   (testing "a simple transaction"
