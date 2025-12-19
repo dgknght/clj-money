@@ -22,7 +22,8 @@
       "Bash(for test in prices reconciliations reports trading users)",
       "Bash(do echo \"Testing clj-money.api.$test-test:\" lein test clj-money.api.$test-test)",
       "Bash(lein eftest:*)",
-      "Bash(lein test-fast:*)"
+      "Bash(lein test-fast:*)",
+      "Bash(lein ptest:*)"
     ],
     "deny": [],
     "ask": []

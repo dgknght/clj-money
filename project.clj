@@ -159,8 +159,7 @@
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
   :plugins [[lein-cljfmt "0.7.0"]
-            [lein-cloverage "1.2.2"]
-            [lein-eftest "0.6.0"]]
+            [lein-cloverage "1.2.2"]]
   :hooks []
   :uberjar-name "clj-money.jar"
   :aot [clj-money.web.server]
@@ -186,8 +185,7 @@
             "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
             "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]
-            "test-fast"             ["eftest"]
-            "test-api"              ["eftest" "clj-money.api"]}
+            "ptest"                 ["with-profile" "+test" "run" "-m" "clj-money.runner/eftest"]}
 
   :jvm-opts ["-Duser.timezone=UTC"
              "-Xmx2g"
