@@ -74,8 +74,8 @@
 
 (s/def :transaction-item/quantity (s/and d/decimal? pos?))
 (s/def :transaction-item/value (s/and d/decimal? pos?))
-(s/def :transaction-item/debit-quantity (s/and d/decimal? pos?))
-(s/def :transaction-item/credit-quantity (s/and d/decimal? pos?))
+(s/def :transaction-item/debit-quantity (s/nilable (s/and d/decimal? pos?)))
+(s/def :transaction-item/credit-quantity (s/nilable (s/and d/decimal? pos?)))
 (s/def :transaction-item/account ::entity-ref)
 (s/def :transaction-item/action #{:debit :credit})
 (s/def :transaction-item/debit-account ::entity-ref)
