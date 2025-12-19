@@ -14,7 +14,7 @@
 (def active-db-config
   (get-in env [:db :strategies (get-in env [:db :active])]))
 
-(def thread-indices (atom {:next 1
+(def thread-indices (atom {:next 0
                            :saved {}}))
 
 (defn- thread-index []
