@@ -582,6 +582,7 @@
     (case type
       :simple (simple->bilateral trx)
       :unilateral (unilateral->bilateral trx)
+      :bilateral input
       nil)))
 
 (defn ->unilateral
@@ -590,6 +591,7 @@
     (case type
       :simple (simple->unilateral trx)
       :bilateral (bilateral->unilateral trx)
+      :unilateral input
       nil)))
 
 (defn simplify

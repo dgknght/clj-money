@@ -551,6 +551,10 @@
   (update-in trx [:transaction/items] set))
 
 (deftest convert-a-transaction-into-a-bilateral
+  (testing "a bilateral transaction"
+    (is (= simple-bilateral-trx
+           (trx/->bilateral simple-bilateral-trx))
+        "A bilateral transaction is return unchanged"))
   (testing "a simple transaction"
     (is (= simple-bilateral-trx
            (trx/->bilateral simple-trx))))
@@ -579,6 +583,10 @@
            (comparable-trx (trx/->bilateral very-complex-unilateral-trx))))))
 
 (deftest convert-a-transaction-into-a-unilateral
+  (testing "a unilateral transaction"
+    (is (= simple-unilateral-trx
+           (trx/->unilateral simple-unilateral-trx))
+        "A unilateral transaction is returned unchanged"))
   (testing "a simple transaction"
     (is (= simple-unilateral-trx
            (trx/->unilateral simple-trx))))
