@@ -388,9 +388,9 @@
                                   :transaction-item/account credit-account}])))
 
 (defn- bilateral->simple
-  [{[[_ {:transaction-item/keys [debit-account
-                                 credit-account
-                                 quantity]}]]
+  [{[{:transaction-item/keys [debit-account
+                              credit-account
+                              quantity]}]
     :transaction/items
     :as trx}]
   ; The transaction has been conformed, so the items collection
@@ -404,9 +404,7 @@
 (defn- group-items-by-action
   [items]
   (update-vals
-    (->> items
-         (map second)
-         (group-by :transaction-item/action))
+    (group-by :transaction-item/action items)
     (partial sort-by :transaction-item/quantity >)))
 
 (defn- d+c
@@ -554,7 +552,6 @@
 (defn- bilateral->unilateral-items
   [items]
   (->> items
-       (map second)
        (mapcat split-item)
        consolidate-items))
 
@@ -578,26 +575,26 @@
 
 (defn ->bilateral
   [input]
-  (let [[type trx] (conform-trx input)]
+  (let [[type] (conform-trx input)]
     (case type
-      :simple (simple->bilateral trx)
-      :unilateral (unilateral->bilateral trx)
+      :simple (simple->bilateral input)
+      :unilateral (unilateral->bilateral input)
       :bilateral input
       nil)))
 
 (defn ->unilateral
   [input]
-  (let [[type trx] (conform-trx input)]
+  (let [[type] (conform-trx input)]
     (case type
-      :simple (simple->unilateral trx)
-      :bilateral (bilateral->unilateral trx)
+      :simple (simple->unilateral input)
+      :bilateral (bilateral->unilateral input)
       :unilateral input
       nil)))
 
 (defn simplify
   [input]
-  (let [[type trx] (conform-trx input)]
+  (let [[type] (conform-trx input)]
     (case type
-      :bilateral (when (= 1 (count (:transaction/items trx)))
-                   (bilateral->simple trx))
+      :bilateral (when (= 1 (count (:transaction/items input)))
+                   (bilateral->simple input))
       nil)))
