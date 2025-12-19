@@ -191,6 +191,7 @@
              "-Xmx2g"
              "-Xms512m"
              "-server"]
+  :test-selectors {:default (complement :clj-money/thread-sensitive)}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93
