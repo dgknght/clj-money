@@ -29,6 +29,6 @@
 (defn eftest
   [& args]
   (init-sql-dbs)
-  (let [options {:multithread? :namespaces
-                 :capture-output? false}]
-    (run-tests (find-tests "test") options)))
+  (run-tests (find-tests "test")
+             {:multithread? :namespaces
+              :capture-output? false}))
