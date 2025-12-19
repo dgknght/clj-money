@@ -400,7 +400,7 @@
    :transaction/description "Kroger"
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
-   :transaction/items [{:transaction-item/quantity (d 100)
+   :transaction/items [{:transaction-item/value (d 100)
                         :transaction-item/debit-account {:id "groceries"}
                         :transaction-item/credit-account {:id "checking"}}]})
 
@@ -411,9 +411,11 @@
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
    :transaction/items [{:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
                         :transaction-item/action :debit
                         :transaction-item/account {:id "groceries"}}
                        {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
                         :transaction-item/action :credit
                         :transaction-item/account {:id "checking"}}]})
 
@@ -423,10 +425,10 @@
    :transaction/description "Kroger"
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
-   :transaction/items [{:transaction-item/quantity (d 100)
+   :transaction/items [{:transaction-item/value (d 100)
                         :transaction-item/debit-account {:id "groceries"}
                         :transaction-item/credit-account {:id "checking"}}
-                       {:transaction-item/quantity (d 20)
+                       {:transaction-item/value (d 20)
                         :transaction-item/debit-account {:id "supplements"}
                         :transaction-item/credit-account {:id "checking"}}]})
 
@@ -437,12 +439,15 @@
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
    :transaction/items [{:transaction-item/quantity (d 120)
+                        :transaction-item/value (d 120)
                         :transaction-item/account {:id "checking"}
                         :transaction-item/action :credit}
                        {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
                         :transaction-item/account {:id "groceries"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 20)
+                        :transaction-item/value (d 20)
                         :transaction-item/account {:id "supplements"}
                         :transaction-item/action :debit}]})
 
@@ -463,30 +468,30 @@
    :transaction/transaction-date (dates/local-date "2020-01-01")
    :transaction/description "Paycheck"
    :transaction/entity {:id "personal"}
-   :transaction/items [{:transaction-item/quantity (d 100)
+   :transaction/items [{:transaction-item/value (d 100)
                         :transaction-item/debit-account {:id "insurance"}
                         :transaction-item/credit-account {:id "other income"}
                         :transaction-item/debit-memo "group term life insurance"
                         :transaction-item/credit-memo "group term life insurance"}
-                       {:transaction-item/quantity (d 4250)
+                       {:transaction-item/value (d 4250)
                         :transaction-item/debit-account {:id "checking"}
                         :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 1400)
+                       {:transaction-item/value (d 1400)
                         :transaction-item/debit-account {:id "fit"}
                         :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 775)
+                       {:transaction-item/value (d 775)
                         :transaction-item/debit-account {:id "401k"}
                         :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 400)
+                       {:transaction-item/value (d 400)
                         :transaction-item/debit-account {:id "social security"}
                         :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 200)
+                       {:transaction-item/value (d 200)
                         :transaction-item/debit-account {:id "health insurance"}
                         :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 75)
+                       {:transaction-item/value (d 75)
                         :transaction-item/debit-account {:id "medicare"}
                         :transaction-item/credit-account {:id "salary"}}
-                       {:transaction-item/quantity (d 25)
+                       {:transaction-item/value (d 25)
                         :transaction-item/debit-account {:id "medicare"}
                         :transaction-item/credit-account {:id "other income"}
                         :transaction-item/credit-memo "cell phone reimbursement"}]})
@@ -512,36 +517,46 @@
    :transaction/description "Paycheck"
    :transaction/entity {:id "personal"}
    :transaction/items [{:transaction-item/quantity (d 4250)
+                        :transaction-item/value (d 4250)
                         :transaction-item/account {:id "checking"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 1400)
+                        :transaction-item/value (d 1400)
                         :transaction-item/account {:id "fit"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 775)
+                        :transaction-item/value (d 775)
                         :transaction-item/account {:id "401k"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 400)
+                        :transaction-item/value (d 400)
                         :transaction-item/account {:id "social security"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 200)
+                        :transaction-item/value (d 200)
                         :transaction-item/account {:id "health insurance"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
                         :transaction-item/account {:id "medicare"}
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
                         :transaction-item/account {:id "insurance"}
                         :transaction-item/action :debit
                         :transaction-item/memo "group term life insurance"}
 
                        {:transaction-item/quantity (d 7100)
+                        :transaction-item/value (d 7100)
                         :transaction-item/account {:id "salary"}
                         :transaction-item/action :credit}
                        {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
                         :transaction-item/account {:id "other income"}
                         :transaction-item/action :credit
                         :transaction-item/memo "group term life insurance"}
                        {:transaction-item/quantity (d 25)
+                        :transaction-item/value (d 25)
                         :transaction-item/account {:id "other income"}
                         :transaction-item/action :credit
                         :transaction-item/memo "cell phone reimbursement"}]})

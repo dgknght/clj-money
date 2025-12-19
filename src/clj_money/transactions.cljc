@@ -73,6 +73,9 @@
 (s/def ::entity-ref (s/keys :req-un [::id]))
 
 (s/def :transaction-item/quantity (s/and d/decimal? pos?))
+(s/def :transaction-item/value (s/and d/decimal? pos?))
+(s/def :transaction-item/debit-quantity (s/and d/decimal? pos?))
+(s/def :transaction-item/credit-quantity (s/and d/decimal? pos?))
 (s/def :transaction-item/account ::entity-ref)
 (s/def :transaction-item/action #{:debit :credit})
 (s/def :transaction-item/debit-account ::entity-ref)
@@ -106,8 +109,10 @@
 
 (s/def ::bilateral-item (s/keys :req [:transaction-item/credit-account
                                       :transaction-item/debit-account
-                                      :transaction-item/quantity]
-                                :opt [:transaction-item/credit-memo
+                                      :transaction-item/value]
+                                :opt [:transaction-item/debit-quantity
+                                      :transaction-item/credit-quantity
+                                      :transaction-item/credit-memo
                                       :transaction-item/debit-memo]))
 (s/def ::bilateral-items (s/coll-of ::bilateral-item :min-count 1))
 
@@ -370,7 +375,7 @@
       (dissoc :transaction/debit-account
               :transaction/credit-account
               :transaction/quantity)
-      (assoc :transaction/items [{:transaction-item/quantity quantity
+      (assoc :transaction/items [{:transaction-item/value quantity
                                   :transaction-item/debit-account debit-account
                                   :transaction-item/credit-account credit-account}])))
 
@@ -381,16 +386,18 @@
               :transaction/credit-account
               :transaction/quantity)
       (assoc :transaction/items [{:transaction-item/quantity quantity
+                                  :transaction-item/value quantity
                                   :transaction-item/action :debit
                                   :transaction-item/account debit-account}
                                  {:transaction-item/quantity quantity
+                                  :transaction-item/value quantity
                                   :transaction-item/action :credit
                                   :transaction-item/account credit-account}])))
 
 (defn- bilateral->simple
   [{[{:transaction-item/keys [debit-account
                               credit-account
-                              quantity]}]
+                              value]}]
     :transaction/items
     :as trx}]
   ; The transaction has been conformed, so the items collection
@@ -399,26 +406,37 @@
       (dissoc :transaction/items)
       (assoc :transaction/debit-account debit-account
              :transaction/credit-account credit-account
-             :transaction/quantity quantity)))
+             :transaction/quantity value)))
 
 (defn- group-items-by-action
   [items]
   (update-vals
     (group-by :transaction-item/action items)
-    (partial sort-by :transaction-item/quantity >)))
+    (partial sort-by val-or-qty >)))
 
 (defn- d+c
-  "Combine two unilateral items of the same quantity into one bilateral item"
-  [d {:as c :transaction-item/keys [memo]}]
-  (cond->
-    (-> d
-        (dissoc :transaction-item/action)
-        (rename-keys {:transaction-item/account
-                      :transaction-item/debit-account
-                      :transaction-item/memo
-                      :transaction-item/debit-memo})
-        (assoc :transaction-item/credit-account (:transaction-item/account c)))
-    memo (assoc :transaction-item/credit-memo memo)))
+  "Combine two unilateral items of the same value into one bilateral item"
+  [d c]
+  (let [debit-qty (:transaction-item/quantity d)
+        credit-qty (:transaction-item/quantity c)
+        item-value (or (:transaction-item/value d) debit-qty)]
+    (cond->
+      (-> d
+          (dissoc :transaction-item/action :transaction-item/quantity :transaction-item/value)
+          (rename-keys {:transaction-item/account
+                        :transaction-item/debit-account
+                        :transaction-item/memo
+                        :transaction-item/debit-memo})
+          (assoc :transaction-item/credit-account (:transaction-item/account c)
+                 :transaction-item/value item-value))
+      (not= debit-qty item-value)
+      (assoc :transaction-item/debit-quantity debit-qty)
+
+      (not= credit-qty item-value)
+      (assoc :transaction-item/credit-quantity credit-qty)
+
+      (:transaction-item/memo c)
+      (assoc :transaction-item/credit-memo (:transaction-item/memo c)))))
 
 (defn- merge-equals
   [[d & debits] [c & credits]]
@@ -428,33 +446,37 @@
 
 (defn- merge-partial-credit
   [[d & debits] [c & credits]]
-  [(d+c d c)
-   debits
-   (->> credits
-        (cons (update-in c
-                    [:transaction-item/quantity]
-                    -
-                    (:transaction-item/quantity d)))
-        (sort-by :transaction-item/quantity >))])
+  (let [d-val (val-or-qty d)
+        c-val (val-or-qty c)
+        d-qty (:transaction-item/quantity d)
+        sliced-c (assoc c
+                        :transaction-item/quantity d-qty
+                        :transaction-item/value d-val)
+        remaining-c (-> c
+                        (update-in [:transaction-item/quantity] - d-qty)
+                        (update-in [:transaction-item/value] (fnil - c-val) d-val))]
+    [(d+c d sliced-c)
+     debits
+     (->> credits
+          (cons remaining-c)
+          (sort-by val-or-qty >))]))
 
 (defn- merge-partial-debit
-  [[{:as d :transaction-item/keys [memo]} & debits] [c & credits]]
-  [(cond->
-     (-> c
-         (dissoc :transaction-item/action)
-         (rename-keys {:transaction-item/account
-                       :transaction-item/credit-account
-                       :transaction-item/memo
-                       :transaction-item/credit-memo})
-         (assoc :transaction-item/debit-account (:transaction-item/account d)))
-     memo (assoc :transaction-item/debit-memo memo))
-   (->> debits
-        (cons (update-in d
-                         [:transaction-item/quantity]
-                         -
-                         (:transaction-item/quantity c)))
-        (sort-by :transaction-item/quantity >))
-   credits])
+  [[d & debits] [c & credits]]
+  (let [d-val (val-or-qty d)
+        c-val (val-or-qty c)
+        c-qty (:transaction-item/quantity c)
+        sliced-d (assoc d
+                        :transaction-item/quantity c-qty
+                        :transaction-item/value c-val)
+        remaining-d (-> d
+                        (update-in [:transaction-item/quantity] - c-qty)
+                        (update-in [:transaction-item/value] (fnil - d-val) c-val))]
+    [(d+c sliced-d c)
+     (->> debits
+          (cons remaining-d)
+          (sort-by val-or-qty >))
+     credits]))
 
 (defn- pluck-matches
   [out debits credits]
@@ -465,7 +487,7 @@
                        (fn [r i]
                          (update-in
                            r
-                           ((juxt (juxt :transaction-item/quantity
+                           ((juxt (juxt val-or-qty
                                         :transaction-item/memo)
                                   :transaction-item/action)
                             i)
@@ -480,10 +502,10 @@
          (remove #(= c %) credits)]))))
 
 (defn- apply-slices
-  [out
-   [{d :transaction-item/quantity} :as debits]
-   [{c :transaction-item/quantity} :as credits]]
-  (let [[item ds cs] (cond
+  [out debits credits]
+  (let [d (val-or-qty (first debits))
+        c (val-or-qty (first credits))
+        [item ds cs] (cond
                        (= d c)
                        (merge-equals debits credits)
 
@@ -523,14 +545,18 @@
 (defn- split-item
   [{:transaction-item/keys [debit-account
                             credit-account
-                            quantity
+                            value
+                            debit-quantity
+                            credit-quantity
                             debit-memo
                             credit-memo]}]
-  [(cond-> {:transaction-item/quantity quantity
+  [(cond-> {:transaction-item/quantity (or debit-quantity value)
+            :transaction-item/value value
             :transaction-item/action :debit
             :transaction-item/account debit-account}
      debit-memo (assoc :transaction-item/memo debit-memo))
-   (cond-> {:transaction-item/quantity quantity
+   (cond-> {:transaction-item/quantity (or credit-quantity value)
+            :transaction-item/value value
             :transaction-item/action :credit
             :transaction-item/account credit-account}
      credit-memo (assoc :transaction-item/memo credit-memo))])
@@ -542,12 +568,17 @@
                              :transaction-item/account)
                        :transaction-item/memo))
        (map (fn [[_ [i & is]]]
-              (update-in i
-                         [:transaction-item/quantity]
-                         +
-                         (->> is
-                              (map :transaction-item/quantity)
-                              (reduce +)))))))
+              (-> i
+                  (update-in [:transaction-item/quantity]
+                             +
+                             (->> is
+                                  (map :transaction-item/quantity)
+                                  (reduce +)))
+                  (update-in [:transaction-item/value]
+                             +
+                             (->> is
+                                  (map :transaction-item/value)
+                                  (reduce +))))))))
 
 (defn- bilateral->unilateral-items
   [items]
