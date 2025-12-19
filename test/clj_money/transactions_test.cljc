@@ -561,6 +561,30 @@
                         :transaction-item/action :credit
                         :transaction-item/memo "cell phone reimbursement"}]})
 
+(def ^:private unilateral-trading-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Purchase 10 shares of AAPL at 10.0000"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/action :credit
+                        :transaction-item/account {:id "401k"}
+                        :transaction-item/quantity (d 1000)
+                        :transaction-item/value (d 1000)}
+                       {:transaction-item/action :debit
+                        :transaction-item/account {:id "AAPL"}
+                        :transaction-item/quantity (d 10)
+                        :transaction-item/value (d 1000)}]})
+
+(def ^:private bilateral-trading-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Purchase 10 shares of AAPL at 10.0000"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/credit-account {:id "401k"}
+                        :transaction-item/debit-account {:id "AAPL"}
+                        :transaction-item/debit-quantity (d 10)
+                        :transaction-item/value (d 1000)}]})
+
 (defn- comparable-trx
   [trx]
   (update-in trx [:transaction/items] set))
@@ -595,7 +619,10 @@
                trx/->bilateral))))
   (testing "a very complex unilateral transaction"
     (is (= (comparable-trx very-complex-bilateral-trx)
-           (comparable-trx (trx/->bilateral very-complex-unilateral-trx))))))
+           (comparable-trx (trx/->bilateral very-complex-unilateral-trx)))))
+  (testing "a unilateral trading transaction"
+    (is (= (comparable-trx bilateral-trading-trx)
+           (comparable-trx (trx/->bilateral unilateral-trading-trx))))))
 
 (deftest convert-a-transaction-into-a-unilateral
   (testing "a unilateral transaction"
@@ -613,7 +640,10 @@
            (comparable-trx (trx/->unilateral complex-bilateral-trx)))))
   (testing "a very complex bilateral transaction"
     (is (= (comparable-trx very-complex-unilateral-trx)
-           (comparable-trx (trx/->unilateral very-complex-bilateral-trx))))))
+           (comparable-trx (trx/->unilateral very-complex-bilateral-trx)))))
+  (testing "a bilateral trading transaction"
+    (is (= (comparable-trx unilateral-trading-trx)
+           (comparable-trx (trx/->unilateral bilateral-trading-trx))))))
 
 (deftest simplify-a-transaction
   (testing "a bilateral transaction with one item"
