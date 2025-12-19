@@ -1,6 +1,7 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
             [clojure.test :refer [deftest testing]]
+            [clojure.tools.logging :as log]
             [java-time.api :as t]
             [ring.mock.request :as req]
             [clj-money.config :refer [env]]
@@ -14,8 +15,10 @@
 (def active-db-config
   (get-in env [:db :strategies (get-in env [:db :active])]))
 
-(def thread-indices (atom {:next 0
-                           :saved {}}))
+(defonce thread-indices
+  (atom
+      {:next 0
+       :saved {}}))
 
 (defn- thread-index []
   (let [id (.getId (Thread/currentThread))]
