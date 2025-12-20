@@ -68,8 +68,7 @@
                (into {}))]
       (= debit credit))))
 
-(s/def ::id (some-fn integer?
-                     string?))
+(s/def ::id (complement nil?))
 (s/def ::entity-ref (s/keys :req-un [::id]))
 
 (s/def :transaction-item/quantity (s/and d/decimal? pos?))
