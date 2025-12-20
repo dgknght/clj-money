@@ -119,9 +119,16 @@
                             items)))))
 
 (defmethod entities/before-save :transaction
-  [{:as trx :transaction/keys [items]}]
-  (cond-> (dissoc trx :transaction/original-transaction-date)
-    (seq items) (assoc :transaction/value (trxs/value trx))))
+  [transaction]
+  (let [{:transaction/keys [items] :as trx}
+        (-> transaction
+            (dissoc :transaction/original-transaction-date)
+            trxs/->bilateral)]
+    (cond-> trx
+      (seq items)
+      (assoc :transaction/value (->> items
+                                     (map :transaction-item/value)
+                                     (reduce + 0M))))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
