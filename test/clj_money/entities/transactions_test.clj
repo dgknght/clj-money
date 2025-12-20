@@ -84,6 +84,7 @@
   [attr]
   (helpers/assert-created attr
                           :refs [:transaction/entity
+                                 :transaction-item/account
                                  :transaction-item/debit-account
                                  :transaction-item/credit-account]
                           :compare-result? false
@@ -92,6 +93,30 @@
 (dbtest create-a-transaction
   (with-context base-context
     (assert-created (attributes))))
+
+(dbtest create-a-transaction-from-unilateral
+  (with-context base-context
+    (let [checking (util/->entity-ref (find-account "Checking"))
+          groceries (util/->entity-ref (find-account "Groceries"))
+          attr {:transaction/transaction-date (t/local-date 2015 1 1)
+                :transaction/description "Kroger"
+                :transaction/entity (find-entity "Personal")
+                :transaction/items [{:transaction-item/action :credit
+                                     :transaction-item/account checking
+                                     :transaction-item/quantity 100M}
+                                    {:transaction-item/action :debit
+                                     :transaction-item/account groceries
+                                     :transaction-item/quantity 100M}]}
+          created (entities/put attr)
+          expected {:transaction/transaction-date (t/local-date 2015 1 1)
+                    :transaction/description "Kroger"
+                    :transaction/items [{:transaction-item/credit-account checking
+                                         :transaction-item/debit-account groceries
+                                         :transaction-item/value 100M}]}]
+      (is (comparable? expected created)
+          "The return value has the given attributes")
+      (is (comparable? expected (entities/find created))
+          "The retrieved value has the given attributes"))))
 
 (dbtest ^:multi-threaded create-and-propagate-a-transaction
   (with-context base-context
