@@ -72,12 +72,6 @@
       (throw-if-nil (str "Account not found: " name))
       util/->entity-ref))
 
-(defn edn-body
-  [req payload]
-  (-> req
-      (req/content-type "application/edn")
-      (req/body (pr-str payload))))
-
 (defn parse-edn-body
   [res]
   (test/parse-edn-body res :readers {'clj-money/local-date t/local-date
