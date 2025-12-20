@@ -17,7 +17,7 @@
             [clj-money.accounts :as acts]))
 
 (defn- new-transaction-has-items?
-  [{:transaction/keys [items] :keys [id]}]
+  [[_ {:transaction/keys [items] :keys [id]}]]
   (or id (seq items)))
 
 (v/reg-spec new-transaction-has-items?
@@ -25,7 +25,7 @@
              :path [:transaction/items]})
 
 (defn- no-reconciled-quantities-changed?
-  [{:transaction/keys [items] :as trx}]
+  [[_ {:transaction/keys [items] :as trx}]]
   (if (:id trx)
     (let [after (->> items
                      (map (juxt :id #(select-keys % [:id
