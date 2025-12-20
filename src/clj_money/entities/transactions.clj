@@ -517,7 +517,14 @@
   [entity {:keys [progress-chan]}]
   {:pre [entity (map? entity)]}
   (let [accounts (entities/select {:account/entity entity})
-        total (count accounts)]
+        total (count accounts)
+        notify-progress (if progress-chan
+                          (fn [entity]
+                            (a/go
+                              (a/>! progress-chan
+                                    {:import/record-type :propagation}))
+                            entity)
+                          identity)]
 
     (log/debugf "[propagation] process transactions for %s. %s account(s)"
                 (:entity/name entity)
@@ -537,12 +544,7 @@
                             index
                             total)
                 account))
-         (reduce (comp (fn [entity]
-                         (when progress-chan
-                           (a/go
-                             (a/>! progress-chan
-                                   {:import/record-type :propagation})))
-                         entity)
+         (reduce (comp notify-progress
                        propagate-account-from-start)
                  entity))))
 
