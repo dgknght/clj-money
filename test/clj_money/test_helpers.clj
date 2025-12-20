@@ -1,7 +1,6 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
             [clojure.test :refer [deftest testing]]
-            [clojure.tools.logging :as log]
             [java-time.api :as t]
             [ring.mock.request :as req]
             [clj-money.config :refer [env]]
