@@ -510,7 +510,8 @@
       (log/errorf e
                   "[propagation] Unable to propagate account %s (%s) "
                   (:account/name account)
-                  (:id account)))))
+                  (:id account))
+      entity)))
 
 (defn propagate-all
   [entity {:keys [progress-chan]}]
