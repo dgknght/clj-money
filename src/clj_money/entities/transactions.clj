@@ -451,9 +451,12 @@
           (map #(assoc % :transaction/items (items (:id %)))))))))
 
 (defn- apply-commodities
-  [[{:account/keys [entity]} :as accounts]]
+  [accounts]
   (when (seq accounts)
-    (let [commodities (index-by :id (entities/select {:commodity/entity entity}))]
+    (let [commodities (index-by :id (->> accounts
+                                         (map (comp :id :account/commodity))
+                                         set
+                                         entities/find-many))]
       (map #(update-in % [:account/commodity] (comp commodities
                                                     :id))
            accounts))))
