@@ -27,7 +27,7 @@
       (init-sql-db c))))
 
 (defn eftest
-  [& args]
+  [& _args]
   (init-sql-dbs)
   (run-tests (find-tests "test")
              {:multithread? :namespaces

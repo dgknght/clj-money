@@ -2,7 +2,6 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.test :refer [deftest testing]]
             [java-time.api :as t]
-            [ring.mock.request :as req]
             [clj-money.config :refer [env]]
             [dgknght.app-lib.test :as test]
             [clj-money.decimal :as d]
