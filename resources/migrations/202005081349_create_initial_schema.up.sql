@@ -348,20 +348,30 @@ CREATE TABLE public.transaction_item (
     transaction_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     transaction_id uuid NOT NULL,
-    account_id integer NOT NULL,
-    action character varying(10) NOT NULL,
-    quantity numeric(19,6),
-    value numeric(19,6),
-    balance numeric(19,6),
-    memo character varying(200),
-    index bigint NOT NULL,
-    reconciliation_id uuid,
+    debit_account_id integer NOT NULL,
+    debit_quantity numeric(19,6),
+    debit_memo character varying(200),
+    credit_account_id integer NOT NULL,
+    credit_quantity numeric(19,6),
+    credit_memo character varying(200),
+    value numeric(19,6) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    negative boolean
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 )
 PARTITION BY RANGE (transaction_date);
 ALTER TABLE public.transaction_item OWNER TO ddl_user;
+CREATE TABLE public.account_item (
+    transaction_date date NOT NULL,
+    transaction_item_id uuid NOT NULL,
+    account_id integer NOT NULL,
+    index bigint NOT NULL,
+    balance numeric(19,6) NOT NULL,
+    reconciliation_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+)
+PARTITION BY RANGE (transaction_date);
+ALTER TABLE public.account_item OWNER TO ddl_user;
 CREATE TABLE public."user" (
     id integer NOT NULL,
     email character varying(100) NOT NULL,
@@ -451,7 +461,7 @@ CREATE INDEX ix_prices_trade_date_commodity_id ON ONLY public.price USING btree 
 CREATE INDEX ix_prices_trade_date_id ON ONLY public.price USING btree (trade_date, id);
 CREATE INDEX ix_reconciliations_eop_account_id ON ONLY public.reconciliation USING btree (end_of_period, account_id);
 CREATE INDEX ix_reconciliations_eop_id ON ONLY public.reconciliation USING btree (end_of_period, id);
-CREATE INDEX ix_transaction_item_transaction_date_account_id ON ONLY public.transaction_item USING btree (transaction_date, account_id);
+CREATE INDEX ix_account_item_account_id ON ONLY public.account_item USING btree (account_id);
 CREATE INDEX ix_transaction_item_transaction_date_id ON ONLY public.transaction_item USING btree (transaction_date, id);
 CREATE INDEX ix_transaction_item_transaction_date_trx_id ON ONLY public.transaction_item USING btree (transaction_date, transaction_id);
 CREATE INDEX ix_transactions_scheduled_transaction_id ON ONLY public.transaction USING btree (scheduled_transaction_id);
@@ -516,9 +526,15 @@ ALTER TABLE ONLY public.lot_item
 ALTER TABLE ONLY public.identity
     ADD CONSTRAINT identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction_item
-    ADD CONSTRAINT transaction_item_base_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT transaction_item_debit_account_id_fkey FOREIGN KEY (debit_account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE public.transaction_item
+    ADD CONSTRAINT transaction_item_credit_account_id_fkey FOREIGN KEY (credit_account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE public.account_item
+    ADD CONSTRAINT account_item_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE public.account_item
+    ADD CONSTRAINT account_item_transaction_item_id_fkey FOREIGN KEY (transaction_date, transaction_item_id) REFERENCES public.transaction_item(transaction_date, id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
-    ADD CONSTRAINT transactions_base_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT transactions_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
     ADD CONSTRAINT transactions_scheduled_transaction_id_fkey FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id);
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account TO app_user;
@@ -556,5 +572,6 @@ GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_item_id_seq TO app_
 GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transactions_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction_item TO app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_item TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."user" TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.users_id_seq TO app_user;

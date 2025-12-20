@@ -158,29 +158,20 @@
             :scheduled-transaction}}
    {:id :transaction-item
     :primary-key [:transaction-date :id]
-    :fields #{{:id :action
-               :type :keyword}
-              {:id :quantity
+    :fields #{{:id :debit-quantity
                :type :decimal}
-              {:id :memo
+              {:id :credit-quantity
+               :type :decimal}
+              {:id :debit-memo
                :type :string}
-              {:id :index
-               :type :string
-               :transient? true}
-              {:id :quantity
-               :type :string
-               :transient? true}
-              {:id :balance
-               :type :string
-               :transient? true}
+              {:id :credit-memo
+               :type :string}
               {:id :value
-               :type :string
-               :transient? true}
-              {:id :negative
-               :type :string
-               :transient? true}}
-    :refs #{:account
-            :reconciliation
+               :type :decimal} }
+    :refs #{{:id :debit-account
+             :type :account}
+            {:id :credit-account
+             :type :account}
             {:id :transaction
              :columns #{:transaction-date
                         [:id :transaction-id]}}}}
