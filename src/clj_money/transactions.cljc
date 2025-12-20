@@ -87,7 +87,7 @@
 (s/def :transaction/transaction-date dates/local-date?)
 (s/def :transaction/debit-account ::entity-ref)
 (s/def :transaction/credit-account ::entity-ref)
-(s/def :transaction/items (s/coll-of ::transaction-item :min-count 1))
+(s/def :transaction/items (s/coll-of :clj-money.entities/transaction-item :min-count 1))
 (s/def :transaction/memo (s/nilable string?))
 
 (s/def ::common-transaction (s/keys :req [:transaction/entity
@@ -116,10 +116,11 @@
                                       :transaction-item/debit-memo]))
 (s/def ::bilateral-items (s/coll-of ::bilateral-item :min-count 1))
 
-(s/def ::transaction-item (s/or :unilateral ::unilateral-item
-                                :bilateral ::bilateral-item))
+(s/def :clj-money.entities/transaction-item
+  (s/or :unilateral ::unilateral-item
+        :bilateral ::bilateral-item))
 
-(s/def :transaction/items (s/coll-of ::transaction-item))
+(s/def :transaction/items (s/coll-of :clj-money.entities/transaction-item))
 
 (s/def ::complex-transaction (s/merge ::common-transaction
                                       (s/keys :req [:transaction/items])))
