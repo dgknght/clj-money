@@ -55,8 +55,10 @@
            (-> m util/entity-type name)))
 
 (defn validate
-  [entity]
-  (let [validated (v/validate entity (validation-key entity))]
+  [entity & {:as opts}]
+  (let [validated (v/validate entity
+                              (validation-key entity)
+                              opts)]
     (when-let [errors (seq (::v/errors validated))]
       (log/debugf "[validation] Invalid entity %s: %s"
                   entity
@@ -255,7 +257,7 @@
                       (map (dispatch
                              (comp ensure-id
                                    before-save
-                                   validate
+                                   #(validate % opts)
                                    before-validation))))
          saved (db/put (or storage
                            (db/storage))
