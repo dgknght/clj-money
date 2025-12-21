@@ -88,6 +88,7 @@
 (s/def :transaction/credit-account ::entity-ref)
 (s/def :transaction/items (s/coll-of :clj-money.entities/transaction-item :min-count 1))
 (s/def :transaction/memo (s/nilable string?))
+(s/def :transaction/description string?)
 
 (s/def ::common-transaction (s/keys :req [:transaction/entity
                                           :transaction/description
@@ -119,17 +120,17 @@
   (s/or :unilateral ::unilateral-item
         :bilateral ::bilateral-item))
 
-(s/def :transaction/items (s/coll-of :clj-money.entities/transaction-item))
+(s/def :transaction/items (s/coll-of :clj-money.entities/transaction-item
+                                     :min-count 1))
 
 (s/def ::complex-transaction (s/merge ::common-transaction
                                       (s/keys :req [:transaction/items])))
 
-(defn- just-maps
-  [items]
-  (map #(if (vector? %)
-          (second %)
-          %)
-       items))
+(defn- just-map
+  [x]
+  (if (vector? x)
+    (second x)
+    x))
 
 ; When using s/conform, each item
 ; will have been conformed, so each entry
@@ -138,9 +139,11 @@
 ; and the item in the 2nd
 (defn- valid-items?
   [spec items]
-  (->> items
-       just-maps
-       (s/valid? spec)))
+  (if (seq items)
+    (->> items
+         (map just-map)
+         (s/valid? spec))
+    true))
 
 (s/def ::bilateral-transaction (s/and ::complex-transaction
                                       (fn [{:transaction/keys [items]}]
