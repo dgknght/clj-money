@@ -90,6 +90,10 @@
                           :compare-result? false
                           :ignore-nils? true))
 
+(defn- assert-invalid
+  [attr errors]
+  (helpers/assert-invalid attr errors :put-opts {:spec :bilateral}))
+
 (dbtest create-a-transaction
   (with-context base-context
     (assert-created (attributes))))
