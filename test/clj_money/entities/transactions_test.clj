@@ -160,82 +160,65 @@
                             :transaction/entity)
                     {:transaction/entity ["Entity is required"]})))
 
-(dbtest items-are-required
+(dbtest items-must-be-specified
+  (with-context base-context
+    (assert-invalid (dissoc (attributes) :transaction/items)
+                    {:transaction/items ["Items is required"]})))
+
+(dbtest items-cannot-be-nil
+  (with-context base-context
+    (assert-invalid (assoc (attributes) :transaction/items nil)
+                    {:transaction/items ["Items must be a list of values"]})))
+
+(dbtest items-cannot-be-empty
   (with-context base-context
     (assert-invalid (assoc (attributes) :transaction/items [])
                     {:transaction/items ["Items must contain at least 1 item(s)"]})))
 
-(dbtest item-account-is-required
+(dbtest item-debit-account-is-required
   (with-context base-context
     (assert-invalid (update-in
                       (attributes)
                       [:transaction/items 0]
                       dissoc
-                      :transaction-item/account)
+                      :transaction-item/debit-account)
                     {:transaction/items
                      {0
-                      {:transaction-item/account ["Account is required"]}}})))
+                      {:transaction-item/debit-account ["Debit account is required"]}}})))
 
-(dbtest item-quantity-is-required
+(dbtest item-credit-account-is-required
+  (with-context base-context
+    (assert-invalid (update-in
+                      (attributes)
+                      [:transaction/items 0]
+                      dissoc
+                      :transaction-item/credit-account)
+                    {:transaction/items
+                     {0
+                      {:transaction-item/credit-account ["Credit account is required"]}}})))
+
+(dbtest item-value-is-required
   (with-context base-context
     (assert-invalid (update-in (attributes)
                                [:transaction/items 0]
                                #(-> %
-                                    (dissoc :transaction-item/quantity)
-                                    (assoc :transaction-item/value 1M)))
+                                    (dissoc :transaction-item/value)
+                                    (assoc :transaction-item/quantity 1M)))
                     {:transaction/items
                      {0
-                      {:transaction-item/quantity ["Quantity is required"]}}})))
+                      {:transaction-item/value ["Value is required"]}}})))
 
-(dbtest item-quantity-must-be-greater-than-zero
+(dbtest item-value-must-be-greater-than-zero
   (with-context base-context
     (assert-invalid (assoc-in
                           (attributes)
                           [:transaction/items
                            0
-                           :transaction-item/quantity]
+                           :transaction-item/value]
                           -1000M)
                     {:transaction/items
                      {0
-                      {:transaction-item/quantity ["Quantity is invalid"] ; TODO: Adjust this message to say "Quantity must be a positive number"
-                       :transaction-item/value ["Value is invalid"]}}})))
-
-(dbtest item-action-is-required
-  (with-context base-context
-    (assert-invalid (update-in
-                          (attributes)
-                          [:transaction/items 0]
-                          #(dissoc % :transaction-item/action))
-                    {:transaction/items
-                     {0
-                      {:transaction-item/action ["Action is required"]}}})))
-
-(dbtest item-action-must-be-debit-or-credit
-  (with-context base-context
-    (assert-invalid (assoc-in
-                      (attributes)
-                      [:transaction/items
-                       0
-                       :transaction-item/action]
-                      :not-valid)
-                    {:transaction/items
-                     {0
-                      {:transaction-item/action ["Action is invalid"]}}})))
-
-(dbtest sum-of-debits-must-equal-sum-of-credits
-  (with-context base-context
-    (assert-invalid (assoc-in (attributes)
-                              [:transaction/items
-                               0
-                               :transaction-item/quantity]
-                              1001M)
-                    {:transaction/items ["Sum of debits must equal the sum of credits"]})
-    (assert-invalid (assoc-in (attributes)
-                              [:transaction/items
-                               0
-                               :transaction-item/action]
-                              :credit)
-                    {:transaction/items ["Sum of debits must equal the sum of credits"]})))
+                      {:transaction-item/value ["Value must be a positive number"]}}})))
 
 (def insert-context
   (conj base-context
