@@ -61,37 +61,17 @@
   "Set of valid transaction action values, includes :debit and :credit"
   #{:debit :credit})
 
-(s/def :transaction-item/account ::entities/entity-ref)
-(s/def :transaction-item/action actions)
-(s/def :transaction-item/quantity (s/and decimal? pos?))
-; Balance is the running total of quantities for the account to which
-; the item belongs
-(s/def :transaction-item/balance decimal?)
-; Value is the value of the line item expressed in the entity's
-; default commodity. For transactions in the default currenty,
-; this will be the same as the quantity. For transactions involving
-; foreign currencies and commodity purchases (like stock trades)
-; it will be different.
-;
-; A value can be zero for a transaction split. Otherwise, it must
-; be positive.
-(s/def :transaction-item/value (s/and decimal? (complement neg?)))
-(s/def :transaction-item/index integer?)
-
-(s/def :transaction/description v/non-empty-string?)
-(s/def :transaction/transaction-date t/local-date?)
-(s/def :transaction/entity ::entities/entity-ref)
 (s/def :lot-item/lot ::entities/entity-ref)
 (s/def :lot-item/action #{:buy :sell})
 (s/def :lot-item/shares decimal?)
 (s/def ::entities/lot-item (s/keys :req [:lot-item/lot
-                                       :lot-item/shares
-                                       :lot-item/action
-                                       :lot-item/price]))
+                                         :lot-item/shares
+                                         :lot-item/action
+                                         :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::entities/lot-item))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::entities/transaction (s/and ::trxs/transaction
+(s/def ::entities/transaction (s/and (s/merge ::trxs/bilateral-transaction
+                                              (s/keys :opt [:transaction/lot-items]))
                                      no-reconciled-quantities-changed?
                                      new-transaction-has-items?))
 
