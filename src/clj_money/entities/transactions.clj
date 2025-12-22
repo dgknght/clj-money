@@ -24,22 +24,23 @@
             {:message "A new transaction must have items"
              :path [:transaction/items]})
 
+(defn- qty-comparable
+  [item]
+  (select-keys item [:id
+                     :transaction-item/quantity
+                     :transaction-item/value]))
+
 (defn- no-reconciled-quantities-changed?
   [[_ {:transaction/keys [items] :as trx}]]
   (if (:id trx)
     (let [after (->> items
-                     (map (juxt :id #(select-keys % [:id
-                                                     :transaction-item/quantity
-                                                     :transaction-item/action])))
+                     (map (juxt :id qty-comparable))
                      (into {}))]
-      (->> (:transaction/items
-             (entities/find-by (util/entity-type {:id (:id trx)}
-                                              :transaction)
-                             {:include-items? true}))
-           (filter :transaction-item/reconciliation)
-           (map #(select-keys % [:id
-                                 :transaction-item/quantity
-                                 :transaction-item/action]))
+      (->> (entities/select (util/entity-type
+                              {:transaction-item/transaction trx
+                               :account-item/reconciliation :db/not-nil}
+                              :transaction-item))
+           (map qty-comparable)
            (remove #(= % (after (:id %))))
            empty?))
     true))

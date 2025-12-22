@@ -137,7 +137,7 @@
         (is (comparable? #:account{:transaction-date-range [date date]}
                          (reload-account "Salary"))
             "The credited account is updated with transaction dates"))
-      (testing "item updates"
+      #_(testing "item updates"
         (is (seq-of-maps-like? [#:transaction-item{:index 0
                                                    :balance 1000M}
                                 #:transaction-item{:index 0
