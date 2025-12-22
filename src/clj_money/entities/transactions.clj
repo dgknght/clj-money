@@ -310,14 +310,18 @@
                      (sort-by :transaction/transaction-date t/before?)
                      (map polarize))))))
 
+(def ^:private accounts
+  (juxt :transaction-item/credit-account
+        :transaction-item/debit-account))
+
 (defn- account-entity-ref-ids
   "Extracts and returns the account ids from references from the transaction
   items, omitting any complete account entities."
   [items]
   (->> items
-       (filter #(util/entity-ref? (:transaction-item/account %)))
-       (map (comp :id
-                  :transaction-item/account))
+       (mapcat accounts)
+       (filter util/entity-ref?)
+       (map :id)
        set
        seq))
 
@@ -332,16 +336,16 @@
   it into the item, if the item has only a entity reference."
   [entity items]
   (if-let [account-ids (account-entity-ref-ids items)]
-    (let [accounts (index-by :id
-                             (entities/select
-                               (util/entity-type
-                                 {:id [:in account-ids]}
-                                 :account)))]
+    (let [accounts (->> (entities/find-many account-ids)
+                        (map #(assoc % :account/entity entity))
+                        (index-by :id))]
       (->> items
-           (map #(update-in % [:transaction-item/account] (fn [act]
-                                                            (or (accounts (:id act))
-                                                                act))))
-           (map #(assoc-in % [:transaction-item/account :account/entity] entity))))
+           (map #(update-in %
+                            [:transaction-item/debit-account]
+                            (fn [a] (accounts (:id a) a))))
+           (map #(update-in %
+                            [:transaction-item/credit-account]
+                            (fn [a] (accounts (:id a) a))))))
     items))
 
 (def ^:private transaction-item?
