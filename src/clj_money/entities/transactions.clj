@@ -324,7 +324,7 @@
 ; TODO: Need to think some more about how to handle differences
 ; between the account in the item (when not a simple entity-ref) and
 ; the account read from the database.
-; It's passible the caller has made unsaved changes they want to keep.
+; It's possible the caller has made unsaved changes they want to keep.
 ; It's also possble the account has changed since the specified account
 ; was read from the database.
 (defn- realize-accounts
