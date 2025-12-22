@@ -23,7 +23,8 @@
       "Bash(do echo \"Testing clj-money.api.$test-test:\" lein test clj-money.api.$test-test)",
       "Bash(lein eftest:*)",
       "Bash(lein test-fast:*)",
-      "Bash(lein ptest:*)"
+      "Bash(lein ptest:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": []
