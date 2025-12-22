@@ -1,5 +1,6 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clojure.test :refer [deftest testing]]
             [java-time.api :as t]
             [clj-money.config :refer [env]]
@@ -15,48 +16,59 @@
 
 (defonce thread-indices
   (atom
-      {:next 0
-       :saved {}}))
+      {:busy #{}
+       :available (vec (range 0 (.availableProcessors (Runtime/getRuntime))))}))
 
-(defn- thread-index []
-  (let [id (.getId (Thread/currentThread))]
-    (or (get-in @thread-indices [:saved id])
-        (get-in (swap! thread-indices
-                       (fn [{:keys [next saved] :as a}]
-                         (if (contains? saved id)
-                           a
-                           (-> a
-                               (assoc-in [:saved id] next)
-                               (update-in [:next] inc)))))
-                [:saved id]))))
+(defn acquire-idx
+  [{:as m :keys [available]}]
+  (let [n (peek available)]
+    (-> m
+        (assoc :next n)
+        (update-in [:available] pop)
+        (update-in [:busy] conj n))))
+
+(defn release-idx
+  [id]
+  (fn [m]
+    (-> m
+        (update-in [:available] conj id)
+        (update-in [:busy] disj id))))
+
+(defmacro with-thread-index
+  [bindings & body]
+  `(let [id# (:next (swap! thread-indices acquire-idx))
+         f# (fn* [~(first bindings)] ~@body)]
+     (f# id#)
+     (swap! thread-indices (release-idx id#))))
 
 (defmulti thread-specific-config
   "Creates a thread-specific database configuration to allow parallel test execution"
-  ::db/strategy)
+  (fn [c _] (::db/strategy c)))
 
 (defmethod thread-specific-config ::db/datomic-peer
-  [config]
+  [config idx]
   (update-in config
              [:uri]
              #(format "%s_%s"
                       %
-                      (thread-index))))
+                      idx)))
 
 (defmethod thread-specific-config ::db/sql
-  [config]
+  [config idx]
   (update-in config
              [:dbname]
              #(format "%s_%s"
                       %
-                      (thread-index))))
+                      idx)))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [f]
-  (let [config (thread-specific-config active-db-config)]
-    (db/with-storage [config]
-      (db/reset (db/storage))
-      (f))))
+  (with-thread-index [idx]
+    (let [config (thread-specific-config active-db-config idx)]
+      (db/with-storage [config]
+        (db/reset (db/storage))
+        (f)))))
 
 (defn- throw-if-nil
   [x msg]
@@ -121,7 +133,8 @@
                                        (-> env :db :strategies))]
          (binding [*strategy* (keyword name#)]
            (testing (format "database strategy %s" name#)
-             (let [thread-config# (thread-specific-config config#)]
-               (db/with-storage [thread-config#]
-                 (db/reset (db/storage))
-                 ~@body))))))))
+             (with-thread-index [idx#]
+               (let [thread-config# (thread-specific-config config# idx#)]
+                 (db/with-storage [thread-config#]
+                   (db/reset (db/storage))
+                   ~@body)))))))))
