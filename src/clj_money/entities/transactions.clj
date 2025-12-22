@@ -16,9 +16,26 @@
             [clj-money.entities.propagation :as prop]
             [clj-money.accounts :as acts]))
 
-(defn- new-transaction-has-items?
-  [[_ {:transaction/keys [items] :keys [id]}]]
+(defn- unbox
+  "Takes a function and returns a function that takes a single argument
+  and if that argument is a vector, extracts the second element and passes
+  it to the given function, otherwise passes the argument as-is.
+
+  This is because the transaction specs use 'or' specs, which can
+  result in maps being wrapped in tuples with the branch of the matching
+  'or' in the first position."
+  [f]
+  (fn [x]
+    (f (if (vector? x)
+         (second x)
+         x))))
+
+(defn- new-transaction-has-items*
+  [{:transaction/keys [items] :keys [id]}]
   (or id (seq items)))
+
+(def ^:private new-transaction-has-items?
+  (unbox new-transaction-has-items*))
 
 (v/reg-spec new-transaction-has-items?
             {:message "A new transaction must have items"
@@ -30,8 +47,8 @@
                      :transaction-item/quantity
                      :transaction-item/value]))
 
-(defn- no-reconciled-quantities-changed?
-  [[_ {:transaction/keys [items] :as trx}]]
+(defn- no-reconciled-quantities-changed*
+  [{:transaction/keys [items] :as trx}]
   (if (:id trx)
     (let [after (->> items
                      (map (juxt :id qty-comparable))
@@ -44,6 +61,9 @@
            (remove #(= % (after (:id %))))
            empty?))
     true))
+
+(def ^:private no-reconciled-quantities-changed?
+  (unbox no-reconciled-quantities-changed*))
 
 (v/reg-spec no-reconciled-quantities-changed? {:message "A reconciled quantity cannot be updated"
                                                :path [:transaction/items]})
