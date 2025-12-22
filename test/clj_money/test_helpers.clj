@@ -1,6 +1,5 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
             [clojure.test :refer [deftest testing]]
             [java-time.api :as t]
             [clj-money.config :refer [env]]
@@ -14,32 +13,33 @@
 (def active-db-config
   (get-in env [:db :strategies (get-in env [:db :active])]))
 
-(defonce thread-indices
-  (atom
-      {:busy #{}
-       :available (vec (range 0 (.availableProcessors (Runtime/getRuntime))))}))
+(def db-locks
+  "Vector of locks, one per database index"
+  (vec (repeatedly (.availableProcessors (Runtime/getRuntime))
+                   #(Object.))))
 
-(defn acquire-idx
-  [{:as m :keys [available]}]
-  (let [n (peek available)]
-    (-> m
-        (assoc :next n)
-        (update-in [:available] pop)
-        (update-in [:busy] conj n))))
+(def ^:private thread-index-counter (atom 0))
+(def ^:private thread-indices (atom {}))
 
-(defn release-idx
-  [id]
-  (fn [m]
-    (-> m
-        (update-in [:available] conj id)
-        (update-in [:busy] disj id))))
+(defn thread-db-index
+  "Returns a database index for the current thread. Each unique thread
+  gets assigned the next available index (cycling through available
+  processors). This ensures each thread consistently uses the same
+  database instance throughout the test run."
+  []
+  (let [thread-id (.getId (Thread/currentThread))
+        processor-count (.availableProcessors (Runtime/getRuntime))]
+    (or (@thread-indices thread-id)
+        (let [idx (mod (swap! thread-index-counter inc) processor-count)]
+          (swap! thread-indices assoc thread-id idx)
+          idx))))
 
-(defmacro with-thread-index
-  [bindings & body]
-  `(let [id# (:next (swap! thread-indices acquire-idx))
-         f# (fn* [~(first bindings)] ~@body)]
-     (f# id#)
-     (swap! thread-indices (release-idx id#))))
+(defmacro with-db-lock
+  "Acquires a lock for the database at the given index, executes body,
+  and releases the lock. Prevents concurrent access to the same database."
+  [idx & body]
+  `(locking (nth clj-money.test-helpers/db-locks ~idx)
+     ~@body))
 
 (defmulti thread-specific-config
   "Creates a thread-specific database configuration to allow parallel test execution"
@@ -64,8 +64,9 @@
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [f]
-  (with-thread-index [idx]
-    (let [config (thread-specific-config active-db-config idx)]
+  (let [idx (thread-db-index)
+        config (thread-specific-config active-db-config idx)]
+    (with-db-lock idx
       (db/with-storage [config]
         (db/reset (db/storage))
         (f)))))
@@ -133,8 +134,9 @@
                                        (-> env :db :strategies))]
          (binding [*strategy* (keyword name#)]
            (testing (format "database strategy %s" name#)
-             (with-thread-index [idx#]
-               (let [thread-config# (thread-specific-config config# idx#)]
+             (let [idx# (thread-db-index)
+                   thread-config# (thread-specific-config config# idx#)]
+               (with-db-lock idx#
                  (db/with-storage [thread-config#]
                    (db/reset (db/storage))
                    ~@body)))))))))
