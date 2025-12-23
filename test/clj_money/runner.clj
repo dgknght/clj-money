@@ -43,12 +43,32 @@
     :id :capture-output?]
    ["-h" "--help" "Show this help message"]])
 
+(def ^:private not-multi-threaded?
+  (complement :multi-threaded))
+
 (defn- match-strategy?
   [selector]
-  (if selector
+  (when selector
     #(= selector
-        (-> % meta :strategy))
-    (constantly true)))
+        (-> % meta :strategy))))
+
+(defn- match-meta?
+  [{:keys [strategy]}]
+  (->> [not-multi-threaded?
+        (match-strategy? strategy)]
+       (filter identity)
+       (apply every-pred)))
+
+(defn- pass-thru
+  [m]
+  (pprint m)
+  m)
+
+(defn- run?
+  [options]
+  (comp (match-meta? options)
+        pass-thru
+        meta))
 
 (defn- write-help
   [{:keys [errors summary]}]
@@ -75,7 +95,7 @@
   (init-sql-dbs)
   (->> (or (seq arguments) ["test"])
        (mapcat find-tests)
-       (filter (match-strategy? (:strategy options)))
+       (filter (run? options))
        run-tests options))
 
 (defn eftest
