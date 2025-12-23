@@ -45,8 +45,6 @@
                                      'clj-money/local-date-time t/local-date-time
                                      'clj-money/decimal d/d}))
 
-(def ^:dynamic *strategy* nil)
-
 (defn ->set
   [v]
   (if (coll? v)
@@ -93,11 +91,10 @@
                                                          honor-strategy)
                                              first)
                                        (-> env :db :strategies))]
-         (binding [*strategy* (keyword name#)]
-           (testing (format "database strategy %s" name#)
-             (let [idx# (thread-db-index)
-                   thread-config# (thread-specific-config config# idx#)]
-               (with-db-lock idx#
-                 (db/with-storage [thread-config#]
-                   (db/reset (db/storage))
-                   ~@body)))))))))
+         (testing (format "database strategy %s" name#)
+           (let [idx# (thread-db-index)
+                 thread-config# (thread-specific-config config# idx#)]
+             (with-db-lock idx#
+               (db/with-storage [thread-config#]
+                 (db/reset (db/storage))
+                 ~@body))))))))
