@@ -98,7 +98,7 @@
                  :entity-name "same entity"
                  :images ["sample.gnucash"]}))
 
-(dbtest delete-an-import
+(dbtest ^:multi-threaded delete-an-import
   (with-context delete-context
     (let [user (find-user "john@doe.com")]
       (testing "deleting an import deletes the associated files"

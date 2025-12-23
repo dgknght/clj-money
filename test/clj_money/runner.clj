@@ -59,15 +59,9 @@
        (filter identity)
        (apply every-pred)))
 
-(defn- pass-thru
-  [m]
-  (pprint m)
-  m)
-
 (defn- run?
   [options]
   (comp (match-meta? options)
-        pass-thru
         meta))
 
 (defn- write-help

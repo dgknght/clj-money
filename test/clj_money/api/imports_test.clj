@@ -37,7 +37,7 @@
      :entity #:entity{:name (:import/entity-name imp)
                       :user (:import/user imp)}}))
 
-(deftest a-user-can-create-an-import
+(deftest ^:multi-threaded a-user-can-create-an-import
   (with-context create-context
     (let [source-file (io/file (io/resource "fixtures/sample.gnucash"))
           user (find-user "john@doe.com")

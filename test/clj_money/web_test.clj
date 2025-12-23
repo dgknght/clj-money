@@ -6,7 +6,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.web.server :refer [app]]))
 
-(deftest fetch-the-main-page
+(deftest ^:multi-threaded fetch-the-main-page
   (let [logs (atom [])]
     (with-redefs [log/log* (fn [& args]
                              (swap! logs conj args))]

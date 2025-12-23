@@ -91,7 +91,7 @@
                   (not-any? :transaction/recondiliation))
           "None of the transaction items should be marked as reconcilied"))))
 
-(dbtest create-a-completed-reconciliation
+(dbtest ^:multi-threaded create-a-completed-reconciliation
   (with-context reconciliation-context
     (let [checking (find-account "Checking")
           checking-items (entities/select {:transaction-item/account checking
@@ -331,7 +331,7 @@
   (with-context working-reconciliation-context
     (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 3)]))))
 
-(dbtest propagate-reconciliation-deletion
+(dbtest ^:multi-threaded propagate-reconciliation-deletion
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
       (prop/delete-and-propagate reconciliation)
@@ -342,7 +342,7 @@
                       :transaction-item)))
           "The reconciliation is not associated with any items after delete"))))
 
-(dbtest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
+(dbtest ^:multi-threaded a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
