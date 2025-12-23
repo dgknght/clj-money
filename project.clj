@@ -191,8 +191,7 @@
              "-Xmx2g"
              "-Xms512m"
              "-server"]
-  :test-selectors {:default (complement :clj-money/thread-sensitive)
-                   :datomic-peer (fn [m & _]
+  :test-selectors {:datomic-peer (fn [m & _]
                                    (= :datomic-peer (:strategy m)))
                    :sql (fn [m & _]
                           (= :sql (:strategy m)))}
