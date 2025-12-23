@@ -98,7 +98,19 @@
                  :entity-name "same entity"
                  :images ["sample.gnucash"]}))
 
-(dbtest ^:multi-threaded delete-an-import
+(dbtest delete-an-import
+  (with-context delete-context
+    (let [user (find-user "john@doe.com")]
+      (testing "deleting an import preserves associated files linked to other imports"
+        (entities/delete (find-import "same entity"))
+        (is (empty? (entities/select #:import{:user user
+                                            :entity-name "same entity"}))
+            "The import record is removed")
+        (is (seq (entities/select #:image{:user (:id user)
+                                        :original-filename "sample_with_commodities.gnucash"}))
+            "The image record is preserved")))))
+
+(dbtest ^:multi-threaded propagate-import-deletion
   (with-context delete-context
     (let [user (find-user "john@doe.com")]
       (testing "deleting an import deletes the associated files"
@@ -108,12 +120,4 @@
             "The import record is removed")
         (is (empty? (entities/select #:image{:user user
                                            :original-filename "sample.gnucash"}))
-            "The image record is removed also"))
-      (testing "deleting an import preserves associated files linked to other imports"
-        (entities/delete (find-import "same entity"))
-        (is (empty? (entities/select #:import{:user user
-                                            :entity-name "same entity"}))
-            "The import record is removed")
-        (is (seq (entities/select #:image{:user (:id user)
-                                        :original-filename "sample_with_commodities.gnucash"}))
-            "The image record is preserved")))))
+            "The image record is removed also")))))

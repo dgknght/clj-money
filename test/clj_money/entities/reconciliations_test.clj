@@ -342,12 +342,26 @@
                       :transaction-item)))
           "The reconciliation is not associated with any items after delete"))))
 
-(dbtest ^:multi-threaded a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
+(dbtest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
+  (with-context working-reconciliation-context
+    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
+      (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
+                            (entities/delete reconciliation))
+          "an exception is thrown")
+      (is (entities/find reconciliation) "The reconciliation can still be retrieved")
+      (is (seq (entities/select
+                 (util/entity-type
+                   {:transaction-item/reconciliation (->entity-ref reconciliation)
+                    :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
+                   :transaction-item)))
+          "The transaction items are still associated with the reconciliation"))))
+
+(dbtest ^:multi-threaded propagate-deletion-validates-most-recent
   (with-context working-reconciliation-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
                             (prop/delete-and-propagate reconciliation))
-          "an exception is thrown")
+          "an exception is thrown during propagation")
       (is (entities/find reconciliation) "The reconciliation can still be retrieved")
       (is (seq (entities/select
                  (util/entity-type
