@@ -7,59 +7,14 @@
             [clj-money.decimal :as d]
             [clj-money.db :as db]
             [clj-money.util :as util]
+            [clj-money.threading :refer [thread-db-index
+                                         thread-specific-config
+                                         with-db-lock]]
             [clj-money.entities :as entities]))
 
 ; TODO: Remove this an just use the reset in the dbtest so that we don't have to duplicate the strategy selection logic
 (def active-db-config
   (get-in env [:db :strategies (get-in env [:db :active])]))
-
-(def db-locks
-  "Vector of locks, one per database index"
-  (vec (repeatedly (.availableProcessors (Runtime/getRuntime))
-                   #(Object.))))
-
-(def ^:private thread-index-counter (atom 0))
-(def ^:private thread-indices (atom {}))
-
-(defn thread-db-index
-  "Returns a database index for the current thread. Each unique thread
-  gets assigned the next available index (cycling through available
-  processors). This ensures each thread consistently uses the same
-  database instance throughout the test run."
-  []
-  (let [thread-id (.getId (Thread/currentThread))
-        processor-count (.availableProcessors (Runtime/getRuntime))]
-    (or (@thread-indices thread-id)
-        (let [idx (mod (swap! thread-index-counter inc) processor-count)]
-          (swap! thread-indices assoc thread-id idx)
-          idx))))
-
-(defmacro with-db-lock
-  "Acquires a lock for the database at the given index, executes body,
-  and releases the lock. Prevents concurrent access to the same database."
-  [idx & body]
-  `(locking (nth clj-money.test-helpers/db-locks ~idx)
-     ~@body))
-
-(defmulti thread-specific-config
-  "Creates a thread-specific database configuration to allow parallel test execution"
-  (fn [c _] (::db/strategy c)))
-
-(defmethod thread-specific-config ::db/datomic-peer
-  [config idx]
-  (update-in config
-             [:uri]
-             #(format "%s_%s"
-                      %
-                      idx)))
-
-(defmethod thread-specific-config ::db/sql
-  [config idx]
-  (update-in config
-             [:dbname]
-             #(format "%s_%s"
-                      %
-                      idx)))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
