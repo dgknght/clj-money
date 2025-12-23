@@ -55,7 +55,8 @@
                                (symbol (str (name test-name)
                                             "-"
                                             (name strategy-name)))
-                               {:strategy strategy-name})]
+                               (merge (meta test-name)
+                                      {:strategy strategy-name}))]
              `(deftest ~q-test-name
                 (let [idx# (thread-db-index)
                       thread-config# (thread-specific-config
