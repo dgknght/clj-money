@@ -571,7 +571,7 @@
 ; TODO: Consider mocking Storage instead of put*
 (dbtest ^:eftest/synchronized
         ^:clj-money/thread-sensitive
-        update-a-transaction-short-circuit-updates {:only :sql}
+        update-a-transaction-short-circuit-updates
   (with-context short-circuit-context
     (let [calls (atom [])
           orig-put sql/put*]

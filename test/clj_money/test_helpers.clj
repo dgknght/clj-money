@@ -76,17 +76,10 @@
 
 (def honor-strategy (complement ignore-strategy))
 
-(defn extract-opts
-  [args]
-  (if (map? (first args))
-    args
-    (cons {} args)))
-
 (defmacro dbtest
   "Executes the body against all configured db strategies"
-  [test-name & body-and-opts]
-  (let [[opts & body] (extract-opts body-and-opts)
-        strategies (-> env :db :strategies)]
+  [test-name & body]
+  (let [strategies (-> env :db :strategies)]
     `(do
        ~@(for [[strategy-name config] strategies]
            (let [q-test-name (with-meta
