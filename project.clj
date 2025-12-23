@@ -191,7 +191,11 @@
              "-Xmx2g"
              "-Xms512m"
              "-server"]
-  :test-selectors {:default (complement :clj-money/thread-sensitive)}
+  :test-selectors {:default (complement :clj-money/thread-sensitive)
+                   :datomic-peer (fn [m & _]
+                                   (= :datomic-peer (:strategy m)))
+                   :sql (fn [m & _]
+                          (= :sql (:strategy m)))}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93

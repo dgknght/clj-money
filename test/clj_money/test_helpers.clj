@@ -85,16 +85,21 @@
 (defmacro dbtest
   "Executes the body against all configured db strategies"
   [test-name & body-and-opts]
-  (let [[opts & body] (extract-opts body-and-opts)]
-    `(deftest ~test-name
-       (doseq [[name# config#] (filter (comp (every-pred ~(include-strategy opts)
-                                                         honor-strategy)
-                                             first)
-                                       (-> env :db :strategies))]
-         (testing (format "database strategy %s" name#)
-           (let [idx# (thread-db-index)
-                 thread-config# (thread-specific-config config# idx#)]
-             (with-db-lock idx#
-               (db/with-storage [thread-config#]
-                 (db/reset (db/storage))
-                 ~@body))))))))
+  (let [[opts & body] (extract-opts body-and-opts)
+        strategies (-> env :db :strategies)]
+    `(do
+       ~@(for [[strategy-name config] strategies]
+           (let [q-test-name (with-meta
+                               (symbol (str (name test-name)
+                                            "-"
+                                            (name strategy-name)))
+                               {:strategy strategy-name})]
+             `(deftest ~q-test-name
+                (let [idx# (thread-db-index)
+                      thread-config# (thread-specific-config
+                                       ~config
+                                       idx#)]
+                  (with-db-lock idx#
+                    (db/with-storage [thread-config#]
+                      (db/reset (db/storage))
+                      ~@body)))))))))
