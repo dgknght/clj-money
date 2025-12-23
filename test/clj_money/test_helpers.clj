@@ -1,6 +1,6 @@
 (ns clj-money.test-helpers
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.test :refer [deftest testing]]
+            [clojure.test :refer [deftest]]
             [java-time.api :as t]
             [clj-money.config :refer [env]]
             [dgknght.app-lib.test :as test]
@@ -44,37 +44,6 @@
   (test/parse-edn-body res :readers {'clj-money/local-date t/local-date
                                      'clj-money/local-date-time t/local-date-time
                                      'clj-money/decimal d/d}))
-
-(defn ->set
-  [v]
-  (if (coll? v)
-    (set v)
-    #{v}))
-
-(defn include-strategy
-  "Builds a function that evaluates options passed into dbtest that will
-  return true if the test should be execute and false if not."
-  [{:keys [only exclude]}]
-  (cond
-    only    (list 'clj-money.test-helpers/->set only)
-    exclude `(complement ~(clj-money.test-helpers/->set exclude))
-    :else   '(constantly true)))
-
-(def isolate (when-let [isolate (env :isolate)]
-               #{(if (string? isolate)
-                   (keyword isolate)
-                   isolate)}))
-
-(def ignore-strategy
-  "A predicate that ignores a strategy based on the environment
-  variable IGNORE_STRATEGY, like 'IGNORE_STRATEGY=sql'"
-  (if isolate
-                       (complement isolate)
-                       (if-let [ignore (env :ignore-strategy)]
-                         (->set ignore)
-                         (constantly false))))
-
-(def honor-strategy (complement ignore-strategy))
 
 (defmacro dbtest
   "Executes the body against all configured db strategies"
