@@ -99,6 +99,8 @@
     #{v}))
 
 (defn include-strategy
+  "Builds a function that evaluates options passed into dbtest that will
+  return true if the test should be execute and false if not."
   [{:keys [only exclude]}]
   (cond
     only    (list 'clj-money.test-helpers/->set only)
@@ -110,7 +112,10 @@
                    (keyword isolate)
                    isolate)}))
 
-(def ignore-strategy (if isolate
+(def ignore-strategy
+  "A predicate that ignores a strategy based on the environment
+  variable IGNORE_STRATEGY, like 'IGNORE_STRATEGY=sql'"
+  (if isolate
                        (complement isolate)
                        (if-let [ignore (env :ignore-strategy)]
                          (->set ignore)
@@ -125,6 +130,7 @@
     (cons {} args)))
 
 (defmacro dbtest
+  "Executes the body against all configured db strategies"
   [test-name & body-and-opts]
   (let [[opts & body] (extract-opts body-and-opts)]
     `(deftest ~test-name
