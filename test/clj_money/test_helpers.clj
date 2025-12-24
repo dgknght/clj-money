@@ -12,6 +12,8 @@
                                          with-db-lock]]
             [clj-money.entities :as entities]))
 
+(def ^:dynamic *parallel* false)
+
 ; TODO: Remove this an just use the reset in the dbtest so that we don't have to duplicate the strategy selection logic
 (def active-db-config
   (get-in env [:db :strategies (get-in env [:db :active])]))
@@ -19,12 +21,16 @@
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [f]
-  (let [idx (thread-db-index)
-        config (thread-specific-config active-db-config idx)]
-    (with-db-lock idx
-      (db/with-storage [config]
-        (db/reset (db/storage))
-        (f)))))
+  (if *parallel*
+    (let [idx (thread-db-index)
+          config (thread-specific-config active-db-config idx)]
+      (with-db-lock idx
+        (db/with-storage [config]
+          (db/reset (db/storage))
+          (f))))
+    (do
+      (db/reset (db/storage))
+      (f))))
 
 (defn- throw-if-nil
   [x msg]
@@ -74,11 +80,16 @@
                                    (dissoc :only :except)
                                    (merge {:strategy strategy-name})))]
              `(deftest ~q-test-name
-                (let [idx# (thread-db-index)
-                      thread-config# (thread-specific-config
-                                       ~config
-                                       idx#)]
-                  (with-db-lock idx#
-                    (db/with-storage [thread-config#]
+                (if *parallel*
+                  (let [idx# (thread-db-index)
+                        thread-config# (thread-specific-config
+                                         ~config
+                                         idx#)]
+                    (with-db-lock idx#
+                      (db/with-storage [thread-config#]
+                        (db/reset (db/storage))
+                        ~@body)))
+                  (do
+                    (db/with-storage [~config]
                       (db/reset (db/storage))
                       ~@body)))))))))

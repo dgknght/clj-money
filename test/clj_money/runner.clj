@@ -4,6 +4,7 @@
             [java-time.api :as t]
             [eftest.runner :refer [find-tests run-tests]]
             [clj-money.config :refer [env]]
+            [clj-money.test-helpers :refer [*parallel*]]
             [clj-money.db.sql.tasks :as sql]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
@@ -87,10 +88,12 @@
   [{:keys [options
            arguments]}]
   (init-sql-dbs)
-  (->> (or (seq arguments) ["test"])
-       (mapcat find-tests)
-       (filter (run? options))
-       run-tests options))
+  (binding [*parallel* true]
+    ((bound-fn []
+      (->> (or (seq arguments) ["test"])
+           (mapcat find-tests)
+           (filter (run? options))
+           run-tests options)))))
 
 (defn eftest
   [& args]
