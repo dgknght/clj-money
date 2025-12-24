@@ -45,18 +45,34 @@
                                      'clj-money/local-date-time t/local-date-time
                                      'clj-money/decimal d/d}))
 
+(defn ->set
+  [v]
+  (if (coll? v)
+    (set v)
+    #{v}))
+
+(defn include-strategy?
+  [{:keys [only except]}]
+  (cond
+    only   (->set only)
+    except (complement (->set except))
+    :else  (constantly true)))
+
 (defmacro dbtest
   "Executes the body against all configured db strategies"
   [test-name & body]
-  (let [strategies (-> env :db :strategies)]
+  (let [mdata (meta test-name)
+        strategies (filter (include-strategy? mdata)
+                           (-> env :db :strategies))]
     `(do
        ~@(for [[strategy-name config] strategies]
            (let [q-test-name (with-meta
                                (symbol (str (name test-name)
                                             "-"
                                             (name strategy-name)))
-                               (merge (meta test-name)
-                                      {:strategy strategy-name}))]
+                               (-> mdata
+                                   (dissoc :only :except)
+                                   (merge {:strategy strategy-name})))]
              `(deftest ~q-test-name
                 (let [idx# (thread-db-index)
                       thread-config# (thread-specific-config
