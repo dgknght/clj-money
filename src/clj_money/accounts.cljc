@@ -114,16 +114,18 @@
        (if (= :debit action) (d/d 1) (d/d -1))))
 
 (defn polarize-quantity
-  "Given a transaction item and an account, returns the quantity of the
-  transaction item vis a vis the account (i.e., positive or negative)."
-  [quantity action account]
-  {:pre [quantity
-         action
-         (#{:debit :credit} action)
-         account
-         (:account/type account)]}
-  (d/* quantity
-       (polarizer action account)))
+  "Given a quantity, action, and an account, returns the quantity
+  vis a vis the account (i.e., positive or negative)."
+  ([{:keys [quantity action account]}]
+   (polarize-quantity quantity action account))
+  ([quantity action account]
+   {:pre [quantity
+          action
+          (#{:debit :credit} action)
+          account
+          (:account/type account)]}
+   (d/* quantity
+        (polarizer action account))))
 
 (defn derive-action
   "Given a quantity (either positve or negative) and an
