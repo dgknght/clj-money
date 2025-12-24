@@ -90,6 +90,19 @@
   ;; Force initialization of SecureRandom to avoid lazy init issues
   (.nextBytes (java.security.SecureRandom.) (byte-array 1)))
 
+(defn- namespace?
+  [v]
+  (re-find #"^[a-z-]+(\.[a-z-]+)+$" v))
+
+(defn- symbolize-namespaces
+  [vs]
+  (map #(if (namespace? %)
+          (let [n (symbol %)]
+            (require n)
+            n)
+          %)
+       vs))
+
 (defn- eftest*
   [{:keys [options
            arguments]}]
@@ -98,6 +111,7 @@
   (binding [*parallel* true]
     ((bound-fn []
       (->> (or (seq arguments) ["test"])
+           symbolize-namespaces
            (mapcat find-tests)
            (filter (run? options))
            run-tests options)))))
