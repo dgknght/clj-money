@@ -52,7 +52,7 @@
   {::prog/strategy ::prog/redis
    :redis-config {}})
 
-(deftest notify-a-count-of-a-category
+(deftest ^:multi-threaded notify-a-count-of-a-category
   (testing "keyword root key"
     (with-mocked-redis [calls]
       (let [tracker (prog/reify-tracker mock-config
@@ -119,7 +119,7 @@
                @calls)
             "The expected count is saved at the key based on the specified category")))))
 
-(deftest increment-the-progress
+(deftest ^:multi-threaded increment-the-progress
   (testing "increment by the implicit amount"
     (with-mocked-redis [calls]
       (let [tracker (prog/reify-tracker mock-config
@@ -139,7 +139,7 @@
                @calls)
             "The completed count is saved at the key based on the specified category")))))
 
-(deftest send-a-notification
+(deftest ^:multi-threaded send-a-notification
   (testing "warning"
     (with-mocked-redis [calls]
       (let [tracker (prog/reify-tracker mock-config
@@ -163,7 +163,7 @@
                @calls)
             "The message is set as the cause of an abnormal ending")))))
 
-(deftest finalize-a-process
+(deftest ^:multi-threaded finalize-a-process
   (with-mocked-redis [calls]
     (let [tracker (prog/reify-tracker mock-config
                                       :root)]
@@ -180,7 +180,7 @@
              @calls)
           "The flag is set indicating the process has finished")))) 
 
-(deftest ^:redis round-trip
+(deftest ^:redis ^:multi-threaded round-trip
   (let [tracker (prog/reify-tracker (get-in env [:progress :strategies :redis])
                                     :my-root)]
     (with-fixed-time "2020-01-01T00:00:00.000Z"

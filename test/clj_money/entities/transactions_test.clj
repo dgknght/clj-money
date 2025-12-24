@@ -8,7 +8,8 @@
             [dgknght.app-lib.test_assertions]
             [clj-money.util :as util]
             [clj-money.db.sql :as sql]
-            [clj-money.entity-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.entity-helpers :as helpers :refer [assert-invalid
+                                                          assert-deleted]]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
@@ -93,7 +94,7 @@
   (with-context base-context
     (assert-created (attributes))))
 
-(dbtest create-and-propagate-a-transaction
+(dbtest ^:multi-threaded create-and-propagate-a-transaction
   (with-context base-context
     (let [date (t/local-date 2016 3 2)]
       (prop/put-and-propagate (attributes))
@@ -223,7 +224,7 @@
                       :credit-account "Checking"
                       :quantity 100M}))
 
-(dbtest insert-transaction-before-the-end
+(dbtest ^:multi-threaded insert-transaction-before-the-end
   (with-context insert-context
     (prop/put-and-propagate
       #:transaction{:transaction-date (t/local-date 2016 3 3)
@@ -255,7 +256,7 @@
                   :entity "Personal"
                   :commodity "USD"}))
 
-(dbtest create-a-transaction-with-multiple-items-for-one-account
+(dbtest ^:multi-threaded create-a-transaction-with-multiple-items-for-one-account
   (with-context multi-context
     (prop/put-and-propagate
       #:transaction{:transaction-date (t/local-date 2016 3 2)
@@ -310,6 +311,10 @@
                       :quantity 102M}))
 
 (dbtest delete-a-transaction
+  (with-context delete-context
+    (assert-deleted (find-transaction [(t/local-date 2016 3 3) "Kroger"]))))
+
+(dbtest ^:multi-threaded delete-and-propagate-a-transaction
   (with-context delete-context
     (let [checking-items-before (items-by-account "Checking")
           trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])]
@@ -435,7 +440,7 @@
   (prop/put-and-propagate
     (update-in trx [:transaction/items] update-items change-map)))
 
-(dbtest update-a-transaction-change-quantity
+(dbtest ^:multi-threaded update-a-transaction-change-quantity
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
@@ -453,7 +458,7 @@
           "Expected the groceries account items to be updated.")
       (assert-account-quantities checking 798.01M groceries 201.99M))))
 
-(dbtest update-a-transaction-change-date
+(dbtest ^:multi-threaded update-a-transaction-change-date
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
@@ -491,7 +496,7 @@
                (:transaction/transaction-date (entities/find result)))
             "The updated transaction can be retrieved")))))
 
-(dbtest update-a-transaction-cross-partition-boundary
+(dbtest ^:multi-threaded update-a-transaction-cross-partition-boundary
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
@@ -569,7 +574,9 @@
 ; 2016-03-30     104  Groceries Checking
 
 ; TODO: Consider mocking Storage instead of put*
-(dbtest update-a-transaction-short-circuit-updates {:only :sql}
+(dbtest ^:multi-threaded
+        ^{:only :sql}
+        update-a-transaction-short-circuit-updates
   (with-context short-circuit-context
     (let [calls (atom [])
           orig-put sql/put*]
@@ -639,7 +646,7 @@
                       :credit-account "Checking"
                       :quantity 103M}))
 
-(dbtest update-a-transaction-change-account
+(dbtest ^:multi-threaded update-a-transaction-change-account
   (with-context change-account-context
     (let [[rent
            groceries] (find-accounts "Rent" "Groceries")]
@@ -687,7 +694,7 @@
                       :credit-account "Checking"
                       :quantity 101M}))
 
-(dbtest update-a-transaction-change-action
+(dbtest ^:multi-threaded update-a-transaction-change-action
   (with-context change-action-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]

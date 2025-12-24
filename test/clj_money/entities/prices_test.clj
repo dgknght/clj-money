@@ -52,7 +52,7 @@
   (with-context price-context
     (assert-created (attributes))))
 
-(dbtest propagate-a-new-price
+(dbtest ^:multi-threaded propagate-a-new-price
   (with-context price-context
     (let [{:as attr :price/keys [trade-date]} (attributes)
           entity (find-entity "Personal")
@@ -174,7 +174,7 @@
                 :shares 100M
                 :value 1000M}))
 
-(dbtest creating-a-price-updates-account-summary-data
+(dbtest ^:multi-threaded creating-a-price-updates-account-summary-data
   (with-context account-summary-context
     (testing "a historical price"
       (put-and-propagate
@@ -205,7 +205,7 @@
                 :commodity "AAPL"
                 :value 12M}))
 
-(dbtest updating-a-price-updates-account-summary-data
+(dbtest ^:multi-threaded updating-a-price-updates-account-summary-data
   (with-context account-summary-context-for-update
     (testing "before the update"
       (is (= 1200M (:account/value (entities/find-by {:account/name "AAPL"})))
@@ -229,7 +229,7 @@
                                             {:sort [:price/trade-date]}))
           "The price can be retrieved after update"))))
 
-(dbtest deleting-a-price-updates-account-summary-data
+(dbtest ^:multi-threaded deleting-a-price-updates-account-summary-data
   (with-context account-summary-context-for-update
     (testing "before delete"
       (is (= 1200M (:account/value (entities/find-by {:account/name "AAPL"})))
