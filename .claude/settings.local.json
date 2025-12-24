@@ -27,7 +27,8 @@
       "Bash(tee:*)",
       "Bash(ISOLATE=sql lein ptest:*)",
       "Bash(ISOLATE=sql xargs lein test:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(lein deps:*)"
     ],
     "deny": [],
     "ask": []
