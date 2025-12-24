@@ -172,7 +172,7 @@
   (with-context gnucash-context
     (test-import)))
 
-(deftest track-import-progress
+(deftest ^:multi-threaded track-import-progress
   (with-context gnucash-context
     (let [state (atom {})
           tracker (reify prog/Tracker
@@ -212,7 +212,7 @@
         #_(is (= 1 (increment :finalize-reconciliation))
             "Reconciliation finalization count is incremented 1 time")))))
 
-(deftest halt-on-failure
+(deftest ^:multi-threaded halt-on-failure
   (with-context gnucash-context
     (let [og-put-many entities/put-many]
       (with-redefs [entities/put-many (fn [& args]
