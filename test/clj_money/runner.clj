@@ -84,10 +84,17 @@
             (some #(= "help" %)
                   arguments)))
 
+(defn- init-crypto
+  "Initialize Java crypto for thread-safe operation"
+  []
+  ;; Force initialization of SecureRandom to avoid lazy init issues
+  (.nextBytes (java.security.SecureRandom.) (byte-array 1)))
+
 (defn- eftest*
   [{:keys [options
            arguments]}]
   (init-sql-dbs)
+  (init-crypto)
   (binding [*parallel* true]
     ((bound-fn []
       (->> (or (seq arguments) ["test"])
