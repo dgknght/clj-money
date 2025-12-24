@@ -632,3 +632,30 @@
       :bilateral (when (= 1 (count (:transaction/items input)))
                    (bilateral->simple input))
       nil)))
+
+(defn- ->account-items
+  "Takes a single bilateral account item and produces
+  the corresponding account items"
+  [{:transaction-item/keys [debit-account
+                            debit-quantity
+                            credit-account
+                            credit-quantity
+                            value]}]
+  [#:account-item{:account debit-account
+                  :quantity (polarize-quantity
+                              {:quantity (or debit-quantity value)
+                               :account debit-account
+                               :action :debit})}
+   #:account-item{:account credit-account
+                  :quantity (polarize-quantity
+                              {:quantity (or credit-quantity value)
+                               :account credit-account
+                               :action :credit})}])
+
+(defn make-account-items
+  "Products the account items that correlate to the given transaction. Note
+  that the accounts will need to have at least the :account/type attribute
+  populated"
+  [{:transaction/keys [items] :as trx}]
+  {:pre [(s/valid? (s/coll-of ::bilateral-item) items)]}
+  (mapcat ->account-items items))

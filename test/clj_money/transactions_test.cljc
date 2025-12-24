@@ -652,3 +652,53 @@
   (testing "a bilateral transaction with multiple items"
     (is (nil? (trx/simplify complex-bilateral-trx))
         "cannot be created")))
+
+(def ^:private account-types
+  {"checking"    :asset
+   "groceries"   :expense
+   "supplements" :expense})
+
+(defn- append-type
+  [{:as account :keys [id]}]
+  (assoc account :account/type (account-types id)))
+
+(defn- append-types
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             (fn [items]
+               (->> items
+                    (map (fn [item]
+                           (-> item
+                               (update-in [:transaction-item/debit-account]
+                                          append-type)
+                               (update-in [:transaction-item/credit-account]
+                                          append-type))))))))
+
+(deftest produce-account-items-for-a-transaction
+  (testing "A simple transaction"
+    (is (= [{:account-item/account {:id "groceries"
+                                    :account/type :expense}
+             :account-item/quantity (d 100)}
+            {:account-item/account {:id "checking"
+                                    :account/type :asset}
+             :account-item/quantity (d -100)}]
+           (-> simple-bilateral-trx
+               append-types
+               trx/make-account-items))))
+  (testing "A complex transaction"
+    (is (= [{:account-item/account {:id "groceries"
+                                    :account/type :expense}
+             :account-item/quantity (d 100)}
+            {:account-item/account {:id "checking"
+                                    :account/type :asset}
+             :account-item/quantity (d -100)}
+            {:account-item/account {:id "supplements"
+                                    :account/type :expense}
+             :account-item/quantity (d 20)}
+            {:account-item/account {:id "checking"
+                                    :account/type :asset}
+             :account-item/quantity (d -20)}]
+           (-> complex-bilateral-trx
+               append-types
+               trx/make-account-items)))))
