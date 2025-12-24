@@ -52,7 +52,7 @@
     :commodity/exchange :nasdaq
     :commodity/type :stock}])
 
-(deftest fetch-prices-from-alpha-vantage
+(deftest ^:eftest/synchronized fetch-prices-from-alpha-vantage
   (let [calls (atom {:alpha []
                      :yahoo []})]
     (with-redefs [alpha/get-quote (fn [symbol]
@@ -91,7 +91,7 @@
                   :exchange :nasdaq
                   :value 10M}])
 
-(deftest get-quotes-cached-locally
+(deftest ^:eftest/synchronized get-quotes-cached-locally
   (with-context cache-ctx
     (let [calls (atom {:alpha []
                        :yahoo []})]
