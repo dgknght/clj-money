@@ -322,11 +322,11 @@
               set))
       "The prices are written to the database"))
 
-(deftest a-user-can-fetch-current-commodity-prices
+(deftest ^:eftest/synchronized a-user-can-fetch-current-commodity-prices
   (with-context fetch-context
     (assert-successful-fetch (fetch-some-prices "john@doe.com"))))
 
-(deftest a-user-can-fetch-current-commodity-prices-with-json
+(deftest ^:eftest/synchronized a-user-can-fetch-current-commodity-prices-with-json
   (with-context fetch-context
     (let [[aapl msft] (map (comp util/->entity-ref
                                  find-commodity)
@@ -343,11 +343,11 @@
                                :commodity msft
                                :_type "price"}])))))
 
-(deftest an-unauthenticated-user-cannot-fetch-commodity-prices
+(deftest ^:eftest/synchronized an-unauthenticated-user-cannot-fetch-commodity-prices
   (with-context fetch-context
     (is (http-unauthorized? (fetch-some-prices nil)))))
 
-(deftest prices-are-only-fetched-once-per-day
+(deftest ^:eftest/synchronized prices-are-only-fetched-once-per-day
   (with-context fetch-context
     (let [user (find-user "john@doe.com")
           appl (find-commodity "AAPL")

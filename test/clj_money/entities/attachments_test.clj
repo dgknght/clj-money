@@ -48,7 +48,7 @@
   (with-context attach-context
     (assert-created (attributes))))
 
-(dbtest propagate-attachment-creation
+(dbtest ^:multi-threaded propagate-attachment-creation
   (with-context attach-context
     (put-and-propagate (attributes))
     (is (comparable? {:transaction/attachment-count 1}
@@ -83,7 +83,7 @@
   (with-context update-context
     (assert-deleted (find-attachment "receipt"))))
 
-(dbtest propagate-attachment-deletion
+(dbtest ^:multi-threaded propagate-attachment-deletion
   (with-context update-context
     (let [att (find-attachment "receipt")
           trx (entities/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)

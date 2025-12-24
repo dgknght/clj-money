@@ -184,12 +184,17 @@
             "fig:prod"              ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "prod"]
             "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
-            "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
+            "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]
+            "ptest"                 ["with-profile" "+test" "run" "-m" "clj-money.runner/eftest"]}
 
   :jvm-opts ["-Duser.timezone=UTC"
              "-Xmx2g"
              "-Xms512m"
              "-server"]
+  :test-selectors {:datomic-peer (fn [m & _]
+                                   (= :datomic-peer (:strategy m)))
+                   :sql (fn [m & _]
+                          (= :sql (:strategy m)))}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93
@@ -199,7 +204,10 @@
                                  #"clj-money.json"
                                  #"clj-money.repl"
                                  #"clj-money.tasks"]}
-  :profiles {:test {:dependencies [[peridot "0.5.2"]]
+  :eftest {:multithread? :namespaces
+           :capture-output? false}
+  :profiles {:test {:dependencies [[peridot "0.5.2"]
+                                  [eftest "0.6.0"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
              :dev {:dependencies [[com.bhauman/figwheel-main
                                    "0.2.17"
