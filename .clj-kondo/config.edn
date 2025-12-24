@@ -68,6 +68,7 @@
                                                       clj-money.util/simplify
                                                       clj-money.accounts/format-quantity
                                                       clj-money.repl
+                                                      clj-money.runner/eftest
                                                       clj-money.tasks/compile-sass
                                                       clj-money.tasks/export-user-tags
                                                       clj-money.tasks/import-user-tags

@@ -139,7 +139,9 @@
     :dry-run   - do not execute the commands that are generated
     :rules     - a map of table names to interval type and count"
     ([start-date end-date options]
-     (let [ds (jdbc/get-datasource (sql-config))]
+     (create-partition-tables (sql-config) start-date end-date options))
+    ([config start-date end-date options]
+     (let [ds (jdbc/get-datasource config)]
        (doseq [cmd (create-table-cmds start-date end-date options)]
          (when-not (:silent options)
            (println cmd))
