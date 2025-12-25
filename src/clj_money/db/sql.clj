@@ -229,6 +229,9 @@
            (map (comp build-attributes
                       (juxt :id :fields :refs)))
            (into {}))
+      (update-in [:account-item]
+                 conj
+                 :account-item/transaction-date)
       (update-in [:transaction-item]
                  conj
                  :transaction-item/transaction-date
