@@ -362,10 +362,12 @@ PARTITION BY RANGE (transaction_date);
 ALTER TABLE public.transaction_item OWNER TO ddl_user;
 CREATE TABLE public.account_item (
     transaction_date date NOT NULL,
+    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     transaction_item_id uuid NOT NULL,
     account_id integer NOT NULL,
     index bigint NOT NULL,
     balance numeric(19,6) NOT NULL,
+    quantity numeric(19,6) NOT NULL,
     reconciliation_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
@@ -445,6 +447,8 @@ ALTER TABLE ONLY public.scheduled_transaction
     ADD CONSTRAINT scheduled_transactions_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.transaction_item
     ADD CONSTRAINT transaction_item_pkey PRIMARY KEY (transaction_date, id);
+ALTER TABLE ONLY public.account_item
+    ADD CONSTRAINT account_item_pkey PRIMARY KEY (transaction_date, id);
 ALTER TABLE ONLY public.transaction
     ADD CONSTRAINT transactions_pkey PRIMARY KEY (transaction_date, id);
 ALTER TABLE ONLY public."user"
@@ -531,6 +535,8 @@ ALTER TABLE public.transaction_item
     ADD CONSTRAINT transaction_item_credit_account_id_fkey FOREIGN KEY (credit_account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE public.account_item
     ADD CONSTRAINT account_item_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE public.account_item
+    ADD CONSTRAINT account_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE CASCADE;
 ALTER TABLE public.account_item
     ADD CONSTRAINT account_item_transaction_item_id_fkey FOREIGN KEY (transaction_date, transaction_item_id) REFERENCES public.transaction_item(transaction_date, id) ON DELETE CASCADE;
 ALTER TABLE public.transaction

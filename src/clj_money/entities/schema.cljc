@@ -175,6 +175,17 @@
             {:id :transaction
              :columns #{:transaction-date
                         [:id :transaction-id]}}}}
+   {:id :account-item
+    :primary-key [:transaction-date :id]
+    :fields #{{:id :quantity
+               :type :decimal}
+              {:id :index
+               :type :integer}}
+    :refs #{:account
+            :reconciliation
+            {:id :transaction-item
+             :columns #{:transaction-date
+                        [:id :transaction-item-id]}}}}
    {:id :lot
     :fields #{{:id :shares-purchased
                :type :decimal}
