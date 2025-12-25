@@ -425,10 +425,12 @@
    :transaction/description "Kroger"
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
-   :transaction/items [{:transaction-item/value (d 100)
+   :transaction/items [{:id 1
+                        :transaction-item/value (d 100)
                         :transaction-item/debit-account {:id "groceries"}
                         :transaction-item/credit-account {:id "checking"}}
-                       {:transaction-item/value (d 20)
+                       {:id 2
+                        :transaction-item/value (d 20)
                         :transaction-item/debit-account {:id "supplements"}
                         :transaction-item/credit-account {:id "checking"}}]})
 
@@ -438,15 +440,18 @@
    :transaction/description "Kroger"
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
-   :transaction/items [{:transaction-item/quantity (d 120)
+   :transaction/items [{:ids #{1 2}
+                        :transaction-item/quantity (d 120)
                         :transaction-item/value (d 120)
                         :transaction-item/account {:id "checking"}
                         :transaction-item/action :credit}
-                       {:transaction-item/quantity (d 100)
+                       {:ids #{1}
+                        :transaction-item/quantity (d 100)
                         :transaction-item/value (d 100)
                         :transaction-item/account {:id "groceries"}
                         :transaction-item/action :debit}
-                       {:transaction-item/quantity (d 20)
+                       {:ids #{2}
+                        :transaction-item/quantity (d 20)
                         :transaction-item/value (d 20)
                         :transaction-item/account {:id "supplements"}
                         :transaction-item/action :debit}]})
@@ -663,17 +668,14 @@
   (assoc account :account/type (account-types id)))
 
 (defn- append-types
-  [trx]
-  (update-in trx
-             [:transaction/items]
-             (fn [items]
-               (->> items
-                    (map (fn [item]
-                           (-> item
-                               (update-in [:transaction-item/debit-account]
-                                          append-type)
-                               (update-in [:transaction-item/credit-account]
-                                          append-type))))))))
+  [items]
+  (->> items
+       (map (fn [item]
+              (-> item
+                  (update-in [:transaction-item/debit-account]
+                             append-type)
+                  (update-in [:transaction-item/credit-account]
+                             append-type))))))
 
 (deftest produce-account-items-for-a-transaction
   (testing "A simple transaction"
@@ -683,9 +685,9 @@
             {:account-item/account {:id "checking"
                                     :account/type :asset}
              :account-item/quantity (d -100)}]
-           (-> simple-bilateral-trx
-               append-types
-               trx/make-account-items))))
+           (->> (:transaction/items simple-bilateral-trx)
+                append-types
+                trx/make-account-items))))
   (testing "A complex transaction"
     (is (= [{:account-item/account {:id "groceries"
                                     :account/type :expense}
@@ -699,6 +701,6 @@
             {:account-item/account {:id "checking"
                                     :account/type :asset}
              :account-item/quantity (d -20)}]
-           (-> complex-bilateral-trx
-               append-types
-               trx/make-account-items)))))
+           (->> (:transaction/items complex-bilateral-trx)
+                append-types
+                trx/make-account-items)))))

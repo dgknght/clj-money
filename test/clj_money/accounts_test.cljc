@@ -13,7 +13,7 @@
   (is (= {:transaction/transaction-date [:between
                                               (t/local-date 2020 1 1)
                                               (t/local-date 2020 12 31)]
-          :transaction-item/account {:id 101}}
+          :account-item/account {:id 101}}
          (accounts/->criteria
            {:id 101
             :account/transaction-date-range [(t/local-date 2020 1 1)
@@ -23,7 +23,7 @@
   (is (= {:transaction/transaction-date [:between
                                               (t/local-date 2020 1 1)
                                               (t/local-date 2020 2 29)]
-          :transaction-item/account {:id [:in #{101 102}]}}
+          :account-item/account {:id [:in #{101 102}]}}
          (accounts/->>criteria
            [{:id 101
              :account/transaction-date-range [(t/local-date 2020 2 1)
@@ -35,58 +35,68 @@
 (deftest derive-an-item
   (testing "from a positive quantity"
     (let [quantity (d 10)]
-      (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
+      (is (= #:transaction-item{:quantity (d 10)
+                                :action :debit
+                                :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :asset}}))
-          "The action is :debit")
-      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
+          "The action is :debit for an asset account")
+      (is (= #:transaction-item{:quantity (d 10)
+                                :action :credit
+                                :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :liability}}))
-          "The action is :credit")
-      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
+          "The action is :credit for a liability account")
+      (is (= #:transaction-item{:quantity (d 10)
+                                :action :credit
+                                :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :equity}}))
-          "The action is :credit")
-      (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
+          "The action is :credit for an equity account")
+      (is (= #:transaction-item{:quantity (d 10)
+                                :action :credit
+                                :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :income}}))
-          "The action is :credit")
-      (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
+          "The action is :credit for an income account")
+      (is (= #:transaction-item{:quantity (d 10)
+                                :action :debit
+                                :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :expense}}))
-          "The action is :debit")))
+          "The action is :debit for an expense account")))
   (testing "from a negative quantity"
     (let [quantity (d -10)]
       (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :asset}}))
-          "The action is :credit")
+          "The action is :credit for an asset account")
       (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :liability}}))
-          "The action is :debit")
+          "The action is :debit for a liability account")
       (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :equity}}))
-          "The action is :debit")
+          "The action is :debit for an equity account")
       (is (= #:transaction-item{:quantity (d 10) :action :debit :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :income}}))
-          "The action is :debit")
+          "The action is :debit for an income account")
       (is (= #:transaction-item{:quantity (d 10) :action :credit :account {:id 1}}
              (accounts/->transaction-item
                {:quantity quantity
                 :account {:id 1 :account/type :expense}}))
-          "The action is :credit")))
+          "The action is :credit for an expense account")))
   (testing "with only a quantity (no account)"
     (is (= {:transaction-item/quantity (d 10)
             :transaction-item/action :credit}

@@ -140,8 +140,11 @@
       :credit)))
 
 (defn ->transaction-item
-  "Given a quantity and an account, returns a transaction item
-  with appropriate attributes"
+  "Given a quantity and an account, returns a unilateral transaction item
+  with appropriate attributes.
+
+  This is used in the UI, where various parts of the information may
+  not yet have been entered by the user."
   [{:keys [quantity account]}]
   (cond-> {:transaction-item/action :credit}
     quantity      (assoc :transaction-item/quantity (d/abs quantity))
@@ -157,9 +160,9 @@
             earliest-date
             latest-date
             entity-type]
-     :or {account-attribute :transaction-item/account
+     :or {account-attribute :account-item/account
           date-attribute :transaction/transaction-date
-          entity-type :transaction-item}}
+          entity-type :account-item}}
     accounts]
    (let [range (->> accounts
                     (map :account/transaction-date-range)

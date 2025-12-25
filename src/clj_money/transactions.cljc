@@ -1,9 +1,13 @@
 (ns clj-money.transactions
-  (:require [clojure.set :refer [rename-keys]]
+  (:require [clojure.set :refer [rename-keys
+                                 intersection
+                                 union
+                                 difference]]
             [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [->entity-ref entity=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
@@ -194,15 +198,20 @@
         (dissoc :transaction/items))))
 
 (defn unaccountify
-  "Accepts a simplified transaction (with one quantity, one debit
-  account, and one credit account) and returns a standard
-  transaction (with line items)"
-  [{:transaction/keys [quantity account other-account item other-item] :as trx} find-account]
+  "Accepts an accountified transaction (with one quantity, one account, and one
+   'other' account) and returns a unilateral transaction"
+  [{:transaction/keys [quantity
+                       account
+                       other-account
+                       item
+                       other-item]
+    :as trx}
+   find-account]
   {:pre [(:transaction/account trx)]}
   (let [item-1 (merge item
                       (->transaction-item
-                       {:quantity quantity
-                        :account (find-account account)}))
+                        {:quantity quantity
+                         :account (find-account account)}))
         item-2 (when other-account
                  #:transaction-item{:quantity (d/abs quantity)
                                     :action (if (= :credit (:transaction-item/action item-1))
@@ -422,16 +431,26 @@
   [d c]
   (let [debit-qty (:transaction-item/quantity d)
         credit-qty (:transaction-item/quantity c)
-        item-value (or (:transaction-item/value d) debit-qty)]
+        item-value (or (:transaction-item/value d) debit-qty)
+        ids (intersection (:ids d) (:ids c))]
+    (when (< 1 (count ids))
+      (throw (ex-info "Unmatched item ids" {:debit d
+                                            :credit c})))
     (cond->
       (-> d
-          (dissoc :transaction-item/action :transaction-item/quantity :transaction-item/value)
+          (dissoc :ids
+                  :transaction-item/action
+                  :transaction-item/quantity
+                  :transaction-item/value)
           (rename-keys {:transaction-item/account
                         :transaction-item/debit-account
                         :transaction-item/memo
                         :transaction-item/debit-memo})
           (assoc :transaction-item/credit-account (:transaction-item/account c)
                  :transaction-item/value item-value))
+      (seq ids)
+      (assoc :id (first ids))
+
       (not= debit-qty item-value)
       (assoc :transaction-item/debit-quantity debit-qty)
 
@@ -452,10 +471,12 @@
   (let [d-val (val-or-qty d)
         c-val (val-or-qty c)
         d-qty (:transaction-item/quantity d)
-        sliced-c (assoc c
-                        :transaction-item/quantity d-qty
-                        :transaction-item/value d-val)
+        sliced-c (-> c
+                     (update-in [:ids] intersection (:ids d))
+                     (assoc :transaction-item/quantity d-qty
+                            :transaction-item/value d-val))
         remaining-c (-> c
+                        (update-in [:ids] difference (:ids d))
                         (update-in [:transaction-item/quantity] - d-qty)
                         (update-in [:transaction-item/value] (fnil - c-val) d-val))]
     [(d+c d sliced-c)
@@ -469,10 +490,12 @@
   (let [d-val (val-or-qty d)
         c-val (val-or-qty c)
         c-qty (:transaction-item/quantity c)
-        sliced-d (assoc d
-                        :transaction-item/quantity c-qty
-                        :transaction-item/value c-val)
+        sliced-d (-> d
+                     (update-in [:ids] intersection (:ids c))
+                     (assoc :transaction-item/quantity c-qty
+                            :transaction-item/value c-val))
         remaining-d (-> d
+                        (update-in-if [:ids] difference (:ids c))
                         (update-in [:transaction-item/quantity] - c-qty)
                         (update-in [:transaction-item/value] (fnil - d-val) c-val))]
     [(d+c sliced-d c)
@@ -546,23 +569,27 @@
           (recur o d c))))))
 
 (defn- split-item
+  "Takes a bilateral item and returns two unilateral items"
   [{:transaction-item/keys [debit-account
                             credit-account
                             value
                             debit-quantity
                             credit-quantity
                             debit-memo
-                            credit-memo]}]
+                            credit-memo]
+    :keys [id]}]
   [(cond-> {:transaction-item/quantity (or debit-quantity value)
             :transaction-item/value value
             :transaction-item/action :debit
             :transaction-item/account debit-account}
-     debit-memo (assoc :transaction-item/memo debit-memo))
+     debit-memo (assoc :transaction-item/memo debit-memo)
+     id (assoc :ids #{id}))
    (cond-> {:transaction-item/quantity (or credit-quantity value)
             :transaction-item/value value
             :transaction-item/action :credit
             :transaction-item/account credit-account}
-     credit-memo (assoc :transaction-item/memo credit-memo))])
+     credit-memo (assoc :transaction-item/memo credit-memo)
+     id (assoc :ids #{id}))])
 
 (defn- consolidate-items
   [items]
@@ -572,6 +599,7 @@
                        :transaction-item/memo))
        (map (fn [[_ [i & is]]]
               (-> i
+                  (update-in-if [:ids] #(apply union % (map :ids is)))
                   (update-in [:transaction-item/quantity]
                              +
                              (->> is
@@ -633,29 +661,35 @@
                    (bilateral->simple input))
       nil)))
 
-(defn- ->account-items
+(defn ->account-items
   "Takes a single bilateral account item and produces
   the corresponding account items"
   [{:transaction-item/keys [debit-account
                             debit-quantity
                             credit-account
                             credit-quantity
-                            value]}]
-  [#:account-item{:account debit-account
-                  :quantity (polarize-quantity
-                              {:quantity (or debit-quantity value)
-                               :account debit-account
-                               :action :debit})}
-   #:account-item{:account credit-account
-                  :quantity (polarize-quantity
-                              {:quantity (or credit-quantity value)
-                               :account credit-account
-                               :action :credit})}])
+                            value]
+    :transaction/keys [transaction-date]
+    :keys [id]}]
+  [{:account-item/transaction-item {:id id}
+    :account-item/account debit-account
+    :account-item/quantity (polarize-quantity
+                             {:quantity (or debit-quantity value)
+                              :account debit-account
+                              :action :debit})
+    :transaction/transaction-date transaction-date}
+   {:account-item/transaction-item {:id id}
+    :account-item/account credit-account
+    :account-item/quantity (polarize-quantity
+                             {:quantity (or credit-quantity value)
+                              :account credit-account
+                              :action :credit})
+    :transaction/transaction-date transaction-date}])
 
 (defn make-account-items
-  "Products the account items that correlate to the given transaction. Note
-  that the accounts will need to have at least the :account/type attribute
-  populated"
-  [{:transaction/keys [items] :as trx}]
+  "Produces the account items that correlate to the given bilateral transaction
+  items. Note that the accounts will need to have at least the :account/type
+  attribute populated"
+  [items]
   {:pre [(s/valid? (s/coll-of ::bilateral-item) items)]}
   (mapcat ->account-items items))

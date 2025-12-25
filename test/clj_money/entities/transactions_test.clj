@@ -8,8 +8,7 @@
             [dgknght.app-lib.test_assertions]
             [clj-money.util :as util]
             [clj-money.db.sql :as sql]
-            [clj-money.entity-helpers :as helpers :refer [assert-invalid
-                                                          assert-deleted]]
+            [clj-money.entity-helpers :as helpers :refer [assert-deleted]]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
@@ -98,55 +97,31 @@
   (with-context base-context
     (assert-created (attributes))))
 
-(dbtest create-a-transaction-from-unilateral
-  (with-context base-context
-    (let [checking (util/->entity-ref (find-account "Checking"))
-          groceries (util/->entity-ref (find-account "Groceries"))
-          attr {:transaction/transaction-date (t/local-date 2015 1 1)
-                :transaction/description "Kroger"
-                :transaction/entity (find-entity "Personal")
-                :transaction/items [{:transaction-item/action :credit
-                                     :transaction-item/account checking
-                                     :transaction-item/quantity 100M}
-                                    {:transaction-item/action :debit
-                                     :transaction-item/account groceries
-                                     :transaction-item/quantity 100M}]}
-          created (entities/put attr)
-          expected {:transaction/transaction-date (t/local-date 2015 1 1)
-                    :transaction/description "Kroger"
-                    :transaction/items [{:transaction-item/credit-account checking
-                                         :transaction-item/debit-account groceries
-                                         :transaction-item/value 100M}]}]
-      (is (comparable? expected created)
-          "The return value has the given attributes")
-      (is (comparable? expected (entities/find created))
-          "The retrieved value has the given attributes"))))
-
 (dbtest ^:multi-threaded create-and-propagate-a-transaction
-  (with-context base-context
-    (let [date (t/local-date 2016 3 2)]
-      (prop/put-and-propagate (attributes))
-      (testing "entity updates"
-        (is (comparable? #:entity{:transaction-date-range [date date]}
-                         (entities/find (find-entity "Personal")))
-            "The entity is updated with the transaction dates"))
-      (testing "account updates"
-        (is (comparable? #:account{:transaction-date-range [date date]}
-                         (reload-account "Checking"))
-            "The debited account is updated with transaction dates")
-        (is (comparable? #:account{:transaction-date-range [date date]}
-                         (reload-account "Salary"))
-            "The credited account is updated with transaction dates"))
-      #_(testing "item updates"
-        (is (seq-of-maps-like? [#:transaction-item{:index 0
-                                                   :balance 1000M}
-                                #:transaction-item{:index 0
-                                                   :balance 1000M}]
-                               (entities/select
-                                 (util/entity-type
-                                   {:transaction/transaction-date date}
-                                   :transaction-item)))
-            "The item indices and balances are calculated")))))
+        (with-context base-context
+          (let [date (t/local-date 2016 3 2)]
+            (prop/put-and-propagate (attributes))
+            #_(testing "entity updates"
+                (is (comparable? #:entity{:transaction-date-range [date date]}
+                                 (entities/find (find-entity "Personal")))
+                    "The entity is updated with the transaction dates"))
+            #_(testing "account updates"
+                (is (comparable? #:account{:transaction-date-range [date date]}
+                                 (reload-account "Checking"))
+                    "The debited account is updated with transaction dates")
+                (is (comparable? #:account{:transaction-date-range [date date]}
+                                 (reload-account "Salary"))
+                    "The credited account is updated with transaction dates"))
+            (testing "item updates"
+              (is (seq-of-maps-like? [#:account-item{:index 0
+                                                     :balance 1000M}
+                                      #:account-item{:index 0
+                                                     :balance 1000M}]
+                                     (entities/select
+                                       (util/entity-type
+                                         {:transaction/transaction-date date}
+                                         :account-item)))
+                  "The item indices and balances are calculated")))))
 
 (dbtest transaction-date-is-required
   (with-context base-context

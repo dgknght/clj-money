@@ -378,6 +378,9 @@
 (def simple-keys
   [:user/email
    :account/name
+   :account-item/index
+   :account-item/quantity
+   :account-item/balance
    :entity/name
    :commodity/symbol
    :transaction/transaction-date

@@ -44,7 +44,8 @@
 (defn- qty-comparable
   [item]
   (select-keys item [:id
-                     :transaction-item/quantity
+                     :transaction-item/credit-quantity
+                     :transaction-item/debit-quantity
                      :transaction-item/value]))
 
 (defn- no-reconciled-quantities-changed*
@@ -55,7 +56,7 @@
                      (into {}))]
       (->> (entities/select (util/entity-type
                               {:transaction-item/transaction trx
-                               :account-item/reconciliation :db/not-nil}
+                               :account-item/reconciliation [:!= nil]}
                               :transaction-item))
            (map qty-comparable)
            (remove #(= % (after (:id %))))
@@ -112,11 +113,7 @@
       trxs/expand
       (update-in-if [:transaction/items]
                     (fn [items]
-                      (mapv (fn [{:as item :transaction-item/keys [quantity]}]
-                              (-> item
-                                  (update-in [:transaction-item/value]
-                                             (fnil identity quantity)) ; TODO need to calculate the correct value
-                                  (remove-empty-strings :transaction-item/memo)))
+                      (mapv #(remove-empty-strings % :transaction-item/memo)
                             items)))))
 
 (defmethod entities/before-save :transaction
@@ -135,9 +132,9 @@
   "Returns the transaction items for the specified account"
   [account & {:as options}]
   (entities/select (acts/->criteria account options)
-                 {:sort [[:transaction/transaction-date :desc]
-                         [:transaction-item/index :desc]]
-                  :select-also [:transaction/transaction-date]}))
+                   {:sort [[:transaction/transaction-date :desc]
+                           [:account-item/index :desc]]
+                    :select-also [:transaction/transaction-date]}))
 
 (defn- last-account-item-before
   [account date]
@@ -178,16 +175,15 @@
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,
   update the index and balance attributes of the item."
-  [{:as item ::keys [polarized-quantity]}
-   {prev-index :transaction-item/index
-    prev-balance :transaction-item/balance
+  [{:as item :account-item/keys [quantity]}
+   {prev-index :account-item/index
+    prev-balance :account-item/balance
     :as prev-item}]
-  {:pre [(::polarized-quantity item)
-         (:transaction-item/balance prev-item)
-         (:transaction-item/index prev-item)]}
+  {:pre [(:account-item/balance prev-item)
+         (:account-item/index prev-item)]}
   (assoc item
-         :transaction-item/index (inc prev-index)
-         :transaction-item/balance (+ polarized-quantity prev-balance)))
+         :account-item/index (inc prev-index)
+         :account-item/balance (+ quantity prev-balance)))
 
 (def ^:private initial-basis
   #:account-item{:index -1
@@ -201,14 +197,6 @@
   (or (when (util/live-id? account)
         (last-account-item-before account date))
       initial-basis))
-
-(defn- polarize
-  [{:transaction-item/keys [account quantity action] :as item}]
-  (assoc item
-         ::polarized-quantity
-         (acts/polarize-quantity quantity
-                                 action
-                                 account)))
 
 (defn- default-commodity?
   [{:account/keys [commodity] {{:settings/keys [default-commodity]} :entity/settings} :account/entity}]
@@ -251,8 +239,7 @@
                                             (reduced output)
                                             (conj output updated))))
                                       [basis])
-                              (drop 1)
-                              (map #(dissoc % ::polarized-quantity)))
+                              (drop 1))
            final-qty (or (:account-item/balance (last updated-items))
                          (:account-item/balance basis))
            price (or (when (default-commodity? account) 1M)
@@ -305,10 +292,9 @@
                     :account/transaction-date-range
                     as-of))
                 (propagation-basis account as-of)
-                (->> (cond->> affected-items
-                       (not delete?) (concat items))
-                     (sort-by :transaction/transaction-date t/before?)
-                     (map polarize))))))
+                (sort-by :transaction/transaction-date t/before?
+                         (cond->> affected-items
+                           (not delete?) (concat items)))))))
 
 (def ^:private accounts
   (juxt :transaction-item/credit-account
@@ -332,20 +318,20 @@
 ; It's also possble the account has changed since the specified account
 ; was read from the database.
 (defn- realize-accounts
-  "Given a list of items, lookup the associated account and assoc
-  it into the item, if the item has only a entity reference."
+  "Given a list of bilateral items, lookup the associated account and assoc
+  it into the item, if the item has only an entity reference."
   [entity items]
   (if-let [account-ids (account-entity-ref-ids items)]
     (let [accounts (->> (entities/find-many account-ids)
                         (map #(assoc % :account/entity entity))
                         (index-by :id))]
-      (->> items
-           (map #(update-in %
-                            [:transaction-item/debit-account]
-                            (fn [a] (accounts (:id a) a))))
-           (map #(update-in %
-                            [:transaction-item/credit-account]
-                            (fn [a] (accounts (:id a) a))))))
+      (map (comp #(update-in %
+                             [:transaction-item/debit-account]
+                             (fn [a] (accounts (:id a) a)))
+                 #(update-in %
+                             [:transaction-item/credit-account]
+                             (fn [a] (accounts (:id a) a))))
+           items))
     items))
 
 (def ^:private transaction-item?
@@ -363,11 +349,11 @@
   [[before {:transaction/keys [transaction-date] :as after}]]
   (let [entity (entities/find (:transaction/entity after))]
     (->> (:transaction/items after)
+         (realize-accounts entity)
          (trxs/make-account-items)
          (map #(assoc % :transaction/transaction-date transaction-date))
-         (realize-accounts entity)
          (group-by (comp :id
-                         :transaction-item/account))
+                         :account-item/account))
          (mapcat (propagate-account-items
                    :as-of (dates/earliest
                             transaction-date
@@ -469,13 +455,11 @@
 
 (defn- fetch-account-items
   [account]
-  (->> (entities/select {:transaction-item/account account}
-                      {:sort [:transaction/transaction-date
-                              :transaction-item/index]
-                       :select-also [:transaction/transaction-date]})
-       (map (comp polarize
-                  #(assoc % :transaction-item/account account)))
-       seq))
+  (map #(assoc % :account-item/account account)
+       (entities/select {:account-item/account account}
+                        {:sort [:transaction/transaction-date
+                                :account-item/index]
+                         :select-also [:transaction/transaction-date]})))
 
 (defn- process-account-items
   [account entity items]
@@ -484,9 +468,7 @@
          (re-index (assoc account :account/entity entity)
                    initial-basis
                    {:force? true})
-         (map (comp #(dissoc %
-                             ::polarized-quantity
-                             :transaction/transaction-date)
+         (map (comp #(dissoc % :transaction/transaction-date)
                     #(update-in-if %
                                    [:transaction-item/account]
                                    util/->entity-ref))))
@@ -588,10 +570,9 @@
                                :date date
                                :basis (or (last-account-item-before account date)
                                           initial-basis)
-                               :items (map (comp polarize
-                                                 #(assoc % :transaction-item/account account))
-                                           (entities/select {:transaction-item/account account}
-                                                          {:select-also [:transaction/transaction-date]}))})
+                               :items (map #(assoc % :account-item/account account)
+                                           (entities/select {:account-item/account account}
+                                                            {:select-also [:transaction/transaction-date]}))})
                             #(assoc-in % [0 :account/entity] entity)
                             #(update-in % [0 :account/commodity] entities/resolve-ref)
                             #(update-in % [0] entities/find)))
@@ -603,7 +584,7 @@
         (filter identity)
         (filter (util/entity-type? :transaction))
         (mapcat (fn [{:transaction/keys [entity transaction-date items]}]
-                  (map (fn [{:transaction-item/keys [account]}]
+                  (map (fn [{:account-item/keys [account]}]
                          [entity account transaction-date])
                        items)))))
 
