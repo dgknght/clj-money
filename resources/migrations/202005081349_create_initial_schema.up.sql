@@ -536,8 +536,6 @@ ALTER TABLE public.transaction_item
 ALTER TABLE public.account_item
     ADD CONSTRAINT account_item_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE public.account_item
-    ADD CONSTRAINT account_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE CASCADE;
-ALTER TABLE public.account_item
     ADD CONSTRAINT account_item_transaction_item_id_fkey FOREIGN KEY (transaction_date, transaction_item_id) REFERENCES public.transaction_item(transaction_date, id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
     ADD CONSTRAINT transactions_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
