@@ -9,7 +9,6 @@
             [clj-money.entities :as entities]
             [clj-money.images :as images]
             [clj-money.entities.propagation :as prop]
-            [clj-money.transactions :refer [expand]]
             [clj-money.trading :as trading]))
 
 (def ^:dynamic *context* nil)
@@ -140,6 +139,7 @@
      (find-account *context* arg)
      (partial find-account arg)))
   ([context account-name]
+   {:pre [(coll? context) (string? account-name)]}
    (find context :account/name account-name)))
 
 (defn find-accounts
@@ -203,15 +203,16 @@
 (defn find-transaction-item
   ([identifier]
    (find-transaction-item *context* identifier))
-  ([context [transaction-date quantity account]]
+  ([context [transaction-date value account]]
    (let [act (if (map? account)
                account
                (find-account context account))]
      (->> context
           (filter #(= transaction-date (:transaction/transaction-date %)))
           (mapcat :transaction/items)
-          (filter #(and (entity= act (:transaction-item/account %))
-                        (= quantity (:transaction-item/quantity %))))
+          (filter #(and (or (entity= act (:transaction-item/debit-account %))
+                            (entity= act (:transaction-item/credit-account %)))
+                        (= value (:transaction-item/value %))))
           (map #(assoc % :transaction/transaction-date transaction-date))
           first))))
 
@@ -287,10 +288,20 @@
   (fn [items]
     (mapv #(prepare % ctx) items)))
 
+(defn- ->bilateral
+  [{:as trx :transaction/keys [quantity debit-account credit-account]}]
+  (-> trx
+      (assoc :transaction/items [{:transaction-item/value quantity
+                                  :transaction-item/debit-account debit-account
+                                  :transaction-item/credit-account credit-account}])
+      (dissoc :transaction/debit-account
+              :transaction/credit-account
+              :transaction/quantity)))
+
 (defmethod prepare :transaction
   [trx ctx]
   (-> trx
-      expand
+      ->bilateral
       (update-in [:transaction/items] (prepare-coll ctx))
       (update-in [:transaction/entity] (find-entity ctx))))
 
@@ -302,12 +313,16 @@
 
 (defmethod prepare :transaction-item
   [item ctx]
-  {:pre [(:transaction-item/account item)]}
-
-  (update-in item
-             [:transaction-item/account]
-             (comp util/->entity-ref
-                   #(find-account ctx %))))
+  {:pre [(:transaction-item/debit-account item)
+         (:transaction-item/credit-account item)]}
+  (reduce (fn [i k]
+            (update-in i
+                       [k]
+                       (comp util/->entity-ref
+                             (find-account ctx))))
+          item
+          [:transaction-item/debit-account
+           :transaction-item/credit-account]))
 
 (defmethod prepare :scheduled-transaction-item
   [item ctx]
