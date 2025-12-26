@@ -17,7 +17,7 @@
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.authorization.transactions]
-            [clj-money.transactions :refer [expand]]))
+            [clj-money.transactions :as trxs]))
 
 (defn- unserialize-date
   [x]
@@ -98,7 +98,7 @@
   [{:keys [params]}]
   (-> params
       (dissoc :id)
-      expand
+      trxs/->bilateral
       (select-keys attribute-keys)
       (update-in-if [:transaction/transaction-date] ensure-local-date)
       (update-in-if [:transaction/items] (partial map refine-item))))
