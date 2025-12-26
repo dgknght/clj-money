@@ -339,27 +339,6 @@
                                  :period [1 :month]}
                                 items)))))
 
-(deftest expand-a-transaction
-  (let [expected #:transaction{:transaction-date "2020-01-01"
-                               :description "ACME Store"
-                               :memo "transaction memo"
-                               :items [#:transaction-item{:account {:id :groceries}
-                                                          :action :debit
-                                                          :quantity (d 10)}
-                                       #:transaction-item{:account {:id :checking}
-                                                          :action :credit
-                                                          :quantity (d 10)}]}
-        simple #:transaction{:transaction-date "2020-01-01"
-                             :description "ACME Store"
-                             :memo "transaction memo"
-                             :debit-account {:id :groceries}
-                             :credit-account {:id :checking}
-                             :quantity (d 10)}]
-    (is (= expected (trx/expand simple))
-        "A simple transaction is expanded")
-    (is (= expected (trx/expand expected))
-        "An expanded transaction is returned as-is")))
-
 (deftest calc-the-value-of-a-transaction
   (is (= (d 100)
          (trx/value
@@ -667,40 +646,57 @@
   [{:as account :keys [id]}]
   (assoc account :account/type (account-types id)))
 
-(defn- append-types
+(defn- append-account-types
+  [items]
+  (map (fn [item]
+         (-> item
+             (update-in [:transaction-item/debit-account]
+                        append-type)
+             (update-in [:transaction-item/credit-account]
+                        append-type)))
+       items))
+
+(defn- append-item-ids
   [items]
   (->> items
-       (map (fn [item]
-              (-> item
-                  (update-in [:transaction-item/debit-account]
-                             append-type)
-                  (update-in [:transaction-item/credit-account]
-                             append-type))))))
+       (interleave (range))
+       (partition 2)
+       (map (fn [[idx item]]
+              (assoc item :id (inc idx))))))
 
 (deftest produce-account-items-for-a-transaction
   (testing "A simple transaction"
     (is (= [{:account-item/account {:id "groceries"
                                     :account/type :expense}
+             :account-item/transaction-item {:id 1}
              :account-item/quantity (d 100)}
             {:account-item/account {:id "checking"
                                     :account/type :asset}
+             :account-item/transaction-item {:id 1}
              :account-item/quantity (d -100)}]
            (->> (:transaction/items simple-bilateral-trx)
-                append-types
-                trx/make-account-items))))
+                append-account-types
+                append-item-ids
+                trx/make-account-items
+                (map util/remove-nils)))))
   (testing "A complex transaction"
     (is (= [{:account-item/account {:id "groceries"
                                     :account/type :expense}
+             :account-item/transaction-item {:id 1}
              :account-item/quantity (d 100)}
             {:account-item/account {:id "checking"
                                     :account/type :asset}
+             :account-item/transaction-item {:id 1}
              :account-item/quantity (d -100)}
             {:account-item/account {:id "supplements"
                                     :account/type :expense}
+             :account-item/transaction-item {:id 2}
              :account-item/quantity (d 20)}
             {:account-item/account {:id "checking"
                                     :account/type :asset}
+             :account-item/transaction-item {:id 2}
              :account-item/quantity (d -20)}]
            (->> (:transaction/items complex-bilateral-trx)
-                append-types
-                trx/make-account-items)))))
+                append-account-types
+                trx/make-account-items
+                (map util/remove-nils))))))
