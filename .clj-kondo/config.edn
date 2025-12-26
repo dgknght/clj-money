@@ -65,6 +65,7 @@
                                                       clj-money.decimal/<=
                                                       clj-money.entities/transaction
                                                       clj-money.entities/account-item
+                                                      clj-money.entities/reconciliation
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.util/simplify
