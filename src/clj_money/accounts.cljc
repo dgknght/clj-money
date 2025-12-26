@@ -151,7 +151,7 @@
     account       (assoc :transaction-item/account (util/->entity-ref account))
     (and quantity
          account) (assoc :transaction-item/action
-                                  (derive-action quantity account))))
+                         (derive-action quantity account))))
 
 (defn ->>criteria
   ([accounts] (->>criteria {} accounts))
