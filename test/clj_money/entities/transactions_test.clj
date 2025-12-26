@@ -101,11 +101,11 @@
         (with-context base-context
           (let [date (t/local-date 2016 3 2)]
             (prop/put-and-propagate (attributes))
-            #_(testing "entity updates"
+            (testing "entity updates"
                 (is (comparable? #:entity{:transaction-date-range [date date]}
                                  (entities/find (find-entity "Personal")))
                     "The entity is updated with the transaction dates"))
-            #_(testing "account updates"
+            (testing "account updates"
                 (is (comparable? #:account{:transaction-date-range [date date]}
                                  (reload-account "Checking"))
                     "The debited account is updated with transaction dates")

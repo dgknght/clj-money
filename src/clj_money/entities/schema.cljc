@@ -179,6 +179,8 @@
     :primary-key [:transaction-date :id]
     :fields #{{:id :quantity
                :type :decimal}
+              {:id :balance
+               :type :decimal}
               {:id :index
                :type :integer}}
     :refs #{:account
