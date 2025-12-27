@@ -6,18 +6,18 @@
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/one
   :db.attr/preds clj-money.accounts/action?
-  :db/doc "The action taken against the account"}
+  :db/doc "The accounting action taken against the account"}
  {:db/ident :account-item/item-action
   :db/valueType :db.type/tuple
   :db/cardinality :db.cardinality/one
   :db/tupleAttrs [:account-item/transaction-item
                   :account-item/action]
   :db/unique :db.unique/identity
-  :db/doc "The action taken against the account"}
+  :db/doc "Uniquely identifies this action on this item"}
  {:db/ident :account-item/quantity
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
-  :db/doc "The amount of the action"}
+  :db/doc "The amount debited or credited"}
  {:db/ident :account-item/index
   :db/valueType :db.type/bigint
   :db/cardinality :db.cardinality/one
@@ -31,4 +31,8 @@
  {:db/ident :account-item/memo
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
-  :db/doc "A note about the action on this account"}]
+  :db/doc "A note about this action on the account"}
+ {:db/ident :account-item/reconciliation
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The reconciliation to which this item belongs"}]
