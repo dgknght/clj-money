@@ -177,14 +177,15 @@
                         [:id :transaction-id]}}}}
    {:id :account-item
     :primary-key [:transaction-date :id]
-    :fields #{{:id :quantity
+    :fields #{{:id :action
+               :type :keyword}
+              {:id :quantity
                :type :decimal}
               {:id :balance
                :type :decimal}
               {:id :index
                :type :integer}}
-    :refs #{:account
-            :reconciliation
+    :refs #{:reconciliation
             {:id :transaction-item
              :columns #{:transaction-date
                         [:id :transaction-item-id]}}}}

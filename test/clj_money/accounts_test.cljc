@@ -1,5 +1,5 @@
 (ns clj-money.accounts-test
-  (:require #?(:clj [clojure.test :refer [deftest is testing]]
+  (:require #?(:clj [clojure.test :refer [deftest is are testing]]
                :cljs [cljs.test :refer [deftest is testing]])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
@@ -547,3 +547,9 @@
                    commodity-accounts)]
       #?(:clj (is (seq-of-maps-like? expected actual))
          :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual))))))
+
+(deftest identity-an-action
+  (are [v result] (= result (accounts/action? v))
+       :debit true
+       :credit true
+       :add false))
