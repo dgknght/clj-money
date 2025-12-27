@@ -422,7 +422,7 @@
       (delete [_ entities]    (delete* entities {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
       (close [_])
-      (reset [_]            (reset api)))))
+      (reset [this]           (reset api) this))))
 
 (defmethod db/reify-storage ::service
   [config]

@@ -382,10 +382,7 @@
 ;     a. Extract the value at the :id attribute
 ;     b. Rename the attribute from :<entity>/<foreign-entity>
 ;        to :<entity>/<foreign-entity>-id
-;
-; This is only exposed publicly to support tests that enforce
-; short-circuting transaction propagation
-(defn put*
+(defn- put*
   "Executes operations against the database. This function is not entended
   to be used directly."
   [ds entities]
@@ -487,7 +484,7 @@
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))
       (close [_] #_noop)
-      (reset [_] (reset* ds)))))
+      (reset [this] (reset* ds) this))))
 
 (defmethod db/reify-storage ::db/sql
   [config]
