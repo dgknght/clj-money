@@ -382,10 +382,7 @@
 ;     a. Extract the value at the :id attribute
 ;     b. Rename the attribute from :<entity>/<foreign-entity>
 ;        to :<entity>/<foreign-entity>-id
-;
-; This is only exposed publicly to support tests that enforce
-; short-circuting transaction propagation
-(defn put*
+(defn- put*
   "Executes operations against the database. This function is not entended
   to be used directly."
   [ds entities]
