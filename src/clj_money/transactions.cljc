@@ -387,9 +387,21 @@
       (dissoc :transaction/debit-account
               :transaction/credit-account
               :transaction/quantity)
-      (assoc :transaction/items [{:transaction-item/value quantity
-                                  :transaction-item/debit-account debit-account
-                                  :transaction-item/credit-account credit-account}])))
+      (assoc :transaction/items
+             [{:transaction-item/value quantity
+               :transaction-item/debit-account debit-account
+               :transaction-item/credit-account credit-account
+               :transaction-item/account-items
+               [{:account-item/action :debit
+                 :account-item/quantity (polarize-quantity
+                                          {:quantity quantity
+                                           :account debit-account
+                                           :action :debit})}
+                {:account-item/action :credit
+                 :account-item/quantity (polarize-quantity
+                                          {:quantity quantity
+                                           :account credit-account
+                                           :action :credit})}]}])))
 
 (defn- simple->unilateral
   [{:transaction/keys [debit-account credit-account quantity] :as trx}]
@@ -426,6 +438,24 @@
     (group-by :transaction-item/action items)
     (partial sort-by val-or-qty >)))
 
+(defn- transaction->account-item
+  [{:as item :transaction-item/keys [account action]}]
+  (-> item
+      (rename-keys {:transaction-item/quantity :account-item/quantity
+                    :transaction-item/memo     :account-item/memo
+                    :transaction-item/action   :account-item/action
+                    :transaction-item/index    :account-item/index
+                    :transaction-item/balance  :account-item/balance})
+      (update-in [:account-item/quantity] #(polarize-quantity
+                                             {:account account
+                                              :quantity %
+                                              :action action}))
+      (select-keys [:account-item/quantity
+                    :account-item/memo
+                    :account-item/action
+                    :account-item/index
+                    :account-item/balance])))
+
 (defn- d+c
   "Combine two unilateral items of the same value into one bilateral item"
   [d c]
@@ -444,21 +474,17 @@
                   :transaction-item/value)
           (rename-keys {:transaction-item/account
                         :transaction-item/debit-account})
-          (assoc :transaction-item/credit-account (:transaction-item/account c)
-                 :transaction-item/value item-value
+          (assoc :transaction-item/credit-account
+                 (:transaction-item/account c)
+
+                 :transaction-item/value
+                 item-value
+
                  :transaction-item/account-items
-                 [{:account-item/action :debit
-                   :account-item/quantity debit-qty}
-                  {:account-item/action :credit
-                   :account-item/quantity credit-qty}]))
+                 [(transaction->account-item d)
+                  (transaction->account-item c)]))
       (seq ids)
-      (assoc :id (first ids))
-
-      (not= credit-qty item-value)
-      (assoc :transaction-item/credit-quantity credit-qty)
-
-      (:transaction-item/memo c)
-      (assoc :transaction-item/credit-memo (:transaction-item/memo c)))))
+      (assoc :id (first ids)))))
 
 (defn- merge-equals
   [[d & debits] [c & credits]]
