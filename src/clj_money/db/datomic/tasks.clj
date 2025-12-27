@@ -23,6 +23,7 @@
            "attachment"
            "transaction"
            "transaction_item"
+           "account-item"
            "lot"
            "lot_item"
            "image"

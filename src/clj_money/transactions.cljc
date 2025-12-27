@@ -443,16 +443,16 @@
                   :transaction-item/quantity
                   :transaction-item/value)
           (rename-keys {:transaction-item/account
-                        :transaction-item/debit-account
-                        :transaction-item/memo
-                        :transaction-item/debit-memo})
+                        :transaction-item/debit-account})
           (assoc :transaction-item/credit-account (:transaction-item/account c)
-                 :transaction-item/value item-value))
+                 :transaction-item/value item-value
+                 :transaction-item/account-items
+                 [{:account-item/action :debit
+                   :account-item/quantity debit-qty}
+                  {:account-item/action :credit
+                   :account-item/quantity credit-qty}]))
       (seq ids)
       (assoc :id (first ids))
-
-      (not= debit-qty item-value)
-      (assoc :transaction-item/debit-quantity debit-qty)
 
       (not= credit-qty item-value)
       (assoc :transaction-item/credit-quantity credit-qty)

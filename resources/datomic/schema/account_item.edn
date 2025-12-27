@@ -1,0 +1,34 @@
+[{:db/ident :account-item/transaction-item
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The transaction item to which this item belongs"}
+ {:db/ident :account-item/action
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db.attr/preds clj-money.accounts/action?
+  :db/doc "The action taken against the account"}
+ {:db/ident :account-item/item-action
+  :db/valueType :db.type/tuple
+  :db/cardinality :db.cardinality/one
+  :db/tupleAttrs [:account-item/transaction-item
+                  :account-item/action]
+  :db/unique :db.unique/identity
+  :db/doc "The action taken against the account"}
+ {:db/ident :account-item/quantity
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The amount of the action"}
+ {:db/ident :account-item/index
+  :db/valueType :db.type/bigint
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The ordinal position of this item within the account"}
+ {:db/ident :account-item/balance
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The account balance as of the inclusion of this item"}
+ {:db/ident :account-item/memo
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "A note about the action on this account"}]
