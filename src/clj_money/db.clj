@@ -85,10 +85,11 @@
                                   prefix)]
         (close storage)))
 
-    (reset [_]
+    (reset [this]
       (with-tracing [span (format "%s/reset"
                                   prefix)]
-        (reset storage)))))
+        (reset storage))
+      this)))
 
 (def ^:private unserializers (atom [#(when-not (string? %) %)]))
 

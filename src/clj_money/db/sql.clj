@@ -487,7 +487,7 @@
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))
       (close [_] #_noop)
-      (reset [_] (reset* ds)))))
+      (reset [this] (reset* ds) this))))
 
 (defmethod db/reify-storage ::db/sql
   [config]
