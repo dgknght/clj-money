@@ -34,7 +34,9 @@
 
 (defmacro with-storage
   [bindings & body]
-  `(let [storage# (reify-storage ~(first bindings))]
+  `(let [storage# (if (satisfies? Storage ~(first bindings))
+                    ~(first bindings)
+                    (reify-storage ~(first bindings)))]
      (try
        (binding [*storage* storage#]
          ~@body)
