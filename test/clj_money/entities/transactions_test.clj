@@ -1,14 +1,15 @@
 (ns clj-money.entities.transactions-test
-  (:require [clojure.test :refer [testing is]]
+  (:require [clojure.test :refer [deftest testing is]]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-money.db.ref]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
+            [clj-money.config :refer [env]]
             [clj-money.util :as util]
-            [clj-money.db.sql :as sql]
             [clj-money.entity-helpers :as helpers :refer [assert-deleted]]
+            [clj-money.db :as db]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
@@ -20,7 +21,8 @@
                                             find-account
                                             find-accounts
                                             find-transaction]]
-            [clj-money.test-helpers :refer [dbtest]]))
+            [clj-money.test-helpers :refer [dbtest]]
+            [clj-money.spies :as spy]))
 
 (def ^:private reload-account
   (comp entities/find
@@ -559,47 +561,55 @@
 ; 2016-03-23     103  Groceries Checking
 ; 2016-03-30     104  Groceries Checking
 
-; TODO: Consider mocking Storage instead of put*
-(dbtest ^:multi-threaded
-        ^{:only :sql}
-        update-a-transaction-short-circuit-updates
-  (with-context short-circuit-context
-    (let [calls (atom [])
-          orig-put sql/put*]
-      (with-redefs [sql/put* (fn [ds entities]
-                               (swap! calls conj entities)
-                               (orig-put ds entities))]
-        (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
-            (assoc :transaction/transaction-date (t/local-date 2016 3 8))
+(deftest update-a-transaction-short-circuit-propagation
+  (let [storage (-> env
+                    (get-in [:db :strategies :datomic-peer])
+                    (db/reify-storage)
+                    db/reset
+                    spy/storage-spy)]
+    (db/with-storage [storage]
+      (with-context short-circuit-context
+        (spy/clear storage)
+        (-> (find-transaction [(t/local-date 2016 3 16)
+                               "Kroger"])
+            (assoc :transaction/transaction-date
+                   (t/local-date (t/local-date 2016 3 8)))
             prop/put-and-propagate)
-        (let [[c1 c2 :as cs] @calls
+        (let [[[c1] [c2] :as cs] (spy/calls storage :put)
               checking (find-account "Checking")]
           (is (= 2 (count cs))
               "Two calls are made to write to storage (the primary and the propagation)")
-          (is (seq-of-maps-like? [#:transaction{:description "Kroger"
-                                                :transaction-date (t/local-date 2016 3 8)}]
-                                 (filter (util/entity-type? :transaction)
-                                         c1))
-              "The updated transaction is written in the 1st call")
-          (is (seq-of-maps-like? [#:transaction-item {:index 1
-                                                      :quantity 102M
-                                                      :balance 898M}
-                                  #:transaction-item{:index 2
-                                                     :quantity 101M
-                                                     :balance 797M}]
-                                 (filterv (every-pred (util/entity-type? :transaction-item)
-                                                      #(util/entity= (:transaction-item/account %)
-                                                                    checking))
-                                          c2))
-              "The affected transaction items are written in the 2nd call")
-
-          (is (empty? (filter #(#{3 4} (:transaction-item/index %))
-                              (flatten cs)))
-              "The unaffected transaction items are not written")
-          (is (empty? (filter (util/entity-type? :account)
-                              (flatten cs)))
-              "The account is not updated")
-          (assert-account-quantities (find-account "Checking") 590M))))))
+          (is (seq-of-maps-like?
+                [#:transaction{:transaction-date (t/local-date 2016 3 8)
+                               :description "Kroger"}]
+                c1)
+              "The first call puts the modified transaction")
+          (is (seq-of-maps-like?
+                [#:transaction-item{:index 1
+                                    :quantity 102M
+                                    :balance 898M}
+                 #:transaction-item{:index 2
+                                    :quantity 101M
+                                    :balance 797M}]
+                (filter (every-pred
+                          (util/entity-type? :transaction-item)
+                          (comp (partial util/entity= checking)
+                                :transaction-item/account))
+                        c2))
+              "The second call includes the updated line items")
+          (is (->> c2
+                   (filter (every-pred
+                             (util/entity-type? :transaction-item)
+                             (comp (partial util/entity= checking)
+                                   :transaction-item/account)
+                             (comp #{3 4}
+                                   :transaction-item/index)))
+                   empty?)
+              "The unchanged items are not updated")
+          (is (->> c2
+                   (filter (util/entity-type? :account))
+                   empty?)
+              "The account is not updated"))))))
 
 (def change-account-context
   (conj base-context

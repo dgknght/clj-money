@@ -34,7 +34,9 @@
 
 (defmacro with-storage
   [bindings & body]
-  `(let [storage# (reify-storage ~(first bindings))]
+  `(let [storage# (if (satisfies? Storage ~(first bindings))
+                    ~(first bindings)
+                    (reify-storage ~(first bindings)))]
      (try
        (binding [*storage* storage#]
          ~@body)
@@ -83,10 +85,11 @@
                                   prefix)]
         (close storage)))
 
-    (reset [_]
+    (reset [this]
       (with-tracing [span (format "%s/reset"
                                   prefix)]
-        (reset storage)))))
+        (reset storage))
+      this)))
 
 (def ^:private unserializers (atom [#(when-not (string? %) %)]))
 
