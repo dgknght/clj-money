@@ -363,6 +363,19 @@
                                                  :account {:id :groceries}}]}))
       "The value is nil (undeterminable) if the credits and debits do not match"))
 
+(def ^:private salary           {:id "salary"           :account/type :income})
+(def ^:private other-income     {:id "other income"     :account/type :income})
+(def ^:private checking         {:id "checking"         :account/type :asset})
+(def ^:private four-oh-one-k    {:id "401k"             :account/type :asset})
+(def ^:private aapl             {:id "aapl"             :account/type :asset})
+(def ^:private groceries        {:id "groceries"        :account/type :expense})
+(def ^:private supplements      {:id "supplements"      :account/type :expense})
+(def ^:private insurance        {:id "insurance"        :account/type :expense})
+(def ^:private health-insurance {:id "health insurance" :account/type :expense})
+(def ^:private fit              {:id "fit"              :account/type :expense})
+(def ^:private medicare         {:id "medicare"         :account/type :expense})
+(def ^:private social-security  {:id "social security"  :account/type :expense})
+
 (def ^:private simple-trx
   {:id 101
    :transaction/transaction-date (dates/local-date "2020-01-01")
@@ -370,8 +383,8 @@
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
    :transaction/quantity (d 100)
-   :transaction/debit-account {:id "groceries"}
-   :transaction/credit-account {:id "checking"}})
+   :transaction/debit-account groceries
+   :transaction/credit-account checking})
 
 (def ^:private simple-bilateral-trx
   {:id 101
@@ -380,8 +393,8 @@
    :transaction/entity {:id "personal"}
    :transaction/memo "mid-week necessities"
    :transaction/items [{:transaction-item/value (d 100)
-                        :transaction-item/debit-account {:id "groceries"}
-                        :transaction-item/credit-account {:id "checking"}
+                        :transaction-item/debit-account groceries
+                        :transaction-item/credit-account checking
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 100)}
@@ -397,11 +410,11 @@
    :transaction/items [{:transaction-item/quantity (d 100)
                         :transaction-item/value (d 100)
                         :transaction-item/action :debit
-                        :transaction-item/account {:id "groceries"}}
+                        :transaction-item/account groceries}
                        {:transaction-item/quantity (d 100)
                         :transaction-item/value (d 100)
                         :transaction-item/action :credit
-                        :transaction-item/account {:id "checking"}}]})
+                        :transaction-item/account checking}]})
 
 (def ^:private complex-bilateral-trx
   {:id 101
@@ -411,8 +424,8 @@
    :transaction/memo "mid-week necessities"
    :transaction/items [{:id 1
                         :transaction-item/value (d 100)
-                        :transaction-item/debit-account {:id "groceries"}
-                        :transaction-item/credit-account {:id "checking"}
+                        :transaction-item/debit-account groceries
+                        :transaction-item/credit-account checking
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 100)}
@@ -420,8 +433,8 @@
                           :account-item/quantity (d -100)}]}
                        {:id 2
                         :transaction-item/value (d 20)
-                        :transaction-item/debit-account {:id "supplements"}
-                        :transaction-item/credit-account {:id "checking"}
+                        :transaction-item/debit-account supplements
+                        :transaction-item/credit-account checking
                         :transaction-item/action-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 20)}
@@ -437,17 +450,17 @@
    :transaction/items [{:ids #{1 2}
                         :transaction-item/quantity (d 120)
                         :transaction-item/value (d 120)
-                        :transaction-item/account {:id "checking"}
+                        :transaction-item/account checking
                         :transaction-item/action :credit}
                        {:ids #{1}
                         :transaction-item/quantity (d 100)
                         :transaction-item/value (d 100)
-                        :transaction-item/account {:id "groceries"}
+                        :transaction-item/account groceries
                         :transaction-item/action :debit}
                        {:ids #{2}
                         :transaction-item/quantity (d 20)
                         :transaction-item/value (d 20)
-                        :transaction-item/account {:id "supplements"}
+                        :transaction-item/account supplements
                         :transaction-item/action :debit}]})
 
 ;       debit       credit
@@ -468,8 +481,8 @@
    :transaction/description "Paycheck"
    :transaction/entity {:id "personal"}
    :transaction/items [{:transaction-item/value (d 100)
-                        :transaction-item/debit-account {:id "insurance"}
-                        :transaction-item/credit-account {:id "other income"}
+                        :transaction-item/debit-account insurance
+                        :transaction-item/credit-account other-income
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 100)
@@ -478,56 +491,56 @@
                           :account-item/quantity (d 100)
                           :account-item/memo "group term life insurance"}]}
                        {:transaction-item/value (d 4250)
-                        :transaction-item/debit-account {:id "checking"}
-                        :transaction-item/credit-account {:id "salary"}
+                        :transaction-item/debit-account checking
+                        :transaction-item/credit-account salary
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 4250)}
                          {:account-item/action :credit
                           :account-item/quantity (d 4250)}]}
                        {:transaction-item/value (d 1400)
-                        :transaction-item/debit-account {:id "fit"}
-                        :transaction-item/credit-account {:id "salary"}
+                        :transaction-item/debit-account fit
+                        :transaction-item/credit-account salary
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 1400)}
                          {:account-item/action :credit
                           :account-item/quantity (d 1400)}]}
                        {:transaction-item/value (d 775)
-                        :transaction-item/debit-account {:id "401k"}
-                        :transaction-item/credit-account {:id "salary"}
+                        :transaction-item/debit-account four-oh-one-k
+                        :transaction-item/credit-account salary
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 775)}
                          {:account-item/action :credit
                           :account-item/quantity (d 775)}]}
                        {:transaction-item/value (d 400)
-                        :transaction-item/debit-account {:id "social security"}
-                        :transaction-item/credit-account {:id "salary"}
+                        :transaction-item/debit-account social-security
+                        :transaction-item/credit-account salary
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 400)}
                          {:account-item/action :credit
                           :account-item/quantity (d 400)}]}
                        {:transaction-item/value (d 200)
-                        :transaction-item/debit-account {:id "health insurance"}
-                        :transaction-item/credit-account {:id "salary"}
+                        :transaction-item/debit-account health-insurance
+                        :transaction-item/credit-account salary
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 200)}
                          {:account-item/action :credit
                           :account-item/quantity (d 200)}]}
                        {:transaction-item/value (d 75)
-                        :transaction-item/debit-account {:id "medicare"}
-                        :transaction-item/credit-account {:id "salary"}
+                        :transaction-item/debit-account medicare
+                        :transaction-item/credit-account salary
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 75)}
                          {:account-item/action :credit
                           :account-item/quantity (d 75)}]}
                        {:transaction-item/value (d 25)
-                        :transaction-item/debit-account {:id "medicare"}
-                        :transaction-item/credit-account {:id "other income"}
+                        :transaction-item/debit-account medicare
+                        :transaction-item/credit-account other-income
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 25)}
@@ -557,46 +570,46 @@
    :transaction/entity {:id "personal"}
    :transaction/items [{:transaction-item/quantity (d 4250)
                         :transaction-item/value (d 4250)
-                        :transaction-item/account {:id "checking"}
+                        :transaction-item/account checking
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 1400)
                         :transaction-item/value (d 1400)
-                        :transaction-item/account {:id "fit"}
+                        :transaction-item/account fit
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 775)
                         :transaction-item/value (d 775)
-                        :transaction-item/account {:id "401k"}
+                        :transaction-item/account four-oh-one-k
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 400)
                         :transaction-item/value (d 400)
-                        :transaction-item/account {:id "social security"}
+                        :transaction-item/account social-security
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 200)
                         :transaction-item/value (d 200)
-                        :transaction-item/account {:id "health insurance"}
+                        :transaction-item/account health-insurance
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 100)
                         :transaction-item/value (d 100)
-                        :transaction-item/account {:id "medicare"}
+                        :transaction-item/account medicare
                         :transaction-item/action :debit}
                        {:transaction-item/quantity (d 100)
                         :transaction-item/value (d 100)
-                        :transaction-item/account {:id "insurance"}
+                        :transaction-item/account insurance
                         :transaction-item/action :debit
                         :transaction-item/memo "group term life insurance"}
 
                        {:transaction-item/quantity (d 7100)
                         :transaction-item/value (d 7100)
-                        :transaction-item/account {:id "salary"}
+                        :transaction-item/account salary
                         :transaction-item/action :credit}
                        {:transaction-item/quantity (d 100)
                         :transaction-item/value (d 100)
-                        :transaction-item/account {:id "other income"}
+                        :transaction-item/account other-income
                         :transaction-item/action :credit
                         :transaction-item/memo "group term life insurance"}
                        {:transaction-item/quantity (d 25)
                         :transaction-item/value (d 25)
-                        :transaction-item/account {:id "other income"}
+                        :transaction-item/account other-income
                         :transaction-item/action :credit
                         :transaction-item/memo "cell phone reimbursement"}]})
 
@@ -606,11 +619,11 @@
    :transaction/description "Purchase 10 shares of AAPL at 10.0000"
    :transaction/entity {:id "personal"}
    :transaction/items [{:transaction-item/action :credit
-                        :transaction-item/account {:id "401k"}
+                        :transaction-item/account four-oh-one-k
                         :transaction-item/quantity (d 1000)
                         :transaction-item/value (d 1000)}
                        {:transaction-item/action :debit
-                        :transaction-item/account {:id "AAPL"}
+                        :transaction-item/account aapl
                         :transaction-item/quantity (d 10)
                         :transaction-item/value (d 1000)}]})
 
@@ -619,8 +632,8 @@
    :transaction/transaction-date (dates/local-date "2020-01-01")
    :transaction/description "Purchase 10 shares of AAPL at 10.0000"
    :transaction/entity {:id "personal"}
-   :transaction/items [{:transaction-item/credit-account {:id "401k"}
-                        :transaction-item/debit-account {:id "AAPL"}
+   :transaction/items [{:transaction-item/credit-account four-oh-one-k
+                        :transaction-item/debit-account aapl
                         :transaction-item/debit-quantity (d 10)
                         :transaction-item/value (d 1000)}]})
 
@@ -636,13 +649,13 @@
   (testing "a simple transaction"
     (is (= simple-bilateral-trx
            (trx/->bilateral simple-trx))))
-  #_(testing "a simple unilateral transaction"
+  (testing "a simple unilateral transaction"
     (is (= simple-bilateral-trx
            (trx/->bilateral simple-unilateral-trx))))
-  #_(testing "a complex unilateral transaction"
+  (testing "a complex unilateral transaction"
     (is (= complex-bilateral-trx
            (trx/->bilateral complex-unilateral-trx))))
-  #_(testing "a complex unilateral transaction, swap debits and credits"
+  (testing "a complex unilateral transaction, swap debits and credits"
     (is (= (-> complex-bilateral-trx
                (update-in [:transaction/items]
                           (fn [items]
@@ -656,10 +669,10 @@
                (assoc-in [:transaction/items 1 :transaction-item/action] :credit)
                (assoc-in [:transaction/items 2 :transaction-item/action] :credit)
                trx/->bilateral))))
-  #_(testing "a very complex unilateral transaction"
+  (testing "a very complex unilateral transaction"
     (is (= (comparable-trx very-complex-bilateral-trx)
            (comparable-trx (trx/->bilateral very-complex-unilateral-trx)))))
-  #_(testing "a unilateral trading transaction"
+  (testing "a unilateral trading transaction"
     (is (= (comparable-trx bilateral-trading-trx)
            (comparable-trx (trx/->bilateral unilateral-trading-trx))))))
 
