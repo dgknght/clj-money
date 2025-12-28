@@ -7,7 +7,8 @@
             [clojure.pprint :refer [pprint]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          index-by]]
             [clj-money.util :as util :refer [->entity-ref entity=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
@@ -592,28 +593,37 @@
         (let [[o d c] (merge-sides out debits credits)]
           (recur o d c))))))
 
+(defn- account->transaction-item
+  [item]
+  (-> item
+      (rename-keys {:account-item/memo :transaction-item/memo
+                    :account-item/action :transaction-item/action
+                    :account-item/quantity :transaction-item/quantity})
+      (select-keys [:transaction-item/memo
+                    :transaction-item/action
+                    :transaction-item/quantity])
+      (update-in [:transaction-item/quantity] d/abs)))
+
 (defn- split-item
   "Takes a bilateral item and returns two unilateral items"
   [{:transaction-item/keys [debit-account
                             credit-account
                             value
-                            debit-quantity
-                            credit-quantity
-                            debit-memo
-                            credit-memo]
+                            account-items]
     :keys [id]}]
-  [(cond-> {:transaction-item/quantity (or debit-quantity value)
-            :transaction-item/value value
-            :transaction-item/action :debit
-            :transaction-item/account debit-account}
-     debit-memo (assoc :transaction-item/memo debit-memo)
-     id (assoc :ids #{id}))
-   (cond-> {:transaction-item/quantity (or credit-quantity value)
-            :transaction-item/value value
-            :transaction-item/action :credit
-            :transaction-item/account credit-account}
-     credit-memo (assoc :transaction-item/memo credit-memo)
-     id (assoc :ids #{id}))])
+  (let [{:keys [debit credit]} (index-by :account-item/action account-items)]
+    [(cond->
+       (-> debit
+           account->transaction-item
+           (assoc :transaction-item/value value
+                  :transaction-item/account debit-account))
+       id (assoc :ids #{id}))
+     (cond->
+       (-> credit
+           account->transaction-item
+           (assoc :transaction-item/value value
+                  :transaction-item/account credit-account))
+       id (assoc :ids #{id}))]))
 
 (defn- consolidate-items
   [items]
