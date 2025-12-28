@@ -435,7 +435,32 @@
                         :transaction-item/value (d 20)
                         :transaction-item/debit-account supplements
                         :transaction-item/credit-account checking
-                        :transaction-item/action-items
+                        :transaction-item/account-items
+                        [{:account-item/action :debit
+                          :account-item/quantity (d 20)}
+                         {:account-item/action :credit
+                          :account-item/quantity (d -20)}]}]})
+
+(def ^:private reversed-complex-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:id 1
+                        :transaction-item/value (d 100)
+                        :transaction-item/debit-account checking
+                        :transaction-item/credit-account groceries
+                        :transaction-item/account-items
+                        [{:account-item/action :debit
+                          :account-item/quantity (d 100)}
+                         {:account-item/action :credit
+                          :account-item/quantity (d -100)}]}
+                       {:id 2
+                        :transaction-item/value (d 20)
+                        :transaction-item/debit-account checking
+                        :transaction-item/credit-account supplements
+                        :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 20)}
                          {:account-item/action :credit
@@ -463,6 +488,28 @@
                         :transaction-item/account supplements
                         :transaction-item/action :debit}]})
 
+(def ^:private reversed-complex-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:ids #{1 2}
+                        :transaction-item/quantity (d 120)
+                        :transaction-item/value (d 120)
+                        :transaction-item/account checking
+                        :transaction-item/action :debit}
+                       {:ids #{1}
+                        :transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/account groceries
+                        :transaction-item/action :credit}
+                       {:ids #{2}
+                        :transaction-item/quantity (d 20)
+                        :transaction-item/value (d 20)
+                        :transaction-item/account supplements
+                        :transaction-item/action :credit}]})
+
 ;       debit       credit
 ;       --------    ------
 ; 4,225 checking    salary
@@ -483,6 +530,7 @@
    :transaction/items [{:transaction-item/value (d 100)
                         :transaction-item/debit-account insurance
                         :transaction-item/credit-account other-income
+                        :transaction-item/memo "group term life insurance"
                         :transaction-item/account-items
                         [{:account-item/action :debit
                           :account-item/quantity (d 100)
@@ -634,8 +682,12 @@
    :transaction/entity {:id "personal"}
    :transaction/items [{:transaction-item/credit-account four-oh-one-k
                         :transaction-item/debit-account aapl
-                        :transaction-item/debit-quantity (d 10)
-                        :transaction-item/value (d 1000)}]})
+                        :transaction-item/value (d 1000)
+                        :transaction-item/account-items
+                        [{:account-item/action :debit
+                          :account-item/quantity (d 10)}
+                         {:account-item/action :credit
+                          :account-item/quantity (d -1000)}]}]})
 
 (defn- comparable-trx
   [trx]
@@ -656,19 +708,8 @@
     (is (= complex-bilateral-trx
            (trx/->bilateral complex-unilateral-trx))))
   (testing "a complex unilateral transaction, swap debits and credits"
-    (is (= (-> complex-bilateral-trx
-               (update-in [:transaction/items]
-                          (fn [items]
-                            (mapv (fn [{:as i :transaction-item/keys [debit-account credit-account]}]
-                                    (assoc i
-                                           :transaction-item/debit-account credit-account
-                                           :transaction-item/credit-account debit-account))
-                                  items))))
-           (-> complex-unilateral-trx
-               (assoc-in [:transaction/items 0 :transaction-item/action] :debit)
-               (assoc-in [:transaction/items 1 :transaction-item/action] :credit)
-               (assoc-in [:transaction/items 2 :transaction-item/action] :credit)
-               trx/->bilateral))))
+    (is (= reversed-complex-bilateral-trx
+           (trx/->bilateral reversed-complex-unilateral-trx))))
   (testing "a very complex unilateral transaction"
     (is (= (comparable-trx very-complex-bilateral-trx)
            (comparable-trx (trx/->bilateral very-complex-unilateral-trx)))))

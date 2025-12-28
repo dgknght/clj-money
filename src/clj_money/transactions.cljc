@@ -459,9 +459,7 @@
 (defn- d+c
   "Combine two unilateral items of the same value into one bilateral item"
   [d c]
-  (let [debit-qty (:transaction-item/quantity d)
-        credit-qty (:transaction-item/quantity c)
-        item-value (or (:transaction-item/value d) debit-qty)
+  (let [item-value (val-or-qty d)
         ids (intersection (:ids d) (:ids c))]
     (when (< 1 (count ids))
       (throw (ex-info "Unmatched item ids" {:debit d
