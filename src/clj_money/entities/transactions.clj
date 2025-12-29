@@ -152,21 +152,21 @@
   [{:as account :account/keys [transaction-date-range]} date]
   {:pre [(:account/transaction-date-range account)]}
   (entities/find-by (util/entity-type
-                    {:transaction-item/account account
-                     :transaction/transaction-date [:between
-                                                    (first transaction-date-range)
-                                                    date]}
-                    :transaction-item)
-                  {:sort [[:transaction/transaction-date :desc]
-                          [:transaction-item/index :desc]]}))
+                      {:account-item/account account
+                       :transaction/transaction-date [:between
+                                                      (first transaction-date-range)
+                                                      date]}
+                      :account-item)
+                    {:sort [[:transaction/transaction-date :desc]
+                            [:account-item/index :desc]]}))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
   [account start end]
   (let [t1 (last-account-item-before account start)
         t2 (last-account-item-on-or-before account end)]
-    (- (:transaction-item/balance t2 0M)
-       (:transaction-item/balance t1 0M))))
+    (- (:account-item/balance t2 0M)
+       (:account-item/balance t1 0M))))
 
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
