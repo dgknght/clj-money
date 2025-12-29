@@ -568,7 +568,8 @@
                     :account-item/quantity :transaction-item/quantity})
       (select-keys [:transaction-item/memo
                     :transaction-item/action
-                    :transaction-item/quantity])
+                    :transaction-item/quantity
+                    :transaction-item/account])
       (update-in [:transaction-item/quantity] d/abs)))
 
 (defn- split-item
