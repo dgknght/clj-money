@@ -4,9 +4,11 @@
             [clojure.core.async :as a]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clojure.walk :refer [postwalk]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [index-by
-                                          update-in-if]]
+                                          update-in-if
+                                          presence]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
             [clj-money.util :as util :refer [id=]]
@@ -30,12 +32,14 @@
          (second x)
          x))))
 
-(defn- new-transaction-has-items*
-  [{:transaction/keys [items] :keys [id]}]
-  (or id (seq items)))
-
-(def ^:private new-transaction-has-items?
-  (unbox new-transaction-has-items*))
+(defn- new-transaction-has-items?
+  [input]
+  (if (vector input)
+    (if (= :simple (first input))
+      true
+      (new-transaction-has-items? (second input)))
+    (or (:id input)
+        (seq (:transaction-items input)))))
 
 (v/reg-spec new-transaction-has-items?
             {:message "A new transaction must have items"
@@ -92,29 +96,28 @@
                                          :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::entities/lot-item))
 
-(s/def ::entities/transaction (s/and (s/merge ::trxs/bilateral-transaction
+(s/def ::entities/transaction (s/and (s/merge ::trxs/transaction
                                               (s/keys :opt [:transaction/lot-items]))
                                      no-reconciled-quantities-changed?
                                      new-transaction-has-items?))
 
-(defn- remove-empty-strings
+(defn- specified-entry?
+  [ks]
+  (every-pred map-entry?
+              (comp ks key)))
+
+(defn- empty-strings->nils
   [entity & keys]
-  (reduce (fn [m k]
-            (if (and (string? (k m))
-                     (empty? (k m)))
-              (dissoc m k)
-              m))
-          entity
-          keys))
+  (let [specified? (specified-entry? (set keys))]
+    (postwalk (fn [x]
+                (if (specified? x)
+                  (update-in x [1] presence)
+                  x))
+              entity)))
 
 (defmethod entities/before-validation :transaction
   [trx]
-  (-> trx
-      trxs/expand
-      (update-in-if [:transaction/items]
-                    (fn [items]
-                      (mapv #(remove-empty-strings % :transaction-item/memo)
-                            items)))))
+  (empty-strings->nils trx))
 
 (defmethod entities/before-save :transaction
   [transaction]
