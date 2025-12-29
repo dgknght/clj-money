@@ -7,12 +7,14 @@
   (let [id (or id (util/temp-id))]
     (-> item
         (assoc :id id)
-        (update-in [:transaction-item/account-items]
-                   (fn [items]
-                     (map #(assoc %
-                                  :account-item/transaction-item
-                                  id)
-                          items))))))
+        (update-in [:transaction-item/debit-item]
+                   #(assoc %
+                           :account-item/transaction-item
+                           id))
+        (update-in [:transaction-item/credit-item]
+                   #(assoc %
+                           :account-item/transaction-item
+                           id)))))
 
 (defmethod datomic/before-save :transaction
   [trx]

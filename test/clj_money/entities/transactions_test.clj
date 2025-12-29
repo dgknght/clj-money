@@ -76,9 +76,13 @@
                 :description "Paycheck"
                 :memo "final, partial"
                 :entity (find-entity "Personal")
-                :items [#:transaction-item{:debit-account (find-account "Checking")
-                                           :credit-account (find-account "Salary")
-                                           :credit-memo "conf # 123"
+                :items [#:transaction-item{:debit-item {:account-item/account (find-account "Checking")
+                                                        :account-item/action :debit
+                                                        :account-item/quantity 1000M}
+                                           :credit-item {:account-item/account (find-account "Salary")
+                                                         :account-item/action :credit
+                                                         :account-item/quantity 1000M
+                                                         :account-item/memo "conf # 123"}
                                            :value 1000M}]})
 
 (defn- assert-created
@@ -86,8 +90,7 @@
   (helpers/assert-created attr
                           :refs [:transaction/entity
                                  :transaction-item/account
-                                 :transaction-item/debit-account
-                                 :transaction-item/credit-account]
+                                 :account-item/account]
                           :compare-result? false
                           :ignore-nils? true))
 
