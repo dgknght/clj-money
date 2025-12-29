@@ -301,16 +301,17 @@
 (defn- realize-commodities
   "Given a list of accounts, looks up the commodities"
   [accounts]
-  (let [commodities (->> accounts
-                         (map (comp :id :account/commodity))
-                         set
-                         seq
-                         entities/find-many
-                         (index-by :id))]
-    (map #(update-in %
-                     [:account/commodity]
-                     (comp commodities :id))
-         accounts)))
+  (when (seq accounts)
+    (let [commodities (->> accounts
+                           (map (comp :id :account/commodity))
+                           set
+                           seq
+                           entities/find-many
+                           (index-by :id))]
+      (map #(update-in %
+                       [:account/commodity]
+                       (comp commodities :id))
+           accounts))))
 
 (defn- account-ref-ids
   "Extracts and returns the account ids from references from the account
@@ -453,17 +454,6 @@
                               (entities/select #:transaction-item{:transaction [:in (map :id trxs)]}))]
           (map #(assoc % :transaction/items (items (:id %)))))))))
 
-(defn- apply-commodities
-  [accounts]
-  (when (seq accounts)
-    (let [commodities (index-by :id (->> accounts
-                                         (map (comp :id :account/commodity))
-                                         set
-                                         entities/find-many))]
-      (map #(update-in % [:account/commodity] (comp commodities
-                                                    :id))
-           accounts))))
-
 (defn- fetch-account-items
   [account]
   (map #(assoc % :account-item/account account)
@@ -534,7 +524,7 @@
                                  :declaration/record-count total
                                  :import/record-type :declaration})))
     (->> accounts
-         apply-commodities
+         realize-commodities
          (interleave (map inc (range)))
          (partition-all 2)
          (map (fn [[index account]]
