@@ -300,12 +300,12 @@
   (juxt :transaction-item/credit-account
         :transaction-item/debit-account))
 
-(defn- account-entity-ref-ids
-  "Extracts and returns the account ids from references from the transaction
+(defn- account-ref-ids
+  "Extracts and returns the account ids from references from the account
   items, omitting any complete account entities."
   [items]
   (->> items
-       (mapcat accounts)
+       (map :account-item)
        (filter util/entity-ref?)
        (map :id)
        set
@@ -318,10 +318,10 @@
 ; It's also possble the account has changed since the specified account
 ; was read from the database.
 (defn- realize-accounts
-  "Given a list of bilateral items, lookup the associated account and assoc
-  it into the item, if the item has only an entity reference."
+  "Given a list of account items, replace any account references with full
+  account maps."
   [entity items]
-  (if-let [account-ids (account-entity-ref-ids items)]
+  (if-let [account-ids (account-ref-ids items)]
     (let [accounts (->> (entities/find-many account-ids)
                         (map #(assoc % :account/entity entity))
                         (index-by :id))]
@@ -349,8 +349,19 @@
   [[before {:transaction/keys [transaction-date] :as after}]]
   (let [entity (entities/find (:transaction/entity after))]
     (->> (:transaction/items after)
+         (mapcat (fn [{:as item
+                       :transaction-item/keys [debit-account
+                                               credit-account
+                                               account-items]}]
+                   (->> account-items
+                        (map (fn [a]
+                               (assoc a
+                                      :transaction-item/account
+                                      (if (= :debit
+                                             (:account-item/action a))
+                                        debit-account
+                                        credit-account)))))))
          (realize-accounts entity)
-         (trxs/make-account-items)
          (map #(assoc % :transaction/transaction-date transaction-date))
          (group-by (comp :id
                          :account-item/account))
