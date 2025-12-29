@@ -34,12 +34,12 @@
 
 (defn- new-transaction-has-items?
   [input]
-  (if (vector input)
+  (if (vector? input)
     (if (= :simple (first input))
       true
       (new-transaction-has-items? (second input)))
     (or (:id input)
-        (seq (:transaction-items input)))))
+        (seq (:transaction/items input)))))
 
 (v/reg-spec new-transaction-has-items?
             {:message "A new transaction must have items"
