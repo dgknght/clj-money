@@ -170,10 +170,12 @@
 
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
-  [account as-of]
-  (or (:transaction-item/balance
-       (last-account-item-on-or-before account as-of))
-      0M))
+  ([account year month day]
+   (balance-as-of account (t/local-date year month day)))
+  ([account as-of]
+   (or (:account-item/balance
+         (last-account-item-on-or-before account as-of))
+       0M)))
 
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,

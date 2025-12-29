@@ -871,12 +871,10 @@
   (with-context balance-delta-context
     (let [checking (reload-account "Checking")]
       (is (= 2001M
-             (transactions/balance-as-of checking
-                                         (t/local-date 2016 1 31)))
+             (transactions/balance-as-of checking 2016 1 31))
           "The January value is the balance for the last item in the period")
       (is (= 4203M
-             (transactions/balance-as-of checking
-                                         (t/local-date 2016 2 29)))
+             (transactions/balance-as-of checking 2016 2 29))
           "The February value is the balance for the last item in the period"))))
 
 (dbtest create-multiple-transactions-then-recalculate-balances
