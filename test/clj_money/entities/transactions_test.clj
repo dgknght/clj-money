@@ -918,17 +918,16 @@
     (let [entity (find-entity "Personal")
           [checking salary] (find-accounts "Checking" "Salary")
           trx (entities/put #:transaction{:entity entity
-                                        :transaction-date (t/local-date 2017 3 2)
-                                        :description "Paycheck"
-                                        :quantity 1000M
-                                        :debit-account checking
-                                        :credit-account salary})]
-      (is (seq-of-maps-like? [#:transaction-item{:quantity 1000M
-                                                 :action :debit
-                                                 :account (util/->entity-ref checking)}
-                              #:transaction-item{:quantity 1000M
-                                                 :action :credit
-                                                 :account (util/->entity-ref salary)}]
+                                          :transaction-date (t/local-date 2017 3 2)
+                                          :description "Paycheck"
+                                          :quantity 1000M
+                                          :debit-account checking
+                                          :credit-account salary})]
+      (is (seq-of-maps-like? [#:transaction-item{:value 1000M
+                                                 :debit-item {:account-item/account (util/->entity-ref checking)
+                                                              :account-item/action :debit}
+                                                 :credit-item {:account-item/account (util/->entity-ref salary)
+                                                               :account-item/action :credit}}]
                              (:transaction/items trx))))))
 
 (def ^:private existing-reconciliation-context
