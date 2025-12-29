@@ -406,51 +406,48 @@
     (group-by :transaction-item/action items)
     (partial sort-by val-or-qty >)))
 
+(def ^:private transaction->account-item-mappings
+  {:transaction-item/quantity :account-item/quantity
+   :transaction-item/memo     :account-item/memo
+   :transaction-item/action   :account-item/action
+   :transaction-item/index    :account-item/index
+   :transaction-item/balance  :account-item/balance
+   :transaction-item/account  :account-item/account})
+
 (defn- transaction->account-item
-  [{:as item :transaction-item/keys [account action]}]
-  (-> item
-      (rename-keys {:transaction-item/quantity :account-item/quantity
-                    :transaction-item/memo     :account-item/memo
-                    :transaction-item/action   :account-item/action
-                    :transaction-item/index    :account-item/index
-                    :transaction-item/balance  :account-item/balance})
-      (update-in [:account-item/quantity] #(polarize-quantity
-                                             {:account account
-                                              :quantity %
-                                              :action action}))
-      (select-keys [:account-item/quantity
-                    :account-item/memo
-                    :account-item/action
-                    :account-item/index
-                    :account-item/balance])))
+  [{:as item :transaction-item/keys [account action]}
+   & {:keys [omit-memo]}]
+  (let [mappings (cond-> transaction->account-item-mappings
+                   omit-memo (dissoc :transaction-item/memo))]
+    (-> item
+        (rename-keys mappings)
+        (select-keys (vals mappings))
+        (update-in [:account-item/quantity] #(polarize-quantity
+                                               {:account account
+                                                :quantity %
+                                                :action action})))))
 
 (defn- d+c
   "Combine two unilateral items of the same value into one bilateral item"
   [d c]
   (let [item-value (val-or-qty d)
-        ids (intersection (:ids d) (:ids c))]
+        ids (intersection (:ids d) (:ids c))
+        memos (->> [d c]
+                   (map :transaction-item/memo)
+                   (set))
+        memo (when (= 1 (count memos))
+               (first memos))]
     (when (< 1 (count ids))
       (throw (ex-info "Unmatched item ids" {:debit d
                                             :credit c})))
     (cond->
-      (-> d
-          (dissoc :ids
-                  :transaction-item/action
-                  :transaction-item/quantity
-                  :transaction-item/value)
-          (rename-keys {:transaction-item/account
-                        :transaction-item/debit-account})
-          (assoc :transaction-item/credit-account
-                 (:transaction-item/account c)
-
-                 :transaction-item/value
-                 item-value
-
-                 :transaction-item/debit-item 
-                 (transaction->account-item d)
-
-                 :transaction-item/credit-item
-                 (transaction->account-item c)))
+      {:transaction-item/value item-value
+       :transaction-item/debit-item
+       (transaction->account-item d :omit-memo memo)
+       :transaction-item/credit-item
+       (transaction->account-item c :omit-memo memo)}
+      memo
+      (assoc :transaction-item/memo (first memos))
       (seq ids)
       (assoc :id (first ids)))))
 

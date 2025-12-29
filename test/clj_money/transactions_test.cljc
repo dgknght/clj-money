@@ -537,13 +537,11 @@
                         :transaction-item/debit-item
                         {:account-item/action :debit
                          :account-item/account insurance
-                         :account-item/quantity (d 100)
-                         :account-item/memo "group term life insurance"}
+                         :account-item/quantity (d 100)}
                         :transaction-item/credit-item
                         {:account-item/action :credit
                          :account-item/account other-income
-                         :account-item/quantity (d 100)
-                         :account-item/memo "group term life insurance"}}
+                         :account-item/quantity (d 100)}}
                        {:transaction-item/value (d 4250)
                         :transaction-item/debit-item
                         {:account-item/action :debit
@@ -718,16 +716,16 @@
   (testing "a simple unilateral transaction"
     (is (= simple-bilateral-trx
            (trx/->bilateral simple-unilateral-trx))))
-  #_(testing "a complex unilateral transaction"
+  (testing "a complex unilateral transaction"
     (is (= complex-bilateral-trx
            (trx/->bilateral complex-unilateral-trx))))
-  #_(testing "a complex unilateral transaction, swap debits and credits"
+  (testing "a complex unilateral transaction, swap debits and credits"
     (is (= reversed-complex-bilateral-trx
            (trx/->bilateral reversed-complex-unilateral-trx))))
-  #_(testing "a very complex unilateral transaction"
+  (testing "a very complex unilateral transaction"
     (is (= (comparable-trx very-complex-bilateral-trx)
            (comparable-trx (trx/->bilateral very-complex-unilateral-trx)))))
-  #_(testing "a unilateral trading transaction"
+  (testing "a unilateral trading transaction"
     (is (= (comparable-trx bilateral-trading-trx)
            (comparable-trx (trx/->bilateral unilateral-trading-trx))))))
 
