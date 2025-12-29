@@ -56,14 +56,11 @@
 
 (defn validate
   [entity & {:as opts}]
-  (let [validated (v/validate entity
-                              (validation-key entity)
-                              opts)]
-    (when-let [errors (seq (::v/errors validated))]
-      (log/debugf "[validation] Invalid entity %s: %s"
-                  entity
-                  errors)
-      (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
+  (when-let [data (s/explain-data (validation-key entity)
+                                  entity)]
+    (log/debugf "[validation] Invalid entity %s" data)
+    (throw (ex-info "Validation failed"
+                    {::v/errors (v/extract-errors data opts)})))
   entity)
 
 (defn before
