@@ -19,45 +19,6 @@
   (some-fn :transaction-item/value
            :transaction-item/quantity))
 
-; A simple transaction involves two accounts and one quantity
-; and is represented by a single map
-; E.g.
-; {:transaction/transaction-date "2020-01-01"
-;  :transaction/description "Coffee"
-;  :transaction/quantity 10M
-;  :transaction/debit-account {:id :credit-card}
-;  :transaction/credit-account {:id :dining}}
-
-; A bilateral transaction involves any number of transaction items
-;, each of which having a quantity, a debit account and a credit account
-; This is the way the transaction is stored
-; E.g.
-; {:transaction/transaction-date "2020-01-01"
-;  :transaction/description "Coffee"
-;  :transaction/items [{:transaction-item/quantity 5M
-;                       :transaction-item/debit-account {:id :credit-card}
-;                       :transaction-item/credit-account {:id :dining}}
-;                      {:transaction-item/quantity 5M
-;                       :transaction-item/debit-account {:id :credit-card}
-;                       :transaction-item/credit-account {:id :gifts}
-;                       :transaction-item/memo "Gift card for holiday party"}]}
-
-; A unilateral transaction involves any number of transaction items
-;, which of which having a quantity, an account, and an action
-; E.g.
-; {:transaction/transaction-date "2020-01-01"
-;  :transaction/description "Coffee"
-;  :transaction/items [{:transaction-item/quantity 10M
-;                       :transaction-item/action :debit
-;                       :transaction-item/account {:id :credit-card}}
-;                      {:transaction-item/quantity 5M
-;                       :transaction-item/action :credit
-;                       :transaction-item/account {:id :dining}}
-;                      {:transaction-item/quantity 5M
-;                       :transaction-item/action :credit
-;                       :transaction-item/account {:id :gifts}
-;                       :transaction-item/memo "Gift card for holiday party"}]}
-
 (defn sum-of-credits-equals-sum-of-debits?
   [{:transaction/keys [items]}]
   (if (= 1 (count items))
@@ -76,14 +37,23 @@
 (s/def ::id (complement nil?))
 (s/def ::entity-ref (s/keys :req-un [::id]))
 
+(s/def :account-item/account ::entity-ref)
+(s/def :account-item/quantity d/decimal?)
+(s/def :account-item/action #{:debit :credit})
+(s/def :account-item/memo (s/nilable string?))
+(s/def ::account-item (s/keys :req [:account-item/account
+                                    :account-item/quantity
+                                    :account-item/action]
+                              :opt [:account-item/memo]))
+
 (s/def :transaction-item/quantity (s/and d/decimal? pos?))
 (s/def :transaction-item/value (s/and d/decimal? pos?))
 (s/def :transaction-item/debit-quantity (s/nilable (s/and d/decimal? pos?)))
 (s/def :transaction-item/credit-quantity (s/nilable (s/and d/decimal? pos?)))
 (s/def :transaction-item/account ::entity-ref)
 (s/def :transaction-item/action #{:debit :credit})
-(s/def :transaction-item/debit-account ::entity-ref)
-(s/def :transaction-item/credit-account ::entity-ref)
+(s/def :transaction-item/debit-item ::account-item)
+(s/def :transaction-item/credit-item ::account-item)
 (s/def :transaction-item/memo (s/nilable string?))
 (s/def :transaction-item/debit-memo (s/nilable string?))
 (s/def :transaction-item/credit-memo (s/nilable string?))
@@ -112,13 +82,9 @@
 ; I believe the min-count would be 2 except for split trading transactions
 (s/def ::unilateral-items (s/coll-of ::unilateral-item :min-count 1))
 
-(s/def ::bilateral-item (s/keys :req [:transaction-item/credit-account
-                                      :transaction-item/debit-account
-                                      :transaction-item/value]
-                                :opt [:transaction-item/debit-quantity
-                                      :transaction-item/credit-quantity
-                                      :transaction-item/credit-memo
-                                      :transaction-item/debit-memo]))
+(s/def ::bilateral-item (s/keys :req [:transaction-item/credit-item
+                                      :transaction-item/debit-item
+                                      :transaction-item/value]))
 (s/def ::bilateral-items (s/coll-of ::bilateral-item :min-count 1))
 
 (s/def :clj-money.entities/transaction-item
@@ -390,19 +356,20 @@
               :transaction/quantity)
       (assoc :transaction/items
              [{:transaction-item/value quantity
-               :transaction-item/debit-account debit-account
-               :transaction-item/credit-account credit-account
-               :transaction-item/account-items
-               [{:account-item/action :debit
-                 :account-item/quantity (polarize-quantity
-                                          {:quantity quantity
-                                           :account debit-account
-                                           :action :debit})}
-                {:account-item/action :credit
-                 :account-item/quantity (polarize-quantity
-                                          {:quantity quantity
-                                           :account credit-account
-                                           :action :credit})}]}])))
+               :transaction-item/debit-item
+               {:account-item/action :debit
+                :account-item/account debit-account
+                :account-item/quantity (polarize-quantity
+                                         {:quantity quantity
+                                          :account debit-account
+                                          :action :debit})}
+               :transaction-item/credit-item
+               {:account-item/action :credit
+                :account-item/account credit-account
+                :account-item/quantity (polarize-quantity
+                                         {:quantity quantity
+                                          :account credit-account
+                                          :action :credit})}}])))
 
 (defn- simple->unilateral
   [{:transaction/keys [debit-account credit-account quantity] :as trx}]
@@ -420,8 +387,8 @@
                                   :transaction-item/account credit-account}])))
 
 (defn- bilateral->simple
-  [{[{:transaction-item/keys [debit-account
-                              credit-account
+  [{[{:transaction-item/keys [debit-item
+                              credit-item
                               value]}]
     :transaction/items
     :as trx}]
@@ -429,8 +396,8 @@
   ; is a list of tuples like [:item-type item]
   (-> trx
       (dissoc :transaction/items)
-      (assoc :transaction/debit-account debit-account
-             :transaction/credit-account credit-account
+      (assoc :transaction/debit-account (:account-item/account debit-item)
+             :transaction/credit-account (:account-item/account credit-item)
              :transaction/quantity value)))
 
 (defn- group-items-by-action
@@ -479,9 +446,11 @@
                  :transaction-item/value
                  item-value
 
-                 :transaction-item/account-items
-                 [(transaction->account-item d)
-                  (transaction->account-item c)]))
+                 :transaction-item/debit-item 
+                 (transaction->account-item d)
+
+                 :transaction-item/credit-item
+                 (transaction->account-item c)))
       (seq ids)
       (assoc :id (first ids)))))
 
@@ -597,6 +566,7 @@
   [item]
   (-> item
       (rename-keys {:account-item/memo :transaction-item/memo
+                    :account-item/account :transaction-item/account
                     :account-item/action :transaction-item/action
                     :account-item/quantity :transaction-item/quantity})
       (select-keys [:transaction-item/memo
@@ -606,24 +576,20 @@
 
 (defn- split-item
   "Takes a bilateral item and returns two unilateral items"
-  [{:transaction-item/keys [debit-account
-                            credit-account
-                            value
-                            account-items]
+  [{:transaction-item/keys [debit-item
+                            credit-item
+                            value]
     :keys [id]}]
-  (let [{:keys [debit credit]} (index-by :account-item/action account-items)]
-    [(cond->
-       (-> debit
-           account->transaction-item
-           (assoc :transaction-item/value value
-                  :transaction-item/account debit-account))
-       id (assoc :ids #{id}))
-     (cond->
-       (-> credit
-           account->transaction-item
-           (assoc :transaction-item/value value
-                  :transaction-item/account credit-account))
-       id (assoc :ids #{id}))]))
+  [(cond->
+     (-> debit-item
+         account->transaction-item
+         (assoc :transaction-item/value value))
+     id (assoc :ids #{id}))
+   (cond->
+     (-> credit-item
+         account->transaction-item
+         (assoc :transaction-item/value value))
+     id (assoc :ids #{id}))])
 
 (defn- consolidate-items
   [items]
@@ -671,6 +637,9 @@
 
 (defn ->bilateral
   [input]
+
+  #_(pprint {::explain (s/explain-data ::bilateral-transaction input)})
+
   (let [[type] (conform-trx input)]
     (case type
       :simple (simple->bilateral input)
