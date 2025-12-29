@@ -155,27 +155,37 @@
     (assert-invalid (assoc (attributes) :transaction/items [])
                     {:transaction/items ["Items must contain at least 1 item(s)"]})))
 
-(dbtest item-debit-account-is-required
+(dbtest item-debit-item-is-required
   (with-context base-context
-    (assert-invalid (update-in
-                      (attributes)
-                      [:transaction/items 0]
-                      dissoc
-                      :transaction-item/debit-account)
-                    {:transaction/items
-                     {0
-                      {:transaction-item/debit-account ["Debit account is required"]}}})))
+    (try (entities/put (update-in
+                         (attributes)
+                         [:transaction/items 0]
+                         dissoc
+                         :transaction-item/debit-item))
+         (is false "Expected an exception, but none was thrown")
+         (catch clojure.lang.ExceptionInfo e
+           (is (= ["Debit item is required"]
+                  (get-in (ex-data e)
+                       [:dgknght.app-lib.validation/errors
+                        :transaction/items
+                        0
+                        :transaction-item/debit-item])))))))
 
-(dbtest item-credit-account-is-required
+(dbtest item-credit-item-is-required
   (with-context base-context
-    (assert-invalid (update-in
-                      (attributes)
-                      [:transaction/items 0]
-                      dissoc
-                      :transaction-item/credit-account)
-                    {:transaction/items
-                     {0
-                      {:transaction-item/credit-account ["Credit account is required"]}}})))
+    (try (entities/put (update-in
+                         (attributes)
+                         [:transaction/items 0]
+                         dissoc
+                         :transaction-item/credit-item))
+         (is false "Expected an exception, but none was thrown")
+         (catch clojure.lang.ExceptionInfo e
+           (is (= ["Credit item is required"]
+                  (get-in (ex-data e)
+                       [:dgknght.app-lib.validation/errors
+                        :transaction/items
+                        0
+                        :transaction-item/credit-item])))))))
 
 (dbtest item-value-is-required
   (with-context base-context
