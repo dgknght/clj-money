@@ -740,13 +740,13 @@
   (testing "a simple bilateral transaction"
     (is (= simple-unilateral-trx
            (trx/->unilateral simple-bilateral-trx))))
-  #_(testing "a complex bilateral transaction"
+  (testing "a complex bilateral transaction"
     (is (= (comparable-trx complex-unilateral-trx)
            (comparable-trx (trx/->unilateral complex-bilateral-trx)))))
-  #_(testing "a very complex bilateral transaction"
+  (testing "a very complex bilateral transaction"
     (is (= (comparable-trx very-complex-unilateral-trx)
            (comparable-trx (trx/->unilateral very-complex-bilateral-trx)))))
-  #_(testing "a bilateral trading transaction"
+  (testing "a bilateral trading transaction"
     (is (= (comparable-trx unilateral-trading-trx)
            (comparable-trx (trx/->unilateral bilateral-trading-trx))))))
 
