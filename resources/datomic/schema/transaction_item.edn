@@ -1,18 +1,15 @@
-[{:db/ident :transaction-item/debit-account
+[{:db/ident :transaction-item/debit-item
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
-  :db/doc "The account that was debited"}
- {:db/ident :transaction-item/credit-account
+  :db/isComponent true
+  :db/doc "The details of the debit part"}
+ {:db/ident :transaction-item/credit-item
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
-  :db/doc "The account that was credited"}
+  :db/isComponent true
+  :db/doc "The details of the credit part"}
  {:db/ident :transaction-item/value
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
   :db/noHistory true
-  :db/doc "The account value as of this item expressed in the default commodity"}
- {:db/ident :transaction-item/account-items
-  :db/valueType :db.type/ref
-  :db/cardinality :db.cardinality/many
-  :db/isComponent true
-  :db/doc "The account items that make up this transaction item"}]
+  :db/doc "The account value as of this item expressed in the default commodity"}]

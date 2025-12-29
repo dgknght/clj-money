@@ -14,10 +14,14 @@
                   :account-item/action]
   :db/unique :db.unique/identity
   :db/doc "Uniquely identifies this action on this item"}
+ {:db/ident :account-item/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account credited or debited"}
  {:db/ident :account-item/quantity
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
-  :db/doc "The amount debited or credited"}
+  :db/doc "The amount debited or credited, vis-a-vis the account (i.e. positive or negative)"}
  {:db/ident :account-item/index
   :db/valueType :db.type/bigint
   :db/cardinality :db.cardinality/one
