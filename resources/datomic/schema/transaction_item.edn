@@ -11,7 +11,8 @@
   :db/cardinality :db.cardinality/one
   :db/noHistory true
   :db/doc "The account value as of this item expressed in the default commodity"}
- {:db/ident :transaction-item/action-items
+ {:db/ident :transaction-item/account-items
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
+  :db/isComponent true
   :db/doc "The account items that make up this transaction item"}]
