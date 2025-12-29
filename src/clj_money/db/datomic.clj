@@ -177,12 +177,17 @@
         x)
       (f x))))
 
+(def ^:private ref-keys
+  (disj schema/entity-ref-keys
+        :transaction-item/credit-item
+        :transaction-item/debit-item))
+
 (defn- put*
   [entities {:keys [api]}]
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
-                     (map (pass-through (datomize {:ref-keys schema/entity-ref-keys})))
+                     (map (pass-through (datomize {:ref-keys ref-keys})))
                      (mapcat #(prep-for-put % api)))
 
         {:keys [tempids]} (transact api prepped {})]

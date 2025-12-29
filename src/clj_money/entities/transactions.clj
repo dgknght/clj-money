@@ -280,11 +280,8 @@
           affected-items (if (util/temp-id? account)
                            []
                            (->> (account-items-on-or-after account as-of)
-                                (remove #(ids (:id %)))
-                                (map #(assoc % :transaction-item/account account))))
-          account (update-in (:account-item/account (first items))
-                             [:account/commodity]
-                             entities/resolve-ref)]
+                                (remove (comp ids :id))
+                                (map #(assoc % :account-item/account account))))]
       (re-index (if delete?
                   account
                   (dates/push-entity-boundary
@@ -295,6 +292,20 @@
                 (sort-by :transaction/transaction-date t/before?
                          (cond->> affected-items
                            (not delete?) (concat items)))))))
+
+(defn- realize-commodities
+  "Given a list of accounts, looks up the commodities"
+  [accounts]
+  (let [commodities (->> accounts
+                         (map (comp :id :account/commodity))
+                         set
+                         seq
+                         entities/find-many
+                         (index-by :id))]
+    (map #(update-in %
+                     [:account/commodity]
+                     (comp commodities :id))
+         accounts)))
 
 (defn- account-ref-ids
   "Extracts and returns the account ids from references from the account
@@ -320,6 +331,7 @@
   (if-let [account-ids (account-ref-ids items)]
     (let [accounts (->> (entities/find-many account-ids)
                         (map #(assoc % :account/entity entity))
+                        realize-commodities
                         (index-by :id))]
       (map #(update-in %
                        [:account-item/account]
