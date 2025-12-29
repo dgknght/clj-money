@@ -288,22 +288,13 @@
   (fn [items]
     (mapv #(prepare % ctx) items)))
 
-(defn- ->bilateral
-  [{:as trx :transaction/keys [quantity debit-account credit-account]}]
-  (-> trx
-      (assoc :transaction/items [{:transaction-item/value quantity
-                                  :transaction-item/debit-account debit-account
-                                  :transaction-item/credit-account credit-account}])
-      (dissoc :transaction/debit-account
-              :transaction/credit-account
-              :transaction/quantity)))
-
 (defmethod prepare :transaction
   [trx ctx]
   (-> trx
-      ->bilateral
-      (update-in [:transaction/items] (prepare-coll ctx))
-      (update-in [:transaction/entity] (find-entity ctx))))
+      (update-in [:transaction/entity] (find-entity ctx))
+      (update-in-if [:transaction/credit-account] (find-account ctx))
+      (update-in-if [:transaction/debit-account] (find-account ctx))
+      (update-in-if [:transaction/items] (prepare-coll ctx))))
 
 (defmethod prepare :scheduled-transaction
   [trx ctx]
@@ -313,16 +304,12 @@
 
 (defmethod prepare :transaction-item
   [item ctx]
-  {:pre [(:transaction-item/debit-account item)
-         (:transaction-item/credit-account item)]}
-  (reduce (fn [i k]
-            (update-in i
-                       [k]
-                       (comp util/->entity-ref
-                             (find-account ctx))))
-          item
-          [:transaction-item/debit-account
-           :transaction-item/credit-account]))
+  (-> item
+      (update-in-if [:transaction/account] (find-account ctx))
+      (update-in-if [:transaction/debit-item
+                     :account-item/account] (find-account ctx))
+      (update-in-if [:transaction/credit-item
+                     :account-item/account] (find-account ctx))))
 
 (defmethod prepare :scheduled-transaction-item
   [item ctx]
