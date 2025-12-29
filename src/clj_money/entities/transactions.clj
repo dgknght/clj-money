@@ -296,16 +296,12 @@
                          (cond->> affected-items
                            (not delete?) (concat items)))))))
 
-(def ^:private accounts
-  (juxt :transaction-item/credit-account
-        :transaction-item/debit-account))
-
 (defn- account-ref-ids
   "Extracts and returns the account ids from references from the account
   items, omitting any complete account entities."
   [items]
   (->> items
-       (map :account-item)
+       (map :account-item/account)
        (filter util/entity-ref?)
        (map :id)
        set
@@ -325,12 +321,9 @@
     (let [accounts (->> (entities/find-many account-ids)
                         (map #(assoc % :account/entity entity))
                         (index-by :id))]
-      (map (comp #(update-in %
-                             [:transaction-item/debit-account]
-                             (fn [a] (accounts (:id a) a)))
-                 #(update-in %
-                             [:transaction-item/credit-account]
-                             (fn [a] (accounts (:id a) a))))
+      (map #(update-in %
+                       [:account-item/account]
+                       (comp accounts :id))
            items))
     items))
 
@@ -349,18 +342,8 @@
   [[before {:transaction/keys [transaction-date] :as after}]]
   (let [entity (entities/find (:transaction/entity after))]
     (->> (:transaction/items after)
-         (mapcat (fn [{:as item
-                       :transaction-item/keys [debit-account
-                                               credit-account
-                                               account-items]}]
-                   (->> account-items
-                        (map (fn [a]
-                               (assoc a
-                                      :transaction-item/account
-                                      (if (= :debit
-                                             (:account-item/action a))
-                                        debit-account
-                                        credit-account)))))))
+         (mapcat (juxt :transaction-item/debit-item
+                       :transaction-item/credit-item))
          (realize-accounts entity)
          (map #(assoc % :transaction/transaction-date transaction-date))
          (group-by (comp :id
