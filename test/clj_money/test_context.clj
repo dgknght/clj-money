@@ -305,10 +305,10 @@
 (defmethod prepare :transaction-item
   [item ctx]
   (-> item
-      (update-in-if [:transaction/account] (find-account ctx))
-      (update-in-if [:transaction/debit-item
+      (update-in-if [:transaction-item/account] (find-account ctx))
+      (update-in-if [:transaction-item/debit-item
                      :account-item/account] (find-account ctx))
-      (update-in-if [:transaction/credit-item
+      (update-in-if [:transaction-item/credit-item
                      :account-item/account] (find-account ctx))))
 
 (defmethod prepare :scheduled-transaction-item
