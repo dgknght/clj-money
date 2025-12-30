@@ -93,8 +93,8 @@
              :keys [count
                     nil-replacements]
              :or {nil-replacements {}}}]
-  (let [m-type (or (util/entity-type criteria)
-                   (:entity-type opts))]
+  (let [m-type (or (:entity-type opts)
+                   (util/entity-type criteria))]
     (-> {:find (if count
                  '[(count ?x)]
                  '[(pull ?x [*])])
