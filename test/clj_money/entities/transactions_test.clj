@@ -773,15 +773,20 @@
         #:transaction{:transaction-date (t/local-date 2016 3 16)
                       :entity "Personal"
                       :description "Kroger"
-                      :items [#:transaction-item{:action :debit
-                                                 :account "Groceries"
-                                                 :quantity 90M}
-                              #:transaction-item{:action :debit
-                                                 :account "Pets"
-                                                 :quantity 12M}
-                              #:transaction-item{:action :credit
-                                                 :account "Checking"
-                                                 :quantity 102M}]}
+                      :items [#:transaction-item{:value 90M
+                                                 :debit-item #:account-item{:action :debit
+                                                                            :account "Groceries"
+                                                                            :quantity 90M}
+                                                 :credit-item #:account-item{:action :credit
+                                                                             :account "Checking"
+                                                                             :quantity -90M}}
+                              #:transaction-item{:value 12M
+                                                 :debit-item #:account-item{:action :debit
+                                                                            :account "Pets"
+                                                                            :quantity 12M}
+                                                 :credit-item #:account-item{:action :credit
+                                                                             :account "Checking"
+                                                                             :quantity -12M}}]}
         #:transaction{:transaction-date (t/local-date 2016 3 23)
                       :entity "Personal"
                       :description "Kroger"
@@ -793,14 +798,9 @@
   (with-context add-remove-item-context
     (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
         (update-in [:transaction/items]
-                   update-items
-                   {(find-account "Groceries")
-                    #:transaction-item{:quantity 102M
-                                       :value 102M}})
-        (update-in [:transaction/items] #(remove (fn [i]
-                                                   (= 12M (:transaction-item/quantity i)))
-                                                 %))
-        prop/put-and-propagate)))
+                   #(take 1 %))
+        prop/put-and-propagate)
+    (is false "Need to add assertions to this tests. Currently, errors are thrown during propagation but the test passes")))
 
 (dbtest update-a-transaction-add-item
   (with-context add-remove-item-context
