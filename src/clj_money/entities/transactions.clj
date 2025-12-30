@@ -225,8 +225,11 @@
   and will default to 1M if not found."
   ([account basis items]
    (re-index account basis {} items))
-  ([{:as account :account/keys [commodity]} basis {:keys [force?] :or {force? false}} items]
-   {:pre [(every? :transaction/transaction-date items)]}
+  ([{:as account :account/keys [commodity]}
+    basis
+    {:keys [force?]}
+    items]
+   {:pre [account (every? :transaction/transaction-date items)]}
    (if (empty? items)
      [(cond-> (assoc account
                      :account/quantity (:transaction-item/balance basis 0M)
@@ -252,10 +255,10 @@
               (count items))
          (cons (-> account
                    (dates/push-entity-boundary :account/transaction-date-range
-                                              (:transaction/transaction-date (last items))
-                                              (some :transaction/transaction-date
-                                                    (cons basis
-                                                          items)))
+                                               (:transaction/transaction-date (last items))
+                                               (some :transaction/transaction-date
+                                                     (cons basis
+                                                           items)))
                    (assoc :account/quantity final-qty
                           :account/value (* final-qty price)))
                updated-items)
@@ -276,6 +279,7 @@
   account, if the account is also updated"
   [& {:keys [as-of delete?]}]
   (fn [[_ [{:account-item/keys [account]} :as items]]]
+    {:pre [account]}
     (let [ids (->> items
                    (map :id)
                    set)
@@ -291,6 +295,7 @@
                     :account/transaction-date-range
                     as-of))
                 (propagation-basis account as-of)
+                {:force? delete?}
                 (sort-by :transaction/transaction-date t/before?
                          (cond->> affected-items
                            (not delete?) (concat items)))))))
@@ -372,17 +377,23 @@
 (defn- propagate-dereferenced-account-items
   [[before {:transaction/keys [items] :as after}]]
   (let [act-ids (->> items
+                     (mapcat (juxt :transaction-item/debit-item
+                                   :transaction-item/credit-item))
                      (map (comp :id
-                                :transaction-item/account))
+                                :account-item/account))
                      set)
-        entity (entities/find (:transaction/entity (or after before)))]
+        entity (-> (or after before)
+                   :transaction/entity
+                   entities/find)]
     (->> (:transaction/items before)
+         (mapcat (juxt :transaction-item/debit-item
+                       :transaction-item/credit-item))
          (remove (comp act-ids
                        :id
-                       :transaction-item/account))
+                       :account-item/account))
          (realize-accounts entity)
-         (group-by (comp util/->entity-ref
-                         :transaction-item/account))
+         (group-by (comp :id
+                         :account-item/account))
          (mapcat (propagate-account-items
                    :as-of (:transaction/transaction-date before)
                    :delete? true)))))
