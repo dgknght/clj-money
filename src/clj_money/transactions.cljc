@@ -576,18 +576,21 @@
   "Takes a bilateral item and returns two unilateral items"
   [{:transaction-item/keys [debit-item
                             credit-item
-                            value]
+                            value
+                            memo]
     :keys [id]}]
   [(cond->
      (-> debit-item
          account->transaction-item
          (assoc :transaction-item/value value))
-     id (assoc :ids #{id}))
+     id (assoc :ids #{id})
+     memo (assoc :transaction-item/memo memo))
    (cond->
      (-> credit-item
          account->transaction-item
          (assoc :transaction-item/value value))
-     id (assoc :ids #{id}))])
+     id (assoc :ids #{id})
+     memo (assoc :transaction-item/memo memo))])
 
 (defn- consolidate-items
   [items]
