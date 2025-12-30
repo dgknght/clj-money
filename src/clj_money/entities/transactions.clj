@@ -47,10 +47,7 @@
 
 (defn- qty-comparable
   [item]
-  (select-keys item [:id
-                     :transaction-item/credit-quantity
-                     :transaction-item/debit-quantity
-                     :transaction-item/value]))
+  (select-keys item [:id :account-item/quantity]))
 
 (defn- no-reconciled-quantities-changed*
   [{:transaction/keys [items] :as trx}]
@@ -59,9 +56,9 @@
                      (map (juxt :id qty-comparable))
                      (into {}))]
       (->> (entities/select (util/entity-type
-                              {:transaction-item/transaction trx
+                              {:transaction/_self trx
                                :account-item/reconciliation [:!= nil]}
-                              :transaction-item))
+                              :account-item))
            (map qty-comparable)
            (remove #(= % (after (:id %))))
            empty?))
