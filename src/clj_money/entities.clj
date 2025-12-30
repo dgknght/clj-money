@@ -49,6 +49,11 @@
 (defmulti before-delete util/entity-type-dispatch)
 (defmethod before-delete :default [m & _] m)
 
+(defn- after-read*
+  [entity opts]
+  (let [result (after-read entity opts)]
+    (with-meta result {::original result})))
+
 (defn- validation-key
   [m]
   (keyword "clj-money.entities"
@@ -81,7 +86,7 @@
   ([criteria] (select criteria {}))
   ([criteria options]
    (map (comp append-before
-              #(after-read % options))
+              #(after-read* % options))
         (db/select (db/storage)
                    (prepare-criteria criteria)
                    options))))
@@ -106,7 +111,7 @@
           util/->id
           db/unserialize-id
           db-find
-          (after-read opts)))
+          (after-read* opts)))
 
 (defn find-many
   "Returns the entities having the specified IDs"
@@ -115,7 +120,7 @@
        util/->id
        db/unserialize-id
        (db/find-many (db/storage))
-       (map #(after-read % opts))))
+       (map #(after-read* % opts))))
 
 (def ^:private mergeable?
   (every-pred map? :id))
@@ -261,7 +266,7 @@
                        to-save)
          result (map (comp append-before
                            after-save
-                           #(after-read % {}))
+                           #(after-read* % {}))
                      saved)]
      (emit-changes (assoc opts
                           :to-save to-save
