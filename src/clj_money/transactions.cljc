@@ -635,9 +635,6 @@
 
 (defn ->bilateral
   [input]
-
-  #_(pprint {::explain (s/explain-data ::bilateral-transaction input)})
-
   (let [[type] (conform-trx input)]
     (case type
       :simple (simple->bilateral input)
