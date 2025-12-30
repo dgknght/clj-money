@@ -376,21 +376,16 @@
 
 (defn- propagate-dereferenced-account-items
   [[before {:transaction/keys [items] :as after}]]
-  (let [act-ids (->> items
-                     (mapcat (juxt :transaction-item/debit-item
-                                   :transaction-item/credit-item))
-                     (map (comp :id
-                                :account-item/account))
-                     set)
+  (let [after-ids (->> items
+                       (map :id)
+                       set)
         entity (-> (or after before)
                    :transaction/entity
                    entities/find)]
     (->> (:transaction/items before)
+         (remove (comp after-ids :id))
          (mapcat (juxt :transaction-item/debit-item
                        :transaction-item/credit-item))
-         (remove (comp act-ids
-                       :id
-                       :account-item/account))
          (realize-accounts entity)
          (group-by (comp :id
                          :account-item/account))
