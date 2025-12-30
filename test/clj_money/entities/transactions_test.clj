@@ -800,7 +800,32 @@
         (update-in [:transaction/items]
                    #(take 1 %))
         prop/put-and-propagate)
-    (is false "Need to add assertions to this tests. Currently, errors are thrown during propagation but the test passes")))
+    (let [checking (reload-account "Checking")
+          pets (reload-account "Pets")]
+      (is (= (- 1000M 103M 90M 101M)
+             (:account/value checking))
+          "The credit account balance is adjusted")
+      (is (= (- 0M)
+             (:account/value pets))
+          "The debit account balance is adjusted")
+      (is (seq-of-maps-like?
+            [{:account-item/index 0
+              :account-item/quantity 1000M
+              :account-item/balance 1000M}
+             {:account-item/index 1
+              :account-item/quantity -103M
+              :account-item/balance 897M}
+             {:account-item/index 2
+              :account-item/quantity -90M
+              :account-item/balance 807M}
+             {:account-item/index 3
+              :account-item/quantity -101M
+              :account-item/balance 706M}]
+            (entities/select {:account-item/account checking}
+                             {:sort [:account-item/index]}))
+          "The credit account items reflect the removal and are re-indexed")
+      (is (empty? (entities/select {:account-item/account pets}))
+          "The debit account items reflect the removal"))))
 
 (dbtest update-a-transaction-add-item
   (with-context add-remove-item-context
