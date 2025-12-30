@@ -757,3 +757,41 @@
   (testing "a bilateral transaction with multiple items"
     (is (nil? (trx/simplify complex-bilateral-trx))
         "cannot be created")))
+
+(deftest infer-account-item-attributes
+  (testing "Accounts specified on the transaction item"
+    (is (= #:transaction-item{:value (d 10)
+                              :debit-item
+                              #:account-item{:action :debit
+                                             :quantity (d 10)
+                                             :account {:id "groceries"
+                                                       :account/type :expense}}
+                              :credit-item
+                              #:account-item{:action :credit
+                                             :quantity (d -10)
+                                             :account {:id "checking"
+                                                       :account/type :asset}}}
+           (trx/expand-account-item
+             #:transaction-item{:value (d 10)
+                                :debit-account {:id "groceries"
+                                                :account/type :expense}
+                                :credit-account {:id "checking"
+                                                 :account/type :asset}}))))
+  (testing "Accounts specified on the account items"
+    (is (= #:transaction-item{:value (d 10)
+                              :debit-item
+                              #:account-item{:action :debit
+                                             :quantity (d 10)
+                                             :account {:id "groceries"
+                                                       :account/type :expense}}
+                              :credit-item
+                              #:account-item{:action :credit
+                                             :quantity (d -10)
+                                             :account {:id "checking"
+                                                       :account/type :asset}}}
+           (trx/expand-account-item
+             #:transaction-item{:value (d 10)
+                                :debit-item {:account-item/account {:id "groceries"
+                                                                    :account/type :expense}}
+                                :credit-item {:account-item/account {:id "checking"
+                                                                     :account/type :asset}}})))))

@@ -658,3 +658,42 @@
       :bilateral (when (= 1 (count (:transaction/items input)))
                    (bilateral->simple input))
       nil)))
+
+(defn- account-item
+  [action account value]
+  #:account-item{:action action
+                 :account account
+                 :quantity (polarize-quantity
+                             {:account account
+                              :quantity value
+                              :action action})})
+
+(defn expand-account-item
+  [{:transaction-item/keys [value
+                            credit-account
+                            credit-item
+                            debit-account
+                            debit-item]
+    :as item}]
+  (cond-> (dissoc item
+                  :transaction-item/credit-account
+                  :transaction-item/debit-account)
+    credit-account
+    (assoc :transaction-item/credit-item
+           (account-item :credit credit-account value))
+
+    debit-account
+    (assoc :transaction-item/debit-item
+           (account-item :debit debit-account value))
+
+    credit-item
+    (update-in [:transaction-item/credit-item]
+               #(merge (account-item :credit
+                                     (:account-item/account %)
+                                     value)))
+
+    debit-item
+    (update-in [:transaction-item/debit-item]
+               #(merge (account-item :debit
+                                     (:account-item/account %)
+                                     value)))))
