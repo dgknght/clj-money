@@ -6,6 +6,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
+            [dgknght.app-lib.validation :as v]
             [clj-money.config :refer [env]]
             [clj-money.util :as util]
             [clj-money.entity-helpers :as helpers :refer [assert-deleted]]
@@ -22,7 +23,8 @@
                                             find-accounts
                                             find-transaction]]
             [clj-money.test-helpers :refer [dbtest]]
-            [clj-money.spies :as spy]))
+            [clj-money.spies :as spy])
+  (:import clojure.lang.ExceptionInfo))
 
 (def ^:private reload-account
   (comp entities/find
@@ -163,10 +165,10 @@
                          dissoc
                          :transaction-item/debit-item))
          (is false "Expected an exception, but none was thrown")
-         (catch clojure.lang.ExceptionInfo e
+         (catch ExceptionInfo e
            (is (= ["Debit item is required"]
                   (get-in (ex-data e)
-                       [:dgknght.app-lib.validation/errors
+                       [::v/errors
                         :transaction/items
                         0
                         :transaction-item/debit-item])))))))
@@ -182,33 +184,47 @@
          (catch clojure.lang.ExceptionInfo e
            (is (= ["Credit item is required"]
                   (get-in (ex-data e)
-                       [:dgknght.app-lib.validation/errors
+                       [::v/errors
                         :transaction/items
                         0
                         :transaction-item/credit-item])))))))
 
 (dbtest item-value-is-required
   (with-context base-context
-    (assert-invalid (update-in (attributes)
-                               [:transaction/items 0]
-                               #(-> %
-                                    (dissoc :transaction-item/value)
-                                    (assoc :transaction-item/quantity 1M)))
-                    {:transaction/items
-                     {0
-                      {:transaction-item/value ["Value is required"]}}})))
+    (try
+      (-> (attributes)
+          (update-in [:transaction/items 0]
+                     dissoc
+                     :transaction-item/value)
+          entities/put)
+      (is false "Expected an exception, but none was thrown")
+      (catch ExceptionInfo e
+        (is (seq-containing-value?
+              "Value is required"
+              (get-in (ex-data e)
+                       [::v/errors
+                        :transaction/items
+                        0
+                        :transaction-item/value])))))))
 
 (dbtest item-value-must-be-greater-than-zero
   (with-context base-context
-    (assert-invalid (assoc-in
-                          (attributes)
-                          [:transaction/items
-                           0
-                           :transaction-item/value]
-                          -1000M)
-                    {:transaction/items
-                     {0
-                      {:transaction-item/value ["Value must be a positive number"]}}})))
+    (try
+      (-> (attributes)
+          (assoc-in [:transaction/items
+                     0
+                     :transaction-item/value]
+                    -1000M)
+          entities/put)
+      (is false "Expected an exception, but none was thrown")
+      (catch ExceptionInfo e
+        (is (seq-containing-value?
+              "Value must be a positive number"
+              (get-in (ex-data e)
+                      [::v/errors
+                       :transaction/items
+                       0
+                       :transaction-item/value])))))))
 
 (def insert-context
   (conj base-context
