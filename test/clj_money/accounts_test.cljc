@@ -1,6 +1,6 @@
 (ns clj-money.accounts-test
   (:require #?(:clj [clojure.test :refer [deftest is are testing]]
-               :cljs [cljs.test :refer [deftest is testing]])
+               :cljs [cljs.test :refer [deftest is are testing]])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]

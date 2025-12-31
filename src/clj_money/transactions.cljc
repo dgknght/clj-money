@@ -7,8 +7,7 @@
             [clojure.pprint :refer [pprint]]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [dgknght.app-lib.core :refer [update-in-if
-                                          index-by]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [->entity-ref entity=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
@@ -55,8 +54,6 @@
 (s/def :transaction-item/debit-item ::account-item)
 (s/def :transaction-item/credit-item ::account-item)
 (s/def :transaction-item/memo (s/nilable string?))
-(s/def :transaction-item/debit-memo (s/nilable string?))
-(s/def :transaction-item/credit-memo (s/nilable string?))
 (s/def :transaction/entity ::entity-ref)
 (s/def :transaction/transaction-date dates/local-date?)
 (s/def :transaction/debit-account ::entity-ref)
