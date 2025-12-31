@@ -978,7 +978,13 @@
                              (:transaction/items trx))))))
 
 (def ^:private existing-reconciliation-context
-  (conj base-context
+  (conj (mapv (fn [entity]
+                (cond-> entity
+                  (= "Checking" (:account/name entity))
+                  (assoc :account/transaction-date-range
+                         [(t/local-date 2015 1 1)
+                          (t/local-date 2017 12 31)])))
+              base-context)
         #:account{:name "Rent"
                   :type :expense
                   :entity "Personal"}
@@ -1016,9 +1022,22 @@
 (dbtest the-quantity-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context
     (-> (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
-        (assoc-in [:transaction/items 0 :transaction-item/quantity] 1010M)
-        (assoc-in [:transaction/items 1 :transaction-item/quantity] 1010M)
-        (assert-invalid {:transaction/items ["A reconciled quantity cannot be updated"]}))))
+        (assoc-in [:transaction/items
+                   0
+                   :transaction-item/value]
+                  1010M)
+        (assoc-in [:transaction/items
+                   0
+                   :transaction-item/debit-item
+                   :account-item/quantity]
+                  1010M)
+        (assoc-in [:transaction/items
+                   0
+                   :transaction-item/credit-item
+                   :account-item/quantity]
+                  1010M)
+        (assert-invalid
+          {:transaction/items ["A reconciled quantity cannot be updated"]}))))
 
 (dbtest the-action-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context

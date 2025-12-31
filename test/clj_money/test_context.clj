@@ -203,18 +203,36 @@
 (defn find-transaction-item
   ([identifier]
    (find-transaction-item *context* identifier))
-  ([context [transaction-date value account]]
-   (let [act (if (map? account)
-               account
-               (find-account context account))]
-     (->> context
-          (filter #(= transaction-date (:transaction/transaction-date %)))
-          (mapcat :transaction/items)
-          (filter #(and (or (entity= act (:transaction-item/debit-account %))
-                            (entity= act (:transaction-item/credit-account %)))
-                        (= value (:transaction-item/value %))))
-          (map #(assoc % :transaction/transaction-date transaction-date))
-          first))))
+  ([context [transaction-date value]]
+   (->> context
+        (filter #(= transaction-date (:transaction/transaction-date %)))
+        (mapcat :transaction/items)
+        (filter #(= value (:transaction-item/value %)))
+        (map #(assoc % :transaction/transaction-date transaction-date))
+        first)))
+
+(defmacro defind
+  [fn-name & body]
+  `(defn ~fn-name
+     ([identifier#]
+      (~fn-name *context* identifier#))
+     (~@body)))
+
+#_:clj-kondo/ignore
+(defind find-account-item
+  [context [transaction-date value account :as id]]
+  (let [act (if (map? account)
+              account
+              (find-account context account))]
+    (->> context
+         (filter #(= transaction-date (:transaction/transaction-date %)))
+         (mapcat :transaction/items)
+         (filter #(= value (:transaction-item/value %)))
+         (mapcat (juxt :transaction-item/debit-item
+                       :transaction-item/credit-item))
+         (filter #(entity= act (:account-item/account %)))
+         (map #(assoc % :transaction/transaction-date transaction-date))
+         first)))
 
 (defn find-scheduled-transaction
   ([description] (find-scheduled-transaction *context* description))
@@ -325,7 +343,7 @@
     (-> recon
         (assoc :reconciliation/account account)
         (update-in [:reconciliation/items]
-                   (partial mapv (comp #(find-transaction-item ctx %)
+                   (partial mapv (comp #(find-account-item ctx %)
                                        #(conj % account)))))))
 
 (defmethod prepare :budget
