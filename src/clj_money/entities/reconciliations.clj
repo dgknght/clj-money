@@ -8,7 +8,6 @@
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
-            [clj-money.entities.transaction-items :as itms]
             [clj-money.accounts :as acts]))
 
 (defn- get-meta
