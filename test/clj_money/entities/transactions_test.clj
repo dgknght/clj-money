@@ -934,9 +934,9 @@
            groceries] (find-accounts "Checking" "Salary" "Groceries")]
       (transactions/with-delayed-propagation [out-chan ctrl-chan]
         (mapv (comp #(entities/put %
-                                 :out-chan out-chan
-                                 :close-chan? false
-                                 :ctrl-chan ctrl-chan)
+                                   :out-chan out-chan
+                                   :close-chan? false
+                                   :ctrl-chan ctrl-chan)
                     #(assoc % :transaction/entity entity))
               [#:transaction{:transaction-date (t/local-date 2017 1 1)
                              :description "Paycheck"
@@ -1042,8 +1042,18 @@
 (dbtest the-action-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context
     (-> (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
-        (assoc-in [:transaction/items 0 :transaction-item/action] :credit)
-        (assoc-in [:transaction/items 1 :transaction-item/action] :debit)
+        (update-in [:transaction/items 0]
+                   (fn [{:transaction-item/keys [debit-item credit-item]
+                         :as item}]
+                     (assoc item
+                            :transaction-item/debit-item
+                            (assoc credit-item
+                                   :account-item/action
+                                   :debit)
+                            :transaction-item/credit-item
+                            (assoc debit-item
+                                   :account-item/action
+                                   :credit))))
         (assert-invalid {:transaction/items ["A reconciled quantity cannot be updated"]}))))
 
 (dbtest a-reconciled-transaction-item-cannot-be-deleted

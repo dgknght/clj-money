@@ -323,7 +323,6 @@
 (defmethod prepare :transaction-item
   [item ctx]
   (-> item
-      (update-in-if [:transaction-item/account] (find-account ctx))
       (update-in-if [:transaction-item/debit-item
                      :account-item/account] (find-account ctx))
       (update-in-if [:transaction-item/credit-item

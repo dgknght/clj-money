@@ -32,6 +32,10 @@
          (second x)
          x))))
 
+(def account-items
+  (juxt :transaction-item/credit-item
+        :transaction-item/debit-item))
+
 (defn- new-transaction-has-items?
   [input]
   (if (vector? input)
@@ -362,8 +366,7 @@
   [[before {:transaction/keys [transaction-date] :as after}]]
   (let [entity (entities/find (:transaction/entity after))]
     (->> (:transaction/items after)
-         (mapcat (juxt :transaction-item/debit-item
-                       :transaction-item/credit-item))
+         (mapcat account-items)
          (realize-accounts entity)
          (map #(assoc % :transaction/transaction-date transaction-date))
          (group-by (comp :id
@@ -384,8 +387,7 @@
                    entities/find)]
     (->> (:transaction/items before)
          (remove (comp after-ids :id))
-         (mapcat (juxt :transaction-item/debit-item
-                       :transaction-item/credit-item))
+         (mapcat account-items)
          (realize-accounts entity)
          (group-by (comp :id
                          :account-item/account))
@@ -439,7 +441,7 @@
              (when id (entities/find-by (util/entity-type {:id id}
                                                        :transaction)
                                       {:include-items? true}))]
-    (when (some :transaction-item/reconciliation
+    (when (some :account-item/reconciliation
                 items)
       (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
   trx)
@@ -562,24 +564,27 @@
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those
   accounts as of the associated dates."
-  [{:keys [accounts entity-id] :as x}]
-  (let [entity (entities/find entity-id)]
-    (entities/put-many
+  [{:keys [entity-id] :as x}]
+  (let [entity (entities/find entity-id)
+        accounts (index-by :id (entities/find-many (keys (:accounts x))))
+        commodities (index-by :id (entities/find-many (->> accounts vals (map (comp :id :account/commodity)))))]
+    (entities/put-many ; TODO: don't put directly, just return the updated values
       (cons (update-in entity
                        [:entity/transaction-date-range]
                        #(apply dates/push-boundary % (:entity x)))
-            (->> accounts
-                 (map (comp (fn [[account date]]
-                              {:account account
-                               :date date
-                               :basis (or (last-account-item-before account date)
-                                          initial-basis)
-                               :items (map #(assoc % :account-item/account account)
-                                           (entities/select {:account-item/account account}
-                                                            {:select-also [:transaction/transaction-date]}))})
-                            #(assoc-in % [0 :account/entity] entity)
-                            #(update-in % [0 :account/commodity] entities/resolve-ref)
-                            #(update-in % [0] entities/find)))
+            (->> (:accounts x)
+                 (map (comp
+                        (fn [[account date]]
+                          {:account account
+                           :date date
+                           :basis (or (last-account-item-before account date)
+                                      initial-basis)
+                           :items (map #(assoc % :account-item/account account)
+                                       (entities/select {:account-item/account account}
+                                                        {:select-also [:transaction/transaction-date]}))})
+                        #(assoc-in % [0 :account/entity] entity)
+                        #(update-in % [0 :account/commodity] (comp commodities :id))
+                        #(update-in % [0] accounts)))
                  (mapcat (fn [{:keys [account items basis]}]
                            (re-index account basis items))))))))
 
@@ -588,9 +593,10 @@
         (filter identity)
         (filter (util/entity-type? :transaction))
         (mapcat (fn [{:transaction/keys [entity transaction-date items]}]
-                  (map (fn [{:account-item/keys [account]}]
-                         [entity account transaction-date])
-                       items)))))
+                  (->> items
+                       (mapcat account-items)
+                       (map (fn [{:account-item/keys [account]}]
+                              [entity account transaction-date])))))))
 
 (defn accumulate-dates
   [m [entity account date]]
