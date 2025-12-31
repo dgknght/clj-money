@@ -11,6 +11,7 @@
             [clj-money.util :as util]
             [clj-money.entity-helpers :as helpers :refer [assert-deleted]]
             [clj-money.db :as db]
+            [clj-money.transactions :refer [expand-account-item]]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
@@ -383,7 +384,8 @@
                         :transaction/transaction-date (t/local-date 2016 3 2)}
                        retrieved)
           "The transaction can be retrieved")
-      (is (= 2 (count (:transaction/items retrieved)))
+      (is (seq-of-maps-like? [{:transaction-item/value 1000M}]
+                             (:transaction/items retrieved))
           "The transaction items are included"))))
 
 (def search-context
@@ -850,27 +852,23 @@
            checking] (find-accounts "Pets" "Groceries" "Checking")]
       (-> (find-transaction [(t/local-date 2016 3 9) "Kroger"])
           (update-in [:transaction/items]
-                     update-items
-                     {groceries #:transaction-item{:quantity 90M
-                                                   :value 90M}})
-          (update-in [:transaction/items]
                      conj
-                     #:transaction-item{:action :debit
-                                        :account pets
-                                        :quantity 13M
-                                        :value 13M})
+                     (expand-account-item
+                       #:transaction-item{:value 13M
+                                          :debit-account pets
+                                          :credit-account checking}))
           prop/put-and-propagate)
-      (testing "item values are correct"
-        (is (seq-of-maps-like? [#:transaction-item{:index 1
-                                                   :quantity 12M
-                                                   :balance 25M}
-                                #:transaction-item{:index 0
-                                                   :quantity 13M
-                                                   :balance 13M}]
+      (testing "item values"
+        (is (seq-of-maps-like? [#:account-item{:index 1
+                                               :quantity 12M
+                                               :balance 25M}
+                                #:account-item{:index 0
+                                               :quantity 13M
+                                               :balance 13M}]
                                (items-by-account "Pets"))
-            "The Pets account should have the correct items"))
+            "The Pets account reflects the added item"))
       (assert-account-quantities pets 25M
-                                 groceries 281M
+                                 groceries 294M
                                  checking 694M))))
 
 (def balance-delta-context
