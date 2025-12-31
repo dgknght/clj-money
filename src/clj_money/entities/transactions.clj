@@ -551,11 +551,11 @@
         as-of (or (get-in from-account [:account/transaction-date-range 0])
                   (get-in entity [:entity/transaction-date-range 0]))]
     (assert as-of "Unable to find the earliest transaction date.")
-    (entities/update {:transaction-item/account (util/->entity-ref to-account)
-                    :transaction-item/index 0
-                    :transaction-item/balance nil}
-                   {:transaction-item/account (util/->entity-ref from-account)
-                    :transaction/transaction-date [:>= as-of]})
+    (entities/update {:account-item/account (util/->entity-ref to-account)
+                      :account-item/index 0
+                      :account-item/balance nil}
+                     {:account-item/account (util/->entity-ref from-account)
+                      :transaction/transaction-date [:>= as-of]})
     (doseq [account [from-account to-account]]
       (propagate-account-from-start entity account))))
 
