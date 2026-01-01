@@ -25,6 +25,7 @@
   [{:reconciliation/keys [balance] :as recon}]
   (let [calculated (->> (get-meta recon ::all-items)
                         (map :account-item/quantity)
+                        (filter identity)
                         (reduce + (starting-balance recon)))]
     (= balance calculated)))
 
@@ -44,7 +45,7 @@
   account, if one exists"
   [account]
   (entities/find-by #:reconciliation{:status :new
-                                   :account account}))
+                                     :account account}))
 
 (defn- working-reconciliation-exists?
   [{:reconciliation/keys [account] :keys [id]}]
@@ -84,8 +85,10 @@
 
 (defn- can-be-updated?
   [recon]
-  (or (nil? (:id recon))
-      (= :new (:reconciliation/status (entities/find recon)))))
+  (or (-> recon :id nil?)
+      (= :new (-> recon
+                  entities/find
+                  :reconciliation/status))))
 
 (v/reg-spec can-be-updated?
             {:message "A completed reconciliation cannot be updated"
@@ -107,25 +110,28 @@
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
                                                        ;NB this is required for :sql and optional for :datomic-peer
-(s/def :reconciliation/item (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
-                                                       :req-un [::entities/id])
-                                  :full (s/and ::entities/account-item
-                                                       ;NB this is required for :sql and optional for :datomic-peer
-                                               (s/keys :opt [:transaction/transaction-date]))))
+(s/def :reconciliation/item
+  (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
+                             :req-un [::entities/id])
+        :full (s/and ::entities/account-item
+                     ;NB this is required for :sql and optional for :datomic-peer
+                     (s/keys :opt [:transaction/transaction-date]))))
+
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(s/def ::entities/reconciliation (s/and (s/keys :req [:reconciliation/account
-                                                    :reconciliation/end-of-period
-                                                    :reconciliation/status
-                                                    :reconciliation/balance]
-                                              :opt [:reconciliation/items])
-                                      not-unbalanced?
-                                      no-working-conflict?
-                                      items-belong-to-account?
-                                      items-not-already-reconciled?
-                                      can-be-updated?
-                                      after-last-reconciliation?))
+(s/def ::entities/reconciliation
+  (s/and (s/keys :req [:reconciliation/account
+                       :reconciliation/end-of-period
+                       :reconciliation/status
+                       :reconciliation/balance]
+                 :opt [:reconciliation/items])
+         not-unbalanced?
+         no-working-conflict?
+         items-belong-to-account?
+         items-not-already-reconciled?
+         can-be-updated?
+         after-last-reconciliation?))
 
 (defn- fetch-items
   [{:keys [id] :reconciliation/keys [account] :as recon}]
