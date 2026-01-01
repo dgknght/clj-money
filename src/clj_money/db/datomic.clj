@@ -50,7 +50,8 @@
     :reconciliation        '[?x :reconciliation/status ?reconciliation-status]
     :scheduled-transaction '[?x :scheduled-transaction/description ?scheduled-transaction-description]
     :transaction           '[?x :transaction/description ?transaction-description]
-    :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
+    :transaction-item      '[?x :transaction-item/value ?transaction-item-value]
+    :account-item          '[?x :account-item/action ?account-item-action]
     :user                  '[?x :user/email ?user-email]))
 
 (defn- unbounded?
