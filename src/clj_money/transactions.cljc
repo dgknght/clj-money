@@ -126,6 +126,10 @@
                            :unilateral ::unilateral-transaction
                            :bilateral ::bilateral-transaction))
 
+(def account-items
+  (juxt :transaction-item/debit-item
+        :transaction-item/credit-item))
+
 (defn accountified?
   "Returns true if the accountify fn has been applied to the transaction."
   [{:transaction/keys [account]}]

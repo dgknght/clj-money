@@ -32,10 +32,6 @@
          (second x)
          x))))
 
-(def account-items
-  (juxt :transaction-item/credit-item
-        :transaction-item/debit-item))
-
 (defn- new-transaction-has-items?
   [input]
   (if (vector? input)
@@ -366,7 +362,7 @@
   [[before {:transaction/keys [transaction-date] :as after}]]
   (let [entity (entities/find (:transaction/entity after))]
     (->> (:transaction/items after)
-         (mapcat account-items)
+         (mapcat trxs/account-items)
          (realize-accounts entity)
          (map #(assoc % :transaction/transaction-date transaction-date))
          (group-by (comp :id
@@ -387,7 +383,7 @@
                    entities/find)]
     (->> (:transaction/items before)
          (remove (comp after-ids :id))
-         (mapcat account-items)
+         (mapcat trxs/account-items)
          (realize-accounts entity)
          (group-by (comp :id
                          :account-item/account))
@@ -439,7 +435,7 @@
   [{:keys [id] :as trx}]
   (let [{:transaction/keys [items]} (entities/find id)]
     (when (->> items
-               (mapcat account-items)
+               (mapcat trxs/account-items)
                (filter :account-item/reconciliation)
                seq)
       (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
@@ -593,7 +589,7 @@
         (filter (util/entity-type? :transaction))
         (mapcat (fn [{:transaction/keys [entity transaction-date items]}]
                   (->> items
-                       (mapcat account-items)
+                       (mapcat trxs/account-items)
                        (map (fn [{:account-item/keys [account]}]
                               [entity account transaction-date])))))))
 
