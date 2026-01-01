@@ -437,12 +437,11 @@
 
 (defmethod entities/before-delete :transaction
   [{:keys [id] :as trx}]
-  (when-let [{:transaction/keys [items]}
-             (when id (entities/find-by (util/entity-type {:id id}
-                                                       :transaction)
-                                      {:include-items? true}))]
-    (when (some :account-item/reconciliation
-                items)
+  (let [{:transaction/keys [items]} (entities/find id)]
+    (when (->> items
+               (mapcat account-items)
+               (filter :account-item/reconciliation)
+               seq)
       (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
   trx)
 
