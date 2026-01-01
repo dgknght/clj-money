@@ -8,6 +8,7 @@
             [clj-money.util :as util :refer [entity=]]
             [clj-money.entities :as entities]
             [clj-money.images :as images]
+            [clj-money.transactions :as trxs]
             [clj-money.entities.propagation :as prop]
             [clj-money.trading :as trading]))
 
@@ -211,28 +212,21 @@
         (map #(assoc % :transaction/transaction-date transaction-date))
         first)))
 
-(defmacro defind
-  [fn-name & body]
-  `(defn ~fn-name
-     ([identifier#]
-      (~fn-name *context* identifier#))
-     (~@body)))
-
-#_:clj-kondo/ignore
-(defind find-account-item
-  [context [transaction-date value account :as id]]
-  (let [act (if (map? account)
-              account
-              (find-account context account))]
-    (->> context
-         (filter #(= transaction-date (:transaction/transaction-date %)))
-         (mapcat :transaction/items)
-         (filter #(= value (:transaction-item/value %)))
-         (mapcat (juxt :transaction-item/debit-item
-                       :transaction-item/credit-item))
-         (filter #(entity= act (:account-item/account %)))
-         (map #(assoc % :transaction/transaction-date transaction-date))
-         first)))
+(defn find-account-item
+  ([identifier]
+   (find-account-item *context* identifier))
+  ([context [transaction-date value account]]
+   (let [act (if (map? account)
+               account
+               (find-account context account))]
+     (->> context
+          (filter #(= transaction-date (:transaction/transaction-date %)))
+          (mapcat :transaction/items)
+          (filter #(= value (:transaction-item/value %)))
+          (mapcat trxs/account-items)
+          (filter #(entity= act (:account-item/account %)))
+          (map #(assoc % :transaction/transaction-date transaction-date))
+          first))))
 
 (defn find-scheduled-transaction
   ([description] (find-scheduled-transaction *context* description))
