@@ -91,26 +91,29 @@
                   (not-any? :transaction/recondiliation))
           "None of the transaction items should be marked as reconcilied"))))
 
-(dbtest ^:multi-threaded create-a-completed-reconciliation
+(dbtest create-a-completed-reconciliation
   (with-context reconciliation-context
     (let [checking (find-account "Checking")
-          checking-items (entities/select {:transaction-item/account checking
-                                         :transaction-item/quantity [:!= 45M]}
-                                        {:select-also [:transaction/transaction-date]})]
+          checking-items (entities/select
+                           {:account-item/account checking
+                            :account-item/quantity [:!= -45M]}
+                           {:select-also [:transaction/transaction-date]})]
+
       (assert-created (assoc (attributes)
                              :reconciliation/items checking-items
                              :reconciliation/status :completed))
-      (is (->> checking-items
-               (mapcat :transaction/items)
-               (every? :transaction/reconciliation))
-          "specified transaction items are marked as reconciled")
-      (is (not-any? :transaction/reconciliation
-                    (remove #(util/entity= checking (:transaction-item/account %))
-                            (entities/select
-                              (util/entity-type
-                                {:transaction/entity (find-entity "Personal")}
-                                :transaction-item))))
-          "All other transaction items are not marked as reconcilied"))))
+
+      (is (every? :account-item/reconciliation
+                  (entities/select {:account-item/account checking
+                                    :account-item/quantity [:!= -45M]}))
+          "specified items are marked as reconciled")
+      (is (not-any? :account-item/reconciliation
+                    (entities/select {:account-item/account checking
+                                      :account-item/quantity -45M}))
+          "Non-specified items in the same account are not marked")
+      (is (not-any? :account-item/reconciliation
+                    (entities/select {:account-item/account [:!= checking]}))
+          "Items in other accounts are not marked"))))
 
 (dbtest a-new-reconciliation-cannot-be-created-if-one-already-exists
   (with-context working-reconciliation-context
