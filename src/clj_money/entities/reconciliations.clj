@@ -162,11 +162,12 @@
   [{:reconciliation/keys [account items] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items)
                    (:reconciliation/items recon))]}
-  (let [accounts (index-by :id
-                           (entities/select (util/entity-type
-                                              (util/->entity-ref account)
-                                              :account)
-                                            {:include-children? true}))
+  (let [accounts (when account
+                   (index-by :id
+                             (entities/select (util/entity-type
+                                                (util/->entity-ref account)
+                                                :account)
+                                              {:include-children? true})))
         existing-items (if (:id recon)
                          (map #(update-in %
                                           [:account-item/account]
