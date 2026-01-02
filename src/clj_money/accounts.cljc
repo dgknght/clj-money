@@ -36,6 +36,10 @@
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
+(defn action?
+  [value]
+  (-> value #{:credit :debit} boolean))
+
 (defn expense?
   [{:account/keys [type]}]
   (= :expense type))
@@ -114,16 +118,18 @@
        (if (= :debit action) (d/d 1) (d/d -1))))
 
 (defn polarize-quantity
-  "Given a transaction item and an account, returns the quantity of the
-  transaction item vis a vis the account (i.e., positive or negative)."
-  [quantity action account]
-  {:pre [quantity
-         action
-         (#{:debit :credit} action)
-         account
-         (:account/type account)]}
-  (d/* quantity
-       (polarizer action account)))
+  "Given a quantity, action, and an account, returns the quantity
+  vis a vis the account (i.e., positive or negative)."
+  ([{:keys [quantity action account]}]
+   (polarize-quantity quantity action account))
+  ([quantity action account]
+   {:pre [quantity
+          action
+          (#{:debit :credit} action)
+          account
+          (:account/type account)]}
+   (d/* quantity
+        (polarizer action account))))
 
 (defn derive-action
   "Given a quantity (either positve or negative) and an
@@ -138,15 +144,18 @@
       :credit)))
 
 (defn ->transaction-item
-  "Given a quantity and an account, returns a transaction item
-  with appropriate attributes"
+  "Given a quantity and an account, returns a unilateral transaction item
+  with appropriate attributes.
+
+  This is used in the UI, where various parts of the information may
+  not yet have been entered by the user."
   [{:keys [quantity account]}]
   (cond-> {:transaction-item/action :credit}
     quantity      (assoc :transaction-item/quantity (d/abs quantity))
     account       (assoc :transaction-item/account (util/->entity-ref account))
     (and quantity
          account) (assoc :transaction-item/action
-                                  (derive-action quantity account))))
+                         (derive-action quantity account))))
 
 (defn ->>criteria
   ([accounts] (->>criteria {} accounts))
@@ -155,9 +164,9 @@
             earliest-date
             latest-date
             entity-type]
-     :or {account-attribute :transaction-item/account
+     :or {account-attribute :account-item/account
           date-attribute :transaction/transaction-date
-          entity-type :transaction-item}}
+          entity-type :account-item}}
     accounts]
    (let [range (->> accounts
                     (map :account/transaction-date-range)

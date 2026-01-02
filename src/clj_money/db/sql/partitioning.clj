@@ -46,6 +46,8 @@
                  :interval-count 1}
    :transaction_item {:interval-type :year
                       :interval-count 1}
+   :account_item {:interval-type :year
+                  :interval-count 1}
    :reconciliation {:interval-type :year
                     :interval-count 5}})
 
@@ -110,10 +112,10 @@
   the commands to create them"
   [start-date end-date options]
   (->> tables
-       (map #(assoc (second %)
-                    :table (first %)
-                    :table-name (name (first %)))) ; turn the k-v pairs into a map
-       (map #(merge % (get-in options [:rules (:table %)]))) ; allow for override of default rules
+       (map (comp #(merge % (get-in options [:rules (:table %)])) ; allow for override of default rules
+                  #(assoc (second %)
+                          :table (first %)
+                          :table-name (name (first %))))) ; turn the k-v pairs into a map
        (mapcat (fn [opts]
                  (->> (dates/periodic-seq (anchor start-date opts)
                                           (period-like opts))

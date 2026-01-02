@@ -8,8 +8,8 @@
             [clj-money.util :as util :refer [entity=]]
             [clj-money.entities :as entities]
             [clj-money.images :as images]
+            [clj-money.transactions :as trxs]
             [clj-money.entities.propagation :as prop]
-            [clj-money.transactions :refer [expand]]
             [clj-money.trading :as trading]))
 
 (def ^:dynamic *context* nil)
@@ -140,6 +140,7 @@
      (find-account *context* arg)
      (partial find-account arg)))
   ([context account-name]
+   {:pre [(coll? context) (string? account-name)]}
    (find context :account/name account-name)))
 
 (defn find-accounts
@@ -203,15 +204,27 @@
 (defn find-transaction-item
   ([identifier]
    (find-transaction-item *context* identifier))
-  ([context [transaction-date quantity account]]
+  ([context [transaction-date value]]
+   (->> context
+        (filter #(= transaction-date (:transaction/transaction-date %)))
+        (mapcat :transaction/items)
+        (filter #(= value (:transaction-item/value %)))
+        (map #(assoc % :transaction/transaction-date transaction-date))
+        first)))
+
+(defn find-account-item
+  ([identifier]
+   (find-account-item *context* identifier))
+  ([context [transaction-date value account]]
    (let [act (if (map? account)
                account
                (find-account context account))]
      (->> context
           (filter #(= transaction-date (:transaction/transaction-date %)))
           (mapcat :transaction/items)
-          (filter #(and (entity= act (:transaction-item/account %))
-                        (= quantity (:transaction-item/quantity %))))
+          (filter #(= value (:transaction-item/value %)))
+          (mapcat trxs/account-items)
+          (filter #(entity= act (:account-item/account %)))
           (map #(assoc % :transaction/transaction-date transaction-date))
           first))))
 
@@ -290,9 +303,10 @@
 (defmethod prepare :transaction
   [trx ctx]
   (-> trx
-      expand
-      (update-in [:transaction/items] (prepare-coll ctx))
-      (update-in [:transaction/entity] (find-entity ctx))))
+      (update-in [:transaction/entity] (find-entity ctx))
+      (update-in-if [:transaction/credit-account] (find-account ctx))
+      (update-in-if [:transaction/debit-account] (find-account ctx))
+      (update-in-if [:transaction/items] (prepare-coll ctx))))
 
 (defmethod prepare :scheduled-transaction
   [trx ctx]
@@ -302,12 +316,16 @@
 
 (defmethod prepare :transaction-item
   [item ctx]
-  {:pre [(:transaction-item/account item)]}
-
-  (update-in item
-             [:transaction-item/account]
-             (comp util/->entity-ref
-                   #(find-account ctx %))))
+  (-> item
+      (update-in-if [:transaction-item/credit-account] (find-account ctx))
+      (update-in-if [:transaction-item/debit-account] (find-account ctx))
+      (update-in-if [:transaction-item/debit-item
+                     :account-item/account]
+                    (find-account ctx))
+      (update-in-if [:transaction-item/credit-item
+                     :account-item/account]
+                    (find-account ctx))
+      trxs/expand-account-item))
 
 (defmethod prepare :scheduled-transaction-item
   [item ctx]
@@ -323,7 +341,7 @@
     (-> recon
         (assoc :reconciliation/account account)
         (update-in [:reconciliation/items]
-                   (partial mapv (comp #(find-transaction-item ctx %)
+                   (partial mapv (comp #(find-account-item ctx %)
                                        #(conj % account)))))))
 
 (defmethod prepare :budget

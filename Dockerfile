@@ -1,4 +1,4 @@
-FROM clojure:temurin-17-lein-noble AS psql
+FROM clojure:temurin-25-lein-bookworm-slim AS psql
 RUN <<EOF
 apt-get update
 apt-get install -y postgresql-client
@@ -21,7 +21,7 @@ sass src/scss/site.scss resources/public/css/site.css
 lein do fig:prod, uberjar
 EOF
 
-FROM eclipse-temurin:17-jre-noble AS web
+FROM clojure:temurin-25-lein-bookworm-slim AS web
 WORKDIR /opt/clj-money
 COPY --from=build /usr/src/clj-money/target/clj-money.jar .
 CMD ["java", "clojure.main", "-m", "clj-money.web.server"]

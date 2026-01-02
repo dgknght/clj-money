@@ -18,6 +18,7 @@
     (let [expected #{["create table if not exists price_y2001 partition of price for values from ('2001-01-01') to ('2002-01-01');"]
                      ["create table if not exists transaction_y2001 partition of transaction for values from ('2001-01-01') to ('2002-01-01');"]
                      ["create table if not exists transaction_item_y2001 partition of transaction_item for values from ('2001-01-01') to ('2002-01-01');"]
+                     ["create table if not exists account_item_y2001 partition of account_item for values from ('2001-01-01') to ('2002-01-01');"]
                      ["create table if not exists reconciliation_y2001_y2005 partition of reconciliation for values from ('2001-01-01') to ('2006-01-01');"]
                      ["create table if not exists cached_price_y2001 partition of cached_price for values from ('2001-01-01') to ('2002-01-01');"]}
           cmds (with-cmd-intercept
@@ -32,6 +33,7 @@
     (let [expected #{["create table if not exists price_y2002 partition of price for values from ('2002-01-01') to ('2003-01-01');"]
                      ["create table if not exists transaction_y2002 partition of transaction for values from ('2002-01-01') to ('2003-01-01');"]
                      ["create table if not exists transaction_item_y2002 partition of transaction_item for values from ('2002-01-01') to ('2003-01-01');"]
+                     ["create table if not exists account_item_y2002 partition of account_item for values from ('2002-01-01') to ('2003-01-01');"]
                      ["create table if not exists reconciliation_y2001_y2005 partition of reconciliation for values from ('2001-01-01') to ('2006-01-01');"]
                      ["create table if not exists cached_price_y2002 partition of cached_price for values from ('2002-01-01') to ('2003-01-01');"]}
           cmds (with-cmd-intercept
@@ -51,6 +53,8 @@
                      ["create table if not exists transaction_y2020_m02 partition of transaction for values from ('2020-02-01') to ('2020-03-01');"]
                      ["create table if not exists transaction_item_y2020_m01 partition of transaction_item for values from ('2020-01-01') to ('2020-02-01');"]
                      ["create table if not exists transaction_item_y2020_m02 partition of transaction_item for values from ('2020-02-01') to ('2020-03-01');"]
+                     ["create table if not exists account_item_y2020_m01 partition of account_item for values from ('2020-01-01') to ('2020-02-01');"]
+                     ["create table if not exists account_item_y2020_m02 partition of account_item for values from ('2020-02-01') to ('2020-03-01');"]
                      ["create table if not exists reconciliation_y2020_m01 partition of reconciliation for values from ('2020-01-01') to ('2020-02-01');"]
                      ["create table if not exists reconciliation_y2020_m02 partition of reconciliation for values from ('2020-02-01') to ('2020-03-01');"]
                      ["create table if not exists cached_price_y2020_m01 partition of cached_price for values from ('2020-01-01') to ('2020-02-01');"]
@@ -68,6 +72,8 @@
                                                :interval-count 1}
                             :transaction_item {:interval-type :month
                                                :interval-count 1}
+                            :account_item     {:interval-type :month
+                                               :interval-count 1}
                             :reconciliation   {:interval-type :month
                                                :interval-count 1}}}))]
       (is (= expected cmds))))
@@ -78,6 +84,8 @@
                      ["create table if not exists transaction_y2020_m03_m04 partition of transaction for values from ('2020-03-01') to ('2020-05-01');"]
                      ["create table if not exists transaction_item_y2020_m01_m02 partition of transaction_item for values from ('2020-01-01') to ('2020-03-01');"]
                      ["create table if not exists transaction_item_y2020_m03_m04 partition of transaction_item for values from ('2020-03-01') to ('2020-05-01');"]
+                     ["create table if not exists account_item_y2020_m01_m02 partition of account_item for values from ('2020-01-01') to ('2020-03-01');"]
+                     ["create table if not exists account_item_y2020_m03_m04 partition of account_item for values from ('2020-03-01') to ('2020-05-01');"]
                      ["create table if not exists reconciliation_y2020_m01_m02 partition of reconciliation for values from ('2020-01-01') to ('2020-03-01');"]
                      ["create table if not exists reconciliation_y2020_m03_m04 partition of reconciliation for values from ('2020-03-01') to ('2020-05-01');"]
                      ["create table if not exists cached_price_y2020_m01_m02 partition of cached_price for values from ('2020-01-01') to ('2020-03-01');"]
@@ -94,6 +102,8 @@
                             :transaction      {:interval-type :month
                                                :interval-count 2}
                             :transaction_item {:interval-type :month
+                                               :interval-count 2}
+                            :account_item     {:interval-type :month
                                                :interval-count 2}
                             :reconciliation   {:interval-type :month
                                                :interval-count 2}}}))]

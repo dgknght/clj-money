@@ -69,10 +69,10 @@
                             :child? :scheduled-transaction-item/action
                             :children-key :scheduled-transaction/items}]
    :transaction [{:parent? :transaction/description
-                  :child? :transaction-item/action
+                  :child? :transaction-item/value
                   :children-key :transaction/items}
                  {:parent? :transaction/description
-                  :child? :lot-item/action
+                  :child? :lot-item/value
                   :children-key :transaction/lot-items}]})
 
 (defn- scrub-values
@@ -229,6 +229,9 @@
            (map (comp build-attributes
                       (juxt :id :fields :refs)))
            (into {}))
+      (update-in [:account-item]
+                 conj
+                 :account-item/transaction-date)
       (update-in [:transaction-item]
                  conj
                  :transaction-item/transaction-date

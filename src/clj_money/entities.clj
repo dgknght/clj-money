@@ -49,19 +49,23 @@
 (defmulti before-delete util/entity-type-dispatch)
 (defmethod before-delete :default [m & _] m)
 
+(defn- after-read*
+  [entity opts]
+  (let [result (after-read entity opts)]
+    (with-meta result {::original result})))
+
 (defn- validation-key
   [m]
   (keyword "clj-money.entities"
            (-> m util/entity-type name)))
 
 (defn validate
-  [entity]
-  (let [validated (v/validate entity (validation-key entity))]
-    (when-let [errors (seq (::v/errors validated))]
-      (log/debugf "[validation] Invalid entity %s: %s"
-                  entity
-                  errors)
-      (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
+  [entity & {:as opts}]
+  (when-let [data (s/explain-data (validation-key entity)
+                                  entity)]
+    (log/debugf "[validation] Invalid entity %s" data)
+    (throw (ex-info "Validation failed"
+                    {::v/errors (v/extract-errors data opts)})))
   entity)
 
 (defn before
@@ -82,7 +86,7 @@
   ([criteria] (select criteria {}))
   ([criteria options]
    (map (comp append-before
-              #(after-read % options))
+              #(after-read* % options))
         (db/select (db/storage)
                    (prepare-criteria criteria)
                    options))))
@@ -107,7 +111,7 @@
           util/->id
           db/unserialize-id
           db-find
-          (after-read opts)))
+          (after-read* opts)))
 
 (defn find-many
   "Returns the entities having the specified IDs"
@@ -116,7 +120,7 @@
        util/->id
        db/unserialize-id
        (db/find-many (db/storage))
-       (map #(after-read % opts))))
+       (map #(after-read* % opts))))
 
 (def ^:private mergeable?
   (every-pred map? :id))
@@ -255,14 +259,14 @@
                       (map (dispatch
                              (comp ensure-id
                                    before-save
-                                   validate
+                                   #(validate % opts)
                                    before-validation))))
          saved (db/put (or storage
                            (db/storage))
                        to-save)
          result (map (comp append-before
                            after-save
-                           #(after-read % {}))
+                           #(after-read* % {}))
                      saved)]
      (emit-changes (assoc opts
                           :to-save to-save

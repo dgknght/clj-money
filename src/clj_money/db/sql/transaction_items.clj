@@ -26,6 +26,5 @@
 (defmethod sql/after-read :transaction-item
   [item]
   (-> item
-      (update-in [:transaction-item/action] keyword)
       (rename-keys {:transaction-item/transaction-date :transaction/transaction-date})
       (update-in-if [:transaction/transaction-date] t/local-date)))

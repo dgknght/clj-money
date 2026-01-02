@@ -50,7 +50,8 @@
     :reconciliation        '[?x :reconciliation/status ?reconciliation-status]
     :scheduled-transaction '[?x :scheduled-transaction/description ?scheduled-transaction-description]
     :transaction           '[?x :transaction/description ?transaction-description]
-    :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
+    :transaction-item      '[?x :transaction-item/value ?transaction-item-value]
+    :account-item          '[?x :account-item/action ?account-item-action]
     :user                  '[?x :user/email ?user-email]))
 
 (defn- unbounded?
@@ -93,8 +94,8 @@
              :keys [count
                     nil-replacements]
              :or {nil-replacements {}}}]
-  (let [m-type (or (util/entity-type criteria)
-                   (:entity-type opts))]
+  (let [m-type (or (:entity-type opts)
+                   (util/entity-type criteria))]
     (-> {:find (if count
                  '[(count ?x)]
                  '[(pull ?x [*])])
@@ -177,12 +178,17 @@
         x)
       (f x))))
 
+(def ^:private ref-keys
+  (disj schema/entity-ref-keys
+        :transaction-item/credit-item
+        :transaction-item/debit-item))
+
 (defn- put*
   [entities {:keys [api]}]
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
-                     (map (pass-through (datomize {:ref-keys schema/entity-ref-keys})))
+                     (map (pass-through (datomize {:ref-keys ref-keys})))
                      (mapcat #(prep-for-put % api)))
 
         {:keys [tempids]} (transact api prepped {})]
@@ -238,16 +244,42 @@
       (and (= :in oper)
            (every? util/entity-ref? v)))))
 
+(defn- entity-not-equals-criterion?
+  [x]
+  (when (and (map-entry? x)
+             (vector? (val x)))
+    (let [[oper v] (val x)]
+      (and (= :!= oper)
+           (map? v)
+           (:id v)))))
+
+; this fn should be merged with datomize in the types ns
+; {:id "101"}                 -> {:id 101}
+; {:account/entity {:id 101}} -> {:account/entity 101}
+; {:account/entity "_self"}
+; {:account/entity [:in #{{:id 101} {:id 102}}]} -> {:account/entity [:in #{101 102}}
+; {:account/entity [:!= {:id 101}]} -> {:account/entity [:!= 101}
 (defn- normalize-criterion
   [x]
   (cond
-    (id-criterion? x)       (update-in x [1] coerce-id)
-    (entity-criterion? x)    (update-in x [1] select-keys [:id])
-    (self-reference? x)     (update-in x [1] select-keys [:id])
-    (entity-in-criterion? x) (update-in x [1] (fn [c]
-                                               (update-in c [1] #(->> %
-                                                                      (map :id)
-                                                                      set))))
+    (id-criterion? x)
+    (update-in x [1] coerce-id)
+
+    (entity-criterion? x)
+    (update-in x [1] select-keys [:id])
+
+    (self-reference? x)
+    (update-in x [1] select-keys [:id])
+
+    (entity-in-criterion? x)
+    (update-in x [1] (fn [c]
+                       (update-in c [1] #(->> %
+                                              (map :id)
+                                              set))))
+
+    (entity-not-equals-criterion? x)
+    (update-in x [1] (fn [c]
+                       (update-in c [1] :id)))
     :else x))
 
 (defn- normalize-criteria

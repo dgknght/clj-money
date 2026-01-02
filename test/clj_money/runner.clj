@@ -9,7 +9,8 @@
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
 (defn- init-sql-db
-  [config]
+  [config {:keys [force]}]
+  (when force (sql/drop config))
   (sql/create config :silent true)
   (sql/migrate config)
   (create-partition-tables config
@@ -17,7 +18,8 @@
                            (t/local-date 2017 12 31)
                            {:silent true}))
 
-(defn- init-sql-dbs []
+(defn- init-sql-dbs
+  [options]
   (let [config (get-in env [:db :strategies :sql])
         db-count (.availableProcessors (Runtime/getRuntime))
         configs (map (comp #(assoc %
@@ -26,7 +28,7 @@
                            #(update-in config [:dbname] str "_" %))
                      (range 0 db-count))]
     (doseq [c configs]
-      (init-sql-db c))))
+      (init-sql-db c options))))
 
 (def ^:private eftest-options
   [["-s" "--strategy STRATEGY" "The storage strategy"
@@ -42,6 +44,9 @@
     "Indicates whether or not to render test output for passing tests. (Default false)"
     :parse-fn not
     :id :capture-output?]
+   ["-f" "--force"
+    "Drop and recreate the databases if they exist. (Default false)"
+    :id :force]
    ["-h" "--help" "Show this help message"]])
 
 (def ^:private not-multi-threaded?
@@ -51,7 +56,7 @@
   [selector]
   (when selector
     #(= selector
-        (-> % meta :strategy))))
+        (:strategy %))))
 
 (defn- match-meta?
   [{:keys [strategy]}]
@@ -106,7 +111,7 @@
 (defn- eftest*
   [{:keys [options
            arguments]}]
-  (init-sql-dbs)
+  (init-sql-dbs options)
   (init-crypto)
   (binding [*parallel* true]
     ((bound-fn []

@@ -5,6 +5,7 @@
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clj-money.dates :as dates]
             [clj-money.decimal :refer [d]]
             [clj-money.util :as util]
             [clj-money.transactions :as trx]))
@@ -20,8 +21,8 @@
 (defn- index
   [& inputs]
   (let [[->key & entities] (if (map? (first inputs))
-                           (cons util/->entity-ref inputs)
-                           inputs)]
+                             (cons util/->entity-ref inputs)
+                             inputs)]
     (->> entities
          (map (juxt ->key identity))
          (into {}))))
@@ -58,7 +59,7 @@
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :item {:id 1 }
+                               :item {:id 1}
                                :account (accounts :checking)
                                :other-item {:id 2} :other-account (accounts :groceries)
                                :quantity (d -10)}]
@@ -164,32 +165,32 @@
 
 (deftest simplifiability
   (is (trx/can-accountify?
-        {:transaction/items [#:transaction-item{:action :debit
-                                                :account {:id 1}
-                                                :quantity (d 10)}
-                             #:transaction-item{:action :credit
-                                                :account {:id 2}
-                                                :quantity (d 10)}]})
+       {:transaction/items [#:transaction-item{:action :debit
+                                               :account {:id 1}
+                                               :quantity (d 10)}
+                            #:transaction-item{:action :credit
+                                               :account {:id 2}
+                                               :quantity (d 10)}]})
       "A two-item transaction can be simplified")
   (is (trx/can-accountify?
-        {:transaction/items [#:transaction-item{:action :debit
-                                                :account {:id 1}
-                                                :quantity (d 10)}
-                             #:transaction-item{:action :credit
-                                                :account {:id 2}
-                                                :quantity (d 10)}
-                             {}]})
+       {:transaction/items [#:transaction-item{:action :debit
+                                               :account {:id 1}
+                                               :quantity (d 10)}
+                            #:transaction-item{:action :credit
+                                               :account {:id 2}
+                                               :quantity (d 10)}
+                            {}]})
       "A transaction with two full items and one emtpy item can be simplified")
   (is (not (trx/can-accountify?
-             {:transaction/items [#:transaction-item{:action :debit
-                                                     :account {:id 1}
-                                                     :quantity (d 10)}
-                                  #:transaction-item{:action :credit
-                                                     :account {:id 2}
-                                                     :quantity (d 6)}
-                                  #:transaction-item{:action :credit
-                                                     :account {:id 3}
-                                                     :quantity (d 4)}]}))
+            {:transaction/items [#:transaction-item{:action :debit
+                                                    :account {:id 1}
+                                                    :quantity (d 10)}
+                                 #:transaction-item{:action :credit
+                                                    :account {:id 2}
+                                                    :quantity (d 6)}
+                                 #:transaction-item{:action :credit
+                                                    :account {:id 3}
+                                                    :quantity (d 4)}]}))
       "A transaction with more than two non-empty items cannot be simplified"))
 
 (deftest ensure-an-empty-item
@@ -276,7 +277,7 @@
     (testing "a trade transaction can be converted to a standard"
       (is (= standard
              (update-in (trx/untradify tradified
-                            {:find-account-with-commodity find-account-with-commodity})
+                                       {:find-account-with-commodity find-account-with-commodity})
                         [:transaction/items]
                         (fn [items]
                           (map #(update-in %
@@ -307,7 +308,7 @@
     (testing "a trade transaction can be converted to a standard"
       (is (= standard
              (update-in (trx/untradify tradified
-                            {:find-account-with-commodity find-account-with-commodity})
+                                       {:find-account-with-commodity find-account-with-commodity})
                         [:transaction/items]
                         (fn [items]
                           (mapv #(update-in % [:transaction-item/account] util/->entity-ref)
@@ -338,43 +339,459 @@
                                  :period [1 :month]}
                                 items)))))
 
-(deftest expand-a-transaction
-  (let [expected #:transaction{:transaction-date "2020-01-01"
-                               :description "ACME Store"
-                               :memo "transaction memo"
-                               :items [#:transaction-item{:account {:id :groceries}
-                                                          :action :debit
-                                                          :quantity (d 10)}
-                                       #:transaction-item{:account {:id :checking}
-                                                          :action :credit
-                                                          :quantity (d 10)}]}
-        simple #:transaction{:transaction-date "2020-01-01"
-                             :description "ACME Store"
-                             :memo "transaction memo"
-                             :debit-account {:id :groceries}
-                             :credit-account {:id :checking}
-                             :quantity (d 10)}]
-    (is (= expected (trx/expand simple))
-        "A simple transaction is expanded")
-    (is (= expected (trx/expand expected))
-        "An expanded transaction is returned as-is")))
-
 (deftest calc-the-value-of-a-transaction
-  (is (= (d 100) (trx/value #:transaction{:items [#:transaction-item{:quantity (d 100)
-                                                                  :value (d 100)
-                                                                  :action :credit
-                                                                  :account {:id :checking}}
-                                               #:transaction-item{:quantity (d 100)
-                                                                  :value (d 100)
-                                                                  :action :debit
-                                                                  :account {:id :groceries}}]}))
+  (is (= (d 100)
+         (trx/value
+          #:transaction{:items [#:transaction-item{:quantity (d 100)
+                                                   :value (d 100)
+                                                   :action :credit
+                                                   :account {:id :checking}}
+                                #:transaction-item{:quantity (d 100)
+                                                   :value (d 100)
+                                                   :action :debit
+                                                   :account {:id :groceries}}]}))
       "The value is the sum of credits (or debits)")
-  (is (nil? (trx/value #:transaction{:items [#:transaction-item{:quantity (d 101)
-                                                                :value (d 101)
-                                                                :action :credit
-                                                                :account {:id :checking}}
-                                             #:transaction-item{:quantity (d 100)
-                                                                :value (d 100)
-                                                                :action :debit
-                                                                :account {:id :groceries}}]}))
+  (is (nil?
+       (trx/value
+        #:transaction{:items [#:transaction-item{:quantity (d 101)
+                                                 :value (d 101)
+                                                 :action :credit
+                                                 :account {:id :checking}}
+                              #:transaction-item{:quantity (d 100)
+                                                 :value (d 100)
+                                                 :action :debit
+                                                 :account {:id :groceries}}]}))
       "The value is nil (undeterminable) if the credits and debits do not match"))
+
+(def ^:private salary           {:id "salary"           :account/type :income})
+(def ^:private other-income     {:id "other income"     :account/type :income})
+(def ^:private checking         {:id "checking"         :account/type :asset})
+(def ^:private four-oh-one-k    {:id "401k"             :account/type :asset})
+(def ^:private aapl             {:id "aapl"             :account/type :asset})
+(def ^:private groceries        {:id "groceries"        :account/type :expense})
+(def ^:private supplements      {:id "supplements"      :account/type :expense})
+(def ^:private insurance        {:id "insurance"        :account/type :expense})
+(def ^:private health-insurance {:id "health insurance" :account/type :expense})
+(def ^:private fit              {:id "fit"              :account/type :expense})
+(def ^:private medicare         {:id "medicare"         :account/type :expense})
+(def ^:private social-security  {:id "social security"  :account/type :expense})
+
+(def ^:private simple-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/quantity (d 100)
+   :transaction/debit-account groceries
+   :transaction/credit-account checking})
+
+(def ^:private simple-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:transaction-item/value (d 100)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account groceries
+                         :account-item/quantity (d 100)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account checking
+                         :account-item/quantity (d -100)}}]})
+
+(def ^:private simple-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/action :debit
+                        :transaction-item/account groceries}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/action :credit
+                        :transaction-item/account checking}]})
+
+(def ^:private complex-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:id 1
+                        :transaction-item/value (d 100)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account groceries
+                         :account-item/quantity (d 100)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account checking
+                         :account-item/quantity (d -100)}}
+                       {:id 2
+                        :transaction-item/value (d 20)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account supplements
+                         :account-item/quantity (d 20)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account checking
+                         :account-item/quantity (d -20)}}]})
+
+(def ^:private reversed-complex-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:id 1
+                        :transaction-item/value (d 100)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account checking
+                         :account-item/quantity (d 100)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account groceries
+                         :account-item/quantity (d -100)}}
+                       {:id 2
+                        :transaction-item/value (d 20)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account checking
+                         :account-item/quantity (d 20)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account supplements
+                         :account-item/quantity (d -20)}}]})
+
+(def ^:private complex-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:ids #{1 2}
+                        :transaction-item/quantity (d 120)
+                        :transaction-item/value (d 120)
+                        :transaction-item/account checking
+                        :transaction-item/action :credit}
+                       {:ids #{1}
+                        :transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/account groceries
+                        :transaction-item/action :debit}
+                       {:ids #{2}
+                        :transaction-item/quantity (d 20)
+                        :transaction-item/value (d 20)
+                        :transaction-item/account supplements
+                        :transaction-item/action :debit}]})
+
+(def ^:private reversed-complex-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Kroger"
+   :transaction/entity {:id "personal"}
+   :transaction/memo "mid-week necessities"
+   :transaction/items [{:ids #{1 2}
+                        :transaction-item/quantity (d 120)
+                        :transaction-item/value (d 120)
+                        :transaction-item/account checking
+                        :transaction-item/action :debit}
+                       {:ids #{1}
+                        :transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/account groceries
+                        :transaction-item/action :credit}
+                       {:ids #{2}
+                        :transaction-item/quantity (d 20)
+                        :transaction-item/value (d 20)
+                        :transaction-item/account supplements
+                        :transaction-item/action :credit}]})
+
+;       debit       credit
+;       --------    ------
+; 4,225 checking    salary
+; 1,400 fit         salary
+;   775 401k        salary
+;   400 soc. sec.   salary
+;   200 health ins. salary
+;   100 medicare    salary
+;   100 insurance   other income
+;    25 checking    other income
+; -----
+; 7,225
+(def ^:private very-complex-bilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Paycheck"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/value (d 100)
+                        :transaction-item/memo "group term life insurance"
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account insurance
+                         :account-item/quantity (d 100)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account other-income
+                         :account-item/quantity (d 100)}}
+                       {:transaction-item/value (d 4250)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account checking
+                         :account-item/quantity (d 4250)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account salary
+                         :account-item/quantity (d 4250)}}
+                       {:transaction-item/value (d 1400)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account fit
+                         :account-item/quantity (d 1400)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account salary
+                         :account-item/quantity (d 1400)}}
+                       {:transaction-item/value (d 775)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account four-oh-one-k
+                         :account-item/quantity (d 775)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account salary
+                         :account-item/quantity (d 775)}}
+                       {:transaction-item/value (d 400)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account social-security
+                         :account-item/quantity (d 400)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account salary
+                         :account-item/quantity (d 400)}}
+                       {:transaction-item/value (d 200)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account health-insurance
+                         :account-item/quantity (d 200)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account salary
+                         :account-item/quantity (d 200)}}
+                       {:transaction-item/value (d 75)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account medicare
+                         :account-item/quantity (d 75)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account salary
+                         :account-item/quantity (d 75)}}
+                       {:transaction-item/value (d 25)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account medicare
+                         :account-item/quantity (d 25)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account other-income
+                         :account-item/quantity (d 25)
+                         :account-item/memo "cell phone reimbursement"}}]})
+
+; 4,250 checking
+; 1,400 fit
+;   775 401k
+;   400 social security
+;   200 health insurance
+;   100 medicare
+;   100 insurance (life insurance)
+; -----
+; 7,225 debit
+;
+; 7,100 salary
+;   100 other income (life insurance)
+;    25 other income (cell phone reimbursement)
+; -----
+; 7,225 credit
+(def ^:private very-complex-unilateral-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Paycheck"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/quantity (d 4250)
+                        :transaction-item/value (d 4250)
+                        :transaction-item/account checking
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 1400)
+                        :transaction-item/value (d 1400)
+                        :transaction-item/account fit
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 775)
+                        :transaction-item/value (d 775)
+                        :transaction-item/account four-oh-one-k
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 400)
+                        :transaction-item/value (d 400)
+                        :transaction-item/account social-security
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 200)
+                        :transaction-item/value (d 200)
+                        :transaction-item/account health-insurance
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/account medicare
+                        :transaction-item/action :debit}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/account insurance
+                        :transaction-item/action :debit
+                        :transaction-item/memo "group term life insurance"}
+
+                       {:transaction-item/quantity (d 7100)
+                        :transaction-item/value (d 7100)
+                        :transaction-item/account salary
+                        :transaction-item/action :credit}
+                       {:transaction-item/quantity (d 100)
+                        :transaction-item/value (d 100)
+                        :transaction-item/account other-income
+                        :transaction-item/action :credit
+                        :transaction-item/memo "group term life insurance"}
+                       {:transaction-item/quantity (d 25)
+                        :transaction-item/value (d 25)
+                        :transaction-item/account other-income
+                        :transaction-item/action :credit
+                        :transaction-item/memo "cell phone reimbursement"}]})
+
+(def ^:private unilateral-trading-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Purchase 10 shares of AAPL at 10.0000"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/action :credit
+                        :transaction-item/account four-oh-one-k
+                        :transaction-item/quantity (d 1000)
+                        :transaction-item/value (d 1000)}
+                       {:transaction-item/action :debit
+                        :transaction-item/account aapl
+                        :transaction-item/quantity (d 10)
+                        :transaction-item/value (d 1000)}]})
+
+(def ^:private bilateral-trading-trx
+  {:id 101
+   :transaction/transaction-date (dates/local-date "2020-01-01")
+   :transaction/description "Purchase 10 shares of AAPL at 10.0000"
+   :transaction/entity {:id "personal"}
+   :transaction/items [{:transaction-item/value (d 1000)
+                        :transaction-item/debit-item
+                        {:account-item/action :debit
+                         :account-item/account aapl
+                         :account-item/quantity (d 10)}
+                        :transaction-item/credit-item
+                        {:account-item/action :credit
+                         :account-item/account four-oh-one-k
+                         :account-item/quantity (d -1000)}}]})
+
+(defn- comparable-trx
+  [trx]
+  (update-in trx [:transaction/items] set))
+
+(deftest convert-a-transaction-into-a-bilateral
+  (testing "a bilateral transaction"
+    (is (= simple-bilateral-trx
+           (trx/->bilateral simple-bilateral-trx))
+        "A bilateral transaction is return unchanged"))
+  (testing "a simple transaction"
+    (is (= simple-bilateral-trx
+           (trx/->bilateral simple-trx))))
+  (testing "a simple unilateral transaction"
+    (is (= simple-bilateral-trx
+           (trx/->bilateral simple-unilateral-trx))))
+  (testing "a complex unilateral transaction"
+    (is (= complex-bilateral-trx
+           (trx/->bilateral complex-unilateral-trx))))
+  (testing "a complex unilateral transaction, swap debits and credits"
+    (is (= reversed-complex-bilateral-trx
+           (trx/->bilateral reversed-complex-unilateral-trx))))
+  (testing "a very complex unilateral transaction"
+    (is (= (comparable-trx very-complex-bilateral-trx)
+           (comparable-trx (trx/->bilateral very-complex-unilateral-trx)))))
+  (testing "a unilateral trading transaction"
+    (is (= (comparable-trx bilateral-trading-trx)
+           (comparable-trx (trx/->bilateral unilateral-trading-trx))))))
+
+(deftest convert-a-transaction-into-a-unilateral
+  (testing "a unilateral transaction"
+    (is (= simple-unilateral-trx
+           (trx/->unilateral simple-unilateral-trx))
+        "A unilateral transaction is returned unchanged"))
+  (testing "a simple transaction"
+    (is (= simple-unilateral-trx
+           (trx/->unilateral simple-trx))))
+  (testing "a simple bilateral transaction"
+    (is (= simple-unilateral-trx
+           (trx/->unilateral simple-bilateral-trx))))
+  (testing "a complex bilateral transaction"
+    (is (= (comparable-trx complex-unilateral-trx)
+           (comparable-trx (trx/->unilateral complex-bilateral-trx)))))
+  (testing "a very complex bilateral transaction"
+    (is (= (comparable-trx very-complex-unilateral-trx)
+           (comparable-trx (trx/->unilateral very-complex-bilateral-trx)))))
+  (testing "a bilateral trading transaction"
+    (is (= (comparable-trx unilateral-trading-trx)
+           (comparable-trx (trx/->unilateral bilateral-trading-trx))))))
+
+(deftest simplify-a-transaction
+  (testing "a bilateral transaction with one item"
+    (is (= simple-trx
+           (trx/simplify simple-bilateral-trx))))
+  (testing "a bilateral transaction with multiple items"
+    (is (nil? (trx/simplify complex-bilateral-trx))
+        "cannot be created")))
+
+(deftest infer-account-item-attributes
+  (testing "Accounts specified on the transaction item"
+    (is (= #:transaction-item{:value (d 10)
+                              :debit-item
+                              #:account-item{:action :debit
+                                             :quantity (d 10)
+                                             :account {:id "groceries"
+                                                       :account/type :expense}}
+                              :credit-item
+                              #:account-item{:action :credit
+                                             :quantity (d -10)
+                                             :account {:id "checking"
+                                                       :account/type :asset}}}
+           (trx/expand-account-item
+             #:transaction-item{:value (d 10)
+                                :debit-account {:id "groceries"
+                                                :account/type :expense}
+                                :credit-account {:id "checking"
+                                                 :account/type :asset}}))))
+  (testing "Accounts specified on the account items"
+    (is (= #:transaction-item{:value (d 10)
+                              :debit-item
+                              #:account-item{:action :debit
+                                             :quantity (d 10)
+                                             :account {:id "groceries"
+                                                       :account/type :expense}}
+                              :credit-item
+                              #:account-item{:action :credit
+                                             :quantity (d -10)
+                                             :account {:id "checking"
+                                                       :account/type :asset}}}
+           (trx/expand-account-item
+             #:transaction-item{:value (d 10)
+                                :debit-item {:account-item/account {:id "groceries"
+                                                                    :account/type :expense}}
+                                :credit-item {:account-item/account {:id "checking"
+                                                                     :account/type :asset}}})))))
