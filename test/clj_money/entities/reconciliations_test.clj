@@ -3,12 +3,13 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
-            [clj-money.util :as util :refer [entity=
+            [clj-money.util :as util :refer [id=
                                              ->entity-ref]]
             [clj-money.json]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [dbtest]]
             [clj-money.accounts :as acts]
+            [clj-money.transactions :as trxs]
             [clj-money.entity-helpers
              :refer [assert-invalid
                      assert-deleted]
@@ -21,6 +22,7 @@
                                             basic-context
                                             find-entity
                                             find-account
+                                            find-accounts
                                             find-account-item
                                             find-reconciliation]]
             [clj-money.entities.reconciliations :as recons]))
@@ -173,31 +175,27 @@
         #:transaction{:transaction-date (t/local-date 2015 1 1)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:action :credit
-                                                 :account "Salary"
-                                                 :quantity 1000M}
-                              #:transaction-item{:action :debit
-                                                 :account "Car"
-                                                 :quantity 100M}
-                              #:transaction-item{:action :debit
-                                                 :account "Reserve"
-                                                 :quantity 200M}
-                              #:transaction-item{:action :debit
-                                                 :account "Checking"
-                                                 :quantity 700M}]}))
+                      :items [#:transaction-item{:value 100M
+                                                 :credit-account "Salary"
+                                                 :debit-account "Car"}
+                              #:transaction-item{:value 200M
+                                                 :credit-account "Salary"
+                                                 :debit-account "Reserve"}
+                              #:transaction-item{:value 700M
+                                                 :credit-account "Salary"
+                                                 :debit-account "Checking"}]}))
 
 (dbtest items-can-belong-to-children-of-the-account-being-reconciled
   (with-context parent-account-context
-    (let [savings (find-account "Savings")
-          car (find-account "Car")
-          reserve (find-account "Reserve")
+    (let [[savings car reserve] (find-accounts "Savings" "Car" "Reserve")
           items (->> *context*
-                     (filter (util/entity-type? :transaction))
+                     (filter :transaction/items)
                      (mapcat :transaction/items)
-                     (filter #(or (entity= reserve
-                                          (:transaction-item/account %))
-                                  (entity= car
-                                          (:transaction-item/account %)))))
+                     (mapcat trxs/account-items)
+                     (filter #(or (id= reserve
+                                       (:account-item/account %))
+                                  (id= car
+                                       (:account-item/account %)))))
           _ (assert (= 2 (count items)) "Expected 2 items for the test")
           created (assert-created
                     #:reconciliation{:account savings
@@ -205,10 +203,10 @@
                                      :status :completed
                                      :balance 300M
                                      :items items})
-          simplify #(select-keys % [:transaction-item/action
-                                    :transaction-item/account
-                                    :transaction-item/quantity])
-          retrieved (entities/select {:transaction-item/reconciliation created})]
+          simplify #(select-keys % [:account-item/action
+                                    :account-item/account
+                                    :account-item/quantity])
+          retrieved (entities/select {:account-item/reconciliation created})]
       (is (= (->> items
                   (map simplify)
                   set)
