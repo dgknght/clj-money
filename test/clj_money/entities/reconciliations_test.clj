@@ -244,9 +244,9 @@
                        :items (entities/select
                                 (util/entity-type
                                   {:transaction/transaction-date (t/local-date 2017 1 1)
-                                   :transaction-item/quantity 1000M
+                                   :account-item/quantity 1000M
                                    :account/name "Checking"}
-                                  :transaction-item)) }
+                                  :account-item)) }
       {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (dbtest a-working-reconciliation-can-be-updated
