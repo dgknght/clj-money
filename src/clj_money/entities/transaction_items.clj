@@ -2,31 +2,23 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [dgknght.app-lib.core :refer [index-by]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]))
 
-(defn- fetch-account
-  [account-or-ref accounts]
-  (if (util/entity-ref? account-or-ref)
-    (if-let [account (accounts (:id account-or-ref))]
-      [account accounts]
-      (let [account (entities/find account-or-ref)]
-        [account (assoc accounts (:id account) account)]))
-    [account-or-ref accounts]))
-
 (defn realize-accounts
-  [trx-items]
-  (loop [input trx-items output [] accounts {}]
-    (if-let [item (first input)]
-      (let [[account accounts] (fetch-account (:transaction-item/account item)
-                                              accounts)]
-        (recur (rest input)
-               (conj output
-                     (assoc item
-                            :transaction-item/account
-                            account))
-               accounts))
-      output)))
+  "Given a list of account items, lookup referenced accounts"
+  [items]
+  (when-let [account-ids (->> items
+                              (map (comp :id :account-item/account))
+                              set
+                              seq)]
+    (let [accounts (index-by :id
+                             (entities/find-many account-ids))]
+      (map #(update-in %
+                       [:account-item/account]
+                       (comp accounts :id))
+           items))))
 
 (defn- ->criteria
   [items]

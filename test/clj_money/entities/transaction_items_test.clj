@@ -30,13 +30,12 @@
 (dbtest realize-trx-item-accounts
   (with-context context
     (is (= #{"Checking" "Salary" "Groceries"}
-                           (->> (entities/select
-                                  (util/entity-type
-                                    {:transaction/entity (find-entity "Personal")}
-                                    :transaction-item)
-                                  {:sort [[:transaction-item/index :asc]]})
-                                (trx-items/realize-accounts)
-                                (map (comp :account/name
-                                           :transaction-item/account))
-                                set)))))
-
+           (->> (entities/select
+                  (util/entity-type
+                    {:transaction/entity (find-entity "Personal")}
+                    :account-item)
+                  {:sort [[:account-item/index :asc]]})
+                (trx-items/realize-accounts)
+                (map (comp :account/name
+                           :account-item/account))
+                set)))))
