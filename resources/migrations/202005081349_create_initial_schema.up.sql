@@ -32,14 +32,14 @@ CREATE TABLE public.account (
     transaction_date_range date[]
 );
 ALTER TABLE public.account OWNER TO ddl_user;
-CREATE SEQUENCE public.accounts_id_seq
+CREATE SEQUENCE public.account_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.accounts_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.accounts_id_seq OWNED BY public.account.id;
+ALTER SEQUENCE public.account_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.account_id_seq OWNED BY public.account.id;
 CREATE TABLE public.attachment (
     id integer NOT NULL,
     caption character varying(255),
@@ -50,14 +50,14 @@ CREATE TABLE public.attachment (
     transaction_date date NOT NULL
 );
 ALTER TABLE public.attachment OWNER TO ddl_user;
-CREATE SEQUENCE public.attachments_id_seq
+CREATE SEQUENCE public.attachment_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.attachments_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.attachments_id_seq OWNED BY public.attachment.id;
+ALTER SEQUENCE public.attachment_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.attachment_id_seq OWNED BY public.attachment.id;
 CREATE TABLE public.budget (
     id integer NOT NULL,
     entity_id integer NOT NULL,
@@ -79,22 +79,22 @@ CREATE TABLE public.budget_item (
     spec jsonb
 );
 ALTER TABLE public.budget_item OWNER TO ddl_user;
-CREATE SEQUENCE public.budget_items_id_seq
+CREATE SEQUENCE public.budget_item_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.budget_items_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.budget_items_id_seq OWNED BY public.budget_item.id;
-CREATE SEQUENCE public.budgets_id_seq
+ALTER SEQUENCE public.budget_item_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.budget_item_id_seq OWNED BY public.budget_item.id;
+CREATE SEQUENCE public.budget_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.budgets_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.budgets_id_seq OWNED BY public.budget.id;
+ALTER SEQUENCE public.budget_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.budget_id_seq OWNED BY public.budget.id;
 CREATE TABLE public.cached_price (
     trade_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
@@ -119,14 +119,14 @@ CREATE TABLE public.commodity (
     price_date_range date[]
 );
 ALTER TABLE public.commodity OWNER TO ddl_user;
-CREATE SEQUENCE public.commodities_id_seq
+CREATE SEQUENCE public.commodity_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.commodities_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.commodities_id_seq OWNED BY public.commodity.id;
+ALTER SEQUENCE public.commodity_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.commodity_id_seq OWNED BY public.commodity.id;
 CREATE TABLE public.entity (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -138,14 +138,14 @@ CREATE TABLE public.entity (
     transaction_date_range date[]
 );
 ALTER TABLE public.entity OWNER TO ddl_user;
-CREATE SEQUENCE public.entities_id_seq
+CREATE SEQUENCE public.entity_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.entities_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.entities_id_seq OWNED BY public.entity.id;
+ALTER SEQUENCE public.entity_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.entity_id_seq OWNED BY public.entity.id;
 CREATE TABLE public."grant" (
     id integer NOT NULL,
     entity_id integer NOT NULL,
@@ -155,14 +155,14 @@ CREATE TABLE public."grant" (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."grant" OWNER TO ddl_user;
-CREATE SEQUENCE public.grants_id_seq
+CREATE SEQUENCE public.grant_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.grants_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.grants_id_seq OWNED BY public."grant".id;
+ALTER SEQUENCE public.grant_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.grant_id_seq OWNED BY public."grant".id;
 CREATE TABLE public.identity (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -170,14 +170,14 @@ CREATE TABLE public.identity (
     provider_id character varying(255) NOT NULL
 );
 ALTER TABLE public.identity OWNER TO ddl_user;
-CREATE SEQUENCE public.identities_id_seq
+CREATE SEQUENCE public.identity_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.identities_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.identities_id_seq OWNED BY public.identity.id;
+ALTER SEQUENCE public.identity_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.identity_id_seq OWNED BY public.identity.id;
 CREATE TABLE public.image (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -187,28 +187,28 @@ CREATE TABLE public.image (
     content_type character varying(100) NOT NULL
 );
 ALTER TABLE public.image OWNER TO ddl_user;
-CREATE SEQUENCE public.image_contents_id_seq
+CREATE SEQUENCE public.image_content_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.image_contents_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.image_contents_id_seq OWNED BY public.image.id;
+ALTER SEQUENCE public.image_content_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.image_content_id_seq OWNED BY public.image.id;
 CREATE TABLE public.image_content (
-    id integer DEFAULT nextval('public.image_contents_id_seq'::regclass) NOT NULL,
+    id integer DEFAULT nextval('public.image_content_id_seq'::regclass) NOT NULL,
     uuid character(40) NOT NULL,
     content bytea NOT NULL
 );
 ALTER TABLE public.image_content OWNER TO ddl_user;
-CREATE SEQUENCE public.images_id_seq
+CREATE SEQUENCE public.image_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.images_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.images_id_seq OWNED BY public.image.id;
+ALTER SEQUENCE public.image_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.image_id_seq OWNED BY public.image.id;
 CREATE TABLE public.import (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -220,14 +220,14 @@ CREATE TABLE public.import (
     options jsonb
 );
 ALTER TABLE public.import OWNER TO ddl_user;
-CREATE SEQUENCE public.imports_id_seq
+CREATE SEQUENCE public.import_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.imports_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.imports_id_seq OWNED BY public.import.id;
+ALTER SEQUENCE public.import_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.import_id_seq OWNED BY public.import.id;
 CREATE TABLE public.lot (
     id integer NOT NULL,
     commodity_id integer NOT NULL,
@@ -250,23 +250,23 @@ CREATE TABLE public.lot_item (
     id integer NOT NULL
 );
 ALTER TABLE public.lot_item OWNER TO ddl_user;
-CREATE SEQUENCE public.lot_items_id_seq
+CREATE SEQUENCE public.lot_item_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.lot_items_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.lot_items_id_seq OWNED BY public.lot_item.id;
-CREATE SEQUENCE public.lots_id_seq
+ALTER SEQUENCE public.lot_item_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.lot_item_id_seq OWNED BY public.lot_item.id;
+CREATE SEQUENCE public.lot_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.lots_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.lots_id_seq OWNED BY public.lot.id;
+ALTER SEQUENCE public.lot_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.lot_id_seq OWNED BY public.lot.id;
 CREATE TABLE public.price (
     trade_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
@@ -322,14 +322,14 @@ CREATE SEQUENCE public.scheduled_transaction_item_id_seq
     CACHE 1;
 ALTER SEQUENCE public.scheduled_transaction_item_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.scheduled_transaction_item_id_seq OWNED BY public.scheduled_transaction_item.id;
-CREATE SEQUENCE public.scheduled_transactions_id_seq
+CREATE SEQUENCE public.scheduled_transaction_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.scheduled_transactions_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.scheduled_transactions_id_seq OWNED BY public.scheduled_transaction.id;
+ALTER SEQUENCE public.scheduled_transaction_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.scheduled_transaction_id_seq OWNED BY public.scheduled_transaction.id;
 CREATE TABLE public.transaction (
     transaction_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
@@ -386,29 +386,29 @@ CREATE TABLE public."user" (
     token_expires_at timestamp without time zone
 );
 ALTER TABLE public."user" OWNER TO ddl_user;
-CREATE SEQUENCE public.users_id_seq
+CREATE SEQUENCE public.user_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.users_id_seq OWNER TO ddl_user;
-ALTER SEQUENCE public.users_id_seq OWNED BY public."user".id;
-ALTER TABLE ONLY public.account ALTER COLUMN id SET DEFAULT nextval('public.accounts_id_seq'::regclass);
-ALTER TABLE ONLY public.attachment ALTER COLUMN id SET DEFAULT nextval('public.attachments_id_seq'::regclass);
-ALTER TABLE ONLY public.budget ALTER COLUMN id SET DEFAULT nextval('public.budgets_id_seq'::regclass);
-ALTER TABLE ONLY public.budget_item ALTER COLUMN id SET DEFAULT nextval('public.budget_items_id_seq'::regclass);
-ALTER TABLE ONLY public.commodity ALTER COLUMN id SET DEFAULT nextval('public.commodities_id_seq'::regclass);
-ALTER TABLE ONLY public.entity ALTER COLUMN id SET DEFAULT nextval('public.entities_id_seq'::regclass);
-ALTER TABLE ONLY public."grant" ALTER COLUMN id SET DEFAULT nextval('public.grants_id_seq'::regclass);
-ALTER TABLE ONLY public.identity ALTER COLUMN id SET DEFAULT nextval('public.identities_id_seq'::regclass);
-ALTER TABLE ONLY public.image ALTER COLUMN id SET DEFAULT nextval('public.images_id_seq'::regclass);
-ALTER TABLE ONLY public.import ALTER COLUMN id SET DEFAULT nextval('public.imports_id_seq'::regclass);
-ALTER TABLE ONLY public.lot ALTER COLUMN id SET DEFAULT nextval('public.lots_id_seq'::regclass);
-ALTER TABLE ONLY public.lot_item ALTER COLUMN id SET DEFAULT nextval('public.lot_items_id_seq'::regclass);
-ALTER TABLE ONLY public.scheduled_transaction ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transactions_id_seq'::regclass);
+ALTER SEQUENCE public.user_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.user_id_seq OWNED BY public."user".id;
+ALTER TABLE ONLY public.account ALTER COLUMN id SET DEFAULT nextval('public.account_id_seq'::regclass);
+ALTER TABLE ONLY public.attachment ALTER COLUMN id SET DEFAULT nextval('public.attachment_id_seq'::regclass);
+ALTER TABLE ONLY public.budget ALTER COLUMN id SET DEFAULT nextval('public.budget_id_seq'::regclass);
+ALTER TABLE ONLY public.budget_item ALTER COLUMN id SET DEFAULT nextval('public.budget_item_id_seq'::regclass);
+ALTER TABLE ONLY public.commodity ALTER COLUMN id SET DEFAULT nextval('public.commodity_id_seq'::regclass);
+ALTER TABLE ONLY public.entity ALTER COLUMN id SET DEFAULT nextval('public.entity_id_seq'::regclass);
+ALTER TABLE ONLY public."grant" ALTER COLUMN id SET DEFAULT nextval('public.grant_id_seq'::regclass);
+ALTER TABLE ONLY public.identity ALTER COLUMN id SET DEFAULT nextval('public.identity_id_seq'::regclass);
+ALTER TABLE ONLY public.image ALTER COLUMN id SET DEFAULT nextval('public.image_id_seq'::regclass);
+ALTER TABLE ONLY public.import ALTER COLUMN id SET DEFAULT nextval('public.import_id_seq'::regclass);
+ALTER TABLE ONLY public.lot ALTER COLUMN id SET DEFAULT nextval('public.lot_id_seq'::regclass);
+ALTER TABLE ONLY public.lot_item ALTER COLUMN id SET DEFAULT nextval('public.lot_item_id_seq'::regclass);
+ALTER TABLE ONLY public.scheduled_transaction ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transaction_id_seq'::regclass);
 ALTER TABLE ONLY public.scheduled_transaction_item ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transaction_item_id_seq'::regclass);
-ALTER TABLE ONLY public."user" ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+ALTER TABLE ONLY public."user" ALTER COLUMN id SET DEFAULT nextval('public.user_id_seq'::regclass);
 ALTER TABLE ONLY public.account
     ADD CONSTRAINT accounts_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.attachment
@@ -542,40 +542,40 @@ ALTER TABLE public.transaction
 ALTER TABLE public.transaction
     ADD CONSTRAINT transactions_scheduled_transaction_id_fkey FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id);
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.accounts_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.account_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.attachment TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.attachments_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.attachment_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.budget TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.budget_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.budget_items_id_seq TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.budgets_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.budget_item_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.budget_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.cached_price TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.commodity TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.commodities_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.commodity_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.entity TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.entities_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.entity_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."grant" TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.grants_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.grant_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.identity TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.identities_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.identity_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.image TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.image_contents_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.image_content_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.image_content TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.images_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.image_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.import TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.imports_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.import_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.lot TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.lot_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.lot_items_id_seq TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.lots_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.lot_item_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.lot_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.price TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.reconciliation TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_transaction TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_transaction_item TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_item_id_seq TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transactions_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction_item TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_item TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."user" TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.users_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.user_id_seq TO app_user;
