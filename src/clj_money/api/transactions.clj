@@ -50,17 +50,12 @@
 
 (defn- find-and-auth
   [{:keys [path-params authenticated]} action]
-  (let [trans-date (unserialize-local-date
-                     (some #(path-params %)
-                           [:original-transaction-date
-                            :transaction-date]))]
-    (some-> path-params
-            (select-keys [:id])
-            (update-in [:id] unserialize-id)
-            (assoc :transaction/transaction-date trans-date)
-            (+scope authenticated)
-            entities/find-by
-            (authorize action authenticated))))
+  (some-> path-params
+          (select-keys [:id])
+          (update-in [:id] unserialize-id)
+          (+scope :transaction authenticated)
+          entities/find-by
+          (authorize action authenticated)))
 
 (defn- show
   [req]
@@ -154,6 +149,6 @@
   [["entities/:entity-id"
     ["/transactions" {:post {:handler create}
                       :get {:handler index}}]]
-   ["transactions/:transaction-date/:id" {:get {:handler show}
-                                          :patch {:handler update}
-                                          :delete {:handler delete}}]])
+   ["transactions/:id" {:get {:handler show}
+                        :patch {:handler update}
+                        :delete {:handler delete}}]])

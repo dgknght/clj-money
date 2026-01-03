@@ -5,12 +5,12 @@
 - You avoid repeating yourself in code.
 
 ## Tests
-- The entire test suite takes a long time to run. When verifying that changes
-  work as expected, act in this order:
-    1. Run individual relevant tests.
-    2. Run individual relevant files.
-    3. Run the entire test suite. (We should have high confidence that all
-       tests will pass before performing this step.)
+- The fastest way to run the full test suite is `lein ptest`.
+- You can target an implementation of the storage strategy with a command
+  like `lein ptest -s datomic-peer`.
+- You can target a namespace and a strategy:
+  - in parallel with `lein ptest -s sql clj-money.entities.transactions-test`
+  - in serial with `lein test clj-money.entities.transactions-test :sql`
 - Do not start more than one test run at a time.
 
 ## Commits
