@@ -15,7 +15,8 @@ a lot of logic on the transaction-related code.
     partitioning.
   - Create a sequence to generate the values for the `id` column.
 - Adjust the logic that creates partitions so that it only includes
-  `price` and `cached_price`. See `clj-money.db.sql.partitioning`.
+  `price` and `cached_price`. See `clj-money.db.sql.partitioning`
+  and `clj-money.db.sql.partitioning-test`.
 - The file `src/clj_money/entities/schema.cljc` contains information
   about the data schema used by the application. It defines references
   and those references to the tables being unpartitioned required two
