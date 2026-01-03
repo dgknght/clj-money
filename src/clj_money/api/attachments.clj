@@ -15,11 +15,9 @@
             [clj-money.authorization.attachments]))
 
 (defn- extract-criteria
-  [{:keys [authenticated] {:keys [transaction-id :transaction-date]} :params}]
+  [{:keys [authenticated] {:keys [transaction-id]} :params}]
   (+scope
-    {:attachment/transaction
-     {:id transaction-id
-      :transaction/transaction-date (dates/unserialize-local-date transaction-date)}}
+    {:attachment/transaction {:id transaction-id}}
     :attachment
     authenticated))
 
@@ -45,13 +43,11 @@
     (entities/select (extract-account-criteria req))))
 
 (defn- extract-attachment
-  [{{:keys [transaction-id transaction-date] :as params} :params}]
+  [{{:keys [transaction-id] :as params} :params}]
   (-> params
       (select-keys [:caption])
       (util/qualify-keys :attachment)
-      (merge {:attachment/transaction
-              {:id transaction-id
-               :transaction/transaction-date (dates/unserialize-local-date transaction-date)}})))
+      (merge {:attachment/transaction {:id transaction-id}})))
 
 (defn- find-or-create-image
   [{{:keys [file]} :params
@@ -107,8 +103,8 @@
     api/not-found))
 
 (def routes
-  [["transactions/:transaction-id/:transaction-date/attachments" {:post {:handler create}
-                                                                  :get {:handler index}}]
+  [["transactions/:transaction-id/attachments" {:post {:handler create}
+                                                 :get {:handler index}}]
    ["accounts/:account-id/attachments/:start-date/:end-date" {:get {:handler index-by-account}}]
    ["attachments"
     ["" {:get {:handler index}}]
