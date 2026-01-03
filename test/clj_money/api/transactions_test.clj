@@ -12,7 +12,6 @@
             [clj-money.entities :as entities]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api.test-helper :refer [parse-body
                                                request
                                                jsonize-decimals]]
