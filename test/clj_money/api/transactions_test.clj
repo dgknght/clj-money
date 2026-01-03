@@ -115,7 +115,6 @@
   (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])]
     (-> (request :get (path :api
                             :transactions
-                            "2016-02-01"
                             (:id transaction))
                  :content-type content-type
                  :user (find-user email))
@@ -280,7 +279,6 @@
                                        "Paycheck"])
         response (-> (request :patch (path :api
                                            :transactions
-                                           (serialize-local-date (:transaction/transaction-date transaction))
                                            (:id transaction))
                               :user (find-user email)
                               :content-type content-type
@@ -349,7 +347,6 @@
     (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
           response (-> (request :delete (path :api
                                              :transactions
-                                             "2016-02-01"
                                              (:id transaction))
                                 :user (find-user email))
                        app)]
