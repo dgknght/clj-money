@@ -139,7 +139,6 @@
             {:id :parent
              :type :account}}}
    {:id :transaction
-    :primary-key [:transaction-date :id]
     :fields #{{:id :transaction-date
                :type :date}
               {:id :description
@@ -157,7 +156,6 @@
     :refs #{:entity
             :scheduled-transaction}}
    {:id :transaction-item
-    :primary-key [:transaction-date :id]
     :fields #{{:id :action
                :type :keyword}
               {:id :quantity
@@ -178,12 +176,12 @@
                :transient? true}
               {:id :negative
                :type :string
-               :transient? true}}
+               :transient? true}
+              {:id :transaction-date
+               :type :date}}
     :refs #{:account
             :reconciliation
-            {:id :transaction
-             :columns #{:transaction-date
-                        [:id :transaction-id]}}}}
+            :transaction}}
    {:id :lot
     :fields #{{:id :shares-purchased
                :type :decimal}
@@ -204,9 +202,7 @@
               {:id :price
                :type :decimal}}
     :refs #{:lot
-            {:id :transaction
-             :columns #{:transaction-date
-                        [:id :transaction-id]}}}} ; TODO: really shouldn't have -id here
+            :transaction}} ; TODO: really shouldn't have -id here
    {:id :budget
     :fields #{{:id :name
                :type :string}
@@ -259,11 +255,8 @@
     :fields #{{:id :caption
                :type :string}}
     :refs #{:image
-            {:id :transaction
-             :columns #{:transaction-date
-                        [:id :transaction-id]}}}}
+            :transaction}}
    {:id :reconciliation
-    :primary-key [:end-of-period :id]
     :fields #{{:id :status
                :type :keyword}
               {:id :balance
