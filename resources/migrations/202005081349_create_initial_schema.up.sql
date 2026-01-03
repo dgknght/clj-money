@@ -14,15 +14,15 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 SET default_tablespace = '';
 SET default_table_access_method = heap;
 CREATE TABLE public.account (
-    id integer NOT NULL,
+    id long NOT NULL,
     name character varying(255) NOT NULL,
     type character varying(20) NOT NULL,
-    entity_id integer NOT NULL,
-    parent_id integer,
+    entity_id long NOT NULL,
+    parent_id long,
     quantity numeric(19,6) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    commodity_id integer NOT NULL,
+    commodity_id long NOT NULL,
     system_tags text[],
     value numeric(19,6),
     hidden boolean DEFAULT false,
@@ -41,9 +41,9 @@ CREATE SEQUENCE public.account_id_seq
 ALTER SEQUENCE public.account_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.account_id_seq OWNED BY public.account.id;
 CREATE TABLE public.attachment (
-    id integer NOT NULL,
+    id long NOT NULL,
     caption character varying(255),
-    image_id integer NOT NULL,
+    image_id long NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     transaction_id uuid NOT NULL,
@@ -59,8 +59,8 @@ CREATE SEQUENCE public.attachment_id_seq
 ALTER SEQUENCE public.attachment_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.attachment_id_seq OWNED BY public.attachment.id;
 CREATE TABLE public.budget (
-    id integer NOT NULL,
-    entity_id integer NOT NULL,
+    id long NOT NULL,
+    entity_id long NOT NULL,
     name character varying(50) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -70,9 +70,9 @@ CREATE TABLE public.budget (
 );
 ALTER TABLE public.budget OWNER TO ddl_user;
 CREATE TABLE public.budget_item (
-    id integer NOT NULL,
-    budget_id integer NOT NULL,
-    account_id integer NOT NULL,
+    id long NOT NULL,
+    budget_id long NOT NULL,
+    account_id long NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     periods numeric(19,6)[] NOT NULL,
@@ -107,8 +107,8 @@ CREATE TABLE public.cached_price (
 PARTITION BY RANGE (trade_date);
 ALTER TABLE public.cached_price OWNER TO ddl_user;
 CREATE TABLE public.commodity (
-    id integer NOT NULL,
-    entity_id integer NOT NULL,
+    id long NOT NULL,
+    entity_id long NOT NULL,
     name character varying(100) NOT NULL,
     symbol character varying(10) NOT NULL,
     exchange character varying(10),
@@ -128,8 +128,8 @@ CREATE SEQUENCE public.commodity_id_seq
 ALTER SEQUENCE public.commodity_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.commodity_id_seq OWNED BY public.commodity.id;
 CREATE TABLE public.entity (
-    id integer NOT NULL,
-    user_id integer NOT NULL,
+    id long NOT NULL,
+    user_id long NOT NULL,
     name character varying(100) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -147,9 +147,9 @@ CREATE SEQUENCE public.entity_id_seq
 ALTER SEQUENCE public.entity_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.entity_id_seq OWNED BY public.entity.id;
 CREATE TABLE public."grant" (
-    id integer NOT NULL,
-    entity_id integer NOT NULL,
-    user_id integer NOT NULL,
+    id long NOT NULL,
+    entity_id long NOT NULL,
+    user_id long NOT NULL,
     permissions jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
@@ -164,8 +164,8 @@ CREATE SEQUENCE public.grant_id_seq
 ALTER SEQUENCE public.grant_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.grant_id_seq OWNED BY public."grant".id;
 CREATE TABLE public.identity (
-    id integer NOT NULL,
-    user_id integer NOT NULL,
+    id long NOT NULL,
+    user_id long NOT NULL,
     provider character varying(20) NOT NULL,
     provider_id character varying(255) NOT NULL
 );
@@ -179,8 +179,8 @@ CREATE SEQUENCE public.identity_id_seq
 ALTER SEQUENCE public.identity_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.identity_id_seq OWNED BY public.identity.id;
 CREATE TABLE public.image (
-    id integer NOT NULL,
-    user_id integer NOT NULL,
+    id long NOT NULL,
+    user_id long NOT NULL,
     original_filename character varying(255) NOT NULL,
     uuid character(40) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -196,7 +196,7 @@ CREATE SEQUENCE public.image_content_id_seq
 ALTER SEQUENCE public.image_content_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.image_content_id_seq OWNED BY public.image.id;
 CREATE TABLE public.image_content (
-    id integer DEFAULT nextval('public.image_content_id_seq'::regclass) NOT NULL,
+    id long DEFAULT nextval('public.image_content_id_seq'::regclass) NOT NULL,
     uuid character(40) NOT NULL,
     content bytea NOT NULL
 );
@@ -210,8 +210,8 @@ CREATE SEQUENCE public.image_id_seq
 ALTER SEQUENCE public.image_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.image_id_seq OWNED BY public.image.id;
 CREATE TABLE public.import (
-    id integer NOT NULL,
-    user_id integer NOT NULL,
+    id long NOT NULL,
+    user_id long NOT NULL,
     entity_name character varying(100) NOT NULL,
     progress jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -229,9 +229,9 @@ CREATE SEQUENCE public.import_id_seq
 ALTER SEQUENCE public.import_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.import_id_seq OWNED BY public.import.id;
 CREATE TABLE public.lot (
-    id integer NOT NULL,
-    commodity_id integer NOT NULL,
-    account_id integer NOT NULL,
+    id long NOT NULL,
+    commodity_id long NOT NULL,
+    account_id long NOT NULL,
     shares_purchased numeric(19,6) NOT NULL,
     shares_owned numeric(19,6) DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -241,13 +241,13 @@ CREATE TABLE public.lot (
 );
 ALTER TABLE public.lot OWNER TO ddl_user;
 CREATE TABLE public.lot_item (
-    lot_id integer NOT NULL,
+    lot_id long NOT NULL,
     price numeric(19,6) NOT NULL,
     shares numeric(19,6) NOT NULL,
     action character varying(10) NOT NULL,
     transaction_id uuid NOT NULL,
     transaction_date date NOT NULL,
-    id integer NOT NULL
+    id long NOT NULL
 );
 ALTER TABLE public.lot_item OWNER TO ddl_user;
 CREATE SEQUENCE public.lot_item_id_seq
@@ -270,7 +270,7 @@ ALTER SEQUENCE public.lot_id_seq OWNED BY public.lot.id;
 CREATE TABLE public.price (
     trade_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
-    commodity_id integer NOT NULL,
+    commodity_id long NOT NULL,
     value numeric(19,6) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
@@ -280,7 +280,7 @@ ALTER TABLE public.price OWNER TO ddl_user;
 CREATE TABLE public.reconciliation (
     end_of_period date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
-    account_id integer NOT NULL,
+    account_id long NOT NULL,
     status character varying(20) NOT NULL,
     balance numeric(19,6) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -289,13 +289,13 @@ CREATE TABLE public.reconciliation (
 PARTITION BY RANGE (end_of_period);
 ALTER TABLE public.reconciliation OWNER TO ddl_user;
 CREATE TABLE public.scheduled_transaction (
-    id integer NOT NULL,
+    id long NOT NULL,
     start_date date NOT NULL,
     end_date date,
     enabled boolean DEFAULT true NOT NULL,
     last_occurrence date,
     date_spec jsonb NOT NULL,
-    entity_id integer NOT NULL,
+    entity_id long NOT NULL,
     description character varying(200) NOT NULL,
     memo character varying(200),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -304,9 +304,9 @@ CREATE TABLE public.scheduled_transaction (
 );
 ALTER TABLE public.scheduled_transaction OWNER TO ddl_user;
 CREATE TABLE public.scheduled_transaction_item (
-    id integer NOT NULL,
-    scheduled_transaction_id integer NOT NULL,
-    account_id integer NOT NULL,
+    id long NOT NULL,
+    scheduled_transaction_id long NOT NULL,
+    account_id long NOT NULL,
     action character varying(10) NOT NULL,
     quantity numeric(19,6),
     memo character varying(200),
@@ -333,13 +333,13 @@ ALTER SEQUENCE public.scheduled_transaction_id_seq OWNED BY public.scheduled_tra
 CREATE TABLE public.transaction (
     transaction_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
-    entity_id integer NOT NULL,
+    entity_id long NOT NULL,
     description character varying(200) NOT NULL,
     memo character varying(200),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     value numeric(19,6) DEFAULT 0 NOT NULL,
-    scheduled_transaction_id integer,
+    scheduled_transaction_id long,
     attachment_count smallint DEFAULT 0 NOT NULL
 )
 PARTITION BY RANGE (transaction_date);
@@ -348,10 +348,10 @@ CREATE TABLE public.transaction_item (
     transaction_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     transaction_id uuid NOT NULL,
-    debit_account_id integer NOT NULL,
+    debit_account_id long NOT NULL,
     debit_quantity numeric(19,6),
     debit_memo character varying(200),
-    credit_account_id integer NOT NULL,
+    credit_account_id long NOT NULL,
     credit_quantity numeric(19,6),
     credit_memo character varying(200),
     value numeric(19,6) NOT NULL,
@@ -364,7 +364,7 @@ CREATE TABLE public.account_item (
     transaction_date date NOT NULL,
     id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     transaction_item_id uuid NOT NULL,
-    account_id integer NOT NULL,
+    account_id long NOT NULL,
     index bigint NOT NULL,
     balance numeric(19,6) NOT NULL,
     quantity numeric(19,6) NOT NULL,
@@ -375,7 +375,7 @@ CREATE TABLE public.account_item (
 PARTITION BY RANGE (transaction_date);
 ALTER TABLE public.account_item OWNER TO ddl_user;
 CREATE TABLE public."user" (
-    id integer NOT NULL,
+    id long NOT NULL,
     email character varying(100) NOT NULL,
     password character varying(100) NOT NULL,
     first_name character varying(100) NOT NULL,
