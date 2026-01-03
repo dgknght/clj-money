@@ -14,3 +14,5 @@ a lot of logic on the transaction-related code.
   - Remove the `transaction_date` column that was only there to support
     partitioning.
   - Create a sequence to generate the values for the `id` column.
+- Adjust the logic that creates partitions so that it only includes
+  `price` and `cached_price`. See `clj-money.db.sql.partitioning`.
