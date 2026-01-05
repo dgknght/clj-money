@@ -56,7 +56,7 @@
   [selector]
   (when selector
     #(= selector
-        (:strategy %))))
+        (% :strategy))))
 
 (defn- match-meta?
   [{:keys [strategy]}]

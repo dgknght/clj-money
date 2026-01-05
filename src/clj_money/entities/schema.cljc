@@ -139,7 +139,6 @@
             {:id :parent
              :type :account}}}
    {:id :transaction
-    :primary-key [:transaction-date :id]
     :fields #{{:id :transaction-date
                :type :date}
               {:id :description
@@ -157,18 +156,14 @@
     :refs #{:entity
             :scheduled-transaction}}
    {:id :transaction-item
-    :primary-key [:transaction-date :id]
     :fields #{{:id :value
                :type :decimal}}
     :refs #{{:id :debit-item
              :type :account-item}
             {:id :credit-item
              :type :account-item}
-            {:id :transaction
-             :columns #{:transaction-date
-                        [:id :transaction-id]}}}}
+            :transaction}}
    {:id :account-item
-    :primary-key [:transaction-date :id]
     :fields #{{:id :action
                :type :keyword}
               {:id :quantity
@@ -179,9 +174,7 @@
                :type :integer}}
     :refs #{:reconciliation
             :account
-            {:id :transaction-item
-             :columns #{:transaction-date
-                        [:id :transaction-item-id]}}}}
+            :transaction-item}}
    {:id :lot
     :fields #{{:id :shares-purchased
                :type :decimal}
@@ -202,9 +195,7 @@
               {:id :price
                :type :decimal}}
     :refs #{:lot
-            {:id :transaction
-             :columns #{:transaction-date
-                        [:id :transaction-id]}}}} ; TODO: really shouldn't have -id here
+            :transaction}}
    {:id :budget
     :fields #{{:id :name
                :type :string}
@@ -257,11 +248,8 @@
     :fields #{{:id :caption
                :type :string}}
     :refs #{:image
-            {:id :transaction
-             :columns #{:transaction-date
-                        [:id :transaction-id]}}}}
+            :transaction}}
    {:id :reconciliation
-    :primary-key [:end-of-period :id]
     :fields #{{:id :status
                :type :keyword}
               {:id :balance
