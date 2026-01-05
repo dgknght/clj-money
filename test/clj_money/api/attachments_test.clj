@@ -11,7 +11,6 @@
             [clj-money.json]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
