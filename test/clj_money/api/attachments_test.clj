@@ -11,7 +11,6 @@
             [clj-money.json]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
@@ -44,8 +43,6 @@
         response (-> (req/request :post (path :api
                                               :transactions
                                               (:id transaction)
-                                              (dates/serialize-local-date
-                                                (:transaction/transaction-date transaction))
                                               :attachments))
                      (merge (build-multipart-request {:file {:file file
                                                              :content-type "image/jpg"}
@@ -107,8 +104,6 @@
     (-> (request :get (path :api
                             :transactions
                             (:id transaction)
-                            (dates/serialize-local-date
-                              (:transaction/transaction-date transaction))
                             :attachments)
                  :content-type content-type
                  :user (find-user email))

@@ -1,7 +1,6 @@
 (ns clj-money.db.sql.transactions
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
@@ -24,15 +23,11 @@
   (update-in trx [:transaction/transaction-date] t/local-date))
 
 (defn- ->item-criteria
-  [[trx :as trxs]]
-  (if (= 1 (count trxs))
-    {:transaction-item/transaction-date (:transaction/transaction-date trx)
-     :transaction-item/transaction-id (:id trx)}
-    (let [[start end] (->> trxs
-                           (map :transaction/transaction-date)
-                           (util/->>range {:compare t/before?}))]
-      {:transaction-item/transaction-date [:between start end]
-       :transaction-item/transaction-id [:in (mapv :id trxs)]})))
+  [trxs]
+  {:transaction-item/transaction-id
+   (if (= 1 (count trxs))
+     (:id (first trxs))
+     [:in (mapv :id trxs)])})
 
 (defmethod sql/post-select :transaction
   [{:keys [storage]} trxs]

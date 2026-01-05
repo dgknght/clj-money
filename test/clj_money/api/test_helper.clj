@@ -61,21 +61,22 @@
   [{:keys [status]}]
   (= 204 status))
 
-(def has-content?
+(def expect-content?
   (complement no-content?))
 
 (defn parse-body
   [{:keys [body] :as res}]
-  (if (has-content? res)
-    (let [content-type (-> res
-                           (res/get-header "content-type")
-                           (string/split #";")
-                           first)]
+  (if (expect-content? res)
+    (if-let [content-type (some-> res
+                                  (res/get-header "content-type")
+                                  (string/split #";")
+                                  first)]
       (assoc res :parsed-body (try
                                 (muuntaja/decode content-type body)
                                 (catch Exception e
                                   {:error (ex-message e)
-                                   :body body}))))
+                                   :body body})))
+      res)
     res))
 
 (def muunstance

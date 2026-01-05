@@ -1,14 +1,3 @@
--- SET statement_timeout = 0;
--- SET lock_timeout = 0;
--- SET idle_in_transaction_session_timeout = 0;
--- SET transaction_timeout = 0;
--- SET client_encoding = 'UTF8';
--- SET standard_conforming_strings = on;
--- SELECT pg_catalog.set_config('search_path', '', false);
--- SET check_function_bodies = false;
--- SET xmloption = content;
--- SET client_min_messages = warning;
--- SET row_security = off;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 SET default_tablespace = '';
@@ -46,8 +35,7 @@ CREATE TABLE public.attachment (
     image_id integer NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    transaction_id uuid NOT NULL,
-    transaction_date date NOT NULL
+    transaction_id integer NOT NULL
 );
 ALTER TABLE public.attachment OWNER TO ddl_user;
 CREATE SEQUENCE public.attachments_id_seq
@@ -241,13 +229,12 @@ CREATE TABLE public.lot (
 );
 ALTER TABLE public.lot OWNER TO ddl_user;
 CREATE TABLE public.lot_item (
+    id integer NOT NULL,
     lot_id integer NOT NULL,
     price numeric(19,6) NOT NULL,
     shares numeric(19,6) NOT NULL,
     action character varying(10) NOT NULL,
-    transaction_id uuid NOT NULL,
-    transaction_date date NOT NULL,
-    id integer NOT NULL
+    transaction_id integer NOT NULL
 );
 ALTER TABLE public.lot_item OWNER TO ddl_user;
 CREATE SEQUENCE public.lot_items_id_seq
@@ -277,17 +264,24 @@ CREATE TABLE public.price (
 )
 PARTITION BY RANGE (trade_date);
 ALTER TABLE public.price OWNER TO ddl_user;
+CREATE SEQUENCE public.reconciliations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER SEQUENCE public.reconciliations_id_seq OWNER TO ddl_user;
 CREATE TABLE public.reconciliation (
+    id integer NOT NULL,
     end_of_period date NOT NULL,
-    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     account_id integer NOT NULL,
     status character varying(20) NOT NULL,
     balance numeric(19,6) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
-)
-PARTITION BY RANGE (end_of_period);
+);
 ALTER TABLE public.reconciliation OWNER TO ddl_user;
+ALTER SEQUENCE public.reconciliations_id_seq OWNED BY public.reconciliation.id;
 CREATE TABLE public.scheduled_transaction (
     id integer NOT NULL,
     start_date date NOT NULL,
@@ -330,9 +324,16 @@ CREATE SEQUENCE public.scheduled_transactions_id_seq
     CACHE 1;
 ALTER SEQUENCE public.scheduled_transactions_id_seq OWNER TO ddl_user;
 ALTER SEQUENCE public.scheduled_transactions_id_seq OWNED BY public.scheduled_transaction.id;
+CREATE SEQUENCE public.transactions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER SEQUENCE public.transactions_id_seq OWNER TO ddl_user;
 CREATE TABLE public.transaction (
+    id integer NOT NULL,
     transaction_date date NOT NULL,
-    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     entity_id integer NOT NULL,
     description character varying(200) NOT NULL,
     memo character varying(200),
@@ -341,13 +342,20 @@ CREATE TABLE public.transaction (
     value numeric(19,6) DEFAULT 0 NOT NULL,
     scheduled_transaction_id integer,
     attachment_count smallint DEFAULT 0 NOT NULL
-)
-PARTITION BY RANGE (transaction_date);
+);
 ALTER TABLE public.transaction OWNER TO ddl_user;
+ALTER SEQUENCE public.transactions_id_seq OWNED BY public.transaction.id;
+CREATE SEQUENCE public.transaction_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER SEQUENCE public.transaction_items_id_seq OWNER TO ddl_user;
 CREATE TABLE public.transaction_item (
+    id integer NOT NULL,
+    transaction_id integer NOT NULL,
     transaction_date date NOT NULL,
-    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
-    transaction_id uuid NOT NULL,
     account_id integer NOT NULL,
     action character varying(10) NOT NULL,
     quantity numeric(19,6),
@@ -355,13 +363,13 @@ CREATE TABLE public.transaction_item (
     balance numeric(19,6),
     memo character varying(200),
     index bigint NOT NULL,
-    reconciliation_id uuid,
+    reconciliation_id integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     negative boolean
-)
-PARTITION BY RANGE (transaction_date);
+);
 ALTER TABLE public.transaction_item OWNER TO ddl_user;
+ALTER SEQUENCE public.transaction_items_id_seq OWNED BY public.transaction_item.id;
 CREATE TABLE public."user" (
     id integer NOT NULL,
     email character varying(100) NOT NULL,
@@ -394,8 +402,11 @@ ALTER TABLE ONLY public.image ALTER COLUMN id SET DEFAULT nextval('public.images
 ALTER TABLE ONLY public.import ALTER COLUMN id SET DEFAULT nextval('public.imports_id_seq'::regclass);
 ALTER TABLE ONLY public.lot ALTER COLUMN id SET DEFAULT nextval('public.lots_id_seq'::regclass);
 ALTER TABLE ONLY public.lot_item ALTER COLUMN id SET DEFAULT nextval('public.lot_items_id_seq'::regclass);
+ALTER TABLE ONLY public.reconciliation ALTER COLUMN id SET DEFAULT nextval('public.reconciliations_id_seq'::regclass);
 ALTER TABLE ONLY public.scheduled_transaction ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transactions_id_seq'::regclass);
 ALTER TABLE ONLY public.scheduled_transaction_item ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transaction_item_id_seq'::regclass);
+ALTER TABLE ONLY public.transaction ALTER COLUMN id SET DEFAULT nextval('public.transactions_id_seq'::regclass);
+ALTER TABLE ONLY public.transaction_item ALTER COLUMN id SET DEFAULT nextval('public.transaction_items_id_seq'::regclass);
 ALTER TABLE ONLY public."user" ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
 ALTER TABLE ONLY public.account
     ADD CONSTRAINT accounts_pkey PRIMARY KEY (id);
@@ -428,15 +439,15 @@ ALTER TABLE ONLY public.lot
 ALTER TABLE ONLY public.price
     ADD CONSTRAINT prices_pkey PRIMARY KEY (trade_date, id);
 ALTER TABLE ONLY public.reconciliation
-    ADD CONSTRAINT reconciliations_pkey PRIMARY KEY (end_of_period, id);
+    ADD CONSTRAINT reconciliations_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.scheduled_transaction_item
     ADD CONSTRAINT scheduled_transaction_item_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.scheduled_transaction
     ADD CONSTRAINT scheduled_transactions_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.transaction_item
-    ADD CONSTRAINT transaction_item_pkey PRIMARY KEY (transaction_date, id);
+    ADD CONSTRAINT transaction_item_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.transaction
-    ADD CONSTRAINT transactions_pkey PRIMARY KEY (transaction_date, id);
+    ADD CONSTRAINT transactions_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public."user"
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 CREATE INDEX ix_attachments_image_id ON public.attachment USING btree (image_id);
@@ -449,14 +460,14 @@ CREATE INDEX ix_lots_transactions_lot_id ON public.lot_item USING btree (lot_id)
 CREATE INDEX ix_lots_transactions_transaction_id ON public.lot_item USING btree (transaction_id);
 CREATE INDEX ix_prices_trade_date_commodity_id ON ONLY public.price USING btree (trade_date, commodity_id);
 CREATE INDEX ix_prices_trade_date_id ON ONLY public.price USING btree (trade_date, id);
-CREATE INDEX ix_reconciliations_eop_account_id ON ONLY public.reconciliation USING btree (end_of_period, account_id);
-CREATE INDEX ix_reconciliations_eop_id ON ONLY public.reconciliation USING btree (end_of_period, id);
-CREATE INDEX ix_transaction_item_transaction_date_account_id ON ONLY public.transaction_item USING btree (transaction_date, account_id);
-CREATE INDEX ix_transaction_item_transaction_date_id ON ONLY public.transaction_item USING btree (transaction_date, id);
-CREATE INDEX ix_transaction_item_transaction_date_trx_id ON ONLY public.transaction_item USING btree (transaction_date, transaction_id);
-CREATE INDEX ix_transactions_scheduled_transaction_id ON ONLY public.transaction USING btree (scheduled_transaction_id);
-CREATE INDEX ix_transactions_transaction_date_entity_id ON ONLY public.transaction USING btree (transaction_date, entity_id);
-CREATE INDEX ix_transactions_transaction_date_id ON ONLY public.transaction USING btree (transaction_date, id);
+CREATE INDEX ix_reconciliations_eop_account_id ON public.reconciliation USING btree (end_of_period, account_id);
+CREATE INDEX ix_reconciliations_account_id ON public.reconciliation USING btree (account_id);
+CREATE INDEX ix_transaction_item_transaction_date_account_id ON public.transaction_item USING btree (transaction_date, account_id);
+CREATE INDEX ix_transaction_item_account_id ON public.transaction_item USING btree (account_id);
+CREATE INDEX ix_transaction_item_transaction_id ON public.transaction_item USING btree (transaction_id);
+CREATE INDEX ix_transactions_scheduled_transaction_id ON public.transaction USING btree (scheduled_transaction_id);
+CREATE INDEX ix_transactions_transaction_date_entity_id ON public.transaction USING btree (transaction_date, entity_id);
+CREATE INDEX ix_transactions_entity_id ON public.transaction USING btree (entity_id);
 CREATE UNIQUE INDEX uk_accounts_name ON public.account USING btree (entity_id, parent_id, name);
 CREATE UNIQUE INDEX uk_budget_items_account ON public.budget_item USING btree (budget_id, account_id);
 CREATE UNIQUE INDEX uk_budgets_name ON public.budget USING btree (entity_id, name);
@@ -476,7 +487,7 @@ ALTER TABLE ONLY public.account
 ALTER TABLE ONLY public.attachment
     ADD CONSTRAINT fk_attachments_image FOREIGN KEY (image_id) REFERENCES public.image(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.attachment
-    ADD CONSTRAINT fk_attachments_transaction FOREIGN KEY (transaction_date, transaction_id) REFERENCES public.transaction(transaction_date, id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_attachments_transaction FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.budget_item
     ADD CONSTRAINT fk_budget_items_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.budget_item
@@ -512,11 +523,15 @@ ALTER TABLE ONLY public.scheduled_transaction_item
 ALTER TABLE ONLY public.scheduled_transaction
     ADD CONSTRAINT fk_scheduled_transactions_entities FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.lot_item
-    ADD CONSTRAINT fk_transactions_lots_transactions FOREIGN KEY (transaction_date, transaction_id) REFERENCES public.transaction(transaction_date, id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_transactions_lots_transactions FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.identity
     ADD CONSTRAINT identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction_item
     ADD CONSTRAINT transaction_item_base_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+ALTER TABLE public.transaction_item
+    ADD CONSTRAINT transaction_item_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
+ALTER TABLE public.transaction_item
+    ADD CONSTRAINT transaction_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE SET NULL;
 ALTER TABLE public.transaction
     ADD CONSTRAINT transactions_base_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
@@ -550,11 +565,14 @@ GRANT SELECT,UPDATE ON SEQUENCE public.lot_items_id_seq TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.lots_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.price TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.reconciliation TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.reconciliations_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_transaction TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_transaction_item TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_item_id_seq TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transactions_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.transactions_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction_item TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.transaction_items_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."user" TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.users_id_seq TO app_user;
