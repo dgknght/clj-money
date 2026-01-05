@@ -1,4 +1,5 @@
 (ns clj-money.db.sql.tasks
+  (:refer-clojure :exclude [drop])
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.core.async :as a :refer [go chan go-loop >! <! <!! buffer]]
             [clojure.pprint :refer [pprint]]
@@ -117,6 +118,13 @@
            (jdbc/execute! ds [create])
            (when-not silent (println "done.")))
          (when-not silent (println (format "%s already exists." label))))))))
+
+(defn drop
+  "Drops the database in the config"
+  [{:keys [dbname user] :as config}]
+  (let [ds (jdbc/get-datasource (assoc config :dbname user))]
+    (println (format "Dropping database %s..." dbname))
+    (jdbc/execute! ds [(format "DROP DATABASE IF EXISTS %s" dbname)])))
 
 (def ^:private check-transaction-balances-options
   [["-e" "--entity" "The entity for which balances are to be checked"

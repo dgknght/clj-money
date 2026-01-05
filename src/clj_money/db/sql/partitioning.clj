@@ -41,13 +41,7 @@
   {:price {:interval-type :year
            :interval-count 1}
    :cached_price {:interval-type :year
-                  :interval-count 1}
-   :transaction {:interval-type :year
-                 :interval-count 1}
-   :transaction_item {:interval-type :year
-                      :interval-count 1}
-   :reconciliation {:interval-type :year
-                    :interval-count 5}})
+                  :interval-count 1}})
 
 (defmulti ^:private period-range :interval-type)
 
