@@ -190,7 +190,7 @@
     (is (= 1 (count @calls))
         "The original function is not called the second time")))
 
-(deftest identity-a-temporary-id
+(deftest identify-a-temporary-id
   (is (util/temp-id? (util/temp-id))
       "The result of calling temp-id is a temporary id")
   (is (not (util/temp-id? 101))
@@ -198,6 +198,19 @@
   (is (not (util/temp-id? "101"))
       "A string is not a temp id")
   (is (not (util/temp-id? (random-uuid)))))
+
+(deftest supply-a-temporary-id-when-needed
+  (is (= {:id 1
+          :user/name "John"}
+         (util/+temp-id
+           {:id 1
+            :user/name "John"}))
+      "The map is returned as-is when an :id value is present")
+  (is (= {:id "abc123"
+          :user/name "John"}
+         (with-redefs [util/temp-id (constantly "abc123")]
+           (util/+temp-id {:user/name "John"})))
+      "A temporary value is inserted at :id when not present"))
 
 (deftest detect-the-presence-of-a-value
   (testing "strings"

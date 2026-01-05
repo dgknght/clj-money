@@ -350,10 +350,11 @@
   []
   (str "temp-" (random-uuid)))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn +temp-id
+  "Given an entity map, if there no value at the :id key, insert
+  a temporary id there."
   [entity]
-  (assoc entity :id (temp-id)))
+  (update-in entity [:id] #(or % (temp-id))))
 
 (defn temp-id?
   "Given a entity or an id, returns true if the entity has a temporary
