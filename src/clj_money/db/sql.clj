@@ -73,7 +73,15 @@
                   :children-key :transaction/items}
                  {:parent? :transaction/description
                   :child? :lot-item/value
-                  :children-key :transaction/lot-items}]})
+                  :children-key :transaction/lot-items}]
+   :transaction-item [{:parent? :transaction-item/value
+                       :child? (every-pred :account-item/account
+                                           #(= :credit (:account-item/action %)))
+                       :child-key :transaction-item/credit-item}
+                      {:parent? :transaction-item/value
+                       :child? (every-pred :account-item/account
+                                           #(= :debit (:account-item/action %)))
+                       :child-key :transaction-item/debit-item}]})
 
 (defn- scrub-values
   [m [stmt & args]]
@@ -137,12 +145,11 @@
   (let [table (infer-table-name entity)
         s (for-insert table
                       entity
-                      sql-opts)
-        _ (log/infof "insert %s -> %s"
-                      (entities/scrub-sensitive-data entity)
-                      (scrub-values entity s))
-        result (jdbc/execute-one! db s {:return-keys [:id]})]
-    (get-in result [(keyword (name table) "id")])))
+                      sql-opts)]
+    (log/infof "insert %s -> %s"
+               (entities/scrub-sensitive-data entity)
+               (scrub-values entity s))
+    (first (vals (jdbc/execute-one! db s {:return-keys [:id]})))))
 
 (defn- update
   [db entity]
@@ -152,13 +159,11 @@
         s (for-update table
                       (dissoc entity :id)
                       {:id (:id entity)}
-                      sql-opts)
-        _ (log/infof "update %s -> %s"
-                      (entities/scrub-sensitive-data entity)
-                      (scrub-values entity s))
-        result (jdbc/execute-one! db s {:return-keys [:id]})]
-
-    (get-in result [(keyword (name table) "id")])))
+                      sql-opts)]
+    (log/infof "update %s -> %s"
+               (entities/scrub-sensitive-data entity)
+               (scrub-values entity s))
+    (first (vals (jdbc/execute-one! db s {:return-keys [:id]})))))
 
 (defn delete-one
   [ds m]
@@ -174,11 +179,17 @@
     (jdbc/execute! ds s)
     1))
 
+(defn- upsert
+  [ds entity]
+  (or (update ds entity)
+      (insert ds entity)))
+
 (defn- put-one
   [ds [oper entity]]
   (case oper
     ::db/insert (insert ds entity)
     ::db/update (update ds entity)
+    ::db/upsert (upsert ds entity)
     ::db/delete (delete-one ds entity)
     (throw (ex-info "Invalid operation" {:operation oper}))))
 
@@ -188,6 +199,7 @@
   [{:as m :keys [id]}]
   (cond
     (vector? m)      m
+    (uuid? id)       [::db/upsert m]
     (live-id? id)    [::db/update m]
     :else            [::db/insert m]))
 

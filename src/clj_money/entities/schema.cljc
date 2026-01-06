@@ -171,7 +171,9 @@
               {:id :balance
                :type :decimal}
               {:id :index
-               :type :integer}}
+               :type :integer}
+              {:id :memo
+               :type :string}}
     :refs #{:reconciliation
             :account
             :transaction-item}}

@@ -113,58 +113,83 @@
       "A naked ID is wrapped in a map"))
 
 (deftest reassembly-an-entity-with-children
-  (is (= [#:transaction{:description "Kroger"
-                        :items [#:transaction-item{:account {:id :checking}
+  (testing "One-to-many relationship"
+    (testing "A single entity"
+      (is (= [#:transaction{:description "Kroger"
+                            :items [#:transaction-item{:account {:id :checking}
+                                                       :action :debit
+                                                       :quantity 100M}
+                                    #:transaction-item{:account {:id :groceries}
+                                                       :action :credit
+                                                       :quantity 100M}]}]
+             (util/reconstruct {:parent? :transaction/description
+                                :child? :transaction-item/account
+                                :children-key :transaction/items}
+                               [#:transaction{:description "Kroger"}
+                                #:transaction-item{:account {:id :checking}
                                                    :action :debit
                                                    :quantity 100M}
                                 #:transaction-item{:account {:id :groceries}
                                                    :action :credit
-                                                   :quantity 100M}]}]
-         (util/reconstruct {:parent? :transaction/description
-                            :child? :transaction-item/account
-                            :children-key :transaction/items}
-                           [#:transaction{:description "Kroger"}
-                            #:transaction-item{:account {:id :checking}
-                                               :action :debit
-                                               :quantity 100M}
-                            #:transaction-item{:account {:id :groceries}
-                                               :action :credit
-                                               :quantity 100M}]))
-      "One transaction receives all of the items")
-  (is (= [#:transaction{:description "Kroger"
-                        :items [#:transaction-item{:account {:id :checking}
+                                                   :quantity 100M}]))
+          "One transaction receives all of the items"))
+    (testing "Multiple entities"
+      (is (= [#:transaction{:description "Kroger"
+                            :items [#:transaction-item{:account {:id :checking}
+                                                       :action :debit
+                                                       :quantity 100M}
+                                    #:transaction-item{:account {:id :groceries}
+                                                       :action :credit
+                                                       :quantity 100M}]}
+              #:transaction{:description "Landlord"
+                            :items [#:transaction-item{:account {:id :checking}
+                                                       :action :debit
+                                                       :quantity 1000M}
+                                    #:transaction-item{:account {:id :rent}
+                                                       :action :credit
+                                                       :quantity 1000M}]}
+              #:entity {:name "Personal"}]
+             (util/reconstruct {:parent? :transaction/description
+                                :child? :transaction-item/account
+                                :children-key :transaction/items}
+                               [#:transaction{:description "Kroger"}
+                                #:transaction-item{:account {:id :checking}
                                                    :action :debit
                                                    :quantity 100M}
                                 #:transaction-item{:account {:id :groceries}
                                                    :action :credit
-                                                   :quantity 100M}]}
-          #:transaction{:description "Landlord"
-                        :items [#:transaction-item{:account {:id :checking}
+                                                   :quantity 100M}
+                                #:transaction{:description "Landlord"}
+                                #:transaction-item{:account {:id :checking}
                                                    :action :debit
                                                    :quantity 1000M}
                                 #:transaction-item{:account {:id :rent}
                                                    :action :credit
-                                                   :quantity 1000M}]}
-          #:entity {:name "Personal"}]
-         (util/reconstruct {:parent? :transaction/description
-                            :child? :transaction-item/account
-                            :children-key :transaction/items}
-                           [#:transaction{:description "Kroger"}
-                            #:transaction-item{:account {:id :checking}
-                                               :action :debit
-                                               :quantity 100M}
-                            #:transaction-item{:account {:id :groceries}
-                                               :action :credit
-                                               :quantity 100M}
-                            #:transaction{:description "Landlord"}
-                            #:transaction-item{:account {:id :checking}
-                                               :action :debit
-                                               :quantity 1000M}
-                            #:transaction-item{:account {:id :rent}
-                                               :action :credit
-                                               :quantity 1000M}
-                            #:entity{:name "Personal"}]))
-      "Each transaction receives the items until another transaction or the end of the list is encountered"))
+                                                   :quantity 1000M}
+                                #:entity{:name "Personal"}]))
+          "Each transaction receives the items until another transaction or the end of the list is encountered")))
+  (testing "One-to-one relationship"
+    (is (= [#:transaction-item{:value 100M
+                               :credit-item #:account-item{:action :credit
+                                                           :quantity 100M
+                                                           :account {:id :checking}}}
+            #:account-item{:account {:id :groceries}
+                           :action :debit
+                           :quantity 100M}]
+           (util/reconstruct {:parent? :transaction-item/value
+                              :child? (every-pred
+                                        #(= :credit
+                                            (:account-item/action %))
+                                        :account-item/account)
+                              :child-key :transaction-item/credit-item}
+                             [#:transaction-item{:value 100M}
+                              #:account-item{:account {:id :checking}
+                                             :action :credit
+                                             :quantity 100M}
+                              #:account-item{:account {:id :groceries}
+                                             :action :debit
+                                             :quantity 100M}]))
+        "One transaction receives all of the items")))
 
 (deftest identity-a-entity-ref
   (is (util/entity-ref? {:id 101})

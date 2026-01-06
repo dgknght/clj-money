@@ -1,21 +1,44 @@
 (ns clj-money.db.sql.transactions
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [dgknght.app-lib.core :refer [index-by]]
+            [clj-money.util :as util]
+            [clj-money.transactions :as trxs]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
+(defn- ensure-id
+  [entity]
+  (update-in entity [:id] #(or % (random-uuid))))
+
+(defn- deconstruct-item
+  [trx-id]
+  (fn [{:as item
+        :keys [id]
+        :transaction-item/keys [credit-item debit-item]}]
+    [(assoc credit-item :account-item/transaction-item-id id)
+     (assoc debit-item :account-item/transaction-item-id id)
+     (-> item
+         (assoc :transaction-item/transaction-id trx-id
+                :transaction-item/credit-item-id (:id credit-item)
+                :transaction-item/debit-item-id (:id debit-item))
+         (dissoc :transaction-item/credit-item
+                 :transaction-item/debit-item))]))
+
 (defmethod sql/deconstruct :transaction
-  [{:transaction/keys [items lot-items transaction-date] :keys [id] :as trx}]
+  [{:transaction/keys [lot-items items] :keys [id] :as trx}]
   (cons (dissoc trx
                 :transaction/items
                 :transaction/lot-items)
-        (concat (map #(assoc %
-                             :transaction-item/transaction-id id
-                             :transaction-item/transaction-date transaction-date)
-                     items)
-                (map #(assoc %
-                             :lot-item/transaction-id id
-                             :lot-item/transaction-date transaction-date)
+        (concat (->> items
+                     (map #(-> %
+                               ensure-id
+                               (update-in [:transaction-item/credit-item]
+                                          ensure-id)
+                               (update-in [:transaction-item/debit-item]
+                                          ensure-id)))
+                     (mapcat (deconstruct-item id)))
+                (map #(assoc % :lot-item/transaction-id id)
                      lot-items))))
 
 (defmethod sql/after-read :transaction
@@ -31,7 +54,26 @@
 
 (defmethod sql/post-select :transaction
   [{:keys [storage]} trxs]
-  (let [items (->> (db/select storage (->item-criteria trxs) {})
-                   (group-by (comp :id :transaction-item/transaction)))]
-    (map #(assoc % :transaction/items (items (:id %)))
+  (let [trx-items (db/select storage (->item-criteria trxs) {})
+        act-items (->> (db/select storage
+                                  (util/entity-type
+                                    {:id [:in (->> trx-items
+                                                   (mapcat trxs/account-items)
+                                                   (mapv :id))]}
+                                    :account-item)
+                                  {})
+                       (map #(update-in % [:account-item/action] keyword))
+                       (index-by :id))
+        items-with-acts (->> trx-items
+                             (map #(-> %
+                                       (update-in
+                                         [:transaction-item/credit-item]
+                                         (comp act-items :id))
+                                       (update-in
+                                         [:transaction-item/debit-item]
+                                         (comp act-items :id))))
+                             (group-by (comp :id :transaction-item/transaction)))]
+    (map (fn [trx]
+           (-> trx
+               (assoc :transaction/items (items-with-acts (:id trx)))))
          trxs)))

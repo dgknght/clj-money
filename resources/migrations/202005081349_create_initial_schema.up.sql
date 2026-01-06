@@ -345,36 +345,21 @@ CREATE TABLE public.transaction (
 );
 ALTER TABLE public.transaction OWNER TO ddl_user;
 ALTER SEQUENCE public.transaction_id_seq OWNED BY public.transaction.id;
-CREATE SEQUENCE public.transaction_item_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.transaction_item_id_seq OWNER TO ddl_user;
 CREATE TABLE public.transaction_item (
-    id integer NOT NULL,
+    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     transaction_id integer NOT NULL,
-    credit_item_id integer NOT NULL,
-    debit_item_id integer NOT NULL,
+    credit_item_id uuid NOT NULL,
+    debit_item_id uuid NOT NULL,
     value numeric(19,6),
     memo character varying(200),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public.transaction_item OWNER TO ddl_user;
-ALTER SEQUENCE public.transaction_item_id_seq OWNED BY public.transaction_item.id;
 
-CREATE SEQUENCE public.account_item_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.account_item_id_seq OWNER TO ddl_user;
 CREATE TABLE public.account_item (
-    id integer NOT NULL,
-    transaction_item_id integer NOT NULL,
+    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
+    transaction_item_id uuid,
     account_id integer NOT NULL,
     action varchar(7),
     reconciliation_id integer,
@@ -386,7 +371,6 @@ CREATE TABLE public.account_item (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public.account_item OWNER TO ddl_user;
-ALTER SEQUENCE public.account_item_id_seq OWNED BY public.account_item.id;
 
 CREATE TABLE public."user" (
     id integer NOT NULL,
@@ -424,8 +408,6 @@ ALTER TABLE ONLY public.reconciliation ALTER COLUMN id SET DEFAULT nextval('publ
 ALTER TABLE ONLY public.scheduled_transaction ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transaction_id_seq'::regclass);
 ALTER TABLE ONLY public.scheduled_transaction_item ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transaction_item_id_seq'::regclass);
 ALTER TABLE ONLY public.transaction ALTER COLUMN id SET DEFAULT nextval('public.transaction_id_seq'::regclass);
-ALTER TABLE ONLY public.transaction_item ALTER COLUMN id SET DEFAULT nextval('public.transaction_item_id_seq'::regclass);
-ALTER TABLE ONLY public.account_item ALTER COLUMN id SET DEFAULT nextval('public.account_item_id_seq'::regclass);
 ALTER TABLE ONLY public."user" ALTER COLUMN id SET DEFAULT nextval('public.user_id_seq'::regclass);
 ALTER TABLE ONLY public.account
     ADD CONSTRAINT account_pkey PRIMARY KEY (id);
@@ -559,7 +541,7 @@ ALTER TABLE public.transaction_item
 ALTER TABLE public.account_item
     ADD CONSTRAINT account_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE SET NULL;
 ALTER TABLE public.account_item
-    ADD CONSTRAINT account_item_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE SET NULL;
+    ADD CONSTRAINT account_item_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
     ADD CONSTRAINT transactions_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
@@ -601,8 +583,6 @@ GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.transaction_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.transaction_item_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.account_item_id_seq TO app_user;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."user" TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.user_id_seq TO app_user;

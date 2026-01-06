@@ -248,10 +248,10 @@
    (defn update-keys
      [m f]
      (let [ret (persistent!
-                 (reduce-kv (fn [acc k v]
-                              (assoc! acc (f k) v))
-                            (transient {})
-                            m))]
+                (reduce-kv (fn [acc k v]
+                             (assoc! acc (f k) v))
+                           (transient {})
+                           m))]
        (with-meta ret (meta m)))))
 
 (defn qualify-keys
@@ -260,8 +260,8 @@
   [m ns-key & {:keys [ignore]}]
   {:pre [(map? m)]}
   (let [qualifier (if (keyword? ns-key)
-            (name ns-key)
-            ns-key)
+                    (name ns-key)
+                    ns-key)
         ignore? (if ignore
                   (some-fn ignore namespace)
                   namespace)]
@@ -300,9 +300,10 @@
        (= #{:id} (set (keys x)))))
 
 (defn reconstruct
-  "Given a list of entities and a few options, aggregates child entities into their parents."
-  [{:keys [children-key parent? child?]} entities]
-  {:pre [(seq entities) children-key parent? child?]}
+  "Given a list of entities and a few options, aggregates child entities into
+  their parents."
+  [{:keys [children-key child-key parent? child?]} entities]
+  {:pre [(seq entities) (or children-key child-key) parent? child?]}
   ; This logic assumes the order established in deconstruct is maintained
   (loop [input entities output [] current nil]
     (if-let [mdl (first input)]
@@ -311,7 +312,9 @@
              (child? mdl))
         (recur (rest input)
                output
-               (update-in current [children-key] (fnil conj []) mdl))
+               (if children-key
+                 (update-in current [children-key] (fnil conj []) mdl)
+                 (assoc current child-key mdl)))
 
         (parent? mdl)
         (recur (rest input)
@@ -511,9 +514,9 @@
                    (and (sequential? v)
                         (map? (first v)))
                    (apply concat res (map-indexed
-                                       (fn [idx itm]
-                                         (locate-nils itm (conj prefix k idx)))
-                                       v))
+                                      (fn [idx itm]
+                                        (locate-nils itm (conj prefix k idx)))
+                                      v))
 
                    :else
                    res))
