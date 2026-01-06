@@ -8,4 +8,6 @@
 
 (defmethod sql/after-read :account-item
   [item]
-  (rename-keys item {:account-item/transaction-date :transaction/transaction-date}))
+  (-> item
+      (update-in [:account-item/action] keyword)
+      (rename-keys {:account-item/transaction-date :transaction/transaction-date})))
