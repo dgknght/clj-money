@@ -376,6 +376,7 @@ CREATE TABLE public.account_item (
     id integer NOT NULL,
     transaction_item_id integer NOT NULL,
     account_id integer NOT NULL,
+    action varchar(7),
     reconciliation_id integer,
     quantity numeric(19,6),
     balance numeric(19,6),
