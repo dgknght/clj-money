@@ -2,7 +2,7 @@
   (:require [clojure.spec.alpha :as s]
             [clj-money.entities :as e]))
 
-(s/def :account-item/reconciliation ::e/entity-ref)
+(s/def :account-item/reconciliation (s/nilable ::e/entity-ref))
 (s/def :account-item/index integer?)
 (s/def :account-item/balance decimal?)
 (s/def :account-item/quantity decimal?)
