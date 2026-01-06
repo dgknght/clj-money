@@ -169,26 +169,48 @@
                                 #:entity{:name "Personal"}]))
           "Each transaction receives the items until another transaction or the end of the list is encountered")))
   (testing "One-to-one relationship"
-    (is (= [#:transaction-item{:value 100M
-                               :credit-item #:account-item{:action :credit
-                                                           :quantity 100M
-                                                           :account {:id :checking}}}
-            #:account-item{:account {:id :groceries}
-                           :action :debit
-                           :quantity 100M}]
+    (is (= [{:id 101
+             :transaction/transaction-date "2016-03-02"
+             :transaction/description "Paycheck"
+             :transaction/items [{:transaction-item/value 1000M
+                                  :transaction-item/credit-item
+                                  {:id 301
+                                   :account-item/quantity 1000M
+                                   :account-item/account {:id :salary}
+                                   :account-item/memo "conf # 123"
+                                   :account-item/transaction-item {:id 201}
+                                   :account-item/action :credit}
+                                  :transaction-item/debit-item
+                                  {:id 302
+                                   :account-item/quantity 1000M
+                                   :account-item/account {:id :checking}
+                                   :account-item/transaction-item {:id 201}
+                                   :account-item/action :debit}}]}]
            (util/reconstruct {:parent? :transaction-item/value
                               :child? (every-pred
                                         #(= :credit
                                             (:account-item/action %))
                                         :account-item/account)
                               :child-key :transaction-item/credit-item}
-                             [#:transaction-item{:value 100M}
-                              #:account-item{:account {:id :checking}
-                                             :action :credit
-                                             :quantity 100M}
-                              #:account-item{:account {:id :groceries}
-                                             :action :debit
-                                             :quantity 100M}]))
+                             [{:transaction/transaction-date "2016-03-02"
+                               :transaction/description "Paycheck"
+                               :id 101}
+                              {:account-item/quantity 1000M
+                               :account-item/account {:id :salary}
+                               :account-item/memo "conf # 123"
+                               :account-item/transaction-item {:id 201}
+                               :id 301
+                               :account-item/action :credit}
+                              {:account-item/quantity 1000M
+                               :account-item/account {:id :checking}
+                               :account-item/transaction-item {:id 201}
+                               :id 302
+                               :account-item/action :debit}
+                              {:transaction-item/credit-item {:id 301}
+                               :transaction-item/debit-item {:id 302}
+                               :transaction-item/value 1000M
+                               :id 201
+                               :transaction-item/transaction {:id 101}}]))
         "One transaction receives all of the items")))
 
 (deftest identity-a-entity-ref
