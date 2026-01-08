@@ -3,6 +3,7 @@
   (:require [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
             [clojure.walk :refer [postwalk]]
+            [clojure.spec.alpha :as s]
             #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
@@ -299,39 +300,36 @@
   (and (map? x)
        (= #{:id} (set (keys x)))))
 
+(s/def ::parent? keyword?)
+(s/def ::children-key keyword?)
+(s/def ::foreign-ref-key keyword?)
+(s/def ::has-many-rule (s/keys :req-un [::parent?
+                                        ::foreign-ref-key
+                                        ::children-key]))
+(s/def ::belongs-to-rule (s/keys :req-un [::parent?
+                                          ::foreign-ref-key]))
+(s/def ::reconstruction-rule (s/or :has-many ::has-many-rule
+                                   :belongs-to ::belongs-to-rule))
+
+(defn- apply-reconstruction-rules
+  [entities rule]
+  (reduce (fn [es e]
+            ; if rule applies to e
+            ;   updates es by integrating e into its parent or child
+            ; else
+            ;   return es as-is
+            )
+          []
+          entities))
+
 (defn reconstruct
   "Given a list of entities and a few options, aggregates child entities into
   their parents."
-  [{:keys [children-key child-key parent? child?]} entities]
-  {:pre [(seq entities) (or children-key child-key) parent? child?]}
-  ; This logic assumes the order established in deconstruct is maintained
-  (loop [input entities output [] current nil]
-    (if-let [mdl (first input)]
-      (cond
-        (and current
-             (child? mdl))
-        (recur (rest input)
-               output
-               (if children-key
-                 (update-in current [children-key] (fnil conj []) mdl)
-                 (assoc current child-key mdl)))
-
-        (parent? mdl)
-        (recur (rest input)
-               (if current
-                 (conj output current)
-                 output)
-               mdl)
-
-        :else
-        (recur (rest input)
-               (if current
-                 (conj output current mdl)
-                 (conj output mdl))
-               nil))
-      (if current
-        (conj output current)
-        output))))
+  [rules entities]
+  {:pre [(s/valid? (s/coll-of ::reconstruction-rule) rules)]}
+  (reduce apply-reconstruction-rules
+          entities
+          rules))
 
 (defn cache-fn
   "Given a function that takes a single argument and returns a resource,

@@ -112,106 +112,138 @@
          (util/->entity-ref 101))
       "A naked ID is wrapped in a map"))
 
-(deftest reassembly-an-entity-with-children
-  (testing "One-to-many relationship"
-    (testing "A single entity"
-      (is (= [#:transaction{:description "Kroger"
-                            :items [#:transaction-item{:account {:id :checking}
-                                                       :action :debit
-                                                       :quantity 100M}
-                                    #:transaction-item{:account {:id :groceries}
-                                                       :action :credit
-                                                       :quantity 100M}]}]
-             (util/reconstruct {:parent? :transaction/description
-                                :child? :transaction-item/account
-                                :children-key :transaction/items}
-                               [#:transaction{:description "Kroger"}
-                                #:transaction-item{:account {:id :checking}
-                                                   :action :debit
-                                                   :quantity 100M}
-                                #:transaction-item{:account {:id :groceries}
-                                                   :action :credit
-                                                   :quantity 100M}]))
-          "One transaction receives all of the items"))
-    (testing "Multiple entities"
-      (is (= [#:transaction{:description "Kroger"
-                            :items [#:transaction-item{:account {:id :checking}
-                                                       :action :debit
-                                                       :quantity 100M}
-                                    #:transaction-item{:account {:id :groceries}
-                                                       :action :credit
-                                                       :quantity 100M}]}
-              #:transaction{:description "Landlord"
-                            :items [#:transaction-item{:account {:id :checking}
-                                                       :action :debit
-                                                       :quantity 1000M}
-                                    #:transaction-item{:account {:id :rent}
-                                                       :action :credit
-                                                       :quantity 1000M}]}
-              #:entity {:name "Personal"}]
-             (util/reconstruct {:parent? :transaction/description
-                                :child? :transaction-item/account
-                                :children-key :transaction/items}
-                               [#:transaction{:description "Kroger"}
-                                #:transaction-item{:account {:id :checking}
-                                                   :action :debit
-                                                   :quantity 100M}
-                                #:transaction-item{:account {:id :groceries}
-                                                   :action :credit
-                                                   :quantity 100M}
-                                #:transaction{:description "Landlord"}
-                                #:transaction-item{:account {:id :checking}
-                                                   :action :debit
-                                                   :quantity 1000M}
-                                #:transaction-item{:account {:id :rent}
-                                                   :action :credit
-                                                   :quantity 1000M}
-                                #:entity{:name "Personal"}]))
-          "Each transaction receives the items until another transaction or the end of the list is encountered")))
-  (testing "One-to-one relationship"
-    (is (= [{:id 101
-             :transaction/transaction-date "2016-03-02"
-             :transaction/description "Paycheck"
-             :transaction/items [{:transaction-item/value 1000M
-                                  :transaction-item/credit-item
-                                  {:id 301
-                                   :account-item/quantity 1000M
-                                   :account-item/account {:id :salary}
-                                   :account-item/memo "conf # 123"
-                                   :account-item/transaction-item {:id 201}
-                                   :account-item/action :credit}
-                                  :transaction-item/debit-item
-                                  {:id 302
-                                   :account-item/quantity 1000M
-                                   :account-item/account {:id :checking}
-                                   :account-item/transaction-item {:id 201}
-                                   :account-item/action :debit}}]}]
-           (util/reconstruct {:parent? :transaction-item/value
-                              :child? (every-pred
-                                        #(= :credit
-                                            (:account-item/action %))
-                                        :account-item/account)
-                              :child-key :transaction-item/credit-item}
-                             [{:transaction/transaction-date "2016-03-02"
-                               :transaction/description "Paycheck"
-                               :id 101}
-                              {:account-item/quantity 1000M
-                               :account-item/account {:id :salary}
-                               :account-item/memo "conf # 123"
-                               :account-item/transaction-item {:id 201}
-                               :id 301
-                               :account-item/action :credit}
-                              {:account-item/quantity 1000M
-                               :account-item/account {:id :checking}
-                               :account-item/transaction-item {:id 201}
-                               :id 302
-                               :account-item/action :debit}
-                              {:transaction-item/credit-item {:id 301}
-                               :transaction-item/debit-item {:id 302}
-                               :transaction-item/value 1000M
-                               :id 201
-                               :transaction-item/transaction {:id 101}}]))
-        "One transaction receives all of the items")))
+(deftest reassemble-an-entity-with-children
+  (let [rules [{:child? :transaction-item/value
+                :foreign-ref-key :transaction-item/transaction
+                :children-key :transaction/items}
+               {:parent? :account-item/quantity
+                :foreign-ref-key :transaction-item/credit-item}
+               {:parent? :account-item/quantity
+                :foreign-ref-key :transaction-item/debit-item}]]
+    (testing "One-to-many relationship"
+      (testing "A single entity"
+        (is (= [{:id 101
+                 :transaction/description "Kroger"
+                 :transaction/items [{:id 201
+                                      :transaction-item/transaction {:id 101}
+                                      :transaction-item/account {:id :checking}
+                                      :transaction-item/action :debit
+                                      :transaction-item/quantity 100M}
+                                     {:id 202
+                                      :transaction-item/transaction {:id 101}
+                                      :transaction-item/account {:id :groceries}
+                                      :transaction-item/action :credit
+                                      :transaction-item/quantity 100M}]}]
+               (util/reconstruct
+                 rules
+                 [{:id 101
+                   :transaction/description "Kroger"}
+                  {:id 201
+                   :transaction-item/account {:id :checking}
+                   :transaction-item/action :debit
+                   :transaction-item/quantity 100M
+                   :transaction-item/transaction {:id 101}}
+                  {:id 202
+                   :transaction-item/account {:id :groceries}
+                   :transaction-item/action :credit
+                   :transaction-item/quantity 100M
+                   :transaction-item/transaction {:id 101}}]))
+            "One transaction receives all of the items"))
+      (testing "Multiple entities"
+        (is (= [{:id 101
+                 :transaction/description "Kroger"
+                 :transaction/items [{:id 201
+                                      :transaction-item/transaction {:id 101}
+                                      :transaction-item/account {:id :checking}
+                                      :transaction-item/action :debit
+                                      :transaction-item/quantity 100M}
+                                     {:id 202
+                                      :transaction-item/transaction {:id 101}
+                                      :transaction-item/account {:id :groceries}
+                                      :transaction-item/action :credit
+                                      :transaction-item/quantity 100M}]}
+                {:id 102
+                 :transaction/description "Landlord"
+                 :transaction/items [{:id 203
+                                      :transaction-item/transaction {:id 102}
+                                      :transaction-item/account {:id :checking}
+                                      :transaction-item/action :debit
+                                      :transaction-item/quantity 1000M}
+                                     {:id 204
+                                      :transaction-item/transaction {:id 102}
+                                      :transaction-item/account {:id :rent}
+                                      :transaction-item/action :credit
+                                      :transaction-item/quantity 1000M}]}
+                {:id 301
+                 :entity/name "Personal"}]
+               (util/reconstruct 
+                 rules
+                 [{:id 101
+                   :transaction/description "Kroger"}
+                  {:id 201
+                   :transaction-item/transaction {:id 101}
+                   :transaction-item/account {:id :checking}
+                   :transaction-item/action :debit
+                   :transaction-item/quantity 100M}
+                  {:id 202
+                   :transaction-item/transaction {:id 101}
+                   :transaction-item/account {:id :groceries}
+                   :transaction-item/action :credit
+                   :transaction-item/quantity 100M}
+                  {:id 102
+                   :transaction/description "Landlord"}
+                  {:id 203
+                   :transaction-item/transaction {:id 102}
+                   :transaction-item/account {:id :checking}
+                   :transaction-item/action :debit
+                   :transaction-item/quantity 1000M}
+                  {:id 204
+                   :transaction-item/transaction {:id 102}
+                   :transaction-item/account {:id :rent}
+                   :transaction-item/action :credit
+                   :transaction-item/quantity 1000M}
+                  {:id 301 :entity/name "Personal"}]))
+            "Each transaction receives the items until another transaction or the end of the list is encountered")))
+    (testing "One-to-one relationship"
+      (is (= [{:id 101
+               :transaction/transaction-date "2016-03-02"
+               :transaction/description "Paycheck"
+               :transaction/items [{:transaction-item/value 1000M
+                                    :transaction-item/credit-item
+                                    {:id 301
+                                     :account-item/quantity 1000M
+                                     :account-item/account {:id :salary}
+                                     :account-item/memo "conf # 123"
+                                     :account-item/transaction-item {:id 201}
+                                     :account-item/action :credit}
+                                    :transaction-item/debit-item
+                                    {:id 302
+                                     :account-item/quantity 1000M
+                                     :account-item/account {:id :checking}
+                                     :account-item/transaction-item {:id 201}
+                                     :account-item/action :debit}}]}]
+             (util/reconstruct
+               rules 
+               [{:id 101
+                 :transaction/transaction-date "2016-03-02"
+                 :transaction/description "Paycheck"}
+                {:id 301
+                 :account-item/quantity 1000M
+                 :account-item/account {:id :salary}
+                 :account-item/memo "conf # 123"
+                 :account-item/transaction-item {:id 201}
+                 :account-item/action :credit}
+                {:id 302
+                 :account-item/quantity 1000M
+                 :account-item/account {:id :checking}
+                 :account-item/transaction-item {:id 201}
+                 :account-item/action :debit}
+                {:id 201
+                 :transaction-item/credit-item {:id 301}
+                 :transaction-item/debit-item {:id 302}
+                 :transaction-item/value 1000M
+                 :transaction-item/transaction {:id 101}}]))
+          "One transaction receives all of the items"))))
 
 (deftest identity-a-entity-ref
   (is (util/entity-ref? {:id 101})
