@@ -65,9 +65,9 @@
    :scheduled-transaction [{:foreign-ref-key :scheduled-transaction-item/scheduled-transaction
                             :child? :scheduled-transaction-item/action
                             :children-key :scheduled-transaction/items}]
-   :transaction [{:parent? :account-item/value
+   :transaction [{:parent? :account-item/quantity
                   :foreign-ref-key :transaction-item/debit-item}
-                 {:parent? :account-item/value
+                 {:parent? :account-item/quantity
                   :foreign-ref-key :transaction-item/credit-item}
                  {:foreign-ref-key :transaction-item/transaction
                   :child? :transaction-item/value
