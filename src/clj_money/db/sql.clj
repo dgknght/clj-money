@@ -59,29 +59,22 @@
        (into {})))
 
 (def ^:private reconstruction-rules
-  {:budget [{:parent? :budget/name
+  {:budget [{:foreign-ref-key :budget-item/budget
              :child? :budget-item/account
              :children-key :budget/items}]
-   :reconciliation [{:parent? :reconciliation/end-of-period
-                     :child? :transaction-item/reconciliation
-                     :children-key :reconciliation/items}]
-   :scheduled-transaction [{:parent? :scheduled-transaction/description
+   :scheduled-transaction [{:foreign-ref-key :scheduled-transaction-item/scheduled-transaction
                             :child? :scheduled-transaction-item/action
                             :children-key :scheduled-transaction/items}]
-   :transaction [{:parent? :transaction/description
+   :transaction [{:parent? :account-item/value
+                  :foreign-ref-key :transaction-item/debit-item}
+                 {:parent? :account-item/value
+                  :foreign-ref-key :transaction-item/credit-item}
+                 {:foreign-ref-key :transaction-item/transaction
                   :child? :transaction-item/value
                   :children-key :transaction/items}
-                 {:parent? :transaction/description
+                 {:foreign-ref-key :lot-item/transaction
                   :child? :lot-item/value
-                  :children-key :transaction/lot-items}]
-   :transaction-item [{:parent? :transaction-item/value
-                       :child? (every-pred :account-item/account
-                                           #(= :credit (:account-item/action %)))
-                       :child-key :transaction-item/credit-item}
-                      {:parent? :transaction-item/value
-                       :child? (every-pred :account-item/account
-                                           #(= :debit (:account-item/action %)))
-                       :child-key :transaction-item/debit-item}]})
+                  :children-key :transaction/lot-items}]})
 
 (defn- scrub-values
   [m [stmt & args]]
@@ -101,10 +94,7 @@
                    (mapcat reconstruction-rules)
                    (filter identity)
                    seq)]
-    (reduce (fn [ms rule-map]
-              (util/reconstruct rule-map ms))
-            entities
-            rules)
+    (util/reconstruct rules entities)
     entities))
 
 ; post-read coercions
@@ -414,7 +404,7 @@
                                :id-map {}})))]
     (->> (:saved result)
          (map (after-read*))
-         (reconstruct))))
+         reconstruct)))
 
 (defn- extract-entities
   [ds query options]
