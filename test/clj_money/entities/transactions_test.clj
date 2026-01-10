@@ -867,9 +867,10 @@
                                                :balance 13M}]
                                (items-by-account "Pets"))
             "The Pets account reflects the added item"))
+      ; checking balance before is 694M
       (assert-account-quantities pets 25M
                                  groceries 294M
-                                 checking 694M))))
+                                 checking 681M))))
 
 (def balance-delta-context
   (conj base-context
