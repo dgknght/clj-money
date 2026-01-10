@@ -303,7 +303,7 @@
 (s/def ::parent? keyword?)
 (s/def ::children-key keyword?)
 (s/def ::foreign-ref-key keyword?)
-(s/def ::has-many-rule (s/keys :req-un [::parent?
+(s/def ::has-many-rule (s/keys :req-un [::child?
                                         ::foreign-ref-key
                                         ::children-key]))
 (s/def ::belongs-to-rule (s/keys :req-un [::parent?
@@ -311,25 +311,90 @@
 (s/def ::reconstruction-rule (s/or :has-many ::has-many-rule
                                    :belongs-to ::belongs-to-rule))
 
+(defn- apply-has-many-rule
+  [{:keys [child?
+           foreign-ref-key
+           children-key]}
+   entity
+   to-process
+   processed]
+  (if (child? entity)
+    (let [parent (->> processed
+                      (filter #(id= % (foreign-ref-key entity)))
+                      first)]
+      ; We're making the assumption here that the parent
+      ; will appear in the list of entities before the children
+      [(first to-process)
+       (rest to-process)
+       (mapv (fn [e]
+               (if (= e parent)
+                 (update-in e [children-key] (fnil conj []) entity)
+                 e))
+             processed)])
+    [(first to-process)
+     (rest to-process)
+     (conj processed entity)]))
+
+(defn- apply-belongs-to-rule
+  [{:keys [parent?
+           foreign-ref-key]}
+   entity
+   to-process
+   processed]
+  (if (parent? entity)
+    ; Like above, we're making an assumption about where we'll
+    ; find the child.
+    (if-let [child (->> to-process
+                        (filter #(id= entity
+                                      (foreign-ref-key %)))
+                        first)]
+      (let [new-to-process (mapv (fn [e]
+                                   (if (= e child)
+                                     (assoc e foreign-ref-key entity)
+                                     e))
+                                 to-process)]
+        [(first new-to-process)
+         (rest new-to-process)
+         processed])
+      [(first to-process)
+       (rest to-process)
+       (conj processed entity)])
+    [(first to-process)
+     (rest to-process)
+     (conj processed entity)]))
+
+(defn- apply-reconstruction-rule
+  [[rule-type rule] entity to-process processed]
+  (let [f (case rule-type
+            :has-many   apply-has-many-rule
+            :belongs-to apply-belongs-to-rule
+            (throw (ex-info "Unrecognized rule type" {:rule rule
+                                                      :rule-type rule-type})))]
+    (f rule entity to-process processed)))
+
 (defn- apply-reconstruction-rules
   [entities rule]
-  (reduce (fn [es e]
-            ; if rule applies to e
-            ;   updates es by integrating e into its parent or child
-            ; else
-            ;   return es as-is
-            )
-          []
-          entities))
+  (loop [entity (first entities)
+         remaining (rest entities)
+         out []]
+    (if entity
+      (let [[x y z] (apply-reconstruction-rule
+                      rule
+                      entity
+                      remaining
+                      out)]
+        (recur x y z))
+      out)))
 
 (defn reconstruct
   "Given a list of entities and a few options, aggregates child entities into
   their parents."
   [rules entities]
   {:pre [(s/valid? (s/coll-of ::reconstruction-rule) rules)]}
-  (reduce apply-reconstruction-rules
-          entities
-          rules))
+  (->> rules
+       (s/conform (s/coll-of ::reconstruction-rule))
+       (reduce apply-reconstruction-rules
+               entities)))
 
 (defn cache-fn
   "Given a function that takes a single argument and returns a resource,
