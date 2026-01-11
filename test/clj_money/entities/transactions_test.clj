@@ -338,13 +338,13 @@
           trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])]
       (prop/delete-and-propagate trans)
       (testing "checking transaction item balances are adjusted"
-        (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity 102M :balance 798M}
-                                #:transaction-item{:index 1 :quantity 100M :balance 900M}
-                                #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
+        (is (seq-of-maps-like? [#:account-item{:index 2 :quantity -102M :balance 798M}
+                                #:account-item{:index 1 :quantity -100M :balance 900M}
+                                #:account-item{:index 0 :quantity 1000M :balance 1000M}]
                                checking-items-before)
             "The item to be deleted is present before the delete")
-        (is (seq-of-maps-like? [#:transaction-item{:index 1 :quantity 102M :balance 898M}
-                                #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
+        (is (seq-of-maps-like? [#:account-item{:index 1 :quantity -102M :balance 898M}
+                                #:account-item{:index 0 :quantity 1000M :balance 1000M}]
                                (items-by-account "Checking"))
             "The deleted item is absent after the delete"))
       (testing "account balances are adjusted"
@@ -677,19 +677,25 @@
   (with-context change-account-context
     (let [[rent
            groceries] (find-accounts "Rent" "Groceries")]
-      (update-trx-items (find-transaction [(t/local-date 2016 3 16) "Kroger"])
-                        groceries {:transaction-item/account rent})
-      (is (seq-of-maps-like? [#:transaction-item{:index 1
-                                                 :quantity 103M
-                                                 :balance 204M}
-                              #:transaction-item{:index 0
-                                                 :quantity 101M
-                                                 :balance 101M}]
+      (-> (find-transaction [(t/local-date 2016 3 16)
+                                           "Kroger"])
+          (assoc-in [:transaction/items
+                     0
+                     :transaction-item/debit-item
+                     :account-item/account]
+                    rent)
+          prop/put-and-propagate)
+      (is (seq-of-maps-like? [#:account-item{:index 1
+                                             :quantity 103M
+                                             :balance 204M}
+                              #:account-item{:index 0
+                                             :quantity 101M
+                                             :balance 101M}]
                              (items-by-account groceries))
           "The items in the removed account reflect the removal")
-      (is (seq-of-maps-like? [#:transaction-item{:index 0
-                                                 :quantity 102M
-                                                 :balance 102M}]
+      (is (seq-of-maps-like? [#:account-item{:index 0
+                                             :quantity 102M
+                                             :balance 102M}]
                              (items-by-account rent))
           "The items in the added account reflect the addition")
       (assert-account-quantities groceries 204M rent 102M))))
