@@ -834,21 +834,24 @@
       (is (= (- 0M)
              (:account/value pets))
           "The debit account balance is adjusted")
-      (is (seq-of-maps-like?
-            [{:account-item/index 0
-              :account-item/quantity 1000M
-              :account-item/balance 1000M}
-             {:account-item/index 1
-              :account-item/quantity -103M
-              :account-item/balance 897M}
-             {:account-item/index 2
-              :account-item/quantity -90M
-              :account-item/balance 807M}
-             {:account-item/index 3
-              :account-item/quantity -101M
-              :account-item/balance 706M}]
-            (entities/select {:account-item/account checking}
-                             {:sort [:account-item/index]}))
+      (is (=
+           [{:account-item/index 0
+             :account-item/quantity 1000M
+             :account-item/balance 1000M}
+            {:account-item/index 1
+             :account-item/quantity -103M
+             :account-item/balance 897M}
+            {:account-item/index 2
+             :account-item/quantity -90M
+             :account-item/balance 807M}
+            {:account-item/index 3
+             :account-item/quantity -101M
+             :account-item/balance 706M}]
+           (map #(select-keys % [:account-item/index
+                                 :account-item/quantity
+                                 :account-item/balance])
+                (entities/select {:account-item/account checking}
+                                 {:sort [:account-item/index]})))
           "The credit account items reflect the removal and are re-indexed")
       (is (empty? (entities/select {:account-item/account pets}))
           "The debit account items reflect the removal"))))
