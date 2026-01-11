@@ -195,6 +195,12 @@
                                    (= :datomic-peer (:strategy m)))
                    :sql (fn [m & _]
                           (= :sql (:strategy m)))
+                   :sql-multi (fn [m & _]
+                                (and (:multi-threaded m)
+                                     (= :sql (:strategy m))))
+                   :sql-single (fn [m & _]
+                                 (and (not (:multi-threaded m))
+                                      (= :sql (:strategy m))))
                    :multi-threaded :multi-threaded
                    :single-threaded (complement :multi-threaded)}
   :cloverage {:line-fail-threshold 90
