@@ -7,6 +7,21 @@
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
+(defn- deleted-items
+  [trx]
+  (when-let [before (-> trx
+                        meta
+                        :clj-money.entities/original
+                        :transaction/items
+                        seq)]
+    (let [current? (comp (set
+                           (map :id
+                                (:transaction/items trx)))
+                         :id)]
+      (->> before
+           (remove current?)
+           (map #(vector ::db/delete %))))))
+
 (defn- ensure-id
   [entity]
   (update-in entity [:id] #(or % (random-uuid))))
@@ -39,7 +54,8 @@
                                           ensure-id)))
                      (mapcat (deconstruct-item id)))
                 (map #(assoc % :lot-item/transaction-id id)
-                     lot-items))))
+                     lot-items)
+                (deleted-items trx))))
 
 (defmethod sql/after-read :transaction
   [trx]
