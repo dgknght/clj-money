@@ -49,16 +49,15 @@
   [item]
   (select-keys item [:id :account-item/quantity]))
 
+(declare reconciled-items-for-trx)
+
 (defn- no-reconciled-quantities-changed*
   [{:transaction/keys [items] :as trx}]
   (if (:id trx)
     (let [after (->> items
                      (map (juxt :id qty-comparable))
                      (into {}))]
-      (->> (entities/select (util/entity-type
-                              {:transaction/_self trx
-                               :account-item/reconciliation [:!= nil]}
-                              :account-item))
+      (->> (reconciled-items-for-trx trx)
            (map qty-comparable)
            (remove #(= % (after (:id %))))
            empty?))
@@ -431,14 +430,18 @@
             (map (fn [i] [::db/delete i])
                  (:transaction/items before)))))
 
+(defn reconciled-items-for-trx
+  [trx]
+  (entities/select
+    (util/entity-type
+      {:transaction/_self trx
+       :account-item/reconciliation [:!= nil]}
+      :account-item)))
+
 (defmethod entities/before-delete :transaction
-  [{:keys [id] :as trx}]
-  (let [{:transaction/keys [items]} (entities/find id)]
-    (when (->> items
-               (mapcat trxs/account-items)
-               (filter :account-item/reconciliation)
-               seq)
-      (throw (IllegalStateException. "Cannot delete transaction with reconciled items"))))
+  [trx]
+  (when (seq (reconciled-items-for-trx trx))
+    (throw (IllegalStateException. "Cannot delete transaction with reconciled items")))
   trx)
 
 (defn append-items
