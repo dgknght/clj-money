@@ -296,14 +296,14 @@
                                                        (t/local-date 2016 3 2)]}
                      (reload-account "Checking"))
         "The checking account transaction date boundaries reflect all transactions")
-    (is (seq-of-maps-like? [{:transaction-item/index 1
-                             :transaction-item/action :debit
-                             :transaction-item/quantity 100M
-                             :transaction-item/balance 1100M}
-                            {:transaction-item/index 0
-                             :transaction-item/action :debit
-                             :transaction-item/quantity 1000M
-                             :transaction-item/balance 1000M}]
+    (is (seq-of-maps-like? [{:account-item/index 1
+                             :account-item/action :debit
+                             :account-item/quantity 100M
+                             :account-item/balance 1100M}
+                            {:account-item/index 0
+                             :account-item/action :debit
+                             :account-item/quantity 1000M
+                             :account-item/balance 1000M}]
                            (items-by-account "Checking"))
         "The checking account items has sequential indices and a running balance")))
 
