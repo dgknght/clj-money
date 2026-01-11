@@ -115,12 +115,63 @@
   [trx]
   (empty-strings->nils trx))
 
+(defn- normalize-account-item
+  [action value]
+  (fn [{:account-item/keys [account] :as item}]
+    (assoc item
+           :account-item/action action
+           :account-item/quantity (acts/polarize-quantity
+                                    {:account account
+                                     :quantity value
+                                     :action action}))))
+
+(defn- normalize-account-items
+  [{:as item :transaction-item/keys [value]}]
+  (-> item
+      (update-in [:transaction-item/debit-item]
+                 (normalize-account-item :debit value))
+      (update-in [:transaction-item/credit-item]
+                 (normalize-account-item :credit value))))
+
+(defn- normalize-trx-account-items
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             #(map normalize-account-items %)))
+
+(defn- realize-item-accounts
+  "Given a list of transaction items, realize any simple account
+  references account items"
+  [items]
+  (if-let [account-ids (->> items
+                            (mapcat trxs/account-items)
+                            (map :account-item/account)
+                            (filter util/entity-ref?)
+                            (map :id)
+                            set
+                            seq)]
+    (let [find-account (comp (index-by :id
+                                       (entities/find-many account-ids))
+                             :id)]
+      (map (fn [i]
+             (-> i
+                 (update-in [:transaction-item/credit-item
+                             :account-item/account]
+                            #(or (find-account %) %))
+                 (update-in [:transaction-item/debit-item
+                             :account-item/account]
+                            #(or (find-account %) %))))
+           items))
+    items))
+
 (defmethod entities/before-save :transaction
-  [transaction]
+  [{:as transaction :transaction/keys [entity]}]
   (let [{:transaction/keys [items] :as trx}
         (-> transaction
             (dissoc :transaction/original-transaction-date)
-            trxs/->bilateral)]
+            trxs/->bilateral
+            (update-in [:transaction/items] realize-item-accounts)
+            normalize-trx-account-items)]
     (cond-> trx
       (seq items)
       (assoc :transaction/value (->> items
@@ -334,17 +385,19 @@
 (defn- realize-accounts
   "Given a list of account items, replace any account references with full
   account maps."
-  [entity items]
-  (if-let [account-ids (account-ref-ids items)]
-    (let [accounts (->> (entities/find-many account-ids)
-                        (map #(assoc % :account/entity entity))
-                        realize-commodities
-                        (index-by :id))]
-      (map #(update-in %
-                       [:account-item/account]
-                       (comp accounts :id))
-           items))
-    items))
+  ([entity]
+   (partial realize-accounts entity))
+  ([entity items]
+   (if-let [account-ids (account-ref-ids items)]
+     (let [accounts (->> (entities/find-many account-ids)
+                         (map #(assoc % :account/entity entity))
+                         realize-commodities
+                         (index-by :id))]
+       (map #(update-in %
+                        [:account-item/account]
+                        (comp accounts :id))
+            items))
+     items)))
 
 (def ^:private transaction-item?
   (util/entity-type? :transaction-item))
