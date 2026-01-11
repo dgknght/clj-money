@@ -374,15 +374,17 @@
 
 (defn- propagate-dereferenced-account-items
   [[before {:transaction/keys [items] :as after}]]
-  (let [after-ids (->> items
-                       (map :id)
-                       set)
+  (let [account-ids-after (->> items
+                               (mapcat trxs/account-items)
+                               (map (comp :id
+                                          :account-item/account))
+                               set)
         entity (-> (or after before)
                    :transaction/entity
                    entities/find)]
     (->> (:transaction/items before)
-         (remove (comp after-ids :id))
          (mapcat trxs/account-items)
+         (remove #(account-ids-after (-> % :account-item/account :id)))
          (realize-accounts entity)
          (group-by (comp :id
                          :account-item/account))
