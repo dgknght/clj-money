@@ -251,15 +251,15 @@
                     :debit-account (find-account "Groceries")
                     :credit-account (find-account "Checking")
                     :quantity 99M})
-    (is (seq-of-maps-like? [#:transaction-item{:index 2
-                                               :quantity 100M
-                                               :balance 801M}
-                            #:transaction-item{:index 1
-                                               :quantity 99M
-                                               :balance 901M}
-                            #:transaction-item{:index 0
-                                               :quantity 1000M
-                                               :balance 1000M}]
+    (is (seq-of-maps-like? [#:account-item{:index 2
+                                           :quantity -100M
+                                           :balance 801M}
+                            #:account-item{:index 1
+                                           :quantity -99M
+                                           :balance 901M}
+                            #:account-item{:index 0
+                                           :quantity 1000M
+                                           :balance 1000M}]
                            (items-by-account "Checking"))
         "The checking item indexes and balances are adjusted")
     (is (= 801M (:account/quantity (reload-account "Checking")))
@@ -485,28 +485,23 @@
           result (-> trx
                        (assoc :transaction/transaction-date (t/local-date 2016 3 10))
                        prop/put-and-propagate)]
-      (is (seq-of-maps-like? [{:transaction-item/index 2
-                               :transaction/transaction-date (t/local-date 2016 3 12)
-                               :transaction-item/quantity 101M
-                               :transaction-item/balance 797M}
-                              {:transaction-item/index 1
-                               :transaction/transaction-date (t/local-date 2016 3 10)
-                               :transaction-item/quantity 102M
-                               :transaction-item/balance 898M}
-                              {:transaction-item/index 0
-                               :transaction/transaction-date (t/local-date 2016 3 2)
-                               :transaction-item/quantity 1000M
-                               :transaction-item/balance 1000M}]
+      (is (seq-of-maps-like? [{:account-item/index 2
+                               :account-item/quantity -101M
+                               :account-item/balance 797M}
+                              {:account-item/index 1
+                               :account-item/quantity -102M
+                               :account-item/balance 898M}
+                              {:account-item/index 0
+                               :account-item/quantity 1000M
+                               :account-item/balance 1000M}]
                              (items-by-account checking))
           "The checking account items are updated")
-      (is (seq-of-maps-like? [{:transaction-item/index 1
-                               :transaction/transaction-date (t/local-date 2016 3 12)
-                               :transaction-item/quantity 101M
-                               :transaction-item/balance 203M}
-                              {:transaction-item/index 0
-                               :transaction/transaction-date (t/local-date 2016 3 10)
-                               :transaction-item/quantity 102M
-                               :transaction-item/balance 102M}]
+      (is (seq-of-maps-like? [{:account-item/index 1
+                               :account-item/quantity 101M
+                               :account-item/balance 203M}
+                              {:account-item/index 0
+                               :account-item/quantity 102M
+                               :account-item/balance 102M}]
                              (items-by-account groceries))
           "The groceries account items are updated")
       (assert-account-quantities checking 797M groceries 203M)
@@ -731,47 +726,54 @@
   (with-context change-action-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
-      (update-trx-items (find-transaction [(t/local-date 2016 3 16) "Kroger"])
-                        groceries {:transaction-item/action :credit}
-                        checking {:transaction-item/action :debit})
-      (is (= [#:transaction-item{:index 2
-                                 :quantity 101M
-                                 :action :debit
-                                 :balance 192M}
-              #:transaction-item{:index 1
-                                 :quantity 12M
-                                 :action :credit
-                                 :balance 91M}
-              #:transaction-item{:index 0
-                                 :quantity 103M
-                                 :action :debit
-                                 :balance 103M}]
-             (map #(select-keys % [:transaction-item/index
-                                   :transaction-item/action
-                                   :transaction-item/quantity
-                                   :transaction-item/balance])
+      (-> (find-transaction [(t/local-date 2016 3 16)
+                             "Kroger"])
+          (update-in [:transaction/items 0]
+                     (fn [{:transaction-item/keys [credit-item
+                                                   debit-item]
+                           :as item}]
+                       (assoc item
+                              :transaction-item/credit-item debit-item
+                              :transaction-item/debit-item credit-item)))
+          prop/put-and-propagate)
+      (is (= [#:account-item{:index 2
+                             :quantity 101M
+                             :action :debit
+                             :balance 192M}
+              #:account-item{:index 1
+                             :quantity -12M
+                             :action :credit
+                             :balance 91M}
+              #:account-item{:index 0
+                             :quantity 103M
+                             :action :debit
+                             :balance 103M}]
+             (map #(select-keys % [:account-item/index
+                                   :account-item/action
+                                   :account-item/quantity
+                                   :account-item/balance])
                   (items-by-account groceries)))
           "The groceries balances reflect the change in action")
-      (is (= [#:transaction-item{:index 3
-                                 :action :credit
-                                 :quantity 101M
-                                 :balance 808M}
-              #:transaction-item{:index 2
-                                 :action :debit
-                                 :quantity 12M
-                                 :balance 909M}
-              #:transaction-item{:index 1
-                                 :action :credit
-                                 :quantity 103M
-                                 :balance 897M}
-              #:transaction-item{:index 0
-                                 :action :debit
-                                 :quantity 1000M
-                                 :balance 1000M}]
-             (map #(select-keys % [:transaction-item/index
-                                   :transaction-item/action
-                                   :transaction-item/quantity
-                                   :transaction-item/balance])
+      (is (= [#:account-item{:index 3
+                             :action :credit
+                             :quantity -101M
+                             :balance 808M}
+              #:account-item{:index 2
+                             :action :debit
+                             :quantity 12M
+                             :balance 909M}
+              #:account-item{:index 1
+                             :action :credit
+                             :quantity -103M
+                             :balance 897M}
+              #:account-item{:index 0
+                             :action :debit
+                             :quantity 1000M
+                             :balance 1000M}]
+             (map #(select-keys % [:account-item/index
+                                   :account-item/action
+                                   :account-item/quantity
+                                   :account-item/balance])
                   (items-by-account checking)))
           "The checking balances reflect the change in action")
       (assert-account-quantities groceries 192M checking 808M))))
