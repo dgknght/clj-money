@@ -194,7 +194,9 @@
   :test-selectors {:datomic-peer (fn [m & _]
                                    (= :datomic-peer (:strategy m)))
                    :sql (fn [m & _]
-                          (= :sql (:strategy m)))}
+                          (= :sql (:strategy m)))
+                   :multi-threaded :multi-threaded
+                   :single-threaded (complement :multi-threaded)}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93
