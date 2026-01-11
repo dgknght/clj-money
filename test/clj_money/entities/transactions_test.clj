@@ -538,7 +538,7 @@
 ; 2016-03-23     103  Groceries Checking
 ; 2016-03-30     104  Groceries Checking
 
-(deftest update-a-transaction-short-circuit-propagation
+(deftest ^:multi-threaded update-a-transaction-short-circuit-propagation
   (let [storage (-> env
                     (get-in [:db :strategies :datomic-peer])
                     (db/reify-storage)
@@ -753,7 +753,7 @@
                       :credit-account "Checking"
                       :quantity 101M}))
 
-(dbtest update-a-transaction-remove-item
+(dbtest ^:multi-threaded update-a-transaction-remove-item
   (with-context add-remove-item-context
     (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
         (update-in [:transaction/items]
@@ -766,7 +766,7 @@
                                                  %))
         prop/put-and-propagate)))
 
-(dbtest update-a-transaction-add-item
+(dbtest ^:multi-threaded update-a-transaction-add-item
   (with-context add-remove-item-context
     (let [[pets
            groceries
