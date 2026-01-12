@@ -171,7 +171,7 @@
                           -1000M)
                     {:transaction/items
                      {0
-                      {:transaction-item/quantity ["Quantity is invalid"] ; TODO: Adjust this message to say "Quantity must be a positive number"
+                      {:transaction-item/quantity ["Quantity must be a positive number"] ; TODO: Adjust this message to say "Quantity must be a positive number"
                        :transaction-item/value ["Value is invalid"]}}})))
 
 (dbtest item-action-is-required
