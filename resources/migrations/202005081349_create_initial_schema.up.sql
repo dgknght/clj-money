@@ -5,13 +5,13 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 -- user table
-CREATE SEQUENCE public.users_id_seq
+CREATE SEQUENCE public.user_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.users_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.user_id_seq OWNER TO ddl_user;
 CREATE TABLE public."user" (
     id integer NOT NULL,
     email character varying(100) NOT NULL,
@@ -24,43 +24,43 @@ CREATE TABLE public."user" (
     token_expires_at timestamp without time zone
 );
 ALTER TABLE public."user" OWNER TO ddl_user;
-ALTER SEQUENCE public.users_id_seq OWNED BY public."user".id;
-ALTER TABLE ONLY public."user" ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+ALTER SEQUENCE public.user_id_seq OWNED BY public."user".id;
+ALTER TABLE ONLY public."user" ALTER COLUMN id SET DEFAULT nextval('public.user_id_seq'::regclass);
 ALTER TABLE ONLY public."user"
-    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_users_email ON public."user" USING btree (email);
-CREATE INDEX uk_users_password_reset_token ON public."user" USING btree (password_reset_token);
+    ADD CONSTRAINT user_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_user_email ON public."user" USING btree (email);
+CREATE INDEX uk_user_password_reset_token ON public."user" USING btree (password_reset_token);
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."user" TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.users_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.user_id_seq TO app_user;
 
 -- image_content table
-CREATE SEQUENCE public.image_contents_id_seq
+CREATE SEQUENCE public.image_content_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.image_contents_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.image_content_id_seq OWNER TO ddl_user;
 CREATE TABLE public.image_content (
-    id integer DEFAULT nextval('public.image_contents_id_seq'::regclass) NOT NULL,
+    id integer DEFAULT nextval('public.image_content_id_seq'::regclass) NOT NULL,
     uuid character(40) NOT NULL,
     content bytea NOT NULL
 );
 ALTER TABLE public.image_content OWNER TO ddl_user;
 ALTER TABLE ONLY public.image_content
-    ADD CONSTRAINT image_contents_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_image_contents_uuid ON public.image_content USING btree (uuid);
+    ADD CONSTRAINT image_content_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_image_content_uuid ON public.image_content USING btree (uuid);
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.image_content TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.image_contents_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.image_content_id_seq TO app_user;
 
 -- entity table
-CREATE SEQUENCE public.entities_id_seq
+CREATE SEQUENCE public.entity_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.entities_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.entity_id_seq OWNER TO ddl_user;
 CREATE TABLE public.entity (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -72,24 +72,24 @@ CREATE TABLE public.entity (
     transaction_date_range date[]
 );
 ALTER TABLE public.entity OWNER TO ddl_user;
-ALTER SEQUENCE public.entities_id_seq OWNED BY public.entity.id;
-ALTER TABLE ONLY public.entity ALTER COLUMN id SET DEFAULT nextval('public.entities_id_seq'::regclass);
+ALTER SEQUENCE public.entity_id_seq OWNED BY public.entity.id;
+ALTER TABLE ONLY public.entity ALTER COLUMN id SET DEFAULT nextval('public.entity_id_seq'::regclass);
 ALTER TABLE ONLY public.entity
-    ADD CONSTRAINT entities_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_entities_name ON public.entity USING btree (user_id, name);
+    ADD CONSTRAINT entity_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_entity_name ON public.entity USING btree (user_id, name);
 ALTER TABLE ONLY public.entity
-    ADD CONSTRAINT fk_entities_user FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_entity_user FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.entity TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.entities_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.entity_id_seq TO app_user;
 
 -- identity table
-CREATE SEQUENCE public.identities_id_seq
+CREATE SEQUENCE public.identity_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.identities_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.identity_id_seq OWNER TO ddl_user;
 CREATE TABLE public.identity (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -97,25 +97,25 @@ CREATE TABLE public.identity (
     provider_id character varying(255) NOT NULL
 );
 ALTER TABLE public.identity OWNER TO ddl_user;
-ALTER SEQUENCE public.identities_id_seq OWNED BY public.identity.id;
-ALTER TABLE ONLY public.identity ALTER COLUMN id SET DEFAULT nextval('public.identities_id_seq'::regclass);
+ALTER SEQUENCE public.identity_id_seq OWNED BY public.identity.id;
+ALTER TABLE ONLY public.identity ALTER COLUMN id SET DEFAULT nextval('public.identity_id_seq'::regclass);
 ALTER TABLE ONLY public.identity
-    ADD CONSTRAINT identities_pkey PRIMARY KEY (id);
-CREATE INDEX ix_identities_user_id ON public.identity USING btree (user_id);
-CREATE UNIQUE INDEX uk_identities_provider_id ON public.identity USING btree (provider, provider_id);
+    ADD CONSTRAINT identity_pkey PRIMARY KEY (id);
+CREATE INDEX ix_identity_user_id ON public.identity USING btree (user_id);
+CREATE UNIQUE INDEX uk_identity_provider_id ON public.identity USING btree (provider, provider_id);
 ALTER TABLE ONLY public.identity
-    ADD CONSTRAINT identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+    ADD CONSTRAINT identity_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.identity TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.identities_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.identity_id_seq TO app_user;
 
 -- image table
-CREATE SEQUENCE public.images_id_seq
+CREATE SEQUENCE public.image_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.images_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.image_id_seq OWNER TO ddl_user;
 CREATE TABLE public.image (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -125,24 +125,24 @@ CREATE TABLE public.image (
     content_type character varying(100) NOT NULL
 );
 ALTER TABLE public.image OWNER TO ddl_user;
-ALTER SEQUENCE public.images_id_seq OWNED BY public.image.id;
-ALTER TABLE ONLY public.image ALTER COLUMN id SET DEFAULT nextval('public.images_id_seq'::regclass);
+ALTER SEQUENCE public.image_id_seq OWNED BY public.image.id;
+ALTER TABLE ONLY public.image ALTER COLUMN id SET DEFAULT nextval('public.image_id_seq'::regclass);
 ALTER TABLE ONLY public.image
-    ADD CONSTRAINT images_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_images_user_hash ON public.image USING btree (user_id, uuid);
+    ADD CONSTRAINT image_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_image_user_hash ON public.image USING btree (user_id, uuid);
 ALTER TABLE ONLY public.image
-    ADD CONSTRAINT fk_images_user FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_image_user FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.image TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.images_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.image_id_seq TO app_user;
 
 -- import table
-CREATE SEQUENCE public.imports_id_seq
+CREATE SEQUENCE public.import_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.imports_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.import_id_seq OWNER TO ddl_user;
 CREATE TABLE public.import (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -154,24 +154,24 @@ CREATE TABLE public.import (
     options jsonb
 );
 ALTER TABLE public.import OWNER TO ddl_user;
-ALTER SEQUENCE public.imports_id_seq OWNED BY public.import.id;
-ALTER TABLE ONLY public.import ALTER COLUMN id SET DEFAULT nextval('public.imports_id_seq'::regclass);
+ALTER SEQUENCE public.import_id_seq OWNED BY public.import.id;
+ALTER TABLE ONLY public.import ALTER COLUMN id SET DEFAULT nextval('public.import_id_seq'::regclass);
 ALTER TABLE ONLY public.import
-    ADD CONSTRAINT imports_pkey PRIMARY KEY (id);
-CREATE INDEX ix_imports_user_id ON public.import USING btree (user_id);
+    ADD CONSTRAINT import_pkey PRIMARY KEY (id);
+CREATE INDEX ix_import_user_id ON public.import USING btree (user_id);
 ALTER TABLE ONLY public.import
-    ADD CONSTRAINT fk_imports_user FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_import_user FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.import TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.imports_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.import_id_seq TO app_user;
 
 -- grant table
-CREATE SEQUENCE public.grants_id_seq
+CREATE SEQUENCE public.grant_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.grants_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.grant_id_seq OWNER TO ddl_user;
 CREATE TABLE public."grant" (
     id integer NOT NULL,
     entity_id integer NOT NULL,
@@ -181,27 +181,27 @@ CREATE TABLE public."grant" (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."grant" OWNER TO ddl_user;
-ALTER SEQUENCE public.grants_id_seq OWNED BY public."grant".id;
-ALTER TABLE ONLY public."grant" ALTER COLUMN id SET DEFAULT nextval('public.grants_id_seq'::regclass);
+ALTER SEQUENCE public.grant_id_seq OWNED BY public."grant".id;
+ALTER TABLE ONLY public."grant" ALTER COLUMN id SET DEFAULT nextval('public.grant_id_seq'::regclass);
 ALTER TABLE ONLY public."grant"
-    ADD CONSTRAINT grants_pkey PRIMARY KEY (id);
-CREATE INDEX ix_grants_user ON public."grant" USING btree (user_id);
-CREATE UNIQUE INDEX uk_grants_entity_user ON public."grant" USING btree (entity_id, user_id);
+    ADD CONSTRAINT grant_pkey PRIMARY KEY (id);
+CREATE INDEX ix_grant_user ON public."grant" USING btree (user_id);
+CREATE UNIQUE INDEX uk_grant_entity_user ON public."grant" USING btree (entity_id, user_id);
 ALTER TABLE ONLY public."grant"
-    ADD CONSTRAINT fk_grants_entities FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_grant_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public."grant"
-    ADD CONSTRAINT fk_grants_users FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_grant_user FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."grant" TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.grants_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.grant_id_seq TO app_user;
 
 -- commodity table
-CREATE SEQUENCE public.commodities_id_seq
+CREATE SEQUENCE public.commodity_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.commodities_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.commodity_id_seq OWNER TO ddl_user;
 CREATE TABLE public.commodity (
     id integer NOT NULL,
     entity_id integer NOT NULL,
@@ -215,16 +215,16 @@ CREATE TABLE public.commodity (
     price_date_range date[]
 );
 ALTER TABLE public.commodity OWNER TO ddl_user;
-ALTER SEQUENCE public.commodities_id_seq OWNED BY public.commodity.id;
-ALTER TABLE ONLY public.commodity ALTER COLUMN id SET DEFAULT nextval('public.commodities_id_seq'::regclass);
+ALTER SEQUENCE public.commodity_id_seq OWNED BY public.commodity.id;
+ALTER TABLE ONLY public.commodity ALTER COLUMN id SET DEFAULT nextval('public.commodity_id_seq'::regclass);
 ALTER TABLE ONLY public.commodity
-    ADD CONSTRAINT commodities_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_commodities_name ON public.commodity USING btree (entity_id, exchange, name);
-CREATE UNIQUE INDEX uk_commodities_symbol ON public.commodity USING btree (entity_id, exchange, symbol);
+    ADD CONSTRAINT commodity_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_commodity_name ON public.commodity USING btree (entity_id, exchange, name);
+CREATE UNIQUE INDEX uk_commodity_symbol ON public.commodity USING btree (entity_id, exchange, symbol);
 ALTER TABLE ONLY public.commodity
-    ADD CONSTRAINT fk_commodities_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_commodity_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.commodity TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.commodities_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.commodity_id_seq TO app_user;
 
 -- cached_price table
 CREATE TABLE public.cached_price (
@@ -239,17 +239,17 @@ CREATE TABLE public.cached_price (
 PARTITION BY RANGE (trade_date);
 ALTER TABLE public.cached_price OWNER TO ddl_user;
 ALTER TABLE ONLY public.cached_price
-    ADD CONSTRAINT pk_cached_prices PRIMARY KEY (trade_date, id);
+    ADD CONSTRAINT pk_cached_price PRIMARY KEY (trade_date, id);
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.cached_price TO app_user;
 
 -- account table
-CREATE SEQUENCE public.accounts_id_seq
+CREATE SEQUENCE public.account_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.accounts_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.account_id_seq OWNER TO ddl_user;
 CREATE TABLE public.account (
     id integer NOT NULL,
     name character varying(255) NOT NULL,
@@ -269,17 +269,17 @@ CREATE TABLE public.account (
     transaction_date_range date[]
 );
 ALTER TABLE public.account OWNER TO ddl_user;
-ALTER SEQUENCE public.accounts_id_seq OWNED BY public.account.id;
-ALTER TABLE ONLY public.account ALTER COLUMN id SET DEFAULT nextval('public.accounts_id_seq'::regclass);
+ALTER SEQUENCE public.account_id_seq OWNED BY public.account.id;
+ALTER TABLE ONLY public.account ALTER COLUMN id SET DEFAULT nextval('public.account_id_seq'::regclass);
 ALTER TABLE ONLY public.account
-    ADD CONSTRAINT accounts_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_accounts_name ON public.account USING btree (entity_id, parent_id, name);
+    ADD CONSTRAINT account_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_account_name ON public.account USING btree (entity_id, parent_id, name);
 ALTER TABLE ONLY public.account
-    ADD CONSTRAINT fk_accounts_account FOREIGN KEY (parent_id) REFERENCES public.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_account_account FOREIGN KEY (parent_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.account
-    ADD CONSTRAINT fk_accounts_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_account_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.accounts_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.account_id_seq TO app_user;
 
 -- price table
 CREATE TABLE public.price (
@@ -293,21 +293,21 @@ CREATE TABLE public.price (
 PARTITION BY RANGE (trade_date);
 ALTER TABLE public.price OWNER TO ddl_user;
 ALTER TABLE ONLY public.price
-    ADD CONSTRAINT prices_pkey PRIMARY KEY (trade_date, id);
-CREATE INDEX ix_prices_trade_date_commodity_id ON ONLY public.price USING btree (trade_date, commodity_id);
-CREATE INDEX ix_prices_trade_date_id ON ONLY public.price USING btree (trade_date, id);
+    ADD CONSTRAINT price_pkey PRIMARY KEY (trade_date, id);
+CREATE INDEX ix_price_trade_date_commodity_id ON ONLY public.price USING btree (trade_date, commodity_id);
+CREATE INDEX ix_price_trade_date_id ON ONLY public.price USING btree (trade_date, id);
 ALTER TABLE public.price
-    ADD CONSTRAINT fk_prices_commodity FOREIGN KEY (commodity_id) REFERENCES public.commodity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_price_commodity FOREIGN KEY (commodity_id) REFERENCES public.commodity(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.price TO app_user;
 
 -- budget table
-CREATE SEQUENCE public.budgets_id_seq
+CREATE SEQUENCE public.budget_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.budgets_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.budget_id_seq OWNER TO ddl_user;
 CREATE TABLE public.budget (
     id integer NOT NULL,
     entity_id integer NOT NULL,
@@ -319,24 +319,24 @@ CREATE TABLE public.budget (
     period text[] NOT NULL
 );
 ALTER TABLE public.budget OWNER TO ddl_user;
-ALTER SEQUENCE public.budgets_id_seq OWNED BY public.budget.id;
-ALTER TABLE ONLY public.budget ALTER COLUMN id SET DEFAULT nextval('public.budgets_id_seq'::regclass);
+ALTER SEQUENCE public.budget_id_seq OWNED BY public.budget.id;
+ALTER TABLE ONLY public.budget ALTER COLUMN id SET DEFAULT nextval('public.budget_id_seq'::regclass);
 ALTER TABLE ONLY public.budget
-    ADD CONSTRAINT budgets_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_budgets_name ON public.budget USING btree (entity_id, name);
+    ADD CONSTRAINT budget_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_budget_name ON public.budget USING btree (entity_id, name);
 ALTER TABLE ONLY public.budget
-    ADD CONSTRAINT fk_budgets_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_budget_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.budget TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.budgets_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.budget_id_seq TO app_user;
 
 -- budget_item table
-CREATE SEQUENCE public.budget_items_id_seq
+CREATE SEQUENCE public.budget_item_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.budget_items_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.budget_item_id_seq OWNER TO ddl_user;
 CREATE TABLE public.budget_item (
     id integer NOT NULL,
     budget_id integer NOT NULL,
@@ -347,26 +347,26 @@ CREATE TABLE public.budget_item (
     spec jsonb
 );
 ALTER TABLE public.budget_item OWNER TO ddl_user;
-ALTER SEQUENCE public.budget_items_id_seq OWNED BY public.budget_item.id;
-ALTER TABLE ONLY public.budget_item ALTER COLUMN id SET DEFAULT nextval('public.budget_items_id_seq'::regclass);
+ALTER SEQUENCE public.budget_item_id_seq OWNED BY public.budget_item.id;
+ALTER TABLE ONLY public.budget_item ALTER COLUMN id SET DEFAULT nextval('public.budget_item_id_seq'::regclass);
 ALTER TABLE ONLY public.budget_item
-    ADD CONSTRAINT budget_items_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_budget_items_account ON public.budget_item USING btree (budget_id, account_id);
+    ADD CONSTRAINT budget_item_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX uk_budget_item_account ON public.budget_item USING btree (budget_id, account_id);
 ALTER TABLE ONLY public.budget_item
-    ADD CONSTRAINT fk_budget_items_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_budget_item_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.budget_item
-    ADD CONSTRAINT fk_budget_items_budget FOREIGN KEY (budget_id) REFERENCES public.budget(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_budget_item_budget FOREIGN KEY (budget_id) REFERENCES public.budget(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.budget_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.budget_items_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.budget_item_id_seq TO app_user;
 
 -- reconciliation table
-CREATE SEQUENCE public.reconciliations_id_seq
+CREATE SEQUENCE public.reconciliation_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.reconciliations_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.reconciliation_id_seq OWNER TO ddl_user;
 CREATE TABLE public.reconciliation (
     id integer NOT NULL,
     end_of_period date NOT NULL,
@@ -377,25 +377,25 @@ CREATE TABLE public.reconciliation (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public.reconciliation OWNER TO ddl_user;
-ALTER SEQUENCE public.reconciliations_id_seq OWNED BY public.reconciliation.id;
-ALTER TABLE ONLY public.reconciliation ALTER COLUMN id SET DEFAULT nextval('public.reconciliations_id_seq'::regclass);
+ALTER SEQUENCE public.reconciliation_id_seq OWNED BY public.reconciliation.id;
+ALTER TABLE ONLY public.reconciliation ALTER COLUMN id SET DEFAULT nextval('public.reconciliation_id_seq'::regclass);
 ALTER TABLE ONLY public.reconciliation
-    ADD CONSTRAINT reconciliations_pkey PRIMARY KEY (id);
-CREATE INDEX ix_reconciliations_eop_account_id ON public.reconciliation USING btree (end_of_period, account_id);
-CREATE INDEX ix_reconciliations_account_id ON public.reconciliation USING btree (account_id);
+    ADD CONSTRAINT reconciliation_pkey PRIMARY KEY (id);
+CREATE INDEX ix_reconciliation_eop_account_id ON public.reconciliation USING btree (end_of_period, account_id);
+CREATE INDEX ix_reconciliation_account_id ON public.reconciliation USING btree (account_id);
 ALTER TABLE public.reconciliation
-    ADD CONSTRAINT fk_reconciliations_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_reconciliation_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.reconciliation TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.reconciliations_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.reconciliation_id_seq TO app_user;
 
 -- lot table
-CREATE SEQUENCE public.lots_id_seq
+CREATE SEQUENCE public.lot_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.lots_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.lot_id_seq OWNER TO ddl_user;
 CREATE TABLE public.lot (
     id integer NOT NULL,
     commodity_id integer NOT NULL,
@@ -408,27 +408,27 @@ CREATE TABLE public.lot (
     purchase_date date NOT NULL
 );
 ALTER TABLE public.lot OWNER TO ddl_user;
-ALTER SEQUENCE public.lots_id_seq OWNED BY public.lot.id;
-ALTER TABLE ONLY public.lot ALTER COLUMN id SET DEFAULT nextval('public.lots_id_seq'::regclass);
+ALTER SEQUENCE public.lot_id_seq OWNED BY public.lot.id;
+ALTER TABLE ONLY public.lot ALTER COLUMN id SET DEFAULT nextval('public.lot_id_seq'::regclass);
 ALTER TABLE ONLY public.lot
-    ADD CONSTRAINT lots_pkey PRIMARY KEY (id);
-CREATE INDEX ix_lots_account_id ON public.lot USING btree (account_id);
-CREATE INDEX ix_lots_commodity_id ON public.lot USING btree (commodity_id);
+    ADD CONSTRAINT lot_pkey PRIMARY KEY (id);
+CREATE INDEX ix_lot_account_id ON public.lot USING btree (account_id);
+CREATE INDEX ix_lot_commodity_id ON public.lot USING btree (commodity_id);
 ALTER TABLE ONLY public.lot
-    ADD CONSTRAINT fk_lots_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_lot_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.lot
-    ADD CONSTRAINT fk_lots_commodity FOREIGN KEY (commodity_id) REFERENCES public.commodity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_lot_commodity FOREIGN KEY (commodity_id) REFERENCES public.commodity(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.lot TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.lots_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.lot_id_seq TO app_user;
 
 -- scheduled_transaction table
-CREATE SEQUENCE public.scheduled_transactions_id_seq
+CREATE SEQUENCE public.scheduled_transaction_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.scheduled_transactions_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.scheduled_transaction_id_seq OWNER TO ddl_user;
 CREATE TABLE public.scheduled_transaction (
     id integer NOT NULL,
     start_date date NOT NULL,
@@ -444,14 +444,14 @@ CREATE TABLE public.scheduled_transaction (
     period text[] NOT NULL
 );
 ALTER TABLE public.scheduled_transaction OWNER TO ddl_user;
-ALTER SEQUENCE public.scheduled_transactions_id_seq OWNED BY public.scheduled_transaction.id;
-ALTER TABLE ONLY public.scheduled_transaction ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transactions_id_seq'::regclass);
+ALTER SEQUENCE public.scheduled_transaction_id_seq OWNED BY public.scheduled_transaction.id;
+ALTER TABLE ONLY public.scheduled_transaction ALTER COLUMN id SET DEFAULT nextval('public.scheduled_transaction_id_seq'::regclass);
 ALTER TABLE ONLY public.scheduled_transaction
-    ADD CONSTRAINT scheduled_transactions_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT scheduled_transaction_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.scheduled_transaction
-    ADD CONSTRAINT fk_scheduled_transactions_entities FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_scheduled_transaction_entity FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_transaction TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transactions_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_id_seq TO app_user;
 
 -- scheduled_transaction_item table
 CREATE SEQUENCE public.scheduled_transaction_item_id_seq
@@ -477,20 +477,20 @@ ALTER TABLE ONLY public.scheduled_transaction_item ALTER COLUMN id SET DEFAULT n
 ALTER TABLE ONLY public.scheduled_transaction_item
     ADD CONSTRAINT scheduled_transaction_item_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.scheduled_transaction_item
-    ADD CONSTRAINT fk_scheduled_transaction_item_accounts FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_scheduled_transaction_item_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.scheduled_transaction_item
     ADD CONSTRAINT fk_scheduled_transaction_item_scheduled_transactions FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_transaction_item TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_item_id_seq TO app_user;
 
 -- transaction table
-CREATE SEQUENCE public.transactions_id_seq
+CREATE SEQUENCE public.transaction_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.transactions_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.transaction_id_seq OWNER TO ddl_user;
 CREATE TABLE public.transaction (
     id integer NOT NULL,
     transaction_date date NOT NULL,
@@ -504,28 +504,28 @@ CREATE TABLE public.transaction (
     attachment_count smallint DEFAULT 0 NOT NULL
 );
 ALTER TABLE public.transaction OWNER TO ddl_user;
-ALTER SEQUENCE public.transactions_id_seq OWNED BY public.transaction.id;
-ALTER TABLE ONLY public.transaction ALTER COLUMN id SET DEFAULT nextval('public.transactions_id_seq'::regclass);
+ALTER SEQUENCE public.transaction_id_seq OWNED BY public.transaction.id;
+ALTER TABLE ONLY public.transaction ALTER COLUMN id SET DEFAULT nextval('public.transaction_id_seq'::regclass);
 ALTER TABLE ONLY public.transaction
-    ADD CONSTRAINT transactions_pkey PRIMARY KEY (id);
-CREATE INDEX ix_transactions_scheduled_transaction_id ON public.transaction USING btree (scheduled_transaction_id);
-CREATE INDEX ix_transactions_transaction_date_entity_id ON public.transaction USING btree (transaction_date, entity_id);
-CREATE INDEX ix_transactions_entity_id ON public.transaction USING btree (entity_id);
+    ADD CONSTRAINT transaction_pkey PRIMARY KEY (id);
+CREATE INDEX ix_transaction_scheduled_transaction_id ON public.transaction USING btree (scheduled_transaction_id);
+CREATE INDEX ix_transaction_transaction_date_entity_id ON public.transaction USING btree (transaction_date, entity_id);
+CREATE INDEX ix_transaction_entity_id ON public.transaction USING btree (entity_id);
 ALTER TABLE public.transaction
-    ADD CONSTRAINT transactions_base_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT transaction_base_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
-    ADD CONSTRAINT transactions_scheduled_transaction_id_fkey FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id);
+    ADD CONSTRAINT transaction_scheduled_transaction_id_fkey FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id);
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.transactions_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.transaction_id_seq TO app_user;
 
 -- attachment table
-CREATE SEQUENCE public.attachments_id_seq
+CREATE SEQUENCE public.attachment_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.attachments_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.attachment_id_seq OWNER TO ddl_user;
 CREATE TABLE public.attachment (
     id integer NOT NULL,
     caption character varying(255),
@@ -535,26 +535,26 @@ CREATE TABLE public.attachment (
     transaction_id integer NOT NULL
 );
 ALTER TABLE public.attachment OWNER TO ddl_user;
-ALTER SEQUENCE public.attachments_id_seq OWNED BY public.attachment.id;
-ALTER TABLE ONLY public.attachment ALTER COLUMN id SET DEFAULT nextval('public.attachments_id_seq'::regclass);
+ALTER SEQUENCE public.attachment_id_seq OWNED BY public.attachment.id;
+ALTER TABLE ONLY public.attachment ALTER COLUMN id SET DEFAULT nextval('public.attachment_id_seq'::regclass);
 ALTER TABLE ONLY public.attachment
-    ADD CONSTRAINT attachments_pkey PRIMARY KEY (id);
-CREATE INDEX ix_attachments_image_id ON public.attachment USING btree (image_id);
+    ADD CONSTRAINT attachment_pkey PRIMARY KEY (id);
+CREATE INDEX ix_attachment_image_id ON public.attachment USING btree (image_id);
 ALTER TABLE ONLY public.attachment
-    ADD CONSTRAINT fk_attachments_image FOREIGN KEY (image_id) REFERENCES public.image(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_attachment_image FOREIGN KEY (image_id) REFERENCES public.image(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.attachment
-    ADD CONSTRAINT fk_attachments_transaction FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_attachment_transaction FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.attachment TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.attachments_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.attachment_id_seq TO app_user;
 
 -- transaction_item table
-CREATE SEQUENCE public.transaction_items_id_seq
+CREATE SEQUENCE public.transaction_item_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.transaction_items_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.transaction_item_id_seq OWNER TO ddl_user;
 CREATE TABLE public.transaction_item (
     id integer NOT NULL,
     transaction_id integer NOT NULL,
@@ -572,8 +572,8 @@ CREATE TABLE public.transaction_item (
     negative boolean
 );
 ALTER TABLE public.transaction_item OWNER TO ddl_user;
-ALTER SEQUENCE public.transaction_items_id_seq OWNED BY public.transaction_item.id;
-ALTER TABLE ONLY public.transaction_item ALTER COLUMN id SET DEFAULT nextval('public.transaction_items_id_seq'::regclass);
+ALTER SEQUENCE public.transaction_item_id_seq OWNED BY public.transaction_item.id;
+ALTER TABLE ONLY public.transaction_item ALTER COLUMN id SET DEFAULT nextval('public.transaction_item_id_seq'::regclass);
 ALTER TABLE ONLY public.transaction_item
     ADD CONSTRAINT transaction_item_pkey PRIMARY KEY (id);
 CREATE INDEX ix_transaction_item_transaction_date_account_id ON public.transaction_item USING btree (transaction_date, account_id);
@@ -586,17 +586,17 @@ ALTER TABLE public.transaction_item
 ALTER TABLE public.transaction_item
     ADD CONSTRAINT transaction_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE SET NULL;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.transaction_items_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.transaction_item_id_seq TO app_user;
 
 -- lot_item table
-CREATE SEQUENCE public.lot_items_id_seq
+CREATE SEQUENCE public.lot_item_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE public.lot_items_id_seq OWNER TO ddl_user;
+ALTER SEQUENCE public.lot_item_id_seq OWNER TO ddl_user;
 CREATE TABLE public.lot_item (
     id integer NOT NULL,
     lot_id integer NOT NULL,
@@ -606,15 +606,15 @@ CREATE TABLE public.lot_item (
     transaction_id integer NOT NULL
 );
 ALTER TABLE public.lot_item OWNER TO ddl_user;
-ALTER SEQUENCE public.lot_items_id_seq OWNED BY public.lot_item.id;
-ALTER TABLE ONLY public.lot_item ALTER COLUMN id SET DEFAULT nextval('public.lot_items_id_seq'::regclass);
+ALTER SEQUENCE public.lot_item_id_seq OWNED BY public.lot_item.id;
+ALTER TABLE ONLY public.lot_item ALTER COLUMN id SET DEFAULT nextval('public.lot_item_id_seq'::regclass);
 ALTER TABLE ONLY public.lot_item
-    ADD CONSTRAINT lot_items_pkey PRIMARY KEY (id);
-CREATE INDEX ix_lots_transactions_lot_id ON public.lot_item USING btree (lot_id);
-CREATE INDEX ix_lots_transactions_transaction_id ON public.lot_item USING btree (transaction_id);
+    ADD CONSTRAINT lot_item_pkey PRIMARY KEY (id);
+CREATE INDEX ix_lot_item_lot_id ON public.lot_item USING btree (lot_id);
+CREATE INDEX ix_lot_item_transaction_id ON public.lot_item USING btree (transaction_id);
 ALTER TABLE ONLY public.lot_item
-    ADD CONSTRAINT fk_lots_transactions_lot FOREIGN KEY (lot_id) REFERENCES public.lot(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_lot_item_lot FOREIGN KEY (lot_id) REFERENCES public.lot(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.lot_item
-    ADD CONSTRAINT fk_transactions_lots_transactions FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_lot_item_transaction FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.lot_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.lot_items_id_seq TO app_user;
+GRANT SELECT,UPDATE ON SEQUENCE public.lot_item_id_seq TO app_user;
