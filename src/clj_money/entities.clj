@@ -261,13 +261,12 @@
                                    before-save
                                    #(validate % opts)
                                    before-validation))))
-         saved (db/put (or storage
-                           (db/storage))
-                       to-save)
-         result (map (comp append-before
-                           after-save
-                           #(after-read* % {}))
-                     saved)]
+         result (->> to-save
+                     (db/put (or storage
+                                 (db/storage)))
+                     (map (comp append-before
+                                after-save
+                                #(after-read* % {}))))]
      (emit-changes (assoc opts
                           :to-save to-save
                           :saved result))
