@@ -63,7 +63,7 @@
                          :items [[(t/local-date 2017 1 1)
                                   1000M]]}))
 
-(def ^:private working-reconciliation-context
+(def ^:private working-recon-context
   (conj existing-reconciliation-context
         #:reconciliation{:account "Checking"
                          :end-of-period (t/local-date 2017 1 3)
@@ -118,7 +118,7 @@
           "Items in other accounts are not marked"))))
 
 (dbtest a-new-reconciliation-cannot-be-created-if-one-already-exists
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (assert-invalid
       (assoc (attributes) :reconciliation/status :new)
       {:reconciliation/account ["Account already has a reconciliation in progress"]})))
@@ -248,7 +248,7 @@
       {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (dbtest a-working-reconciliation-can-be-updated
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (let [result (-> (find-reconciliation ["Checking"
                                            (t/local-date 2017 1 3)])
                      (assoc :reconciliation/balance 1499M)
@@ -261,7 +261,7 @@
           "The retrieved value has the correct balance after update"))))
 
 (dbtest a-working-reconciliation-can-be-completed
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (let [checking (find-account "Checking")
           previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
           item (find-account-item [(t/local-date 2017 1 3)
@@ -308,7 +308,7 @@
                     {:reconciliation/balance ["Balance must match the calculated balance"]})))
 
 (dbtest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (let [item (find-account-item [(t/local-date 2017 1 10)
                                    53M
                                    "Checking"])]
@@ -330,11 +330,11 @@
     (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 1)]))))
 
 (dbtest a-working-reconciliation-can-be-deleted
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 3)]))))
 
 (dbtest ^:multi-threaded propagate-reconciliation-deletion
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
       (prop/delete-and-propagate reconciliation)
       (is (empty? (entities/select
@@ -345,7 +345,7 @@
           "The reconciliation is not associated with any items after delete"))))
 
 (dbtest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
                             (entities/delete reconciliation))
@@ -354,7 +354,7 @@
           "The reconciliation can still be retrieved"))))
 
 (dbtest ^:multi-threaded a-failed-attempt-to-delete-does-not-propagate
-  (with-context working-reconciliation-context
+  (with-context working-recon-context
     (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
                             (prop/delete-and-propagate reconciliation))
