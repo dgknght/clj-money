@@ -165,7 +165,7 @@
     items))
 
 (defmethod entities/before-save :transaction
-  [{:as transaction :transaction/keys [entity]}]
+  [transaction]
   (let [{:transaction/keys [items] :as trx}
         (-> transaction
             (dissoc :transaction/original-transaction-date)

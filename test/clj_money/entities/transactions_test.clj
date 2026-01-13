@@ -1,11 +1,9 @@
 (ns clj-money.entities.transactions-test
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
             [java-time.api :as t]
             [clj-money.db.ref]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.config :refer [env]]
