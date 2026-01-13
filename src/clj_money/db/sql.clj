@@ -32,6 +32,11 @@
                           (util/entity-type x))))
 (defmethod deconstruct :default [m] [m])
 
+(defmulti deconstruct-for-delete (fn [x]
+                                   (when-not (vector? x)
+                                     (util/entity-type x))))
+(defmethod deconstruct-for-delete :default [m] [m])
+
 (defmulti before-save util/entity-type-dispatch)
 (defmethod before-save :default [m] m)
 
@@ -468,6 +473,7 @@
   {:pre [(s/valid? (s/coll-of map?) entities)]}
 
   (->> entities
+       (mapcat deconstruct-for-delete)
        (map #(update-in % [:id] types/unqualify-id))
        (interleave (repeat ::db/delete))
        (partition 2)

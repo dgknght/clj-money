@@ -60,6 +60,11 @@
                      lot-items)
                 (deleted-items trx))))
 
+(defmethod sql/deconstruct-for-delete :transaction
+  [{:transaction/keys [items] :as trx}]
+  (cons trx
+        (mapcat trxs/account-items items)))
+
 (defmethod sql/after-read :transaction
   [trx]
   (update-in trx [:transaction/transaction-date] t/local-date))

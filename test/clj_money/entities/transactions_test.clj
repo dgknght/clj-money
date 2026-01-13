@@ -1,6 +1,7 @@
 (ns clj-money.entities.transactions-test
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [java-time.api :as t]
             [clj-money.db.ref]
             [clj-factory.core :refer [factory]]
@@ -330,7 +331,16 @@
 
 (dbtest delete-a-transaction
   (with-context delete-context
-    (assert-deleted (find-transaction [(t/local-date 2016 3 3) "Kroger"]))))
+    (assert-deleted (find-transaction [(t/local-date 2016 3 3) "Kroger"]))
+    (is (= [{:account-item/index 0
+             :account-item/quantity 1000M}
+            {:account-item/index 2 ; Note that we didn't propagate
+             :account-item/quantity -102M}]
+           (map #(select-keys % [:account-item/index
+                                 :account-item/quantity])
+                (entities/select
+                  {:account-item/account (find-account "Checking")})))
+        "The corresponding account items are removed.")))
 
 (dbtest ^:multi-threaded delete-and-propagate-a-transaction
   (with-context delete-context
