@@ -251,6 +251,7 @@
   (with-context working-recon-context
     (let [result (-> (find-reconciliation ["Checking"
                                            (t/local-date 2017 1 3)])
+                     entities/find ; get a fresh copy of the account items
                      (assoc :reconciliation/balance 1499M)
                      entities/put)]
       (is (comparable? {:reconciliation/balance 1499M}
@@ -268,6 +269,7 @@
                                    45M
                                    checking])
           result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
+                     entities/find ; get a fresh copy of the account items
                      (assoc :reconciliation/status :completed)
                      (update-in [:reconciliation/items] conj item)
                      entities/put)]
@@ -313,6 +315,7 @@
                                    53M
                                    "Checking"])]
       (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])
+          entities/find ; get a fresh copy of the items
           (assoc :reconciliation/status :completed)
           (update-in [:reconciliation/items]
                      conj
@@ -321,9 +324,10 @@
 
 (dbtest a-completed-reconciliation-cannot-be-updated
   (with-context existing-reconciliation-context
-    (assert-invalid (assoc (find-reconciliation ["Checking" (t/local-date 2017 1 1)])
-                           :reconciliation/end-of-period (t/local-date 2017 1 31))
-                    {:reconciliation/status ["A completed reconciliation cannot be updated"]})))
+    (-> (find-reconciliation ["Checking" (t/local-date 2017 1 1)])
+        entities/find
+        (assoc :reconciliation/end-of-period (t/local-date 2017 1 31))
+        (assert-invalid {:reconciliation/status ["A completed reconciliation cannot be updated"]}))))
 
 (dbtest the-most-recent-completed-reconciliation-can-be-deleted
   (with-context existing-reconciliation-context
@@ -335,33 +339,33 @@
 
 (dbtest ^:multi-threaded propagate-reconciliation-deletion
   (with-context working-recon-context
-    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
-      (prop/delete-and-propagate reconciliation)
+    (let [recon (entities/find
+                  (find-reconciliation
+                    ["Checking" (t/local-date 2017 1 3)]))]
+      (prop/delete-and-propagate recon)
       (is (empty? (entities/select
-                    (util/entity-type
-                      {:transaction-item/reconciliation (->entity-ref reconciliation)
-                       :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
-                      :transaction-item)))
+                    {:account-item/reconciliation recon}))
           "The reconciliation is not associated with any items after delete"))))
 
 (dbtest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
   (with-context working-recon-context
-    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
+    (let [recon (entities/find
+                  (find-reconciliation
+                    ["Checking" (t/local-date 2017 1 1)]))]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
-                            (entities/delete reconciliation))
+                            (entities/delete recon))
           "an exception is thrown")
-      (is (entities/find reconciliation)
+      (is (entities/find recon)
           "The reconciliation can still be retrieved"))))
 
 (dbtest ^:multi-threaded a-failed-attempt-to-delete-does-not-propagate
   (with-context working-recon-context
-    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
+    (let [recon (entities/find
+                  (find-reconciliation
+                    ["Checking" (t/local-date 2017 1 1)]))]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
-                            (prop/delete-and-propagate reconciliation))
+                            (prop/delete-and-propagate recon))
           "an exception is thrown during propagation")
       (is (seq (entities/select
-                 (util/entity-type
-                   {:transaction-item/reconciliation (->entity-ref reconciliation)
-                    :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
-                   :transaction-item)))
+                 {:account-item/reconciliation recon}))
           "The transaction items are still associated with the reconciliation"))))

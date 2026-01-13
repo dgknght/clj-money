@@ -109,13 +109,11 @@
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
-                                                       ;NB this is required for :sql and optional for :datomic-peer
+
 (s/def :reconciliation/item
   (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
                              :req-un [::entities/id])
-        :full (s/and ::entities/account-item
-                     ;NB this is required for :sql and optional for :datomic-peer
-                     (s/keys :opt [:transaction/transaction-date]))))
+        :full ::entities/account-item))
 
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
