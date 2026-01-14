@@ -29,7 +29,7 @@
                (map #(update-in % [1] (fn [itms]
                                         (->> itms
                                              (map val-or-qty)
-                                             (reduce + 0M)))))
+                                             (reduce d/+ 0M)))))
                (into {}))]
       (= debit credit))))
 
@@ -469,13 +469,13 @@
                             :transaction-item/value d-val))
         remaining-c (-> c
                         (update-in [:ids] difference (:ids d))
-                        (update-in [:transaction-item/quantity] - d-qty)
-                        (update-in [:transaction-item/value] (fnil - c-val) d-val))]
+                        (update-in [:transaction-item/quantity] d/- d-qty)
+                        (update-in [:transaction-item/value] (fnil d/- c-val) d-val))]
     [(d+c d sliced-c)
      debits
      (->> credits
           (cons remaining-c)
-          (sort-by val-or-qty >))]))
+          (sort-by val-or-qty d/>))]))
 
 (defn- merge-partial-debit
   [[d & debits] [c & credits]]
@@ -488,12 +488,12 @@
                             :transaction-item/value c-val))
         remaining-d (-> d
                         (update-in-if [:ids] difference (:ids c))
-                        (update-in [:transaction-item/quantity] - c-qty)
-                        (update-in [:transaction-item/value] (fnil - d-val) c-val))]
+                        (update-in [:transaction-item/quantity] d/- c-qty)
+                        (update-in [:transaction-item/value] (fnil d/- d-val) c-val))]
     [(d+c sliced-d c)
      (->> debits
           (cons remaining-d)
-          (sort-by val-or-qty >))
+          (sort-by val-or-qty d/>))
      credits]))
 
 (defn- pluck-matches
@@ -527,7 +527,7 @@
                        (= d c)
                        (merge-equals debits credits)
 
-                       (< d c)
+                       (d/< d c)
                        (merge-partial-credit debits credits)
 
                        :else
@@ -608,10 +608,10 @@
                                   (map :transaction-item/quantity)
                                   (reduce +)))
                   (update-in [:transaction-item/value]
-                             +
+                             d/+
                              (->> is
                                   (map :transaction-item/value)
-                                  (reduce +))))))))
+                                  (reduce d/+ 0M))))))))
 
 (defn- bilateral->unilateral-items
   [items]
