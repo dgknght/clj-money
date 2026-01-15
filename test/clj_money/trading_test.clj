@@ -97,17 +97,21 @@
                              :transaction-date (t/local-date 2016 1 2)
                              :description "Purchase 100.000 shares of AAPL at 10.000"
                              :value 1000M
-                             :lot-items [#:lot-item{:action :buy
-                                                    :shares 100M
-                                                    :price 10M}]
-                             :items [#:transaction-item{:action :credit
-                                                        :quantity 1000M
-                                                        :value 1000M
-                                                        :account (util/->entity-ref ira)}
-                                     #:transaction-item{:action :debit
-                                                        :quantity 100M
-                                                        :value 1000M
-                                                        :account (util/->entity-ref (:trade/commodity-account result))}]}]
+                             :lot-items
+                             [#:lot-item{:action :buy
+                                         :shares 100M
+                                         :price 10M}]
+
+                             :items
+                             [#:transaction-item{:value 1000M
+                                                 :credit-item
+                                                 #:account-item{:action :credit
+                                                                :quantity -1000M
+                                                                :account (util/->entity-ref ira)}
+                                                 :debit-item
+                                                 #:account-item{:action :debit
+                                                                :quantity 100M
+                                                                :account (util/->entity-ref (:trade/commodity-account result))}}]}]
 
               (:trade/transactions result))
             "A transaction is created and returned"))
