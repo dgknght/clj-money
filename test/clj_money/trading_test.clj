@@ -124,7 +124,7 @@
                                    :system-tags #{:tradable}
                                    :price-as-of (t/local-date 2016 1 2)}
                          (entities/find-by #:account{:commodity commodity
-                                                   :entity personal}))
+                                                     :entity personal}))
             "An account to track shares of the commodity is created"))
       (testing "The lot"
         (is (comparable? #:lot{:shares-purchased 100M
@@ -153,7 +153,7 @@
                                    :quantity 100M
                                    :value 1000M}
                          (entities/find-by #:account{:commodity commodity
-                                                   :entity personal}))
+                                                     :entity personal}))
             "An account to track shares of the commodity is has propagated values"))
       (testing "The trading account"
         (is (comparable? #:account{:name "IRA"
