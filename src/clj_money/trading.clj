@@ -285,27 +285,28 @@
         account-basis (item-basis account)
         commodity-basis (item-basis commodity-account)
         fee-basis (item-basis fee-account)
-        items (cond-> [#:transaction-item{:action :credit
-                                          :account account
-                                          :quantity currency-amount
-                                          :value currency-amount
-                                          :index (inc (:transaction-item/index account-basis))
-                                          :balance (- (:transaction-item/balance account-basis)
-                                                      currency-amount)}
-                       #:transaction-item{:action :debit
-                                          :account commodity-account
-                                          :quantity shares
-                                          :value value
-                                          :index (inc (:transaction-item/index commodity-basis))
-                                          :balance (+ (:transaction-item/balance commodity-basis)
-                                                      shares)}]
-                (not= 0M fee) (conj #:transaction-item{:action :debit
-                                                       :account fee-account
-                                                       :quantity fee
-                                                       :value fee
-                                                       :index (inc (:transaction-item/index fee-basis))
-                                                       :balance (+ (:transaction-item/balance fee-basis)
-                                                                   fee)}))]
+        items (if (= 0M fee)
+                [#:transaction-item{:value currency-amount
+                                    :credit-item #:account-item{:action :credit
+                                                                :account account
+                                                                :quantity (- 0M currency-amount)}
+                                    :debit-item #:account-item{:action :debit
+                                                               :account commodity-account
+                                                               :quantity shares}}]
+                [#:transaction-item{:value currency-amount
+                                    :credit-item #:account-item{:action :credit
+                                                                :account account
+                                                                :quantity (- 0M (- currency-amount fee))}
+                                    :debit-item #:account-item{:action :debit
+                                                               :account commodity-account
+                                                               :quantity shares}}
+                 #:transaction-item{:value fee
+                                    :credit-item #:account-item{:action :credit
+                                                                :account account
+                                                                :quantity fee}
+                                    :debit-account #:account-item{:action :debit
+                                                                  :account fee-account
+                                                                  :quantity fee}}])]
     (assoc trade
            :trade/transaction
            #:transaction{:entity entity
