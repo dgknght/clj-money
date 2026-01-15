@@ -25,8 +25,8 @@
   {:pre [acc transaction]}
 
   (->> (:transaction/items transaction)
-         (filter #(id= acc (:transaction-item/account %)))
-         first))
+       (filter #(id= acc (:transaction-item/account %)))
+       first))
 
 (def ^:private base-context
   [(factory :user {:user/email "john@doe.com"})
@@ -386,16 +386,16 @@
 
 (deftest sell-a-commodity-for-a-loss-before-1-year
   (with-context sale-context
-    (let [result (-> (sale-attributes)
-                     (assoc :trade/value 200M
-                            :trade/date (t/local-date 2016 4 2))
-                     trading/sell)]
-      (is (comparable? #:transaction-item{:action :debit
-                                          :value 50M
-                                          :quantity 50M}
-                       (item-by-account (find-account "Short-term Capital Losses")
-                                        (first (:trade/transactions result))))
-          "The capital loss account is debited the cost the shares less the sale proceeds"))))
+    (-> (sale-attributes)
+        (assoc :trade/value 200M
+               :trade/date (t/local-date 2016 4 2))
+        trading/sell)
+    (is (seq-of-maps-like?
+          [#:account-item{:action :debit
+                          :quantity 50M}]
+          (entities/select
+            {:account-item/account (find-account "Short-term Capital Losses")}))
+        "The capital loss account is debited the cost the shares less the sale proceeds")))
 
 (def ^:private auto-create-context
   (conj base-context
