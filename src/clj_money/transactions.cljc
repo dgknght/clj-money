@@ -603,15 +603,15 @@
               (-> i
                   (update-in-if [:ids] #(apply union % (map :ids is)))
                   (update-in [:transaction-item/quantity]
-                             +
+                             d/+
                              (->> is
                                   (map :transaction-item/quantity)
-                                  (reduce +)))
+                                  (reduce d/+ (d/d 0))))
                   (update-in [:transaction-item/value]
                              d/+
                              (->> is
                                   (map :transaction-item/value)
-                                  (reduce d/+ 0M))))))))
+                                  (reduce d/+ (d/d 0)))))))))
 
 (defn- bilateral->unilateral-items
   [items]
