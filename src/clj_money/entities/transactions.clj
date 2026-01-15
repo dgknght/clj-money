@@ -117,13 +117,17 @@
 
 (defn- normalize-account-item
   [action value]
-  (fn [{:account-item/keys [account] :as item}]
-    (assoc item
-           :account-item/action action
-           :account-item/quantity (acts/polarize-quantity
-                                    {:account account
-                                     :quantity value
-                                     :action action}))))
+  (fn [{:account-item/keys [account quantity] :as item}]
+    (cond-> item
+
+      (not (:account-item/action item))
+      (assoc :account-item/action action)
+
+      (not quantity)
+      (assoc :account-item/quantity (acts/polarize-quantity
+                                      {:account account
+                                       :quantity value
+                                       :action action})))))
 
 (defn- normalize-account-items
   [{:as item :transaction-item/keys [value]}]
