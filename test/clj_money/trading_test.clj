@@ -361,27 +361,28 @@
       (testing "The transaction"
         (is (seq-of-maps-like?
               [#:transaction{:transaction-date (t/local-date 2017 3 2)
-                             :description "Sell 25.000 shares of AAPL at 8.000"}]
+                             :description "Sell 25.000 shares of AAPL at 8.000 for 50.000 long-term loss"}]
               (:trade/transactions result))
             "The result contains the transaction")
-        (is (comparable? #:transaction-item{:action :debit
-                                            :value 200M
-                                            :quantity 200M}
-                         (item-by-account (find-account "IRA")
-                                          (first (:trade/transactions result))))
+        (is (seq-of-maps-like?
+              [#:account-item{:action :debit
+                              :quantity 2000M}  ; fund the account
+               #:account-item{:action :credit
+                              :quantity -1000M} ; purchase the commodity
+               #:account-item{:action :debit
+                              :quantity 200M}]  ; sell a portion
+              (entities/select
+                {:account-item/account (find-account "IRA")}))
             "The trading account is debited the total proceeds from the purchase")
-        (is (comparable? #:transaction-item{:action :debit
-                                            :value 50M
-                                            :quantity 50M}
-                         (item-by-account (find-account "Long-term Capital Losses")
-                                          (first (:trade/transactions result))))
-            "The capital loss account is debited the cost the shares less the sale proceeds")
-        (is (comparable? #:transaction-item{:action :credit
-                                            :value 250M
-                                            :quantity 25M}
-                         (item-by-account (entities/find-by #:account{:entity (find-entity "Personal")
-                                                                    :commodity (find-commodity "AAPL")})
-                                          (first (:trade/transactions result))))
+        (is (seq-of-maps-like?
+              [#:account-item{:action :debit
+                              :quantity 100M}
+               #:account-item{:action :credit
+                              :quantity -25M}]
+              (entities/select
+                {:account-item/account (entities/find-by
+                                         #:account{:entity (find-entity "Personal")
+                                                   :commodity (find-commodity "AAPL")})}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
 (deftest sell-a-commodity-for-a-loss-before-1-year
