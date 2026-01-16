@@ -274,27 +274,27 @@
       (testing "The transaction"
         (is (seq-of-maps-like?
               [#:transaction{:transaction-date (t/local-date 2017 3 2)
-                             :description "Sell 25.000 shares of AAPL at 15.000"}]
+                             :description "Sell 25.000 shares of AAPL at 15.000 for 125.000 long-term gain"}]
               (:trade/transactions result))
             "The transaction is created and returned")
-        (is (comparable?
-              #:transaction-item{:action :debit
-                                 :value 375M
-                                 :quantity 375M}
-              (item-by-account (find-account "IRA")
-                               (first (:trade/transactions result))))
+        (is (seq-of-maps-like?
+              [{:account-item/action :debit
+                :account-item/quantity 2000M}
+               {:account-item/action :credit
+                :account-item/quantity -1000M}
+               {:account-item/action :debit
+                :account-item/quantity 375M}]
+              (entities/select
+                {:account-item/account (find-account "IRA")}))
             "The trading account is debited the total proceeds from the purchase")
-        (is (comparable? #:transaction-item{:action :credit
-                                            :value 250M
-                                            :quantity 25M}
-                         (item-by-account aapl-acc (first (:trade/transactions result))))
+        (is (seq-of-maps-like?
+              [{:account-item/action :debit
+                :account-item/quantity 100M}
+               {:account-item/action :credit
+                :account-item/quantity -25M}]
+              (entities/select
+                {:account-item/account aapl-acc}))
             "The commodity account is credited the number of shares and purchase value of the shares."))
-      (testing "The capital gains account"
-        (is (comparable? #:transaction-item{:action :credit
-                                            :value 125M
-                                            :quantity 125M}
-                         (item-by-account ltcg (first (:trade/transactions result))))
-            "The capital gains account is credited the amount received above the original cost of the shares."))
       (testing "The entity"
         (let [entity (entities/find-by {:entity/name "Personal"})]
           (is (id= ltcg
