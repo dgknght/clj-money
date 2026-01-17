@@ -14,19 +14,11 @@
                                             find-commodity
                                             find-transaction]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.util :as util :refer [id=]]
+            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.trading :as trading]))
 
 (use-fixtures :each reset-db)
-
-(defn- item-by-account
-  [acc transaction]
-  {:pre [acc transaction]}
-
-  (->> (:transaction/items transaction)
-       (filter #(id= acc (:transaction-item/account %)))
-       first))
 
 (def ^:private base-context
   [(factory :user {:user/email "john@doe.com"})
@@ -239,7 +231,6 @@
 (deftest sell-a-commodity-for-a-gain
   (with-context sale-context
     (let [result (trading/sell (sale-attributes))
-          ltcg (find-account "Long-term Capital Gains")
           aapl-acc (entities/find-by #:account{:entity (find-entity "Personal")
                                                :commodity (find-commodity "AAPL")})]
       (testing "The price"
@@ -275,21 +266,7 @@
                 :account-item/quantity -25M}]
               (entities/select
                 {:account-item/account aapl-acc}))
-            "The commodity account is credited the number of shares and purchase value of the shares."))
-      (testing "The entity"
-        (let [entity (entities/find-by {:entity/name "Personal"})]
-          (is (id= ltcg
-                   (get-in entity [:entity/settings :settings/lt-capital-gains-account]))
-              "The long-term capital gains account is saved")
-          (is (id= (find-account "Short-term Capital Gains")
-                   (get-in entity [:entity/settings :settings/st-capital-gains-account]))
-              "The short-term capital gains account is saved")
-          (is (id= (find-account "Long-term Capital Losses")
-                   (get-in entity [:entity/settings :settings/lt-capital-loss-account]))
-              "The long-term capital losses account is saved")
-          (is (id= (find-account "Short-term Capital Losses")
-                   (get-in entity [:entity/settings :settings/st-capital-loss-account]))
-              "The short-term capital losses account is saved"))))))
+            "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
 (deftest ^:multi-threaded propagate-a-sale
   (with-context sale-context
@@ -352,70 +329,6 @@
                                          #:account{:entity (find-entity "Personal")
                                                    :commodity (find-commodity "AAPL")})}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
-
-(def ^:private auto-create-context
-  (conj base-context
-        #:trade{:type :purchase
-                :entity "Personal"
-                :account "IRA"
-                :commodity "AAPL"
-                :date (t/local-date 2016 3 2)
-                :shares 100M
-                :value 1000M}))
-
-(deftest auto-create-gains-accounts
-  (with-context auto-create-context
-    (trading/sell #:trade{:commodity (find-commodity "AAPL")
-                          :account (find-account "IRA")
-                          :inventory-method :fifo
-                          :date (t/local-date 2017 3 2)
-                          :shares 25M
-                          :value 375M})
-    (let [entity (entities/find-by {:entity/name "Personal"})]
-      (testing "Long-term capital gains"
-        (let [account (entities/find-by #:account{:entity entity
-                                                :name "Long-term Capital Gains"})]
-          (is (comparable? {:account/type :income}
-                           account)
-              "The long-term capital gains account is an income account")
-          (is (id= (get-in entity
-                           [:entity/settings
-                            :settings/lt-capital-gains-account])
-                   account)
-              "The Long-term Capital Gains account is specified in the entity settings")))
-      (testing "Short-term capital gains"
-        (let [account (entities/find-by #:account{:entity entity
-                                                :name "Short-term Capital Gains"})]
-          (is (comparable? {:account/type :income}
-                           account)
-              "The short-term capital gains account is an income account")
-          (is (id= (get-in entity
-                           [:entity/settings
-                            :settings/st-capital-gains-account])
-                   account)
-              "The Short-term Capital Gains account id is placed in the entity settings")))
-      (testing "Long-term capital losses"
-        (let [account (entities/find-by #:account{:entity entity
-                                                :name "Long-term Capital Losses"})]
-          (is (comparable? {:account/type :expense}
-                           account)
-              "The long-term capital losses account is an expense account")
-          (is (id= (get-in entity
-                           [:entity/settings
-                            :settings/lt-capital-loss-account])
-                   account)
-              "The Long-term Capital Losses account id is placed in the entity settings")))
-      (testing "Short-term capital losses"
-        (let [account (entities/find-by #:account{:entity entity
-                                                :name "Short-term Capital Losses"})]
-          (is (comparable? {:account/type :expense}
-                           account)
-              "The short-term capital losses account is an expense account")
-          (is (id= (get-in entity
-                           [:entity/settings
-                            :settings/st-capital-loss-account])
-                   account)
-              "The Short-term Capital Losses account id is placed in the entity settings"))))))
 
 (deftest ^:multi-threaded sell-a-commodity-with-a-fee
   (with-context sale-context
@@ -656,10 +569,10 @@
 
 (deftest ^:multi-threaded split-a-commodity
   (with-context sale-context
-    (let [ira (find-account "IRA")
+    (let [entity (find-entity "Personal")
+          ira (find-account "IRA")
           commodity (find-commodity "AAPL")
-          commodity-account (entities/find-by #:account{:name "AAPL"
-                                                      :parent ira})
+          trx-count-before (entities/count {:transaction/entity entity})
           [result] (trading/split-and-propagate
                      #:split{:commodity commodity
                              :account ira
@@ -667,18 +580,9 @@
                              :date (t/local-date 2016 3 3)})]
       (is (= 2M (:split/ratio result))
           "The split ratio is returned")
-      (testing "The transaction"
-        (is (comparable? #:transaction{:entity (:commodity/entity commodity)
-                                       :transaction-date (t/local-date 2016 3 3)
-                                       :description "Split shares of AAPL 2 for 1"
-                                       :value 0M
-                                       :items [#:transaction-item{:action :debit
-                                                                  :account (util/->entity-ref commodity-account)
-                                                                  :quantity 100M
-                                                                  :balance 200M
-                                                                  :value 0M}]}
-                         (entities/find (:split/transaction result)))
-            "The result contains the transaction that was created"))
+      (is (= trx-count-before
+             (entities/count {:transaction/entity entity}))
+          "No transaction is created")
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)
                                       :account (util/->entity-ref ira)
@@ -704,22 +608,21 @@
 
 (deftest reverse-split-a-commodity
   (with-context rev-split-context
-    (let [account (find-account "IRA")
+    (let [entity (find-entity "Personal")
+          account (find-account "IRA")
           commodity (find-commodity "AAPL")
-          result (trading/split #:split{:date (t/local-date 2016 4 1)
-                                        :account account
-                                        :commodity commodity
-                                        :shares-gained -1350M})]
-      (testing "The transaction"
-        (is (comparable? #:transaction{:description "Split shares of AAPL 1 for 10"
-                                       :items [#:transaction-item{:action :credit
-                                                                  :quantity 1350M}]}
-                         (:split/transaction result))))
-
+          count-before (entities/count {:transaction/entity entity})]
+      (trading/split #:split{:date (t/local-date 2016 4 1)
+                             :account account
+                             :commodity commodity
+                             :shares-gained -1350M})
+      (is (= count-before
+             (entities/count {:transaction/entity entity}))
+          "No transaction is created")
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2016 3 2)
                                       :shares-purchased 150M
                                       :shares-owned 150M
                                       :purchase-price 200M}]
                                (entities/select #:lot{:account account
-                                                    :commodity commodity})))))))
+                                                      :commodity commodity})))))))

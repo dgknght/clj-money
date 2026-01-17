@@ -836,7 +836,7 @@
            :split/lots lots
            :split/lot-items lot-items)))
 
-(defn- ratio->words
+#_(defn- ratio->words
   [ratio]
   ; We'll need to expand this at some point to handle
   ; reverse splits and stranger splits, like 3:2
@@ -847,30 +847,6 @@
                               (/ % ratio)))))]
     (format "%s for %s" n d)))
 
-(defn- create-split-transaction
-  [{:split/keys [commodity
-                 date
-                 ratio
-                 commodity-account
-                 shares-gained] :as split}
-   {:keys [item-basis]}]
-  (let [{:transaction-item/keys [index balance]} (item-basis commodity-account)]
-    (assoc split
-           :split/transaction
-           #:transaction{:entity (:commodity/entity commodity)
-                         :transaction-date date
-                         :description (format "Split shares of %s %s"
-                                              (:commodity/symbol commodity)
-                                              (ratio->words ratio))
-                         :items [#:transaction-item{:action (if (< 0 shares-gained)
-                                                              :debit
-                                                              :credit)
-                                                    :account commodity-account
-                                                    :quantity (.abs shares-gained)
-                                                    :value 0M
-                                                    :index (inc index)
-                                                    :balance (+ balance shares-gained)}]})))
-
 (defn- append-split-accounts
   [{:as split :split/keys [commodity account]}]
   (-> split
@@ -879,16 +855,15 @@
                                                                 :parent account}))))
 
 (defn- put-split
-  [{:split/keys [transaction
-                 lots
+  [{:split/keys [lots
                  lot-items
                  ratio]}
    opts]
-  (let [result (->> (cons transaction (concat lots lot-items))
+  (let [result (->> lots
+                    (concat lot-items)
                     (entities/put-many opts)
                     (group-by util/entity-type))]
-    {:split/transaction (first (:transaction result))
-     :split/lots (:lot result)
+    {:split/lots (:lot result)
      :split/lot-items (:lot-item result)
      :split/ratio ratio}))
 
@@ -918,7 +893,6 @@
             append-split-lots
             append-split-ratio
             adjust-split-lots
-            (create-split-transaction opts)
             (put-split opts)))))
 
 (def split-and-propagate
