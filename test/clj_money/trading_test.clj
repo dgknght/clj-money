@@ -613,21 +613,24 @@
               #:transaction{:transaction-date (t/local-date 2016 4 2)
                             :description "Transfer 100 shares of AAPL"
                             :entity (util/->entity-ref (find-entity "Personal"))
-                            :items [#:transaction-item{:action :credit
-                                                       :quantity 100M
-                                                       :value 1000M
-                                                       :balance 0M
-                                                       :account (util/->entity-ref
-                                                                  (entities/find-by #:account{:name "AAPL"
-                                                                                            :parent from-account}))}
-                                    #:transaction-item{:action :debit
-                                                       :quantity 100M
-                                                       :value 1000M
-                                                       :balance 100M
-                                                       :account (util/->entity-ref
-                                                                  (entities/find-by #:account{:name "AAPL"
-                                                                                            :parent to-account}))}]}
-              (entities/find (:transfer/transaction result)))
+                            :items
+                            [#:transaction-item{:value 1000M
+                                                :credit-item
+                                                #:account-item{:quantity -100M
+                                                               :balance 0M
+                                                               :account (util/->entity-ref
+                                                                          (entities/find-by
+                                                                            #:account{:name "AAPL"
+                                                                                      :parent from-account}))}
+
+                                                :debit-item
+                                                #:account-item{:quantity 100M
+                                                               :balance 100M
+                                                               :account (util/->entity-ref
+                                                                          (entities/find-by
+                                                                            #:account{:name "AAPL"
+                                                                                      :parent to-account}))}}]}
+                            (entities/find (:transfer/transaction result)))
             "A transaction is created and returned"))
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:commodity (util/->entity-ref commodity)
