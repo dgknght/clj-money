@@ -629,12 +629,12 @@
   [trx & {:as opts}]
   (let [lot-items (entities/select
                     (util/entity-type {:transaction/_self trx}
-                                     :lot-item))
+                                      :lot-item))
         lots (index-by :id
                        (entities/select (util/entity-type
-                                        {:id [:in (map (comp :id :lot-item/lot)
-                                                       lot-items)]}
-                                        :lot)))
+                                          {:id [:in (map (comp :id :lot-item/lot)
+                                                         lot-items)]}
+                                          :lot)))
         updated-lots (vals (reduce (fn [lots lot-item]
                                      (update-in lots
                                                 [(get-in lot-item [:lot-item/lot :id])
@@ -643,8 +643,8 @@
                                    lots
                                    lot-items))]
     (entities/put-many opts
-                     (cons [::db/delete trx]
-                           updated-lots))))
+                       (cons [::db/delete trx]
+                             updated-lots))))
 
 (def unsell-and-propagate
   (prop/+propagation unsell))
