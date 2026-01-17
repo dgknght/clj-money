@@ -63,21 +63,6 @@
                  :credit-account "Opening balances"
                  :quantity 2000M}])
 
-(def ^:private purchase-context
-  (conj base-context
-        #:account{:name "Long-term Capital Gains"
-                  :entity "Personal"
-                  :type :income}
-        #:account{:name "Long-term Capital Losses"
-                  :entity "Personal"
-                  :type :expense}
-        #:account{:name "Short-term Capital Gains"
-                  :entity "Personal"
-                  :type :income}
-        #:account{:name "Short-term Capital Losses"
-                  :entity "Personal"
-                  :type :expense}))
-
 (defn- purchase-attributes []
   #:trade{:commodity (find-commodity "AAPL")
           :account (find-account "IRA")
@@ -86,7 +71,7 @@
           :value 1000M})
 
 (deftest purchase-a-commodity
-  (with-context purchase-context
+  (with-context base-context
     (let [personal (find-entity "Personal")
           ira (find-account "IRA")
           commodity (find-commodity "AAPL")
@@ -143,7 +128,7 @@
             "The price is returned")))))
 
 (deftest ^:multi-threaded propagate-a-purchase
-  (with-context purchase-context
+  (with-context base-context
     (let [personal (find-entity "Personal")
           ira (find-account "IRA")
           commodity (find-commodity "AAPL")]
@@ -163,7 +148,7 @@
             "The trading account balance is updated to reflect money paid out")))))
 
 (deftest ^:multi-threaded purchase-a-commodity-with-a-fee
-  (with-context purchase-context
+  (with-context base-context
     (let [ira (find-account "IRA")
           inv-exp (find-account "Investment Expenses")]
       (-> (purchase-attributes)
@@ -176,7 +161,7 @@
           "The investment expense account reflects the fee"))))
 
 (deftest ^:multi-threaded reinvest-a-dividend
-  (with-context purchase-context
+  (with-context base-context
     (let [dividends (find-account "Dividends")
           ira (entities/find (find-account "IRA"))
           [{:trade/keys [transactions]}] (-> #:trade{:commodity (find-commodity "AAPL")
@@ -209,19 +194,19 @@
         (trading/buy attr))))
 
 (deftest purchase-requires-a-trade-date
-  (with-context purchase-context
+  (with-context base-context
     (assert-invalid-purchase
       (dissoc (purchase-attributes) :trade/date)
       {:trade/date ["Date is required"]})))
 
 (deftest purchase-requires-a-number-of-shares
-  (with-context purchase-context
+  (with-context base-context
     (assert-invalid-purchase
       (dissoc (purchase-attributes) :trade/shares)
       {:trade/shares ["Shares is required"]})))
 
 (deftest purchase-requires-a-value
-  (with-context purchase-context
+  (with-context base-context
     (assert-invalid-purchase
       (dissoc (purchase-attributes) :trade/value)
       {:trade/value ["Value is required"]})))
@@ -236,17 +221,13 @@
 (defn- sale-attributes []
   #:trade{:commodity (find-commodity "AAPL")
           :account (find-account "IRA")
-          :lt-capital-gains-account (find-account "Long-term Capital Gains")
-          :lt-capital-loss-account (find-account "Long-term Capital Losses")
-          :st-capital-gains-account (find-account "Short-term Capital Gains")
-          :st-capital-loss-account (find-account "Short-term Capital Losses")
           :inventory-method :fifo
           :date (t/local-date 2017 3 2)
           :shares 25M
           :value 375M})
 
 (def ^:private sale-context
-  (conj purchase-context
+  (conj base-context
         #:trade{:type :purchase
                 :entity "Personal"
                 :account "IRA"
@@ -255,7 +236,7 @@
                 :shares 100M
                 :value 1000M}))
 
-(deftest sell-a-commodity-for-a-gain-after-1-year
+(deftest sell-a-commodity-for-a-gain
   (with-context sale-context
     (let [result (trading/sell (sale-attributes))
           ltcg (find-account "Long-term Capital Gains")
@@ -327,23 +308,10 @@
                        (entities/find-by {:account/name "IRA"}))
           "The trading account is updated wth new value"))))
 
-(deftest sell-a-commodity-for-a-gain-before-1-year
-  (with-context sale-context
-    (let [result (-> (sale-attributes)
-                     (assoc :trade/date (t/local-date 2016 4 2))
-                     trading/sell)]
-      (testing "The capital gains account"
-        (is (comparable? #:transaction-item{:action :credit
-                                            :value 125M
-                                            :quantity 125M}
-                         (item-by-account (find-account "Short-term Capital Gains")
-                                          (first (:trade/transactions result))))
-            "The capital gains account is credited the amount received above the original cost of the shares.")))))
-
 ; sell 25 shares at $8.00 per share and $50 loss
 ; value before sale: $800.00
 ; value after sale: $600.00
-(deftest sell-a-commodity-for-a-loss-after-1-year
+(deftest sell-a-commodity-for-a-loss
   (with-context sale-context
     (let [result (-> (sale-attributes)
                      (assoc :trade/value 200M)
@@ -384,19 +352,6 @@
                                          #:account{:entity (find-entity "Personal")
                                                    :commodity (find-commodity "AAPL")})}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
-
-(deftest sell-a-commodity-for-a-loss-before-1-year
-  (with-context sale-context
-    (-> (sale-attributes)
-        (assoc :trade/value 200M
-               :trade/date (t/local-date 2016 4 2))
-        trading/sell)
-    (is (seq-of-maps-like?
-          [#:account-item{:action :debit
-                          :quantity 50M}]
-          (entities/select
-            {:account-item/account (find-account "Short-term Capital Losses")}))
-        "The capital loss account is debited the cost the shares less the sale proceeds")))
 
 (def ^:private auto-create-context
   (conj base-context
@@ -508,7 +463,7 @@
 ; (FILO updates the most recent, FIFO updates the oldest)
 
 (def ^:private multi-lot-context
-  (conj purchase-context
+  (conj base-context
         #:trade{:type :purchase
                 :entity "Personal"
                 :date (t/local-date 2015 3 2)
@@ -738,7 +693,7 @@
             "The account balance is unchanged")))))
 
 (def ^:private rev-split-context
-  (conj purchase-context
+  (conj base-context
         #:trade{:type :purchase
                 :entity "Personal"
                 :date (t/local-date 2016 3 2)
