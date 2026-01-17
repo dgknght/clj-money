@@ -153,9 +153,10 @@
   specified date."
   [opts accounts]
   (if (-> opts :entity :entity/transaction-date-range)
-    (let [data (valuation-data (-> opts
-                                   (assoc :accounts accounts)
-                                   (update-in [:as-of] (fnil identity (t/local-date)))))]
+    (let [data (valuation-data
+                 (-> opts
+                     (assoc :accounts accounts)
+                     (update-in [:as-of] (fnil identity (t/local-date)))))]
       (valuate data accounts))
     accounts))
 
@@ -228,7 +229,7 @@
      (income-statement entity since as-of)))
   ([entity since as-of]
    (->> (entities/select #:account{:entity entity
-                                 :type [:in #{:income :expense}]})
+                                   :type [:in #{:income :expense}]})
         (valuate-accounts {:entity entity
                            :since since
                            :as-of as-of})
