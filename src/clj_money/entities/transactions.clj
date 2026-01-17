@@ -111,38 +111,6 @@
                   x))
               entity)))
 
-(defmethod entities/before-validation :transaction
-  [trx]
-  (empty-strings->nils trx))
-
-(defn- normalize-account-item
-  [action value]
-  (fn [{:account-item/keys [account quantity] :as item}]
-    (cond-> item
-
-      (not (:account-item/action item))
-      (assoc :account-item/action action)
-
-      (not quantity)
-      (assoc :account-item/quantity (acts/polarize-quantity
-                                      {:account account
-                                       :quantity value
-                                       :action action})))))
-
-(defn- normalize-account-items
-  [{:as item :transaction-item/keys [value]}]
-  (-> item
-      (update-in [:transaction-item/debit-item]
-                 (normalize-account-item :debit value))
-      (update-in [:transaction-item/credit-item]
-                 (normalize-account-item :credit value))))
-
-(defn- normalize-trx-account-items
-  [trx]
-  (update-in trx
-             [:transaction/items]
-             #(map normalize-account-items %)))
-
 (defn- realize-item-accounts
   "Given a list of transaction items, realize any simple account
   references account items"
@@ -168,13 +136,50 @@
            items))
     items))
 
+(defn- normalize-account-item
+  [action value]
+  (fn [{:account-item/keys [account quantity] :as item}]
+    (cond-> item
+
+      (not (:account-item/action item))
+      (assoc :account-item/action action)
+
+      (and (not quantity)
+           account)
+      (assoc :account-item/quantity (acts/polarize-quantity
+                                      {:account account
+                                       :quantity value
+                                       :action action})))))
+
+(defn- normalize-account-items
+  [{:as item :transaction-item/keys [value]}]
+  (-> item
+      (update-in [:transaction-item/debit-item]
+                 (normalize-account-item :debit value))
+      (update-in [:transaction-item/credit-item]
+                 (normalize-account-item :credit value))))
+
+(defn- normalize-trx-account-items
+  [trx]
+  (if (get-in trx [:transaction/items 0 :transaction-item/credit-item])
+    (-> trx
+        (update-in [:transaction/items] realize-item-accounts)
+        (update-in [:transaction/items]
+                   #(map normalize-account-items %)))
+    trx))
+
+(defmethod entities/before-validation :transaction
+  [trx]
+  (-> trx
+      empty-strings->nils
+      normalize-trx-account-items))
+
 (defmethod entities/before-save :transaction
   [transaction]
   (let [{:transaction/keys [items] :as trx}
         (-> transaction
             (dissoc :transaction/original-transaction-date)
             trxs/->bilateral
-            (update-in [:transaction/items] realize-item-accounts)
             normalize-trx-account-items)]
     (cond-> trx
       (seq items)
