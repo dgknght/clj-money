@@ -63,7 +63,7 @@
   [entity & {:as opts}]
   (when-let [data (s/explain-data (validation-key entity)
                                   entity)]
-    (log/debugf "[validation] Invalid entity %s" data)
+    (log/debugf "[validation] Invalid entity %s" (with-out-str (pprint data)))
     (throw (ex-info "Validation failed"
                     {::v/errors (v/extract-errors data opts)})))
   entity)
