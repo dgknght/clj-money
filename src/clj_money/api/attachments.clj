@@ -29,11 +29,7 @@
 (defn- extract-account-criteria
   [{:keys [authenticated] {:keys [start-date end-date account-id]} :params}]
   (+scope
-    {:transaction-item/account {:id account-id}
-     :transaction/transaction-date
-     [:between>
-      (dates/unserialize-local-date start-date)
-      (dates/unserialize-local-date end-date)]}
+    {:account-item/account {:id account-id}}
     :attachment
     authenticated))
 
