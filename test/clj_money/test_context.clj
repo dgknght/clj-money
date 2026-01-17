@@ -10,9 +10,12 @@
             [clj-money.images :as images]
             [clj-money.transactions :as trxs]
             [clj-money.entities.propagation :as prop]
-            [clj-money.trading :as trading]))
+            [clj-money.trading :as trading])
+  (:import java.util.regex.Pattern))
 
 (def ^:dynamic *context* nil)
+
+(def ^:private pattern? (partial instance? Pattern))
 
 (def basic-context
   [#:user{:email "john@doe.com"
@@ -72,7 +75,8 @@
          (->> kvs
               (partition 2)
               (mapv (fn [[k v]]
-                      #(= v (k %)))))))
+                      (let [f (if (pattern? v) re-find =)]
+                        #(f v (k %))))))))
 
 (defn- find
   ([context k v & kvs]
@@ -195,7 +199,7 @@
 (defn find-transaction
   ([identifier] (find-transaction *context* identifier))
   ([context [transaction-date description]]
-   {:pre [(string? description) (t/local-date? transaction-date)]}
+   {:pre [((some-fn string? pattern?) description) (t/local-date? transaction-date)]}
 
    (find context
          :transaction/transaction-date transaction-date

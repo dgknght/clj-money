@@ -620,7 +620,7 @@
 (deftest ^:multi-threaded undo-a-sale
   (with-context existing-sale-context
     (let [trx (find-transaction [(t/local-date 2017 3 2)
-                                 "Sell 25.000 shares of AAPL at 15.000"])
+                                 #"^Sell 25\.000 shares of AAPL"])
           ira (find-account "IRA")]
       (trading/unsell-and-propagate trx)
       (testing "The transaction"
