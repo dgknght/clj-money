@@ -514,17 +514,18 @@
       (-> (multi-lot-sale-attributes ira commodity)
           (assoc :trade/inventory-method :fifo)
           trading/sell)
-      (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 3 2)
-                                    :shares-purchased 100M
-                                    :shares-owned 50M
-                                    :purchase-price 10M}
-                              #:lot{:purchase-date (t/local-date 2016 3 2)
-                                    :shares-purchased 100M
-                                    :shares-owned 100M
-                                    :purchase-price 20M}]
-                             (entities/select #:lot{:commodity commodity
-                                                  :account ira}
-                                            {:sort [[:lot/purchase-date :asc]]}))
+      (is (seq-of-maps-like?
+            [#:lot{:purchase-date (t/local-date 2015 3 2)
+                   :shares-purchased 100M
+                   :shares-owned 50M
+                   :purchase-price 10M}
+             #:lot{:purchase-date (t/local-date 2016 3 2)
+                   :shares-purchased 100M
+                   :shares-owned 100M
+                   :purchase-price 20M}]
+            (entities/select #:lot{:commodity commodity
+                                   :account ira}
+                             {:sort [[:lot/purchase-date :asc]]}))
           "Shares are sold from the earliest lot"))))
 
 (deftest ^:multi-threaded undo-a-purchase
