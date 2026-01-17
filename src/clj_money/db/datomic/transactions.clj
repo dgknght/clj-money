@@ -4,19 +4,22 @@
             [clj-money.entities :as entities]
             [clj-money.util :as util]))
 
+(defn- prepare-account-item
+  [id]
+  (fn [item]
+    (-> item
+        (assoc :account-item/transaction-item id)
+        (update-in [:db/id] (fnil identity (util/temp-id))))))
+
 (defn- prepare-item
   [{:keys [id] :as item}]
   (let [id (or id (util/temp-id))]
     (-> item
         (assoc :id id)
         (update-in [:transaction-item/debit-item]
-                   #(assoc %
-                           :account-item/transaction-item
-                           id))
+                   (prepare-account-item id))
         (update-in [:transaction-item/credit-item]
-                   #(assoc %
-                           :account-item/transaction-item
-                           id)))))
+                   (prepare-account-item id)))))
 
 (defmethod datomic/before-save :transaction
   [trx]
