@@ -566,42 +566,6 @@
     (update-in trade
                [:trade/entity :entity/settings]
                #(merge settings %))))
- 
-(def ^:private find-or-create-account
-  (some-fn entities/find-by entities/put))
- 
-(defn- find-or-create-gains-account
-  [{:trade/keys [entity]} term result]
-  (find-or-create-account
-    #:account{:entity entity
-              :type (if (= "gains" result)
-                      :income
-                      :expense)
-              :name (str (if (= "lt" term) "Long-term" "Short-term")
-                         " Capital "
-                         (if (= "gains" result) "Gains" "Losses"))}))
- 
-(defn- ensure-gains-account
-  [{:trade/keys [entity] :as trade} [term result]]
-  (let [naked-key (str term "-capital-" result "-account")
-        trade-key (keyword "trade" naked-key)
-        settings-key (keyword "settings" naked-key)]
-    (update-in trade
-               [trade-key]
-               (fn [account]
-                 (or (when account (entities/find account))
-                     (when-let [act (get-in entity [:entity/settings settings-key])]
-                       (entities/find act))
-                     (find-or-create-gains-account trade term result))))))
-
-(defn- ensure-gains-accounts
-  "Ensures that the gain/loss accounts are present
-  in the sale transaction."
-  [trade]
-  (->> (for [term ["lt" "st"]
-             result ["gains" "loss"]]
-         [term result])
-       (reduce ensure-gains-account trade)))
 
 (defn- put-sale
   [{:trade/keys [transactions
@@ -609,10 +573,6 @@
                  commodity
                  account
                  commodity-account
-                 lt-capital-gains-account
-                 lt-capital-loss-account
-                 st-capital-gains-account
-                 st-capital-loss-account
                  price
                  entity] :as trade}
    opts]
@@ -620,11 +580,7 @@
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finally save the affected accounts
-  (let [result (->> (concat [lt-capital-gains-account
-                             lt-capital-loss-account
-                             st-capital-gains-account
-                             st-capital-loss-account
-                             commodity-account
+  (let [result (->> (concat [commodity-account
                              commodity
                              price
                              account
@@ -658,7 +614,6 @@
           append-accounts
           append-entity
           acquire-lots
-          ensure-gains-accounts
           update-entity-settings
           create-price
           push-commodity-price-boundary
