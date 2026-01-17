@@ -485,11 +485,7 @@
           :account account
           :commodity commodity
           :shares 50M
-          :value 1500M
-          :lt-capital-gains-account (find-account "Long-term Capital Gains")
-          :st-capital-gains-account (find-account "Short-term Capital Gains")
-          :lt-capital-loss-account (find-account "Long-term Capital Losses")
-          :st-capital-loss-account (find-account "Short-term Capital Losses")})
+          :value 1500M})
 
 (deftest lifo-sale
   (with-context multi-lot-context
