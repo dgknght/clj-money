@@ -291,8 +291,8 @@
    {:pre [account (every? :transaction/transaction-date items)]}
    (if (empty? items)
      [(cond-> (assoc account
-                     :account/quantity (:transaction-item/balance basis 0M)
-                     :account/value (:transaction-item/value basis 0M))
+                     :account/quantity (:account-item/balance basis 0M)
+                     :account/value (:account-item/value basis 0M))
         (= -1 (:account-item/index basis))
         (assoc :account/transaction-date-range nil))]
      (let [updated-items (->> items
