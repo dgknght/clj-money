@@ -297,26 +297,17 @@
   (let [currency-amount (+ value fee)
         items (if (= 0M fee)
                 [#:transaction-item{:value currency-amount
-                                    :credit-item #:account-item{:action :credit
-                                                                :account account
-                                                                :quantity (- 0M currency-amount)}
-                                    :debit-item #:account-item{:action :debit
-                                                               :account commodity-account
+                                    :credit-item #:account-item{:account account}
+                                    :debit-item #:account-item{:account commodity-account
                                                                :quantity shares}}]
                 [#:transaction-item{:value currency-amount
-                                    :credit-item #:account-item{:action :credit
-                                                                :account account
+                                    :credit-item #:account-item{:account account
                                                                 :quantity (- 0M (- currency-amount fee))}
-                                    :debit-item #:account-item{:action :debit
-                                                               :account commodity-account
+                                    :debit-item #:account-item{:account commodity-account
                                                                :quantity shares}}
                  #:transaction-item{:value fee
-                                    :credit-item #:account-item{:action :credit
-                                                                :account account
-                                                                :quantity fee}
-                                    :debit-account #:account-item{:action :debit
-                                                                  :account fee-account
-                                                                  :quantity fee}}])]
+                                    :credit-item #:account-item{:account account}
+                                    :debit-item #:account-item{:account fee-account}}])]
     (assoc trade
            :trade/transaction
            #:transaction{:entity entity
@@ -345,12 +336,8 @@
                                                           :quantity (- 0M shares)}}]
     (not (zero? fee))
     (conj #:transaction-item{:value fee
-                             :debit-item #:account-item{:action :debit
-                                                        :account fee-account
-                                                        :quantity fee}
-                             :credit-item #:account-item{:action :credit
-                                                         :account account
-                                                         :quantity fee}})))
+                             :debit-item #:account-item{:account fee-account}
+                             :credit-item #:account-item{:account account}})))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
