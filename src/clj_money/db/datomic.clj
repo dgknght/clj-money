@@ -193,17 +193,13 @@
 
         {:keys [tempids]} (transact api prepped {})]
     (->> prepped
-         (filter (every-pred map?
-                             :db/id))
+         (map (comp #(tempids % %)
+                    :db/id))
+         (filter identity)
+         (pull-many api)
          (map (comp after-read
                     apply-coercions
-                    #(util/deep-rename-keys % {:db/id :id})
-                    ffirst
-                    #(query api {:query '[:find (pull ?x [*])
-                                          :in $ ?x]
-                                 :args [%]})
-                    #(tempids % %)
-                    :db/id)))))
+                    #(util/deep-rename-keys % {:db/id :id}))))))
 
 ; It seems that after an entire entity has been retracted, the id
 ; can still be returned
