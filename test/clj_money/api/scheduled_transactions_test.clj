@@ -20,7 +20,6 @@
                                             find-entity
                                             find-account
                                             find-scheduled-transaction]]
-            [clj-money.entities.transactions :as trxs]
             [clj-money.test-helpers :refer [reset-db
                                             parse-edn-body]]
             [clj-money.web.server :refer [app]]))
@@ -325,44 +324,32 @@
   [user-email]
   (with-context update-context
     (let [sched-tran (find-scheduled-transaction "Paycheck")]
-      [(with-fixed-time "2016-02-02T00:00:00Z"
-         (-> (req/request :post (path :api
-                                      :scheduled-transactions
-                                      (:id sched-tran)
-                                      :realize))
-             (add-auth (find-user user-email))
-             app
-             parse-edn-body))
-       (trxs/append-items
-         (entities/select
-           #:transaction{:transaction-date [:between>
-                                            (t/local-date 2016 1 1)
-                                            (t/local-date 2017 1 1)]
-                         :entity (:scheduled-transaction/entity sched-tran)
-                         :description "Paycheck"}))
-       (entities/find sched-tran)])))
+      (with-fixed-time "2016-02-02T00:00:00Z"
+        (-> (req/request :post (path :api
+                                     :scheduled-transactions
+                                     (:id sched-tran)
+                                     :realize))
+            (add-auth (find-user user-email))
+            app
+            parse-body)))))
 
 (defn- assert-successful-realization
-  [[response trxs retrieved]]
+  [response]
   (is (http-created? response))
-  (is (= 1 (count trxs))
-      "One transaction is created.")
   (is (seq-of-maps-like?
         [#:transaction{:description "Paycheck"
-                       :transaction-date (t/local-date 2016 2 1)}]
-        trxs)
-      "The transaction is created with the correct attributes.")
-  (is (= #{#:transaction-item{:action :debit
-                              :quantity 1000M}
-           #:transaction-item{:action :credit
-                              :quantity 1000M}}
-         (->> (:transaction/items (first trxs))
-              (map #(select-keys % [:transaction-item/action
-                                    :transaction-item/quantity]))
-              (into #{})))
-      "The transaction is created with the correct line items.")
+                       :transaction-date (t/local-date 2016 2 1)
+                       :items [#:transaction-item{:value 1000M}]}]
+        (entities/select
+          #:transaction{:description "Paycheck"}))
+      "The transaction is created with the next projected transaction date")
   (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 2 1)}
-                   retrieved)
+                   (->> (:parsed-body response)
+                        (filter (util/entity-type? :transaction))
+                        (map (comp entities/find
+                                   :id
+                                   :transaction/scheduled-transaction))
+                        first))
       "The scheduled trx record is updated with the last occurrence"))
 
 (defn- assert-blocked-realization
@@ -424,26 +411,19 @@
 
 (defn- realize-all-trans
   [user-email]
-  (with-context mass-realize-context
-    (let [entity (find-entity "Personal")]
-      [(with-fixed-time "2016-02-02T00:00:00Z"
-         (-> (req/request :post (path :api
-                                      :entities
-                                      (:id entity)
-                                      :scheduled-transactions
-                                      :realize))
-             (add-auth (find-user user-email))
-             app
-             parse-edn-body))
-       (trxs/append-items
-         (entities/select #:transaction{:transaction-date [:between>
-                                                         (t/local-date 2016 1 1)
-                                                         (t/local-date 2017 1 1)]
-                                      :entity entity}
-                        {:sort [:transaction/transaction-date]}))])))
+  (let [entity (find-entity "Personal")]
+    (with-fixed-time "2016-02-02T00:00:00Z"
+      (-> (req/request :post (path :api
+                                   :entities
+                                   (:id entity)
+                                   :scheduled-transactions
+                                   :realize))
+          (add-auth (find-user user-email))
+          app
+          parse-body))))
 
 (defn- assert-successful-mass-realization
-  [[{:as response :keys [edn-body]} retrieved]]
+  [{:as response :keys [parsed-body]}]
   (is (http-created? response))
   (let [expected [#:transaction{:description "Groceries"
                                 :transaction-date (t/local-date 2016 1 31)}
@@ -451,9 +431,12 @@
                                 :transaction-date (t/local-date 2016 2 1)}
                   #:transaction{:description "Groceries"
                                 :transaction-date (t/local-date 2016 2 7)}]]
-    (is (seq-of-maps-like? expected edn-body)
+    (is (seq-of-maps-like? expected parsed-body)
         "The created transactions are returned.")
-    (is (seq-of-maps-like? expected retrieved)
+    (is (seq-of-maps-like? expected
+                           (entities/select
+                             {:transaction/entity (find-entity "Personal")}
+                             {:sort [:transaction/transaction-date]}))
         "The transactions can be retrieved.")))
 
 (defn- assert-blocked-mass-realization
@@ -462,7 +445,11 @@
   (is (empty? retrieved) "No transactions are created."))
 
 (deftest a-user-can-realize-all-scheduled-transactions-in-his-entity
-  (assert-successful-mass-realization (realize-all-trans "john@doe.com")))
+  (with-context mass-realize-context
+    (assert-successful-mass-realization
+      (realize-all-trans "john@doe.com"))))
 
 (deftest a-user-cannot-realize-all-transactions-in-anothers-entity
-  (assert-blocked-mass-realization (realize-all-trans "jane@doe.com")))
+  (with-context mass-realize-context
+    (assert-blocked-mass-realization
+      (realize-all-trans "jane@doe.com"))))
