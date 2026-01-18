@@ -552,20 +552,14 @@
         (throw (ex-info msg trd))))))
  
 (defn- update-entity-settings
-  [trade]
-  (let [settings (-> trade
-                     (select-keys [:trade/lt-capital-gains-account
-                                   :trade/st-capital-gains-account
-                                   :trade/lt-capital-loss-account
-                                   :trade/st-capital-loss-account
-                                   :trade/inventory-method])
-                     (update-keys #(keyword "settings" (name %)))
-                     (update-vals #(if (map? %)
-                                     (util/->entity-ref %)
-                                     %)))]
+  [{:trade/keys [inventory-method] :as trade}]
+  (if inventory-method
     (update-in trade
                [:trade/entity :entity/settings]
-               #(merge settings %))))
+               assoc
+               :settings/inventory-method
+               inventory-method)
+    trade))
 
 (defn- put-sale
   [{:trade/keys [transactions
