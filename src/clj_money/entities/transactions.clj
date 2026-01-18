@@ -154,10 +154,10 @@
 (defn- normalize-account-items
   [{:as item :transaction-item/keys [value]}]
   (-> item
-      (update-in [:transaction-item/debit-item]
-                 (normalize-account-item :debit value))
-      (update-in [:transaction-item/credit-item]
-                 (normalize-account-item :credit value))))
+      (update-in-if [:transaction-item/debit-item]
+                    (normalize-account-item :debit value))
+      (update-in-if [:transaction-item/credit-item]
+                    (normalize-account-item :credit value))))
 
 (defn- normalize-trx-account-items
   [trx]
@@ -336,7 +336,7 @@
   "Returns a function that takes a list of transaction items and returns the
   items along with any other items affected by the transaction, and the updated
   account, if the account is also updated"
-  [& {:keys [as-of delete?]}]
+  [& {:keys [as-of delete? force?]}]
   (fn [[_ [{:account-item/keys [account]} :as items]]]
     {:pre [account]}
     (let [ids (->> items
@@ -354,7 +354,7 @@
                     :account/transaction-date-range
                     as-of))
                 (propagation-basis account as-of)
-                {:force? delete?}
+                {:force? force?}
                 (sort-by :transaction/transaction-date t/before?
                          (cond->> affected-items
                            (not delete?) (concat items)))))))
@@ -417,10 +417,32 @@
     (and (transaction-item? entity)
          (contains? (set (map :id items)) (:id entity)))))
 
+(defn- any-item-deleted?
+  [[before after]]
+  (when (and before after)
+    (let [remains? (comp (->> (:transaction/items after)
+                              (map :id)
+                              set)
+                         :id)]
+      (->> (:transaction/items before)
+           (remove remains?)
+           seq))))
+
+(defn- any-item-added?
+  [[before after]]
+  (when (and before after)
+    (let [existed? (comp (->> (:transaction/items before)
+                              (map :id)
+                              set)
+                         :id)]
+      (->> (:transaction/items after)
+           (remove existed?)
+           seq))))
+
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [[before {:transaction/keys [transaction-date] :as after}]]
+  [[before {:transaction/keys [transaction-date] :as after} :as change]]
   (let [entity (entities/find (:transaction/entity after))]
     (->> (:transaction/items after)
          (mapcat trxs/account-items)
@@ -432,7 +454,9 @@
                    :as-of (dates/earliest
                             transaction-date
                             (:transaction/transaction-date before))
-                   :delete? false)))))
+                   :delete? false
+                   :force? (or (any-item-deleted? change)
+                               (any-item-added? change)))))))
 
 (defn- propagate-dereferenced-account-items
   [[before {:transaction/keys [items] :as after}]]
