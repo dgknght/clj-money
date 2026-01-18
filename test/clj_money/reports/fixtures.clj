@@ -112,49 +112,49 @@
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 100M}
         #:transaction{:transaction-date (t/local-date 2016 1 17)
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 100M}
         #:transaction{:transaction-date (t/local-date 2016 1 24)
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 100M}
         #:transaction{:transaction-date (t/local-date 2016 1 31)
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 100M}
         #:transaction{:transaction-date (t/local-date 2016 2 7)
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 101M}
         #:transaction{:transaction-date (t/local-date 2016 2 14)
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 101M}
         #:transaction{:transaction-date (t/local-date 2016 2 21)
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 101M}
         #:transaction{:transaction-date (t/local-date 2016 2 28)
                       :entity "Personal"
                       :description "Kroger"
                       :debit-account "Groceries"
-                      :credit-account "Credit card"
+                      :credit-account "Credit Card"
                       :quantity 101M}
         ; rent
         #:transaction{:transaction-date (t/local-date 2016 1 4)
