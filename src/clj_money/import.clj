@@ -15,7 +15,6 @@
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->>criteria
                                         expense?]]
-            [clj-money.transactions :refer [polarize-item-quantity]]
             [clj-money.entities.accounts :as accounts]))
 
 (defmacro with-fatal-exceptions
@@ -410,7 +409,7 @@
    (-> item
        (refine-recon-info ctx)
        (resolve-account-reference ctx)
-       polarize-item-quantity
+       #_polarize-item-quantity
        purge-import-keys
        (propagate-item ctx)
        (dissoc :transaction-item/polarized-quantity))))
@@ -419,7 +418,7 @@
   ([trx] #(apply-transaction-to-accounts % trx))
   ([accounts {:transaction/keys [items transaction-date]}]
    (->> items
-        (map polarize-item-quantity)
+        #_(map polarize-item-quantity)
         (reduce (fn [acts {:transaction-item/keys [account polarized-quantity]}]
                   (update-in acts
                              [(:id account)]
@@ -619,7 +618,7 @@
     (let [balance (->> (or (seq items)
                            (fetch-reconciled-items recon ctx))
                        (map (comp :transaction-item/polarized-quantity
-                                  polarize-item-quantity
+                                  #_polarize-item-quantity
                                   #(update-in %
                                               [:transaction-item/account]
                                               (comp accounts :id))))

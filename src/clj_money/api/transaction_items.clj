@@ -11,8 +11,7 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
-            [clj-money.transactions :refer [summarize-items
-                                            polarize-item-quantity]]
+            [clj-money.transactions :refer [summarize-items]]
             [clj-money.entities :as entities]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.authorization :refer [+scope]]
@@ -106,22 +105,6 @@
     (take (parse-long limit) items)
     items))
 
-(defn- polarize-quantities
-  [items]
-  (if (seq items)
-    (let [accounts (index-by :id
-                             (entities/select
-                               (util/entity-type
-                                 {:id [:in (set (map (comp :id :transaction-item/account)
-                                                     items))]}
-                                 :account)))]
-      (map (comp polarize-item-quantity
-                 #(update-in %
-                             [:transaction-item/account]
-                             (comp accounts :id)))
-           items))
-    items))
-
 (defn- ->entity-refs
   [items]
   (map #(update-in %
@@ -142,7 +125,6 @@
                                  :nil-replacements {:transaction/attachment-count 0})))
        (filter-reconciled req)
        (apply-limit req)
-       polarize-quantities
        ->entity-refs
        api/response))
 
@@ -191,7 +173,7 @@
                                 :transaction-item
                                 authenticated)
                         {:select-also [:transaction/transaction-date]})
-         polarize-quantities
+         #_polarize-quantities
          (summarize-items (assoc (extract-summary-options req)
                                  :since since
                                  :as-of as-of))
