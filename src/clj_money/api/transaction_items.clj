@@ -5,8 +5,7 @@
             [clojure.spec.alpha :as s]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-bool
-                                          uuid
-                                          index-by]]
+                                          uuid]]
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]

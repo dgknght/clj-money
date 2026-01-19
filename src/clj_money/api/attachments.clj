@@ -8,7 +8,6 @@
              :refer [+scope
                      authorize]]
             [clj-money.util :as util]
-            [clj-money.dates :as dates]
             [clj-money.io :refer [read-bytes]]
             [clj-money.entities :as entities]
             [clj-money.entities.images :as img]
@@ -27,7 +26,7 @@
     (entities/select (extract-criteria req))))
 
 (defn- extract-account-criteria
-  [{:keys [authenticated] {:keys [start-date end-date account-id]} :params}]
+  [{:keys [authenticated] {:keys [account-id]} :params}]
   (+scope
     {:account-item/account {:id account-id}}
     :attachment
