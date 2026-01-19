@@ -40,10 +40,11 @@
 (s/def :account-item/quantity d/decimal?)
 (s/def :account-item/action #{:debit :credit})
 (s/def :account-item/memo (s/nilable string?))
-(s/def ::account-item (s/keys :req [:account-item/account
+; quantity can be infered and action will be set during normalization
+(s/def ::account-item (s/keys :req [:account-item/account]
+                              :opt [:account-item/memo
                                     :account-item/quantity
-                                    :account-item/action]
-                              :opt [:account-item/memo]))
+                                    :account-item/action]))
 
 (s/def :transaction-item/quantity (s/and d/decimal? pos?))
 (s/def :transaction-item/value (s/and d/decimal? pos?))
@@ -76,8 +77,7 @@
                                        :transaction-item/action
                                        :transaction-item/quantity]
                                  :opt [:transaction-item/memo]))
-; I believe the min-count would be 2 except for split trading transactions
-(s/def ::unilateral-items (s/coll-of ::unilateral-item :min-count 1))
+(s/def ::unilateral-items (s/coll-of ::unilateral-item :min-count 2))
 
 (s/def ::bilateral-item (s/keys :req [:transaction-item/credit-item
                                       :transaction-item/debit-item
