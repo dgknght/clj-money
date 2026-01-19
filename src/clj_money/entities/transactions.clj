@@ -92,7 +92,7 @@
                                          :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::entities/lot-item))
 
-(s/def ::entities/transaction (s/and (s/merge ::trxs/transaction
+(s/def ::entities/transaction (s/and (s/merge ::trxs/bilateral-transaction
                                               (s/keys :opt [:transaction/lot-items]))
                                      no-reconciled-quantities-changed?
                                      new-transaction-has-items?))
@@ -165,24 +165,31 @@
                    #(map normalize-account-items %)))
     trx))
 
+(defn normalize
+  "Convert the transaction from the given format to bilateral
+  and infer missing values where possible"
+  [trx]
+  ; ->bilateral returns nil if it can't identify the submitted
+  ; format in order to convert. In this case, just continue on
+  ; and let validation identify the problem
+  (or (some-> trx
+              trxs/->bilateral
+              normalize-trx-account-items)
+      trx))
+
 (defmethod entities/before-validation :transaction
   [trx]
   (-> trx
       empty-strings->nils
-      normalize-trx-account-items))
+      normalize))
 
 (defmethod entities/before-save :transaction
-  [transaction]
-  (let [{:transaction/keys [items] :as trx}
-        (-> transaction
-            (dissoc :transaction/original-transaction-date)
-            trxs/->bilateral
-            normalize-trx-account-items)]
-    (cond-> trx
-      (seq items)
-      (assoc :transaction/value (->> items
-                                     (map :transaction-item/value)
-                                     (reduce + 0M))))))
+  [{:transaction/keys [items] :as trx}]
+  (cond-> (dissoc trx :transaction/original-transaction-date)
+    (seq items)
+    (assoc :transaction/value (->> items
+                                   (map :transaction-item/value)
+                                   (reduce + 0M)))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
