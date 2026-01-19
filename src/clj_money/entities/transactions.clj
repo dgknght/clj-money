@@ -139,10 +139,7 @@
 (defn- normalize-account-item
   [action value]
   (fn [{:account-item/keys [account quantity] :as item}]
-    (cond-> item
-
-      (not (:account-item/action item))
-      (assoc :account-item/action action)
+    (cond-> (assoc item :account-item/action action)
 
       (and (not quantity)
            account)
@@ -159,7 +156,7 @@
       (update-in-if [:transaction-item/credit-item]
                     (normalize-account-item :credit value))))
 
-(defn- normalize-trx-account-items
+(defn normalize-trx-account-items
   [trx]
   (if (get-in trx [:transaction/items 0 :transaction-item/credit-item])
     (-> trx
