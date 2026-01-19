@@ -9,7 +9,6 @@
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
-            [clj-money.util :as util]
             [clj-money.dates :refer [unserialize-local-date
                                      ensure-local-date]]
             [clj-money.db :refer [unserialize-id]]
@@ -17,7 +16,7 @@
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.authorization.transactions]
-            [clj-money.transactions :as trxs]))
+            [clj-money.entities.transactions :refer [normalize-trx-account-items]]))
 
 (defn- unserialize-date
   [x]
@@ -77,23 +76,26 @@
 
 (def ^:private item-keys
   [:id
-   :transaction-item/account
-   :transaction-item/action
-   :transaction-item/quantity
-   :transaction-item/memo])
+   :transaction-item/debit-item
+   :transaction-item/credit-item
+   :transaction-item/value])
 
 (defn- refine-item
   [item]
   (-> item
       (select-keys item-keys)
-      (update-in-if [:transaction-item/action] util/ensure-keyword)
-      (update-in-if [:transaction-item/quantity] bigdec)))
+      (update-in-if [:transaction-item/credit-item
+                     :account-item/quantity]
+                    bigdec)
+      (update-in-if [:transaction-item/debit-item
+                     :account-item/quantity]
+                    bigdec)
+      (update-in-if [:transaction-item/value] bigdec)))
 
 (defn- extract-transaction
   [{:keys [params]}]
   (-> params
       (dissoc :id)
-      trxs/->bilateral
       (select-keys attribute-keys)
       (update-in-if [:transaction/transaction-date] ensure-local-date)
       (update-in-if [:transaction/items] (partial map refine-item))))
@@ -103,6 +105,7 @@
   (-> req
       extract-transaction
       (assoc :transaction/entity {:id (:entity-id params)})
+      normalize-trx-account-items
       (authorize ::authorization/create authenticated)
       prop/put-and-propagate
       api/creation-response))
