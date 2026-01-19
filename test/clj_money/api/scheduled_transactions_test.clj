@@ -322,16 +322,15 @@
 
 (defn- realize-trans
   [user-email]
-  (with-context update-context
-    (let [sched-tran (find-scheduled-transaction "Paycheck")]
-      (with-fixed-time "2016-02-02T00:00:00Z"
-        (-> (req/request :post (path :api
-                                     :scheduled-transactions
-                                     (:id sched-tran)
-                                     :realize))
-            (add-auth (find-user user-email))
-            app
-            parse-body)))))
+  (let [sched-tran (find-scheduled-transaction "Paycheck")]
+    (with-fixed-time "2016-02-02T00:00:00Z"
+      (-> (req/request :post (path :api
+                                   :scheduled-transactions
+                                   (:id sched-tran)
+                                   :realize))
+          (add-auth (find-user user-email))
+          app
+          parse-body))))
 
 (defn- assert-successful-realization
   [response]
@@ -340,31 +339,28 @@
         [#:transaction{:description "Paycheck"
                        :transaction-date (t/local-date 2016 2 1)
                        :items [#:transaction-item{:value 1000M}]}]
-        (entities/select
-          #:transaction{:description "Paycheck"}))
+        (entities/select #:transaction{:description "Paycheck"}))
       "The transaction is created with the next projected transaction date")
   (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 2 1)}
-                   (->> (:parsed-body response)
-                        (filter (util/entity-type? :transaction))
-                        (map (comp entities/find
-                                   :id
-                                   :transaction/scheduled-transaction))
-                        first))
+                   (entities/find (find-scheduled-transaction "Paycheck")))
       "The scheduled trx record is updated with the last occurrence"))
 
 (defn- assert-blocked-realization
-  [[response trxs retrieved]]
+  [response]
   (is (http-not-found? response))
-  (is (empty? trxs) "The transaction is not created.")
+  (is (empty? (entities/select #:transaction{:description "Paycheck"}))
+      "The transaction is not created.")
   (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 1 1)}
-                   retrieved)
+                   (entities/find (find-scheduled-transaction "Paycheck")))
       "The scheduled trx record is not updated with the last occurrence"))
 
 (deftest a-user-can-realize-a-scheduled-transaction-in-his-entity
-  (assert-successful-realization (realize-trans "john@doe.com")))
+  (with-context update-context
+    (assert-successful-realization (realize-trans "john@doe.com"))))
 
 (deftest a-user-cannot-realize-a-scheduled-transaction-in-anothers-entity
-  (assert-blocked-realization (realize-trans "jane@doe.com")))
+  (with-context update-context
+    (assert-blocked-realization (realize-trans "jane@doe.com"))))
 
 (def ^:private mass-realize-context
   (conj update-context
@@ -440,9 +436,12 @@
         "The transactions can be retrieved.")))
 
 (defn- assert-blocked-mass-realization
-  [[response retrieved]]
+  [response]
   (is (http-not-found? response))
-  (is (empty? retrieved) "No transactions are created."))
+  (is (empty? (entities/select
+                {:transaction/entity (find-entity "Personal")}
+                {:sort [:transaction/transaction-date]}))
+      "No transactions are created."))
 
 (deftest a-user-can-realize-all-scheduled-transactions-in-his-entity
   (with-context mass-realize-context
