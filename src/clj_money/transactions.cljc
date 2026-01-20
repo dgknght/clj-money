@@ -295,7 +295,7 @@
    :quantity (->> items
                   (filter #(dates/within? (:transaction/transaction-date %) start-date end-date))
                   (map :account-item/quantity)
-                  (reduce d/+ 0M))})
+                  (reduce d/+ (d/d 0)))})
 
 (defn summarize-items
   [{:keys [period since as-of]
