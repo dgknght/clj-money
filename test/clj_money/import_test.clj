@@ -168,7 +168,7 @@
                            :lt-capital-loss-account "Investment/Long-Term Losses"
                            :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
-(deftest import-a-simple-gnucash-file
+(deftest ^:multi-threaded import-a-simple-gnucash-file
   (with-context gnucash-context
     (test-import)))
 
@@ -264,7 +264,7 @@
                  :images ["sample_0.edn.gz" "sample_1.edn.gz"]
                  :options {:lt-capital-gains-account "Investment/Long-Term Gains"}}))
 
-(deftest import-a-simple-edn-file
+(deftest ^:multi-threaded import-a-simple-edn-file
   (with-context edn-context
     (test-import)))
 
