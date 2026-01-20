@@ -399,12 +399,13 @@
     (partial sort-by val-or-qty >)))
 
 (def ^:private transaction->account-item-mappings
-  {:transaction-item/quantity :account-item/quantity
-   :transaction-item/memo     :account-item/memo
-   :transaction-item/action   :account-item/action
-   :transaction-item/index    :account-item/index
-   :transaction-item/balance  :account-item/balance
-   :transaction-item/account  :account-item/account})
+  {:transaction-item/quantity       :account-item/quantity
+   :transaction-item/memo           :account-item/memo
+   :transaction-item/action         :account-item/action
+   :transaction-item/index          :account-item/index
+   :transaction-item/balance        :account-item/balance
+   :transaction-item/account        :account-item/account
+   :transaction-item/reconciliation :account-item/reconciliation})
 
 (defn- transaction->account-item
   [{:as item :transaction-item/keys [account action]}
