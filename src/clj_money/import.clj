@@ -602,34 +602,16 @@
             (apply xf (handle-ex e record context))))))))
 
 (defn- fetch-reconciled-items
-  [{:reconciliation/keys [account]
-    :keys [id]}
-   {:keys [entity]}]
-  (let [accounts (entities/select
-                   (util/entity-type
-                     (select-keys account [:id])
-                     :account)
-                   {:include-children? true})]
-    (entities/select
-      (assoc
-        (->>criteria
-          {:earliest-date (get-in entity [:entity/transaction-date-range 0])
-           :latest-date (get-in entity [:entity/transaction-date-range 1])}
-          accounts)
-        :transaction-item/reconciliation {:id id})
-      {:datalog/hints [:transaction-item/reconciliation]})))
+  [{:keys [id]}]
+  (entities/select {:account-item/reconciliation {:id id}}))
 
 (defn- process-reconciliation
   [{:as recon :reconciliation/keys [account items]}
-   {:as ctx :keys [accounts]}]
+   {:keys [accounts]}]
   (try
     (let [balance (->> (or (seq items)
-                           (fetch-reconciled-items recon ctx))
-                       (map (comp :transaction-item/polarized-quantity
-                                  #_polarize-item-quantity
-                                  #(update-in %
-                                              [:transaction-item/account]
-                                              (comp accounts :id))))
+                           (fetch-reconciled-items recon))
+                       (map :account-item/quantity)
                        (reduce + 0M))]
       (-> recon
           (assoc :reconciliation/balance balance
