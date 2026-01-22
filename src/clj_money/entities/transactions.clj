@@ -158,12 +158,62 @@
 
 (defn normalize-trx-account-items
   [trx]
-  (if (get-in trx [:transaction/items 0 :transaction-item/credit-item])
+  (if (-> trx
+          :transaction/items
+          first
+          :transaction-item/credit-item)
     (-> trx
         (update-in [:transaction/items] realize-item-accounts)
         (update-in [:transaction/items]
                    #(map normalize-account-items %)))
     trx))
+
+(defn- lookup-accounts-simple
+  [{:as trx :transaction/keys [credit-account debit-account]}]
+  (if-let [accounts (some->> [credit-account
+                              debit-account]
+                             (filter #(= #{:id} (set (keys %))))
+                             (map :id)
+                             seq
+                             vec
+                             entities/find-many
+                             (index-by :id))]
+   (-> trx
+       (update-in [:transaction/debit-account] #(accounts (:id %) %))
+       (update-in [:transaction/credit-account] #(accounts (:id %) %))) 
+    trx))
+
+(defn- lookup-accounts-bilateral
+  [{:as trx :transaction/keys [items]}]
+  (if-let [accounts (some->> items
+                             (mapcat trxs/account-items)
+                             (map :account-item/account)
+                             (filter #(= #{:id} (set (keys %))))
+                             (map :id)
+                             seq
+                             vec
+                             entities/find-many
+                             (index-by :id))]
+    (-> trx
+        (update-in [:transaction/items]
+                   (fn [items]
+                     (map (fn [item]
+                            (-> item
+                                (update-in [:transaction-item/debit-item
+                                            :account-item/account]
+                                           #(accounts (:id %) %))
+                                (update-in [:transaction-item/credit-item
+                                            :account-item/account]
+                                           #(accounts (:id %) %))))
+                          items))))
+    trx))
+
+(defn- lookup-accounts
+  [input]
+  (let [[type _] (s/conform ::trxs/transaction input)]
+    (case type
+      :simple (lookup-accounts-simple input)
+      :bilateral (lookup-accounts-bilateral input))))
 
 (defn normalize
   "Convert the transaction from the given format to bilateral
@@ -173,6 +223,7 @@
   ; format in order to convert. In this case, just continue on
   ; and let validation identify the problem
   (or (some-> trx
+              lookup-accounts
               trxs/->bilateral
               normalize-trx-account-items)
       trx))
