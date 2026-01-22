@@ -16,7 +16,7 @@
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.authorization.transactions]
-            [clj-money.entities.transactions :refer [normalize-trx-account-items]]))
+            [clj-money.entities.transactions]))
 
 (defn- unserialize-date
   [x]
@@ -105,7 +105,6 @@
   (-> req
       extract-transaction
       (assoc :transaction/entity {:id (:entity-id params)})
-      normalize-trx-account-items
       (authorize ::authorization/create authenticated)
       prop/put-and-propagate
       api/creation-response))
