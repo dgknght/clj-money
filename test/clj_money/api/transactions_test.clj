@@ -42,7 +42,10 @@
                   :type :asset}
         #:account{:name "Salary"
                   :entity "Personal"
-                  :type :income}
+                  :type :income}))
+
+(def ^:private existing-context
+  (conj context
         #:transaction{:description "Paycheck"
                       :entity "Personal"
                       :transaction-date (t/local-date 2016 2 1)
@@ -87,7 +90,7 @@
   (is (empty? parsed-body) "The body is empty"))
 
 (deftest a-user-can-get-transactions-in-his-entity
-  (with-context context
+  (with-context existing-context
     (testing "default format (edn)"
       (assert-successful-list (get-a-list "john@doe.com")))
     (testing "json format"
@@ -100,7 +103,7 @@
                     :_type "transaction"}]))))
 
 (deftest a-user-cannot-get-transactions-in-anothers-entity
-  (with-context context
+  (with-context existing-context
     (assert-blocked-list (get-a-list "jane@doe.com"))))
 
 (defn- get-a-transaction
@@ -131,7 +134,7 @@
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-transaction-from-his-entity
-  (with-context context
+  (with-context existing-context
     (testing "default format (edn)"
       (assert-successful-get (get-a-transaction "john@doe.com")))
     (testing "json format"
@@ -143,7 +146,7 @@
                    :value "1,000.00"}))))
 
 (deftest a-user-cannot-get-a-transaction-from-anothers-entity
-  (with-context context
+  (with-context existing-context
     (assert-blocked-get (get-a-transaction "jane@doe.com"))))
 
 (defn- create-a-simple-transaction
@@ -305,7 +308,7 @@
       "The transaction is not updated"))
 
 (deftest a-user-can-update-a-transaction-in-his-entity
-  (with-context context
+  (with-context existing-context
     (testing "default format (edn)"
       (assert-successful-update (update-a-transaction "john@doe.com")))
     (testing "json format"
@@ -325,12 +328,12 @@
                               :_type "transaction"})))))
 
 (deftest a-user-cannot-update-a-transaction-in-anothers-entity
-  (with-context context
+  (with-context existing-context
     (assert-blocked-update (update-a-transaction "jane@doe.com"))))
 
 (defn- delete-a-transaction
   [email]
-  (with-context context
+  (with-context existing-context
     (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
           response (-> (request :delete (path :api
                                              :transactions
