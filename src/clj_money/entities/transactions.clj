@@ -210,10 +210,12 @@
 
 (defn- lookup-accounts
   [input]
-  (let [[type _] (s/conform ::trxs/transaction input)]
-    (case type
-      :simple (lookup-accounts-simple input)
-      :bilateral (lookup-accounts-bilateral input))))
+  (let [res (s/conform ::trxs/transaction input)]
+    (if (= ::s/invalid res)
+      input
+      (case (first res)
+        :simple (lookup-accounts-simple input)
+        :bilateral (lookup-accounts-bilateral input)))))
 
 (defn normalize
   "Convert the transaction from the given format to bilateral
