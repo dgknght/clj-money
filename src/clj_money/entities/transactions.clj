@@ -168,19 +168,25 @@
                    #(map normalize-account-items %)))
     trx))
 
+(defn- fetch-accounts
+  "Given a list of item account maps or account references,
+  return a map of the references accounts indexed by :id."
+  [entities-or-refs]
+  (some->> entities-or-refs
+           (filter #(= #{:id} (set (keys %))))
+           (map :id)
+           seq
+           vec
+           entities/find-many
+           (index-by :id)))
+
 (defn- lookup-accounts-simple
   [{:as trx :transaction/keys [credit-account debit-account]}]
-  (if-let [accounts (some->> [credit-account
-                              debit-account]
-                             (filter #(= #{:id} (set (keys %))))
-                             (map :id)
-                             seq
-                             vec
-                             entities/find-many
-                             (index-by :id))]
-   (-> trx
-       (update-in [:transaction/debit-account] #(accounts (:id %) %))
-       (update-in [:transaction/credit-account] #(accounts (:id %) %))) 
+  (if-let [accounts (fetch-accounts [credit-account
+                                     debit-account])]
+    (-> trx
+        (update-in [:transaction/debit-account] #(accounts (:id %) %))
+        (update-in [:transaction/credit-account] #(accounts (:id %) %))) 
     trx))
 
 (defn- lookup-accounts-bilateral
@@ -188,12 +194,7 @@
   (if-let [accounts (some->> items
                              (mapcat trxs/account-items)
                              (map :account-item/account)
-                             (filter #(= #{:id} (set (keys %))))
-                             (map :id)
-                             seq
-                             vec
-                             entities/find-many
-                             (index-by :id))]
+                             fetch-accounts)]
     (update-in trx [:transaction/items]
                (fn [items]
                  (map (fn [item]
@@ -214,12 +215,7 @@
              (fn [items]
                (if-let [accounts (some->> items
                                           (map :transaction-item/account)
-                                          (filter #(= #{:id} (set (keys %))))
-                                          (map :id)
-                                          seq
-                                          vec
-                                          entities/find-many
-                                          (index-by :id))]
+                                          fetch-accounts)]
                  (map (fn [item]
                         (update-in item
                                    [:transaction-item/account]
