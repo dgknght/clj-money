@@ -5,6 +5,7 @@
             [dgknght.app-lib.core :refer [index-by
                                           update-in-if]]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
             [clj-money.authorization :refer [authorize
                                              +scope]
@@ -116,10 +117,21 @@
       (merge existing incoming)
       incoming)))
 
+(defn- prepare-item
+  [item]
+  (-> item
+      (update-in-if [:transaction-item/credit-item
+                     :account-item/action]
+                    util/ensure-keyword)
+      (update-in-if [:transaction-item/debit-item
+                     :account-item/action]
+                    util/ensure-keyword)))
+
 (defn- apply-item-updates
   [items updates]
   (let [mapped (index-by :id items)]
-    (mapv (apply-to-existing mapped)
+    (mapv (comp (apply-to-existing mapped)
+                prepare-item)
           updates)))
 
 (defn- apply-update
