@@ -194,19 +194,38 @@
                              vec
                              entities/find-many
                              (index-by :id))]
-    (-> trx
-        (update-in [:transaction/items]
-                   (fn [items]
-                     (map (fn [item]
-                            (-> item
-                                (update-in [:transaction-item/debit-item
-                                            :account-item/account]
-                                           #(accounts (:id %) %))
-                                (update-in [:transaction-item/credit-item
-                                            :account-item/account]
-                                           #(accounts (:id %) %))))
-                          items))))
+    (update-in trx [:transaction/items]
+               (fn [items]
+                 (map (fn [item]
+                        (-> item
+                            (update-in [:transaction-item/debit-item
+                                        :account-item/account]
+                                       #(accounts (:id %) %))
+                            (update-in [:transaction-item/credit-item
+                                        :account-item/account]
+                                       #(accounts (:id %) %))))
+                      items)))
     trx))
+
+(defn- lookup-accounts-unilateral
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             (fn [items]
+               (if-let [accounts (some->> items
+                                          (map :transaction-item/account)
+                                          (filter #(= #{:id} (set (keys %))))
+                                          (map :id)
+                                          seq
+                                          vec
+                                          entities/find-many
+                                          (index-by :id))]
+                 (map (fn [item]
+                        (update-in item
+                                   [:transaction-item/account]
+                                   #(accounts (:id %) %)))
+                      items)
+                 items))))
 
 (defn- lookup-accounts
   [input]
@@ -215,7 +234,8 @@
       input
       (case (first res)
         :simple (lookup-accounts-simple input)
-        :bilateral (lookup-accounts-bilateral input)))))
+        :bilateral (lookup-accounts-bilateral input)
+        :unilateral (lookup-accounts-unilateral input)))))
 
 (defn normalize
   "Convert the transaction from the given format to bilateral
