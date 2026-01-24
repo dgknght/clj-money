@@ -1,4 +1,4 @@
-(ns clj-money.api.transaction-items
+(ns clj-money.api.account-items
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
@@ -13,7 +13,7 @@
             [clj-money.entities :as entities]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.authorization :refer [+scope]]
-            [clj-money.authorization.transactions]))
+            [clj-money.authorization.account-items]))
 
 (defn- apply-account-recursion
   [{:keys [include-children] :as criteria}]
@@ -29,21 +29,13 @@
 
     criteria))
 
-(defn- ensure-dates
-  [{:keys [account-id] :as criteria}]
-  (if (:transaction-date criteria)
-    criteria
-    (merge criteria (-> account-id
-                        entities/find
-                        ->criteria))))
-
 ; This could be done at the database layer with more sophisticated
 ; logic for specifying joins
 (defn- filter-reconciled
   [{{:keys [unreconciled]} :params} items]
   (if (parse-bool unreconciled)
     (if-let [recon-ids (->> items
-                            (map (comp :id :transaction-item/reconciliation))
+                            (map (comp :id :account-item/reconciliation))
                             set
                             seq)]
       (let [unreconciled? (complement
@@ -54,7 +46,7 @@
                                  set))]
         (filter (comp unreconciled?
                       :id
-                      :transaction-item/reconciliation)
+                      :account-item/reconciliation)
                 items))
       items)
     items))
@@ -73,21 +65,20 @@
   (-> params
       comparatives/symbolize
       (update-in-if [:transaction-date] unserialize-date)
-      ensure-dates
       (rename-keys {:transaction-date :transaction/transaction-date
-                    :account-id :transaction-item/account
+                    :account-id :account-item/account
                     :entity-id :transaction/entity
-                    :reconciliation-id :transaction-item/reconciliation})
+                    :reconciliation-id :account-item/reconciliation})
       apply-account-recursion
-      (update-in-if [:transaction-item/account] util/->entity-ref)
-      (update-in-if [:transaction-item/reconciliation] (comp util/->entity-ref
-                                                             uuid))
+      (update-in-if [:account-item/account] util/->entity-ref)
+      (update-in-if [:account-item/reconciliation] (comp util/->entity-ref
+                                                         uuid))
       (update-in-if [:transaction/entity] util/->entity-ref)
       (select-keys [:transaction/transaction-date
-                    :transaction-item/account
-                    :transaction-item/reconciliation
+                    :account-item/account
+                    :account-item/reconciliation
                     :transaction/entity])
-      (+scope :transaction-item authenticated)))
+      (+scope :account-item authenticated)))
 
 (defn- extract-options
   [{:keys [params]}]
@@ -116,7 +107,7 @@
            extract-criteria
            (entities/select (assoc (extract-options req)
                                  :sort [[:transaction/transaction-date :desc]
-                                        [:transaction-item/index :desc]]
+                                        [:account-item/index :desc]]
                                  :select-also [:transaction/description
                                                :transaction/transaction-date
                                                :transaction/attachment-count]
@@ -171,12 +162,11 @@
                                 :transaction-item
                                 authenticated)
                         {:select-also [:transaction/transaction-date]})
-         #_polarize-quantities
          (summarize-items (assoc (extract-summary-options req)
                                  :since since
                                  :as-of as-of))
          api/response)))
 
 (def routes
-  [["accounts/:account-id/transaction-items" {:get {:handler index}}]
-   ["entities/:entity-id/transaction-items/summarize" {:get {:handler summarize}}]])
+  [["accounts/:account-id/account-items" {:get {:handler index}}]
+   ["entities/:entity-id/account-items/summarize" {:get {:handler summarize}}]])

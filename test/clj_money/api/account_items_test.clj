@@ -1,4 +1,4 @@
-(ns clj-money.api.transaction-items-test
+(ns clj-money.api.account-items-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
@@ -123,7 +123,7 @@
     (-> (request :get (str (path :api
                                  :accounts
                                  (:id account)
-                                 :transaction-items)
+                                 :account-items)
                            "?"
                            (map->query-string
                              {:limit 5
@@ -140,29 +140,24 @@
    & {:keys [expected]
       :or {expected [{:transaction/transaction-date (t/local-date 2017 01 29)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}
+                      :account-item/quantity -100M
+                      :account-item/action :credit}
                      {:transaction/transaction-date (t/local-date 2017 01 22)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}
+                      :account-item/quantity -100M
+                      :account-item/action :credit}
                      {:transaction/transaction-date (t/local-date 2017 01 15)
                       :transaction/description "Paycheck"
-                      :transaction-item/quantity 1000M
-                      :transaction-item/polarized-quantity 1000M
-                      :transaction-item/action :debit}
+                      :account-item/quantity 1000M
+                      :account-item/action :debit}
                      {:transaction/transaction-date (t/local-date 2017 01 14)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}
+                      :account-item/quantity -100M
+                      :account-item/action :credit}
                      {:transaction/transaction-date (t/local-date 2017 01 01)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}]}}]
+                      :account-item/quantity -100M
+                      :account-item/action :credit}]}}]
   (is (http-success? response))
   (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))
       "The transaction items are returned in the response"))
@@ -181,25 +176,25 @@
       (assert-successful-list
         (get-a-list "john@doe.com" :content-type "application/json")
         :expected [{:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Paycheck"
                     :quantity "1,000.00"
                     :action "debit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}]))))
+                    :_type "account-item"}]))))
 
 (deftest a-user-cannot-get-a-list-of-transaction-items-in-anothers-entity
   (with-context context
