@@ -1,5 +1,4 @@
 (ns clj-money.entities.attachments
-  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]

@@ -1,5 +1,4 @@
 (ns clj-money.import.edn
-  (:refer-clojure :exclude [update])
   (:require [clojure.java.io :refer [reader]]
             [clojure.core.async :as a]
             [clj-money.import :refer [read-source]])

@@ -1,5 +1,4 @@
 (ns clj-money.authorization.accounts
-  (:refer-clojure :exclude [update])
   (:require [clj-money.util :as util]
             [clj-money.authorization :as auth]
             [clj-money.entities.auth-helpers :refer [owner-or-granted?]]))

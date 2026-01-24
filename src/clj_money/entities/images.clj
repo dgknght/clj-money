@@ -1,5 +1,4 @@
 (ns clj-money.entities.images
-  (:refer-clojure :exclude [update find])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
             [dgknght.app-lib.validation :as v]

@@ -1,5 +1,4 @@
 (ns clj-money.entities.scheduled-transactions
-  (:refer-clojure :exclude [find update])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]

@@ -1,5 +1,4 @@
 (ns clj-money.web.server
-  (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [cheshire.generate]

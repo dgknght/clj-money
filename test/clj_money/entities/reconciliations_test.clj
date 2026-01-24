@@ -105,7 +105,7 @@
                (every? :transaction/reconciliation))
           "specified transaction items are marked as reconciled")
       (is (not-any? :transaction/reconciliation
-                    (remove #(util/entity= checking (:transaction-item/account %))
+                    (remove #(entity= checking (:transaction-item/account %))
                             (entities/select
                               (util/entity-type
                                 {:transaction/entity (find-entity "Personal")}
