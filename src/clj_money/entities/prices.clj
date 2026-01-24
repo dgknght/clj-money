@@ -1,5 +1,4 @@
 (ns clj-money.entities.prices
-  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]

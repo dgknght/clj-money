@@ -1,5 +1,4 @@
 (ns clj-money.authorization.images
-  (:refer-clojure :exclude [update])
   (:require [clj-money.util :refer [entity=] :as util]
             [clj-money.entities :as entities]
             [clj-money.authorization :as authorization]

@@ -1,5 +1,4 @@
 (ns clj-money.import
-  (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]

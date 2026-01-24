@@ -1,5 +1,4 @@
 (ns clj-money.api.transaction-items
-  (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [cljs.pprint :refer [pprint]]
             [lambdaisland.uri :refer [map->query-string]]

@@ -1,5 +1,4 @@
 (ns clj-money.api
-  (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.string :as string]))
 

@@ -1,5 +1,5 @@
 (ns clj-money.api.imports
-  (:refer-clojure :exclude [update get])
+  (:refer-clojure :exclude [get])
   (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.api :as api :refer [add-error-handler]]))

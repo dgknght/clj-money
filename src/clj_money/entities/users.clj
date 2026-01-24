@@ -1,5 +1,4 @@
 (ns clj-money.entities.users
-  (:refer-clojure :exclude [find update])
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.pprint :refer [pprint]]

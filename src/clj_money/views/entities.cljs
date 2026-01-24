@@ -138,7 +138,7 @@
 
 (defn- entities-table
   [page-state]
-  (let [entities (r/cursor state/app-state [:entities])
+  (let [entities (r/cursor app-state [:entities])
         busy? (r/cursor page-state [:busy?])]
     (fn []
       [:section {:class (when @busy? "busy")}

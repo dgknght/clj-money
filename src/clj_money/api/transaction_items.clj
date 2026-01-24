@@ -1,5 +1,4 @@
 (ns clj-money.api.transaction-items
-  (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]

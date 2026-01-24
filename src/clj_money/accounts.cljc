@@ -1,5 +1,4 @@
 (ns clj-money.accounts
-  (:refer-clojure :exclude [+ - * / zero? abs format])
   (:require [clojure.string :as string]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])

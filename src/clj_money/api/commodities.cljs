@@ -1,5 +1,5 @@
 (ns clj-money.api.commodities
-  (:refer-clojure :exclude [update count get])
+  (:refer-clojure :exclude [update count])
   (:require [clj-money.state :refer [current-entity]]
             [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))

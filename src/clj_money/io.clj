@@ -1,5 +1,4 @@
 (ns clj-money.io
-  (:refer-clojure :exclude [update])
   (:require [clojure.java.io :as io]
             [clojure.string :as string])
   (:import [java.io ByteArrayOutputStream]))

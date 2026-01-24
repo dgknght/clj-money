@@ -1,5 +1,4 @@
 (ns clj-money.api.imports
-  (:refer-clojure :exclude [update])
   (:require [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
