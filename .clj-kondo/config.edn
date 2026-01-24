@@ -77,6 +77,8 @@
                                                       clj-money.tasks/update-commodity-price-ranges
                                                       clj-money.util/pp->
                                                       clj-money.util/pp->>
+                                                      clj-money.util/spit->
+                                                      clj-money.util/spit->>
                                                       clj-money.views.reconciliations/load-working-reconciliation
                                                       clj-money.views.reconciliations/reconciliation-form
                                                       clj-money.web.server/print-routes}}
