@@ -1,5 +1,5 @@
 (ns clj-money.util
-  (:refer-clojure :exclude [abs format group-by])
+  (:refer-clojure :exclude [format group-by])
   (:require [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
             [clojure.walk :refer [postwalk]]

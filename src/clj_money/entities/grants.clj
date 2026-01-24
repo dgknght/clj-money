@@ -1,5 +1,4 @@
 (ns clj-money.entities.grants
-  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clj-money.entities :as entities]))
 

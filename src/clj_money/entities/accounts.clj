@@ -1,5 +1,4 @@
 (ns clj-money.entities.accounts
-  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [assoc-if

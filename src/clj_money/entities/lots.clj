@@ -1,5 +1,4 @@
 (ns clj-money.entities.lots
-  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]

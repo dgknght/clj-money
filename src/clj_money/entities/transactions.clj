@@ -1,5 +1,4 @@
 (ns clj-money.entities.transactions
-  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.core.async :as a]
             [clojure.tools.logging :as log]

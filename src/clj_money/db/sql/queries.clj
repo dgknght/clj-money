@@ -1,5 +1,4 @@
 (ns clj-money.db.sql.queries
-  (:refer-clojure :exclude [format])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
             [stowaway.sql-qualified :as sql]

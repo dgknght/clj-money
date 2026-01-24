@@ -1,5 +1,4 @@
 (ns clj-money.import-test
-  (:refer-clojure :exclude [update])
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.java.io :as io]
             [clojure.core.async :as a]
