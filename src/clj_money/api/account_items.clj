@@ -11,7 +11,6 @@
             [clj-money.comparatives :as comparatives]
             [clj-money.transactions :refer [summarize-items]]
             [clj-money.entities :as entities]
-            [clj-money.accounts :refer [->criteria]]
             [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.account-items]))
 
@@ -19,7 +18,7 @@
   [{:keys [include-children] :as criteria}]
   (if (parse-bool include-children)
     (update-in criteria
-               [:transaction-item/account]
+               [:account-item/account]
                (fn [id]
                  [:in (map :id (entities/select
                                  (util/entity-type {:id id}
@@ -97,7 +96,7 @@
 (defn- ->entity-refs
   [items]
   (map #(update-in %
-                   [:transaction-item/account]
+                   [:account-item/account]
                    util/->entity-ref)
        items))
 
@@ -130,16 +129,16 @@
   {:pre [(s/valid? ::raw-summary-criteria (:params req))]}
   (-> params
       (rename-keys {:transaction-date :transaction/transaction-date
-                    :account-id :transaction-item/account
+                    :account-id :account-item/account
                     :entity-id :transaction/entity})
       (update-in [:transaction/transaction-date]
                  (fn [dates]
                    (apply vector
                           :between>
                           (map dates/unserialize-local-date dates))))
-      (update-in-if [:transaction-item/account] util/->entity-ref)
+      (update-in-if [:account-item/account] util/->entity-ref)
       (update-in-if [:transaction/entity] util/->entity-ref)
-      (select-keys [:transaction-item/account
+      (select-keys [:account-item/account
                     :transaction/transaction-date
                     :transaction/entity])))
 
@@ -159,9 +158,9 @@
   (let [{[_ since as-of] :transaction/transaction-date
          :as criteria} (extract-summary-criteria req)]
     (->> (entities/select (+scope criteria
-                                :transaction-item
-                                authenticated)
-                        {:select-also [:transaction/transaction-date]})
+                                  :account-item
+                                  authenticated)
+                          {:select-also [:transaction/transaction-date]})
          (summarize-items (assoc (extract-summary-options req)
                                  :since since
                                  :as-of as-of))

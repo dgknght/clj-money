@@ -1,15 +1,13 @@
 (ns clj-money.api.account-items-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
-            [ring.mock.request :as req]
             [java-time.api :as t]
-            [lambdaisland.uri :refer [map->query-string]]
+            [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.json]
             [clj-money.util :as util]
-            [clj-money.api.test-helper :refer [add-auth
-                                               parse-body
+            [clj-money.api.test-helper :refer [parse-body
                                                request
                                                jsonize-decimals]]
             [clj-money.factories.user-factory]
@@ -18,8 +16,7 @@
                                             find-entity
                                             find-account
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db
-                                            parse-edn-body]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -241,31 +238,32 @@
 (deftest a-user-can-get-a-list-of-items-in-an-account-and-child-accounts
   (with-context children-context
     (let [account (find-account "Savings")
-          response (-> (req/request
-                         :get
-                         (str (path :api
-                                    :accounts
-                                    (:id account)
-                                    :transaction-items)
-                              "?"
-                              (map->query-string
-                                {:include-children true
-                                 :transaction-date-on-or-after "2015-01-01"
-                                 :transaction-date-before "2015-02-01"})))
-                       (add-auth (find-user "john@doe.com"))
+          response (-> (request :get (-> (path :api
+                                               :accounts
+                                               (:id account)
+                                               :account-items)
+                                         uri
+                                         (assoc :query
+                                                (map->query-string
+                                                  {:include-children true
+                                                   :transaction-date-on-or-after "2015-01-01"
+                                                   :transaction-date-before "2015-02-01"}))
+                                         str)
+                                :content-type "application/edn"
+                                :user (find-user "john@doe.com"))
                        app
-                       parse-edn-body)]
+                       parse-body)]
       (is (http-success? response))
-      (is (seq-of-maps-like? [{:transaction-item/quantity 103M
+      (is (seq-of-maps-like? [{:account-item/quantity 103M
                                :transaction/transaction-date (t/local-date 2015 01 04)
                                :transaction/description "For the sub-zero"}
-                              {:transaction-item/quantity 102M
+                              {:account-item/quantity 102M
                                :transaction/transaction-date (t/local-date 2015 01 03)
                                :transaction/description "For a Tesla"}
-                              {:transaction-item/quantity 101M
+                              {:account-item/quantity 101M
                                :transaction/transaction-date (t/local-date 2015 01 02)
                                :transaction/description "For a rainy day"}]
-                             (:edn-body response))
+                             (:parsed-body response))
           "The items in the specified account and the children accounts are returned."))))
 
 (def ^:private summary-context
@@ -302,16 +300,17 @@
                        (path :api
                              :entities
                              (:id entity)
-                             :transaction-items
+                             :account-items
                              :summarize)
                        (:id groceries))]
-      (-> (req/request :get path)
-          (add-auth (find-user user-email))
+      (-> (request :get path
+                   :content-type "application/edn"
+                   :user (find-user user-email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- assert-successful-summary
-  [{:keys [edn-body] :as response}]
+  [{:keys [parsed-body] :as response}]
   (is (http-success? response))
   (is (= [{:start-date (t/local-date 2016 1 1)
            :end-date (t/local-date 2016 1 31)
@@ -325,10 +324,10 @@
           {:start-date (t/local-date 2016 4 1)
            :end-date (t/local-date 2016 4 30)
            :quantity 0M}]
-         edn-body)))
+         parsed-body)))
 
 (defn- assert-blocked-summary
-  [{:keys [edn-body] :as response}]
+  [{:keys [parsed-body] :as response}]
   (is (http-success? response))
   (is (= [{:start-date (t/local-date 2016 1 1)
            :end-date (t/local-date 2016 1 31)
@@ -342,7 +341,7 @@
           {:start-date (t/local-date 2016 4 1)
            :end-date (t/local-date 2016 4 30)
            :quantity 0M}]
-         edn-body)))
+         parsed-body)))
 
 (deftest a-user-can-summarize-items-in-his-entity
   (assert-successful-summary (summarize-items "john@doe.com")))
