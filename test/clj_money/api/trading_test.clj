@@ -17,8 +17,7 @@
                                             find-entity
                                             find-user
                                             find-account
-                                            find-commodity
-                                            find-account]]
+                                            find-commodity]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)

@@ -1,5 +1,4 @@
 (ns clj-money.middleware
-  (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]

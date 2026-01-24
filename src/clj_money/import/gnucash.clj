@@ -1,5 +1,5 @@
 (ns clj-money.import.gnucash
-  (:refer-clojure :exclude [update abs])
+  (:refer-clojure :exclude [abs])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]

@@ -1,5 +1,4 @@
 (ns clj-money.entities.commodities
-  (:refer-clojure :exclude [update count find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [assoc-if]]

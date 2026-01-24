@@ -1,5 +1,5 @@
 (ns clj-money.api.accounts
-  (:refer-clojure :exclude [update get])
+  (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
             [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]

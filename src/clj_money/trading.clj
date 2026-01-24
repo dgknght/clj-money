@@ -1,5 +1,4 @@
 (ns clj-money.trading
-  (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]

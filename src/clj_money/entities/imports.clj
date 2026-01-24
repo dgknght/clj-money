@@ -1,5 +1,4 @@
 (ns clj-money.entities.imports
-  (:refer-clojure :exclude [update find])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
             [clj-money.db :as db]

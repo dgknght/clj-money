@@ -1,5 +1,5 @@
 (ns clj-money.api.attachments
-  (:refer-clojure :exclude [update find])
+  (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.api :as api]
