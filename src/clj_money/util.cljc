@@ -57,6 +57,16 @@
    (pprint {m (transform v)})
    v))
 
+#?(:clj (defn spit->>
+          [path v]
+          (spit path (with-out-str (pprint v)))
+          v))
+
+#?(:clj (defn spit->
+          [v path]
+          (spit path (with-out-str (pprint v)))
+          v))
+
 (def entity-types
   (->> schema/entities
        (map :id)
