@@ -1,6 +1,5 @@
 (ns clj-money.db.sql.account-items
   (:require [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :refer [temp-id?]]
             [clj-money.db.sql :as sql]))
 
