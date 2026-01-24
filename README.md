@@ -50,7 +50,7 @@ docker compose up -d
 
 ### Setup the database:
 ```bash
-lein do create-sql, migrate, <start-date> <end-date>
+lein do create-sql, migrate, partition <start-date> <end-date>
 
 lein with-profile test do create-sql, migrate, partition 2015-01-01 2017-12-31
 ```

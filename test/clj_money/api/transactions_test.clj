@@ -42,19 +42,17 @@
                   :type :asset}
         #:account{:name "Salary"
                   :entity "Personal"
-                  :type :income}
+                  :type :income}))
+
+(def ^:private existing-context
+  (conj context
         #:transaction{:description "Paycheck"
                       :entity "Personal"
                       :transaction-date (t/local-date 2016 2 1)
                       :memo "Pre-existing transaction"
-                      :items [#:transaction-item{:account "Checking"
-                                                 :action :debit
-                                                 :quantity 1000M
-                                                 :memo "checking item"}
-                              #:transaction-item{:account "Salary"
-                                                 :action :credit
-                                                 :quantity 1000M
-                                                 :memo "salary item"}]}))
+                      :quantity 1000M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}))
 
 (defn- get-a-list
   [email & {:keys [content-type]
@@ -92,7 +90,7 @@
   (is (empty? parsed-body) "The body is empty"))
 
 (deftest a-user-can-get-transactions-in-his-entity
-  (with-context context
+  (with-context existing-context
     (testing "default format (edn)"
       (assert-successful-list (get-a-list "john@doe.com")))
     (testing "json format"
@@ -105,7 +103,7 @@
                     :_type "transaction"}]))))
 
 (deftest a-user-cannot-get-transactions-in-anothers-entity
-  (with-context context
+  (with-context existing-context
     (assert-blocked-list (get-a-list "jane@doe.com"))))
 
 (defn- get-a-transaction
@@ -136,7 +134,7 @@
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-transaction-from-his-entity
-  (with-context context
+  (with-context existing-context
     (testing "default format (edn)"
       (assert-successful-get (get-a-transaction "john@doe.com")))
     (testing "json format"
@@ -148,7 +146,7 @@
                    :value "1,000.00"}))))
 
 (deftest a-user-cannot-get-a-transaction-from-anothers-entity
-  (with-context context
+  (with-context existing-context
     (assert-blocked-get (get-a-transaction "jane@doe.com"))))
 
 (defn- create-a-simple-transaction
@@ -185,26 +183,23 @@
         default-body #:transaction{:description "Paycheck"
                                    :transaction-date (t/local-date 2016 03 02)
                                    :memo "Seems like there should be more"
-                                   :items [#:transaction-item{:account (util/->entity-ref checking)
-                                                              :action :debit
-                                                              :quantity 1000M
-                                                              :memo "checking item"}
-                                           #:transaction-item{:account (util/->entity-ref salary)
-                                                              :action :credit
-                                                              :quantity 1000M
-                                                              :memo "salary item"}]}
+                                   :items [#:transaction-item{:debit-item
+                                                              {:account-item/account (util/->entity-ref checking)}
+                                                              :credit-item
+                                                              {:account-item/account (util/->entity-ref salary)}
+                                                              :value 1000M}]}
         request-body (or body default-body)
         response (-> (request :post (path :api
-                                         :entities
-                                         (:id entity)
-                                         :transactions)
+                                          :entities
+                                          (:id entity)
+                                          :transactions)
                               :user (find-user email)
                               :content-type content-type
                               :body request-body)
                      app
                      parse-body)]
     [response (entities/select #:transaction{:entity entity
-                                           :transaction-date (t/local-date 2016 3 2)})]))
+                                             :transaction-date (t/local-date 2016 3 2)})]))
 
 (defn- assert-successful-create
   [[{:as response :keys [parsed-body]} retrieved]
@@ -243,15 +238,11 @@
                                 :body {:description "Paycheck"
                                        :transactionDate "2016-03-02"
                                        :memo "Seems like there should be more"
-                                       :items [{:account {:id (:id checking)}
-                                                :action "debit"
-                                                :quantity 1000
-                                                :memo "checking item"
-                                                :_type "transaction-item"}
-                                               {:account {:id (:id salary)}
-                                                :action "credit"
-                                                :quantity 1000
-                                                :memo "salary item"
+                                       :items [{:debit-item {:account {:id (:id checking)}
+                                                             :_type "account-item"}
+                                                :credit-item {:account {:id (:id salary)}
+                                                              :_type "account-item"}
+                                                :value 1000
                                                 :_type "transaction-item"}]
                                        :_type "transaction"})
           :expected-response {:description "Paycheck"
@@ -317,7 +308,7 @@
       "The transaction is not updated"))
 
 (deftest a-user-can-update-a-transaction-in-his-entity
-  (with-context context
+  (with-context existing-context
     (testing "default format (edn)"
       (assert-successful-update (update-a-transaction "john@doe.com")))
     (testing "json format"
@@ -337,12 +328,12 @@
                               :_type "transaction"})))))
 
 (deftest a-user-cannot-update-a-transaction-in-anothers-entity
-  (with-context context
+  (with-context existing-context
     (assert-blocked-update (update-a-transaction "jane@doe.com"))))
 
 (defn- delete-a-transaction
   [email]
-  (with-context context
+  (with-context existing-context
     (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
           response (-> (request :delete (path :api
                                              :transactions

@@ -20,12 +20,12 @@
   (map #(assoc %
                :reconciliation/items
                (db/select storage
-                          {:transaction-item/reconciliation %}
+                          {:account-item/reconciliation %}
                           {:select-also [:transaction/transaction-date]}))
        reconciliations))
 
 (defmethod sql/deconstruct :reconciliation
   [{:as recon :keys [id] :reconciliation/keys [items]}]
   (cons (dissoc recon :reconciliation/items)
-        (mapv #(assoc % :transaction-item/reconciliation {:id id})
+        (mapv #(assoc % :account-item/reconciliation {:id id})
               items)))

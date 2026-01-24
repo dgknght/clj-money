@@ -69,12 +69,12 @@
 #?(:cljs (defn < [n1 n2] (decimal/< n1 n2))
    :clj  (defn < [^java.math.BigDecimal n1
                   ^java.math.BigDecimal n2]
-           (core/< n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+           (core/< n1 n2)))
 
 #?(:cljs (defn > [n1 n2] (decimal/> n1 n2))
    :clj  (defn > [^java.math.BigDecimal n1
                   ^java.math.BigDecimal n2]
-           (core/> n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+           (core/> n1 n2)))
 
 #?(:cljs (defn <= [n1 n2] (decimal/< n1 n2))
    :clj  (defn <= [^java.math.BigDecimal n1
