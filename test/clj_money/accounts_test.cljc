@@ -153,9 +153,13 @@
   (is (= nested-accounts (accounts/nest flat-accounts))))
 
 (deftest check-for-a-user-tag
-  (let [account {:account/user-tags #{:mandatory}}]
+  (let [account {:account/user-tags #{:mandatory :retirement}}]
     (is (accounts/user-tagged? account :mandatory))
-    (is (not (accounts/user-tagged? account :discretionary)))))
+    (is (accounts/user-tagged? account #{:mandatory}))
+    (is (accounts/user-tagged? account #{:retirement}))
+    (is (accounts/user-tagged? account #{:mandatory :discretionary}))
+    (is (not (accounts/user-tagged? account :discretionary)))
+    (is (not (accounts/user-tagged? account #{:discretionary})))))
 
 (deftest create-rebalancing-adjustments
   (let [accounts (->> [{:id :ira

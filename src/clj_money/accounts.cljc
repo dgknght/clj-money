@@ -1,5 +1,6 @@
 (ns clj-money.accounts
   (:require [clojure.string :as string]
+            [clojure.set :as set]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.models :as models]
@@ -206,17 +207,32 @@
                          (map string/lower-case (string/split term #"/|:")))
            accounts)))
 
+(defn- tagged?
+  [account k tag]
+  (let [tags (if (set? tag) tag #{tag})]
+    (seq (set/intersection (k account) tags))))
+
 (defn user-tagged?
+  "Given an account and a tag or a set of tags, returns true
+  if the account :user-tags contains any of the given tags.
+  Given a tag or set of tags, returns a function that takes an
+  account as an argument and returns true of the account :user-tags
+  contain any of the given tags."
   ([tag]
    #(user-tagged? % tag))
-  ([{:account/keys [user-tags]} tag]
-   (contains? user-tags tag)))
+  ([account tag]
+   (tagged? account :account/user-tags tag)))
 
 (defn system-tagged?
+  "Given an account and a tag or a set of tags, returns true
+  if the account :system-tags contains any of the given tags.
+  Given a tag or set of tags, returns a function that takes an
+  account as an argument and returns true of the account :system-tags
+  contain any of the given tags."
   ([tag]
    #(system-tagged? % tag))
-  ([{:account/keys [system-tags]} tag]
-   (contains? system-tags tag)))
+  ([account tag]
+   (tagged? account :account/system-tags tag)))
 
 (defn format-quantity
   [quantity {:account/keys [commodity]}]
