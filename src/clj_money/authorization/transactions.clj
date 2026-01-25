@@ -10,7 +10,3 @@
 (defmethod authorization/scope :transaction
   [_ user]
   (util/entity-type {:entity/user user} :transaction))
-
-(defmethod authorization/scope :transaction-item
-  [_ user]
-  (util/entity-type {:entity/user user} :transaction-item))

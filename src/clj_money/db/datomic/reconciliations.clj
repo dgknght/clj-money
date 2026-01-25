@@ -8,5 +8,5 @@
               util/+id
               (dissoc :reconciliation/items))]
     (cons r
-          (map #(assoc % :transaction-item/reconciliation r)
+          (map #(assoc % :account-item/reconciliation r)
                items))))

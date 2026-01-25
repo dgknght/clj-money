@@ -40,7 +40,7 @@
                                             unentryfy
                                             ensure-empty-item]]
             [clj-money.components :refer [load-in-chunks]]
-            [clj-money.api.transaction-items :as transaction-items]
+            [clj-money.api.account-items :as account-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
             [clj-money.api.trading :as trading]))
@@ -84,7 +84,7 @@
                                                             (:account/transaction-date-range account))
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
-    (transaction-items/select
+    (account-items/select
       criteria
       :callback -busy
       :on-success #(swap! page-state assoc :items %))))
@@ -103,7 +103,7 @@
   (completing
     (fn [ch criteria]
       (if criteria
-        (transaction-items/select criteria
+        (account-items/select criteria
                                   :on-success #(xf ch %))
         (xf ch [])))))
 
@@ -118,7 +118,7 @@
                                                  {:fetch-xf (comp
                                                               (map (fn [[start end :as range]]
                                                                      (when (seq range)
-                                                                       {:transaction-item/account (util/->entity-ref account)
+                                                                       {:account-item/account (util/->entity-ref account)
                                                                         :transaction/transaction-date [:between> start end]})))
                                                               fetch-items)
                                                   :chunk-size 100}))]
@@ -317,7 +317,7 @@
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
-    (transaction-items/select (accounts/->criteria @account)
+    (account-items/select (accounts/->criteria @account)
                               :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless

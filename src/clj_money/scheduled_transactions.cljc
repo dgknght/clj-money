@@ -127,6 +127,9 @@
   if the date of the new transactions would be within one week
   of the current date"
   [sched-trx]
+  {:pre [(every? #(get-in % [:scheduled-transaction-item/account
+                             :account/type])
+                 (:scheduled-transaction/items sched-trx))]}
   (when-let [created (->> (next-transaction-dates sched-trx)
                           (map (->transaction sched-trx))
                           seq)]

@@ -44,11 +44,11 @@
   (let [end-date (t/plus start-date
                          (dates/period period))]
     (entities/select (util/entity-type
-                     #:transaction-item{:transaction/entity entity
-                                        :transaction/transaction-date [:between> start-date end-date]
-                                        :account/type [:in #{:income :expense}]}
-                     :transaction-item)
-                   {:select-also [:transaction/transaction-date]})))
+                       {:transaction/entity entity
+                        :transaction/transaction-date [:between> start-date end-date]
+                        :account/type [:in #{:income :expense}]}
+                       :account-item)
+                     {:select-also [:transaction/transaction-date]})))
 
 (defn- auto-create-items
   [{:budget/keys [period]
