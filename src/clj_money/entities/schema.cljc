@@ -287,20 +287,20 @@
 (def relationships
   (->> entities
        (mapcat (fn [{:keys [id refs]}]
-                       (map #(vector (ref-id %) id)
-                            refs)))
+                 (map #(vector (ref-id %) id)
+                      refs)))
        set))
 
 (defn- extract-attributes
-        [{:keys [fields refs] :as entity}]
-        (concat (map (fn [{:keys [id]}]
-                             (keyword (name (:id entity))
-                                      (name id)))
-                     fields)
-                (map (fn [m]
-                             (keyword (name (:id entity))
-                                      (name m)))
-                     refs)))
+  [{:keys [fields refs] :as entity}]
+  (concat (map (fn [{:keys [id]}]
+                 (keyword (name (:id entity))
+                          (name id)))
+               fields)
+          (map (fn [ref]
+                 (keyword (name (:id entity))
+                          (name (or (:id ref) ref))))
+               refs)))
 
 (def attributes
   (->> entities
@@ -309,9 +309,9 @@
 
 (defn- extract-reference-attributes
   [{:keys [refs] :as entity}]
-  (map (fn [m]
-               (keyword (name (:id entity))
-                        (name m)))
+  (map (fn [ref]
+         (keyword (name (:id entity))
+                  (name (or (:id ref) ref))))
        refs))
 
 (def reference-attributes
@@ -322,7 +322,7 @@
 (defn- simplify-references
   [entity entity-type]
   (reduce (fn [m ref]
-                  (update-in-if m [ref] #(select-keys % [:id])))
+            (update-in-if m [ref] #(select-keys % [:id])))
           entity
           (reference-attributes entity-type)))
 
