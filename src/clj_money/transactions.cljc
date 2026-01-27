@@ -10,9 +10,9 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [->entity-ref entity=]]
             [clj-money.dates :as dates]
-            [clj-money.decimal :as d]
+            [clj-money.decimal :as d :refer [d]]
             [clj-money.accounts :refer [polarize-quantity
-                                        ->transaction-item]]))
+                                        left-side?]]))
 
 (def ^:private val-or-qty
   (some-fn :transaction-item/value
@@ -167,33 +167,20 @@
 
 (defn unaccountify
   "Accepts an accountified transaction (with one quantity, one account, and one
-   'other' account) and returns a unilateral transaction"
+                                         'other' account) and returns a unilateral transaction"
   [{:transaction/keys [quantity
-                       account
-                       other-account
-                       item
-                       other-item]
-    :as trx}
-   find-account]
+                       account]
+    :as trx}]
   {:pre [(:transaction/account trx)]}
-  (let [item-1 (merge item
-                      (->transaction-item
-                        {:quantity quantity
-                         :account (find-account account)}))
-        item-2 (when other-account
-                 #:transaction-item{:quantity (d/abs quantity)
-                                    :action (if (= :credit (:transaction-item/action item-1))
-                                              :debit
-                                              :credit)
-                                    :account other-account})]
-    (cond-> (-> trx
-                (dissoc :transaction/quantity
-                        :transaction/account
-                        :transaction/other-account
-                        :transaction/item
-                        :transaction/other-item)
-                (assoc :transaction/items [item-1]))
-      item-2 (update-in [:transaction/items] conj (merge other-item item-2)))))
+  (let [renames (if (and (left-side? account)
+                         (< (d 0) quantity))
+                  {:transaction/account :transaction/debit-account
+                   :transaction/other-account :transaction/credit-account}
+                  {:transaction/account :transaction/credit-account
+                   :transaction/other-account :transaction/debit-account})]
+    (-> trx
+        (rename-keys renames)
+        (update-in [:transaction/quantity] d/abs))))
 
 (defn- entryfy-item
   [{:transaction-item/keys [quantity action] :as item}]

@@ -38,17 +38,13 @@
                                             can-accountify?
                                             entryfy
                                             unentryfy
-                                            ensure-empty-item]]
+                                            ensure-empty-item
+                                            ->bilateral]]
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.account-items :as account-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
             [clj-money.api.trading :as trading]))
-
-(defn- fullify-trx
-  [trx]
-  (unaccountify trx (comp @accounts-by-id
-                          :id)))
 
 (defn- prepare-transaction-for-edit
   [transaction account]
@@ -488,9 +484,11 @@
                      (v/validate transaction)
                      (when (v/valid? transaction)
                        (+busy)
-                       (transactions/save (fullify-trx @transaction)
-                                          :callback -busy
-                                          :on-success on-save)))}
+                       (-> @transaction
+                           unaccountify
+                           ->bilateral
+                           (transactions/save :callback -busy
+                                              :on-success on-save))))}
        [forms/date-field
         transaction
         [:transaction/transaction-date]
