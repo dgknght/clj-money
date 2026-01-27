@@ -5,7 +5,6 @@
  {:db/ident :account-item/action
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/one
-  :db.attr/preds clj-money.accounts/action?
   :db/doc "The accounting action taken against the account"}
  {:db/ident :account-item/item-action
   :db/valueType :db.type/tuple
