@@ -27,11 +27,10 @@
                                      +busy
                                      -busy]]
             [clj-money.dnd :as dnd]
-            [clj-money.util :as util :refer [debounce entity=]]
+            [clj-money.util :as util :refer [debounce id=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
-            [clj-money.accounts :as accounts :refer [polarize-quantity
-                                                     find-by-path
+            [clj-money.accounts :as accounts :refer [find-by-path
                                                      format-quantity]]
             [clj-money.transactions :refer [accountify
                                             unaccountify
@@ -183,11 +182,11 @@
            reconciliation
            styles]}
    page-state]
-  (fn [{:transaction-item/keys [attachment-count
-                                quantity
-                                balance
-                                action
-                                reconciliation-status]
+  (fn [{:account-item/keys [attachment-count
+                            quantity
+                            balance
+                            action]
+        :reconciliation/keys [status]
         :transaction/keys [description
                            transaction-date]
         :as item}]
@@ -213,10 +212,7 @@
       [:span.d-md-none (format-date transaction-date "M/d")]
       [:span.d-none.d-md-inline (format-date transaction-date)]]
      [:td {:style (get-in styles [(:id item)])} description]
-     [:td.text-end (format-quantity (polarize-quantity quantity
-                                                       action
-                                                       account)
-                                    account)]
+     [:td.text-end (format-quantity quantity account)]
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
         [forms/checkbox-input
@@ -224,7 +220,7 @@
          [:clj-money.views.reconciliations/item-selection (:id item)]
          {::forms/decoration ::forms/none}]
         (icon
-          (case reconciliation-status
+          (case status
             :completed :check-square
             :new       :dash-sqaure
             :square)
@@ -260,11 +256,11 @@
   (let [raw-items (r/cursor page-state [:items])
         items (make-reaction (fn []
                                (when @raw-items
-                                 (map (fn [{:transaction-item/keys [reconciliation]
+                                 (map (fn [{:account-item/keys [reconciliation]
                                             :keys [id]
                                             :as item}]
                                         (assoc item
-                                               :transaction-item/reconciliation-status
+                                               :reconciliation/status
                                                (cond
                                                  (nil? id) :new
                                                  reconciliation :completed
@@ -277,8 +273,8 @@
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
-                                     #(entity= @account
-                                              (:transaction-item/account %)))))]
+                                     #(id= @account
+                                           (:account-item/account %)))))]
     (fn []
       [:table.table.table-striped.table-hover
        [:thead
@@ -314,7 +310,7 @@
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
     (account-items/select (accounts/->criteria @account)
-                              :on-success #(swap! page-state assoc :items %))
+                          :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless
        [:thead
@@ -326,22 +322,18 @@
          [:th.text-end "Value"]]]
        [:tbody
         (doall (for [{:as item
-                      :transaction-item/keys [transaction-date
-                                              quantity
-                                              balance
-                                              value
-                                              action]}
+                      :account-item/keys [transaction-date
+                                          quantity
+                                          balance
+                                          value]}
                      (sort-by :index > @items)]
                  ^{:key (str "item-" (:id item))}
                  [:tr
                   [:td.text-end (format-date transaction-date)]
                   [:td (:description item)]
-                  [:td.text-end (format-decimal (polarize-quantity quantity
-                                                                   action
-                                                                   @account)
-                                                4)]
-                  [:td.text-end (format-decimal balance, 4)]
-                  [:td.text-end (currency-format value)]]))]])))
+                  [:td.text-end (format-decimal quantity 4)]
+                  [:td.text-end (format-decimal balance 4)]
+                  [:td.text-end (currency-format (or value quantity))]]))]])))
 
 (defn- ensure-entry-state
   [page-state]
