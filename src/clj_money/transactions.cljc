@@ -286,7 +286,7 @@
    :quantity (->> items
                   (filter #(dates/within? (:transaction/transaction-date %) start-date end-date))
                   (map :account-item/quantity)
-                  (reduce d/+ (d/d 0)))})
+                  (reduce d/+ (d 0)))})
 
 (defn summarize-items
   [{:keys [period since as-of]
@@ -300,23 +300,6 @@
        (take-while (fn [[start _]]
                      (t/before? start as-of)))
        (map #(summarize-period % items))))
-
-(defn expand
-  "Given a transaction with a quantity, debit account and credit acount, return
-  a transaction with two items, one for each account"
-  [{:as trx :transaction/keys [debit-account credit-account quantity]}]
-  (if (and debit-account credit-account quantity)
-    (-> trx
-        (assoc :transaction/items [#:transaction-item{:action :debit
-                                                      :quantity quantity
-                                                      :account debit-account}
-                                   #:transaction-item{:action :credit
-                                                      :quantity quantity
-                                                      :account credit-account}])
-        (dissoc :transaction/quantity
-                :transaction/debit-account
-                :transaction/credit-account))
-    trx))
 
 (defn value
   [{:transaction/keys [items]}]
@@ -589,12 +572,12 @@
                              d/+
                              (->> is
                                   (map :transaction-item/quantity)
-                                  (reduce d/+ (d/d 0))))
+                                  (reduce d/+ (d 0))))
                   (update-in [:transaction-item/value]
                              d/+
                              (->> is
                                   (map :transaction-item/value)
-                                  (reduce d/+ (d/d 0)))))))))
+                                  (reduce d/+ (d 0)))))))))
 
 (defn- bilateral->unilateral-items
   [items]

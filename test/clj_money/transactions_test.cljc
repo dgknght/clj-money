@@ -120,22 +120,23 @@
                                :other-item {:id 2}
                                :other-account {:id :groceries}
                                :quantity (d -10)}]
-      (is (= expected (trx/unaccountify simple (comp accounts :id))))
+      (is (= expected (trx/unaccountify simple)))
       (testing "two asset accounts"
         (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :savings})
-               (trx/unaccountify (assoc simple :transaction/other-account {:id :savings})
-                                 (comp accounts :id)))))
+               (trx/unaccountify (assoc simple
+                                        :transaction/other-account
+                                        {:id :savings})))))
       (testing "one asset, one liability"
         (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :credit-card})
-               (trx/unaccountify (assoc simple :transaction/other-account {:id :credit-card})
-                                 (comp accounts :id)))))))
+               (trx/unaccountify (assoc simple
+                                        :transaction/other-account
+                                        {:id :credit-card})))))))
   (testing "A partial transaction (for editing)"
     (is (= #:transaction{:transaction-date "2020-01-01"
                          :items [#:transaction-item{:account {:id :checking}
                                                     :action :credit}]}
            (trx/unaccountify #:transaction{:transaction-date "2020-01-01"
-                                           :account {:id :checking}}
-                             (comp accounts :id))))))
+                                           :account {:id :checking}})))))
 
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"

@@ -160,7 +160,7 @@
                             (:id item))
                  (update-in [:items] (fn [items]
                                        (map (fn [item]
-                                              (if (util/id= (:attachment/transaction body)
+                                              (if (id= (:attachment/transaction body)
                                                             (:attachment/transaction item))
                                                 (update-in item [:transaction-item/attachment-count] inc)
                                                 item))
@@ -184,8 +184,7 @@
    page-state]
   (fn [{:account-item/keys [attachment-count
                             quantity
-                            balance
-                            action]
+                            balance]
         :reconciliation/keys [status]
         :transaction/keys [description
                            transaction-date]
