@@ -35,7 +35,7 @@
          update-in
          [:entity/settings :settings/monitored-accounts]
          (fnil conj #{})
-         (get-in @state [:new-monitor :account :id]))
+         {:id (get-in @state [:new-monitor :account :id])})
   (entities/save @current-entity
                  :callback -busy
                  :on-success (fn []
@@ -145,7 +145,8 @@
      [:figcaption (string/join "/" (:account/path account))]]]
    [:div
     {:on-click #(remove-monitor monitor state)
-     :style {:margin "0.5em"
+     :style {:margin-left "0.5em"
+             :margin-top "0.6em"
              :cursor "pointer"}
      :title "Click here to remove this budget monitor."}
     (icon :x-circle :size :small)]])
