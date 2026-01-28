@@ -63,10 +63,14 @@
 (s/def :transaction/memo (s/nilable string?))
 (s/def :transaction/description string?)
 
-(s/def ::common-transaction (s/keys :req [:transaction/entity
-                                          :transaction/description
+; TODO: Probably need separate specs for data entry and for saving. 
+; On the client, we haven't associated the entity yet, so we can't
+; require it and also convert to bilateral. On the server side,
+; we do want to enforce it.
+(s/def ::common-transaction (s/keys :req [:transaction/description
                                           :transaction/transaction-date]
-                                    :opt [:transaction/memo]))
+                                    :opt [:transaction/memo
+                                          :transaction/entity]))
 
 (s/def ::simple-transaction (s/merge ::common-transaction
                                      (s/keys :req [:transaction/quantity
