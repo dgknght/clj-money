@@ -160,7 +160,8 @@
 
 (defn occurring-soon?
   [{:scheduled-transaction/keys [next-occurrence]}]
-  (t/before? next-occurrence (t/plus (dates/today) (t/days 7))))
+  (and next-occurrence
+       (t/before? next-occurrence (t/plus (dates/today) (t/days 7)))))
 
 (def pending?
   (every-pred started?
