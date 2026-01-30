@@ -8,16 +8,6 @@
             [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
 
-(def ^:private working-date
-  (some-fn :transaction/original-transaction-date
-           :transaction/transaction-date))
-
-(defn- transaction-path
-  [{:keys [id] :as transaction}]
-  (api/path :transactions
-            (serialize-local-date (working-date transaction))
-            id))
-
 (defn- serialize-date
   [x]
   (cond
@@ -49,7 +39,7 @@
 
 (defn update
   [transaction opts]
-  (api/patch (transaction-path transaction)
+  (api/patch (api/path :transactions (:id transaction))
              (dissoc transaction :transaction/entity)
              (add-error-handler opts "Unable to update the transaction: %s")))
 
@@ -60,13 +50,8 @@
         (schema/prune :transaction)
         (f opts))))
 
-(defn get
-  [tkey & {:as opts}]
-  (api/get (transaction-path tkey)
-           {}
+(defn get-by-account-item
+  [{:keys [id]} & {:as opts}]
+  (api/get (api/path :transactions)
+           {:account-item-id id}
            (add-error-handler opts "Unable to retrieve the transaction: %s")))
-
-(defn delete
-  [transaction & {:as opts}]
-  (api/delete (transaction-path transaction)
-              (add-error-handler opts "Unable to remove the transaction: %s")))

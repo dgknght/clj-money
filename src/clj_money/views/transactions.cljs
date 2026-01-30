@@ -51,20 +51,15 @@
     (accountify transaction account)
     (entryfy transaction)))
 
-(defn- item->tkey
-  [{:transaction-item/keys [transaction-date transaction]}]
-  {:transaction/transaction-date transaction-date
-   :id (:id transaction)})
-
 (defn- edit-transaction
-  [item page-state]
+  [account-item page-state]
   (+busy)
-  (transactions/get
-    (item->tkey item)
+  (transactions/get-by-account-item
+    account-item
     :callback -busy
-    :on-success (fn [result]
+    :on-success (fn [[trx]]
                   (let [prepared (prepare-transaction-for-edit
-                                   result
+                                   trx
                                    (:view-account @page-state))]
                     (swap! page-state assoc :transaction prepared))
                   (set-focus "transaction-date"))))
@@ -142,12 +137,13 @@
       (init-item-loading page-state)))
 
 (defn- delete-transaction
-  [item page-state]
+  [account-item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (+busy)
-    (transactions/delete (item->tkey item)
-                         :callback -busy
-                         :on-success #(reset-item-loading page-state))))
+    (account-items/delete
+      account-item
+      :callback -busy
+      :on-success #(reset-item-loading page-state))))
 
 (defn- post-item-row-drop
   [page-state item]

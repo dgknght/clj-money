@@ -32,9 +32,12 @@
   (-> params
       comparatives/symbolize
       (update-in-if [:transaction-date] unserialize-date)
-      (rename-keys {:transaction-date :transaction/transaction-date})
+      (rename-keys {:transaction-date :transaction/transaction-date
+                    :account-item-id :account-item/_self})
+      (update-in-if [:account-item/_self] #(hash-map :id %))
       (select-keys [:transaction/entity
-                    :transaction/transaction-date])
+                    :transaction/transaction-date
+                    :account-item/_self])
       (+scope :transaction authenticated)))
 
 (defn- ->options
@@ -163,6 +166,8 @@
   [["entities/:entity-id"
     ["/transactions" {:post {:handler create}
                       :get {:handler index}}]]
-   ["transactions/:id" {:get {:handler show}
-                        :patch {:handler update}
-                        :delete {:handler delete}}]])
+   ["transactions"
+    ["" {:get {:handler index}}]
+    ["/:id" {:get {:handler show}
+             :patch {:handler update}
+             :delete {:handler delete}}]]])
