@@ -46,7 +46,7 @@
 (defn- max-by-item-index
   [items]
   (when (seq items)
-    (apply max-key :transaction-item/index items)))
+    (apply max-key :account-item/index items)))
 
 (defn- last-item
   [inclusion date items]
@@ -60,7 +60,7 @@
          (filter pred)
          max-by-item-index)))
 
-(defn- fetch-trx-items
+(defn- fetch-account-items
   [account-ids as-of & {:as opts}]
   (if (seq account-ids)
     (ch/find account-ids
@@ -70,14 +70,14 @@
                 :fetch-fn (fn [ids date]
                             (entities/select
                               (util/entity-type
-                                {:transaction-item/account [:in ids]
+                                {:account-item/account [:in ids]
                                  :transaction/transaction-date [:<between
                                                                 (t/minus date (t/years 1))
                                                                 date]}
-                                :transaction-item)
+                                :account-item)
                               {:select-also [:transaction/transaction-date]
-                               :datalog/hints [:transaction-item/account]}))
-                :id-fn (comp :id :transaction-item/account)
+                               :datalog/hints [:account-item/account]}))
+                :id-fn (comp :id :account-item/account)
                 :find-one-fn (partial last-item :on-or-before as-of)}
                opts))
     {}))
@@ -89,19 +89,19 @@
                          (map :id)
                          set)
         start-balances (when since
-                         (fetch-trx-items
+                         (fetch-account-items
                            account-ids
                            since
                            :find-one-fn (partial last-item :before since)
                            :earliest-date earliest-date))
-        end-balances (fetch-trx-items
+        end-balances (fetch-account-items
                        account-ids
                        as-of
                        :earliest-date earliest-date)]
     (->> account-ids
          (map (fn [id]
-                [id (- (get-in end-balances [id :transaction-item/balance] 0M)
-                       (get-in start-balances [id :transaction-item/balance] 0M))]))
+                [id (- (get-in end-balances [id :account-item/balance] 0M)
+                       (get-in start-balances [id :account-item/balance] 0M))]))
          (into {}))))
 
 (defn- valuation-data
@@ -153,9 +153,10 @@
   specified date."
   [opts accounts]
   (if (-> opts :entity :entity/transaction-date-range)
-    (let [data (valuation-data (-> opts
-                                   (assoc :accounts accounts)
-                                   (update-in [:as-of] (fnil identity (t/local-date)))))]
+    (let [data (valuation-data
+                 (-> opts
+                     (assoc :accounts accounts)
+                     (update-in [:as-of] (fnil identity (t/local-date)))))]
       (valuate data accounts))
     accounts))
 
@@ -228,7 +229,7 @@
      (income-statement entity since as-of)))
   ([entity since as-of]
    (->> (entities/select #:account{:entity entity
-                                 :type [:in #{:income :expense}]})
+                                   :type [:in #{:income :expense}]})
         (valuate-accounts {:entity entity
                            :since since
                            :as-of as-of})

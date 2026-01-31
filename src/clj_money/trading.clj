@@ -2,6 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.web :refer [format-decimal]]
@@ -196,14 +197,27 @@
   (update-in trade [:trade/entity] (fnil entities/resolve-ref
                                          entity)))
 
+(defn- gains-words
+  [gains]
+  (->> gains
+       (map (fn [{:keys [quantity long-term?]}]
+         (format "%,1.3f %s %s"
+                 (abs quantity)
+                 (if long-term? "long-term" "short-term")
+                 (if (< quantity 0M)
+                   "loss"
+                   "gain"))))
+       (string/join ", ")))
+
 (defn- sale-transaction-description
-  [{:trade/keys [shares]
+  [{:trade/keys [shares gains]
     {:commodity/keys [symbol]} :trade/commodity
     {:price/keys [value]} :trade/price}]
-  (format "Sell %,1.3f shares of %s at %,1.3f"
+  (format "Sell %,1.3f shares of %s at %,1.3f for %s"
           shares
           symbol
-          value))
+          value
+          (gains-words gains)))
 
 (defn- purchase-transaction-description
   [{:trade/keys [shares dividend? value price]
@@ -278,33 +292,21 @@
                  account
                  commodity-account]
     :or {fee 0M}
-    :as trade}
-   {:keys [item-basis]}]
+    :as trade}]
   (let [currency-amount (+ value fee)
-        account-basis (item-basis account)
-        commodity-basis (item-basis commodity-account)
-        fee-basis (item-basis fee-account)
-        items (cond-> [#:transaction-item{:action :credit
-                                          :account account
-                                          :quantity currency-amount
-                                          :value currency-amount
-                                          :index (inc (:transaction-item/index account-basis))
-                                          :balance (- (:transaction-item/balance account-basis)
-                                                      currency-amount)}
-                       #:transaction-item{:action :debit
-                                          :account commodity-account
-                                          :quantity shares
-                                          :value value
-                                          :index (inc (:transaction-item/index commodity-basis))
-                                          :balance (+ (:transaction-item/balance commodity-basis)
-                                                      shares)}]
-                (not= 0M fee) (conj #:transaction-item{:action :debit
-                                                       :account fee-account
-                                                       :quantity fee
-                                                       :value fee
-                                                       :index (inc (:transaction-item/index fee-basis))
-                                                       :balance (+ (:transaction-item/balance fee-basis)
-                                                                   fee)}))]
+        items (if (= 0M fee)
+                [#:transaction-item{:value currency-amount
+                                    :credit-item #:account-item{:account account}
+                                    :debit-item #:account-item{:account commodity-account
+                                                               :quantity shares}}]
+                [#:transaction-item{:value currency-amount
+                                    :credit-item #:account-item{:account account
+                                                                :quantity (- 0M (- currency-amount fee))}
+                                    :debit-item #:account-item{:account commodity-account
+                                                               :quantity shares}}
+                 #:transaction-item{:value fee
+                                    :credit-item #:account-item{:account account}
+                                    :debit-item #:account-item{:account fee-account}}])]
     (assoc trade
            :trade/transaction
            #:transaction{:entity entity
@@ -316,80 +318,31 @@
                                                 :price (with-precision 4 (/ value shares))
                                                 :shares shares}]})))
 
-(defn- create-capital-gains-item
-  [trade {:keys [item-basis]}]
-  (fn [{:keys [quantity description long-term?]}]
-    (let [[action effect] (if (< quantity 0)
-                            [:debit "loss"]
-                            [:credit "gains"])
-          account-key (keyword
-                        "trade"
-                        (format "%s-capital-%s-account"
-                                (if long-term? "lt" "st")
-                                effect))
-          account (account-key trade)
-          {:transaction-item/keys [balance index]} (item-basis account)]
-      #:transaction-item{:action action
-                         :account account
-                         :quantity (d/abs quantity)
-                         :value (d/abs quantity)
-                         :memo description
-                         :index (inc index)
-                         :balance (+ quantity balance)})))
-
-(defn- create-capital-gains-items
-  [{:trade/keys [gains] :as trade} opts]
-  (->> gains
-       (map (create-capital-gains-item trade opts))
-       (remove (comp zero?
-                     :transaction-item/quantity))))
-
 (defn- create-sale-transaction-items
   [{:trade/keys [shares
                  value
                  account
                  commodity-account
                  fee
-                 fee-account
-                 gains]
-    :or {fee 0M}
-    :as trade}
-   {:keys [item-basis] :as opts}]
-  (let [total-gains (->> gains
-                         (map :quantity)
-                         (reduce + 0M))
-        subtotal (- value fee)
-        account-basis (item-basis account)
-        commodity-basis (item-basis commodity-account)
-        fee-basis (when-not (zero? fee) (item-basis fee-account))]
-    (cond-> (conj (create-capital-gains-items trade opts)
-                  #:transaction-item{:action :debit
-                                     :account account
-                                     :quantity subtotal
-                                     :value subtotal
-                                     :index (inc (:transaction-item/index account-basis))
-                                     :balance (+ (:transaction-item/balance account-basis)
-                                                 subtotal)}
-                  #:transaction-item{:action :credit
-                                     :account commodity-account
-                                     :quantity shares
-                                     :value (- value total-gains)
-                                     :index (inc (:transaction-item/index commodity-basis))
-                                     :balance (- (:transaction-item/balance commodity-basis)
-                                                 shares)})
-      (not (zero? fee)) (conj #:transaction-item{:action :debit
-                                                 :account fee-account
-                                                 :quantity fee
-                                                 :value fee
-                                                 :index (inc (:transaction-item/index fee-basis))
-                                                 :balance (+ (:transaction-item/balance fee-basis)
-                                                             fee)}))))
+                 fee-account]
+    :or {fee 0M}}]
+  (cond-> [#:transaction-item{:value value
+                              :debit-item #:account-item{:action :debit
+                                                         :account account
+                                                         :quantity value}
+                              :credit-item #:account-item{:action :credit
+                                                          :account commodity-account
+                                                          :quantity (- 0M shares)}}]
+    (not (zero? fee))
+    (conj #:transaction-item{:value fee
+                             :debit-item #:account-item{:account fee-account}
+                             :credit-item #:account-item{:account account}})))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [date account lot-items] :as trade} opts]
-  (let [items (create-sale-transaction-items trade opts)]
+  [{:trade/keys [date account lot-items] :as trade}]
+  (let [items (create-sale-transaction-items trade)]
     (update-in trade
                [:trade/transactions]
                (fnil conj [])
@@ -481,7 +434,7 @@
           update-accounts
           create-lot
           (create-dividend-transaction opts)
-          (create-purchase-transaction opts)
+          create-purchase-transaction
           (put-purchase opts)))))
 
 (def buy-and-propagate
@@ -598,56 +551,14 @@
         (throw (ex-info msg trd))))))
  
 (defn- update-entity-settings
-  [trade]
-  (let [settings (-> trade
-                     (select-keys [:trade/lt-capital-gains-account
-                                   :trade/st-capital-gains-account
-                                   :trade/lt-capital-loss-account
-                                   :trade/st-capital-loss-account
-                                   :trade/inventory-method])
-                     (update-keys #(keyword "settings" (name %)))
-                     (update-vals #(if (map? %)
-                                     (util/->entity-ref %)
-                                     %)))]
+  [{:trade/keys [inventory-method] :as trade}]
+  (if inventory-method
     (update-in trade
                [:trade/entity :entity/settings]
-               #(merge settings %))))
- 
-(def ^:private find-or-create-account
-  (some-fn entities/find-by entities/put))
- 
-(defn- find-or-create-gains-account
-  [{:trade/keys [entity]} term result]
-  (find-or-create-account
-    #:account{:entity entity
-              :type (if (= "gains" result)
-                      :income
-                      :expense)
-              :name (str (if (= "lt" term) "Long-term" "Short-term")
-                         " Capital "
-                         (if (= "gains" result) "Gains" "Losses"))}))
- 
-(defn- ensure-gains-account
-  [{:trade/keys [entity] :as trade} [term result]]
-  (let [naked-key (str term "-capital-" result "-account")
-        trade-key (keyword "trade" naked-key)
-        settings-key (keyword "settings" naked-key)]
-    (update-in trade
-               [trade-key]
-               (fn [account]
-                 (or (when account (entities/find account))
-                     (when-let [act (get-in entity [:entity/settings settings-key])]
-                       (entities/find act))
-                     (find-or-create-gains-account trade term result))))))
-
-(defn- ensure-gains-accounts
-  "Ensures that the gain/loss accounts are present
-  in the sale transaction."
-  [trade]
-  (->> (for [term ["lt" "st"]
-             result ["gains" "loss"]]
-         [term result])
-       (reduce ensure-gains-account trade)))
+               assoc
+               :settings/inventory-method
+               inventory-method)
+    trade))
 
 (defn- put-sale
   [{:trade/keys [transactions
@@ -655,10 +566,6 @@
                  commodity
                  account
                  commodity-account
-                 lt-capital-gains-account
-                 lt-capital-loss-account
-                 st-capital-gains-account
-                 st-capital-loss-account
                  price
                  entity] :as trade}
    opts]
@@ -666,11 +573,7 @@
   ; Next save the transaction and lots, which will update the
   ; commodity account also
   ; Finally save the affected accounts
-  (let [result (->> (concat [lt-capital-gains-account
-                             lt-capital-loss-account
-                             st-capital-gains-account
-                             st-capital-loss-account
-                             commodity-account
+  (let [result (->> (concat [commodity-account
                              commodity
                              price
                              account
@@ -704,13 +607,12 @@
           append-accounts
           append-entity
           acquire-lots
-          ensure-gains-accounts
           update-entity-settings
           create-price
           push-commodity-price-boundary
           update-accounts
           process-lot-sales
-          (create-sale-transaction opts)
+          create-sale-transaction
           (put-sale opts)))))
 
 (def sell-and-propagate
@@ -720,12 +622,12 @@
   [trx & {:as opts}]
   (let [lot-items (entities/select
                     (util/entity-type {:transaction/_self trx}
-                                     :lot-item))
+                                      :lot-item))
         lots (index-by :id
                        (entities/select (util/entity-type
-                                        {:id [:in (map (comp :id :lot-item/lot)
-                                                       lot-items)]}
-                                        :lot)))
+                                          {:id [:in (map (comp :id :lot-item/lot)
+                                                         lot-items)]}
+                                          :lot)))
         updated-lots (vals (reduce (fn [lots lot-item]
                                      (update-in lots
                                                 [(get-in lot-item [:lot-item/lot :id])
@@ -734,8 +636,8 @@
                                    lots
                                    lot-items))]
     (entities/put-many opts
-                     (cons [::db/delete trx]
-                           updated-lots))))
+                       (cons [::db/delete trx]
+                             updated-lots))))
 
 (def unsell-and-propagate
   (prop/+propagation unsell))
@@ -927,7 +829,7 @@
            :split/lots lots
            :split/lot-items lot-items)))
 
-(defn- ratio->words
+#_(defn- ratio->words
   [ratio]
   ; We'll need to expand this at some point to handle
   ; reverse splits and stranger splits, like 3:2
@@ -938,30 +840,6 @@
                               (/ % ratio)))))]
     (format "%s for %s" n d)))
 
-(defn- create-split-transaction
-  [{:split/keys [commodity
-                 date
-                 ratio
-                 commodity-account
-                 shares-gained] :as split}
-   {:keys [item-basis]}]
-  (let [{:transaction-item/keys [index balance]} (item-basis commodity-account)]
-    (assoc split
-           :split/transaction
-           #:transaction{:entity (:commodity/entity commodity)
-                         :transaction-date date
-                         :description (format "Split shares of %s %s"
-                                              (:commodity/symbol commodity)
-                                              (ratio->words ratio))
-                         :items [#:transaction-item{:action (if (< 0 shares-gained)
-                                                              :debit
-                                                              :credit)
-                                                    :account commodity-account
-                                                    :quantity (.abs shares-gained)
-                                                    :value 0M
-                                                    :index (inc index)
-                                                    :balance (+ balance shares-gained)}]})))
-
 (defn- append-split-accounts
   [{:as split :split/keys [commodity account]}]
   (-> split
@@ -970,16 +848,15 @@
                                                                 :parent account}))))
 
 (defn- put-split
-  [{:split/keys [transaction
-                 lots
+  [{:split/keys [lots
                  lot-items
                  ratio]}
    opts]
-  (let [result (->> (cons transaction (concat lots lot-items))
+  (let [result (->> lots
+                    (concat lot-items)
                     (entities/put-many opts)
                     (group-by util/entity-type))]
-    {:split/transaction (first (:transaction result))
-     :split/lots (:lot result)
+    {:split/lots (:lot result)
      :split/lot-items (:lot-item result)
      :split/ratio ratio}))
 
@@ -1009,7 +886,6 @@
             append-split-lots
             append-split-ratio
             adjust-split-lots
-            (create-split-transaction opts)
             (put-split opts)))))
 
 (def split-and-propagate

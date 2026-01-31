@@ -1,6 +1,7 @@
 (ns clj-money.web.server
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
             [cheshire.generate]
             [reitit.core :as reitit]
             [reitit.ring :as ring]
@@ -37,7 +38,7 @@
             [clj-money.api.reports :as reports-api]
             [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
-            [clj-money.api.transaction-items :as transaction-items-api]
+            [clj-money.api.account-items :as account-items-api]
             [clj-money.api.scheduled-transactions :as sched-trans-api]
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
@@ -175,7 +176,7 @@
                    recs-api/routes
                    reports-api/routes
                    trading-api/routes
-                   transaction-items-api/routes
+                   account-items-api/routes
                    sched-trans-api/routes]]
                  {:conflicts (fn [conflicts]
                                (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))
@@ -191,12 +192,20 @@
       (ring/create-default-handler))))
 
 (defn print-routes []
-  (pprint
-    (map (comp #(take 2 %)
-               #(update-in % [1] dissoc :middleware))
-         (-> app
-             ring/get-router
-             reitit/compiled-routes))))
+  (doseq [[method path handler]
+          (->> (-> app
+                   ring/get-router
+                   reitit/compiled-routes)
+               (mapcat (fn [[path opts]]
+                         (->> [:get :post :put :patch :delete]
+                              (map (juxt identity opts))
+                              (filter (comp identity second))
+                              (map (fn [[method opts]]
+                                     [method path (:handler opts)]))))))]
+    (println (string/upper-case (name method))
+             path
+             "->"
+             (class handler))))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 3000))]

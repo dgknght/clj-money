@@ -1,15 +1,13 @@
-(ns clj-money.api.transaction-items-test
+(ns clj-money.api.account-items-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
-            [ring.mock.request :as req]
             [java-time.api :as t]
-            [lambdaisland.uri :refer [map->query-string]]
+            [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.json]
             [clj-money.util :as util]
-            [clj-money.api.test-helper :refer [add-auth
-                                               parse-body
+            [clj-money.api.test-helper :refer [parse-body
                                                request
                                                jsonize-decimals]]
             [clj-money.factories.user-factory]
@@ -18,8 +16,7 @@
                                             find-entity
                                             find-account
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db
-                                            parse-edn-body]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -123,7 +120,7 @@
     (-> (request :get (str (path :api
                                  :accounts
                                  (:id account)
-                                 :transaction-items)
+                                 :account-items)
                            "?"
                            (map->query-string
                              {:limit 5
@@ -140,29 +137,24 @@
    & {:keys [expected]
       :or {expected [{:transaction/transaction-date (t/local-date 2017 01 29)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}
+                      :account-item/quantity -100M
+                      :account-item/action :credit}
                      {:transaction/transaction-date (t/local-date 2017 01 22)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}
+                      :account-item/quantity -100M
+                      :account-item/action :credit}
                      {:transaction/transaction-date (t/local-date 2017 01 15)
                       :transaction/description "Paycheck"
-                      :transaction-item/quantity 1000M
-                      :transaction-item/polarized-quantity 1000M
-                      :transaction-item/action :debit}
+                      :account-item/quantity 1000M
+                      :account-item/action :debit}
                      {:transaction/transaction-date (t/local-date 2017 01 14)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}
+                      :account-item/quantity -100M
+                      :account-item/action :credit}
                      {:transaction/transaction-date (t/local-date 2017 01 01)
                       :transaction/description "Kroger"
-                      :transaction-item/quantity 100M
-                      :transaction-item/polarized-quantity -100M
-                      :transaction-item/action :credit}]}}]
+                      :account-item/quantity -100M
+                      :account-item/action :credit}]}}]
   (is (http-success? response))
   (is (seq-of-maps-like? expected (jsonize-decimals parsed-body))
       "The transaction items are returned in the response"))
@@ -181,25 +173,25 @@
       (assert-successful-list
         (get-a-list "john@doe.com" :content-type "application/json")
         :expected [{:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Paycheck"
                     :quantity "1,000.00"
                     :action "debit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}
+                    :_type "account-item"}
                    {:description "Kroger"
-                    :quantity "100.00"
+                    :quantity "-100.00"
                     :action "credit"
-                    :_type "transaction-item"}]))))
+                    :_type "account-item"}]))))
 
 (deftest a-user-cannot-get-a-list-of-transaction-items-in-anothers-entity
   (with-context context
@@ -246,31 +238,32 @@
 (deftest a-user-can-get-a-list-of-items-in-an-account-and-child-accounts
   (with-context children-context
     (let [account (find-account "Savings")
-          response (-> (req/request
-                         :get
-                         (str (path :api
-                                    :accounts
-                                    (:id account)
-                                    :transaction-items)
-                              "?"
-                              (map->query-string
-                                {:include-children true
-                                 :transaction-date-on-or-after "2015-01-01"
-                                 :transaction-date-before "2015-02-01"})))
-                       (add-auth (find-user "john@doe.com"))
+          response (-> (request :get (-> (path :api
+                                               :accounts
+                                               (:id account)
+                                               :account-items)
+                                         uri
+                                         (assoc :query
+                                                (map->query-string
+                                                  {:include-children true
+                                                   :transaction-date-on-or-after "2015-01-01"
+                                                   :transaction-date-before "2015-02-01"}))
+                                         str)
+                                :content-type "application/edn"
+                                :user (find-user "john@doe.com"))
                        app
-                       parse-edn-body)]
+                       parse-body)]
       (is (http-success? response))
-      (is (seq-of-maps-like? [{:transaction-item/quantity 103M
+      (is (seq-of-maps-like? [{:account-item/quantity 103M
                                :transaction/transaction-date (t/local-date 2015 01 04)
                                :transaction/description "For the sub-zero"}
-                              {:transaction-item/quantity 102M
+                              {:account-item/quantity 102M
                                :transaction/transaction-date (t/local-date 2015 01 03)
                                :transaction/description "For a Tesla"}
-                              {:transaction-item/quantity 101M
+                              {:account-item/quantity 101M
                                :transaction/transaction-date (t/local-date 2015 01 02)
                                :transaction/description "For a rainy day"}]
-                             (:edn-body response))
+                             (:parsed-body response))
           "The items in the specified account and the children accounts are returned."))))
 
 (def ^:private summary-context
@@ -307,16 +300,17 @@
                        (path :api
                              :entities
                              (:id entity)
-                             :transaction-items
+                             :account-items
                              :summarize)
                        (:id groceries))]
-      (-> (req/request :get path)
-          (add-auth (find-user user-email))
+      (-> (request :get path
+                   :content-type "application/edn"
+                   :user (find-user user-email))
           app
-          parse-edn-body))))
+          parse-body))))
 
 (defn- assert-successful-summary
-  [{:keys [edn-body] :as response}]
+  [{:keys [parsed-body] :as response}]
   (is (http-success? response))
   (is (= [{:start-date (t/local-date 2016 1 1)
            :end-date (t/local-date 2016 1 31)
@@ -330,10 +324,10 @@
           {:start-date (t/local-date 2016 4 1)
            :end-date (t/local-date 2016 4 30)
            :quantity 0M}]
-         edn-body)))
+         parsed-body)))
 
 (defn- assert-blocked-summary
-  [{:keys [edn-body] :as response}]
+  [{:keys [parsed-body] :as response}]
   (is (http-success? response))
   (is (= [{:start-date (t/local-date 2016 1 1)
            :end-date (t/local-date 2016 1 31)
@@ -347,7 +341,7 @@
           {:start-date (t/local-date 2016 4 1)
            :end-date (t/local-date 2016 4 30)
            :quantity 0M}]
-         edn-body)))
+         parsed-body)))
 
 (deftest a-user-can-summarize-items-in-his-entity
   (assert-successful-summary (summarize-items "john@doe.com")))

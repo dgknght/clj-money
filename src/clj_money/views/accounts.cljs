@@ -592,7 +592,7 @@
   (fn [trx]
     (-> trx
         v/reset
-        (unaccountify (comp @accounts-by-id :id))
+        unaccountify
         entryfy)))
 
 (defn- collapse-trx
