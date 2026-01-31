@@ -81,21 +81,22 @@
                           :description "ACME Store"
                           :memo "transaction memo"
                           :items [{:id 1
-                                   :transaction-item/account (accounts :checking)
-                                   :transaction-item/memo "checking memo" ; NOTE: these memos are lost
-                                   :transaction-item/action :credit
-                                   :transaction-item/quantity (d 10)}
-                                  {:id 2
-                                   :transaction-item/account (accounts :groceries)
-                                   :transaction-item/memo "groceries memo"
-                                   :transaction-item/action :debit
-                                   :transaction-item/quantity (d 10)}]}
+                                   :transaction-item/credit-item {:id 201
+                                                                  :account-item/account (accounts :checking)
+                                                                  :account-item/memo "checking memo"
+                                                                  :account-item/quantity (d/- d/zero (d 10))}
+                                   :transaction-item/debit-item {:id 202
+                                                                 :account-item/account (accounts :groceries)
+                                                                 :account-item/memo "groceries memo"
+                                                                 :account-item/quantity (d 10)}
+                                   :transaction-item/value (d 10)}]}
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :item {:id 1}
+                               :item {:id 201}
                                :account (accounts :checking)
-                               :other-item {:id 2} :other-account (accounts :groceries)
+                               :other-item {:id 202}
+                               :other-account (accounts :groceries)
                                :quantity (d -10)}]
     (is (= expected (trx/accountify trx (accounts :checking))))))
 
@@ -234,33 +235,24 @@
 
 (deftest simplifiability
   (is (trx/can-accountify?
-       {:transaction/items [#:transaction-item{:action :debit
-                                               :account {:id 1}
-                                               :quantity (d 10)}
-                            #:transaction-item{:action :credit
-                                               :account {:id 2}
-                                               :quantity (d 10)}]})
-      "A two-item transaction can be simplified")
+        {:transaction/items [#:transaction-item{:credit-item #:account-item{:account {:id 1}}
+                                                :debit-item #:account-item{:account {:id 2}}
+                                                :value (d 10)}]})
+      "A one-item transaction can be simplified")
   (is (trx/can-accountify?
-       {:transaction/items [#:transaction-item{:action :debit
-                                               :account {:id 1}
-                                               :quantity (d 10)}
-                            #:transaction-item{:action :credit
-                                               :account {:id 2}
-                                               :quantity (d 10)}
-                            {}]})
+        {:transaction/items [#:transaction-item{:credit-item #:account-item{:account {:id 1}}
+                                                :debit-item #:account-item{:account {:id 2}}
+                                                :value (d 10)}
+                             {}]})
       "A transaction with two full items and one emtpy item can be simplified")
   (is (not (trx/can-accountify?
-            {:transaction/items [#:transaction-item{:action :debit
-                                                    :account {:id 1}
-                                                    :quantity (d 10)}
-                                 #:transaction-item{:action :credit
-                                                    :account {:id 2}
-                                                    :quantity (d 6)}
-                                 #:transaction-item{:action :credit
-                                                    :account {:id 3}
-                                                    :quantity (d 4)}]}))
-      "A transaction with more than two non-empty items cannot be simplified"))
+             {:transaction/items [#:transaction-item{:credit-item #:account-item{:account {:id 1}}
+                                                     :debit-item #:account-item{:account {:id 2}}
+                                                     :value (d 10)}
+                                  #:transaction-item{:credit-item #:account-item{:account {:id 1}}
+                                                     :debit-item #:account-item{:account {:id 3}}
+                                                     :value (d 5)}]}))
+      "A transaction with more than one non-empty item cannot be simplified"))
 
 (deftest ensure-an-empty-item
   (let [expected {:transaction/items [#:transaction-item{:credit-quantity (d 10)}

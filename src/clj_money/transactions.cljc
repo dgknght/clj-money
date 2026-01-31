@@ -8,7 +8,7 @@
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.util :as util :refer [->entity-ref entity=]]
+            [clj-money.util :as util :refer [->entity-ref id=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d :refer [d]]
             [clj-money.accounts :refer [polarize-quantity
@@ -144,7 +144,7 @@
   means it has two items) or false if not (which means it
   has more). It assumes a valid transaction."
   [{:transaction/keys [items]}]
-  (= 2
+  (= 1
      (count (remove empty? items))))
 
 (defn ensure-empty-item
@@ -653,25 +653,30 @@
                      (mapv unentryfy-item)))))
 
 (defn accountify
-  "Accepts a standard transaction with two line items and
+  "Accepts a bilateral transaction with one line item and
   returns a simplified transaction vis a vis the specified
   account, with the amount polarized.
 
   If the transaction contains more or less than two items, an
   exception is thrown."
-  [{:transaction/keys [items] :as trx} ref-account]
+  [{:as trx [item] :transaction/items} ref-account]
   {:pre [(can-accountify? trx)
          ref-account]}
-  (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
-         [other-item] false} (group-by #(entity= ref-account
-                                                 (:transaction-item/account %))
-                                       items)]
+  (let [f (if (id= ref-account
+                   (-> item
+                       :transaction-item/credit-item
+                       :account-item/account))
+            (juxt :transaction-item/credit-item
+                  :transaction-item/debit-item)
+            (juxt :transaction-item/debit-item
+                  :transaction-item/credit-item))
+        [this-item other-item] (f item)]
     (-> trx
-        (assoc :transaction/other-account (:transaction-item/account other-item)
-               :transaction/other-item (->entity-ref other-item)
-               :transaction/account (:transaction-item/account account-item)
-               :transaction/item (->entity-ref account-item)
-               :transaction/quantity (polarize-quantity quantity action ref-account))
+        (assoc :transaction/other-account (:account-item/account other-item)
+               :transaction/other-item (util/->entity-ref other-item)
+               :transaction/account (:account-item/account this-item)
+               :transaction/item (util/->entity-ref this-item)
+               :transaction/quantity (:account-item/quantity this-item))
         (dissoc :transaction/items))))
 
 (defn unaccountify
