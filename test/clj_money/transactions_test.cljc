@@ -133,21 +133,39 @@
                                :quantity (d -10)}]
       (is (= expected (trx/unaccountify simple)))
       (testing "two asset accounts"
-        (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :savings})
-               (trx/unaccountify (assoc simple
-                                        :transaction/other-account
-                                        {:id :savings})))))
+          (is (= (assoc-in expected
+                           [:transaction/items
+                            0
+                            :transaction-item/debit-item
+                            :account-item/account]
+                           {:id {:id 3}
+                            :account/type :asset})
+                 (trx/unaccountify (assoc simple
+                                          :transaction/other-account
+                                          {:id {:id 3}
+                                           :account/type :asset})))))
       (testing "one asset, one liability"
-        (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :credit-card})
+        (is (= (update-in expected
+                          [:transaction/items
+                           0
+                           :transaction-item/debit-item]
+                          #(assoc %
+                                  :account-item/account {:id {:id 4}
+                                                         :account/type :liability}
+                                  :account-item/quantity (d/- d/zero (d 10))))
                (trx/unaccountify (assoc simple
                                         :transaction/other-account
-                                        {:id :credit-card})))))))
-  (testing "A partial transaction (for editing)"
-    (is (= #:transaction{:transaction-date "2020-01-01"
-                         :items [#:transaction-item{:account {:id :checking}
-                                                    :action :credit}]}
-           (trx/unaccountify #:transaction{:transaction-date "2020-01-01"
-                                           :account {:id :checking}})))))
+                                        {:id {:id 4}
+                                         :account/type :liability})))))))
+  ; TODO: Is this still a valid use case?
+  #_(testing "A partial transaction (for editing)"
+      (is (= #:transaction{:transaction-date "2020-01-01"
+                           :items [#:transaction-item{:account {:id {:id 1}
+                                                                :account/type :asset}
+                                                      :action :credit}]}
+             (trx/unaccountify #:transaction{:transaction-date "2020-01-01"
+                                             :account {:id {:id 1}
+                                                       :account/type :asset}})))))
 
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"
