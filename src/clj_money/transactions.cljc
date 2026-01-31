@@ -63,14 +63,10 @@
 (s/def :transaction/memo (s/nilable string?))
 (s/def :transaction/description string?)
 
-; TODO: Probably need separate specs for data entry and for saving. 
-; On the client, we haven't associated the entity yet, so we can't
-; require it and also convert to bilateral. On the server side,
-; we do want to enforce it.
-(s/def ::common-transaction (s/keys :req [:transaction/description
+(s/def ::common-transaction (s/keys :req [:transaction/entity
+                                          :transaction/description
                                           :transaction/transaction-date]
-                                    :opt [:transaction/memo
-                                          :transaction/entity]))
+                                    :opt [:transaction/memo]))
 
 (s/def ::simple-transaction (s/merge ::common-transaction
                                      (s/keys :req [:transaction/quantity
@@ -116,6 +112,34 @@
          (map just-map)
          (s/valid? spec))
     true))
+
+;; Structure identification specs (entity NOT required)
+;; Used by transformation functions (->bilateral, ->unilateral, etc.)
+(s/def ::trx-form-common (s/keys :req [:transaction/description
+                                       :transaction/transaction-date]
+                                 :opt [:transaction/memo
+                                       :transaction/entity]))
+
+(s/def ::trx-form-simple (s/merge ::trx-form-common
+                                  (s/keys :req [:transaction/quantity
+                                                :transaction/debit-account
+                                                :transaction/credit-account])))
+
+(s/def ::trx-form-complex (s/merge ::trx-form-common
+                                   (s/keys :req [:transaction/items])))
+
+(s/def ::trx-form-bilateral (s/and ::trx-form-complex
+                                   (fn [{:transaction/keys [items]}]
+                                     (valid-items? ::bilateral-items items))))
+
+(s/def ::trx-form-unilateral (s/and ::trx-form-complex
+                                    (fn [{:transaction/keys [items]}]
+                                      (valid-items? ::unilateral-items items))
+                                    sum-of-credits-equals-sum-of-debits?))
+
+(s/def ::trx-form (s/or :simple ::trx-form-simple
+                        :unilateral ::trx-form-unilateral
+                        :bilateral ::trx-form-bilateral))
 
 (s/def ::bilateral-transaction (s/and ::complex-transaction
                                       (fn [{:transaction/keys [items]}]
@@ -529,7 +553,7 @@
 
 (defn- conform-trx
   [trx]
-  (let [conformed (s/conform ::transaction trx)]
+  (let [conformed (s/conform ::trx-form trx)]
     (when (vector? conformed)
       conformed)))
 
