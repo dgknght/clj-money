@@ -1,5 +1,5 @@
 (ns clj-money.api.transactions
-  (:refer-clojure :exclude [update get])
+  (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clj-money.comparatives :as comparatives]

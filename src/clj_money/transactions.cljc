@@ -8,7 +8,7 @@
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.util :as util :refer [->entity-ref id=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d :refer [d]]
             [clj-money.accounts :refer [polarize-quantity
