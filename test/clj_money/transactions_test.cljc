@@ -133,17 +133,17 @@
                                :quantity (d -10)}]
       (is (= expected (trx/unaccountify simple)))
       (testing "two asset accounts"
-          (is (= (assoc-in expected
-                           [:transaction/items
-                            0
-                            :transaction-item/debit-item
-                            :account-item/account]
-                           {:id {:id 3}
-                            :account/type :asset})
-                 (trx/unaccountify (assoc simple
-                                          :transaction/other-account
-                                          {:id {:id 3}
-                                           :account/type :asset})))))
+        (is (= (assoc-in expected
+                         [:transaction/items
+                          0
+                          :transaction-item/debit-item
+                          :account-item/account]
+                         {:id {:id 3}
+                          :account/type :asset})
+               (trx/unaccountify (assoc simple
+                                        :transaction/other-account
+                                        {:id {:id 3}
+                                         :account/type :asset})))))
       (testing "one asset, one liability"
         (is (= (update-in expected
                           [:transaction/items
