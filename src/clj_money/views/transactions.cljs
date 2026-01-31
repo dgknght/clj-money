@@ -46,10 +46,12 @@
             [clj-money.api.trading :as trading]))
 
 (defn- prepare-transaction-for-edit
-  [transaction account]
-  (if (can-accountify? transaction)
-    (accountify transaction account)
-    (entryfy transaction)))
+  ([account]
+   #(prepare-transaction-for-edit % account))
+  ([transaction account]
+   (if (can-accountify? transaction)
+     (accountify transaction account)
+     (entryfy transaction))))
 
 (defn- edit-transaction
   [account-item page-state]
@@ -57,11 +59,11 @@
   (transactions/get-by-account-item
     account-item
     :callback -busy
-    :on-success (fn [[trx]]
-                  (let [prepared (prepare-transaction-for-edit
-                                   trx
-                                   (:view-account @page-state))]
-                    (swap! page-state assoc :transaction prepared))
+    :post-xf (comp (map first)
+                   (map (prepare-transaction-for-edit
+                          (:view-account @page-state))))
+    :on-success (fn [trx]
+                  (swap! page-state assoc :transaction trx)
                   (set-focus "transaction-date"))))
 
 (defn load-unreconciled-items
