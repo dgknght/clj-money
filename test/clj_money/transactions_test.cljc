@@ -101,24 +101,35 @@
 
 (deftest unaccountify-a-transaction
   (testing "A whole transaction"
-    (let [expected #:transaction{:transaction-date "2020-01-01"
+    (let [expected #:transaction{:transaction-date (dates/local-date "2020-01-01")
                                  :description "ACME Store"
                                  :memo "transaction memo"
-                                 :items [{:id 1
-                                          :transaction-item/account {:id :checking}
-                                          :transaction-item/action :credit
-                                          :transaction-item/quantity (d 10)}
-                                         {:id 2
-                                          :transaction-item/account {:id :groceries}
-                                          :transaction-item/action :debit
-                                          :transaction-item/quantity (d 10)}]}
-          simple #:transaction{:transaction-date "2020-01-01"
+                                 :items [{:id 3
+                                          :transaction-item/value (d 10)
+                                          :transaction-item/credit-item
+                                          {:id 1
+                                           :account-item/account {:id 1
+                                                                  :account/type :asset}
+                                           :account-item/action :credit
+                                           :account-item/quantity (d/- d/zero
+                                                                       (d 10))}
+
+                                          :transaction-item/debit-item
+                                          {:id 2
+                                           :account-item/account {:id 2
+                                                                  :account/type :expense}
+                                           :account-item/action :debit
+                                           :account-item/quantity (d 10)}}]}
+          simple #:transaction{:transaction-date (dates/local-date "2020-01-01")
                                :description "ACME Store"
                                :memo "transaction memo"
+                               :transaction-item {:id 3}
                                :item {:id 1}
-                               :account {:id :checking}
+                               :account {:id 1
+                                         :account/type :asset}
                                :other-item {:id 2}
-                               :other-account {:id :groceries}
+                               :other-account {:id 2
+                                               :account/type :expense}
                                :quantity (d -10)}]
       (is (= expected (trx/unaccountify simple)))
       (testing "two asset accounts"
@@ -142,14 +153,15 @@
   (let [transaction #:transaction{:transaction-date "2020-01-01"
                                   :description "ACME Store"
                                   :memo "transaction memo"
-                                  :items [#:transaction-item{:account {:id 1}
-                                                             :memo "checking memo"
-                                                             :action :credit
-                                                             :quantity (d 10)}
-                                          #:transaction-item{:account {:id 2}
-                                                             :memo "groceries memo"
-                                                             :action :debit
-                                                             :quantity (d 10)}]}
+                                  :items [#:transaction-item{:credit-item #:account-item{:account {:id 1}
+                                                                                         :memo "checking memo"
+                                                                                         :action :credit
+                                                                                         :quantity (d 10)}
+                                                             :debit-item #:account-item{:account {:id 2}
+                                                                                         :memo "groceries memo"
+                                                                                         :action :debit
+                                                                                         :quantity (d 10)}
+                                                             :value (d 10)}]}
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
@@ -165,27 +177,31 @@
     (is (= expected (trx/entryfy transaction)))))
 
 (deftest unentryfy-a-transaction
-  (let [expected #:transaction{:transaction-date "2020-01-01"
+  (let [expected #:transaction{:transaction-date (dates/local-date "2020-01-01")
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :items [#:transaction-item{:account {:id 1}
-                                                          :memo "checking memo"
-                                                          :action :credit
-                                                          :quantity (d 10)
-                                                          :value (d 10)}
-                                       #:transaction-item{:account {:id 2}
-                                                          :memo "groceries memo"
-                                                          :action :debit
-                                                          :quantity (d 10)
+                               :items [#:transaction-item{:credit-item #:account-item{:account {:id 1
+                                                                                                :account/type :asset}
+                                                                                     :action :credit
+                                                                                     :quantity (d/- d/zero
+                                                                                                    (d 10))
+                                                                                     :memo "checking memo"}
+                                                          :debit-item #:account-item{:account {:id 2
+                                                                                               :account/type :expense}
+                                                                                     :action :debit
+                                                                                     :quantity (d 10)
+                                                                                     :memo "groceries memo"}
                                                           :value (d 10)}]}
-        transaction #:transaction{:transaction-date "2020-01-01"
+        transaction #:transaction{:transaction-date (dates/local-date "2020-01-01")
                                   :description "ACME Store"
                                   :memo "transaction memo"
-                                  :items [#:transaction-item{:account {:id 1}
+                                  :items [#:transaction-item{:account {:id 1
+                                                                       :account/type :asset}
                                                              :memo "checking memo"
                                                              :credit-quantity (d 10)
                                                              :debit-quantity nil}
-                                          #:transaction-item{:account {:id 2}
+                                          #:transaction-item{:account {:id 2
+                                                                       :account/type :expense}
                                                              :memo "groceries memo"
                                                              :credit-quantity nil
                                                              :debit-quantity (d 10)}

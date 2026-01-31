@@ -147,91 +147,6 @@
   (= 2
      (count (remove empty? items))))
 
-(defn accountify
-  "Accepts a standard transaction with two line items and
-  returns a simplified transaction vis a vis the specified
-  account, with the amount polarized.
-
-  If the transaction contains more or less than two items, an
-  exception is thrown."
-  [{:transaction/keys [items] :as trx} ref-account]
-  {:pre [(can-accountify? trx)
-         ref-account]}
-  (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
-         [other-item] false} (group-by #(entity= ref-account
-                                                 (:transaction-item/account %))
-                                       items)]
-    (-> trx
-        (assoc :transaction/other-account (:transaction-item/account other-item)
-               :transaction/other-item (->entity-ref other-item)
-               :transaction/account (:transaction-item/account account-item)
-               :transaction/item (->entity-ref account-item)
-               :transaction/quantity (polarize-quantity quantity action ref-account))
-        (dissoc :transaction/items))))
-
-(defn unaccountify
-  "Accepts an accountified transaction (with one quantity, one account, and one
-                                         'other' account) and returns a unilateral transaction"
-  [{:transaction/keys [quantity
-                       account]
-    :as trx}]
-  {:pre [(:transaction/account trx)]}
-  (let [renames (if (and (left-side? account)
-                         (< (d 0) quantity))
-                  {:transaction/account :transaction/debit-account
-                   :transaction/other-account :transaction/credit-account}
-                  {:transaction/account :transaction/credit-account
-                   :transaction/other-account :transaction/debit-account})]
-    (-> trx
-        (rename-keys renames)
-        (update-in [:transaction/quantity] d/abs))))
-
-(defn- entryfy-item
-  [{:transaction-item/keys [quantity action] :as item}]
-  (-> item
-      (assoc :transaction-item/debit-quantity (when (= :debit action)
-                                                quantity)
-             :transaction-item/credit-quantity (when (= :credit action)
-                                                 quantity))
-      (dissoc :transaction-item/action
-              :transaction-item/quantity)))
-
-(defn entryfy
-  "Accepts a standard transaction and returns the transaction
-  with line items adjusted for easy entry, with no :action
-  attribute, one :credit-quantity and one :debit-quantity"
-  [transaction]
-  (update-in transaction [:transaction/items] #(conj (mapv entryfy-item %)
-                                                     {})))
-
-(def ^:private has-quantity?
-  (some-fn :transaction-item/debit-quantity
-           :transaction-item/credit-quantity))
-
-(def ^:private empty-item?
-  (complement has-quantity?))
-
-(defn- unentryfy-item
-  [{:transaction-item/keys [debit-quantity credit-quantity] :as item}]
-  (let [quantity (or debit-quantity credit-quantity)]
-    (-> item
-        (assoc :transaction-item/action (if debit-quantity
-                                          :debit
-                                          :credit)
-               :transaction-item/quantity quantity
-               :transaction-item/value quantity)
-        (dissoc :transaction-item/debit-quantity
-                :transaction-item/credit-quantity))))
-
-(defn unentryfy
-  "Reverses an entryfy operation"
-  [trx]
-  (update-in trx
-             [:transaction/items]
-             #(->> %
-                   (remove empty-item?)
-                   (mapv unentryfy-item))))
-
 (defn ensure-empty-item
   "Given an entryfied transaction, ensures that there is
   exactly one empty row"
@@ -315,27 +230,42 @@
       (first sums))))
 
 (defn- simple->bilateral
-  [{:transaction/keys [debit-account credit-account quantity] :as trx}]
+  [{:transaction/keys [debit-account
+                       debit-item
+                       credit-account
+                       credit-item
+                       transaction-item
+                       quantity]
+    :as trx}]
   (-> trx
       (dissoc :transaction/debit-account
+              :transaction/debit-item
               :transaction/credit-account
+              :transaction/credit-item
+              :transaction/transaction-item
               :transaction/quantity)
       (assoc :transaction/items
-             [{:transaction-item/value quantity
-               :transaction-item/debit-item
-               {:account-item/action :debit
-                :account-item/account debit-account
-                :account-item/quantity (polarize-quantity
-                                         {:quantity quantity
-                                          :account debit-account
-                                          :action :debit})}
-               :transaction-item/credit-item
-               {:account-item/action :credit
-                :account-item/account credit-account
-                :account-item/quantity (polarize-quantity
-                                         {:quantity quantity
-                                          :account credit-account
-                                          :action :credit})}}])))
+             [(merge
+                transaction-item
+                {:transaction-item/value quantity
+                 :transaction-item/debit-item
+                 (merge
+                   debit-item
+                   {:account-item/action :debit
+                    :account-item/account debit-account
+                    :account-item/quantity (polarize-quantity
+                                             {:quantity quantity
+                                              :account debit-account
+                                              :action :debit})})
+                 :transaction-item/credit-item
+                 (merge
+                   credit-item
+                   {:account-item/action :credit
+                    :account-item/account credit-account
+                    :account-item/quantity (polarize-quantity
+                                             {:quantity quantity
+                                              :account credit-account
+                                              :action :credit})})})])))
 
 (defn- simple->unilateral
   [{:transaction/keys [debit-account credit-account quantity] :as trx}]
@@ -667,3 +597,103 @@
                #(merge (account-item :debit
                                      (:account-item/account %)
                                      value)))))
+
+(defn- entryfy-item
+  [{:transaction-item/keys [credit-item debit-item]}]
+  [{:transaction-item/debit-quantity  nil
+    :transaction-item/account (:account-item/account credit-item)
+    :transaction-item/credit-quantity (:account-item/quantity credit-item)
+    :transaction-item/memo (:account-item/memo credit-item)}
+   {:transaction-item/debit-quantity (:account-item/quantity debit-item)
+    :transaction-item/account (:account-item/account debit-item)
+    :transaction-item/credit-quantity nil
+    :transaction-item/memo (:account-item/memo debit-item)}])
+
+(defn entryfy
+  "Accepts a bilateral transaction and returns the transaction
+  with line items adjusted for easy entry, with no :action
+  attribute, one :credit-quantity and one :debit-quantity"
+  [transaction]
+  (update-in transaction
+             [:transaction/items]
+             (fn [items]
+               (conj (->> items
+                          (mapcat entryfy-item)
+                          vec)
+                     {}))))
+
+(def ^:private has-quantity?
+  (some-fn :transaction-item/debit-quantity
+           :transaction-item/credit-quantity))
+
+(def ^:private empty-item?
+  (complement has-quantity?))
+
+(defn- unentryfy-item
+  [{:transaction-item/keys [debit-quantity credit-quantity] :as item}]
+  (let [quantity (or debit-quantity credit-quantity)]
+    (-> item
+        (assoc :transaction-item/action (if debit-quantity
+                                          :debit
+                                          :credit)
+               :transaction-item/quantity quantity
+               :transaction-item/value quantity)
+        (dissoc :transaction-item/debit-quantity
+                :transaction-item/credit-quantity))))
+
+(defn unentryfy
+  "Reverses an entryfy operation"
+  [trx]
+  ; entryfied -> unilateral -> bilateral
+  (->bilateral
+    (update-in trx
+               [:transaction/items]
+               #(->> %
+                     (remove empty-item?)
+                     (mapv unentryfy-item)))))
+
+(defn accountify
+  "Accepts a standard transaction with two line items and
+  returns a simplified transaction vis a vis the specified
+  account, with the amount polarized.
+
+  If the transaction contains more or less than two items, an
+  exception is thrown."
+  [{:transaction/keys [items] :as trx} ref-account]
+  {:pre [(can-accountify? trx)
+         ref-account]}
+  (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
+         [other-item] false} (group-by #(entity= ref-account
+                                                 (:transaction-item/account %))
+                                       items)]
+    (-> trx
+        (assoc :transaction/other-account (:transaction-item/account other-item)
+               :transaction/other-item (->entity-ref other-item)
+               :transaction/account (:transaction-item/account account-item)
+               :transaction/item (->entity-ref account-item)
+               :transaction/quantity (polarize-quantity quantity action ref-account))
+        (dissoc :transaction/items))))
+
+(defn unaccountify
+  "Accepts an accountified transaction (with one quantity, one account, and
+                                         one 'other' account) and returns a bilateral transaction"
+  [{:transaction/keys [quantity
+                       account]
+    :as trx}]
+  {:pre [(:transaction/account trx)]}
+  ; accountified -> simple -> bilateral
+  (let [renames (if (if (left-side? account)
+                      (d/< d/zero quantity)
+                      (d/< quantity d/zero))
+                  {:transaction/account :transaction/debit-account
+                       :transaction/other-account :transaction/credit-account
+                       :transaction/item :transaction/debit-item
+                       :transaction/other-item :transaction/credit-item}
+                  {:transaction/account :transaction/credit-account
+                       :transaction/other-account :transaction/debit-account
+                       :transaction/item :transaction/credit-item
+                       :transaction/other-item :transaction/debit-item})]
+    (-> trx
+        (rename-keys renames)
+        (update-in [:transaction/quantity] d/abs)
+        ->bilateral)))
