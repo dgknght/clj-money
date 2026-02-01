@@ -112,7 +112,7 @@
 
   (#{:asset :expense} type))
 
-(defn- polarizer
+(defn polarizer
   [action account]
   (d/* (if (left-side? account) (d/d 1) (d/d -1))
        (if (= :debit action) (d/d 1) (d/d -1))))

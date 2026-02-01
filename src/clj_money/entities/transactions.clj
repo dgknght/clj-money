@@ -135,17 +135,33 @@
            items))
     items))
 
+(defn- set-item-quantity
+  [{:as item :account-item/keys [quantity account action]} value]
+  (assoc item
+         :account-item/quantity
+         (cond
+
+           (not quantity)
+           (acts/polarize-quantity
+             {:account account
+              :quantity value
+              :action action})
+
+           ; Allow for the quantity not to match the value for trading
+           ; transactions, but do insist that the polarity match
+           (not= (pos? (acts/polarizer action account))
+                 (pos? quantity))
+           (- 0M quantity)
+
+           :else
+           quantity)))
+
 (defn- normalize-account-item
   [action value]
-  (fn [{:account-item/keys [account quantity] :as item}]
-    (cond-> (assoc item :account-item/action action)
-
-      (and (not quantity)
-           account)
-      (assoc :account-item/quantity (acts/polarize-quantity
-                                      {:account account
-                                       :quantity value
-                                       :action action})))))
+  (fn [item]
+    (-> item
+        (assoc :account-item/action action)
+        (set-item-quantity value))))
 
 (defn- normalize-account-items
   [{:as item :transaction-item/keys [value]}]
