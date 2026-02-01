@@ -32,7 +32,8 @@
       "Bash(lein fig:test:*)",
       "Bash(lein cljfmt check:*)",
       "Bash(lein cljfmt fix:*)",
-      "Bash(clj-kondo:*)"
+      "Bash(clj-kondo:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
