@@ -626,9 +626,9 @@
   [{:transaction-item/keys [credit-item debit-item]}]
   [{:transaction-item/debit-quantity  nil
     :transaction-item/account (:account-item/account credit-item)
-    :transaction-item/credit-quantity (:account-item/quantity credit-item)
+    :transaction-item/credit-quantity (d/abs (:account-item/quantity credit-item))
     :transaction-item/memo (:account-item/memo credit-item)}
-   {:transaction-item/debit-quantity (:account-item/quantity debit-item)
+   {:transaction-item/debit-quantity (d/abs (:account-item/quantity debit-item))
     :transaction-item/account (:account-item/account debit-item)
     :transaction-item/credit-quantity nil
     :transaction-item/memo (:account-item/memo debit-item)}])
@@ -683,25 +683,27 @@
 
   If the transaction contains more or less than two items, an
   exception is thrown."
-  [{:as trx [item] :transaction/items} ref-account]
-  {:pre [(can-accountify? trx)
-         ref-account]}
-  (let [f (if (id= ref-account
-                   (-> item
-                       :transaction-item/credit-item
-                       :account-item/account))
-            (juxt :transaction-item/credit-item
-                  :transaction-item/debit-item)
-            (juxt :transaction-item/debit-item
-                  :transaction-item/credit-item))
-        [this-item other-item] (f item)]
-    (-> trx
-        (assoc :transaction/other-account (:account-item/account other-item)
-               :transaction/other-item (util/->entity-ref other-item)
-               :transaction/account (:account-item/account this-item)
-               :transaction/item (util/->entity-ref this-item)
-               :transaction/quantity (:account-item/quantity this-item))
-        (dissoc :transaction/items))))
+  ([ref-account]
+   #(accountify % ref-account))
+  ([{:as trx [item] :transaction/items} ref-account]
+   {:pre [(can-accountify? trx)
+          ref-account]}
+   (let [f (if (id= ref-account
+                    (-> item
+                        :transaction-item/credit-item
+                        :account-item/account))
+             (juxt :transaction-item/credit-item
+                   :transaction-item/debit-item)
+             (juxt :transaction-item/debit-item
+                   :transaction-item/credit-item))
+         [this-item other-item] (f item)]
+     (-> trx
+         (assoc :transaction/other-account (:account-item/account other-item)
+                :transaction/other-item (util/->entity-ref other-item)
+                :transaction/account (:account-item/account this-item)
+                :transaction/item (util/->entity-ref this-item)
+                :transaction/quantity (:account-item/quantity this-item))
+         (dissoc :transaction/items)))))
 
 (defn unaccountify
   "Accepts an accountified transaction (with one quantity, one account, and

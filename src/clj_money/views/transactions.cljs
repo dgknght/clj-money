@@ -45,13 +45,30 @@
             [clj-money.api.attachments :as atts]
             [clj-money.api.trading :as trading]))
 
+(defn- supply-accounts
+  [items]
+  (map (fn [item]
+         (-> item
+             (update-in [:transaction-item/debit-item
+                         :account-item/account]
+                        (comp @accounts-by-id
+                              :id))
+             (update-in [:transaction-item/credit-item
+                         :account-item/account]
+                        (comp @accounts-by-id
+                              :id))))
+       items))
+
 (defn- prepare-transaction-for-edit
   ([account]
    #(prepare-transaction-for-edit % account))
-  ([transaction account]
-   (if (can-accountify? transaction)
-     (accountify transaction account)
-     (entryfy transaction))))
+  ([trx account]
+   (let [f (if (can-accountify? trx)
+             (accountify account)
+             entryfy)]
+     (-> trx
+         (update-in [:transaction/items] supply-accounts)
+         f))))
 
 (defn- edit-transaction
   [account-item page-state]
