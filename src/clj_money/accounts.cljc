@@ -303,6 +303,7 @@
             (assoc lot
                    :lot/items items
                    :lot/cost-basis cost-basis
+                   :lot/shares-purchased (:lot-item/shares purchase)
                    :lot/shares-owned shares-owned
                    :lot/current-price price
                    :lot/value current-value
