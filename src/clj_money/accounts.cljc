@@ -320,6 +320,7 @@
                        seq)]
       (assoc account
              :account/lots lots
+             :account/shares-purchased (sum :lot/shares-purchased lots)
              :account/shares-owned (sum :lot/shares-owned lots)
              :account/cost-basis (sum :lot/cost-basis lots)
              :account/value (sum :lot/value lots)

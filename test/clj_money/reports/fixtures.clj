@@ -1038,6 +1038,7 @@
                                        :current-value 6900M}
                               #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :header
+                                       :shares-purchased 300M
                                        :shares-owned 300M
                                        :cost-basis 3100M
                                        :current-value 3300M
@@ -1045,6 +1046,7 @@
                                        :gain-loss-percent 0.0645M}
                               #:report{:caption "3/1/2015"
                                        :style :data
+                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 1100M
                                        :current-value 1100M
@@ -1052,6 +1054,7 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
+                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 2000M
                                        :current-value 2200M
@@ -1059,6 +1062,7 @@
                                        :gain-loss-percent 0.1M}
                               #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :header
+                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 800M
@@ -1066,6 +1070,7 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
+                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 800M
@@ -1151,6 +1156,7 @@
                                        :gain-loss 0M}
                               #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :subheader
+                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 800M
@@ -1158,6 +1164,7 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
+                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 800M
@@ -1176,6 +1183,7 @@
                                        :gain-loss 0M}
                               #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :subheader
+                                       :shares-purchased 300M
                                        :shares-owned 300M
                                        :cost-basis 3100M
                                        :current-value 3300M
@@ -1183,6 +1191,7 @@
                                        :gain-loss-percent 0.0645M}
                               #:report{:caption "3/1/2015"
                                        :style :data
+                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 1100M
                                        :current-value 1100M
@@ -1190,6 +1199,7 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
+                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 2000M
                                        :current-value 2200M
@@ -1214,6 +1224,7 @@
                                        :gain-loss 0M}
                               #:report{:caption "Microsoft, Inc. (MSFT)"
                                        :style :subheader
+                                       :shares-purchased 300M
                                        :shares-owned 300M
                                        :cost-basis 1100M
                                        :current-value 900M
@@ -1221,6 +1232,7 @@
                                        :gain-loss-percent -0.182M}
                               #:report{:caption "4/1/2015"
                                        :style :data
+                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 300M
                                        :current-value 300M
@@ -1228,6 +1240,7 @@
                                        :gain-loss-percent 0.0M}
                               #:report{:caption "2/1/2015"
                                        :style :data
+                                       :shares-purchased 200M
                                        :shares-owned 200M
                                        :cost-basis 800M
                                        :current-value 600M
@@ -1246,6 +1259,7 @@
                                        :gain-loss 0M}
                               #:report{:caption "Apple, Inc. (AAPL)"
                                        :style :subheader
+                                       :shares-purchased 300M
                                        :shares-owned 200M
                                        :cost-basis 2100M
                                        :current-value 2400M
@@ -1253,6 +1267,7 @@
                                        :gain-loss-percent 0.143M}
                               #:report{:caption "3/1/2015"
                                        :style :data
+                                       :shares-purchased 100M
                                        :shares-owned 100M
                                        :cost-basis 1100M
                                        :current-value 1200M
@@ -1260,6 +1275,7 @@
                                        :gain-loss-percent 0.0909M}
                               #:report{:caption "2/1/2015"
                                        :style :data
+                                       :shares-purchased 200M
                                        :shares-owned 100M
                                        :cost-basis 1000M
                                        :current-value 1200M
