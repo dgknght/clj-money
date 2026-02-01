@@ -27,51 +27,60 @@
                                      +busy
                                      -busy]]
             [clj-money.dnd :as dnd]
-            [clj-money.util :as util :refer [debounce entity=]]
+            [clj-money.util :as util :refer [debounce id=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
-            [clj-money.accounts :as accounts :refer [polarize-quantity
-                                                     find-by-path
+            [clj-money.accounts :as accounts :refer [find-by-path
                                                      format-quantity]]
             [clj-money.transactions :refer [accountify
                                             unaccountify
                                             can-accountify?
                                             entryfy
                                             unentryfy
-                                            ensure-empty-item]]
+                                            ensure-empty-item
+                                            ->bilateral]]
             [clj-money.components :refer [load-in-chunks]]
-            [clj-money.api.transaction-items :as transaction-items]
+            [clj-money.api.account-items :as account-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
             [clj-money.api.trading :as trading]))
 
-(defn- fullify-trx
-  [trx]
-  (unaccountify trx (comp @accounts-by-id
-                          :id)))
+(defn- supply-accounts
+  [items]
+  (map (fn [item]
+         (-> item
+             (update-in [:transaction-item/debit-item
+                         :account-item/account]
+                        (comp @accounts-by-id
+                              :id))
+             (update-in [:transaction-item/credit-item
+                         :account-item/account]
+                        (comp @accounts-by-id
+                              :id))))
+       items))
 
 (defn- prepare-transaction-for-edit
-  [transaction account]
-  (if (can-accountify? transaction)
-    (accountify transaction account)
-    (entryfy transaction)))
-
-(defn- item->tkey
-  [{:transaction-item/keys [transaction-date transaction]}]
-  {:transaction/transaction-date transaction-date
-   :id (:id transaction)})
+  ([account]
+   #(prepare-transaction-for-edit % account))
+  ([trx account]
+   (let [f (if (can-accountify? trx)
+             (accountify account)
+             entryfy)]
+     (-> trx
+         (update-in [:transaction/items] supply-accounts)
+         f))))
 
 (defn- edit-transaction
-  [item page-state]
+  [account-item page-state]
   (+busy)
-  (transactions/get
-    (item->tkey item)
+  (transactions/get-by-account-item
+    account-item
     :callback -busy
-    :on-success (fn [result]
-                  (let [prepared (prepare-transaction-for-edit
-                                   result
-                                   (:view-account @page-state))]
-                    (swap! page-state assoc :transaction prepared))
+    :post-xf (comp (map first)
+                   (map (prepare-transaction-for-edit
+                          (:view-account @page-state))))
+    :on-success (fn [trx]
+                  (swap! page-state assoc :transaction trx)
                   (set-focus "transaction-date"))))
 
 (defn load-unreconciled-items
@@ -84,7 +93,7 @@
                                                             (:account/transaction-date-range account))
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
-    (transaction-items/select
+    (account-items/select
       criteria
       :callback -busy
       :on-success #(swap! page-state assoc :items %))))
@@ -103,7 +112,7 @@
   (completing
     (fn [ch criteria]
       (if criteria
-        (transaction-items/select criteria
+        (account-items/select criteria
                                   :on-success #(xf ch %))
         (xf ch [])))))
 
@@ -118,7 +127,7 @@
                                                  {:fetch-xf (comp
                                                               (map (fn [[start end :as range]]
                                                                      (when (seq range)
-                                                                       {:transaction-item/account (util/->entity-ref account)
+                                                                       {:account-item/account (util/->entity-ref account)
                                                                         :transaction/transaction-date [:between> start end]})))
                                                               fetch-items)
                                                   :chunk-size 100}))]
@@ -147,12 +156,13 @@
       (init-item-loading page-state)))
 
 (defn- delete-transaction
-  [item page-state]
+  [account-item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (+busy)
-    (transactions/delete (item->tkey item)
-                         :callback -busy
-                         :on-success #(reset-item-loading page-state))))
+    (account-items/delete
+      account-item
+      :callback -busy
+      :on-success #(reset-item-loading page-state))))
 
 (defn- post-item-row-drop
   [page-state item]
@@ -165,7 +175,7 @@
                             (:id item))
                  (update-in [:items] (fn [items]
                                        (map (fn [item]
-                                              (if (util/id= (:attachment/transaction body)
+                                              (if (id= (:attachment/transaction body)
                                                             (:attachment/transaction item))
                                                 (update-in item [:transaction-item/attachment-count] inc)
                                                 item))
@@ -187,11 +197,10 @@
            reconciliation
            styles]}
    page-state]
-  (fn [{:transaction-item/keys [attachment-count
-                                quantity
-                                balance
-                                action
-                                reconciliation-status]
+  (fn [{:account-item/keys [attachment-count
+                            quantity
+                            balance]
+        :reconciliation/keys [status]
         :transaction/keys [description
                            transaction-date]
         :as item}]
@@ -217,10 +226,7 @@
       [:span.d-md-none (format-date transaction-date "M/d")]
       [:span.d-none.d-md-inline (format-date transaction-date)]]
      [:td {:style (get-in styles [(:id item)])} description]
-     [:td.text-end (format-quantity (polarize-quantity quantity
-                                                       action
-                                                       account)
-                                    account)]
+     [:td.text-end (format-quantity quantity account)]
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
         [forms/checkbox-input
@@ -228,7 +234,7 @@
          [:clj-money.views.reconciliations/item-selection (:id item)]
          {::forms/decoration ::forms/none}]
         (icon
-          (case reconciliation-status
+          (case status
             :completed :check-square
             :new       :dash-sqaure
             :square)
@@ -264,11 +270,11 @@
   (let [raw-items (r/cursor page-state [:items])
         items (make-reaction (fn []
                                (when @raw-items
-                                 (map (fn [{:transaction-item/keys [reconciliation]
+                                 (map (fn [{:account-item/keys [reconciliation]
                                             :keys [id]
                                             :as item}]
                                         (assoc item
-                                               :transaction-item/reconciliation-status
+                                               :reconciliation/status
                                                (cond
                                                  (nil? id) :new
                                                  reconciliation :completed
@@ -281,8 +287,8 @@
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
-                                     #(entity= @account
-                                              (:transaction-item/account %)))))]
+                                     #(id= @account
+                                           (:account-item/account %)))))]
     (fn []
       [:table.table.table-striped.table-hover
        [:thead
@@ -317,8 +323,8 @@
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
-    (transaction-items/select (accounts/->criteria @account)
-                              :on-success #(swap! page-state assoc :items %))
+    (account-items/select (accounts/->criteria @account)
+                          :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless
        [:thead
@@ -330,22 +336,18 @@
          [:th.text-end "Value"]]]
        [:tbody
         (doall (for [{:as item
-                      :transaction-item/keys [transaction-date
-                                              quantity
-                                              balance
-                                              value
-                                              action]}
+                      :account-item/keys [transaction-date
+                                          quantity
+                                          balance
+                                          value]}
                      (sort-by :index > @items)]
                  ^{:key (str "item-" (:id item))}
                  [:tr
                   [:td.text-end (format-date transaction-date)]
                   [:td (:description item)]
-                  [:td.text-end (format-decimal (polarize-quantity quantity
-                                                                   action
-                                                                   @account)
-                                                4)]
-                  [:td.text-end (format-decimal balance, 4)]
-                  [:td.text-end (currency-format value)]]))]])))
+                  [:td.text-end (format-decimal quantity 4)]
+                  [:td.text-end (format-decimal balance 4)]
+                  [:td.text-end (currency-format (or value quantity))]]))]])))
 
 (defn- ensure-entry-state
   [page-state]
@@ -488,9 +490,11 @@
                      (v/validate transaction)
                      (when (v/valid? transaction)
                        (+busy)
-                       (transactions/save (fullify-trx @transaction)
-                                          :callback -busy
-                                          :on-success on-save)))}
+                       (-> @transaction
+                           unaccountify
+                           ->bilateral
+                           (transactions/save :callback -busy
+                                              :on-success on-save))))}
        [forms/date-field
         transaction
         [:transaction/transaction-date]

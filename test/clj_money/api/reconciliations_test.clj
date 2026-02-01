@@ -138,11 +138,9 @@
   (is (nil? retrieved) "The reconciliation is not created"))
 
 (defn- select-recon-items []
-  (map #(select-keys % [:id :transaction/transaction-date])
-       (entities/select {:transaction-item/account (find-account "Checking")
-                         :transaction-item/quantity 101M
-                         :transaction/transaction-date (t/local-date 2015 1 10)}
-                        {:select-also [:transaction/transaction-date]})))
+  (map #(select-keys % [:id])
+       (entities/select {:account-item/account (find-account "Checking")
+                         :account-item/quantity -101M})))
 
 (defn- build-recon
   [status]

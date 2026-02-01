@@ -207,13 +207,17 @@
                     :scheduled-transaction/start-date (t/local-date 2016 1 1)
                     :scheduled-transaction/date-spec {:day 1}
                     :scheduled-transaction/period [1 :month]
-                    :scheduled-transaction/items [#:scheduled-transaction-item{:action :debit
-                                                                               :account {:id :checking}
-                                                                               :quantity 900M}
-                                                  #:scheduled-transaction-item{:action :debit
-                                                                               :account {:id :fit}
-                                                                               :quantity 100M}
-                                                  #:scheduled-transaction-item{:action :credit
-                                                                               :account {:id :salary}
-                                                                               :quantity 1000M}]})]
+                    :scheduled-transaction/items
+                    [#:scheduled-transaction-item{:action :debit
+                                                  :account {:id :checking
+                                                            :account/type :asset}
+                                                  :quantity 900M}
+                     #:scheduled-transaction-item{:action :debit
+                                                  :account {:id :fit
+                                                            :account/type :expense}
+                                                  :quantity 100M}
+                     #:scheduled-transaction-item{:action :credit
+                                                  :account {:id :salary
+                                                            :account/type :income}
+                                                  :quantity 1000M}]})]
       (is (seq-of-maps-like? expected actual)))))

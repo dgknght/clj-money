@@ -23,6 +23,7 @@
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.receipts :as receipts]
+            [clj-money.transactions :refer [->bilateral]]
             [clj-money.api.transactions :as trn]))
 
 (defn- new-receipt
@@ -49,18 +50,19 @@
 
 (defn- save-transaction
   [page-state]
-  (let [{:keys [receipt]} @page-state
-        trx (receipts/->transaction receipt)]
-    (trn/save trx
-              :callback -busy
-              :on-success (fn [trx]
-                            (swap! page-state
-                                 update-in
-                                 [:receipts] ; TODO: rename this to :transactions?
-                                 #(util/upsert-into trx
-                                                    {:sort-key :transaction/transaction-date}
-                                                    %))
-                            (new-receipt page-state)))))
+  (-> (:receipt @page-state)
+      receipts/->transaction
+      ->bilateral
+      (trn/save
+        :callback -busy
+        :on-success (fn [trx]
+                      (swap! page-state
+                             update-in
+                             [:receipts] ; TODO: rename this to :transactions?
+                             #(util/upsert-into trx
+                                                {:sort-key :transaction/transaction-date}
+                                                %))
+                      (new-receipt page-state)))))
 
 (defn- search-accounts []
   (fn [input callback]
@@ -89,13 +91,12 @@
   [:tr
    [:td [forms/typeahead-input
          receipt
-         [:receipt/items index :receipt-item/account :id]
+         [:receipt/items index :receipt-item/account]
          {:search-fn (search-accounts)
           :find-fn (fn [id callback]
                      (callback (@accounts-by-id id)))
           :on-change #(ensure-blank-item page-state)
-          :caption-fn #(string/join "/" (:account/path %))
-          :value-fn :id}]]
+          :caption-fn #(string/join "/" (:account/path %))}]]
    [:td [forms/decimal-input
          receipt
          [:receipt/items index :receipt-item/quantity]
@@ -150,14 +151,13 @@
          :value-fn :description}]
        [forms/typeahead-field
         receipt
-        [:receipt/payment-account :id]
+        [:receipt/payment-account]
         {:validations #{::v/required}
          :caption "Payment Method"
          :search-fn (search-accounts)
          :find-fn (fn [id callback]
                     (callback (@accounts-by-id id)))
-         :caption-fn #(string/join "/" (:account/path %))
-         :value-fn :id}]
+         :caption-fn #(string/join "/" (:account/path %))}]
        [:table.table.table-borderless
         [:thead
          [:tr
@@ -227,7 +227,8 @@
 (defn- recent? []
   (let [cutoff (-> 24 t/hours t/ago)]
     (fn [{:transaction/keys [created-at]}]
-      (t/before? cutoff created-at))))
+      (when created-at
+        (t/before? cutoff created-at)))))
 
 (defn- load-transactions
   [page-state]
