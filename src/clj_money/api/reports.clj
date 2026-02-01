@@ -45,8 +45,8 @@
 (defn- budget
   [{:keys [params authenticated]}]
   (or (some-> (entities/find-by (+scope {:id (:budget-id params)}
-                                      :budget
-                                      authenticated))
+                                        :budget
+                                        authenticated))
               (rpt/budget (-> params
                               (select-keys [:as-of :tags])
                               (update-in-if [:tags] #(mapv keyword %))
@@ -80,7 +80,7 @@
                                [:entity/settings
                                 :settings/monitored-accounts]))]
       (->> (entities/select (util/entity-type {:id [:in (mapv :id refs)]}
-                                           :account))
+                                              :account))
            (map (comp serialize-monitor
                       rpt/monitor))
            api/response)

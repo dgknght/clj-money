@@ -105,13 +105,13 @@
              :stroke line-stroke
              :stroke-width 4}]
      [:text {:x 4
-               :y "70%"
-               :font-size "90%"
-               :fill "var(--bs-light)"}
-        (str (currency-format actual)
-             " ("
-             (currency-format (- prorated-budget actual))
-             ")")]]))
+             :y "70%"
+             :font-size "90%"
+             :fill "var(--bs-light)"}
+      (str (currency-format actual)
+           " ("
+           (currency-format (- prorated-budget actual))
+           ")")]]))
 
 (defn- remove-monitor
   [{:report/keys [account]} state]
@@ -164,16 +164,16 @@
         monitors (r/cursor state [:monitors])
         new-monitor (r/cursor state [:new-monitor])
         monitors-with-detail (make-reaction
-                               (fn []
-                                 (when (and @monitors @accounts-by-id)
-                                   (->> @monitors
-                                        (map (fn [m]
-                                               (-> m
-                                                   (update-in [:report/account] (comp @accounts-by-id
-                                                                                      :id))
-                                                   (assoc :report/scope @scope))))
-                                        (sort-by #(get-in % [:report/account :account/path]))
-                                        (into [])))))]
+                              (fn []
+                                (when (and @monitors @accounts-by-id)
+                                  (->> @monitors
+                                       (map (fn [m]
+                                              (-> m
+                                                  (update-in [:report/account] (comp @accounts-by-id
+                                                                                     :id))
+                                                  (assoc :report/scope @scope))))
+                                       (sort-by #(get-in % [:report/account :account/path]))
+                                       (into [])))))]
     (load-monitors state)
     (add-watch current-entity ::monitors (fn [_ _ prev current]
                                            (if current
