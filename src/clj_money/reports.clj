@@ -114,7 +114,7 @@
                (group-by (juxt (comp :id :lot/account)
                                (comp :id :lot/commodity))
                          (entities/select {:lot/account [:in trading-account-ids]
-                                         :lot/purchase-date [:<= as-of]})))
+                                           :lot/purchase-date [:<= as-of]})))
         lot-items (when (seq lots)
                     (group-by (comp :id :lot-item/lot)
                               (entities/select
@@ -602,7 +602,7 @@
 
 (defn- aggregate-account-actuals
   [accounts entity since as-of]
-  {:pre [since as-of (t/before? since as-of)]}
+  {:pre [since as-of (not (t/before? as-of since))]}
   (->> accounts
        (valuate-accounts {:since since
                           :as-of as-of
