@@ -336,39 +336,27 @@
    :transaction-item/reconciliation :account-item/reconciliation})
 
 (defn- transaction->account-item
-  [{:as item :transaction-item/keys [account action]}
-   & {:keys [omit-memo]}]
-  (let [mappings (cond-> transaction->account-item-mappings
-                   omit-memo (dissoc :transaction-item/memo))]
-    (-> item
-        (rename-keys mappings)
-        (select-keys (vals mappings))
-        (update-in [:account-item/quantity] #(polarize-quantity
-                                               {:account account
-                                                :quantity %
-                                                :action action})))))
+  [{:as item :transaction-item/keys [account action]}]
+  (-> item
+      (rename-keys transaction->account-item-mappings)
+      (select-keys (vals transaction->account-item-mappings))
+      (update-in [:account-item/quantity] #(polarize-quantity
+                                             {:account account
+                                              :quantity %
+                                              :action action}))))
 
 (defn- d+c
   "Combine two unilateral items of the same value into one bilateral item"
   [d c]
   (let [item-value (val-or-qty d)
-        ids (intersection (:ids d) (:ids c))
-        memos (->> [d c]
-                   (map :transaction-item/memo)
-                   (set))
-        memo (when (= 1 (count memos))
-               (first memos))]
+        ids (intersection (:ids d) (:ids c))]
     (when (< 1 (count ids))
       (throw (ex-info "Unmatched item ids" {:debit d
                                             :credit c})))
     (cond->
       {:transaction-item/value item-value
-       :transaction-item/debit-item
-       (transaction->account-item d :omit-memo memo)
-       :transaction-item/credit-item
-       (transaction->account-item c :omit-memo memo)}
-      memo
-      (assoc :transaction-item/memo (first memos))
+       :transaction-item/debit-item (transaction->account-item d)
+       :transaction-item/credit-item (transaction->account-item c)}
       (seq ids)
       (assoc :id (first ids)))))
 

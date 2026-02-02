@@ -594,15 +594,16 @@
    :transaction/description "Paycheck"
    :transaction/entity {:id "personal"}
    :transaction/items [{:transaction-item/value (d 100)
-                        :transaction-item/memo "group term life insurance"
                         :transaction-item/debit-item
                         {:account-item/action :debit
                          :account-item/account insurance
-                         :account-item/quantity (d 100)}
+                         :account-item/quantity (d 100)
+                         :account-item/memo "group term life insurance"}
                         :transaction-item/credit-item
                         {:account-item/action :credit
                          :account-item/account other-income
-                         :account-item/quantity (d 100)}}
+                         :account-item/quantity (d 100)
+                         :account-item/memo "group term life insurance"}}
                        {:transaction-item/value (d 4250)
                         :transaction-item/debit-item
                         {:account-item/action :debit
