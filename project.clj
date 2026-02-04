@@ -192,7 +192,7 @@
             "ptest"                 ["with-profile" "+test" "run" "-m" "clj-money.runner/eftest"]}
 
   :jvm-opts ["-Duser.timezone=UTC"
-             "-Xmx2g"
+             "-Xmx4g"
              "-Xms512m"
              "-server"]
   :test-selectors {:datomic-peer (fn [m & _]
