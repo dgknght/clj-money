@@ -92,8 +92,11 @@
                    options))))
 
 (defn count
-  [criteria]
-  (db/select (db/storage) criteria {:count true}))
+  ([criteria] (count criteria {}))
+  ([criteria opts]
+   (db/select (db/storage)
+              criteria
+              (assoc opts :count true))))
 
 (defn find-by
   ([criteria] (find-by criteria {}))
