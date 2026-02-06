@@ -194,8 +194,9 @@
                   ::last-completed (find-last-completed recon))))))
 
 (defn- fetch-account-items
-  [recon]
-  (entities/select {:account-item/reconciliation recon}
+  [{:as recon :reconciliation/keys [account]}]
+  (entities/select {:account-item/reconciliation recon
+                    :account-item/account account}
                    {:select-also :transaction/transaction-date
                     :datalog/hints [:account-item/reconciliation]}))
 
