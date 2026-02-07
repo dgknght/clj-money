@@ -153,7 +153,7 @@
                    lein-doo]]
                  [lambdaisland/uri "1.4.54"]
                  [com.taoensso/carmine "3.4.1" :exclusions [org.clojure/tools.reader commons-codec]]
-                 [stowaway "0.2.11" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
+                 [stowaway "0.2.12" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
                  [io.opentelemetry/opentelemetry-api "1.55.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
