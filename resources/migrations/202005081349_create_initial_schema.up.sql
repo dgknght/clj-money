@@ -479,7 +479,7 @@ ALTER TABLE ONLY public.scheduled_transaction_item
 ALTER TABLE ONLY public.scheduled_transaction_item
     ADD CONSTRAINT fk_scheduled_transaction_item_account FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.scheduled_transaction_item
-    ADD CONSTRAINT fk_scheduled_transaction_item_scheduled_transactions FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id) ON DELETE CASCADE;
+    ADD CONSTRAINT fk_scheduled_transaction_item_scheduled_transaction FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id) ON DELETE CASCADE;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.scheduled_transaction_item TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.scheduled_transaction_item_id_seq TO app_user;
 
@@ -512,7 +512,7 @@ CREATE INDEX ix_transaction_scheduled_transaction_id ON public.transaction USING
 CREATE INDEX ix_transaction_transaction_date_entity_id ON public.transaction USING btree (transaction_date, entity_id);
 CREATE INDEX ix_transaction_entity_id ON public.transaction USING btree (entity_id);
 ALTER TABLE public.transaction
-    ADD CONSTRAINT transaction_base_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
+    ADD CONSTRAINT transaction_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.entity(id) ON DELETE CASCADE;
 ALTER TABLE public.transaction
     ADD CONSTRAINT transaction_scheduled_transaction_id_fkey FOREIGN KEY (scheduled_transaction_id) REFERENCES public.scheduled_transaction(id);
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction TO app_user;
@@ -548,45 +548,57 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.attachment TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.attachment_id_seq TO app_user;
 
 -- transaction_item table
-CREATE SEQUENCE public.transaction_item_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.transaction_item_id_seq OWNER TO ddl_user;
 CREATE TABLE public.transaction_item (
-    id integer NOT NULL,
+    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
     transaction_id integer NOT NULL,
-    transaction_date date NOT NULL,
-    account_id integer NOT NULL,
-    action character varying(10) NOT NULL,
-    quantity numeric(19,6),
+    credit_item_id uuid NOT NULL,
+    debit_item_id uuid NOT NULL,
     value numeric(19,6),
-    balance numeric(19,6),
     memo character varying(200),
-    index bigint NOT NULL,
-    reconciliation_id integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    negative boolean
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public.transaction_item OWNER TO ddl_user;
-ALTER SEQUENCE public.transaction_item_id_seq OWNED BY public.transaction_item.id;
-ALTER TABLE ONLY public.transaction_item ALTER COLUMN id SET DEFAULT nextval('public.transaction_item_id_seq'::regclass);
 ALTER TABLE ONLY public.transaction_item
     ADD CONSTRAINT transaction_item_pkey PRIMARY KEY (id);
-CREATE INDEX ix_transaction_item_transaction_date_account_id ON public.transaction_item USING btree (transaction_date, account_id);
-CREATE INDEX ix_transaction_item_account_id ON public.transaction_item USING btree (account_id);
+CREATE INDEX ix_transaction_item_credit_item_id ON public.transaction_item USING btree (credit_item_id);
+CREATE INDEX ix_transaction_item_debit_item_id ON public.transaction_item USING btree (debit_item_id);
 CREATE INDEX ix_transaction_item_transaction_id ON public.transaction_item USING btree (transaction_id);
 ALTER TABLE public.transaction_item
-    ADD CONSTRAINT transaction_item_base_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
-ALTER TABLE public.transaction_item
     ADD CONSTRAINT transaction_item_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
-ALTER TABLE public.transaction_item
-    ADD CONSTRAINT transaction_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE SET NULL;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction_item TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.transaction_item_id_seq TO app_user;
+
+-- account_item table
+CREATE TABLE public.account_item (
+    id uuid DEFAULT public.gen_random_uuid() NOT NULL,
+    transaction_item_id uuid,
+    account_id integer NOT NULL,
+    action varchar(7),
+    reconciliation_id integer,
+    quantity numeric(19,6),
+    balance numeric(19,6),
+    index integer,
+    memo character varying(200),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+ALTER TABLE public.account_item OWNER TO ddl_user;
+ALTER TABLE ONLY public.account_item
+    ADD CONSTRAINT account_item_pkey PRIMARY KEY (id);
+CREATE INDEX ix_account_item_transaction_item_id ON public.account_item USING btree (transaction_item_id);
+CREATE INDEX ix_account_item_account_id ON public.account_item USING btree (account_id);
+CREATE INDEX ix_account_item_reconciliation_id ON public.account_item USING btree (reconciliation_id);
+ALTER TABLE public.account_item
+    ADD CONSTRAINT account_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE SET NULL;
+ALTER TABLE public.account_item
+    ADD CONSTRAINT account_item_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id) ON DELETE CASCADE;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.account_item TO app_user;
+
+-- transaction_item foreign keys to account_item (must come after account_item table)
+ALTER TABLE public.transaction_item
+    ADD CONSTRAINT transaction_item_credit_item_id_fkey FOREIGN KEY (credit_item_id) REFERENCES public.account_item(id) ON DELETE CASCADE;
+ALTER TABLE public.transaction_item
+    ADD CONSTRAINT transaction_item_debit_item_id_fkey FOREIGN KEY (debit_item_id) REFERENCES public.account_item(id) ON DELETE CASCADE;
 
 -- lot_item table
 CREATE SEQUENCE public.lot_item_id_seq

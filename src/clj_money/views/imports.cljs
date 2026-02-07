@@ -343,7 +343,8 @@
 
 (defn- import-form
   [page-state]
-  (let [import-data (r/cursor page-state [:import-data])]
+  (let [import-data (r/cursor page-state [:import-data])
+        disallow-submit (make-reaction #(not (seq (:files @import-data))))]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -353,10 +354,6 @@
         [:div.card-header [:strong "Import Entity"]]
         [:div.card-body
          [text-field import-data [:entity-name] {:validate [:required]}]
-         [text-field import-data [:options :lt-capital-gains-account] {:caption "Long-term Capital Gains Account"}]
-         [text-field import-data [:options :st-capital-gains-account] {:caption "Short-term Capital Gains Account"}]
-         [text-field import-data [:options :lt-capital-loss-account-id] {:caption "Long-term Capital Loss Account"}]
-         [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]
          [:div#import-source.drop-zone.bg-primary.text-light
           {:on-drag-over #(.preventDefault %)
            :on-drop (file-drop import-data)}
@@ -367,6 +364,7 @@
                          :class "btn-success"
                          :title "Click here to begin the import."}
                   :icon :upload
+                  :disabled? disallow-submit
                   :caption "Import"}]
          [button {:html {:on-click #(swap! page-state dissoc :import-data)
                          :class "btn-secondary ms-2"
@@ -393,8 +391,7 @@
                   :class "btn-primary"
                   :on-click (fn []
                               (swap! page-state assoc
-                                     :import-data {:options {:lt-capital-gains-account "Investment Income/Long Term Gains"
-                                                             :st-capital-gains-account "Investment Income/Short Term Gains"}})
+                                     :import-data {})
                               (set-focus "entity-name"))}
            :icon :plus
            :caption "Add"}]]

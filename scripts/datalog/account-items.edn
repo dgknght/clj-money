@@ -1,0 +1,7 @@
+[:find ?index ?quantity ?balance
+ :in $ ?a
+ :where
+ [?i :account-item/account ?a]
+ [?i :account-item/quantity ?quantity]
+ [?i :account-item/balance ?balance]
+ [?i :account-item/index ?index]]

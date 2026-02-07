@@ -32,6 +32,11 @@
                           (util/entity-type x))))
 (defmethod deconstruct :default [m] [m])
 
+(defmulti deconstruct-for-delete (fn [x]
+                                   (when-not (vector? x)
+                                     (util/entity-type x))))
+(defmethod deconstruct-for-delete :default [m] [m])
+
 (defmulti before-save util/entity-type-dispatch)
 (defmethod before-save :default [m] m)
 
@@ -59,20 +64,21 @@
        (into {})))
 
 (def ^:private reconstruction-rules
-  {:budget [{:parent? :budget/name
+  {:budget [{:foreign-ref-key :budget-item/budget
              :child? :budget-item/account
              :children-key :budget/items}]
-   :reconciliation [{:parent? :reconciliation/end-of-period
-                     :child? :transaction-item/reconciliation
-                     :children-key :reconciliation/items}]
-   :scheduled-transaction [{:parent? :scheduled-transaction/description
+   :scheduled-transaction [{:foreign-ref-key :scheduled-transaction-item/scheduled-transaction
                             :child? :scheduled-transaction-item/action
                             :children-key :scheduled-transaction/items}]
-   :transaction [{:parent? :transaction/description
-                  :child? :transaction-item/action
+   :transaction [{:parent? :account-item/quantity
+                  :foreign-ref-key :transaction-item/debit-item}
+                 {:parent? :account-item/quantity
+                  :foreign-ref-key :transaction-item/credit-item}
+                 {:foreign-ref-key :transaction-item/transaction
+                  :child? :transaction-item/value
                   :children-key :transaction/items}
-                 {:parent? :transaction/description
-                  :child? :lot-item/action
+                 {:foreign-ref-key :lot-item/transaction
+                  :child? :lot-item/value
                   :children-key :transaction/lot-items}]})
 
 (defn- scrub-values
@@ -93,10 +99,7 @@
                    (mapcat reconstruction-rules)
                    (filter identity)
                    seq)]
-    (reduce (fn [ms rule-map]
-              (util/reconstruct rule-map ms))
-            entities
-            rules)
+    (util/reconstruct rules entities)
     entities))
 
 ; post-read coercions
@@ -137,12 +140,11 @@
   (let [table (infer-table-name entity)
         s (for-insert table
                       entity
-                      sql-opts)
-        _ (log/infof "insert %s -> %s"
-                      (entities/scrub-sensitive-data entity)
-                      (scrub-values entity s))
-        result (jdbc/execute-one! db s {:return-keys [:id]})]
-    (get-in result [(keyword (name table) "id")])))
+                      sql-opts)]
+    (log/infof "insert %s -> %s"
+               (entities/scrub-sensitive-data entity)
+               (scrub-values entity s))
+    (first (vals (jdbc/execute-one! db s {:return-keys [:id]})))))
 
 (defn- update
   [db entity]
@@ -152,13 +154,11 @@
         s (for-update table
                       (dissoc entity :id)
                       {:id (:id entity)}
-                      sql-opts)
-        _ (log/infof "update %s -> %s"
-                      (entities/scrub-sensitive-data entity)
-                      (scrub-values entity s))
-        result (jdbc/execute-one! db s {:return-keys [:id]})]
-
-    (get-in result [(keyword (name table) "id")])))
+                      sql-opts)]
+    (log/infof "update %s -> %s"
+               (entities/scrub-sensitive-data entity)
+               (scrub-values entity s))
+    (first (vals (jdbc/execute-one! db s {:return-keys [:id]})))))
 
 (defn delete-one
   [ds m]
@@ -174,11 +174,17 @@
     (jdbc/execute! ds s)
     1))
 
+(defn- upsert
+  [ds entity]
+  (or (update ds entity)
+      (insert ds entity)))
+
 (defn- put-one
   [ds [oper entity]]
   (case oper
     ::db/insert (insert ds entity)
     ::db/update (update ds entity)
+    ::db/upsert (upsert ds entity)
     ::db/delete (delete-one ds entity)
     (throw (ex-info "Invalid operation" {:operation oper}))))
 
@@ -188,6 +194,7 @@
   [{:as m :keys [id]}]
   (cond
     (vector? m)      m
+    (uuid? id)       [::db/upsert m]
     (live-id? id)    [::db/update m]
     :else            [::db/insert m]))
 
@@ -229,6 +236,9 @@
            (map (comp build-attributes
                       (juxt :id :fields :refs)))
            (into {}))
+      (update-in [:account-item]
+                 conj
+                 :account-item/transaction-date)
       (update-in [:transaction-item]
                  conj
                  :transaction-item/transaction-date
@@ -399,7 +409,7 @@
                                :id-map {}})))]
     (->> (:saved result)
          (map (after-read*))
-         (reconstruct))))
+         reconstruct)))
 
 (defn- extract-entities
   [ds query options]
@@ -463,6 +473,7 @@
   {:pre [(s/valid? (s/coll-of map?) entities)]}
 
   (->> entities
+       (mapcat deconstruct-for-delete)
        (map #(update-in % [:id] types/unqualify-id))
        (interleave (repeat ::db/delete))
        (partition 2)

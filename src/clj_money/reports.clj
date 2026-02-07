@@ -46,7 +46,7 @@
 (defn- max-by-item-index
   [items]
   (when (seq items)
-    (apply max-key :transaction-item/index items)))
+    (apply max-key :account-item/index items)))
 
 (defn- last-item
   [inclusion date items]
@@ -60,7 +60,7 @@
          (filter pred)
          max-by-item-index)))
 
-(defn- fetch-trx-items
+(defn- fetch-account-items
   [account-ids as-of & {:as opts}]
   (if (seq account-ids)
     (ch/find account-ids
@@ -70,14 +70,14 @@
                 :fetch-fn (fn [ids date]
                             (entities/select
                               (util/entity-type
-                                {:transaction-item/account [:in ids]
+                                {:account-item/account [:in ids]
                                  :transaction/transaction-date [:<between
                                                                 (t/minus date (t/years 1))
                                                                 date]}
-                                :transaction-item)
+                                :account-item)
                               {:select-also [:transaction/transaction-date]
-                               :datalog/hints [:transaction-item/account]}))
-                :id-fn (comp :id :transaction-item/account)
+                               :datalog/hints [:account-item/account]}))
+                :id-fn (comp :id :account-item/account)
                 :find-one-fn (partial last-item :on-or-before as-of)}
                opts))
     {}))
@@ -89,19 +89,19 @@
                          (map :id)
                          set)
         start-balances (when since
-                         (fetch-trx-items
+                         (fetch-account-items
                            account-ids
                            since
                            :find-one-fn (partial last-item :before since)
                            :earliest-date earliest-date))
-        end-balances (fetch-trx-items
+        end-balances (fetch-account-items
                        account-ids
                        as-of
                        :earliest-date earliest-date)]
     (->> account-ids
          (map (fn [id]
-                [id (- (get-in end-balances [id :transaction-item/balance] 0M)
-                       (get-in start-balances [id :transaction-item/balance] 0M))]))
+                [id (- (get-in end-balances [id :account-item/balance] 0M)
+                       (get-in start-balances [id :account-item/balance] 0M))]))
          (into {}))))
 
 (defn- valuation-data
@@ -114,7 +114,7 @@
                (group-by (juxt (comp :id :lot/account)
                                (comp :id :lot/commodity))
                          (entities/select {:lot/account [:in trading-account-ids]
-                                         :lot/purchase-date [:<= as-of]})))
+                                           :lot/purchase-date [:<= as-of]})))
         lot-items (when (seq lots)
                     (group-by (comp :id :lot-item/lot)
                               (entities/select
@@ -153,9 +153,10 @@
   specified date."
   [opts accounts]
   (if (-> opts :entity :entity/transaction-date-range)
-    (let [data (valuation-data (-> opts
-                                   (assoc :accounts accounts)
-                                   (update-in [:as-of] (fnil identity (t/local-date)))))]
+    (let [data (valuation-data
+                 (-> opts
+                     (assoc :accounts accounts)
+                     (update-in [:as-of] (fnil identity (t/local-date)))))]
       (valuate data accounts))
     accounts))
 
@@ -228,7 +229,7 @@
      (income-statement entity since as-of)))
   ([entity since as-of]
    (->> (entities/select #:account{:entity entity
-                                 :type [:in #{:income :expense}]})
+                                   :type [:in #{:income :expense}]})
         (valuate-accounts {:entity entity
                            :since since
                            :as-of as-of})
@@ -601,7 +602,7 @@
 
 (defn- aggregate-account-actuals
   [accounts entity since as-of]
-  {:pre [since as-of (t/before? since as-of)]}
+  {:pre [since as-of (not (t/before? as-of since))]}
   (->> accounts
        (valuate-accounts {:since since
                           :as-of as-of
@@ -755,12 +756,14 @@
   [commodity lots]
   (let [current-price (:price/value (prices/most-recent commodity))
         adj-lots (map (valuate-lot current-price) lots)
+        shares-purchased (sum :lot/shares-purchased adj-lots)
         shares-owned (sum :lot/shares-owned adj-lots)
         current-value (* shares-owned current-price)
         cost-basis (sum :lot/cost-basis adj-lots)]
     (assoc commodity
            :commodity/current-price current-price
            :commodity/current-value current-value
+           :commodity/shares-purchased shares-purchased
            :commodity/shares-owned shares-owned
            :commodity/cost-basis cost-basis
            :commodity/gain (- current-value cost-basis)
@@ -795,10 +798,16 @@
 
 (defn- aggregate-portfolio-lots
   [{:account/keys [lots]} depth]
-  (map (fn [{:lot/keys [purchase-date shares-owned value cost-basis gain]}]
+  (map (fn [{:lot/keys [purchase-date
+                        shares-purchased
+                        shares-owned
+                        value
+                        cost-basis
+                        gain]}]
          {:report/caption (dates/format-local-date purchase-date)
           :report/depth depth
           :report/style :data
+          :report/shares-purchased shares-purchased
           :report/shares-owned shares-owned
           :report/current-value value
           :report/cost-basis cost-basis
@@ -813,6 +822,7 @@
 
 (defn- aggregate-portfolio-account
   [{:account/keys [name
+                   shares-purchased
                    shares-owned
                    total-value
                    cost-basis
@@ -832,6 +842,7 @@
                                             (with-precision 3
                                               (/ gain cost-basis))
                                             0M)
+                :report/shares-purchased shares-purchased
                 :report/shares-owned shares-owned
                 :report/current-value total-value}]
     (if (system-tagged? account :trading)
@@ -876,6 +887,7 @@
             gain (- current-value cost-basis)]
         (cons {:report/caption (format-commodity commodity)
                :report/style :header
+               :report/shares-purchased (sum :account/shares-purchased accounts)
                :report/shares-owned (sum :account/shares-owned accounts)
                :report/current-value current-value
                :report/cost-basis cost-basis
@@ -885,9 +897,15 @@
               (->> accounts
                    (mapcat :account/lots)
                    (sort-by :lot/purchase-date t/after?)
-                   (map (fn [{:lot/keys [shares-owned cost-basis gain purchase-date value]}]
+                   (map (fn [{:lot/keys [shares-purchased
+                                         shares-owned
+                                         cost-basis
+                                         gain
+                                         purchase-date
+                                         value]}]
                           {:report/caption (dates/format-local-date purchase-date)
                            :report/style :data
+                           :report/shares-purchased shares-purchased
                            :report/shares-owned shares-owned
                            :report/cost-basis cost-basis
                            :report/current-value value
@@ -942,8 +960,8 @@
   [{:keys [entity] :as options}]
   {:pre [(:entity options)]}
   (let [accounts (entities/select {:account/entity entity
-                                 :account/type :asset
-                                 #_:account/system-tags #_[:&& #{:trading :tradable}]})
+                                   :account/type :asset
+                                   #_:account/system-tags #_[:&& #{:trading :tradable}]})
         commodities (->> (entities/select {:commodity/entity entity})
                          (map (fn [c]
                                 (if (id= c
