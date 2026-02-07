@@ -156,32 +156,27 @@
     :refs #{:entity
             :scheduled-transaction}}
    {:id :transaction-item
+    :fields #{{:id :value
+               :type :decimal}}
+    :refs #{{:id :debit-item
+             :type :account-item}
+            {:id :credit-item
+             :type :account-item}
+            :transaction}}
+   {:id :account-item
     :fields #{{:id :action
                :type :keyword}
               {:id :quantity
                :type :decimal}
-              {:id :memo
-               :type :string}
-              {:id :index
-               :type :string
-               :transient? true}
-              {:id :quantity
-               :type :string
-               :transient? true}
               {:id :balance
-               :type :string
-               :transient? true}
-              {:id :value
-               :type :string
-               :transient? true}
-              {:id :negative
-               :type :string
-               :transient? true}
-              {:id :transaction-date
-               :type :date}}
-    :refs #{:account
-            :reconciliation
-            :transaction}}
+               :type :decimal}
+              {:id :index
+               :type :integer}
+              {:id :memo
+               :type :string}}
+    :refs #{:reconciliation
+            :account
+            :transaction-item}}
    {:id :lot
     :fields #{{:id :shares-purchased
                :type :decimal}
@@ -202,7 +197,7 @@
               {:id :price
                :type :decimal}}
     :refs #{:lot
-            :transaction}} ; TODO: really shouldn't have -id here
+            :transaction}}
    {:id :budget
     :fields #{{:id :name
                :type :string}
@@ -292,20 +287,20 @@
 (def relationships
   (->> entities
        (mapcat (fn [{:keys [id refs]}]
-                       (map #(vector (ref-id %) id)
-                            refs)))
+                 (map #(vector (ref-id %) id)
+                      refs)))
        set))
 
 (defn- extract-attributes
-        [{:keys [fields refs] :as entity}]
-        (concat (map (fn [{:keys [id]}]
-                             (keyword (name (:id entity))
-                                      (name id)))
-                     fields)
-                (map (fn [m]
-                             (keyword (name (:id entity))
-                                      (name m)))
-                     refs)))
+  [{:keys [fields refs] :as entity}]
+  (concat (map (fn [{:keys [id]}]
+                 (keyword (name (:id entity))
+                          (name id)))
+               fields)
+          (map (fn [ref]
+                 (keyword (name (:id entity))
+                          (name (or (:id ref) ref))))
+               refs)))
 
 (def attributes
   (->> entities
@@ -314,9 +309,9 @@
 
 (defn- extract-reference-attributes
   [{:keys [refs] :as entity}]
-  (map (fn [m]
-               (keyword (name (:id entity))
-                        (name m)))
+  (map (fn [ref]
+         (keyword (name (:id entity))
+                  (name (or (:id ref) ref))))
        refs))
 
 (def reference-attributes
@@ -327,7 +322,7 @@
 (defn- simplify-references
   [entity entity-type]
   (reduce (fn [m ref]
-                  (update-in-if m [ref] #(select-keys % [:id])))
+            (update-in-if m [ref] #(select-keys % [:id])))
           entity
           (reference-attributes entity-type)))
 

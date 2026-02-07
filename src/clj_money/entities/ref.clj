@@ -9,6 +9,7 @@
             clj-money.entities.prices
             clj-money.entities.accounts
             clj-money.entities.transactions
+            clj-money.entities.account-items
             clj-money.entities.lots
             clj-money.entities.reconciliations
             clj-money.entities.images

@@ -253,6 +253,7 @@
                                           "last-num"
                                           "notes"
                                           "hidden"
+                                          "balance-limit"
                                           "copy-number"
                                           "tax-related"
                                           "payer-name-source"} (:key %))) ; TODO: probably should catch this earlier in the process

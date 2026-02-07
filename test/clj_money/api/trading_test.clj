@@ -215,7 +215,7 @@
   [[{:as response :keys [parsed-body]} trxs lot]
    & {:keys [expected expected-response]
       :or {expected #:transaction{:transaction-date (t/local-date 2016 3 2)
-                                  :description "Sell 100.000 shares of AAPL at 11.000"}}}]
+                                  :description "Sell 100.000 shares of AAPL at 11.000 for 100.000 short-term gain"}}}]
   (is (http-success? response))
   (is (seq-of-maps-like? [(or expected-response expected)]
                          (transactions parsed-body))
@@ -244,7 +244,7 @@
     (assert-successful-sale
       (sell-a-commodity "john@doe.com" :content-type "application/json")
       :expected-response {:transactionDate "2016-03-02"
-                          :description "Sell 100.000 shares of AAPL at 11.000"
+                          :description "Sell 100.000 shares of AAPL at 11.000 for 100.000 short-term gain"
                           :_type "transaction"})))
 
 (deftest a-user-cannot-sell-a-commodity-in-anothers-entity

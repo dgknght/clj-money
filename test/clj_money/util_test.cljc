@@ -112,59 +112,110 @@
          (util/->entity-ref 101))
       "A naked ID is wrapped in a map"))
 
-(deftest reassembly-an-entity-with-children
-  (is (= [#:transaction{:description "Kroger"
-                        :items [#:transaction-item{:account {:id :checking}
-                                                   :action :debit
-                                                   :quantity 100M}
-                                #:transaction-item{:account {:id :groceries}
-                                                   :action :credit
-                                                   :quantity 100M}]}]
-         (util/reconstruct {:parent? :transaction/description
-                            :child? :transaction-item/account
-                            :children-key :transaction/items}
-                           [#:transaction{:description "Kroger"}
-                            #:transaction-item{:account {:id :checking}
-                                               :action :debit
-                                               :quantity 100M}
-                            #:transaction-item{:account {:id :groceries}
-                                               :action :credit
-                                               :quantity 100M}]))
-      "One transaction receives all of the items")
-  (is (= [#:transaction{:description "Kroger"
-                        :items [#:transaction-item{:account {:id :checking}
-                                                   :action :debit
-                                                   :quantity 100M}
-                                #:transaction-item{:account {:id :groceries}
-                                                   :action :credit
-                                                   :quantity 100M}]}
-          #:transaction{:description "Landlord"
-                        :items [#:transaction-item{:account {:id :checking}
-                                                   :action :debit
-                                                   :quantity 1000M}
-                                #:transaction-item{:account {:id :rent}
-                                                   :action :credit
-                                                   :quantity 1000M}]}
-          #:entity {:name "Personal"}]
-         (util/reconstruct {:parent? :transaction/description
-                            :child? :transaction-item/account
-                            :children-key :transaction/items}
-                           [#:transaction{:description "Kroger"}
-                            #:transaction-item{:account {:id :checking}
-                                               :action :debit
-                                               :quantity 100M}
-                            #:transaction-item{:account {:id :groceries}
-                                               :action :credit
-                                               :quantity 100M}
-                            #:transaction{:description "Landlord"}
-                            #:transaction-item{:account {:id :checking}
-                                               :action :debit
-                                               :quantity 1000M}
-                            #:transaction-item{:account {:id :rent}
-                                               :action :credit
-                                               :quantity 1000M}
-                            #:entity{:name "Personal"}]))
-      "Each transaction receives the items until another transaction or the end of the list is encountered"))
+(deftest reassemble-an-entity-with-children
+  (let [rules [{:parent? :account-item/quantity
+                :foreign-ref-key :transaction-item/credit-item}
+               {:parent? :account-item/quantity
+                :foreign-ref-key :transaction-item/debit-item}
+               {:child? :transaction-item/value
+                :foreign-ref-key :transaction-item/transaction
+                :children-key :transaction/items}]]
+    (testing "One-to-many relationship"
+        (testing "A single entity"
+          (is (= [{:id 101
+                   :transaction/description "Kroger"
+                   :transaction/items [{:id 201
+                                        :transaction-item/transaction {:id 101}
+                                        :transaction-item/credit-account {:id :checking}
+                                        :transaction-item/debit-account {:id :groceries}
+                                        :transaction-item/value 100M}]}]
+                 (util/reconstruct
+                   rules
+                   [{:id 101
+                     :transaction/description "Kroger"}
+                    {:id 201
+                     :transaction-item/transaction {:id 101}
+                     :transaction-item/credit-account {:id :checking}
+                     :transaction-item/debit-account {:id :groceries}
+                     :transaction-item/value 100M}]))
+              "One transaction receives all of the items"))
+        (testing "Multiple entities"
+          (is (= [{:id 101
+                   :transaction/description "Kroger"
+                   :transaction/items [{:id 201
+                                        :transaction-item/transaction {:id 101}
+                                        :transaction-item/credit-account {:id :checking}
+                                        :transaction-item/debit-account {:id :groceries}
+                                        :transaction-item/value 100M}]}
+                  {:id 102
+                   :transaction/description "Landlord"
+                   :transaction/items [{:id 202
+                                        :transaction-item/transaction {:id 102}
+                                        :transaction-item/credit-account {:id :checking}
+                                        :transaction-item/debit-account {:id :checking}
+                                        :transaction-item/value 101M}]}
+                  {:id 301
+                   :entity/name "Personal"}]
+                 (util/reconstruct
+                   rules
+                   [{:id 101
+                     :transaction/description "Kroger"}
+                    {:id 201
+                     :transaction-item/transaction {:id 101}
+                     :transaction-item/credit-account {:id :checking}
+                     :transaction-item/debit-account {:id :groceries}
+                     :transaction-item/value 100M}
+                    {:id 102
+                     :transaction/description "Landlord"}
+                    {:id 202
+                     :transaction-item/transaction {:id 102}
+                     :transaction-item/credit-account {:id :checking}
+                     :transaction-item/debit-account {:id :checking}
+                     :transaction-item/value 101M}
+                    {:id 301 :entity/name "Personal"}]))
+              "Each transaction receives the items until another transaction or the end of the list is encountered")))
+    (testing "One-to-one relationship"
+      (is (= [{:id 101
+               :transaction/transaction-date "2016-03-02"
+               :transaction/description "Paycheck"
+               :transaction/items [{:id 201
+                                    :transaction-item/transaction {:id 101}
+                                    :transaction-item/value 1000M
+                                    :transaction-item/credit-item
+                                    {:id 301
+                                     :account-item/quantity 1000M
+                                     :account-item/account {:id :salary}
+                                     :account-item/memo "conf # 123"
+                                     :account-item/transaction-item {:id 201}
+                                     :account-item/action :credit}
+                                    :transaction-item/debit-item
+                                    {:id 302
+                                     :account-item/quantity 1000M
+                                     :account-item/account {:id :checking}
+                                     :account-item/transaction-item {:id 201}
+                                     :account-item/action :debit}}]}]
+             (util/reconstruct
+               rules
+               [{:id 101
+                 :transaction/transaction-date "2016-03-02"
+                 :transaction/description "Paycheck"}
+                {:id 301
+                 :account-item/quantity 1000M
+                 :account-item/account {:id :salary}
+                 :account-item/memo "conf # 123"
+                 :account-item/transaction-item {:id 201}
+                 :account-item/action :credit}
+                {:id 302
+                 :account-item/quantity 1000M
+                 :account-item/account {:id :checking}
+                 :account-item/transaction-item {:id 201}
+                 :account-item/action :debit}
+                {:id 201
+                 :transaction-item/credit-item {:id 301}
+                 :transaction-item/debit-item {:id 302}
+                 :transaction-item/value 1000M
+                 :transaction-item/transaction {:id 101}}]))
+          "One transaction receives all of the items"))))
 
 (deftest identity-a-entity-ref
   (is (util/entity-ref? {:id 101})
@@ -190,7 +241,7 @@
     (is (= 1 (count @calls))
         "The original function is not called the second time")))
 
-(deftest identity-a-temporary-id
+(deftest identify-a-temporary-id
   (is (util/temp-id? (util/temp-id))
       "The result of calling temp-id is a temporary id")
   (is (not (util/temp-id? 101))
@@ -198,6 +249,19 @@
   (is (not (util/temp-id? "101"))
       "A string is not a temp id")
   (is (not (util/temp-id? (random-uuid)))))
+
+(deftest supply-a-temporary-id-when-needed
+  (is (= {:id 1
+          :user/name "John"}
+         (util/+temp-id
+           {:id 1
+            :user/name "John"}))
+      "The map is returned as-is when an :id value is present")
+  (is (= {:id "abc123"
+          :user/name "John"}
+         (with-redefs [util/temp-id (constantly "abc123")]
+           (util/+temp-id {:user/name "John"})))
+      "A temporary value is inserted at :id when not present"))
 
 (deftest detect-the-presence-of-a-value
   (testing "strings"
