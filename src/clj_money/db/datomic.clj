@@ -399,11 +399,14 @@
           d-peer/connect
           d-peer/db
           (d-peer/pull-many '[*] ids)))
-    (query [_ {:keys [query args]}]
+    (query [_ query-map]
       ; TODO: take in the as-of date-time
-      (apply d-peer/q
-             query
-             (cons (-> uri d-peer/connect d-peer/db) args)))
+      (-> query-map
+          (update-in [:args] #(cons (-> uri
+                                        d-peer/connect
+                                        d-peer/db)
+                                    %))
+          d-peer/qseq))
     (reset [_]
       (d-peer/delete-database uri)
       (apply-schema config {:suppress-output? true}))))
