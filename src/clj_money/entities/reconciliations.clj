@@ -194,11 +194,11 @@
                   ::last-completed (find-last-completed recon))))))
 
 (defn- fetch-account-items
-  [{:as recon :reconciliation/keys [account]}]
-  (entities/select {:account-item/reconciliation recon
-                    :account-item/account account}
+  [recon]
+  (entities/select {:account-item/reconciliation recon}
                    {:select-also :transaction/transaction-date
-                    :datalog/hints [:account-item/reconciliation]}))
+                    :datalog/hints [:account-item/reconciliation
+                                    :account-item/transaction-item]}))
 
 (defn- append-account-items
   [{:as recon :reconciliation/keys [items]}]
