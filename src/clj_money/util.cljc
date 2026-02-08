@@ -3,6 +3,7 @@
   (:require [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
             [clojure.walk :refer [postwalk]]
+            [clojure.spec.alpha :as s]
             #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
@@ -55,6 +56,16 @@
   ([m {:keys [transform] :or {transform identity}} v]
    (pprint {m (transform v)})
    v))
+
+#?(:clj (defn spit->>
+          [path v]
+          (spit path (with-out-str (pprint v)))
+          v))
+
+#?(:clj (defn spit->
+          [v path]
+          (spit path (with-out-str (pprint v)))
+          v))
 
 (def entity-types
   (->> schema/entities
@@ -242,26 +253,14 @@
     x
     (update-in x [0] #(keyword nspace (name %)))))
 
-; TODO: delete this when we upgrade to clojurescript 1.11.5
-#?(:cljs
-   ^{:clj-kondo/ignore [:redefined-var]}
-   (defn update-keys
-     [m f]
-     (let [ret (persistent!
-                 (reduce-kv (fn [acc k v]
-                              (assoc! acc (f k) v))
-                            (transient {})
-                            m))]
-       (with-meta ret (meta m)))))
-
 (defn qualify-keys
   "Creates fully-qualified entity attributes by applying
   the :entity-type from the meta data to the keys of the map."
   [m ns-key & {:keys [ignore]}]
   {:pre [(map? m)]}
   (let [qualifier (if (keyword? ns-key)
-            (name ns-key)
-            ns-key)
+                    (name ns-key)
+                    ns-key)
         ignore? (if ignore
                   (some-fn ignore namespace)
                   namespace)]
@@ -299,36 +298,101 @@
   (and (map? x)
        (= #{:id} (set (keys x)))))
 
+(s/def ::parent? keyword?)
+(s/def ::children-key keyword?)
+(s/def ::foreign-ref-key keyword?)
+(s/def ::has-many-rule (s/keys :req-un [::child?
+                                        ::foreign-ref-key
+                                        ::children-key]))
+(s/def ::belongs-to-rule (s/keys :req-un [::parent?
+                                          ::foreign-ref-key]))
+(s/def ::reconstruction-rule (s/or :has-many ::has-many-rule
+                                   :belongs-to ::belongs-to-rule))
+
+(defn- apply-has-many-rule
+  [{:keys [child?
+           foreign-ref-key
+           children-key]}
+   entity
+   to-process
+   processed]
+  (if (child? entity)
+    (let [parent (->> processed
+                      (filter #(id= % (foreign-ref-key entity)))
+                      first)]
+      ; We're making the assumption here that the parent
+      ; will appear in the list of entities before the children
+      [(first to-process)
+       (rest to-process)
+       (mapv (fn [e]
+               (if (= e parent)
+                 (update-in e [children-key] (fnil conj []) entity)
+                 e))
+             processed)])
+    [(first to-process)
+     (rest to-process)
+     (conj processed entity)]))
+
+(defn- apply-belongs-to-rule
+  [{:keys [parent?
+           foreign-ref-key]}
+   entity
+   to-process
+   processed]
+  (if (parent? entity)
+    ; Like above, we're making an assumption about where we'll
+    ; find the child.
+    (if-let [child (->> to-process
+                        (filter #(id= entity
+                                      (foreign-ref-key %)))
+                        first)]
+      (let [new-to-process (mapv (fn [e]
+                                   (if (= e child)
+                                     (assoc e foreign-ref-key entity)
+                                     e))
+                                 to-process)]
+        [(first new-to-process)
+         (rest new-to-process)
+         processed])
+      [(first to-process)
+       (rest to-process)
+       (conj processed entity)])
+    [(first to-process)
+     (rest to-process)
+     (conj processed entity)]))
+
+(defn- apply-reconstruction-rule
+  [[rule-type rule] entity to-process processed]
+  (let [f (case rule-type
+            :has-many   apply-has-many-rule
+            :belongs-to apply-belongs-to-rule
+            (throw (ex-info "Unrecognized rule type" {:rule rule
+                                                      :rule-type rule-type})))]
+    (f rule entity to-process processed)))
+
+(defn- apply-reconstruction-rules
+  [entities rule]
+  (loop [entity (first entities)
+         remaining (rest entities)
+         out []]
+    (if entity
+      (let [[x y z] (apply-reconstruction-rule
+                      rule
+                      entity
+                      remaining
+                      out)]
+        (recur x y z))
+      out)))
+
 (defn reconstruct
-  "Given a list of entities and a few options, aggregates child entities into their parents."
-  [{:keys [children-key parent? child?]} entities]
-  {:pre [(seq entities) children-key parent? child?]}
-  ; This logic assumes the order established in deconstruct is maintained
-  (loop [input entities output [] current nil]
-    (if-let [mdl (first input)]
-      (cond
-        (and current
-             (child? mdl))
-        (recur (rest input)
-               output
-               (update-in current [children-key] (fnil conj []) mdl))
-
-        (parent? mdl)
-        (recur (rest input)
-               (if current
-                 (conj output current)
-                 output)
-               mdl)
-
-        :else
-        (recur (rest input)
-               (if current
-                 (conj output current mdl)
-                 (conj output mdl))
-               nil))
-      (if current
-        (conj output current)
-        output))))
+  "Given a list of entities and a few options, aggregates child entities into
+  their parents."
+  [rules entities]
+  {:pre [(s/valid? (s/coll-of ::reconstruction-rule) rules)]}
+  (->> rules
+       (s/conform (s/coll-of ::reconstruction-rule))
+       (reduce apply-reconstruction-rules
+               entities)))
 
 (defn cache-fn
   "Given a function that takes a single argument and returns a resource,
@@ -350,10 +414,11 @@
   []
   (str "temp-" (random-uuid)))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn +temp-id
+  "Given an entity map, if there no value at the :id key, insert
+  a temporary id there."
   [entity]
-  (assoc entity :id (temp-id)))
+  (update-in entity [:id] #(or % (temp-id))))
 
 (defn temp-id?
   "Given a entity or an id, returns true if the entity has a temporary
@@ -378,12 +443,18 @@
 (def simple-keys
   [:user/email
    :account/name
+   :account-item/index
+   :account-item/quantity
+   :account-item/balance
    :entity/name
    :commodity/symbol
    :transaction/transaction-date
    :transaction/description
+   :transaction-item/value
    :transaction-item/quantity
    :transaction-item/action
+   :account-item/action
+   :account-item/quantity
    :scheduled-transaction/description
    :scheduled-transaction-item/quantity
    :scheduled-transaction-item/action
@@ -504,9 +575,9 @@
                    (and (sequential? v)
                         (map? (first v)))
                    (apply concat res (map-indexed
-                                       (fn [idx itm]
-                                         (locate-nils itm (conj prefix k idx)))
-                                       v))
+                                      (fn [idx itm]
+                                        (locate-nils itm (conj prefix k idx)))
+                                      v))
 
                    :else
                    res))

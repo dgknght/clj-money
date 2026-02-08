@@ -592,7 +592,7 @@
   (fn [trx]
     (-> trx
         v/reset
-        (unaccountify (comp @accounts-by-id :id))
+        unaccountify
         entryfy)))
 
 (defn- collapse-trx
@@ -724,6 +724,32 @@
         @attachments-item    [atts/attachments-card page-state]
         :else                [transaction-item-list page-state]))))
 
+(defn- lot-row
+  [lot latest-price gain-loss]
+  (let [g-l (- (* (:price/value latest-price)
+                  (:lot/shares-owned lot))
+               (* (:lot/purchase-price lot)
+                  (:lot/shares-owned lot)))]
+    ^{:key (str "lot-" (:id lot))}
+    [:tr
+     [:td.text-end (format-date (:lot/purchase-date lot))]
+     [:td.text-end (format-decimal (:lot/shares-purchased lot) 4)]
+     [:td.text-end (format-decimal (:lot/shares-owned lot) 4)]
+     [:td.text-end (format-decimal (:lot/purchase-price lot) 2)]
+     [:td.text-end
+      {:class (if (>= g-l 0M)
+                "text-success"
+                "text-danger")}
+      (format-decimal g-l)]
+     [:td.text-end
+      {:class (if (>= gain-loss 0M)
+                "text-success"
+                "text-danger")}
+      (format-percent (/ g-l
+                         (* (:lot/shares-purchased lot)
+                            (:lot/purchase-price lot)))
+                      3)]]))
+
 (defn- lots-table
   [page-state]
   (let [lots (r/cursor page-state [:lots])
@@ -754,45 +780,38 @@
          [:th.text-end "Gn/Ls"]
          [:th.text-end "Gn/Ls %"]]]
        [:tbody
-        (doall (for [lot (sort-by (comp serialize-local-date :lot/purchase-date) @lots)]
-                 (let [g-l (- (* (:price/value @latest-price)
-                                 (:lot/shares-owned lot))
-                              (* (:lot/purchase-price lot)
-                                 (:lot/shares-owned lot)))]
-                   ^{:key (str "lot-" (:id lot))}
-                   [:tr
-                    [:td.text-end (format-date (:lot/purchase-date lot))]
-                    [:td.text-end (format-decimal (:lot/shares-purchased lot) 4)]
-                    [:td.text-end (format-decimal (:lot/shares-owned lot) 4)]
-                    [:td.text-end (format-decimal (:lot/purchase-price lot) 2)]
-                    [:td.text-end
-                     {:class (if (>= g-l 0M)
-                               "text-success"
-                               "text-danger")}
-                     (format-decimal g-l)]
-                    [:td.text-end
-                     {:class (if (>= @gain-loss 0M)
-                               "text-success"
-                               "text-danger")}
-                     (format-percent (/ g-l
-                                        (* (:lot/shares-purchased lot)
-                                           (:lot/purchase-price lot)))
-                                     3)]])))]
-       [:tfoot
-        [:tr
-         [:td.text-end {:col-span 2}
-          (when @latest-price
-            (gstr/format "(%s as of %s)"
-                         (currency-format (:price/value @latest-price))
-                         (format-date (:price/trade-date @latest-price))))]
-         [:td.text-end (format-decimal @total-shares 4)]
-         [:td.text-end (currency-format @total-value)]
-         [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
-          (currency-format @gain-loss)]
-         [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
-          (format-percent (/ @gain-loss
-                             @total-cost)
-                          3)]]]])))
+        (cond
+          (nil? @lots)
+          [:tr
+           [:td.text-center {:col-span 6}
+            [:div.d-flex.justify-content-center.m2
+             [:div.spinner-border {:role :status}
+              [:span.visually-hidden "Loading"]]]]]
+
+          (seq @lots)
+          (doall (for [lot (sort-by (comp serialize-local-date
+                                          :lot/purchase-date)
+                                    @lots)]
+                   (lot-row lot @latest-price @gain-loss)))
+
+          :else
+          [:tr [:td.text-center.fw-lighter {:col-span 6} "No lots of this commidty are currently held."]])]
+       (when (seq @lots)
+         [:tfoot
+          [:tr
+           [:td.text-end {:col-span 2}
+            (when @latest-price
+              (gstr/format "(%s as of %s)"
+                           (currency-format (:price/value @latest-price))
+                           (format-date (:price/trade-date @latest-price))))]
+           [:td.text-end (format-decimal @total-shares 4)]
+           [:td.text-end (currency-format @total-value)]
+           [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+            (currency-format @gain-loss)]
+           [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+            (format-percent (/ @gain-loss
+                               @total-cost)
+                            3)]]])])))
 
 (defn- tradable-account-items
   [page-state]
@@ -844,7 +863,10 @@
           (icon-with-text :plus "Buy/Sell")]
          [:button.btn.btn-secondary.ms-2
           {:title "Click here to return the the account list."
-           :on-click #(swap! page-state dissoc :view-account)}
+           :on-click #(swap! page-state dissoc
+                             :view-account
+                             :items
+                             :all-items-fetched?)}
           (icon-with-text :arrow-left-short "Back")]]]])))
 
 (defn- tradable-account-details

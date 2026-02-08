@@ -37,6 +37,13 @@
     :migrations (load-resources "migrations")
     :strategy apply-new}))
 
+(defn auxiliary-ragtime-config
+  ([] (auxiliary-ragtime-config (sql-ddl-config)))
+  ([db-config]
+   {:datastore (sql-database db-config)
+    :migrations (load-resources "auxiliary-migrations")
+    :strategy apply-new}))
+
 (defn migrate
   ([]
    (rt/migrate (ragtime-config)))
@@ -51,6 +58,23 @@
 (defn remigrate []
   (rollback)
   (migrate))
+
+(defn migrate-auxiliary
+  "Runs migrations for auxiliary tables (e.g., image_content) that are
+  needed regardless of the active storage strategy."
+  ([]
+   (rt/migrate (auxiliary-ragtime-config)))
+  ([db-config]
+   {:pre [db-config]}
+   (rt/migrate (auxiliary-ragtime-config db-config))))
+
+(defn rollback-auxiliary
+  []
+  (rt/rollback (auxiliary-ragtime-config)))
+
+(defn remigrate-auxiliary []
+  (rollback-auxiliary)
+  (migrate-auxiliary))
 
 (def ^:private create-partitions-options
   [["-n" "--dry-run" "Dry run"]

@@ -26,5 +26,9 @@
     (constantly true)))
 
 (defn has-shares?
-  [{:lot/keys [shares-owned]}]
-  (< 0M shares-owned))
+  "Returns true if the given commodity either currently held
+  in an investment account, or if it is a currency."
+  [{:lot/keys [shares-owned]
+    :commodity/keys [type]}]
+  (or (= :currency type)
+      (< 0M shares-owned)))

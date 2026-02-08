@@ -112,9 +112,9 @@
           "The after value passed to the output channel is nil"))))
 
 (defn assert-invalid
-  [attr errors & {:keys [message]}]
+  [attr errors & {:keys [message put-opts]}]
   (is (thrown-with-ex-data?
         "Validation failed"
         {::v/errors errors}
-        (entities/put attr))
+        (apply entities/put attr (mapcat identity put-opts)))
       (or message "Expected a validation error, but found none.")))
