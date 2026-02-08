@@ -318,6 +318,21 @@
           :else
           [:tr [:td.text-center {:col-span 6} (bs/spinner {:size :small})]])]])))
 
+(defn- fund-transaction-row
+  [{:as item
+    :transaction/keys [transaction-date
+                       description]
+    :account-item/keys [quantity
+                        balance
+                        value]}]
+  ^{:key (str "item-" (:id item))}
+  [:tr
+   [:td.text-end (format-date transaction-date)]
+   [:td description]
+   [:td.text-end (format-decimal quantity 4)]
+   [:td.text-end (format-decimal balance 4)]
+   [:td.text-end (currency-format (or value quantity))]])
+
 (defn fund-transactions-table
   [page-state]
   (let [items (r/cursor page-state [:items])
@@ -335,19 +350,21 @@
          [:th.text-end "Bal."]
          [:th.text-end "Value"]]]
        [:tbody
-        (doall (for [{:as item
-                      :account-item/keys [transaction-date
-                                          quantity
-                                          balance
-                                          value]}
-                     (sort-by :index > @items)]
-                 ^{:key (str "item-" (:id item))}
-                 [:tr
-                  [:td.text-end (format-date transaction-date)]
-                  [:td (:description item)]
-                  [:td.text-end (format-decimal quantity 4)]
-                  [:td.text-end (format-decimal balance 4)]
-                  [:td.text-end (currency-format (or value quantity))]]))]])))
+        (cond
+          (nil? @items)
+          [:tr
+           [:td.text-center.fw-lighter {:col-span 5}
+            [:div.d-flex.justify-content-center.m2
+             [:div.spinner-border {:role :status}
+              [:span.visually-hidden "Loading"]]]]]
+
+          (seq @items)
+          (doall
+            (for [item (sort-by :index > @items)]
+              (fund-transaction-row item)))
+
+          :else
+          [:tr [:td.text-center.fw-lighter {:col-span 5} "No transaction for this commodity."]])]])))
 
 (defn- ensure-entry-state
   [page-state]
