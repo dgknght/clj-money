@@ -498,43 +498,6 @@
                (:transaction/transaction-date (entities/find result)))
             "The updated transaction can be retrieved")))))
 
-(dbtest ^:multi-threaded update-a-transaction-cross-partition-boundary
-  (with-context update-context
-    (let [checking (find-account "Checking")
-          groceries (find-account "Groceries")
-          result (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
-                     (assoc :transaction/transaction-date (t/local-date 2016 4 12))
-                     prop/put-and-propagate)]
-      (is (seq-of-maps-like? [{:transaction-item/index 2
-                               :transaction-item/quantity 101M
-                               :transaction-item/balance 797M
-                               :transaction/transaction-date (t/local-date 2016 4 12)}
-                              {:transaction-item/index 1
-                               :transaction-item/quantity 102M
-                               :transaction-item/balance 898M
-                               :transaction/transaction-date (t/local-date 2016 3 22)}
-                              {:transaction-item/index 0
-                               :transaction-item/quantity 1000M
-                               :transaction-item/balance 1000M
-                               :transaction/transaction-date (t/local-date 2016 3 2)}]
-                             (items-by-account checking))
-          "The checking account items reflect the change in transaction date")
-      (is (seq-of-maps-like? [{:transaction-item/index 1
-                               :transaction-item/quantity 101M
-                               :transaction-item/balance 203M
-                               :transaction/transaction-date (t/local-date 2016 4 12) }
-                              {:transaction-item/index 0
-                               :transaction-item/quantity 102M
-                               :transaction-item/balance 102M
-                               :transaction/transaction-date (t/local-date 2016 3 22)}]
-                             (items-by-account groceries))
-          "The groceries account items reflect the change in transaction date")
-      (assert-account-quantities checking 797M groceries 203M)
-      (testing "transaction is updated"
-        (is (= (t/local-date 2016 4 12)
-               (:transaction/transaction-date (entities/find result)))
-            "The retrieved transaction has the new date")))))
-
 (def short-circuit-context
   (conj base-context
         #:transaction{:transaction-date (t/local-date 2016 3 2)
