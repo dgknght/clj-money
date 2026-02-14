@@ -34,7 +34,8 @@
       "Bash(lein cljfmt fix:*)",
       "Bash(clj-kondo:*)",
       "Bash(ls:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(rg:*)"
     ],
     "deny": [],
     "ask": []
