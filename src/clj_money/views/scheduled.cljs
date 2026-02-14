@@ -119,7 +119,12 @@
                  {}))))
 
 (defn- sched-tran-row
-  [{:scheduled-transaction/keys [description last-occurrence next-occurrence] :as sched-tran} page-state busy?]
+  [{:scheduled-transaction/keys [description
+                                 last-occurrence
+                                 next-occurrence]
+    :as sched-tran}
+   page-state
+   busy?]
   ^{:key (str "sched-tran-row-" (:id sched-tran))}
   [:tr {:class (cond-> []
                  (disabled? sched-tran) (conj "sched-tran-disabled")

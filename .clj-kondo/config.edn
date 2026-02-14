@@ -63,6 +63,9 @@
                                                       clj-money.db.sql.tasks/check-transaction-balances
                                                       clj-money.decimal/>=
                                                       clj-money.decimal/<=
+                                                      clj-money.entities/transaction
+                                                      clj-money.entities/account-item
+                                                      clj-money.entities/reconciliation
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.util/simplify
@@ -73,10 +76,12 @@
                                                       clj-money.tasks/export-user-tags
                                                       clj-money.tasks/import-user-tags
                                                       clj-money.tasks/migrate-account
-                                                      clj-money.tasks/recalc
+                                                      clj-money.tasks/re-index
                                                       clj-money.tasks/update-commodity-price-ranges
                                                       clj-money.util/pp->
                                                       clj-money.util/pp->>
+                                                      clj-money.util/spit->
+                                                      clj-money.util/spit->>
                                                       clj-money.views.reconciliations/load-working-reconciliation
                                                       clj-money.views.reconciliations/reconciliation-form
                                                       clj-money.web.server/print-routes}}

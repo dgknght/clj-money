@@ -230,13 +230,16 @@
                      :scheduled-transaction/date-spec {:day 1}
                      :scheduled-transaction/period [1 :month]
                      :scheduled-transaction/items [#:scheduled-transaction-item{:action :debit
-                                                                                :account {:id :checking}
+                                                                                :account {:id :checking
+                                                                                          :account/type :asset}
                                                                                 :quantity 900M}
                                                    #:scheduled-transaction-item{:action :debit
-                                                                                :account {:id :fit}
+                                                                                :account {:id :fit
+                                                                                          :account/type :expense}
                                                                                 :quantity 100M}
                                                    #:scheduled-transaction-item{:action :credit
-                                                                                :account {:id :salary}
+                                                                                :account {:id :salary
+                                                                                          :account/type :income}
                                                                                 :quantity 1000M}]})]
        (is (dgknght.app-lib.test-assertions/seq-of-maps-like?
              expected

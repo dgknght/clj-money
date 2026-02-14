@@ -110,7 +110,7 @@
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.38"
+                  "0.3.41"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
@@ -153,7 +153,7 @@
                    lein-doo]]
                  [lambdaisland/uri "1.4.54"]
                  [com.taoensso/carmine "3.4.1" :exclusions [org.clojure/tools.reader commons-codec]]
-                 [stowaway "0.2.11" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
+                 [stowaway "0.2.12" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
                  [io.opentelemetry/opentelemetry-api "1.55.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
@@ -169,6 +169,9 @@
             "migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]
             "rollback"              ["run" "-m" "clj-money.db.sql.tasks/rollback"]
             "remigrate"             ["run" "-m" "clj-money.db.sql.tasks/remigrate"]
+            "migrate-auxiliary"     ["run" "-m" "clj-money.db.sql.tasks/migrate-auxiliary"]
+            "rollback-auxiliary"    ["run" "-m" "clj-money.db.sql.tasks/rollback-auxiliary"]
+            "remigrate-auxiliary"   ["run" "-m" "clj-money.db.sql.tasks/remigrate-auxiliary"]
             "create-sql"            ["run" "-m" "clj-money.db.sql.tasks/create"]
             "partition"             ["run" "-m" "clj-money.db.sql.tasks/create-partitions"]
             "check-trans"           ["run" "-m" "clj-money.db.sql.tasks/check-transaction-balances"]
@@ -180,6 +183,7 @@
             "export-user-tags"      ["run" "-m" "clj-money.tasks/export-user-tags"]
             "import-user-tags"      ["run" "-m" "clj-money.tasks/import-user-tags"]
             "er-diagram"            ["run" "-m" "clj-money.tasks/er-diagram"]
+            "re-index"              ["run" "-m" "clj-money.tasks/re-index"]
             "routes"                ["run" "-m" "clj-money.web.server/print-routes"]
             "fig:prod"              ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "prod"]
             "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
@@ -194,7 +198,15 @@
   :test-selectors {:datomic-peer (fn [m & _]
                                    (= :datomic-peer (:strategy m)))
                    :sql (fn [m & _]
-                          (= :sql (:strategy m)))}
+                          (= :sql (:strategy m)))
+                   :sql-multi (fn [m & _]
+                                (and (:multi-threaded m)
+                                     (= :sql (:strategy m))))
+                   :sql-single (fn [m & _]
+                                 (and (not (:multi-threaded m))
+                                      (= :sql (:strategy m))))
+                   :multi-threaded :multi-threaded
+                   :single-threaded (complement :multi-threaded)}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93

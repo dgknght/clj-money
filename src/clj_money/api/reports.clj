@@ -32,21 +32,27 @@
               api/response)
       api/not-found))
 
+(defn- portfolio-params
+  [entity {:keys [params]}]
+  (-> params
+      (select-keys [:aggregate :as-of])
+      (update-in-if [:aggregate] keyword)
+      (update-in-if [:as-of] dates/unserialize-local-date)
+      (assoc :entity entity)))
+
 (defn- portfolio
-  [{:keys [params] :as req}]
-  (if-let [entity (fetch-entity req)]
-    (api/response (rpt/portfolio (-> params
-                                     (select-keys [:aggregate :as-of])
-                                     (update-in-if [:aggregate] keyword)
-                                     (update-in-if [:as-of] dates/unserialize-local-date)
-                                     (assoc :entity entity))))
-    api/not-found))
+  [req]
+  (or (some-> (fetch-entity req)
+              (portfolio-params req)
+              rpt/portfolio
+              api/response)
+      api/not-found))
 
 (defn- budget
   [{:keys [params authenticated]}]
   (or (some-> (entities/find-by (+scope {:id (:budget-id params)}
-                                      :budget
-                                      authenticated))
+                                        :budget
+                                        authenticated))
               (rpt/budget (-> params
                               (select-keys [:as-of :tags])
                               (update-in-if [:tags] #(mapv keyword %))
@@ -80,7 +86,7 @@
                                [:entity/settings
                                 :settings/monitored-accounts]))]
       (->> (entities/select (util/entity-type {:id [:in (mapv :id refs)]}
-                                           :account))
+                                              :account))
            (map (comp serialize-monitor
                       rpt/monitor))
            api/response)
