@@ -626,3 +626,41 @@
                                       :purchase-price 200M}]
                                (entities/select #:lot{:account account
                                                       :commodity commodity})))))))
+
+(def ^:private non-clean-rev-split-context
+  (conj base-context
+        #:trade{:type :purchase
+                :entity "Personal"
+                :date (t/local-date 2016 3 2)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 700M
+                :value 7000M}))
+
+(deftest reverse-split-with-non-clean-ratio
+  (with-context non-clean-rev-split-context
+    (let [account (find-account "IRA")
+          commodity (find-commodity "AAPL")]
+      (trading/split #:split{:date (t/local-date 2016 4 1)
+                             :account account
+                             :commodity commodity
+                             :shares-gained -600M})
+      (testing "The lots after split"
+        (is (seq-of-maps-like?
+              [#:lot{:shares-purchased 100M
+                     :shares-owned 100M}]
+              (entities/select #:lot{:account account
+                                     :commodity commodity}))
+            "Shares are rounded correctly"))
+      (testing "Selling all remaining shares"
+        (trading/sell #:trade{:date (t/local-date 2016 5 1)
+                              :account account
+                              :commodity commodity
+                              :shares 100M
+                              :value 8000M})
+        (is (empty?
+              (entities/select
+                #:lot{:account account
+                      :commodity commodity
+                      :shares-owned [:!= 0M]}))
+            "All lots are emptied")))))

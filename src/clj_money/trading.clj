@@ -790,15 +790,21 @@
     (let [shares-owned (->> lots
                             (map :lot/shares-owned)
                             (reduce + 0M))]
-      (assoc split :split/ratio (with-precision 4
+      (assoc split :split/ratio (with-precision 10
                                   (/ (+ shares-owned shares-gained)
                                      shares-owned))))))
+
+(defn- apply-ratio
+  "Multiplies a share count by the split ratio, rounding to the
+  original scale to eliminate residual precision error."
+  [^BigDecimal shares ratio]
+  (d/round (* shares ratio) (.scale shares)))
 
 (defn- apply-ratio-to-lot-item
   [item ratio]
   (-> item
-      (update-in [:lot-item/price] #(with-precision 4 (/ % ratio)))
-      (update-in [:lot-item/shares] #(* % ratio))))
+      (update-in [:lot-item/price] #(with-precision 10 (/ % ratio)))
+      (update-in [:lot-item/shares] #(apply-ratio % ratio))))
 
 (defn- fetch-and-adjust-lot-items
   [lot ratio]
@@ -808,9 +814,9 @@
 (defn- apply-ratio-to-lot
   [lot ratio]
   (-> lot
-      (update-in [:lot/shares-purchased] #(* % ratio))
-      (update-in [:lot/shares-owned] #(* % ratio))
-      (update-in [:lot/purchase-price] #(with-precision 4 (/ % ratio)))))
+      (update-in [:lot/shares-purchased] #(apply-ratio % ratio))
+      (update-in [:lot/shares-owned] #(apply-ratio % ratio))
+      (update-in [:lot/purchase-price] #(with-precision 10 (/ % ratio)))))
 
 (defn- adjust-lot-and-lot-items
   [ratio lots]
