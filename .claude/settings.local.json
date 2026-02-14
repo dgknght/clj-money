@@ -35,7 +35,8 @@
       "Bash(clj-kondo:*)",
       "Bash(ls:*)",
       "Bash(awk:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
