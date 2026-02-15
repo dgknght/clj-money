@@ -36,7 +36,8 @@
       "Bash(ls:*)",
       "Bash(awk:*)",
       "Bash(rg:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

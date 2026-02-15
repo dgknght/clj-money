@@ -302,6 +302,7 @@
                 current-value (d/* price shares-owned)]
             (assoc lot
                    :lot/items items
+                   :lot/shares-purchased (:lot-item/shares purchase)
                    :lot/cost-basis cost-basis
                    :lot/shares-purchased (:lot-item/shares purchase)
                    :lot/shares-owned shares-owned
