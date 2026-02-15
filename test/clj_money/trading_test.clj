@@ -138,7 +138,7 @@
                          (:trade/price result))
             "The price is returned")))))
 
-(deftest propagate-a-purchase
+(deftest ^:multi-threaded propagate-a-purchase
   (with-context purchase-context
     (let [personal (find-entity "Personal")
           ira (find-account "IRA")
@@ -158,7 +158,7 @@
                          (entities/find ira))
             "The trading account balance is updated to reflect money paid out")))))
 
-(deftest purchase-a-commodity-with-a-fee
+(deftest ^:multi-threaded purchase-a-commodity-with-a-fee
   (with-context purchase-context
     (let [ira (find-account "IRA")
           inv-exp (find-account "Investment Expenses")]
@@ -171,7 +171,7 @@
       (is (= 5M (:account/quantity (entities/find inv-exp)))
           "The investment expense account reflects the fee"))))
 
-(deftest reinvest-a-dividend
+(deftest ^:multi-threaded reinvest-a-dividend
   (with-context purchase-context
     (let [dividends (find-account "Dividends")
           ira (entities/find (find-account "IRA"))
@@ -306,7 +306,7 @@
                    (get-in entity [:entity/settings :settings/st-capital-loss-account]))
               "The short-term capital losses account is saved"))))))
 
-(deftest propagate-a-sale
+(deftest ^:multi-threaded propagate-a-sale
   (with-context sale-context
     (trading/sell-and-propagate (sale-attributes))
     (testing "The commodity account"
@@ -457,7 +457,7 @@
                    account)
               "The Short-term Capital Losses account id is placed in the entity settings"))))))
 
-(deftest sell-a-commodity-with-a-fee
+(deftest ^:multi-threaded sell-a-commodity-with-a-fee
   (with-context sale-context
     (trading/sell-and-propagate
       (assoc (sale-attributes)
@@ -571,7 +571,7 @@
                                             {:sort [[:lot/purchase-date :asc]]}))
           "Shares are sold from the earliest lot"))))
 
-(deftest undo-a-purchase
+(deftest ^:multi-threaded undo-a-purchase
   (with-context sale-context
     (trading/unbuy-and-propagate
       (find-transaction [(t/local-date 2016 3 2)
@@ -612,7 +612,7 @@
 ;                      after purchase: $1,000
 ;                          after sale: $1,375
 ;                        after unsale: $1,000
-(deftest undo-a-sale
+(deftest ^:multi-threaded undo-a-sale
   (with-context existing-sale-context
     (let [trx (find-transaction [(t/local-date 2017 3 2)
                                  "Sell 25.000 shares of AAPL at 15.000"])
@@ -637,7 +637,7 @@
                   :entity "Personal"
                   :type :asset}))
 
-(deftest transfer-a-commodity
+(deftest ^:multi-threaded transfer-a-commodity
   (with-context transfer-context
     (let [from-account (find-account "IRA")
           to-account (find-account "IRA 2")
@@ -694,7 +694,7 @@
                          (entities/find to-account))
             "The account balance reflects the cash on hand before the transfer")))))
 
-(deftest split-a-commodity
+(deftest ^:multi-threaded split-a-commodity
   (with-context sale-context
     (let [ira (find-account "IRA")
           commodity (find-commodity "AAPL")
