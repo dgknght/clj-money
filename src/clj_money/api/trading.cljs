@@ -12,6 +12,7 @@
                 (select-keys [:trade/date
                               :trade/action
                               :trade/value
+                              :trade/shares
                               :trade/dividend?
                               :trade/account
                               :trade/commodity

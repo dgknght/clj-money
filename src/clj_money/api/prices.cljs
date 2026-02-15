@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
             [clj-money.dates :as dates]
-            [clj-money.util :as util :refer [update-keys]]
             [clj-money.comparatives :as comparatives]
             [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))

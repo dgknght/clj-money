@@ -43,7 +43,7 @@
                      m))
 
 (def zero #?(:clj BigDecimal/ZERO
-             :cljs #(d 0)))
+             :cljs (d 0)))
 
 (def zero? #?(:clj (fn [^BigDecimal n]
                       (.equals BigDecimal/ZERO n))

@@ -12,9 +12,8 @@
             [clj-money.images :as images]
             [clj-money.entities :as entities]
             [clj-money.trading :as trading]
-            [clj-money.accounts :refer [->>criteria
-                                        expense?]]
-            [clj-money.transactions :refer [polarize-item-quantity]]
+            [clj-money.accounts :refer [expense?
+                                        polarize-quantity]]
             [clj-money.entities.accounts :as accounts]))
 
 (defmacro with-fatal-exceptions
@@ -403,6 +402,14 @@
         (update-in [:last-trx-items] merge items)
         (update-in [:last-trx-dates] merge dates))))
 
+(defn- polarize-item-quantity
+  [{:transaction-item/keys [account action quantity] :as item}]
+  (assoc item
+         :transaction-item/polarized-quantity
+         (polarize-quantity {:account account
+                             :action action
+                             :quantity quantity})))
+
 (defn- process-trx-item
   ([ctx] #(process-trx-item % ctx))
   ([item ctx]
@@ -604,34 +611,16 @@
             (apply xf (handle-ex e record context))))))))
 
 (defn- fetch-reconciled-items
-  [{:reconciliation/keys [account]
-    :keys [id]}
-   {:keys [entity]}]
-  (let [accounts (entities/select
-                   (util/entity-type
-                     (select-keys account [:id])
-                     :account)
-                   {:include-children? true})]
-    (entities/select
-      (assoc
-        (->>criteria
-          {:earliest-date (get-in entity [:entity/transaction-date-range 0])
-           :latest-date (get-in entity [:entity/transaction-date-range 1])}
-          accounts)
-        :transaction-item/reconciliation {:id id})
-      {:datalog/hints [:transaction-item/reconciliation]})))
+  [{:keys [id]}]
+  (entities/select {:account-item/reconciliation {:id id}}))
 
 (defn- process-reconciliation
   [{:as recon :reconciliation/keys [account items]}
-   {:as ctx :keys [accounts]}]
+   {:keys [accounts]}]
   (try
     (let [balance (->> (or (seq items)
-                           (fetch-reconciled-items recon ctx))
-                       (map (comp :transaction-item/polarized-quantity
-                                  polarize-item-quantity
-                                  #(update-in %
-                                              [:transaction-item/account]
-                                              (comp accounts :id))))
+                           (fetch-reconciled-items recon))
+                       (map :account-item/quantity)
                        (reduce + 0M))]
       (-> recon
           (assoc :reconciliation/balance balance

@@ -77,23 +77,37 @@
 
 (deftest create-a-budget-monitor
   (with-context fixtures/budget-context
-    (let [groceries (entities/find-by {:account/name "Groceries"})
-          ; half-way through january
-          report (reports/monitor groceries
-                                  (t/local-date 2016 1 15))]
-      (is (comparable? #:report{:caption "Groceries"
-                                :period #:report{:total-budget 450M
-                                                 :prorated-budget 217.74M
-                                                 :percentage 15/31
-                                                 :actual 200M
-                                                 :actual-percent 0.44444M}
-                                :budget #:report{:total-budget 5400M
-                                                 :prorated-budget 221.31M
-                                                 :percentage 15/366
-                                                 :actual 200M
-                                                 :actual-percent 0.037037M}}
-                       report)
-          "Data reflecting the actual vs prorated budget is returned"))))
+    (let [groceries (entities/find-by {:account/name "Groceries"})]
+      (testing "half-way through the budget period"
+        (is (comparable? #:report{:caption "Groceries"
+                                  :period #:report{:total-budget 450M
+                                                   :prorated-budget 217.74M
+                                                   :percentage 15/31
+                                                   :actual 200M
+                                                   :actual-percent 0.44444M}
+                                  :budget #:report{:total-budget 5400M
+                                                   :prorated-budget 221.31M
+                                                   :percentage 15/366
+                                                   :actual 200M
+                                                   :actual-percent 0.037037M}}
+                         (reports/monitor groceries
+                                          (t/local-date 2016 1 15)))
+            "Data reflecting the actual vs prorated budget is returned"))
+      (testing "on the first day of the budget period"
+        (is (comparable? #:report{:caption "Groceries"
+                                  :period #:report{:total-budget 450M
+                                                   :prorated-budget 14.516M
+                                                   :percentage 1/31
+                                                   :actual 0M
+                                                   :actual-percent 0M}
+                                  :budget #:report{:total-budget 5400M
+                                                   :prorated-budget 14.754M
+                                                   :percentage 1/366
+                                                   :actual 0M
+                                                   :actual-percent 0M}}
+                         (reports/monitor groceries
+                                          (t/local-date 2016 1 1)))
+            "Data reflecting the actual vs prorated budget is returned")))))
 
 (deftest get-a-lot-report
   (with-context fixtures/lot-report-context
