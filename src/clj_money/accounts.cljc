@@ -1,5 +1,6 @@
 (ns clj-money.accounts
   (:require [clojure.string :as string]
+            [clojure.set :as set]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.models :as models]
@@ -34,6 +35,10 @@
 (def account-types
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
+
+(defn action?
+  [value]
+  (-> value #{:credit :debit} boolean))
 
 (defn expense?
   [{:account/keys [type]}]
@@ -107,22 +112,24 @@
 
   (#{:asset :expense} type))
 
-(defn- polarizer
+(defn polarizer
   [action account]
   (d/* (if (left-side? account) (d/d 1) (d/d -1))
        (if (= :debit action) (d/d 1) (d/d -1))))
 
 (defn polarize-quantity
-  "Given a transaction item and an account, returns the quantity of the
-  transaction item vis a vis the account (i.e., positive or negative)."
-  [quantity action account]
-  {:pre [quantity
-         action
-         (#{:debit :credit} action)
-         account
-         (:account/type account)]}
-  (d/* quantity
-       (polarizer action account)))
+  "Given a quantity, action, and an account, returns the quantity
+  vis a vis the account (i.e., positive or negative)."
+  ([{:keys [quantity action account]}]
+   (polarize-quantity quantity action account))
+  ([quantity action account]
+   {:pre [quantity
+          action
+          (#{:debit :credit} action)
+          account
+          (:account/type account)]}
+   (d/* quantity
+        (polarizer action account))))
 
 (defn derive-action
   "Given a quantity (either positve or negative) and an
@@ -137,15 +144,18 @@
       :credit)))
 
 (defn ->transaction-item
-  "Given a quantity and an account, returns a transaction item
-  with appropriate attributes"
+  "Given a quantity and an account, returns a unilateral transaction item
+  with appropriate attributes.
+
+  This is used in the UI, where various parts of the information may
+  not yet have been entered by the user."
   [{:keys [quantity account]}]
   (cond-> {:transaction-item/action :credit}
     quantity      (assoc :transaction-item/quantity (d/abs quantity))
     account       (assoc :transaction-item/account (util/->entity-ref account))
     (and quantity
          account) (assoc :transaction-item/action
-                                  (derive-action quantity account))))
+                         (derive-action quantity account))))
 
 (defn ->>criteria
   ([accounts] (->>criteria {} accounts))
@@ -154,9 +164,9 @@
             earliest-date
             latest-date
             entity-type]
-     :or {account-attribute :transaction-item/account
+     :or {account-attribute :account-item/account
           date-attribute :transaction/transaction-date
-          entity-type :transaction-item}}
+          entity-type :account-item}}
     accounts]
    (let [range (->> accounts
                     (map :account/transaction-date-range)
@@ -197,17 +207,32 @@
                          (map string/lower-case (string/split term #"/|:")))
            accounts)))
 
+(defn- tagged?
+  [account k tag]
+  (let [tags (if (set? tag) tag #{tag})]
+    (seq (set/intersection (k account) tags))))
+
 (defn user-tagged?
+  "Given an account and a tag or a set of tags, returns true
+  if the account :user-tags contains any of the given tags.
+  Given a tag or set of tags, returns a function that takes an
+  account as an argument and returns true of the account :user-tags
+  contain any of the given tags."
   ([tag]
    #(user-tagged? % tag))
-  ([{:account/keys [user-tags]} tag]
-   (contains? user-tags tag)))
+  ([account tag]
+   (tagged? account :account/user-tags tag)))
 
 (defn system-tagged?
+  "Given an account and a tag or a set of tags, returns true
+  if the account :system-tags contains any of the given tags.
+  Given a tag or set of tags, returns a function that takes an
+  account as an argument and returns true of the account :system-tags
+  contain any of the given tags."
   ([tag]
    #(system-tagged? % tag))
-  ([{:account/keys [system-tags]} tag]
-   (contains? system-tags tag)))
+  ([account tag]
+   (tagged? account :account/system-tags tag)))
 
 (defn format-quantity
   [quantity {:account/keys [commodity]}]

@@ -35,7 +35,7 @@
          update-in
          [:entity/settings :settings/monitored-accounts]
          (fnil conj #{})
-         (get-in @state [:new-monitor :account :id]))
+         {:id (get-in @state [:new-monitor :account :id])})
   (entities/save @current-entity
                  :callback -busy
                  :on-success (fn []
@@ -105,13 +105,13 @@
              :stroke line-stroke
              :stroke-width 4}]
      [:text {:x 4
-               :y "70%"
-               :font-size "90%"
-               :fill "var(--bs-light)"}
-        (str (currency-format actual)
-             " ("
-             (currency-format (- prorated-budget actual))
-             ")")]]))
+             :y "70%"
+             :font-size "90%"
+             :fill "var(--bs-light)"}
+      (str (currency-format actual)
+           " ("
+           (currency-format (- prorated-budget actual))
+           ")")]]))
 
 (defn- remove-monitor
   [{:report/keys [account]} state]
@@ -145,7 +145,8 @@
      [:figcaption (string/join "/" (:account/path account))]]]
    [:div
     {:on-click #(remove-monitor monitor state)
-     :style {:margin "0.5em"
+     :style {:margin-left "0.5em"
+             :margin-top "0.6em"
              :cursor "pointer"}
      :title "Click here to remove this budget monitor."}
     (icon :x-circle :size :small)]])
@@ -163,16 +164,16 @@
         monitors (r/cursor state [:monitors])
         new-monitor (r/cursor state [:new-monitor])
         monitors-with-detail (make-reaction
-                               (fn []
-                                 (when (and @monitors @accounts-by-id)
-                                   (->> @monitors
-                                        (map (fn [m]
-                                               (-> m
-                                                   (update-in [:report/account] (comp @accounts-by-id
-                                                                                      :id))
-                                                   (assoc :report/scope @scope))))
-                                        (sort-by #(get-in % [:report/account :account/path]))
-                                        (into [])))))]
+                              (fn []
+                                (when (and @monitors @accounts-by-id)
+                                  (->> @monitors
+                                       (map (fn [m]
+                                              (-> m
+                                                  (update-in [:report/account] (comp @accounts-by-id
+                                                                                     :id))
+                                                  (assoc :report/scope @scope))))
+                                       (sort-by #(get-in % [:report/account :account/path]))
+                                       (into [])))))]
     (load-monitors state)
     (add-watch current-entity ::monitors (fn [_ _ prev current]
                                            (if current

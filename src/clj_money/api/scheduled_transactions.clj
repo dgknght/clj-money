@@ -5,7 +5,8 @@
             [java-time.api :as t]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
-            [dgknght.app-lib.core :refer [parse-bool
+            [dgknght.app-lib.core :refer [index-by
+                                          parse-bool
                                           update-in-if]]
             [clj-money.authorization :refer [authorize
                                              allowed?
@@ -122,13 +123,37 @@
   (if (seq entities)
     (with-delayed-propagation [out-chan ctrl-chan]
       (entities/put-many {:out-chan out-chan
-                        :ctrl-chan ctrl-chan}
-                       entities))
+                          :ctrl-chan ctrl-chan}
+                         entities))
     []))
+
+(defn- mass-realize-accounts
+  [trxs]
+  (let [accounts (->> trxs
+                      (mapcat :scheduled-transaction/items)
+                      (map (comp :id :scheduled-transaction-item/account))
+                      set
+                      vec
+                      entities/find-many
+                      (index-by :id))]
+    (map (fn [trx]
+           (update-in trx
+                      [:scheduled-transaction/items]
+                      (fn [items]
+                        (map #(update-in %
+                                         [:scheduled-transaction-item/account]
+                                         (comp accounts :id))
+                             items))))
+         trxs)))
+
+(defn- realize-accounts
+  [trx]
+  (first (mass-realize-accounts [trx])))
 
 (defn- realize
   [req]
   (or (some-> (find-and-authorize req ::sched-trans-auth/realize)
+              realize-accounts
               sched-trans/realize
               put-many
               api/creation-response)
@@ -156,6 +181,7 @@
   (if-let [ready (ready-to-realize req)]
     (->> ready
          (filter #(allowed? % ::sched-trans-auth/realize authenticated))
+         mass-realize-accounts
          (mapcat sched-trans/realize)
          put-many
          (filter (util/entity-type? :transaction))

@@ -319,13 +319,17 @@
               (entities/find-by {:commodity/symbol "AAPL"}))
             "The traded commodity is created"))
       (testing "transactions"
-        (is (seq-of-maps-like? [#:transaction-item{:action :credit
-                                                   :index 0
-                                                   :quantity 102.50M
-                                                   :value 102.50M
-                                                   :balance 102.50M
-                                                   :memo "Sell 100.000000 shares of AAPL at 6.000"}]
-               (entities/select {:transaction-item/account st-capital-gains-account})))))))
+        (is (= [{:account-item/action :debit
+                 :account-item/quantity 600M}
+                {:account-item/action :credit
+                 :account-item/quantity -10M}]
+               (map #(select-keys % [:account-item/action
+                                     :account-item/index
+                                     :account-item/quantity
+                                     :account-item/balance])
+                    (entities/select
+                      {:account-item/account (entities/find-by
+                                               {:account/name "IRA"})}))))))))
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
@@ -416,9 +420,9 @@
           _ (a/alts!! [wait-chan (a/timeout 5000)])
           four-oh-one-k (entities/find-by {:account/name "401k"})
           ira (entities/find-by {:account/name "IRA"
-                               :account/entity entity})
+                                 :account/entity entity})
           aapl (entities/find-by {:commodity/symbol "AAPL"
-                                :commodity/entity entity})]
+                                  :commodity/entity entity})]
       (testing "entity"
         (let [entity (entities/find entity)
               lt-gains (entities/find-by {:account/name "Long-Term Gains"})
@@ -461,31 +465,20 @@
 
       (testing "transactions"
         (let [ira-aapl (entities/find-by #:account{:parent ira
-                                                 :commodity aapl})
+                                                   :commodity aapl})
               inv-exp (entities/find-by #:account{:name "Investment Expenses"
-                                                :entity entity})]
+                                                  :entity entity})]
           (is (seq-of-maps-like?
                 [{:transaction/transaction-date (t/local-date 2015 1 17)
                   :transaction/description "Purchase 100.000 shares of AAPL at 9.950"
-                  :transaction-item/value 5M
-                  :transaction-item/quantity 5M
-                  :transaction-item/balance 5M
-                  :transaction-item/action :debit
-                  :transaction-item/index 0}
+                  :account-item/quantity 5M
+                  :account-item/action :debit}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
-                  :transaction/description "Sell 100.000 shares of AAPL at 6.000"
-                  :transaction-item/value 10M
-                  :transaction-item/quantity 10M
-                  :transaction-item/balance 15M
-                  :transaction-item/action :debit
-                  :transaction-item/index 1}]
+                  :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
+                  :account-item/quantity 10M
+                  :account-item/action :debit}]
                 (entities/select
-                  (util/entity-type
-                    {:transaction-item/account inv-exp
-                     :transaction/transaction-date [:between>
-                                                    (t/local-date 2015 1 1)
-                                                    (t/local-date 2016 1 1)]}
-                    :transaction-item)
+                  {:account-item/account inv-exp}
                   {:sort [:transaction/transaction-date]
                    :select-also [:transaction/transaction-date
                                  :transaction/description]}))
@@ -493,36 +486,18 @@
           (is (seq-of-maps-like?
                 [{:transaction/transaction-date (t/local-date 2015 3 2)
                   :transaction/description "Transfer 100.000000 shares of AAPL"
-                  :transaction-item/index 0
-                  :transaction-item/action :debit
-                  :transaction-item/quantity 100M
-                  :transaction-item/balance 100M
-                  :transaction-item/value 1000M}
-                 {:transaction/transaction-date (t/local-date 2015 4 1)
-                  :transaction/description "Split shares of AAPL 2 for 1"
-                  :transaction-item/index 1
-                  :transaction-item/action :debit
-                  :transaction-item/quantity 100M
-                  :transaction-item/balance 200M
-                  :transaction-item/value 0M}
+                  :account-item/action :debit
+                  :account-item/quantity 100M}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
-                  :transaction/description "Sell 100.000 shares of AAPL at 6.000"
-                  :transaction-item/index 2
-                  :transaction-item/action :credit
-                  :transaction-item/quantity 100M
-                  :transaction-item/value 497.5M ; this is reflecting the original value, not the sale value...is that right?
-                  :transaction-item/balance 100M}]
+                  :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
+                  :account-item/action :credit
+                  :account-item/quantity -100M}]
                 (entities/select
-                  (util/entity-type
-                    {:transaction-item/account ira-aapl
-                     :transaction/transaction-date [:between>
-                                                    (t/local-date 2015 1 1)
-                                                    (t/local-date 2016 1 1)]}
-                    :transaction-item)
-                  {:sort [:transaction-item/index]
+                  {:account-item/account ira-aapl}
+                  {:sort [:transaction/transaction-date]
                    :select-also [:transaction/transaction-date
                                  :transaction/description]}))
-              "The IRA account receives items for the transfer, split and sale actions"))))))
+              "The IRA account receives items for the transfer and sale actions"))))))
 
 (def ^:private sched-context
   (conj base-context
