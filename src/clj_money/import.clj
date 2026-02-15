@@ -533,12 +533,22 @@
 
 (defmethod import-record* :price
   [ctx price]
-  (-> price
-      (select-keys [:price/trade-date
-                    :price/value])
-      (assoc :price/commodity (find-commodity ctx price))
-      entities/put)
-  ctx)
+  (let [price-key ((juxt :price/trade-date
+                         :commodity/exchange
+                         :commodity/symbol)
+                   price)]
+    (if (contains? (:seen-prices ctx) price-key)
+      (do
+        (log/debugf "[import] skipping duplicate price for %s on %s"
+                    (:commodity/symbol price)
+                    (:price/trade-date price))
+        ctx)
+      (do
+        (-> price
+            (select-keys [:price/trade-date :price/value])
+            (assoc :price/commodity (find-commodity ctx price))
+            entities/put)
+        (update ctx :seen-prices (fnil conj #{}) price-key)))))
 
 (defmethod import-record* :commodity
   [{:keys [entity] :as context} commodity]

@@ -343,7 +343,8 @@
 
 (defn- import-form
   [page-state]
-  (let [import-data (r/cursor page-state [:import-data])]
+  (let [import-data (r/cursor page-state [:import-data])
+        disallow-submit (make-reaction #(not (seq (:files @import-data))))]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -367,6 +368,7 @@
                          :class "btn-success"
                          :title "Click here to begin the import."}
                   :icon :upload
+                  :disabled? disallow-submit
                   :caption "Import"}]
          [button {:html {:on-click #(swap! page-state dissoc :import-data)
                          :class "btn-secondary ms-2"
