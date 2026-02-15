@@ -118,8 +118,7 @@
      (catch Exception e
        (log-error e "unexpected error")
        ; TODO: only do this if in local development mode
-       (-> {:message (str "unexpected error: " (or (.getMessage e)
-                                                   (.getClass e)))}
+       (-> {:message (str "unexpected error: " (ex-message e))}
            response
            (status 500)
            (header "Content-Type" "application/json"))))))

@@ -42,9 +42,12 @@
                            x))
                      m))
 
-#?(:cljs (defn zero? [n] (decimal/zero? n))
-   :clj  (defn zero? [^java.math.BigDecimal n]
-           (.equals BigDecimal/ZERO n)))
+(def zero #?(:clj BigDecimal/ZERO
+             :cljs #(d 0)))
+
+(def zero? #?(:clj (fn [^BigDecimal n]
+                      (.equals BigDecimal/ZERO n))
+              :cljs decimal/zero?))
 
 #?(:cljs (defn + [n1 n2] (decimal/+ n1 n2))
    :clj  (defn + [^java.math.BigDecimal n1
@@ -69,22 +72,22 @@
 #?(:cljs (defn < [n1 n2] (decimal/< n1 n2))
    :clj  (defn < [^java.math.BigDecimal n1
                   ^java.math.BigDecimal n2]
-           (core/< n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+           (core/< n1 n2)))
 
 #?(:cljs (defn > [n1 n2] (decimal/> n1 n2))
    :clj  (defn > [^java.math.BigDecimal n1
                   ^java.math.BigDecimal n2]
-           (core/> n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+           (core/> n1 n2)))
 
 #?(:cljs (defn <= [n1 n2] (decimal/< n1 n2))
    :clj  (defn <= [^java.math.BigDecimal n1
                   ^java.math.BigDecimal n2]
-           (core/<= n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+           (core/<= n1 n2)))
 
 #?(:cljs (defn >= [n1 n2] (decimal/> n1 n2))
    :clj  (defn >= [^java.math.BigDecimal n1
                   ^java.math.BigDecimal n2]
-           (core/>= n1 n2 (MathContext. 10 RoundingMode/HALF_UP))))
+           (core/>= n1 n2)))
 
 #?(:cljs (defn round
            ([n]
