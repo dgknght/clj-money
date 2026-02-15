@@ -33,26 +33,6 @@ CREATE INDEX uk_user_password_reset_token ON public."user" USING btree (password
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public."user" TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.user_id_seq TO app_user;
 
--- image_content table
-CREATE SEQUENCE public.image_content_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.image_content_id_seq OWNER TO ddl_user;
-CREATE TABLE public.image_content (
-    id integer DEFAULT nextval('public.image_content_id_seq'::regclass) NOT NULL,
-    uuid character(40) NOT NULL,
-    content bytea NOT NULL
-);
-ALTER TABLE public.image_content OWNER TO ddl_user;
-ALTER TABLE ONLY public.image_content
-    ADD CONSTRAINT image_content_pkey PRIMARY KEY (id);
-CREATE UNIQUE INDEX uk_image_content_uuid ON public.image_content USING btree (uuid);
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.image_content TO app_user;
-GRANT SELECT,UPDATE ON SEQUENCE public.image_content_id_seq TO app_user;
-
 -- entity table
 CREATE SEQUENCE public.entity_id_seq
     START WITH 1
