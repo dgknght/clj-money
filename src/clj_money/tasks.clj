@@ -42,7 +42,7 @@
     :id :usage?]])
 
 (def ^:private migrate-account-cli-options
-  {:usage "lein migrate-account <options"
+  {:usage "lein migrate-account <options>"
    :options (concat [["-f" "--from-account FROM_ACCOUNT" "The name of the source account"
                       :id :from-account
                       :missing "The name of the \"from\" account must be specified."]
@@ -63,15 +63,44 @@
     (let [user (entities/find-by {:user/email (:user-email opts)})
           _ (assert user (format "Unable to find user with email address \"%s\"." (:user-email opts)))
           entity (entities/find-by {:entity/user user
-                                  :entity/name (:entity-name opts)})
+                                    :entity/name (:entity-name opts)})
           _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))
           from-account (entities/find-by #:account{:entity entity
-                                                 :name (:from-account opts)})
+                                                   :name (:from-account opts)})
           _ (assert from-account (format "Unable to find an account named \"%s\"." (:from-account opts)))
           to-account (entities/find-by #:account{:entity entity
-                                               :name (:to-account opts)})]
+                                                 :name (:to-account opts)})]
       (assert to-account (format "Unable to find an account named \"%s\"." (:to-account opts)))
       (transactions/migrate-account from-account to-account))))
+
+(def ^:priviate re-index-cli-options
+  {:usage "lein re-index <options>"
+   :options (concat [["-a" "--account ACCOUNT" "The name of the account to re-index"
+                      :id :account-name]
+                     ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity to be updated"
+                      :id :user-email
+                      :missing "The user email must be specified"]
+                     ["-e" "--entity ENTITY_NAME" "The name of the entity to be updated"
+                      :id :entity-name
+                      :missing "The entity name must be specified"]]
+                    default-opts)})
+
+(defn re-index
+  [& args]
+  (with-options args re-index-cli-options [opts]
+    (let [user (entities/find-by {:user/email (:user-email opts)})
+          _ (assert user (format "Unable to find user with email address \"%s\"." (:user-email opts)))
+          entity (entities/find-by {:entity/user user
+                                    :entity/name (:entity-name opts)})
+          _ (assert entity (format "Unable to find an entity named \"%s\"." (:entity-name opts)))
+          accounts (entities/select (cond-> {:account/entity entity}
+                                      (:account-name opts)
+                                      (assoc :account/name (:account-name opts))))]
+      (doseq [account accounts]
+        (println "Reindexing" (:account/name account) "...")
+        (transactions/propagate-account-from-start entity account))
+      (println "Done.")))
+  (shutdown-agents))
 
 (def ^:private export-user-tags-cli-options
   {:usage "lein export-user-tags <options>"
