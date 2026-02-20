@@ -43,6 +43,7 @@
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
+            [clj-money.api.memo-ledger-entries :as memo-entries-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
             [clj-money.web.apps :as apps]
             [cljs.pprint :as pprint]))
@@ -173,6 +174,7 @@
                    imports-api/routes
                    prices-api/routes
                    lots-api/routes
+                   memo-entries-api/routes
                    recs-api/routes
                    reports-api/routes
                    trading-api/routes

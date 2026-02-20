@@ -1,0 +1,12 @@
+[{:db/ident :memo-ledger-entry/lot
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The lot to which the memo entry is attached"}
+ {:db/ident :memo-ledger-entry/transaction-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date of the event recorded in the memo"}
+ {:db/ident :memo-ledger-entry/memo
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "A note describing the event"}]

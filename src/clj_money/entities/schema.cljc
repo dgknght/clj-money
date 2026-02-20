@@ -189,6 +189,12 @@
                :transient? true}}
     :refs #{:account
             :commodity}}
+   {:id :memo-ledger-entry
+    :fields #{{:id :transaction-date
+               :type :date}
+              {:id :memo
+               :type :string}}
+    :refs #{:lot}}
    {:id :lot-item
     :fields #{{:id :action
                :type :keyword}

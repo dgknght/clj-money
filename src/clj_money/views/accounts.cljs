@@ -31,6 +31,7 @@
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
+            [clj-money.api.memo-ledger-entries :as memo-entries]
             [clj-money.api.prices :as prices]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.commodities :as cmdts]
@@ -724,8 +725,75 @@
         @attachments-item    [atts/attachments-card page-state]
         :else                [transaction-item-list page-state]))))
 
+(defn- memo-entry-row
+  [entry lot page-state]
+  ^{:key (str "memo-entry-" (:id entry))}
+  [:tr.small.text-muted
+   [:td
+    (format-date
+      (:memo-ledger-entry/transaction-date entry))]
+   [:td {:col-span 5} (:memo-ledger-entry/memo entry)]
+   [:td.text-end
+    [:button.btn.btn-outline-danger.btn-sm
+     {:title "Click here to delete this memo entry"
+      :on-click
+      (fn []
+        (memo-entries/delete
+          entry
+          :on-success
+          (fn [_]
+            (swap!
+              page-state
+              update-in
+              [:memo-entries (:id lot)]
+              (partial remove
+                       #(= (:id entry)
+                           (:id %)))))))}
+     (icon :x-circle :size :small)]]])
+
+(defn- add-memo-row
+  [lot page-state]
+  ^{:key (str "add-memo-" (:id lot))}
+  [:tr
+   [:td
+    [forms/date-input
+     page-state
+     [:new-memo :memo-ledger-entry/transaction-date]
+     {}]]
+   [:td {:col-span 5}
+    [forms/text-input
+     page-state
+     [:new-memo :memo-ledger-entry/memo]
+     {}]]
+   [:td.text-end
+    [:button.btn.btn-primary.btn-sm
+     {:title "Click here to save this memo entry"
+      :on-click
+      (fn []
+        (memo-entries/create
+          (assoc (get-in @page-state [:new-memo])
+                 :memo-ledger-entry/lot lot)
+          :on-success
+          (fn [entry]
+            (swap!
+              page-state
+              (fn [s]
+                (-> s
+                    (update-in
+                      [:memo-entries (:id lot)]
+                      (fnil conj [])
+                      entry)
+                    (dissoc :add-memo-lot
+                            :new-memo)))))))}
+     (icon :check :size :small)]
+    [:button.btn.btn-secondary.btn-sm.ms-1
+     {:title "Click here to cancel"
+      :on-click
+      #(swap! page-state dissoc :add-memo-lot :new-memo)}
+     (icon :x :size :small)]]])
+
 (defn- lot-row
-  [lot latest-price gain-loss]
+  [lot latest-price gain-loss page-state]
   (let [g-l (- (* (:price/value latest-price)
                   (:lot/shares-owned lot))
                (* (:lot/purchase-price lot)
@@ -748,7 +816,17 @@
       (format-percent (/ g-l
                          (* (:lot/shares-purchased lot)
                             (:lot/purchase-price lot)))
-                      3)]]))
+                      3)]
+     [:td.text-end
+      [:button.btn.btn-outline-secondary.btn-sm
+       {:title "Click here to add a memo entry for this lot"
+        :on-click
+        #(swap! page-state assoc
+                :add-memo-lot lot
+                :new-memo
+                #:memo-ledger-entry{:transaction-date (t/today)
+                                    :memo ""})}
+       (icon :plus :size :small)]]]))
 
 (defn- lots-table
   [page-state]
@@ -778,24 +856,37 @@
          [:th.text-end "Shares Owned"]
          [:th.text-end "Purchase Price"]
          [:th.text-end "Gn/Ls"]
-         [:th.text-end "Gn/Ls %"]]]
+         [:th.text-end "Gn/Ls %"]
+         [:th (html/space)]]]
        [:tbody
         (cond
           (nil? @lots)
           [:tr
-           [:td.text-center {:col-span 6}
+           [:td.text-center {:col-span 7}
             [:div.d-flex.justify-content-center.m2
              [:div.spinner-border {:role :status}
               [:span.visually-hidden "Loading"]]]]]
 
           (seq @lots)
-          (doall (for [lot (sort-by (comp serialize-local-date
-                                          :lot/purchase-date)
-                                    @lots)]
-                   (lot-row lot @latest-price @gain-loss)))
+          (doall
+            (mapcat
+              (fn [lot]
+                (concat
+                  [(lot-row lot @latest-price @gain-loss page-state)]
+                  (map #(memo-entry-row % lot page-state)
+                       (get-in @page-state
+                               [:memo-entries (:id lot)]))
+                  (when (= (:id lot)
+                           (:id (get-in @page-state [:add-memo-lot])))
+                    [(add-memo-row lot page-state)])))
+              (sort-by (comp serialize-local-date
+                             :lot/purchase-date)
+                       @lots)))
 
           :else
-          [:tr [:td.text-center.fw-lighter {:col-span 6} "No lots of this commidty are currently held."]])]
+          [:tr
+           [:td.text-center.fw-lighter {:col-span 7}
+            "No lots of this commidty are currently held."]])]
        (when (seq @lots)
          [:tfoot
           [:tr
@@ -806,12 +897,15 @@
                            (format-date (:price/trade-date @latest-price))))]
            [:td.text-end (format-decimal @total-shares 4)]
            [:td.text-end (currency-format @total-value)]
-           [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+           [:td.text-end
+            {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
             (currency-format @gain-loss)]
-           [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+           [:td.text-end
+            {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
             (format-percent (/ @gain-loss
                                @total-cost)
-                            3)]]])])))
+                            3)]
+           [:td (html/space)]]])])))
 
 (defn- tradable-account-items
   [page-state]
@@ -824,7 +918,17 @@
     (lots/select #:lot{:account parent
                        :commodity commodity
                        :shares-owned [:!= 0]}
-                 :on-success #(swap! page-state assoc :lots %))
+                 :on-success
+                 (fn [lots]
+                   (swap! page-state assoc :lots lots)
+                   (doseq [lot lots]
+                     (memo-entries/select
+                       #:memo-ledger-entry{:lot lot}
+                       :on-success
+                       #(swap! page-state
+                               assoc-in
+                               [:memo-entries (:id lot)]
+                               %)))))
     (when transaction-date-range
       (prices/select
         #:price{:commodity commodity

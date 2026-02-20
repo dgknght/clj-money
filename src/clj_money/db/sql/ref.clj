@@ -14,6 +14,7 @@
             clj-money.db.sql.scheduled-transactions
             clj-money.db.sql.scheduled-transaction-items
             clj-money.db.sql.lots
+            clj-money.db.sql.memo-ledger-entries
             clj-money.db.sql.budgets
             clj-money.db.sql.budget-items
             clj-money.db.sql.reconciliations

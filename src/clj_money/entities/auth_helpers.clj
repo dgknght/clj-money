@@ -64,6 +64,17 @@
   [{:trade/keys [entity]}]
   (fetch-entity* entity))
 
+(defmethod fetch-entity :lot
+  [{:lot/keys [account]}]
+  (entities/find-by
+    (util/entity-type
+      {:account/_self account}
+      :entity)))
+
+(defmethod fetch-entity :memo-ledger-entry
+  [{:memo-ledger-entry/keys [lot]}]
+  (fetch-entity (entities/find lot)))
+
 (defn user-granted-access?
   [resource entity user action]
   (when-let [g (entities/find-by #:grant{:user user

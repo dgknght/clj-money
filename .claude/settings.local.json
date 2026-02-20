@@ -37,7 +37,12 @@
       "Bash(awk:*)",
       "Bash(rg:*)",
       "Bash(git log:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(jar tf:*)",
+      "Bash(unzip:*)",
+      "Bash(1)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
