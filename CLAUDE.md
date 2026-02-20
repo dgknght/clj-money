@@ -11,12 +11,12 @@ code and avoids repetition.
 - [Code Style](.claude/instructions.md) — naming, conventions, REPL workflow
 
 ## Tests
-- Full suite (parallel): `lein ptest`
+- Full suite (serial, slow): `lein test`
+- Most of the suite (parallel, false): `lein ptest`
 - Target strategy: `lein ptest -s sql` or `lein ptest -s datomic-peer`
 - Target namespace (parallel): `lein ptest clj-money.entities.accounts-test`
 - Target namespace (serial): `lein test clj-money.entities.accounts-test :sql`
 - Apply migrations to test DB: `lein with-profile test migrate`
-- Known pre-existing failure: `clj-money.db.datomic.prices-test` (ignore)
 - Do not start more than one test run at a time.
 
 ## Commits
