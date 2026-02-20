@@ -11,7 +11,7 @@
             clj-money.entities.transactions
             clj-money.entities.account-items
             clj-money.entities.lots
-            clj-money.entities.memo-ledger-entries
+            clj-money.entities.lot-notes
             clj-money.entities.reconciliations
             clj-money.entities.images
             clj-money.entities.attachments

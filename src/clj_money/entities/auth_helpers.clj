@@ -71,8 +71,8 @@
       {:account/_self account}
       :entity)))
 
-(defmethod fetch-entity :memo-ledger-entry
-  [{:memo-ledger-entry/keys [lot]}]
+(defmethod fetch-entity :lot-note
+  [{:lot-note/keys [lot]}]
   (fetch-entity (entities/find lot)))
 
 (defn user-granted-access?

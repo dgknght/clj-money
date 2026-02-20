@@ -1,4 +1,4 @@
-(ns clj-money.entities.memo-ledger-entries-test
+(ns clj-money.entities.lot-notes-test
   (:require [clojure.test :refer [is]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
@@ -40,48 +40,48 @@
          :purchase-date (t/local-date 2020 1 15)}])
 
 (defn- attributes []
-  #:memo-ledger-entry{:lot (find-lot ["IRA" "AAPL"])
-                      :transaction-date (t/local-date 2021 6 1)
-                      :memo "2-for-1 stock split"})
+  #:lot-note{:lot (find-lot ["IRA" "AAPL"])
+             :transaction-date (t/local-date 2021 6 1)
+             :memo "2-for-1 stock split"})
 
-(dbtest create-a-memo-ledger-entry
+(dbtest create-a-lot-note
   (with-context entry-context
-    (assert-created (attributes) :refs [:memo-ledger-entry/lot])))
+    (assert-created (attributes) :refs [:lot-note/lot])))
 
 (dbtest lot-is-required
   (with-context entry-context
-    (assert-invalid (dissoc (attributes) :memo-ledger-entry/lot)
-                    {:memo-ledger-entry/lot ["Lot is required"]})))
+    (assert-invalid (dissoc (attributes) :lot-note/lot)
+                    {:lot-note/lot ["Lot is required"]})))
 
 (dbtest transaction-date-is-required
   (with-context entry-context
-    (assert-invalid (dissoc (attributes) :memo-ledger-entry/transaction-date)
-                    {:memo-ledger-entry/transaction-date
+    (assert-invalid (dissoc (attributes) :lot-note/transaction-date)
+                    {:lot-note/transaction-date
                      ["Transaction date is required"]})))
 
 (dbtest transaction-date-must-be-a-date
   (with-context entry-context
     (assert-invalid
-      (assoc (attributes) :memo-ledger-entry/transaction-date "not-a-date")
-      {:memo-ledger-entry/transaction-date
+      (assoc (attributes) :lot-note/transaction-date "not-a-date")
+      {:lot-note/transaction-date
        ["Transaction date is invalid"]})))
 
 (dbtest memo-is-required
   (with-context entry-context
-    (assert-invalid (dissoc (attributes) :memo-ledger-entry/memo)
-                    {:memo-ledger-entry/memo ["Memo is required"]})))
+    (assert-invalid (dissoc (attributes) :lot-note/memo)
+                    {:lot-note/memo ["Memo is required"]})))
 
 (def ^:private existing-entry-context
   (conj entry-context
-        #:memo-ledger-entry{:lot ["IRA" "AAPL"]
-                            :transaction-date (t/local-date 2021 6 1)
-                            :memo "2-for-1 stock split"}))
+        #:lot-note{:lot ["IRA" "AAPL"]
+                   :transaction-date (t/local-date 2021 6 1)
+                   :memo "2-for-1 stock split"}))
 
 (dbtest search-by-lot
   (with-context existing-entry-context
     (let [lot (find-lot ["IRA" "AAPL"])]
       (is (seq-of-maps-like?
-            [#:memo-ledger-entry{:lot (util/->entity-ref lot)
-                                 :transaction-date (t/local-date 2021 6 1)
-                                 :memo "2-for-1 stock split"}]
-            (entities/select {:memo-ledger-entry/lot lot}))))))
+            [#:lot-note{:lot (util/->entity-ref lot)
+                        :transaction-date (t/local-date 2021 6 1)
+                        :memo "2-for-1 stock split"}]
+            (entities/select {:lot-note/lot lot}))))))

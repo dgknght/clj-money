@@ -31,7 +31,7 @@
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
-            [clj-money.api.memo-ledger-entries :as memo-entries]
+            [clj-money.api.lot-notes :as lot-notes]
             [clj-money.api.prices :as prices]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.commodities :as cmdts]
@@ -731,14 +731,14 @@
   [:tr.small.text-muted
    [:td
     (format-date
-      (:memo-ledger-entry/transaction-date entry))]
-   [:td {:col-span 5} (:memo-ledger-entry/memo entry)]
+      (:lot-note/transaction-date entry))]
+   [:td {:col-span 5} (:lot-note/memo entry)]
    [:td.text-end
     [:button.btn.btn-outline-danger.btn-sm
      {:title "Click here to delete this memo entry"
       :on-click
       (fn []
-        (memo-entries/delete
+        (lot-notes/delete
           entry
           :on-success
           (fn [_]
@@ -758,21 +758,21 @@
    [:td
     [forms/date-input
      page-state
-     [:new-memo :memo-ledger-entry/transaction-date]
+     [:new-memo :lot-note/transaction-date]
      {}]]
    [:td {:col-span 5}
     [forms/text-input
      page-state
-     [:new-memo :memo-ledger-entry/memo]
+     [:new-memo :lot-note/memo]
      {}]]
    [:td.text-end
     [:button.btn.btn-primary.btn-sm
      {:title "Click here to save this memo entry"
       :on-click
       (fn []
-        (memo-entries/create
+        (lot-notes/create
           (assoc (get-in @page-state [:new-memo])
-                 :memo-ledger-entry/lot lot)
+                 :lot-note/lot lot)
           :on-success
           (fn [entry]
             (swap!
@@ -824,7 +824,7 @@
         #(swap! page-state assoc
                 :add-memo-lot lot
                 :new-memo
-                #:memo-ledger-entry{:transaction-date (t/today)
+                #:lot-note{:transaction-date (t/today)
                                     :memo ""})}
        (icon :plus :size :small)]]]))
 
@@ -922,8 +922,8 @@
                  (fn [lots]
                    (swap! page-state assoc :lots lots)
                    (doseq [lot lots]
-                     (memo-entries/select
-                       #:memo-ledger-entry{:lot lot}
+                     (lot-notes/select
+                       #:lot-note{:lot lot}
                        :on-success
                        #(swap! page-state
                                assoc-in

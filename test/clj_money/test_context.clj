@@ -261,13 +261,13 @@
            :lot/account act
            :lot/commodity cmd))))
 
-(defn find-memo-ledger-entry
-  ([identifier] (find-memo-ledger-entry *context* identifier))
+(defn find-lot-note
+  ([identifier] (find-lot-note *context* identifier))
   ([ctx [lot-account lot-commodity memo]]
    (let [lot (find-lot ctx [lot-account lot-commodity])]
      (find ctx
-           :memo-ledger-entry/lot (util/->entity-ref lot)
-           :memo-ledger-entry/memo memo))))
+           :lot-note/lot (util/->entity-ref lot)
+           :lot-note/memo memo))))
 
 (defmulti ^:private prepare
   (fn [m _ctx]
@@ -409,9 +409,9 @@
       (update-in [:lot/account] (find-account ctx))
       (update-in [:lot/commodity] (find-commodity ctx))))
 
-(defmethod prepare :memo-ledger-entry
+(defmethod prepare :lot-note
   [entry ctx]
-  (update-in entry [:memo-ledger-entry/lot]
+  (update-in entry [:lot-note/lot]
              #(find-lot ctx %)))
 
 (defn- resolve-trade-accounts

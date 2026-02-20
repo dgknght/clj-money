@@ -42,7 +42,8 @@
       "Bash(jar tf:*)",
       "Bash(unzip:*)",
       "Bash(1)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(lein with-profile test rollback:*)"
     ],
     "deny": [],
     "ask": []

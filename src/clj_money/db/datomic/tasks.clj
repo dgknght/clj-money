@@ -25,7 +25,7 @@
            "transaction_item"
            "account_item"
            "lot"
-           "memo_ledger_entry"
+           "lot_note"
            "lot_item"
            "image"
            "import"

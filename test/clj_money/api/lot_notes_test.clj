@@ -1,4 +1,4 @@
-(ns clj-money.api.memo-ledger-entries-test
+(ns clj-money.api.lot-notes-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
@@ -12,7 +12,7 @@
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-lot
-                                            find-memo-ledger-entry]]
+                                            find-lot-note]]
             [clj-money.entities :as entities]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
@@ -46,14 +46,14 @@
 
 (def ^:private list-context
   (conj base-context
-        #:memo-ledger-entry{:lot ["IRA" "AAPL"]
-                            :transaction-date (t/local-date 2021 6 1)
-                            :memo "2-for-1 stock split"}))
+        #:lot-note{:lot ["IRA" "AAPL"]
+                   :transaction-date (t/local-date 2021 6 1)
+                   :memo "2-for-1 stock split"}))
 
-(defn- list-memo-entries
+(defn- list-lot-notes
   [email]
   (let [lot (find-lot ["IRA" "AAPL"])]
-    (-> (request :get (path :api :lots (:id lot) :memo-ledger-entries)
+    (-> (request :get (path :api :lots (:id lot) :lot-notes)
                  :user (find-user email))
         app
         parse-body)))
@@ -62,30 +62,30 @@
   [{:as response :keys [parsed-body]}]
   (is (http-success? response))
   (is (seq-of-maps-like?
-        [{:memo-ledger-entry/transaction-date (t/local-date 2021 6 1)
-          :memo-ledger-entry/memo "2-for-1 stock split"}]
+        [{:lot-note/transaction-date (t/local-date 2021 6 1)
+          :lot-note/memo "2-for-1 stock split"}]
         parsed-body)
-      "The response body contains the memo entry data"))
+      "The response body contains the lot note data"))
 
 (defn- assert-blocked-list
   [{:as response :keys [parsed-body]}]
   (is (http-success? response))
   (is (empty? parsed-body) "The body is empty"))
 
-(deftest a-user-can-list-memo-entries-for-his-lot
+(deftest a-user-can-list-lot-notes-for-his-lot
   (with-context list-context
-    (assert-successful-list (list-memo-entries "john@doe.com"))))
+    (assert-successful-list (list-lot-notes "john@doe.com"))))
 
-(deftest a-user-cannot-list-memo-entries-for-anothers-lot
+(deftest a-user-cannot-list-lot-notes-for-anothers-lot
   (with-context list-context
-    (assert-blocked-list (list-memo-entries "jane@doe.com"))))
+    (assert-blocked-list (list-lot-notes "jane@doe.com"))))
 
-(defn- create-memo-entry
+(defn- create-lot-note
   [email]
   (let [lot (find-lot ["IRA" "AAPL"])
-        response (-> (request :post (path :api :lots (:id lot) :memo-ledger-entries)
-                              :body #:memo-ledger-entry{:transaction-date (t/local-date 2022 3 1)
-                                                        :memo "3-for-1 stock split"}
+        response (-> (request :post (path :api :lots (:id lot) :lot-notes)
+                              :body #:lot-note{:transaction-date (t/local-date 2022 3 1)
+                                               :memo "3-for-1 stock split"}
                               :user (find-user email))
                      app
                      parse-body)]
@@ -99,45 +99,45 @@
   [[{:keys [parsed-body] :as response} retrieved]]
   (is (http-created? response))
   (is (:id parsed-body) "An ID is assigned to the new record")
-  (is (comparable? {:memo-ledger-entry/memo "3-for-1 stock split"}
+  (is (comparable? {:lot-note/memo "3-for-1 stock split"}
                    retrieved)
-      "The created entry can be retrieved"))
+      "The created note can be retrieved"))
 
 (defn- assert-blocked-create
   [[response retrieved]]
   (is (http-not-found? response))
   (is (nil? retrieved)))
 
-(deftest a-user-can-create-a-memo-entry-for-his-lot
+(deftest a-user-can-create-a-lot-note-for-his-lot
   (with-context base-context
-    (assert-successful-create (create-memo-entry "john@doe.com"))))
+    (assert-successful-create (create-lot-note "john@doe.com"))))
 
-(deftest a-user-cannot-create-a-memo-entry-for-anothers-lot
+(deftest a-user-cannot-create-a-lot-note-for-anothers-lot
   (with-context base-context
-    (assert-blocked-create (create-memo-entry "jane@doe.com"))))
+    (assert-blocked-create (create-lot-note "jane@doe.com"))))
 
-(defn- delete-memo-entry
+(defn- delete-lot-note
   [email]
-  (let [entry (find-memo-ledger-entry ["IRA" "AAPL" "2-for-1 stock split"])
-        response (-> (request :delete (path :api :memo-ledger-entries (:id entry))
+  (let [note (find-lot-note ["IRA" "AAPL" "2-for-1 stock split"])
+        response (-> (request :delete (path :api :lot-notes (:id note))
                               :user (find-user email))
                      app)]
-    [response (entities/find entry)]))
+    [response (entities/find note)]))
 
 (defn- assert-successful-delete
   [[response retrieved]]
   (is (http-success? response))
-  (is (nil? retrieved) "The entry cannot be retrieved after delete"))
+  (is (nil? retrieved) "The note cannot be retrieved after delete"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
   (is (http-not-found? response))
-  (is retrieved "The entry can still be retrieved after a blocked delete"))
+  (is retrieved "The note can still be retrieved after a blocked delete"))
 
-(deftest a-user-can-delete-a-memo-entry-in-his-entity
+(deftest a-user-can-delete-a-lot-note-in-his-entity
   (with-context list-context
-    (assert-successful-delete (delete-memo-entry "john@doe.com"))))
+    (assert-successful-delete (delete-lot-note "john@doe.com"))))
 
-(deftest a-user-cannot-delete-a-memo-entry-in-anothers-entity
+(deftest a-user-cannot-delete-a-lot-note-in-anothers-entity
   (with-context list-context
-    (assert-blocked-delete (delete-memo-entry "jane@doe.com"))))
+    (assert-blocked-delete (delete-lot-note "jane@doe.com"))))
