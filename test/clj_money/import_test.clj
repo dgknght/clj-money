@@ -453,6 +453,14 @@
               (entities/select {:lot/commodity aapl}))
             "The shares lost due to reverse split are subtracted from the lot"))
 
+      (testing "lot notes"
+        (let [lot (entities/find-by {:lot/commodity aapl})]
+          (is (seq-of-maps-like?
+                [#:lot-note{:transaction-date (t/local-date 2015 4 1)
+                            :memo "2 for 1 stock split"}]
+                (entities/select {:lot-note/lot lot}))
+              "A lot-note is created for each lot affected by the split")))
+
       (testing "accounts"
         (is (system-tagged? ira :trading)
             "The IRA account is tagged as a trading account")

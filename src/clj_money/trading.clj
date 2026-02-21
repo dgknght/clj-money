@@ -835,16 +835,14 @@
            :split/lots lots
            :split/lot-items lot-items)))
 
-#_(defn- ratio->words
+(defn ratio->words
+  "Returns a human-readable ratio string.
+  ratio 2   → \"2 for 1\"
+  ratio 0.5 → \"1 for 2\""
   [ratio]
-  ; We'll need to expand this at some point to handle
-  ; reverse splits and stranger splits, like 3:2
-  (let [[n d] (cond->> [ratio 1]
-                (< ratio 1)
-                (map (comp int
-                           #(with-precision 1
-                              (/ % ratio)))))]
-    (format "%s for %s" n d)))
+  (if (>= ratio 1M)
+    (format "%s for 1" (int ratio))
+    (format "1 for %s" (int (with-precision 10 (/ 1M ratio))))))
 
 (defn- append-split-accounts
   [{:as split :split/keys [commodity account]}]

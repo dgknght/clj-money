@@ -43,7 +43,8 @@
       "Bash(unzip:*)",
       "Bash(1)",
       "Bash(git stash:*)",
-      "Bash(lein with-profile test rollback:*)"
+      "Bash(lein with-profile test rollback:*)",
+      "Bash(zcat:*)"
     ],
     "deny": [],
     "ask": []

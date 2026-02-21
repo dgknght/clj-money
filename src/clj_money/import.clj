@@ -14,7 +14,8 @@
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [expense?
                                         polarize-quantity]]
-            [clj-money.entities.accounts :as accounts]))
+            [clj-money.entities.accounts :as accounts]
+            [clj-money.entities.lot-notes]))
 
 (defmacro with-fatal-exceptions
   [& body]
@@ -277,18 +278,29 @@
    {:as transaction
     :import/keys [commodity-account-id]}]
   ; this logic to adjust accounts may be specific to gnucash
-  (let  [{trx :split/transaction}
-         (-> transaction
-             (select-keys [:split/date :split/shares-gained])
-             (assoc :split/account {:id (-> commodity-account-id
-                                            account-ids
-                                            account-parents)}
-                    :split/commodity (-> commodity-account-id
+  (let [split-params (-> transaction
+                         (select-keys [:split/date
+                                       :split/shares-gained])
+                         (assoc :split/account
+                                {:id (-> commodity-account-id
                                          account-ids
-                                         accounts
-                                         :account/commodity))
-             (trading/split :item-basis (last-trx-item context)))]
-    (log-transaction trx "commodity split"))
+                                         account-parents)}
+                                :split/commodity
+                                (-> commodity-account-id
+                                    account-ids
+                                    accounts
+                                    :account/commodity)))
+        result (trading/split split-params
+                              :item-basis (last-trx-item context))]
+    (when result
+      (let [memo (str (trading/ratio->words (:split/ratio result))
+                      " stock split")]
+        (doseq [lot (:split/lots result)]
+          (entities/put #:lot-note{:lot lot
+                                   :transaction-date (:split/date
+                                                       split-params)
+                                   :memo memo}))))
+    (log-transaction (:split/transaction result) "commodity split"))
   context)
 
 (defn- get-source-type
