@@ -194,7 +194,7 @@
                :type :date}
               {:id :memo
                :type :string}}
-    :refs #{:lot}}
+    :refs #{{:id :lots :type [:lot]}}}
    {:id :lot-item
     :fields #{{:id :action
                :type :keyword}
@@ -290,10 +290,19 @@
                       refs)))
        set))
 
+(defn- relationship-ref-type
+  "Returns the entity type for a relationship.
+  For plural refs like {:id :lots :type [:lot]}, returns :lot.
+  For simple refs like :lot, returns :lot."
+  [ref]
+  (if (and (map? ref) (vector? (:type ref)))
+    (first (:type ref))
+    (ref-id ref)))
+
 (def relationships
   (->> entities
        (mapcat (fn [{:keys [id refs]}]
-                 (map #(vector (ref-id %) id)
+                 (map #(vector (relationship-ref-type %) id)
                       refs)))
        set))
 

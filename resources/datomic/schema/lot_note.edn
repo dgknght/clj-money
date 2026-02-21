@@ -1,7 +1,7 @@
-[{:db/ident :lot-note/lot
+[{:db/ident :lot-note/lots
   :db/valueType :db.type/ref
-  :db/cardinality :db.cardinality/one
-  :db/doc "The lot to which the note is attached"}
+  :db/cardinality :db.cardinality/many
+  :db/doc "The lots to which the note is attached"}
  {:db/ident :lot-note/transaction-date
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one

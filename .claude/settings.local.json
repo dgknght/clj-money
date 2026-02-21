@@ -44,7 +44,8 @@
       "Bash(1)",
       "Bash(git stash:*)",
       "Bash(lein with-profile test rollback:*)",
-      "Bash(zcat:*)"
+      "Bash(zcat:*)",
+      "Bash(jar -tf:*)"
     ],
     "deny": [],
     "ask": []

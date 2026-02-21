@@ -9,8 +9,6 @@
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
-                                            find-account
-                                            find-commodity
                                             find-lot]]
             [clj-money.entity-helpers :refer [assert-invalid
                                              assert-created]]
@@ -40,18 +38,18 @@
          :purchase-date (t/local-date 2020 1 15)}])
 
 (defn- attributes []
-  #:lot-note{:lot (find-lot ["IRA" "AAPL"])
+  #:lot-note{:lots [(util/->entity-ref (find-lot ["IRA" "AAPL"]))]
              :transaction-date (t/local-date 2021 6 1)
              :memo "2-for-1 stock split"})
 
 (dbtest create-a-lot-note
   (with-context entry-context
-    (assert-created (attributes) :refs [:lot-note/lot])))
+    (assert-created (attributes))))
 
-(dbtest lot-is-required
+(dbtest lots-is-required
   (with-context entry-context
-    (assert-invalid (dissoc (attributes) :lot-note/lot)
-                    {:lot-note/lot ["Lot is required"]})))
+    (assert-invalid (dissoc (attributes) :lot-note/lots)
+                    {:lot-note/lots ["Lots is required"]})))
 
 (dbtest transaction-date-is-required
   (with-context entry-context
@@ -73,15 +71,15 @@
 
 (def ^:private existing-entry-context
   (conj entry-context
-        #:lot-note{:lot ["IRA" "AAPL"]
+        #:lot-note{:lots [["IRA" "AAPL"]]
                    :transaction-date (t/local-date 2021 6 1)
                    :memo "2-for-1 stock split"}))
 
-(dbtest search-by-lot
+(dbtest search-by-memo
   (with-context existing-entry-context
     (let [lot (find-lot ["IRA" "AAPL"])]
       (is (seq-of-maps-like?
-            [#:lot-note{:lot (util/->entity-ref lot)
+            [#:lot-note{:lots [(util/->entity-ref lot)]
                         :transaction-date (t/local-date 2021 6 1)
                         :memo "2-for-1 stock split"}]
-            (entities/select {:lot-note/lot lot}))))))
+            (entities/select {:lot-note/memo "2-for-1 stock split"}))))))

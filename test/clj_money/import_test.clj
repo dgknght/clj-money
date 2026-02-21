@@ -457,9 +457,10 @@
         (let [lot (entities/find-by {:lot/commodity aapl})]
           (is (seq-of-maps-like?
                 [#:lot-note{:transaction-date (t/local-date 2015 4 1)
-                            :memo "2 for 1 stock split"}]
-                (entities/select {:lot-note/lot lot}))
-              "A lot-note is created for each lot affected by the split")))
+                            :memo "2 for 1 stock split"
+                            :lots [{:id (:id lot)}]}]
+                (entities/select #:lot-note{:memo "2 for 1 stock split"}))
+              "A single lot-note is created for all lots affected by the split")))
 
       (testing "accounts"
         (is (system-tagged? ira :trading)

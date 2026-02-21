@@ -9,19 +9,17 @@
             [clj-money.authorization.lot-notes]))
 
 (defn- index
-  [{:keys [authenticated] {:keys [lot-id]} :params}]
+  [{:keys [authenticated]}]
   (api/response
     (entities/select
-      (+scope {:lot-note/lot (util/->entity-ref lot-id)}
-              :lot-note
-              authenticated))))
+      (+scope {} :lot-note authenticated))))
 
 (defn- extract-note
   [{{:keys [lot-id]} :params :keys [body-params]}]
   (-> body-params
       (select-keys [:lot-note/transaction-date
                     :lot-note/memo])
-      (assoc :lot-note/lot (util/->entity-ref lot-id))))
+      (assoc :lot-note/lots [(util/->entity-ref lot-id)])))
 
 (defn- create
   [{:keys [authenticated] :as req}]

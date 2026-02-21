@@ -46,7 +46,7 @@
 
 (def ^:private list-context
   (conj base-context
-        #:lot-note{:lot ["IRA" "AAPL"]
+        #:lot-note{:lots [["IRA" "AAPL"]]
                    :transaction-date (t/local-date 2021 6 1)
                    :memo "2-for-1 stock split"}))
 

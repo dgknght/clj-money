@@ -217,7 +217,9 @@
                c
                (second c)))
            columns)
-      [(str (name (:id ref)) "-id")])))
+      (if (vector? (:type ref))
+        [(str (str/replace (name (:id ref)) #"s\z" "") "-ids")]
+        [(str (name (:id ref)) "-id")]))))
 
 (defn- build-attributes
   [[t fields refs]]

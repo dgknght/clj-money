@@ -72,8 +72,8 @@
       :entity)))
 
 (defmethod fetch-entity :lot-note
-  [{:lot-note/keys [lot]}]
-  (fetch-entity (entities/find lot)))
+  [{:lot-note/keys [lots]}]
+  (fetch-entity (entities/find (first lots))))
 
 (defn user-granted-access?
   [resource entity user action]

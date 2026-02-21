@@ -295,11 +295,10 @@
     (when result
       (let [memo (str (trading/ratio->words (:split/ratio result))
                       " stock split")]
-        (doseq [lot (:split/lots result)]
-          (entities/put #:lot-note{:lot lot
-                                   :transaction-date (:split/date
-                                                       split-params)
-                                   :memo memo}))))
+        (entities/put #:lot-note{:lots (:split/lots result)
+                                 :transaction-date (:split/date
+                                                     split-params)
+                                 :memo memo})))
     (log-transaction (:split/transaction result) "commodity split"))
   context)
 

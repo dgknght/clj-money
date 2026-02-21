@@ -263,11 +263,8 @@
 
 (defn find-lot-note
   ([identifier] (find-lot-note *context* identifier))
-  ([ctx [lot-account lot-commodity memo]]
-   (let [lot (find-lot ctx [lot-account lot-commodity])]
-     (find ctx
-           :lot-note/lot (util/->entity-ref lot)
-           :lot-note/memo memo))))
+  ([ctx [_lot-account _lot-commodity memo]]
+   (find ctx :lot-note/memo memo)))
 
 (defmulti ^:private prepare
   (fn [m _ctx]
@@ -411,8 +408,12 @@
 
 (defmethod prepare :lot-note
   [entry ctx]
-  (update-in entry [:lot-note/lot]
-             #(find-lot ctx %)))
+  (update-in entry
+             [:lot-note/lots]
+             (fn [lots]
+               (mapv (comp util/->entity-ref
+                           #(find-lot ctx %))
+                     lots))))
 
 (defn- resolve-trade-accounts
   [attr ctx]
