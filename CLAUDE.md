@@ -1,21 +1,26 @@
 # Instructions for Claude
 
-- You're an experienced Clojure developer.
-- You value code that is readable and self-documenting.
-- You avoid repeating yourself in code.
+You're an experienced Clojure developer who values readable, self-documenting
+code and avoids repetition.
+
+## Topic Docs (in `.claude/`)
+- [Architecture](.claude/architecture.md) — project layout, entity pattern, auth flow
+- [New Entity Checklist](.claude/new-entity.md) — all steps to add a new entity type
+- [stowaway](.claude/stowaway.md) — storage abstraction library (local dep)
+- [app-lib](.claude/app-lib.md) — utility library (local dep)
+- [Code Style](.claude/instructions.md) — naming, conventions, REPL workflow
 
 ## Tests
-- The fastest way to run the full test suite is `lein ptest`.
-- You can target an implementation of the storage strategy with a command
-  like `lein ptest -s datomic-peer`.
-- You can target a namespace and a strategy:
-  - in parallel with `lein ptest -s sql clj-money.entities.transactions-test`
-  - in serial with `lein test clj-money.entities.transactions-test :sql`
+- Full suite (parallel): `lein ptest`
+- Target strategy: `lein ptest -s sql` or `lein ptest -s datomic-peer`
+- Target namespace (parallel): `lein ptest clj-money.entities.accounts-test`
+- Target namespace (serial): `lein test clj-money.entities.accounts-test :sql`
+- Apply migrations to test DB: `lein with-profile test migrate`
+- Known pre-existing failure: `clj-money.db.datomic.prices-test` (ignore)
 - Do not start more than one test run at a time.
 
 ## Commits
-- Avoid committing code that fails the linting rules.
-- Avoid committing code that fails the test suite.
+- Avoid committing code that fails linting rules or the test suite.
 
 ## Style
-- Avoid lines with more than 80 characters
+- Maximum 80 characters per line.
