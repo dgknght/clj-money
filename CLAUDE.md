@@ -18,6 +18,8 @@ code and avoids repetition.
 - Target namespace (serial): `lein test clj-money.entities.accounts-test :sql`
 - Apply migrations to test DB: `lein with-profile test migrate`
 - Do not start more than one test run at a time.
+- Run the smallest subset of tests necessary to verify changes during
+  implementation.
 
 ## Commits
 - Avoid committing code that fails linting rules or the test suite.
