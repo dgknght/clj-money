@@ -12,7 +12,8 @@
   [{:keys [authenticated]}]
   (api/response
     (entities/select
-      (+scope {} :lot-note authenticated))))
+      (+scope {} :lot-note authenticated)
+      {:entity-type :lot-note})))
 
 (defn- extract-note
   [{{:keys [lot-id]} :params :keys [body-params]}]
