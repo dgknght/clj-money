@@ -831,6 +831,9 @@
 (defn- lots-table
   [page-state]
   (let [lots (r/cursor page-state [:lots])
+        held-lots (make-reaction
+                    #(filter (comp pos? :lot/shares-owned)
+                             @lots))
         prices (r/cursor page-state [:prices])
         latest-price (make-reaction #(->> @prices
                                           (sort-by :price/trade-date t/after?)
@@ -867,7 +870,7 @@
              [:div.spinner-border {:role :status}
               [:span.visually-hidden "Loading"]]]]]
 
-          (seq @lots)
+          (seq @held-lots)
           (doall
             (mapcat
               (fn [lot]
@@ -881,13 +884,13 @@
                     [(add-memo-row lot page-state)])))
               (sort-by (comp serialize-local-date
                              :lot/purchase-date)
-                       @lots)))
+                       @held-lots)))
 
           :else
           [:tr
            [:td.text-center.fw-lighter {:col-span 7}
             "No lots of this commidty are currently held."]])]
-       (when (seq @lots)
+       (when (seq @held-lots)
          [:tfoot
           [:tr
            [:td.text-end {:col-span 2}
@@ -916,8 +919,7 @@
                         commodity
                         transaction-date-range]} @account]
     (lots/select #:lot{:account parent
-                       :commodity commodity
-                       :shares-owned [:!= 0]}
+                       :commodity commodity}
                  :on-success
                  (fn [lots]
                    (swap! page-state assoc :lots lots)

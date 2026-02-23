@@ -333,10 +333,29 @@
    [:td.text-end (format-decimal balance 4)]
    [:td.text-end (currency-format (or value quantity))]])
 
+(defn- lot-note-row
+  [{:lot-note/keys [transaction-date memo] :as note}]
+  ^{:key (str "note-" (:id note))}
+  [:tr.small.text-muted
+   [:td.text-end (format-date transaction-date)]
+   [:td {:col-span 4} memo]])
+
 (defn fund-transactions-table
   [page-state]
   (let [items (r/cursor page-state [:items])
-        account  (r/cursor page-state [:view-account])]
+        account (r/cursor page-state [:view-account])
+        memo-entries (r/cursor page-state [:memo-entries])
+        all-notes (make-reaction #(mapcat val @memo-entries))
+        all-rows (make-reaction
+                   #(sort-by
+                      (fn [row]
+                        (or (some-> (:transaction/transaction-date row)
+                                    dates/serialize-local-date)
+                            (some-> (:lot-note/transaction-date row)
+                                    dates/serialize-local-date)
+                            ""))
+                      (fn [a b] (compare b a))
+                      (concat @items @all-notes)))]
     ; I don't think we need to chunk this, but maybe we do
     (account-items/select (accounts/->criteria @account)
                           :on-success #(swap! page-state assoc :items %))
@@ -360,11 +379,15 @@
 
           (seq @items)
           (doall
-            (for [item (sort-by :index > @items)]
-              (fund-transaction-row item)))
+            (for [row @all-rows]
+              (if (:lot-note/transaction-date row)
+                (lot-note-row row)
+                (fund-transaction-row row))))
 
           :else
-          [:tr [:td.text-center.fw-lighter {:col-span 5} "No transaction for this commodity."]])]])))
+          [:tr [:td.text-center.fw-lighter
+                {:col-span 5}
+                "No transaction for this commodity."]])]])))
 
 (defn- ensure-entry-state
   [page-state]
