@@ -9,6 +9,7 @@ code and avoids repetition.
 - [stowaway](.claude/stowaway.md) — storage abstraction library (local dep)
 - [app-lib](.claude/app-lib.md) — utility library (local dep)
 - [Code Style](.claude/instructions.md) — naming, conventions, REPL workflow
+- [Patterns](.claude/patterns.md) — cross-backend query patterns, solved problems
 
 ## Tests
 - Full suite (serial, slow): `lein test`
