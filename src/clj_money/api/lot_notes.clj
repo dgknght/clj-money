@@ -5,7 +5,6 @@
              :as auth
              :refer [+scope
                      authorize]]
-            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.accounts :as acts]
             [clj-money.authorization.lot-notes]))
