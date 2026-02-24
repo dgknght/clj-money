@@ -971,6 +971,7 @@
           {:title "Click here to return the the account list."
            :on-click #(swap! page-state dissoc
                              :view-account
+                             :lot-notes
                              :items
                              :all-items-fetched?)}
           (icon-with-text :arrow-left-short "Back")]]]])))
