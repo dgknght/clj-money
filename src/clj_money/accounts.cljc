@@ -234,6 +234,14 @@
   ([account tag]
    (tagged? account :account/system-tags tag)))
 
+(defn trading?
+  [account]
+  (system-tagged? account :trading))
+
+(defn tradable?
+  [account]
+  (system-tagged? account :tradable))
+
 (defn format-quantity
   [quantity {:account/keys [commodity]}]
   (format-decimal quantity
