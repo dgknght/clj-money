@@ -922,7 +922,7 @@
                    ; TODO: Just get all lot notes for the commodity account
                    (doseq [lot lots]
                      (lot-notes/select
-                       #:lot-note{:lot lot}
+                       #:lot{:account parent}
                        :on-success
                        (fn [notes]
                          (swap! page-state

@@ -2,15 +2,21 @@
   (:require [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn select
-  [{:lot-note/keys [lot] :as criteria} & {:as opts}]
-  (api/get (api/path :lots lot :lot-notes)
-           (dissoc criteria :lot-note/lot)
+  [{:as criteria :lot/keys [account]} & {:as opts}]
+  {:pre [(:lot/account criteria)]}
+  (api/get (api/path :accounts
+                     account
+                     :lot-notes)
+           (dissoc criteria :lot/account)
            (add-error-handler opts "Unable to retrieve lot notes: %s")))
 
 (defn create
-  [{:lot-note/keys [lot] :as note} & {:as opts}]
-  (api/post (api/path :lots lot :lot-notes)
-            (dissoc note :lot-note/lot)
+  [note & {:as opts}]
+  {:pre [(:commodity opts)]}
+  (api/post (api/path :commodities
+                      (:commodity opts)
+                      :lot-notes)
+            note
             (add-error-handler opts "Unable to create lot note: %s")))
 
 (defn delete
