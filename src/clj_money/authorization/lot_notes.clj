@@ -1,5 +1,6 @@
 (ns clj-money.authorization.lot-notes
-  (:require [clj-money.authorization :as authorization]
+  (:require [clj-money.util :as util]
+            [clj-money.authorization :as authorization]
             [clj-money.entities.auth-helpers :refer [owner-or-granted?]]))
 
 (defmethod authorization/allowed? [:lot-note ::authorization/manage]
@@ -8,4 +9,6 @@
 
 (defmethod authorization/scope :lot-note
   [_ user]
-  {:entity/user user})
+  (util/entity-type
+    {:entity/user user}
+    :lot-note))

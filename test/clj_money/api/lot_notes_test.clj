@@ -80,6 +80,49 @@
   (with-context list-context
     (assert-blocked-list (list-lot-notes "jane@doe.com"))))
 
+(def ^:private multi-lot-context
+  (conj base-context
+        #:commodity{:name "Microsoft"
+                    :entity "Personal"
+                    :symbol "MSFT"
+                    :exchange :nasdaq
+                    :type :stock}
+        #:lot{:account "IRA"
+              :commodity "MSFT"
+              :purchase-price 200M
+              :shares-purchased 5M
+              :shares-owned 5M
+              :purchase-date (t/local-date 2020 3 1)}
+        #:lot-note{:lots [["IRA" "AAPL"]]
+                   :transaction-date (t/local-date 2021 6 1)
+                   :memo "2-for-1 stock split"}
+        #:lot-note{:lots [["IRA" "MSFT"]]
+                   :transaction-date (t/local-date 2022 9 1)
+                   :memo "3-for-1 stock split"}))
+
+(deftest lot-notes-are-filtered-by-lot
+  (with-context multi-lot-context
+    (let [aapl-lot (find-lot ["IRA" "AAPL"])
+          msft-lot (find-lot ["IRA" "MSFT"])
+          aapl-notes (-> (request :get (path :api :lots (:id aapl-lot) :lot-notes)
+                                  :user (find-user "john@doe.com"))
+                         app
+                         parse-body
+                         :parsed-body)
+          msft-notes (-> (request :get (path :api :lots (:id msft-lot) :lot-notes)
+                                  :user (find-user "john@doe.com"))
+                         app
+                         parse-body
+                         :parsed-body)]
+      (is (seq-of-maps-like?
+            [{:lot-note/memo "2-for-1 stock split"}]
+            aapl-notes)
+          "AAPL lot notes exclude MSFT notes")
+      (is (seq-of-maps-like?
+            [{:lot-note/memo "3-for-1 stock split"}]
+            msft-notes)
+          "MSFT lot notes exclude AAPL notes"))))
+
 (defn- create-lot-note
   [email]
   (let [lot (find-lot ["IRA" "AAPL"])
