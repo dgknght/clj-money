@@ -344,8 +344,12 @@
   [page-state]
   (let [items (r/cursor page-state [:items])
         account (r/cursor page-state [:view-account])
-        memo-entries (r/cursor page-state [:memo-entries])
-        all-notes (make-reaction #(mapcat val @memo-entries))
+        lot-notes (r/cursor page-state [:lot-notes])
+        all-notes (make-reaction
+                    #(->> (mapcat val @lot-notes)
+                          (group-by :id)
+                          vals
+                          (map first)))
         all-rows (make-reaction
                    #(sort-by
                       (fn [row]

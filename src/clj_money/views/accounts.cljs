@@ -745,7 +745,7 @@
             (swap!
               page-state
               update-in
-              [:memo-entries (:id lot)]
+              [:lot-notes (:id lot)]
               (partial remove
                        #(= (:id entry)
                            (:id %)))))))}
@@ -780,7 +780,7 @@
               (fn [s]
                 (-> s
                     (update-in
-                      [:memo-entries (:id lot)]
+                      [:lot-notes (:id lot)]
                       (fnil conj [])
                       entry)
                     (dissoc :add-memo-lot
