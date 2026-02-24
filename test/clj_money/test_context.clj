@@ -250,7 +250,7 @@
 
 (defn find-lot
   ([identifier] (find-lot *context* identifier))
-  ([ctx [account commodity]]
+  ([ctx [account commodity date]]
    (let [act (util/->entity-ref (if (map? account)
                                  account
                                  (find-account ctx account)))
@@ -259,12 +259,15 @@
                                  (find-commodity ctx commodity)))]
      (find ctx
            :lot/account act
-           :lot/commodity cmd))))
+           :lot/commodity cmd
+           :lot/purchase-date date))))
 
 (defn find-lot-note
   ([identifier] (find-lot-note *context* identifier))
-  ([ctx [_lot-account _lot-commodity memo]]
-   (find ctx :lot-note/memo memo)))
+  ([ctx [transaction-date memo]]
+   (find ctx
+         :lot-note/memo memo
+         :lot-note/transaction-date transaction-date)))
 
 (defmulti ^:private prepare
   (fn [m _ctx]

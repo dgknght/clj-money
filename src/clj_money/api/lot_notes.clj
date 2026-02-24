@@ -1,32 +1,47 @@
 (ns clj-money.api.lot-notes
-  (:require [dgknght.app-lib.api :as api]
+  (:require [clojure.pprint :refer [pprint]]
+            [dgknght.app-lib.api :as api]
             [clj-money.authorization
              :as auth
              :refer [+scope
                      authorize]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
+            [clj-money.accounts :as acts]
             [clj-money.authorization.lot-notes]))
 
+(defn- extract-criteria
+  [{{:keys [account-id]} :params}]
+  (let [account (entities/find account-id)]
+    (cond
+      (acts/trading? account) {:lot/account account}
+      (acts/tradable? account) {:lot/account (:account/parent account)})))
+
 (defn- index
-  [{:keys [authenticated] {:keys [lot-id]} :params}]
-  (api/response
-    (entities/select
-      (+scope {:lot-note/lots {:id lot-id}} :lot-note authenticated))))
+  [{:keys [authenticated] :as req}]
+  (or (some-> (extract-criteria req)
+              (+scope :lot-note authenticated)
+              entities/select
+              api/response)
+      api/not-found))
 
 (defn- extract-note
-  [{{:keys [lot-id]} :params :keys [body-params]}]
-  (-> body-params
-      (select-keys [:lot-note/transaction-date
-                    :lot-note/memo])
-      (assoc :lot-note/lots [(util/->entity-ref lot-id)])))
+  [{{:keys [commodity-id]} :params :keys [body-params]}]
+  (let [commodity (entities/find commodity-id)
+        lots (entities/select {:lot/commodity commodity
+                               :lot/shares-owned [:!= 0M]})]
+    (-> body-params
+        (select-keys [:lot-note/transaction-date
+                      :lot-note/memo])
+        (assoc :lot-note/lots lots))))
 
 (defn- create
   [{:keys [authenticated] :as req}]
-  (-> (extract-note req)
-      (authorize ::auth/create authenticated)
-      entities/put
-      api/creation-response))
+  (or (some-> (extract-note req)
+              (authorize ::auth/create authenticated)
+              entities/put
+              api/creation-response)
+      api/not-found))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
@@ -45,6 +60,6 @@
     api/not-found))
 
 (def routes
-  [["lots/:lot-id/lot-notes" {:get {:handler index}
-                               :post {:handler create}}]
+  [["accounts/:account-id/lot-notes" {:get {:handler index}}]
+   ["commodities/:commodity-id/lot-notes" {:post {:handler create}}]
    ["lot-notes/:id" {:delete {:handler delete}}]])
