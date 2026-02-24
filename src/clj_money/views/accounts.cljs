@@ -783,13 +783,13 @@
                       [:lot-notes (:id lot)]
                       (fnil conj [])
                       entry)
-                    (dissoc :add-memo-lot
+                    (dissoc :new-lot-note
                             :new-memo)))))))}
      (icon :check :size :small)]
     [:button.btn.btn-secondary.btn-sm.ms-1
      {:title "Click here to cancel"
       :on-click
-      #(swap! page-state dissoc :add-memo-lot :new-memo)}
+      #(swap! page-state dissoc :new-lot-note :new-memo)}
      (icon :x :size :small)]]])
 
 (defn- lot-row
@@ -822,7 +822,7 @@
        {:title "Click here to add a memo entry for this lot"
         :on-click
         #(swap! page-state assoc
-                :add-memo-lot lot
+                :new-lot-note lot
                 :new-memo
                 #:lot-note{:transaction-date (t/today)
                                     :memo ""})}
@@ -834,6 +834,8 @@
         held-lots (make-reaction
                     #(filter (comp pos? :lot/shares-owned)
                              @lots))
+        memo-entries (r/cursor page-state [:lot-notes])
+        new-lot-note (r/cursor page-state [:new-lot-note])
         prices (r/cursor page-state [:prices])
         latest-price (make-reaction #(->> @prices
                                           (sort-by :price/trade-date t/after?)
@@ -871,20 +873,18 @@
               [:span.visually-hidden "Loading"]]]]]
 
           (seq @held-lots)
-          (doall
-            (mapcat
-              (fn [lot]
-                (concat
-                  [(lot-row lot @latest-price @gain-loss page-state)]
-                  (map #(memo-entry-row % lot page-state)
-                       (get-in @page-state
-                               [:memo-entries (:id lot)]))
-                  (when (= (:id lot)
-                           (:id (get-in @page-state [:add-memo-lot])))
-                    [(add-memo-row lot page-state)])))
-              (sort-by (comp serialize-local-date
-                             :lot/purchase-date)
-                       @held-lots)))
+          (->> @held-lots
+               (sort-by (comp serialize-local-date
+                              :lot/purchase-date))
+               (mapcat (fn [lot]
+                         (concat
+                           [(lot-row lot @latest-price @gain-loss page-state)]
+                           (map #(memo-entry-row % lot page-state)
+                                (@memo-entries (:id lot)))
+                           (when (= (:id lot)
+                                    (:id @new-lot-note))
+                             [(add-memo-row lot page-state)]))))
+               doall)
 
           :else
           [:tr
@@ -910,32 +910,42 @@
                             3)]
            [:td (html/space)]]])])))
 
-(defn- tradable-account-items
+(defn- load-lots
   [page-state]
-  (let [current-nav (r/atom :lots)
-        account (r/cursor page-state [:view-account])
-        {:account/keys [parent
-                        entity
-                        commodity
-                        transaction-date-range]} @account]
+  (let [{:account/keys [parent commodity]}
+        (:view-account @page-state)]
     (lots/select #:lot{:account parent
                        :commodity commodity}
                  :on-success
                  (fn [lots]
                    (swap! page-state assoc :lots lots)
+                   ; TODO: Just get all lot notes for the commodity account
                    (doseq [lot lots]
                      (lot-notes/select
                        #:lot-note{:lot lot}
                        :on-success
-                       #(swap! page-state
-                               assoc-in
-                               [:memo-entries (:id lot)]
-                               %)))))
+                       (fn [notes]
+                         (swap! page-state
+                                assoc-in
+                                [:lot-notes (:id lot)]
+                                notes))))))))
+
+(defn- load-prices
+  [page-state]
+  (let [{:account/keys [commodity transaction-date-range]}
+        (:view-account @page-state)]
     (when transaction-date-range
       (prices/select
         #:price{:commodity commodity
                 :trade-date (apply vector :between transaction-date-range)}
-        :on-success #(swap! page-state assoc :prices %)))
+        :on-success #(swap! page-state assoc :prices %)))))
+
+(defn- tradable-account-items
+  [page-state]
+  (let [current-nav (r/atom :lots)
+        account (r/cursor page-state [:view-account])]
+   (load-lots page-state)
+   (load-prices page-state)
     (fn []
       [:section
        (bs/nav-tabs [{:id :lots-nav
@@ -956,7 +966,9 @@
          [:button.btn.btn-primary
           {:title "Click here to buy or sell this commodity."
            :on-click (fn []
-                       (swap! page-state
+                       (let [{:account/keys [entity parent commodity]}
+                             @account]
+                         (swap! page-state
                               assoc
                               :trade
                               #:trade{:date (t/today)
@@ -964,7 +976,7 @@
                                       :entity entity
                                       :account parent
                                       :commodity commodity
-                                      :commodity-account @account})
+                                      :commodity-account @account}))
                        (set-focus "trade-date"))}
           (icon-with-text :plus "Buy/Sell")]
          [:button.btn.btn-secondary.ms-2
