@@ -13,8 +13,12 @@
   [{{:keys [account-id]} :params}]
   (let [account (entities/find account-id)]
     (cond
-      (acts/trading? account) {:lot/account account}
-      (acts/tradable? account) {:lot/account (:account/parent account)})))
+      (acts/trading? account)
+      {:lot/account account}
+
+      (acts/tradable? account)
+      {:lot/account (:account/parent account)
+       :lot/commodity (:account/commodity account)})))
 
 (defn- index
   [{:keys [authenticated] :as req}]
