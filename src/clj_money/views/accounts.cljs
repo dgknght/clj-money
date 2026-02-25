@@ -725,72 +725,14 @@
         @attachments-item    [atts/attachments-card page-state]
         :else                [transaction-item-list page-state]))))
 
-(defn- memo-entry-row
-  [entry lot page-state]
-  ^{:key (str "memo-entry-" (:id entry))}
+(defn- lot-note-row
+  [lot-note]
+  ^{:key (str "lot-note-" (:id lot-note))}
   [:tr.small.text-muted
    [:td
     (format-date
-      (:lot-note/transaction-date entry))]
-   [:td {:col-span 5} (:lot-note/memo entry)]
-   [:td.text-end
-    [:button.btn.btn-outline-danger.btn-sm
-     {:title "Click here to delete this memo entry"
-      :on-click
-      (fn []
-        (lot-notes/delete
-          entry
-          :on-success
-          (fn [_]
-            (swap!
-              page-state
-              update-in
-              [:lot-notes (:id lot)]
-              (partial remove
-                       #(= (:id entry)
-                           (:id %)))))))}
-     (icon :x-circle :size :small)]]])
-
-(defn- add-memo-row
-  [lot page-state]
-  ^{:key (str "add-memo-" (:id lot))}
-  [:tr
-   [:td
-    [forms/date-input
-     page-state
-     [:new-memo :lot-note/transaction-date]
-     {}]]
-   [:td {:col-span 5}
-    [forms/text-input
-     page-state
-     [:new-memo :lot-note/memo]
-     {}]]
-   [:td.text-end
-    [:button.btn.btn-primary.btn-sm
-     {:title "Click here to save this memo entry"
-      :on-click
-      (fn []
-        (lot-notes/create
-          (assoc (get-in @page-state [:new-memo])
-                 :lot-note/lot lot)
-          :on-success
-          (fn [entry]
-            (swap!
-              page-state
-              (fn [s]
-                (-> s
-                    (update-in
-                      [:lot-notes (:id lot)]
-                      (fnil conj [])
-                      entry)
-                    (dissoc :new-lot-note
-                            :new-memo)))))))}
-     (icon :check :size :small)]
-    [:button.btn.btn-secondary.btn-sm.ms-1
-     {:title "Click here to cancel"
-      :on-click
-      #(swap! page-state dissoc :new-lot-note :new-memo)}
-     (icon :x :size :small)]]])
+      (:lot-note/transaction-date lot-note))]
+   [:td {:col-span 6} (:lot-note/memo lot-note)]])
 
 (defn- lot-row
   [lot latest-price gain-loss page-state]
@@ -834,8 +776,7 @@
         held-lots (make-reaction
                     #(filter (comp pos? :lot/shares-owned)
                              @lots))
-        memo-entries (r/cursor page-state [:lot-notes])
-        new-lot-note (r/cursor page-state [:new-lot-note])
+        lot-notes (r/cursor page-state [:lot-notes])
         prices (r/cursor page-state [:prices])
         latest-price (make-reaction #(->> @prices
                                           (sort-by :price/trade-date t/after?)
@@ -879,11 +820,8 @@
                (mapcat (fn [lot]
                          (concat
                            [(lot-row lot @latest-price @gain-loss page-state)]
-                           (map #(memo-entry-row % lot page-state)
-                                (@memo-entries (:id lot)))
-                           (when (= (:id lot)
-                                    (:id @new-lot-note))
-                             [(add-memo-row lot page-state)]))))
+                           (when @lot-notes
+                             (map lot-note-row (@lot-notes (:id lot)))))))
                doall)
 
           :else
@@ -910,6 +848,23 @@
                             3)]
            [:td (html/space)]]])])))
 
+(defn- load-lot-notes
+  [page-state]
+  (let [{:keys [view-account]} @page-state]
+    (lot-notes/select
+      #:lot{:account view-account}
+      :on-success
+      (fn [notes]
+        (->> notes
+             (mapcat (fn [note]
+                       (->> (:lot-note/lots note)
+                            (map :id)
+                            (map #(vector % note)))))
+             (into {})
+             (swap! page-state
+                    assoc
+                    :lot-notes))))))
+
 (defn- load-lots
   [page-state]
   (let [{:account/keys [parent commodity]}
@@ -919,16 +874,7 @@
                  :on-success
                  (fn [lots]
                    (swap! page-state assoc :lots lots)
-                   ; TODO: Just get all lot notes for the commodity account
-                   (doseq [lot lots]
-                     (lot-notes/select
-                       #:lot{:account parent}
-                       :on-success
-                       (fn [notes]
-                         (swap! page-state
-                                assoc-in
-                                [:lot-notes (:id lot)]
-                                notes))))))))
+                   (load-lot-notes page-state)))))
 
 (defn- load-prices
   [page-state]
