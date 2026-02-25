@@ -851,17 +851,29 @@
       (assoc :split/commodity-account (entities/find-by #:account{:commodity commodity
                                                                 :parent account}))))
 
+(defn- create-split-note
+  [{:split/keys [lots date ratio lot-note] :as split}]
+  (assoc split
+         :split/lot-note
+         (if lot-note
+           (update lot-note :lot-note/lots into (map util/->entity-ref lots))
+           #:lot-note{:lots (mapv util/->entity-ref lots)
+                      :transaction-date date
+                      :memo (format "%s split" (ratio->words ratio))})))
+
 (defn- put-split
   [{:split/keys [lots
                  lot-items
+                 lot-note
                  ratio]}
    opts]
   (let [result (->> lots
-                    (concat lot-items)
+                    (concat lot-items [lot-note])
                     (entities/put-many opts)
                     (group-by util/entity-type))]
     {:split/lots (:lot result)
      :split/lot-items (:lot-item result)
+     :split/lot-note (first (:lot-note result))
      :split/ratio ratio}))
 
 (s/def :split/date t/local-date?)
@@ -879,17 +891,22 @@
   :commodity     - the commodity being split
   :date          - the date the split is effective
   :shares-gained - the difference in the number of shares held before and after the split
-  :account       - the trading account through which the commodity was purchased"
+  :account       - the trading account through which the commodity was purchased
 
-  [split & {:as options}]
-  (let [opts (merge default-opts options)]
+  Options:
+  :lot-note - an existing lot-note to update with the split's lots instead of
+              creating a new one"
+
+  [split & {:keys [lot-note] :as options}]
+  (let [opts (merge default-opts (dissoc options :lot-note))]
     (with-ex-validation split ::entities/split
-    (some-> split
+    (some-> (cond-> split lot-note (assoc :split/lot-note lot-note))
             (update-in [:split/commodity] entities/resolve-ref)
             append-split-accounts
             append-split-lots
             append-split-ratio
             adjust-split-lots
+            create-split-note
             (put-split opts)))))
 
 (def split-and-propagate

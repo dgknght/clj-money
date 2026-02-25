@@ -290,28 +290,15 @@
                                     account-ids
                                     accounts
                                     :account/commodity)))
+        note-key [(-> split-params :split/commodity :id)
+                  (:split/date split-params)]
+        existing (get-in context [:split-lot-notes note-key])
         result (trading/split split-params
+                              :lot-note existing
                               :item-basis (last-trx-item context))]
     (log-transaction (:split/transaction result) "commodity split")
     (if result
-      (let [note-key [(-> split-params :split/commodity :id)
-                      (:split/date split-params)]
-            existing (get-in context [:split-lot-notes note-key])
-            note (if existing
-                   (entities/put
-                     (update existing
-                             :lot-note/lots
-                             into
-                             (:split/lots result)))
-                   (let [memo (str (trading/ratio->words
-                                     (:split/ratio result))
-                                   " stock split")]
-                     (entities/put
-                       #:lot-note{:lots (:split/lots result)
-                                  :transaction-date (:split/date
-                                                      split-params)
-                                  :memo memo})))]
-        (assoc-in context [:split-lot-notes note-key] note))
+      (assoc-in context [:split-lot-notes note-key] (:split/lot-note result))
       context)))
 
 (defn- get-source-type
