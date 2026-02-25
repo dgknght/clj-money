@@ -725,17 +725,8 @@
         @attachments-item    [atts/attachments-card page-state]
         :else                [transaction-item-list page-state]))))
 
-(defn- lot-note-row
-  [lot-note]
-  ^{:key (str "lot-note-" (:id lot-note))}
-  [:tr.small.text-muted
-   [:td
-    (format-date
-      (:lot-note/transaction-date lot-note))]
-   [:td {:col-span 6} (:lot-note/memo lot-note)]])
-
 (defn- lot-row
-  [lot latest-price gain-loss page-state]
+  [lot latest-price gain-loss]
   (let [g-l (- (* (:price/value latest-price)
                   (:lot/shares-owned lot))
                (* (:lot/purchase-price lot)
@@ -758,17 +749,7 @@
       (format-percent (/ g-l
                          (* (:lot/shares-purchased lot)
                             (:lot/purchase-price lot)))
-                      3)]
-     [:td.text-end
-      [:button.btn.btn-outline-secondary.btn-sm
-       {:title "Click here to add a memo entry for this lot"
-        :on-click
-        #(swap! page-state assoc
-                :new-lot-note lot
-                :new-memo
-                #:lot-note{:transaction-date (t/today)
-                                    :memo ""})}
-       (icon :plus :size :small)]]]))
+                      3)]]))
 
 (defn- lots-table
   [page-state]
@@ -776,7 +757,6 @@
         held-lots (make-reaction
                     #(filter (comp pos? :lot/shares-owned)
                              @lots))
-        lot-notes (r/cursor page-state [:lot-notes])
         prices (r/cursor page-state [:prices])
         latest-price (make-reaction #(->> @prices
                                           (sort-by :price/trade-date t/after?)
@@ -802,13 +782,12 @@
          [:th.text-end "Shares Owned"]
          [:th.text-end "Purchase Price"]
          [:th.text-end "Gn/Ls"]
-         [:th.text-end "Gn/Ls %"]
-         [:th (html/space)]]]
+         [:th.text-end "Gn/Ls %"]]]
        [:tbody
         (cond
           (nil? @lots)
           [:tr
-           [:td.text-center {:col-span 7}
+           [:td.text-center {:col-span 6}
             [:div.d-flex.justify-content-center.m2
              [:div.spinner-border {:role :status}
               [:span.visually-hidden "Loading"]]]]]
@@ -817,16 +796,12 @@
           (->> @held-lots
                (sort-by (comp serialize-local-date
                               :lot/purchase-date))
-               (mapcat (fn [lot]
-                         (concat
-                           [(lot-row lot @latest-price @gain-loss page-state)]
-                           (when @lot-notes
-                             (map lot-note-row (@lot-notes (:id lot)))))))
+               (map #(lot-row % @latest-price @gain-loss))
                doall)
 
           :else
           [:tr
-           [:td.text-center.fw-lighter {:col-span 7}
+           [:td.text-center.fw-lighter {:col-span 6}
             "No lots of this commidty are currently held."]])]
        (when (seq @held-lots)
          [:tfoot
@@ -853,28 +828,16 @@
   (let [{:keys [view-account]} @page-state]
     (lot-notes/select
       #:lot{:account view-account}
-      :on-success
-      (fn [notes]
-        (->> notes
-             (mapcat (fn [note]
-                       (->> (:lot-note/lots note)
-                            (map :id)
-                            (map #(vector % note)))))
-             (into {})
-             (swap! page-state
-                    assoc
-                    :lot-notes))))))
+      :on-success (partial swap! page-state assoc :lot-notes))))
 
 (defn- load-lots
   [page-state]
   (let [{:account/keys [parent commodity]}
         (:view-account @page-state)]
-    (lots/select #:lot{:account parent
-                       :commodity commodity}
-                 :on-success
-                 (fn [lots]
-                   (swap! page-state assoc :lots lots)
-                   (load-lot-notes page-state)))))
+    (lots/select
+      #:lot{:account parent
+            :commodity commodity}
+      :on-success (partial swap! page-state assoc :lots))))
 
 (defn- load-prices
   [page-state]
@@ -891,6 +854,7 @@
   (let [current-nav (r/atom :lots)
         account (r/cursor page-state [:view-account])]
    (load-lots page-state)
+   (load-lot-notes page-state)
    (load-prices page-state)
     (fn []
       [:section

@@ -336,20 +336,15 @@
 (defn- lot-note-row
   [{:lot-note/keys [transaction-date memo] :as note}]
   ^{:key (str "note-" (:id note))}
-  [:tr.small.text-muted
+  [:tr
    [:td.text-end (format-date transaction-date)]
-   [:td {:col-span 4} memo]])
+   [:td.text-muted.fst-italic {:col-span 4} memo]])
 
 (defn fund-transactions-table
   [page-state]
   (let [items (r/cursor page-state [:items])
         account (r/cursor page-state [:view-account])
         lot-notes (r/cursor page-state [:lot-notes])
-        all-notes (make-reaction
-                    #(->> (mapcat val @lot-notes)
-                          (group-by :id)
-                          vals
-                          (map first)))
         all-rows (make-reaction
                    #(sort-by
                       (fn [row]
@@ -359,7 +354,7 @@
                                     dates/serialize-local-date)
                             ""))
                       (fn [a b] (compare b a))
-                      (concat @items @all-notes)))]
+                      (concat @items @lot-notes)))]
     ; I don't think we need to chunk this, but maybe we do
     (account-items/select (accounts/->criteria @account)
                           :on-success #(swap! page-state assoc :items %))
