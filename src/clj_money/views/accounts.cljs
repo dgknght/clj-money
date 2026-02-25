@@ -564,6 +564,8 @@
                                    (swap! page-state dissoc
                                           :view-account
                                           :items
+                                          :lots
+                                          :lot-notes
                                           :all-items-fetched?))
                        :title "Click here to return to the account list."}
                 :caption "Back"
@@ -893,6 +895,7 @@
           {:title "Click here to return the the account list."
            :on-click #(swap! page-state dissoc
                              :view-account
+                             :lots
                              :lot-notes
                              :items
                              :all-items-fetched?)}
