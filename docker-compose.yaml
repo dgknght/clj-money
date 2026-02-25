@@ -9,6 +9,7 @@ services:
 
   redis:
     image: redis:8
+    pull_policy: always
     restart: on-failure
     ports:
       - 6379:6379
@@ -20,6 +21,7 @@ services:
 
   sql:
     image: postgres:17
+    pull_policy: always
     restart: on-failure
     ports:
       - 5432:5432
@@ -34,6 +36,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
+    pull_policy: always
     environment:
       PGADMIN_DEFAULT_EMAIL: test@test.com
       PGADMIN_DEFAULT_PASSWORD: please01
