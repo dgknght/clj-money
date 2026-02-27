@@ -292,18 +292,25 @@
                  account
                  commodity-account]
     :or {fee 0M}
-    :as trade}]
+    :as trade}
+   {:keys [item-basis]}]
   (let [currency-amount (+ value fee)
+        commodity-basis (item-basis commodity-account)
+        commodity-item #:account-item{:account commodity-account
+                                      :quantity shares
+                                      :index (inc (:transaction-item/index
+                                                    commodity-basis))
+                                      :balance (+ (:transaction-item/balance
+                                                    commodity-basis)
+                                                  shares)}
         items (if (= 0M fee)
                 [#:transaction-item{:value currency-amount
                                     :credit-item #:account-item{:account account}
-                                    :debit-item #:account-item{:account commodity-account
-                                                               :quantity shares}}]
+                                    :debit-item commodity-item}]
                 [#:transaction-item{:value currency-amount
                                     :credit-item #:account-item{:account account
                                                                 :quantity (- 0M (- currency-amount fee))}
-                                    :debit-item #:account-item{:account commodity-account
-                                                               :quantity shares}}
+                                    :debit-item commodity-item}
                  #:transaction-item{:value fee
                                     :credit-item #:account-item{:account account}
                                     :debit-item #:account-item{:account fee-account}}])]
@@ -325,24 +332,32 @@
                  commodity-account
                  fee
                  fee-account]
-    :or {fee 0M}}]
-  (cond-> [#:transaction-item{:value value
-                              :debit-item #:account-item{:action :debit
-                                                         :account account
-                                                         :quantity value}
-                              :credit-item #:account-item{:action :credit
-                                                          :account commodity-account
-                                                          :quantity (- 0M shares)}}]
-    (not (zero? fee))
-    (conj #:transaction-item{:value fee
-                             :debit-item #:account-item{:account fee-account}
-                             :credit-item #:account-item{:account account}})))
+    :or {fee 0M}}
+   {:keys [item-basis]}]
+  (let [commodity-basis (item-basis commodity-account)]
+    (cond-> [#:transaction-item{:value value
+                                :debit-item #:account-item{:action :debit
+                                                           :account account
+                                                           :quantity value}
+                                :credit-item #:account-item{:action :credit
+                                                            :account commodity-account
+                                                            :quantity (- 0M shares)
+                                                            :index (inc (:transaction-item/index
+                                                                          commodity-basis))
+                                                            :balance (+ (:transaction-item/balance
+                                                                          commodity-basis)
+                                                                        (- 0M shares))}}]
+      (not (zero? fee))
+      (conj #:transaction-item{:value fee
+                               :debit-item #:account-item{:account fee-account}
+                               :credit-item #:account-item{:account account}}))))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [date account lot-items] :as trade}]
-  (let [items (create-sale-transaction-items trade)]
+  [{:trade/keys [date account lot-items] :as trade}
+   opts]
+  (let [items (create-sale-transaction-items trade opts)]
     (update-in trade
                [:trade/transactions]
                (fnil conj [])
@@ -434,7 +449,7 @@
           update-accounts
           create-lot
           (create-dividend-transaction opts)
-          create-purchase-transaction
+          (create-purchase-transaction opts)
           (put-purchase opts)))))
 
 (def buy-and-propagate
@@ -612,7 +627,7 @@
           push-commodity-price-boundary
           update-accounts
           process-lot-sales
-          create-sale-transaction
+          (create-sale-transaction opts)
           (put-sale opts)))))
 
 (def sell-and-propagate

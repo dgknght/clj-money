@@ -121,6 +121,8 @@
       (assoc :transaction/entity entity)
       purge-import-keys))
 
+(declare update-last-trxs)
+
 (defmulti ^:private import-transaction
   (fn [_ transaction]
     (log/debugf "[import] import-transaction %s" (:trade/action transaction :default))
@@ -268,7 +270,9 @@
                                                  :item-basis (last-trx-item context))]
 
     (log-transaction trx "commodity transfer")
-    (update-in context [:accounts] apply-transfer-to-accounts result)))
+    (-> context
+        (update-in [:accounts] apply-transfer-to-accounts result)
+        (update-last-trxs trx))))
 
 (defmethod ^:private import-transaction :split
   [{:as context

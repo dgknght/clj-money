@@ -329,7 +329,27 @@
                                      :account-item/balance])
                     (entities/select
                       {:account-item/account (entities/find-by
-                                               {:account/name "IRA"})}))))))))
+                                               {:account/name "IRA"})}))))
+        (let [ira (entities/find-by {:account/name "IRA"
+                                     :account/entity entity})
+              aapl (entities/find-by {:commodity/symbol "AAPL"
+                                      :commodity/entity entity})
+              ira-aapl (entities/find-by #:account{:parent ira
+                                                    :commodity aapl})]
+          (is (seq-of-maps-like?
+                [{:account-item/action  :debit
+                  :account-item/quantity 100M
+                  :account-item/index    0
+                  :account-item/balance  100M}
+                 {:account-item/action  :credit
+                  :account-item/quantity -100M
+                  :account-item/index    2
+                  :account-item/balance  100M}]
+                (entities/select
+                  {:account-item/account ira-aapl}
+                  {:sort [[:account-item/index :asc]]}))
+              "Commodity account items have index and balance set"))))))
+
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
