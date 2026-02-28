@@ -331,7 +331,7 @@
    [:td description]
    [:td.text-end (format-decimal quantity 4)]
    [:td.text-end (format-decimal balance 4)]
-   [:td.text-end (currency-format (or value quantity))]])
+   [:td.text-end (currency-format (or value balance))]])
 
 (defn- lot-note-row
   [{:lot-note/keys [transaction-date memo] :as note}]
