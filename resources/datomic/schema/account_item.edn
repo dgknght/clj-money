@@ -31,6 +31,11 @@
   :db/cardinality :db.cardinality/one
   :db/noHistory true
   :db/doc "The account balance as of the inclusion of this item"}
+ {:db/ident :account-item/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The monetary value of the balance expressed in the entity default commodity. Only stored when it differs from :account-item/balance."}
  {:db/ident :account-item/memo
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one

@@ -397,7 +397,12 @@
            price (or (when (default-commodity? account) 1M)
                      (:account/commodity-price account)
                      (fetch-latest-price commodity)
-                     (throw (ex-info "No price found for commodity" {:commodity commodity})))]
+                     (throw (ex-info "No price found for commodity" {:commodity commodity})))
+           updated-items (if (default-commodity? account)
+                           updated-items
+                           (map #(assoc % :account-item/value
+                                        (* (:account-item/balance %) price))
+                                updated-items))]
        (if (= (count updated-items)
               (count items))
          (cons (-> account

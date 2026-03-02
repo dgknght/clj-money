@@ -170,6 +170,8 @@
                :type :decimal}
               {:id :balance
                :type :decimal}
+              {:id :value
+               :type :decimal}
               {:id :index
                :type :integer}
               {:id :memo

@@ -6,7 +6,9 @@
 (s/def :account-item/index integer?)
 (s/def :account-item/balance decimal?)
 (s/def :account-item/quantity decimal?)
+(s/def :account-item/value decimal?)
 (s/def ::e/account-item (s/keys :req [:account-item/quantity
                                       :account-item/balance
                                       :account-item/index]
-                                :opt [:account-item/reconciliation]))
+                                :opt [:account-item/reconciliation
+                                      :account-item/value]))

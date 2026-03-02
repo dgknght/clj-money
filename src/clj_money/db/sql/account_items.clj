@@ -5,7 +5,9 @@
 
 (defmethod sql/after-read :account-item
   [item]
-  (update-in item [:account-item/action] keyword))
+  (cond-> (update-in item [:account-item/action] keyword)
+    (nil? (:account-item/value item))
+    (dissoc :account-item/value)))
 
 (defmethod sql/resolve-temp-ids :account-item
   [{:as item :account-item/keys [reconciliation-id account-id]} id-map]

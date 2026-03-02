@@ -857,6 +857,53 @@
                                  groceries 294M
                                  checking 681M))))
 
+(def ^:private commodity-value-context
+  [(factory :user {:user/email "john@doe.com"})
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:commodity{:name "US Dollar"
+               :entity "Personal"
+               :symbol "USD"
+               :type :currency}
+   #:commodity{:name "Apple, Inc."
+               :entity "Personal"
+               :symbol "AAPL"
+               :type :stock
+               :exchange :nasdaq}
+   #:price{:trade-date (t/local-date 2016 3 1)
+           :value 25M
+           :commodity "AAPL"}
+   #:account{:name "Checking"
+             :type :asset
+             :entity "Personal"}
+   #:account{:name "AAPL Shares"
+             :type :asset
+             :entity "Personal"
+             :commodity "AAPL"}])
+
+(dbtest ^:multi-threaded track-value-for-non-default-commodity
+  (with-context commodity-value-context
+    (let [[checking aapl] (find-accounts "Checking" "AAPL Shares")]
+      (prop/put-and-propagate
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity (find-entity "Personal")
+                      :description "Buy AAPL"
+                      :items [#:transaction-item{:value 250M
+                                                 :debit-item #:account-item{:action :debit
+                                                                            :account aapl
+                                                                            :quantity 10M}
+                                                 :credit-item #:account-item{:action :credit
+                                                                             :account checking
+                                                                             :quantity -250M}}]})
+      (let [aapl-items (entities/select {:account-item/account aapl}
+                                        {:sort [:account-item/index]})
+            checking-items (entities/select {:account-item/account checking}
+                                            {:sort [:account-item/index]})]
+        (is (= 250M (:account-item/value (first aapl-items)))
+            "The non-default-commodity account item has a monetary value")
+        (is (nil? (:account-item/value (first checking-items)))
+            "The default-commodity account item has no monetary value")))))
+
 (def balance-delta-context
   (conj base-context
         #:transaction{:transaction-date (t/local-date 2016 1 1)
