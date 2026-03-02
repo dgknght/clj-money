@@ -66,7 +66,80 @@ Create a `env/dev/config.edn` by copying `env/test/config.edn` and changing
 - Remove `:test? true`
 - Change `:site-protocol` to "http"
 
-*To run in a docker container, do the above, but copy to `env/docker/config.edn`*
+### Running with Docker (Podman)
+
+Create a `.env` file in the project root (see `.env` for an example) with at
+minimum:
+```bash
+REDIS_PASSWORD=...
+SQL_ADM_USER=...   SQL_ADM_PASSWORD=...
+SQL_DDL_USER=...   SQL_DDL_PASSWORD=...
+SQL_APP_USER=...   SQL_APP_PASSWORD=...
+SQL_DB_NAME=...
+SQL_HOST=sql
+DATOMIC_DB_NAME=...
+```
+
+Create `env/docker/config.edn` (this file is gitignored, so credentials are
+safe). Use the structure below, substituting your own credential values. Host
+names (`sql`, `redis`) are the Docker Compose service names and should not
+change.
+
+```edn
+{:application-name "clj-money"
+ :db {:strategies {:sql
+                   {:clj-money.db/strategy :clj-money.db/sql
+                    :host "sql"
+                    :port 5432
+                    :user "<sql-app-user>"
+                    :password "<sql-app-password>"
+                    :dbtype "postgresql"
+                    :dbname "<sql-db-name>"}
+
+                   :datomic-peer
+                   {:clj-money.db/strategy :clj-money.db/datomic-peer
+                    :uri "datomic:sql://<datomic-db-name>?jdbc:postgresql://sql:5432/datomic?user=<sql-app-user>&password=<sql-app-password>"}}
+      :active :datomic-peer}
+ :image-storage {:clj-money.images/strategy :clj-money.images/sql
+                 :host "sql"
+                 :port 5432
+                 :user "<sql-app-user>"
+                 :password "<sql-app-password>"
+                 :dbtype "postgresql"
+                 :dbname "<sql-db-name>"}
+ :mailer-host "localhost"
+ :mailer-from "no-reply@clj-money.com"
+ :partition-period :year
+ :progress {:strategies {:redis {:clj-money.progress/strategy :clj-money.progress/redis
+                                 :prefix "docker"
+                                 :redis-config {:host "redis"
+                                                :port 6379
+                                                :password "<redis-password>"}}}
+            :active :redis}
+ :secret "<app-secret>"
+ :site-host "localhost"
+ :site-protocol "http"
+ :sql-adm-user "<sql-adm-user>"
+ :sql-adm-password "<sql-adm-password>"
+ :sql-app-user "<sql-app-user>"
+ :sql-app-password "<sql-app-password>"
+ :sql-db-name "<sql-db-name>"
+ :sql-ddl-user "<sql-ddl-user>"
+ :sql-ddl-password "<sql-ddl-password>"
+ :sql-host "sql"}
+```
+
+Then bring up the stack with the desired profile:
+
+Datomic Peer
+```bash
+podman-compose --profile datomic-peer up
+```
+
+PostgreSQL
+```bash
+podman-compose --profile sql up
+```
 
 Start the web server with
 ```bash
