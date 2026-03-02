@@ -8,7 +8,7 @@ volumes:
 services:
 
   redis:
-    image: redis:8
+    image: docker.io/redis:8
     restart: on-failure
     ports:
       - 6379:6379
@@ -19,7 +19,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
 
   sql:
-    image: postgres:17
+    image: docker.io/postgres:17
     restart: on-failure
     ports:
       - 5432:5432
@@ -33,7 +33,7 @@ services:
       test: pg_isready
 
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: docker.io/dpage/pgadmin4:latest
     environment:
       PGADMIN_DEFAULT_EMAIL: test@test.com
       PGADMIN_DEFAULT_PASSWORD: please01
@@ -71,7 +71,7 @@ services:
     profiles:
       - datomic-peer
       - datomic-client
-    image: memcached:1.6-bullseye
+    image: docker.io/memcached:1.6-bullseye
     ports:
       - 11211:11211
     restart: on-failure
@@ -125,7 +125,7 @@ services:
     depends_on:
       memcached:
         condition: service_started
-    image: dgknght/datomic-pro:1.0.7075
+    image: docker.io/dgknght/datomic-pro:1.0.7075
     volumes:
       - type: bind
         source: ./env/docker/ # TODO: Should this be a separate folder?
@@ -169,7 +169,7 @@ services:
     profiles:
       - datomic-peer
       - datomic-client
-    image: dgknght/datomic-pro:1.0.7075
+    image: docker.io/dgknght/datomic-pro:1.0.7075
     depends_on:
       datomic-transactor:
         condition: service_healthy
@@ -188,7 +188,7 @@ services:
     depends_on:
       datomic-schema:
         condition: service_completed_successfully
-    image: dgknght/datomic-pro:1.0.7075
+    image: docker.io/dgknght/datomic-pro:1.0.7075
     restart: on-failure
     volumes:
       - type: bind
