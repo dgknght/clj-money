@@ -141,6 +141,10 @@ services:
       - 9999:9999
     healthcheck:
       test: wget localhost:9999/health
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   datomic-schema:
     profiles:

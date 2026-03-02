@@ -145,6 +145,9 @@ sql-driver-class=org.postgresql.Driver
 memcached=memcached:11211
 memcached-auto-discovery=false
 
+ping-host=localhost
+ping-port=9999
+
 memory-index-threshold=32m
 memory-index-max=512m
 object-cache-max=128m
