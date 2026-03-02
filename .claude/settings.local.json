@@ -46,7 +46,8 @@
       "Bash(lein with-profile test rollback:*)",
       "Bash(zcat:*)",
       "Bash(jar -tf:*)",
-      "Bash(podman ps:*)"
+      "Bash(podman ps:*)",
+      "Bash(podman logs:*)"
     ],
     "deny": [],
     "ask": []
