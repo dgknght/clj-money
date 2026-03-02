@@ -129,6 +129,27 @@ change.
  :sql-host "sql"}
 ```
 
+When using the `datomic-peer` profile, also create
+`env/docker/transactor.properties`. The `host` value must match the Docker
+Compose service name so peers can reach the transactor.
+
+```properties
+host=datomic-transactor
+port=4334
+protocol=sql
+
+storage-type=sql
+sql-url=jdbc:postgresql://sql:5432/datomic?user=<sql-app-user>&password=<sql-app-password>
+sql-driver-class=org.postgresql.Driver
+
+memcached=memcached:11211
+memcached-auto-discovery=false
+
+memory-index-threshold=32m
+memory-index-max=512m
+object-cache-max=128m
+```
+
 Then bring up the stack with the desired profile:
 
 Datomic Peer
