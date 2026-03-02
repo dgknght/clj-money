@@ -47,7 +47,10 @@
       "Bash(zcat:*)",
       "Bash(jar -tf:*)",
       "Bash(podman ps:*)",
-      "Bash(podman logs:*)"
+      "Bash(podman logs:*)",
+      "Bash(podman-compose:*)",
+      "Bash(podman images:*)",
+      "Bash(podman inspect:*)"
     ],
     "deny": [],
     "ask": []
