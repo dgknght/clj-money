@@ -87,26 +87,31 @@ change.
 
 ```edn
 {:application-name "clj-money"
+ :alpha-vantage-key "<alpha-vantage-key-here>"
  :db {:strategies {:sql
                    {:clj-money.db/strategy :clj-money.db/sql
-                    :host "sql"
+                    :host :config/sql-host
                     :port 5432
-                    :user "<sql-app-user>"
-                    :password "<sql-app-password>"
+                    :user :config/sql-app-user
+                    :password :config/sql-app-password
                     :dbtype "postgresql"
-                    :dbname "<sql-db-name>"}
+                    :dbname :config/sql-db-name}
 
                    :datomic-peer
                    {:clj-money.db/strategy :clj-money.db/datomic-peer
-                    :uri "datomic:sql://<datomic-db-name>?jdbc:postgresql://sql:5432/datomic?user=<sql-app-user>&password=<sql-app-password>"}}
+                    :uri "datomic:sql://money_development?jdbc:postgresql://localhost:5432/datomic?user=app_user&password=please01"}}
       :active :datomic-peer}
+ :dev? true
+ :detailed-import-logging true
+ :google-client-id ""
+ :google-client-secret ""
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
-                 :host "sql"
+                 :host :config/sql-host
                  :port 5432
-                 :user "<sql-app-user>"
-                 :password "<sql-app-password>"
+                 :user :config/sql-app-user
+                 :password :config/sql-app-password
                  :dbtype "postgresql"
-                 :dbname "<sql-db-name>"}
+                 :dbname :config/sql-db-name}
  :mailer-host "localhost"
  :mailer-from "no-reply@clj-money.com"
  :partition-period :year
@@ -114,39 +119,42 @@ change.
                                  :prefix "docker"
                                  :redis-config {:host "redis"
                                                 :port 6379
-                                                :password "<redis-password>"}}}
+                                                :password :config/redis-password}}}
             :active :redis}
- :secret "<app-secret>"
- :site-host "localhost"
+ :redis-password "<redis-password>"
+ :secret "dev secret"
+ :show-error-messages? true
+ :site-host "localhost:3000"
  :site-protocol "http"
  :sql-adm-user "<sql-adm-user>"
  :sql-adm-password "<sql-adm-password>"
  :sql-app-user "<sql-app-user>"
  :sql-app-password "<sql-app-password>"
- :sql-db-name "<sql-db-name>"
+ :sql-db-name "money_development"
  :sql-ddl-user "<sql-ddl-user>"
  :sql-ddl-password "<sql-ddl-password>"
- :sql-host "sql"}
+ :sql-host "localhost"}
 ```
 
 When using the `datomic-peer` profile, also create
-`env/docker/transactor.properties`. The `host` value must match the Docker
-Compose service name so peers can reach the transactor.
+`env/docker/transactor.properties`.
 
 ```properties
-host=datomic-transactor
+host=0.0.0.0
+alt-host=datomic-transactor
 port=4334
-protocol=sql
 
-storage-type=sql
-sql-url=jdbc:postgresql://sql:5432/datomic?user=<sql-app-user>&password=<sql-app-password>
+ping-host=0.0.0.0
+ping-port=9999
+
+protocol=sql
+sql-user=app_user
+sql-password=please01
+sql-url=jdbc:postgresql://sql:5432/datomic
 sql-driver-class=org.postgresql.Driver
 
 memcached=memcached:11211
 memcached-auto-discovery=false
-
-ping-host=localhost
-ping-port=9999
 
 memory-index-threshold=32m
 memory-index-max=512m
@@ -155,14 +163,14 @@ object-cache-max=128m
 
 Then bring up the stack with the desired profile:
 
+Basic
+```bash
+podman-compose up
+```
+
 Datomic Peer
 ```bash
 podman-compose --profile datomic-peer up
-```
-
-PostgreSQL
-```bash
-podman-compose --profile sql up
 ```
 
 Start the web server with
@@ -202,13 +210,20 @@ Stop the client with:
 ```
 
 ## Running server tests
+
+Serial
 ```bash
 lein test
 ```
 
-Ignore a storage strategy
+Parallel
 ```bash
-IGNORE_STRATEGY=:sql lein test
+lein ptest
+```
+
+Target a data storage strategy
+```bash
+lein test :datomic-peer
 ```
 
 Specify a strategy for a single test
