@@ -853,6 +853,7 @@
                     :report/caption name})
             (cons {:report/caption "Cash"
                    :report/style :subheader
+                   :report/depth (inc depth)
                    :report/current-value value
                    :report/cost-basis value
                    :report/gain-loss 0M}
