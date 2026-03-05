@@ -183,6 +183,26 @@
            #:transaction-item{:index -1
                               :balance 0M})))
 
+(defn- update-last-trxs-from-trade-trx
+  "Update last-trx-items from a trade transaction that uses
+  credit-item/debit-item account-item maps instead of :account."
+  [context {:transaction/keys [transaction-date items]}]
+  (->> items
+       (mapcat (juxt :transaction-item/credit-item
+                     :transaction-item/debit-item))
+       (filter :account-item/index)
+       (reduce (fn [ctx {:account-item/keys [account index balance]}]
+                 (if-let [account-id (:id account)]
+                   (-> ctx
+                       (assoc-in [:last-trx-items account-id]
+                                 {:transaction-item/account  account
+                                  :transaction-item/index    index
+                                  :transaction-item/balance  balance})
+                       (assoc-in [:last-trx-dates account-id]
+                                 transaction-date))
+                   ctx))
+               context)))
+
 (defmethod ^:private import-transaction :buy
   [{:keys [account-ids accounts] :as context}
    {:trade/keys [shares value]
@@ -204,10 +224,9 @@
         {trx :trade/transaction :as result} (trading/buy purchase
                                                          :item-basis (last-trx-item context))]
     (log-transaction trx "commodity purchase")
-    (update-in context
-               [:accounts]
-               apply-purchase-to-accounts
-               result)))
+    (-> context
+        (update-in [:accounts] apply-purchase-to-accounts result)
+        (update-last-trxs-from-trade-trx trx))))
 
 (defn- find-commodity
   [{:keys [commodities-by-symbol
@@ -233,10 +252,10 @@
                              :value value}
                fee (assoc :trade/fee fee
                           :trade/fee-account fee-account))
-        {:trade/keys [transaction]} (trading/sell sale
-                                                  :item-basis (last-trx-item context))]
-    (log-transaction transaction "commodity sale"))
-  context)
+        {trx :trade/transaction} (trading/sell sale
+                                               :item-basis (last-trx-item context))]
+    (log-transaction trx "commodity sale")
+    (update-last-trxs-from-trade-trx context trx)))
 
 (defn- apply-transfer-to-accounts
   [accounts {:transfer/keys [from-account

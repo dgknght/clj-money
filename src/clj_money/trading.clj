@@ -405,15 +405,15 @@
   transaction"
   [{:trade/keys [date account lot-items] :as trade}
    opts]
-  (let [items (create-sale-transaction-items trade opts)]
-    (update-in trade
-               [:trade/transactions]
-               (fnil conj [])
-               #:transaction{:entity (:account/entity account)
-                             :transaction-date date
-                             :description (sale-transaction-description trade)
-                             :items (vec items)
-                             :lot-items lot-items})))
+  (let [items (create-sale-transaction-items trade opts)
+        trx #:transaction{:entity (:account/entity account)
+                          :transaction-date date
+                          :description (sale-transaction-description trade)
+                          :items (vec items)
+                          :lot-items lot-items}]
+    (-> trade
+        (update-in [:trade/transactions] (fnil conj []) trx)
+        (assoc :trade/transaction trx))))
 
 (defn- create-lot
   "Given a trade map, creates and appends the commodity lot"
