@@ -462,7 +462,7 @@
    visible-ids
    page-state]
   ^{:key (str "report-row-" caption)}
-  [:tr {:class (cond-> [(str "report-" style)]
+  [:tr {:class (cond-> [(str "report-" (name style))]
                  (not (visible? record visible-ids))
                  (conj "d-none"))
         :on-click (when-not (= "data" style)
