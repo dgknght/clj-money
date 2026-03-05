@@ -806,7 +806,7 @@
                         cost-basis
                         gain]}]
          {:report/caption (dates/format-local-date purchase-date)
-          :report/depth depth
+          :report/depth (inc depth)
           :report/style :data
           :report/shares-purchased shares-purchased
           :report/shares-owned shares-owned
