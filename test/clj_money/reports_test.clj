@@ -136,3 +136,21 @@
       (test-portfolio (t/local-date 2015 4 30) :by-commodity))
     (testing "1 month ago by commodity"
       (test-portfolio (t/local-date 2015 3 31) :by-commodity))))
+
+(deftest portfolio-with-nested-trading-account
+  (with-context fixtures/nested-portfolio-context
+    (let [entity (entities/find (find-entity "Personal"))
+          result (reports/portfolio {:aggregate :by-account
+                                     :entity entity
+                                     :as-of (t/local-date 2015 4 30)})]
+      (is (seq (remove #(= :summary (:report/style %)) result))
+          "Trading accounts nested under a parent appear in the portfolio report"))))
+
+(deftest portfolio-with-cash-only-nested-trading-account
+  (with-context fixtures/cash-only-nested-portfolio-context
+    (let [entity (entities/find (find-entity "Personal"))
+          result (reports/portfolio {:aggregate :by-account
+                                     :entity entity
+                                     :as-of (t/local-date 2015 4 30)})]
+      (is (seq (remove #(= :summary (:report/style %)) result))
+          "A cash-only trading account nested under a parent appears in the portfolio report"))))

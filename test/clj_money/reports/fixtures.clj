@@ -952,6 +952,52 @@
                             :items [#:lot-item{:action :buy
                                                :shares 10M
                                                :price 10M}]}]}])
+(def nested-portfolio-context
+  (conj basic-context
+        #:account{:name "Investments"
+                  :type :asset
+                  :entity "Personal"}
+        #:account{:name "IRA"
+                  :type :asset
+                  :system-tags #{:trading}
+                  :parent "Investments"
+                  :entity "Personal"}
+        #:commodity{:name "Apple, Inc."
+                    :entity "Personal"
+                    :symbol "AAPL"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Beginning balance"
+                      :quantity 2000M
+                      :debit-account "IRA"
+                      :credit-account "Opening Balances"}
+        #:trade{:date (t/local-date 2015 2 1)
+                :entity "Personal"
+                :type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 100M
+                :value 1000M})) ; $10.00/share
+
+(def cash-only-nested-portfolio-context
+  (conj basic-context
+        #:account{:name "Investments"
+                  :type :asset
+                  :entity "Personal"}
+        #:account{:name "IRA"
+                  :type :asset
+                  :system-tags #{:trading}
+                  :parent "Investments"
+                  :entity "Personal"}
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Beginning balance"
+                      :quantity 2000M
+                      :debit-account "IRA"
+                      :credit-account "Opening Balances"}))
+
 (def portfolio-context
   (conj basic-context
         #:account{:name "IRA"
