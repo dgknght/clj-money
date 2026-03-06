@@ -599,7 +599,13 @@
       (testing "The trading account"
         (is (comparable? {:account/quantity 1000M}
                          (entities/find ira))
-            "The account balance is unchanged")))))
+            "The account balance is unchanged"))
+      (testing "The commodity account"
+        (is (comparable? {:account/quantity 200M}
+                         (entities/find-by
+                           #:account{:commodity commodity
+                                     :parent ira}))
+            "The commodity account quantity reflects the split")))))
 
 (def ^:private rev-split-context
   (conj base-context

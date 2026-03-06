@@ -898,6 +898,32 @@
            :split/lots lots
            :split/lot-items lot-items)))
 
+(defn- adjust-split-account-items
+  [{:split/keys [commodity-account ratio] :as split}]
+  (if commodity-account
+    (let [items (entities/select
+                  {:account-item/account commodity-account}
+                  {:sort [:transaction/transaction-date
+                          :account-item/index]
+                   :select-also [:transaction/transaction-date]})
+          [final-balance adjusted]
+          (reduce (fn [[bal acc] item]
+                    (let [new-qty (apply-ratio
+                                    (:account-item/quantity item)
+                                    ratio)
+                          new-bal (+ bal new-qty)]
+                      [new-bal
+                       (conj acc (assoc item
+                                        :account-item/quantity new-qty
+                                        :account-item/balance new-bal))]))
+                  [0M []]
+                  items)]
+      (assoc split
+             :split/account-items adjusted
+             :split/commodity-account
+             (assoc commodity-account :account/quantity final-balance)))
+    split))
+
 (defn ratio->words
   "Returns a human-readable ratio string.
   ratio 2   → \"2 for 1\"
@@ -928,10 +954,16 @@
   [{:split/keys [lots
                  lot-items
                  lot-note
+                 account-items
+                 commodity-account
                  ratio]}
    opts]
   (let [result (->> lots
-                    (concat lot-items [lot-note])
+                    (concat lot-items
+                            [lot-note]
+                            account-items
+                            (when commodity-account [commodity-account]))
+                    (filter identity)
                     (entities/put-many opts)
                     (group-by util/entity-type))]
     {:split/lots (:lot result)
@@ -969,6 +1001,7 @@
             append-split-lots
             append-split-ratio
             adjust-split-lots
+            adjust-split-account-items
             create-split-note
             (put-split opts)))))
 
