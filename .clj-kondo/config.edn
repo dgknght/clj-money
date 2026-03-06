@@ -55,6 +55,7 @@
                                          (clj-money.entities.propagation/with-propagation)
                                          (clj-money.otel/with-tracing)
                                          (clj-money.tasks/with-options)
+                                         (clj-money.import.gnucash.tasks/with-opts-parsing)
                                          (clj-money.progress.redis-test/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}
            :unused-private-var {:exclude #{clj-money.entities.transactions/simplify}}

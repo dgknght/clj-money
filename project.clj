@@ -176,6 +176,7 @@
             "partition"             ["run" "-m" "clj-money.db.sql.tasks/create-partitions"]
             "check-trans"           ["run" "-m" "clj-money.db.sql.tasks/check-transaction-balances"]
             "chunk-file"            ["run" "-m" "clj-money.import.gnucash.tasks/chunk-file"]
+            "account-history"       ["run" "-m" "clj-money.import.gnucash.tasks/account-history"]
             "seed"                  ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]
             "recalc"                ["run" "-m" "clj-money.tasks/recalc"]
