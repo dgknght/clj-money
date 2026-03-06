@@ -30,7 +30,8 @@
     context))
 
 (def ^:private chunk-file-options
-  [["-m" "--maximum MAXIMUM" "The maximum number of records to include in each output file"
+  [["-h" "--help" "Show this help message"]
+   ["-m" "--maximum MAXIMUM" "The maximum number of records to include in each output file"
     :parse-fn parse-long
     :default 10000]])
 
@@ -39,15 +40,18 @@
   and returns a map containing the information needed
   to service the request"
   [args]
-  (let [opts (parse-opts args chunk-file-options)
-        input-path (-> opts :arguments first)
-        input-file (File. input-path)
-        output-folder (.getParent input-file)
-        file-name (.getName input-file)]
-    {:options (:options opts)
-     :input-file input-file
-     :file-name file-name
-     :output-folder output-folder}))
+  (let [opts (parse-opts args chunk-file-options)]
+    (when (-> opts :options :help)
+      (println (:summary opts))
+      (System/exit 0))
+    (let [input-path (-> opts :arguments first)
+          input-file (File. input-path)
+          output-folder (.getParent input-file)
+          file-name (.getName input-file)]
+      {:options (:options opts)
+       :input-file input-file
+       :file-name file-name
+       :output-folder output-folder})))
 
 (defn- evaluate-output
   "Evaluates the output for the chunking process
