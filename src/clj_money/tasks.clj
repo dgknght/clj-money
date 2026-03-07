@@ -1,7 +1,8 @@
 (ns clj-money.tasks
-  (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [clojure.edn :as edn]
+            [clj-money.cli :refer [with-options
+                                   default-options]]
             [clj-money.entities.schema :as schema]
             [clj-money.entities.ref]
             [clj-money.db.ref]
@@ -9,46 +10,10 @@
             [clj-money.accounts :refer [nest unnest]]
             [clj-money.entities.transactions :as transactions]))
 
-(def ^:private usage?
-  (comp :help? :options))
-
-(defn- print-usage
-  [{:keys [summary]} {:keys [usage description]}]
-  (println description)
-  (println "")
-  (println "USAGE:")
-  (println usage)
-  (println "")
-  (println "OPTIONS:")
-  (println summary))
-
-(defn- print-error
-  [parsed-opts opts-spec]
-  (println "ERROR:")
-  (doseq [e (:errors parsed-opts)]
-    (println (str "  " e)))
-  (print-usage parsed-opts opts-spec))
-
-(defmacro with-options
-  [[arg-sym options] & body]
-  `(let [opts# ~options
-         spec# (:options opts#)
-         parsed# (parse-opts (:args opts#)
-                             spec#)
-         f# (fn* [~arg-sym] ~@body)]
-     (cond
-       (usage? parsed#)  (print-usage parsed# opts#)
-       (:errors parsed#) (print-error parsed# opts#)
-       :else             (f# parsed#))))
-
-(def ^:private default-opts
-  [["-h" "--help" "Show usage instructions"
-    :id :help?]])
-
 (def ^:private migrate-account-cli-options
   {:usage "lein migrate-account <options>"
    :description "Move transactions from one account to another"
-   :options (conj default-opts
+   :options (conj default-options
                   ["-f" "--from-account FROM_ACCOUNT" "The name of the source account"
                    :id :from-account
                    :missing "The name of the \"from\" account must be specified."]
@@ -94,7 +59,7 @@
 (def ^:priviate re-index-cli-options
   {:usage "lein re-index <options>"
    :description "Recalculate :account-item/index and :account-item/balance for the specified account or for all accounts in the specified entity"
-   :options (conj default-opts
+   :options (conj default-options
                   ["-a" "--account ACCOUNT" "The name of the account to re-index"
                    :id :account-name]
                   ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity to be updated"
@@ -132,7 +97,7 @@
 (def ^:private export-user-tags-cli-options
   {:usage "lein export-user-tags <options>"
    :description "Write the user-defined tags for all accounts in an entity to the a file."
-   :options (conj default-opts
+   :options (conj default-options
                   ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity"
                    :id :user-email
                    :missing "A user email must be specified."]
@@ -170,7 +135,7 @@
 (def ^:private import-user-tags-cli-options
   {:usage "lein import-user-tags <options>"
    :description "Import the user-defined tags for an entity from a file."
-   :options (conj default-opts
+   :options (conj default-options
                   ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity"
                    :id :user-email
                    :missing "The user email must be specified."]

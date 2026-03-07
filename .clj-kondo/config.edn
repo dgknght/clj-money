@@ -54,7 +54,7 @@
                                          (clj-money.entities.transactions/with-delayed-propagation)
                                          (clj-money.entities.propagation/with-propagation)
                                          (clj-money.otel/with-tracing)
-                                         (clj-money.tasks/with-options)
+                                         (clj-money.cli/with-options)
                                          (clj-money.progress.redis-test/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}
            :unused-private-var {:exclude #{clj-money.entities.transactions/simplify}}
