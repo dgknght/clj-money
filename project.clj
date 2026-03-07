@@ -154,7 +154,8 @@
                  [lambdaisland/uri "1.4.54"]
                  [com.taoensso/carmine "3.4.1" :exclusions [org.clojure/tools.reader commons-codec]]
                  [stowaway "0.2.12" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
-                 [io.opentelemetry/opentelemetry-api "1.55.0"]]
+                 [io.opentelemetry/opentelemetry-api "1.55.0"]
+                 [org.clojure/data.csv "1.1.1"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
@@ -180,6 +181,7 @@
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]
             "recalc"                ["run" "-m" "clj-money.tasks/recalc"]
             "migrate-account"       ["run" "-m" "clj-money.tasks/migrate-account"]
+            "account-report"        ["run" "-m" "clj-money.tasks/account-report"]
             "export-user-tags"      ["run" "-m" "clj-money.tasks/export-user-tags"]
             "import-user-tags"      ["run" "-m" "clj-money.tasks/import-user-tags"]
             "er-diagram"            ["run" "-m" "clj-money.tasks/er-diagram"]
