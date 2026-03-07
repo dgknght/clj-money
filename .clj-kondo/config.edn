@@ -1,5 +1,4 @@
-{:lint-as {clj-money.cli/with-options clojure.core/with-open}
- :linters {:unresolved-symbol {:exclude [(clojure.test/is [http-success?
+{:linters {:unresolved-symbol {:exclude [(clojure.test/is [http-success?
                                                            http-created?
                                                            http-no-content?
                                                            http-bad-request?
