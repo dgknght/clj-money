@@ -230,21 +230,26 @@
 
 (defn- er-entity
   [{:keys [id fields]}]
-  (concat [(str "  " (name id) " {")]
-                                  (map (fn [{:keys [id type]}]
-                                         (str "    " (name type) " " (name id)))
-                                       fields)
-                                  ["  }"]))
+  (concat
+    [(str "  " (name id) " \u007B")]
+    (map (fn [{:keys [id type]}]
+           (str "    " (name type) " " (name id)))
+         fields)
+    ["  \u007D"]))
 
 (defn- er-relationships
   [{:keys [refs id]}]
   (map (fn [ref]
-         (str "  " (name ref) " ||--|{ " (name id) " : \"has many\""))
-                                      refs))
+         (let [ref-name (if (keyword? ref)
+                          (name ref)
+                          (name (:id ref)))]
+           (str "  " ref-name " ||--|\u007B " (name id) " : \"has many\"")))
+       refs))
 
-                                      (defn er-diagram
-                                        [& _args]
-                                        (let [lines (concat ["erDiagram"]
-                                                            (mapcat er-entity schema/entities)
-                                                            (mapcat er-relationships schema/entities))]
-                                          (doseq [l lines] (println l))))
+(defn er-diagram
+  [& _args]
+  (let [lines (concat
+                ["erDiagram"]
+                (mapcat er-entity schema/entities)
+                (mapcat er-relationships schema/entities))]
+    (doseq [l lines] (println l))))
