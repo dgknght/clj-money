@@ -74,6 +74,7 @@
                                                       clj-money.runner/eftest
                                                       clj-money.tasks/compile-sass
                                                       clj-money.tasks/export-user-tags
+                                                      clj-money.tasks/er-diagram
                                                       clj-money.tasks/import-user-tags
                                                       clj-money.tasks/migrate-account
                                                       clj-money.tasks/re-index

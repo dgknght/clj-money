@@ -173,19 +173,24 @@
               account (get-in accounts [path])]
         (entities/put (assoc account :account/user-tags user-tags))))))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
-(defn er-diagram [& _args]
+
+(defn- er-entity
+  [{:keys [id fields]}]
+  (concat [(str "  " (name id) " {")]
+          (map (fn [{:keys [id type]}]
+                 (str "    " (name type) " " (name id)))
+               fields)
+          ["  }"]))
+
+(defn- er-relationships
+  [{:keys [refs id]}]
+  (map (fn [ref]
+         (str "  " (name ref) " ||--|{ " (name id) " : \"has many\""))
+       refs))
+
+(defn er-diagram
+  [& _args]
   (let [lines (concat ["erDiagram"]
-                      (mapcat (fn [{:keys [id fields]}]
-                                (concat [(str "  " (name id) " {")]
-                                (map (fn [{:keys [id type]}]
-                                         (str "    " (name type) " " (name id)))
-                                     fields)
-                                ["  }"]))
-                              schema/entities)
-                      (mapcat (fn [{:keys [refs id]}]
-                                (map (fn [ref]
-                                       (str "  " (name ref) " ||--|{ " (name id) " : \"has many\""))
-                                     refs))
-                              schema/entities))]
+                      (mapcat er-entity schema/entities)
+                      (mapcat er-relationships schema/entities))]
     (doseq [l lines] (println l))))
