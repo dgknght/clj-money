@@ -19,6 +19,7 @@
   (println "ERROR:")
   (doseq [e (:errors parsed-opts)]
     (println (str "  " e)))
+  (println "")
   (print-usage parsed-opts opts-spec))
 
 (defmacro with-options
