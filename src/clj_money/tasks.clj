@@ -187,7 +187,12 @@
                    :missing "The entity name must be specified"]
                   ["-a" "--account-name ACCOUNT_NAME" "The name of the account for which transactions are to be written"
                    :id :account-name
-                   :missing "The account name must be specified"])})
+                   :missing "The account name must be specified"]
+                  ["-s" "--separator SEPARATOR" "The value to use to separate fields in a record"
+                   :id :separator
+                   :parse-fn keyword
+                   :validate [#{:comma :tab}]
+                   :default :comma])})
 
 (defn account-report
   [& args]
@@ -195,7 +200,8 @@
                                :args args)]
     (let [{:keys [user-email
                   entity-name
-                  account-name]} (:options parsed)
+                  account-name
+                  separator]} (:options parsed)
           user (entities/find-by {:user/email user-email})
           _ (assert user
                     (format "Unable to find a user with email address \"%s\"."
@@ -209,21 +215,30 @@
                                      :account/name account-name})
           format-date (partial
                         t/format
-                        (t/formatter "MM/dd/yyyy"))]
+                        (t/formatter "MM/dd/yyyy"))
+          sep (case separator
+                :comma \,
+                :tab \tab)]
       (assert account
               (format "Unable to find account with name \"%s\"."
                       account-name))
       (csv/write-csv
         *out*
         (cons ["Date"
+               "Description"
+               "Memo"
                "Quantity"
                "Balance"]
               (map (juxt (comp format-date
                                :transaction/transaction-date)
+                         :transaction/description
+                         :account-item/memo
                          :account-item/quantity
                          :account-item/balance)
                    (entities/select {:account-item/account account}
-                                    {:select-also [:transaction/transaction-date]}))))
+                                    {:select-also [:transaction/transaction-date
+                                                   :transaction/description]})))
+        :separator sep)
       (flush)
       (shutdown-agents)
       (System/exit 0))))
