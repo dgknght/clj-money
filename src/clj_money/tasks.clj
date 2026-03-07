@@ -1,6 +1,8 @@
 (ns clj-money.tasks
   (:require [clojure.pprint :refer [pprint]]
             [clojure.edn :as edn]
+            [clojure.data.csv :as csv]
+            [java-time.api :as t]
             [clj-money.cli :refer [with-options
                                    default-options]]
             [clj-money.entities.schema :as schema]
@@ -11,63 +13,63 @@
             [clj-money.entities.transactions :as transactions]))
 
 (def ^:private migrate-account-cli-options
-  {:usage "lein migrate-account <options>"
-   :description "Move transactions from one account to another"
-   :options (conj default-options
-                  ["-f" "--from-account FROM_ACCOUNT" "The name of the source account"
-                   :id :from-account
-                   :missing "The name of the \"from\" account must be specified."]
-                  ["-t" "--to-account TO_ACCOUNT" "The name of the target account"
-                   :id :to-account
-                   :missing "The name of the \"to\" account must be specified."]
-                  ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity to be updated"
-                   :id :user-email
-                   :missing "The user email must be specified"]
-                  ["-e" "--entity ENTITY_NAME" "The name of the entity to be updated"
-                   :id :entity-name
-                   :missing "The entity name must be specified"])})
+        {:usage "lein migrate-account -- <options>"
+         :description "Move transactions from one account to another"
+         :options (conj default-options
+                        ["-f" "--from-account FROM_ACCOUNT" "The name of the source account"
+                         :id :from-account
+                         :missing "The name of the \"from\" account must be specified."]
+                        ["-t" "--to-account TO_ACCOUNT" "The name of the target account"
+                         :id :to-account
+                         :missing "The name of the \"to\" account must be specified."]
+                        ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity to be updated"
+                         :id :user-email
+                         :missing "The user email must be specified"]
+                        ["-e" "--entity ENTITY_NAME" "The name of the entity to be updated"
+                         :id :entity-name
+                         :missing "The entity name must be specified"])})
 
 (defn migrate-account
-  [& args]
-  (with-options [parsed (assoc migrate-account-cli-options
-                               :args args)]
-    (let [{{:keys [user-email
-                   entity-name
-                   from-account
-                   to-account]} :options} parsed
-          user (entities/find-by {:user/email user-email})
-          _ (assert user
-                    (format "Unable to find user with email address \"%s\"."
-                            user-email))
-          entity (entities/find-by {:entity/user user
-                                    :entity/name entity-name})
-          _ (assert entity
-                    (format "Unable to find an entity named \"%s\"."
-                            entity-name))
-          from-account (entities/find-by #:account{:entity entity
-                                                   :name from-account})
-          _ (assert from-account
-                    (format "Unable to find an account named \"%s\"."
-                            from-account))
-          to-account (entities/find-by #:account{:entity entity
-                                                 :name to-account})]
-      (assert to-account
-              (format "Unable to find an account named \"%s\"."
-                      to-account))
-      (transactions/migrate-account from-account to-account))))
+        [& args]
+        (with-options [parsed (assoc migrate-account-cli-options
+                                     :args args)]
+                (let [{{:keys [user-email
+                               entity-name
+                               from-account
+                               to-account]} :options} parsed
+                      user (entities/find-by {:user/email user-email})
+                      _ (assert user
+                                (format "Unable to find user with email address \"%s\"."
+                                        user-email))
+                      entity (entities/find-by {:entity/user user
+                                                :entity/name entity-name})
+                      _ (assert entity
+                                (format "Unable to find an entity named \"%s\"."
+                                        entity-name))
+                      from-account (entities/find-by #:account{:entity entity
+                                                               :name from-account})
+                      _ (assert from-account
+                                (format "Unable to find an account named \"%s\"."
+                                        from-account))
+                      to-account (entities/find-by #:account{:entity entity
+                                                             :name to-account})]
+                        (assert to-account
+                                (format "Unable to find an account named \"%s\"."
+                                        to-account))
+                        (transactions/migrate-account from-account to-account))))
 
 (def ^:priviate re-index-cli-options
-  {:usage "lein re-index <options>"
-   :description "Recalculate :account-item/index and :account-item/balance for the specified account or for all accounts in the specified entity"
-   :options (conj default-options
-                  ["-a" "--account ACCOUNT" "The name of the account to re-index"
-                   :id :account-name]
-                  ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity to be updated"
-                   :id :user-email
-                   :missing "The user email must be specified"]
-                  ["-e" "--entity ENTITY_NAME" "The name of the entity to be updated"
-                   :id :entity-name
-                   :missing "The entity name must be specified"])})
+  {:usage "lein re-index -- <options>"
+  :description "Recalculate :account-item/index and :account-item/balance for the specified account or for all accounts in the specified entity"
+  :options (conj default-options
+                 ["-a" "--account ACCOUNT" "The name of the account to re-index"
+                  :id :account-name]
+                 ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity to be updated"
+                  :id :user-email
+                  :missing "The user email must be specified"]
+                 ["-e" "--entity ENTITY_NAME" "The name of the entity to be updated"
+                  :id :entity-name
+                  :missing "The entity name must be specified"])})
 
 (defn re-index
   [& args]
@@ -95,7 +97,7 @@
   (shutdown-agents))
 
 (def ^:private export-user-tags-cli-options
-  {:usage "lein export-user-tags <options>"
+  {:usage "lein export-user-tags -- <options>"
    :description "Write the user-defined tags for all accounts in an entity to the a file."
    :options (conj default-options
                   ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity"
@@ -133,7 +135,7 @@
                  prn-str)))))
 
 (def ^:private import-user-tags-cli-options
-  {:usage "lein import-user-tags <options>"
+  {:usage "lein import-user-tags -- <options>"
    :description "Import the user-defined tags for an entity from a file."
    :options (conj default-options
                   ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity"
@@ -173,6 +175,58 @@
               account (get-in accounts [path])]
         (entities/put (assoc account :account/user-tags user-tags))))))
 
+(def ^:private account-report-cli-opts
+  {:description "Create a CSV report of the transactions of an account"
+   :usage "lein account-report -- <options>"
+   :options (conj default-options
+                  ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity"
+                   :id :user-email
+                   :missing "The user email must be specified."]
+                  ["-e" "--entity ENTITY_NAME" "The name of the entity to be updated"
+                   :id :entity-name
+                   :missing "The entity name must be specified"]
+                  ["-a" "--account-name ACCOUNT_NAME" "The name of the account for which transactions are to be written"
+                   :id :account-name
+                   :missing "The account name must be specified"])})
+
+(defn account-report
+  [& args]
+  (with-options [parsed (assoc account-report-cli-opts
+                               :args args)]
+                (let [{:keys [user-email
+                               entity-name
+                               account-name]} (:options parsed)
+                             user (entities/find-by {:user/email user-email})
+                             _ (assert user
+                                       (format "Unable to find a user with email address \"%s\"."
+                                               user-email))
+                             entity (entities/find-by {:entity/user user
+                                                      :entity/name entity-name})
+                             _ (assert entity
+                                       (format "Unable to find an entity with name \"%s\"."
+                                               entity-name))
+                             account (entities/find-by {:account/entity entity
+                                                       :account/name account-name})
+                             format-date (partial
+                                           t/format
+                                           (t/formatter "MM/dd/yyyy"))]
+                  (assert account
+                          (format "Unable to find account with name \"%s\"."
+                                  account-name))
+                  (csv/write-csv
+                    *out*
+                    (cons ["Date"
+                           "Quantity"
+                           "Balance"]
+                          (map (juxt (comp format-date
+                                           :transaction/transaction-date)
+                                     :account-item/quantity
+                                     :account-item/balance)
+                               (entities/select {:account-item/account account}
+                                                {:select-also [:transaction/transaction-date]}))))
+                  (flush)
+                  (shutdown-agents)
+                  (System/exit 0))))
 
 (defn- er-entity
   [{:keys [id fields]}]

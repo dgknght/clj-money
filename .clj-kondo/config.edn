@@ -1,4 +1,5 @@
-{:linters {:unresolved-symbol {:exclude [(clojure.test/is [http-success?
+{:lint-as {clj-money.cli/with-options clojure.core/with-open}
+ :linters {:unresolved-symbol {:exclude [(clojure.test/is [http-success?
                                                            http-created?
                                                            http-no-content?
                                                            http-bad-request?
@@ -77,6 +78,7 @@
                                                       clj-money.tasks/er-diagram
                                                       clj-money.tasks/import-user-tags
                                                       clj-money.tasks/migrate-account
+                                                      clj-money.tasks/account-report
                                                       clj-money.tasks/re-index
                                                       clj-money.tasks/update-commodity-price-ranges
                                                       clj-money.util/pp->
