@@ -504,21 +504,24 @@
                          [:transaction/items]
                          (comp #(map (process-trx-item ctx) %)
                                remove-zero-quantity-items))]
-      (if (empty? (:transaction/items trx))
+      (cond
+        (empty? (:transaction/items trx))
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
           (assoc-warning ctx "Transaction with no items" trx))
-        (do
-          (when-not (after-last-trx? trx ctx)
-            (throw-out-of-order-trx trx ctx))
-          (-> ctx
-              (import-transaction trx)
-              (update-in [:accounts] (apply-transaction-to-accounts trx))
-              (update-last-trxs trx)
-              (update-in [:entity]
-                         dates/push-entity-boundary
-                         :entity/transaction-date-range 
-                         (:transaction/transaction-date trx))))))))
+
+        (not (after-last-trx? trx ctx))
+        (throw-out-of-order-trx trx ctx)
+
+        :else
+        (-> ctx
+            (import-transaction trx)
+            (update-in [:accounts] (apply-transaction-to-accounts trx))
+            (update-last-trxs trx)
+            (update-in [:entity]
+                       dates/push-entity-boundary
+                       :entity/transaction-date-range
+                       (:transaction/transaction-date trx)))))))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity account-ids]
