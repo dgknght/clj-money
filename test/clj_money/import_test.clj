@@ -292,7 +292,7 @@
 (deftest import-with-commodities
   (with-context ext-context
     (let [imp (find-import "Personal")
-          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)]
+          {:keys [entity]} (execute-import imp :item-basis last-trx-item)]
       (assert entity "No entity was returned from the import")
       (testing "commodities"
         (is (comparable?

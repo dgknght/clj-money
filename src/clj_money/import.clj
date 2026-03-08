@@ -512,7 +512,7 @@
     (throw (ex-info "Transaction out of order" t))))
 
 (defmethod import-record* :transaction
-  [{:as ctx :keys [accounts last-trx-dates]} transaction]
+  [ctx transaction]
   (with-fatal-exceptions
     (let [{trx :transaction
            context :context} (process-trx-items transaction ctx)]
@@ -522,11 +522,11 @@
           (log/warnf "[import] Transaction with no items: %s" trx)
           (assoc-warning ctx "Transaction with no items" trx))
 
-        (not (after-last-trx? trx ctx))
-        (throw-out-of-order-trx trx ctx)
+        (not (after-last-trx? trx context))
+        (throw-out-of-order-trx trx context)
 
         :else
-        (-> ctx
+        (-> context
             (import-transaction trx)
             (update-in [:accounts] (apply-transaction-to-accounts trx))
             (update-last-trxs trx)
