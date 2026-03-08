@@ -413,13 +413,18 @@
   (remove #(zero? (:transaction-item/quantity %)) items))
 
 (defn- propagate-item
-  [{:transaction-item/keys [polarized-quantity account] :as item} context]
-  {:pre [(:transaction-item/polarized-quantity item)
-         (:transaction-item/account item)]}
-  (let [{:transaction-item/keys [balance index]} (last-trx-item account context)]
-    (assoc item
-           :transaction-item/balance (+ balance polarized-quantity)
-           :transaction-item/index (inc index))))
+  [{:transaction-item/keys [account] :as item} context]
+  {:pre [(:transaction-item/account item)]}
+  (let [{:transaction-item/keys [balance index]} (last-trx-item account context)
+        p-qty (polarize-quantity {:account account
+                                  :quantity (:transaction-item/quantity item)
+                                  :action (:transaction-item/action item)})]
+    {:item (assoc item
+                  :transaction-item/balance (+ balance p-qty)
+                  :transaction-item/index (inc index))
+     :context (assoc-in context
+                        [:last-trx-items (:id account)]
+                        item)}))
 
 (defn- update-last-trxs
   [context {:transaction/keys [items transaction-date]}]
@@ -443,16 +448,25 @@
                              :action action
                              :quantity quantity})))
 
-(defn- process-trx-item
-  ([ctx] #(process-trx-item % ctx))
-  ([item ctx]
-   (-> item
-       (refine-recon-info ctx)
-       (resolve-account-reference ctx)
-       polarize-item-quantity
-       purge-import-keys
-       (propagate-item ctx)
-       (dissoc :transaction-item/polarized-quantity))))
+(defn- process-trx-items
+  [trx ctx]
+  (let [{:keys [context items]}
+        (->> (:transaction/items trx)
+             remove-zero-quantity-items
+             (reduce (fn [acc item]
+                       (let [{i :item c :context}
+                             (-> item
+                                 (refine-recon-info ctx)
+                                 (resolve-account-reference ctx)
+                                 purge-import-keys
+                                 (propagate-item (:context acc)))]
+                         (-> acc
+                             (assoc :context c)
+                             (update-in [:items] conj i))))
+                     {:context ctx
+                      :items []}))]
+    {:context context
+     :transaction (assoc trx :transaction/items items)}))
 
 (defn- apply-transaction-to-accounts
   ([trx] #(apply-transaction-to-accounts % trx))
@@ -500,10 +514,8 @@
 (defmethod import-record* :transaction
   [{:as ctx :keys [accounts last-trx-dates]} transaction]
   (with-fatal-exceptions
-    (let [trx (update-in transaction
-                         [:transaction/items]
-                         (comp #(map (process-trx-item ctx) %)
-                               remove-zero-quantity-items))]
+    (let [{trx :transaction
+           context :context} (process-trx-items transaction ctx)]
       (cond
         (empty? (:transaction/items trx))
         (do
