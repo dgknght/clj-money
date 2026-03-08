@@ -478,6 +478,25 @@
        (filter identity)
        (every? #(t/not-after? % transaction-date))))
 
+(defn- throw-out-of-order-trx
+  [trx {:keys [accounts last-trx-dates]}]
+  (let [t (-> trx
+              (update-in [:transaction/items]
+                         #(map (juxt
+                                 (comp :account/name
+                                       accounts
+                                       :id
+                                       :transaction-item/account)
+                                 (comp last-trx-dates
+                                       :id
+                                       :transaction-item/account))
+                               %))
+              (select-keys [:transaction/transaction-date
+                            :transaction/description
+                            :transaction/items]))]
+    (log/errorf "[import] Transaction out of order: %s" t)
+    (throw (ex-info "Transaction out of order" t))))
+
 (defmethod import-record* :transaction
   [{:as ctx :keys [accounts last-trx-dates]} transaction]
   (with-fatal-exceptions
@@ -491,22 +510,7 @@
           (assoc-warning ctx "Transaction with no items" trx))
         (do
           (when-not (after-last-trx? trx ctx)
-            (let [t (-> trx
-                        (update-in [:transaction/items]
-                                   #(map (juxt
-                                           (comp :account/name
-                                                 accounts
-                                                 :id
-                                                 :transaction-item/account)
-                                           (comp last-trx-dates
-                                                 :id
-                                                 :transaction-item/account))
-                                         %))
-                        (select-keys [:transaction/transaction-date
-                                      :transaction/description
-                                      :transaction/items]))]
-              (log/errorf "[import] Transaction out of order: %s" t)
-              (throw (ex-info "Transaction out of order" t))))
+            (throw-out-of-order-trx trx ctx))
           (-> ctx
               (import-transaction trx)
               (update-in [:accounts] (apply-transaction-to-accounts trx))
