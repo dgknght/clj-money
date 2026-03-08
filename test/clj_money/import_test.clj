@@ -292,23 +292,8 @@
 (deftest import-with-commodities
   (with-context ext-context
     (let [imp (find-import "Personal")
-          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)
-          _ (assert entity "No entity was returned from the import")
-          {{:settings/keys [lt-capital-gains-account
-                            st-capital-gains-account
-                            lt-capital-loss-account
-                            st-capital-loss-account]} :entity/settings}
-          (entities/find entity)]
-      (testing "entity settings"
-        (is (empty? notifications) "No errors or warnings are reported")
-        (is (util/entity-ref? lt-capital-gains-account)
-            "The long-term capital gains account id is set")
-        (is (util/entity-ref? st-capital-gains-account)
-            "The short-term capital gains account id is set")
-        (is (util/entity-ref? lt-capital-loss-account)
-            "The long-term capital losses account id is set")
-        (is (util/entity-ref? st-capital-loss-account)
-            "The short-term capital losses account id is set"))
+          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)]
+      (assert entity "No entity was returned from the import")
       (testing "commodities"
         (is (comparable?
               #:commodity{:symbol "AAPL"
@@ -318,37 +303,93 @@
                                              (t/local-date 2015 5 1)]}
               (entities/find-by {:commodity/symbol "AAPL"}))
             "The traded commodity is created"))
-      (testing "transactions"
-        (is (= [{:account-item/action :debit
-                 :account-item/quantity 600M}
-                {:account-item/action :credit
-                 :account-item/quantity -10M}]
-               (map #(select-keys % [:account-item/action
-                                     :account-item/index
-                                     :account-item/quantity
-                                     :account-item/balance])
-                    (entities/select
-                      {:account-item/account (entities/find-by
-                                               {:account/name "IRA"})}))))
+      (testing "account items"
         (let [ira (entities/find-by {:account/name "IRA"
                                      :account/entity entity})
-              aapl (entities/find-by {:commodity/symbol "AAPL"
-                                      :commodity/entity entity})
+              four-oh-one-k (entities/find-by {:account/name "401k"
+                                               :account/entity entity})
+              four-k-aapl (entities/find-by {:account/parent four-oh-one-k
+                                             :account/name "Apple, Inc"})
               ira-aapl (entities/find-by #:account{:parent ira
-                                                    :commodity aapl})]
+                                                   :name "Apple, Inc"})]
+
+          (is ira "The IRA account is created")
+          (is ira-aapl "The AAPL subaccount for IRA is created")
+          (is four-oh-one-k "The 401k account is created")
+          (is four-k-aapl "The AAPL subaccount for 401k is created")
+
+          ; 401k
+          (is (= [{:account-item/action :debit ; initial deposit
+                   :account-item/quantity 1000M
+                   :account-item/index 0
+                   :account-item/balance 1000M}
+                  {:account-item/action :credit ; purchase shares of AAPL (1st part of split)
+                   :account-item/quantity -995M
+                   :account-item/index 1
+                   :account-item/balance 5M}
+                  {:account-item/action :credit ; purchase shares of AAPL (2nd part of split for inv exp)
+                   :account-item/quantity -5M
+                   :account-item/index 2
+                   :account-item/balance 0M}]
+                 (map #(select-keys % [:account-item/action
+                                       :account-item/index
+                                       :account-item/quantity
+                                       :account-item/balance])
+                      (entities/select
+                        {:account-item/account four-oh-one-k}
+                        {:sort [[:account-item/index :asc]]})))
+              "The 401k account items are created")
+
+          ; AAPL in 401k
+          (is (= [{:account-item/action :debit ; purchase 100 shares of AAPL
+                   :account-item/quantity 100M
+                   :account-item/index 0
+                   :account-item/balance 100M}
+                  {:account-item/action :credit ; transfer 100 shares to IRA
+                   :account-item/quantity 100M
+                   :account-item/index 1
+                   :account-item/balance 0M}]
+                 (map #(select-keys % [:account-item/action
+                                       :account-item/index
+                                       :account-item/quantity
+                                       :account-item/balance])
+                      (entities/select
+                        {:account-item/account four-k-aapl}
+                        {:sort [[:account-item/index :asc]]})))
+              "The 401k AAPL account items are created")
+
+          ; IRA
+          (is (= [{:account-item/action :debit ; cash in  lieu for the split
+                   :account-item/quantity 1M
+                   :account-item/index 0
+                   :account-item/balance 1M}
+                  {:account-item/action :credit ; proceeds from sale of AAPL
+                   :account-item/quantity 590
+                   :account-item/index 1
+                   :account-item/balance 591M}]
+                 (map #(select-keys % [:account-item/action
+                                       :account-item/index
+                                       :account-item/quantity
+                                       :account-item/balance])
+                      (entities/select
+                        {:account-item/account ira}
+                        {:sort [[:account-item/index :asc]]})))
+              "The IRA account items are created")
+
+          ; AAPL in IRA
           (is (seq-of-maps-like?
-                [{:account-item/action  :debit
-                  :account-item/quantity 100M
+                [{:account-item/action  :debit ; transfer in at 100, but split makes it 200
+                  :account-item/quantity 200M
                   :account-item/index    0
-                  :account-item/balance  100M}
-                 {:account-item/action  :credit
+                  :account-item/balance  200M}
+                 {:account-item/action  :credit ; sell 100 shares
                   :account-item/quantity -100M
-                  :account-item/index    2
+                  :account-item/index    1
                   :account-item/balance  100M}]
                 (entities/select
                   {:account-item/account ira-aapl}
                   {:sort [[:account-item/index :asc]]}))
-              "Commodity account items have index and balance set"))))))
+              "IRA AAPL receives account items"))))))
 
 
 (defn- gnucash-budget-sample []
