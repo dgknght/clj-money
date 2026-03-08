@@ -418,13 +418,14 @@
   (let [{:transaction-item/keys [balance index]} (last-trx-item account context)
         p-qty (polarize-quantity {:account account
                                   :quantity (:transaction-item/quantity item)
-                                  :action (:transaction-item/action item)})]
-    {:item (assoc item
-                  :transaction-item/balance (+ balance p-qty)
-                  :transaction-item/index (inc index))
+                                  :action (:transaction-item/action item)})
+        i (assoc item
+                 :transaction-item/balance (+ balance p-qty)
+                 :transaction-item/index (inc index))]
+    {:item i
      :context (assoc-in context
                         [:last-trx-items (:id account)]
-                        item)}))
+                        i)}))
 
 (defn- update-last-trxs
   [context {:transaction/keys [items transaction-date]}]
