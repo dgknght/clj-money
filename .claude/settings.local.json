@@ -50,7 +50,8 @@
       "Bash(podman logs:*)",
       "Bash(podman-compose:*)",
       "Bash(podman images:*)",
-      "Bash(podman inspect:*)"
+      "Bash(podman inspect:*)",
+      "Bash(lein check:*)"
     ],
     "deny": [],
     "ask": []
