@@ -156,27 +156,19 @@
     :refs #{:entity
             :scheduled-transaction}}
    {:id :transaction-item
-    :fields #{{:id :value
-               :type :decimal}}
-    :refs #{{:id :debit-item
-             :type :account-item}
-            {:id :credit-item
-             :type :account-item}
-            :transaction}}
-   {:id :account-item
-    :fields #{{:id :action
-               :type :keyword}
-              {:id :quantity
+    :fields #{{:id :quantity
                :type :decimal}
               {:id :balance
                :type :decimal}
               {:id :index
                :type :integer}
+              {:id :action
+               :type :keyword}
               {:id :memo
                :type :string}}
-    :refs #{:reconciliation
-            :account
-            :transaction-item}}
+    :refs #{:account
+            :reconciliation
+            :transaction}}
    {:id :lot
     :fields #{{:id :shares-purchased
                :type :decimal}

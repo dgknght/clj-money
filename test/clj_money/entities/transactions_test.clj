@@ -77,19 +77,19 @@
              :type :expense
              :entity "Personal"}])
 
+; This is the canonical structure
 (defn attributes []
   #:transaction{:transaction-date (t/local-date 2016 3 2)
                 :description "Paycheck"
                 :memo "final, partial"
                 :entity (find-entity "Personal")
-                :items [#:transaction-item{:debit-item {:account-item/account (find-account "Checking")
-                                                        :account-item/action :debit
-                                                        :account-item/quantity 1000M}
-                                           :credit-item {:account-item/account (find-account "Salary")
-                                                         :account-item/action :credit
-                                                         :account-item/quantity 1000M
-                                                         :account-item/memo "conf # 123"}
-                                           :value 1000M}]})
+                :items [#:transaction-item{:action :debit
+                                           :account (find-account "Checking")
+                                           :quantity 1000M}
+                        #:transaction-item{:action :credit
+                                           :account (find-account "Salary")
+                                           :quantity 1000M
+                                           :memo "conf # 123"}]})
 
 (defn- assert-created
   [attr]

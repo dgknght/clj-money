@@ -179,9 +179,7 @@
       (f x))))
 
 (def ^:private ref-keys
-  (disj schema/entity-ref-keys
-        :transaction-item/credit-item
-        :transaction-item/debit-item))
+  schema/entity-ref-keys)
 
 (defn- put*
   [entities {:keys [api]}]

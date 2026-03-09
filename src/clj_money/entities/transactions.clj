@@ -91,7 +91,7 @@
                                          :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::entities/lot-item))
 
-(s/def ::entities/transaction (s/and (s/merge ::trxs/bilateral-transaction
+(s/def ::entities/transaction (s/and (s/merge ::trxs/unilateral-transaction
                                               (s/keys :opt [:transaction/lot-items]))
                                      no-reconciled-quantities-changed?
                                      new-transaction-has-items?))
@@ -109,79 +109,6 @@
                   (update-in x [1] presence)
                   x))
               entity)))
-
-(defn- realize-item-accounts
-  "Given a list of transaction items, realize any simple account
-  references account items"
-  [items]
-  (if-let [account-ids (->> items
-                            (mapcat trxs/account-items)
-                            (map :account-item/account)
-                            (filter util/entity-ref?)
-                            (map :id)
-                            set
-                            seq)]
-    (let [find-account (comp (index-by :id
-                                       (entities/find-many account-ids))
-                             :id)]
-      (map (fn [i]
-             (-> i
-                 (update-in [:transaction-item/credit-item
-                             :account-item/account]
-                            #(or (find-account %) %))
-                 (update-in [:transaction-item/debit-item
-                             :account-item/account]
-                            #(or (find-account %) %))))
-           items))
-    items))
-
-(defn- set-item-quantity
-  [{:as item :account-item/keys [quantity account action]} value]
-  (assoc item
-         :account-item/quantity
-         (cond
-
-           (not quantity)
-           (acts/polarize-quantity
-             {:account account
-              :quantity value
-              :action action})
-
-           ; Allow for the quantity not to match the value for trading
-           ; transactions, but do insist that the polarity match
-           (not= (pos? (acts/polarizer action account))
-                 (pos? quantity))
-           (- 0M quantity)
-
-           :else
-           quantity)))
-
-(defn- normalize-account-item
-  [action value]
-  (fn [item]
-    (-> item
-        (assoc :account-item/action action)
-        (set-item-quantity value))))
-
-(defn- normalize-account-items
-  [{:as item :transaction-item/keys [value]}]
-  (-> item
-      (update-in-if [:transaction-item/debit-item]
-                    (normalize-account-item :debit value))
-      (update-in-if [:transaction-item/credit-item]
-                    (normalize-account-item :credit value))))
-
-(defn normalize-trx-account-items
-  [trx]
-  (if (-> trx
-          :transaction/items
-          first
-          :transaction-item/credit-item)
-    (-> trx
-        (update-in [:transaction/items] realize-item-accounts)
-        (update-in [:transaction/items]
-                   #(map normalize-account-items %)))
-    trx))
 
 (defn- fetch-accounts
   "Given a list of item account maps or account references,
@@ -249,16 +176,15 @@
         :unilateral (lookup-accounts-unilateral input)))))
 
 (defn normalize
-  "Convert the transaction from the given format to bilateral
+  "Convert the transaction from the given format to unilateral
   and infer missing values where possible"
   [trx]
-  ; ->bilateral returns nil if it can't identify the submitted
+  ; ->unilateral returns nil if it can't identify the submitted
   ; format in order to convert. In this case, just continue on
   ; and let validation identify the problem
   (or (some-> trx
               lookup-accounts
-              trxs/->bilateral
-              normalize-trx-account-items)
+              trxs/->unilateral)
       trx))
 
 (defmethod entities/before-validation :transaction
@@ -268,12 +194,9 @@
       normalize))
 
 (defmethod entities/before-save :transaction
-  [{:transaction/keys [items] :as trx}]
-  (cond-> (dissoc trx :transaction/original-transaction-date)
-    (seq items)
-    (assoc :transaction/value (->> items
-                                   (map :transaction-item/value)
-                                   (reduce + 0M)))))
+  [trx]
+  ; TODO: store this in meta data instead
+  (dissoc trx :transaction/original-transaction-date))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
