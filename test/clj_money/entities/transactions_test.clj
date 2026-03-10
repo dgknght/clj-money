@@ -332,14 +332,16 @@
 (dbtest delete-a-transaction
   (with-context delete-context
     (assert-deleted (find-transaction [(t/local-date 2016 3 3) "Kroger"]))
-    (is (= [{:account-item/index 0
-             :account-item/quantity 1000M}
-            {:account-item/index 2 ; Note that we didn't propagate
-             :account-item/quantity -102M}]
-           (map #(select-keys % [:account-item/index
-                                 :account-item/quantity])
+    (is (= [{:transaction-item/index 0
+             :transaction-item/action :debit
+             :transaction-item/quantity 1000M}
+            {:transaction-item/index 2 ; Note that we didn't propagate
+             :transaction-item/action :credit
+             :transaction-item/quantity 102M}]
+           (map #(select-keys % [:transaction-item/index
+                                 :transaction-item/quantity])
                 (entities/select
-                  {:account-item/account (find-account "Checking")})))
+                  {:transaction-item/account (find-account "Checking")})))
         "The corresponding account items are removed.")))
 
 (dbtest ^:multi-threaded delete-and-propagate-a-transaction

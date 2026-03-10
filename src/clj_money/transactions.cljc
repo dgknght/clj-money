@@ -298,11 +298,9 @@
               :transaction/credit-account
               :transaction/quantity)
       (assoc :transaction/items [{:transaction-item/quantity quantity
-                                  :transaction-item/value quantity
                                   :transaction-item/action :debit
                                   :transaction-item/account debit-account}
                                  {:transaction-item/quantity quantity
-                                  :transaction-item/value quantity
                                   :transaction-item/action :credit
                                   :transaction-item/account credit-account}])))
 
@@ -485,19 +483,14 @@
   "Takes a bilateral item and returns two unilateral items"
   [{:transaction-item/keys [debit-item
                             credit-item
-                            value
                             memo]
     :keys [id]}]
   [(cond->
-     (-> debit-item
-         account->transaction-item
-         (assoc :transaction-item/value value))
+     (account->transaction-item debit-item)
      id (assoc :ids #{id})
      memo (assoc :transaction-item/memo memo))
    (cond->
-     (-> credit-item
-         account->transaction-item
-         (assoc :transaction-item/value value))
+     (account->transaction-item credit-item)
      id (assoc :ids #{id})
      memo (assoc :transaction-item/memo memo))])
 
@@ -514,11 +507,6 @@
                              d/+
                              (->> is
                                   (map :transaction-item/quantity)
-                                  (reduce d/+ (d 0))))
-                  (update-in [:transaction-item/value]
-                             d/+
-                             (->> is
-                                  (map :transaction-item/value)
                                   (reduce d/+ (d 0)))))))))
 
 (defn- bilateral->unilateral-items
@@ -648,8 +636,7 @@
         (assoc :transaction-item/action (if debit-quantity
                                           :debit
                                           :credit)
-               :transaction-item/quantity quantity
-               :transaction-item/value quantity)
+               :transaction-item/quantity quantity)
         (dissoc :transaction-item/debit-quantity
                 :transaction-item/credit-quantity))))
 

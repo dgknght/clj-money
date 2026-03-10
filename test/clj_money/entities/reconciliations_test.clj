@@ -23,7 +23,7 @@
                                             find-entity
                                             find-account
                                             find-accounts
-                                            find-account-item
+                                            find-transaction-item
                                             find-reconciliation]]
             [clj-money.entities.reconciliations :as recons]))
 
@@ -153,7 +153,7 @@
     (assert-invalid #:reconciliation{:account (find-account "Groceries")
                                      :end-of-period (t/local-date 2017 1 31)
                                      :balance 500M
-                                     :items [(find-account-item
+                                     :items [(find-transaction-item
                                                [(t/local-date 2017 1 2)
                                                 500M
                                                 (find-account "Rent")])]}
@@ -265,7 +265,7 @@
   (with-context working-recon-context
     (let [checking (find-account "Checking")
           previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
-          item (find-account-item [(t/local-date 2017 1 3)
+          item (find-transaction-item [(t/local-date 2017 1 3)
                                    45M
                                    checking])
           result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
@@ -311,7 +311,7 @@
 
 (dbtest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
   (with-context working-recon-context
-    (let [item (find-account-item [(t/local-date 2017 1 10)
+    (let [item (find-transaction-item [(t/local-date 2017 1 10)
                                    53M
                                    "Checking"])]
       (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])

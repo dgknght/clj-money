@@ -5,7 +5,7 @@
             [clojure.java.io :as io]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.util :as util :refer [entity=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.entities :as entities]
             [clj-money.images :as images]
             [clj-money.transactions :as trxs]
@@ -208,27 +208,15 @@
 (defn find-transaction-item
   ([identifier]
    (find-transaction-item *context* identifier))
-  ([context [transaction-date value]]
-   (->> context
-        (filter #(= transaction-date (:transaction/transaction-date %)))
-        (mapcat :transaction/items)
-        (filter #(= value (:transaction-item/value %)))
-        (map #(assoc % :transaction/transaction-date transaction-date))
-        first)))
-
-(defn find-account-item
-  ([identifier]
-   (find-account-item *context* identifier))
-  ([context [transaction-date value account]]
+  ([context [transaction-date quantity account]]
    (let [act (if (map? account)
                account
                (find-account context account))]
      (->> context
           (filter #(= transaction-date (:transaction/transaction-date %)))
           (mapcat :transaction/items)
-          (filter #(= value (:transaction-item/value %)))
-          (mapcat trxs/account-items)
-          (filter #(entity= act (:account-item/account %)))
+          (filter #(and (= quantity (:transaction-item/quantity %))
+                        (id= act (:transaction-item/account %))))
           (map #(assoc % :transaction/transaction-date transaction-date))
           first))))
 
@@ -320,16 +308,7 @@
 
 (defmethod prepare :transaction-item
   [item ctx]
-  (-> item
-      (update-in-if [:transaction-item/credit-account] (find-account ctx))
-      (update-in-if [:transaction-item/debit-account] (find-account ctx))
-      (update-in-if [:transaction-item/debit-item
-                     :account-item/account]
-                    (find-account ctx))
-      (update-in-if [:transaction-item/credit-item
-                     :account-item/account]
-                    (find-account ctx))
-      trxs/expand-account-item))
+  (update-in-if item [:transaction-item/account] (find-account ctx)))
 
 (defmethod prepare :scheduled-transaction-item
   [item ctx]
@@ -345,7 +324,7 @@
     (-> recon
         (assoc :reconciliation/account account)
         (update-in [:reconciliation/items]
-                   (partial mapv (comp #(find-account-item ctx %)
+                   (partial mapv (comp #(find-transaction-item ctx %)
                                        #(conj % account)))))))
 
 (defmethod prepare :budget

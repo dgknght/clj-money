@@ -1,8 +1,7 @@
 (ns clj-money.db.datomic.transactions
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.db.datomic :as datomic]
-            [clj-money.entities :as entities]
-            [clj-money.util :as util]))
+            [clj-money.entities :as entities]))
 
 (defn- removed
   [before after]
