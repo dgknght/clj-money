@@ -53,11 +53,11 @@
 
 (defmethod items-by-account :default
   [account]
-  (map #(select-keys % [:account-item/index
-                        :account-item/quantity
-                        :account-item/balance])
-       (entities/select {:account-item/account account}
-                        {:sort [:account-item/index]})))
+  (map #(select-keys % [:transaction-item/index
+                        :transaction-item/quantity
+                        :transaction-item/balance])
+       (entities/select {:transaction-item/account account}
+                        {:sort [:transaction-item/index]})))
 
 (def base-context
   [(factory :user, {:user/email "john@doe.com"})
@@ -468,14 +468,14 @@
                     99.99M)
           (prop/put-and-propagate))
       (is (= [#:transaction-item{:index 0 :quantity 1000.00M :balance 1000.00M}
-              #:transaction-item{:index 1 :quantity  -99.99M :balance   900.01M}
-              #:transaction-item{:index 2 :quantity -102.00M :balance   798.01M}]
+              #:transaction-item{:index 1 :quantity   99.99M :balance  900.01M}
+              #:transaction-item{:index 2 :quantity  102.00M :balance  798.01M}]
              (items-by-account checking))
-          "Expected the checking account items to be updated.")
+          "Checking account items reflect the changed quantity")
       (is (= [#:transaction-item{:index 0 :quantity  99.99M :balance  99.99M}
               #:transaction-item{:index 1 :quantity 102.00M :balance 201.99M}]
              (items-by-account groceries))
-          "Expected the groceries account items to be updated.")
+          "Grocery account items reflect the changed quantity")
       (assert-account-quantities checking 798.01M groceries 201.99M))))
 
 (dbtest ^:multi-threaded update-a-transaction-change-date
