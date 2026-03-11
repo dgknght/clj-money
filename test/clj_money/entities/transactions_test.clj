@@ -250,15 +250,15 @@
                     :debit-account (find-account "Groceries")
                     :credit-account (find-account "Checking")
                     :quantity 99M})
-    (is (= [#:account-item{:index 0
-                           :quantity 1000M
-                           :balance 1000M}
-            #:account-item{:index 1
-                           :quantity -99M
-                           :balance 901M}
-            #:account-item{:index 2
-                           :quantity -100M
-                           :balance 801M}]
+    (is (= [#:transaction-item{:index 0
+                               :quantity 1000M
+                               :balance 1000M}
+            #:transaction-item{:index 1
+                               :quantity 99M
+                               :balance 901M}
+            #:transaction-item{:index 2
+                               :quantity 100M
+                               :balance 801M}]
            (items-by-account "Checking"))
         "The checking item indexes and balances are adjusted")
     (is (= 801M (:account/quantity (reload-account "Checking")))
