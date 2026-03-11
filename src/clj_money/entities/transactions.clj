@@ -247,7 +247,7 @@
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,
   update the index and balance attributes of the item."
-  [{:as item :transaction-item/keys [quantity]}
+  [{:as item :transaction-item/keys [quantity action account]}
    {prev-index :transaction-item/index
     prev-balance :transaction-item/balance
     :as prev-item}]
@@ -255,7 +255,8 @@
          (:transaction-item/index prev-item)]}
   (assoc item
          :transaction-item/index (inc prev-index)
-         :transaction-item/balance (+ quantity prev-balance)))
+         :transaction-item/balance (+ (acts/polarize-quantity quantity action account)
+                                      prev-balance)))
 
 (def ^:private initial-basis
   #:transaction-item{:index -1
