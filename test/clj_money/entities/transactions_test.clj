@@ -484,25 +484,25 @@
           groceries (find-account "Groceries")
           trx (find-transaction [(t/local-date 2016 3 22) "Kroger"])
           result (-> trx
-                       (assoc :transaction/transaction-date (t/local-date 2016 3 10))
-                       prop/put-and-propagate)]
-      (is (= [{:account-item/index 0
-               :account-item/quantity 1000M
-               :account-item/balance 1000M}
-              {:account-item/index 1
-               :account-item/quantity -102M
-               :account-item/balance 898M}
-              {:account-item/index 2
-               :account-item/quantity -101M
-               :account-item/balance 797M}]
+                     (assoc :transaction/transaction-date (t/local-date 2016 3 10))
+                     prop/put-and-propagate)]
+      (is (= [{:transaction-item/index 0
+               :transaction-item/quantity 1000M
+               :transaction-item/balance 1000M}
+              {:transaction-item/index 1
+               :transaction-item/quantity 102M
+               :transaction-item/balance 898M}
+              {:transaction-item/index 2
+               :transaction-item/quantity 101M
+               :transaction-item/balance 797M}]
              (items-by-account checking))
           "The checking account items are updated")
-      (is (= [{:account-item/index 0
-               :account-item/quantity 102M
-               :account-item/balance 102M}
-              {:account-item/index 1
-               :account-item/quantity 101M
-               :account-item/balance 203M}]
+      (is (= [{:transaction-item/index 0
+               :transaction-item/quantity 102M
+               :transaction-item/balance 102M}
+              {:transaction-item/index 1
+               :transaction-item/quantity 101M
+               :transaction-item/balance 203M}]
              (items-by-account groceries))
           "The groceries account items are updated")
       (assert-account-quantities checking 797M groceries 203M)
