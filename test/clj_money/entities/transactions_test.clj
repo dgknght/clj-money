@@ -1010,14 +1010,8 @@
                    :transaction-item/quantity]
                   1010M)
         (assoc-in [:transaction/items
-                   0
-                   :transaction-item/debit-item
-                   :account-item/quantity]
-                  1010M)
-        (assoc-in [:transaction/items
-                   0
-                   :transaction-item/credit-item
-                   :account-item/quantity]
+                   1
+                   :transaction-item/quantity]
                   1010M)
         (assert-invalid
           {:transaction/items ["A reconciled quantity cannot be updated"]}))))
