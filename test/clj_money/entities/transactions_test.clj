@@ -346,13 +346,13 @@
           trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])]
       (prop/delete-and-propagate trans)
       (testing "checking transaction item balances are adjusted"
-        (is (= [#:account-item{:index 0 :quantity 1000M :balance 1000M}
-                #:account-item{:index 1 :quantity -100M :balance 900M}
-                #:account-item{:index 2 :quantity -102M :balance 798M}]
+        (is (= [#:transaction-item{:index 0 :quantity 1000M :balance 1000M}
+                #:transaction-item{:index 1 :quantity  100M :balance 900M}
+                #:transaction-item{:index 2 :quantity  102M :balance 798M}]
                checking-items-before)
             "The item to be deleted is present before the delete")
-        (is (= [#:account-item{:index 0 :quantity 1000M :balance 1000M}
-                #:account-item{:index 1 :quantity -102M :balance 898M}]
+        (is (= [#:transaction-item{:index 0 :quantity 1000M :balance 1000M}
+                #:transaction-item{:index 1 :quantity  102M :balance 898M}]
                (items-by-account "Checking"))
             "The deleted item is absent after the delete"))
       (testing "account balances are adjusted"
