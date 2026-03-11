@@ -1024,18 +1024,14 @@
 (dbtest the-action-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context
     (-> (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
-        (update-in [:transaction/items 0]
-                   (fn [{:transaction-item/keys [debit-item credit-item]
-                         :as item}]
-                     (assoc item
-                            :transaction-item/debit-item
-                            (assoc credit-item
-                                   :account-item/action
-                                   :debit)
-                            :transaction-item/credit-item
-                            (assoc debit-item
-                                   :account-item/action
-                                   :credit))))
+        (update-in [:transaction/items]
+                   (fn [items]
+                     (map #(assoc %
+                                  :transaction-item/action
+                                  (if (= :credit (:transaction-item/action %))
+                                    :debit
+                                    :credit))
+                          items)))
         (assert-invalid {:transaction/items ["A reconciled quantity cannot be updated"]}))))
 
 (dbtest a-reconciled-transaction-item-cannot-be-deleted
