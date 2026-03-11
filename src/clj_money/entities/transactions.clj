@@ -473,7 +473,7 @@
   [[before {:transaction/keys [items] :as after}]]
   (let [account-ids-after (->> items
                                (map (comp :id
-                                          :account-item/account))
+                                          :transaction-item/account))
                                set)
         entity (-> (or after before)
                    :transaction/entity
