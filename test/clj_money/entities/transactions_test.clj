@@ -392,8 +392,14 @@
                         :transaction/transaction-date (t/local-date 2016 3 2)}
                        retrieved)
           "The transaction can be retrieved")
-      (is (seq-of-maps-like? [{:transaction-item/quantity 1000M}]
-                             (:transaction/items retrieved))
+      (is (= #{{:transaction-item/quantity 1000M
+               :transaction-item/action :credit}
+              {:transaction-item/quantity 1000M
+               :transaction-item/action :debit}}
+             (->> (:transaction/items retrieved)
+                  (map #(select-keys % [:transaction-item/quantity
+                                        :transaction-item/action]))
+                  set))
           "The transaction items are included"))))
 
 (def search-context
