@@ -194,9 +194,14 @@
       normalize))
 
 (defmethod entities/before-save :transaction
-  [trx]
+  [{:transaction/keys [items] :as trx}]
   ; TODO: store this in meta data instead
-  (dissoc trx :transaction/original-transaction-date))
+  (cond-> (dissoc trx :transaction/original-transaction-date)
+    (seq items)
+    (assoc :transaction/value (->> items
+                                   (filter #(= :credit (:transaction-item/action %)))
+                                   (map :transaction-item/quantity)
+                                   (reduce + 0M)))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
