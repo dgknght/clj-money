@@ -639,24 +639,23 @@
     (let [[rent
            groceries] (find-accounts "Rent" "Groceries")]
       (-> (find-transaction [(t/local-date 2016 3 16)
-                                           "Kroger"])
+                             "Kroger"])
           (assoc-in [:transaction/items
                      0
-                     :transaction-item/debit-item
-                     :account-item/account]
+                     :transaction-item/account]
                     rent)
           prop/put-and-propagate)
-      (is (= [#:account-item{:index 0
-                             :quantity 101M
-                             :balance 101M}
-              #:account-item{:index 1
-                             :quantity 103M
-                             :balance 204M}]
+      (is (= [#:transaction-item{:index 0
+                                 :quantity 101M
+                                 :balance 101M}
+              #:transaction-item{:index 1
+                                 :quantity 103M
+                                 :balance 204M}]
              (items-by-account groceries))
           "The items in the removed account reflect the removal")
-      (is (= [#:account-item{:index 0
-                             :quantity 102M
-                             :balance 102M}]
+      (is (= [#:transaction-item{:index 0
+                                 :quantity 102M
+                                 :balance 102M}]
              (items-by-account rent))
           "The items in the added account reflect the addition")
       (assert-account-quantities groceries 204M rent 102M))))
