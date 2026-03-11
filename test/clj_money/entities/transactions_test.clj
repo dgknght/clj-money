@@ -113,25 +113,25 @@
           (let [date (t/local-date 2016 3 2)]
             (prop/put-and-propagate (attributes))
             (testing "entity updates"
-                (is (comparable? #:entity{:transaction-date-range [date date]}
-                                 (entities/find (find-entity "Personal")))
-                    "The entity is updated with the transaction dates"))
+              (is (comparable? #:entity{:transaction-date-range [date date]}
+                               (entities/find (find-entity "Personal")))
+                  "The entity is updated with the transaction dates"))
             (testing "account updates"
-                (is (comparable? #:account{:transaction-date-range [date date]}
-                                 (reload-account "Checking"))
-                    "The debited account is updated with transaction dates")
-                (is (comparable? #:account{:transaction-date-range [date date]}
-                                 (reload-account "Salary"))
-                    "The credited account is updated with transaction dates"))
+              (is (comparable? #:account{:transaction-date-range [date date]}
+                               (reload-account "Checking"))
+                  "The debited account is updated with transaction dates")
+              (is (comparable? #:account{:transaction-date-range [date date]}
+                               (reload-account "Salary"))
+                  "The credited account is updated with transaction dates"))
             (testing "item updates"
-              (is (seq-of-maps-like? [#:account-item{:index 0
-                                                     :balance 1000M}
-                                      #:account-item{:index 0
-                                                     :balance 1000M}]
+              (is (seq-of-maps-like? [#:transaction-item{:index 0
+                                                         :balance 1000M}
+                                      #:transaction-item{:index 0
+                                                         :balance 1000M}]
                                      (entities/select
                                        (util/entity-type
                                          {:transaction/transaction-date date}
-                                         :account-item)))
+                                         :transaction-item)))
                   "The item indices and balances are calculated")))))
 
 (dbtest transaction-date-is-required
@@ -193,42 +193,42 @@
                         0
                         :transaction-item/credit-item])))))))
 
-(dbtest item-value-is-required
+(dbtest item-quantity-is-required
   (with-context base-context
     (try
       (-> (attributes)
           (update-in [:transaction/items 0]
                      dissoc
-                     :transaction-item/value)
+                     :transaction-item/quantity)
           entities/put)
       (is false "Expected an exception, but none was thrown")
       (catch ExceptionInfo e
         (is (seq-containing-value?
-              "Value is required"
+              "Quantity is required"
               (get-in (ex-data e)
                        [::v/errors
                         :transaction/items
                         0
-                        :transaction-item/value])))))))
+                        :transaction-item/quantity])))))))
 
-(dbtest item-value-must-be-greater-than-zero
+(dbtest item-quantity-must-be-greater-than-zero
   (with-context base-context
     (try
       (-> (attributes)
           (assoc-in [:transaction/items
                      0
-                     :transaction-item/value]
+                     :transaction-item/quantity]
                     -1000M)
           entities/put)
       (is false "Expected an exception, but none was thrown")
       (catch ExceptionInfo e
         (is (seq-containing-value?
-              "Value must be a positive number"
+              "Quantity must be a positive number"
               (get-in (ex-data e)
                       [::v/errors
                        :transaction/items
                        0
-                       :transaction-item/value])))))))
+                       :transaction-item/quantity])))))))
 
 (def insert-context
   (conj base-context
@@ -396,7 +396,7 @@
                         :transaction/transaction-date (t/local-date 2016 3 2)}
                        retrieved)
           "The transaction can be retrieved")
-      (is (seq-of-maps-like? [{:transaction-item/value 1000M}]
+      (is (seq-of-maps-like? [{:transaction-item/quantity 1000M}]
                              (:transaction/items retrieved))
           "The transaction items are included"))))
 
@@ -460,24 +460,20 @@
       (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
           (assoc-in [:transaction/items
                      0
-                     :transaction-item/value]
+                     :transaction-item/quantity]
                     99.99M)
-          (update-in [:transaction/items
-                      0
-                      :transaction-item/credit-item]
-                     reset-account-item)
-          (update-in [:transaction/items
-                      0
-                      :transaction-item/debit-item]
-                     reset-account-item)
+          (assoc-in [:transaction/items
+                     1
+                     :transaction-item/quantity]
+                    99.99M)
           (prop/put-and-propagate))
-      (is (= [#:account-item{:index 0 :quantity 1000.00M :balance 1000.00M}
-              #:account-item{:index 1 :quantity  -99.99M :balance   900.01M}
-              #:account-item{:index 2 :quantity -102.00M :balance   798.01M}]
+      (is (= [#:transaction-item{:index 0 :quantity 1000.00M :balance 1000.00M}
+              #:transaction-item{:index 1 :quantity  -99.99M :balance   900.01M}
+              #:transaction-item{:index 2 :quantity -102.00M :balance   798.01M}]
              (items-by-account checking))
           "Expected the checking account items to be updated.")
-      (is (= [#:account-item{:index 0 :quantity  99.99M :balance  99.99M}
-              #:account-item{:index 1 :quantity 102.00M :balance 201.99M}]
+      (is (= [#:transaction-item{:index 0 :quantity  99.99M :balance  99.99M}
+              #:transaction-item{:index 1 :quantity 102.00M :balance 201.99M}]
              (items-by-account groceries))
           "Expected the groceries account items to be updated.")
       (assert-account-quantities checking 798.01M groceries 201.99M))))
@@ -1012,7 +1008,7 @@
     (-> (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
         (assoc-in [:transaction/items
                    0
-                   :transaction-item/value]
+                   :transaction-item/quantity]
                   1010M)
         (assoc-in [:transaction/items
                    0

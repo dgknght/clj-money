@@ -339,7 +339,7 @@
   (entities/select (util/entity-type
                      {:transaction-item/account account
                       :transaction/transaction-date [:>= as-of]}
-                     :account-item)
+                     :transaction-item)
                    {:sort [[:transaction-item/index :asc]]
                     :select-also [:transaction/transaction-date]}))
 
