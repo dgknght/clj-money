@@ -750,20 +750,15 @@
         #:transaction{:transaction-date (t/local-date 2016 3 16)
                       :entity "Personal"
                       :description "Kroger"
-                      :items [#:transaction-item{:value 90M
-                                                 :debit-item #:account-item{:action :debit
-                                                                            :account "Groceries"
-                                                                            :quantity 90M}
-                                                 :credit-item #:account-item{:action :credit
-                                                                             :account "Checking"
-                                                                             :quantity -90M}}
-                              #:transaction-item{:value 12M
-                                                 :debit-item #:account-item{:action :debit
-                                                                            :account "Pets"
-                                                                            :quantity 12M}
-                                                 :credit-item #:account-item{:action :credit
-                                                                             :account "Checking"
-                                                                             :quantity -12M}}]}
+                      :items [#:transaction-item{:quantity 102M
+                                                 :action :credit
+                                                 :account "Checking"}
+                              #:transaction-item{:quantity 90M
+                                                 :action :debit
+                                                 :account "Groceries"}
+                              #:transaction-item{:quantity 12M
+                                                 :action :debit
+                                                 :account "Pets"}]}
         #:transaction{:transaction-date (t/local-date 2016 3 23)
                       :entity "Personal"
                       :description "Kroger"
@@ -774,36 +769,39 @@
 (dbtest ^:multi-threaded update-a-transaction-remove-item
   (with-context add-remove-item-context
     (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
+        (assoc-in [:transaction/items
+                   1
+                   :transaction-item/quantity]
+                  102M)
         (update-in [:transaction/items]
-                   #(take 1 %))
+                   (partial take 2))
         prop/put-and-propagate)
     (let [checking (reload-account "Checking")
           pets (reload-account "Pets")]
-      (is (= (- 1000M 103M 90M 101M)
+      (is (= (- 1000M 103M 102M 101M)
              (:account/value checking))
           "The credit account balance is adjusted")
-      (is (= (- 0M)
-             (:account/value pets))
+      (is (zero? (:account/value pets))
           "The debit account balance is adjusted")
-      (is (= [{:account-item/index 0
-               :account-item/quantity 1000M
-               :account-item/balance 1000M}
-              {:account-item/index 1
-               :account-item/quantity -103M
-               :account-item/balance 897M}
-              {:account-item/index 2
-               :account-item/quantity -90M
-               :account-item/balance 807M}
-              {:account-item/index 3
-               :account-item/quantity -101M
-               :account-item/balance 706M}]
-             (map #(select-keys % [:account-item/index
-                                   :account-item/quantity
-                                   :account-item/balance])
-                  (entities/select {:account-item/account checking}
-                                   {:sort [:account-item/index]})))
+      (is (= [{:transaction-item/index 0
+               :transaction-item/quantity 1000M
+               :transaction-item/balance 1000M}
+              {:transaction-item/index 1
+               :transaction-item/quantity 103M
+               :transaction-item/balance 897M}
+              {:transaction-item/index 2
+               :transaction-item/quantity 102M
+               :transaction-item/balance 795M}
+              {:transaction-item/index 3
+               :transaction-item/quantity 101M
+               :transaction-item/balance 694M}]
+             (map #(select-keys % [:transaction-item/index
+                                   :transaction-item/quantity
+                                   :transaction-item/balance])
+                  (entities/select {:transaction-item/account checking}
+                                   {:sort [:transaction-item/index]})))
           "The credit account items reflect the removal and are re-indexed")
-      (is (empty? (entities/select {:account-item/account pets}))
+      (is (empty? (entities/select {:transaction-item/account pets}))
           "The debit account items reflect the removal"))))
 
 (dbtest ^:multi-threaded update-a-transaction-add-item
