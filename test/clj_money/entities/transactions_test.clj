@@ -299,12 +299,12 @@
                                                        (t/local-date 2016 3 2)]}
                      (reload-account "Checking"))
         "The checking account transaction date boundaries reflect all transactions")
-    (is (= [{:account-item/index 0
-             :account-item/quantity 1000M
-             :account-item/balance 1000M}
-            {:account-item/index 1
-             :account-item/quantity 100M
-             :account-item/balance 1100M}]
+    (is (= [{:transaction-item/index 0
+             :transaction-item/quantity 1000M
+             :transaction-item/balance 1000M}
+            {:transaction-item/index 1
+             :transaction-item/quantity 100M
+             :transaction-item/balance 1100M}]
            (items-by-account "Checking"))
         "The checking account items has sequential indices and a running balance")))
 
