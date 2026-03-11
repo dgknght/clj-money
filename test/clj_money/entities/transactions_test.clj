@@ -692,40 +692,38 @@
           groceries (find-account "Groceries")]
       (-> (find-transaction [(t/local-date 2016 3 16)
                              "Kroger"])
-          (update-in [:transaction/items 0]
-                     (fn [{:transaction-item/keys [credit-item
-                                                   debit-item]
-                           :as item}]
-                       (assoc item
-                              :transaction-item/credit-item
-                              (reset-account-item debit-item)
-
-                              :transaction-item/debit-item
-                              (reset-account-item credit-item))))
+          (update-in [:transaction/items]
+                     (fn [items]
+                       (map #(assoc %
+                                    :transaction-item/action
+                                    (if (= :credit (:transaction-item/action %))
+                                      :debit
+                                      :credit))
+                            items)))
           prop/put-and-propagate)
-      (is (= [#:account-item{:index 0
-                             :quantity 103M
-                             :balance 103M}
-              #:account-item{:index 1
-                             :quantity -12M
-                             :balance 91M}
-              #:account-item{:index 2
-                             :quantity 101M
-                             :balance 192M}]
+      (is (= [#:transaction-item{:index 0
+                                 :quantity 103M
+                                 :balance 103M}
+              #:transaction-item{:index 1
+                                 :quantity 12M
+                                 :balance 91M}
+              #:transaction-item{:index 2
+                                 :quantity 101M
+                                 :balance 192M}]
              (items-by-account groceries))
           "The groceries balances reflect the change in action")
-      (is (= [#:account-item{:index 0
-                             :quantity 1000M
-                             :balance 1000M}
-              #:account-item{:index 1
-                             :quantity -103M
-                             :balance 897M}
-              #:account-item{:index 2
-                             :quantity 12M
-                             :balance 909M}
-              #:account-item{:index 3
-                             :quantity -101M
-                             :balance 808M}]
+      (is (= [#:transaction-item{:index 0
+                                 :quantity 1000M
+                                 :balance 1000M}
+              #:transaction-item{:index 1
+                                 :quantity 103M
+                                 :balance 897M}
+              #:transaction-item{:index 2
+                                 :quantity 12M
+                                 :balance 909M}
+              #:transaction-item{:index 3
+                                 :quantity 101M
+                                 :balance 808M}]
              (items-by-account checking))
           "The checking balances reflect the change in action")
       (assert-account-quantities groceries 192M checking 808M))))
