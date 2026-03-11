@@ -29,10 +29,6 @@
   (comp entities/find
         find-account))
 
-(defn- reset-account-item
-  [item]
-  (select-keys item [:id :account-item/account]))
-
 (defn- assert-account-quantities
   [& {:as balances}]
   (doseq [[account balance] balances]
