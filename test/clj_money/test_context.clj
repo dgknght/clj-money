@@ -8,7 +8,6 @@
             [clj-money.util :as util :refer [id=]]
             [clj-money.entities :as entities]
             [clj-money.images :as images]
-            [clj-money.transactions :as trxs]
             [clj-money.entities.propagation :as prop]
             [clj-money.trading :as trading])
   (:import java.util.regex.Pattern))
@@ -184,7 +183,7 @@
    (let [budget (find-budget context budget-name)
          account (find-account context account-name)]
      (->> (:budget/items budget)
-          (filter #(util/id= account (:budget-item/account %)))
+          (filter #(id= account (:budget-item/account %)))
           first))))
 
 (defn find-price
