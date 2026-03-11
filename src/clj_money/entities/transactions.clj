@@ -693,7 +693,7 @@
         (filter identity)
         (filter (util/entity-type? :transaction))
         (mapcat (fn [{:transaction/keys [entity transaction-date items]}]
-                  (map (fn [{:account-item/keys [account]}]
+                  (map (fn [{:transaction-item/keys [account]}]
                          [entity account transaction-date])
                        items)))))
 
