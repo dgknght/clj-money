@@ -17,9 +17,6 @@
                          :id)]
       (->> before
            (remove current?)
-           (mapcat (juxt identity
-                         :transaction-item/debit-item
-                         :transaction-item/credit-item))
            (map #(vector ::db/delete %))))))
 
 (defmethod sql/deconstruct :transaction
