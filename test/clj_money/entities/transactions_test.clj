@@ -810,47 +810,30 @@
            groceries
            checking] (find-accounts "Pets" "Groceries" "Checking")]
       (-> (find-transaction [(t/local-date 2016 3 9) "Kroger"])
+          (assoc-in [:transaction/items
+                     0
+                     :transaction-item/quantity]
+                    90M)
           (update-in [:transaction/items]
                      conj
-                     #:transaction-item{:value 13M
-                                        :debit-item {:account-item/account
-                                                     pets}
-                                        :credit-item {:account-item/account
-                                                      checking}})
+                     {:transaction-item/action :debit
+                      :transaction-item/account pets
+                      :transaction-item/quantity 13M})
           prop/put-and-propagate)
       (testing "item values"
-        (is (= [#:account-item{:index 0
-                               :quantity 13M
-                               :balance 13M}
-                #:account-item{:index 1
-                               :quantity 12M
-                               :balance 25M}]
+        (is (= [#:transaction-item{:index 0 :quantity 13M :balance 13M}
+                #:transaction-item{:index 1 :quantity 12M :balance 25M}]
                (items-by-account "Pets"))
             "The debit account reflects the added item")
-        (is (= [#:account-item{:index 0
-                               :quantity 1000M
-                               :balance 1000M}
-                #:account-item{:index 1
-                               :quantity -103M
-                               :balance 897M}
-                #:account-item{:index 2
-                               :quantity -13M
-                               :balance 884M}
-                #:account-item{:index 3
-                               :quantity -90M
-                               :balance 794M}
-                #:account-item{:index 4
-                               :quantity -12M
-                               :balance 782M}
-                #:account-item{:index 5
-                               :quantity -101M
-                               :balance 681M}]
+        (is (= [#:transaction-item{:index 0 :quantity 1000M :balance 1000M}
+                #:transaction-item{:index 1 :quantity  103M :balance  897M}
+                #:transaction-item{:index 2 :quantity  102M :balance  795M}
+                #:transaction-item{:index 3 :quantity  101M :balance  694M}]
                (items-by-account "Checking"))
             "The credit account reflects the added item"))
-      ; checking balance before is 694M
-      (assert-account-quantities pets 25M
-                                 groceries 294M
-                                 checking 681M))))
+      (assert-account-quantities pets       25M
+                                 groceries 281M
+                                 checking  694M))))
 
 (def balance-delta-context
   (conj base-context
