@@ -540,6 +540,8 @@ CREATE TABLE public.transaction_item (
     transaction_id bigint NOT NULL,
     action varchar(6),
     account_id integer NOT NULL,
+    reconciliation_id integer,
+    index integer,
     quantity numeric(19,6),
     balance numeric(19, 6),
     memo character varying(200),
@@ -551,12 +553,15 @@ ALTER TABLE ONLY public.transaction_item
     ADD CONSTRAINT transaction_item_pkey PRIMARY KEY (id);
 ALTER SEQUENCE public.transaction_item_id_seq OWNED BY public.transaction_item.id;
 ALTER TABLE ONLY public.transaction_item ALTER COLUMN id SET DEFAULT nextval('public.transaction_item_id_seq'::regclass);
-CREATE INDEX ix_transaction_item_account_id ON public.transaction_item USING btree (account_id);
+CREATE INDEX ix_transaction_item_account_id ON public.transaction_item USING btree (account_id, index);
 CREATE INDEX ix_transaction_item_transaction_id ON public.transaction_item USING btree (transaction_id);
+CREATE INDEX ix_transaction_item_reconciliation_id ON public.transaction_item USING btree (reconciliation_id);
 ALTER TABLE public.transaction_item
     ADD CONSTRAINT transaction_item_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.account(id);
 ALTER TABLE public.transaction_item
     ADD CONSTRAINT transaction_item_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.transaction(id) ON DELETE CASCADE;
+ALTER TABLE public.transaction_item
+    ADD CONSTRAINT transaction_item_reconciliation_id_fkey FOREIGN KEY (reconciliation_id) REFERENCES public.reconciliation(id) ON DELETE SET NULL;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transaction_item TO app_user;
 GRANT SELECT,UPDATE ON SEQUENCE public.transaction_item_id_seq TO app_user;
 
