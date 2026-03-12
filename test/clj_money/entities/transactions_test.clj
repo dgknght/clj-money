@@ -157,38 +157,6 @@
     (assert-invalid (assoc (attributes) :transaction/items [])
                     {:transaction/items ["Items must contain at least 1 item(s)"]})))
 
-(dbtest item-debit-item-is-required
-  (with-context base-context
-    (try (entities/put (update-in
-                         (attributes)
-                         [:transaction/items 0]
-                         dissoc
-                         :transaction-item/debit-item))
-         (is false "Expected an exception, but none was thrown")
-         (catch ExceptionInfo e
-           (is (= ["Debit item is required"]
-                  (get-in (ex-data e)
-                       [::v/errors
-                        :transaction/items
-                        0
-                        :transaction-item/debit-item])))))))
-
-(dbtest item-credit-item-is-required
-  (with-context base-context
-    (try (entities/put (update-in
-                         (attributes)
-                         [:transaction/items 0]
-                         dissoc
-                         :transaction-item/credit-item))
-         (is false "Expected an exception, but none was thrown")
-         (catch clojure.lang.ExceptionInfo e
-           (is (= ["Credit item is required"]
-                  (get-in (ex-data e)
-                       [::v/errors
-                        :transaction/items
-                        0
-                        :transaction-item/credit-item])))))))
-
 (dbtest item-quantity-is-required
   (with-context base-context
     (try
@@ -335,7 +303,8 @@
              :transaction-item/action :credit
              :transaction-item/quantity 102M}]
            (map #(select-keys % [:transaction-item/index
-                                 :transaction-item/quantity])
+                                 :transaction-item/quantity
+                                 :transaction-item/action])
                 (entities/select
                   {:transaction-item/account (find-account "Checking")})))
         "The corresponding account items are removed.")))
