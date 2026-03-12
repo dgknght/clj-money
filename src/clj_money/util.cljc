@@ -129,7 +129,7 @@
           (or (map? entity-or-type)
               (keyword? entity-or-type))]}
    (let [t (extract-entity-type entity-or-type)]
-     (assert (valid-entity-type? t))
+     (assert (valid-entity-type? t) (str "Entity type " t " is not valid"))
      (vary-meta m assoc :clj-money/entity-type t))))
 
 (defn entity-type?

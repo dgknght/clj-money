@@ -482,7 +482,7 @@
 
 (defn- reset*
   [ds]
-  (jdbc/execute! ds ["delete from cached_price; delete from \"user\" cascade"]))
+  (jdbc/execute! ds ["delete from cached_price; delete from transaction_item; delete from \"user\" cascade"]))
 
 (defn- sql-storage
   [config]

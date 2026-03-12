@@ -91,8 +91,7 @@
   [attr]
   (helpers/assert-created attr
                           :refs [:transaction/entity
-                                 :transaction-item/account
-                                 :account-item/account]
+                                 :transaction-item/account]
                           :compare-result? false
                           :ignore-nils? true))
 
