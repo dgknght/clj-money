@@ -9,7 +9,6 @@
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [dbtest]]
             [clj-money.accounts :as acts]
-            [clj-money.transactions :as trxs]
             [clj-money.entity-helpers
              :refer [assert-invalid
                      assert-deleted]
@@ -97,24 +96,24 @@
   (with-context reconciliation-context
     (let [checking (find-account "Checking")
           checking-items (entities/select
-                           {:account-item/account checking
-                            :account-item/quantity [:!= -45M]}
+                           {:transaction-item/account checking
+                            :transaction-item/quantity [:!= 45M]}
                            {:select-also [:transaction/transaction-date]})]
 
       (assert-created (assoc (attributes)
                              :reconciliation/items checking-items
                              :reconciliation/status :completed))
 
-      (is (every? :account-item/reconciliation
-                  (entities/select {:account-item/account checking
-                                    :account-item/quantity [:!= -45M]}))
+      (is (every? :transaction-item/reconciliation
+                  (entities/select {:transaction-item/account checking
+                                    :transaction-item/quantity [:!= 45M]}))
           "specified items are marked as reconciled")
-      (is (not-any? :account-item/reconciliation
-                    (entities/select {:account-item/account checking
-                                      :account-item/quantity -45M}))
+      (is (not-any? :transaction-item/reconciliation
+                    (entities/select {:transaction-item/account checking
+                                      :transaction-item/quantity 45M}))
           "Non-specified items in the same account are not marked")
-      (is (not-any? :account-item/reconciliation
-                    (entities/select {:account-item/account [:!= checking]}))
+      (is (not-any? :transaction-item/reconciliation
+                    (entities/select {:transaction-item/account [:!= checking]}))
           "Items in other accounts are not marked"))))
 
 (dbtest a-new-reconciliation-cannot-be-created-if-one-already-exists
@@ -175,15 +174,18 @@
         #:transaction{:transaction-date (t/local-date 2015 1 1)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:value 100M
-                                                 :credit-account "Salary"
-                                                 :debit-account "Car"}
-                              #:transaction-item{:value 200M
-                                                 :credit-account "Salary"
-                                                 :debit-account "Reserve"}
-                              #:transaction-item{:value 700M
-                                                 :credit-account "Salary"
-                                                 :debit-account "Checking"}]}))
+                      :items [#:transaction-item{:quantity 1000M
+                                                 :action :credit
+                                                 :account "Salary"}
+                              #:transaction-item{:quantity 100M
+                                                 :action :debit
+                                                 :account "Car"}
+                              #:transaction-item{:quantity 200M
+                                                 :action :debit
+                                                 :account "Reserve"}
+                              #:transaction-item{:quantity 700M
+                                                 :action :debit
+                                                 :account "Checking"}]}))
 
 (dbtest items-can-belong-to-children-of-the-account-being-reconciled
   (with-context parent-account-context
@@ -191,11 +193,10 @@
           items (->> *context*
                      (filter :transaction/items)
                      (mapcat :transaction/items)
-                     (mapcat trxs/account-items)
                      (filter #(or (id= reserve
-                                       (:account-item/account %))
+                                       (:transaction-item/account %))
                                   (id= car
-                                       (:account-item/account %)))))
+                                       (:transaction-item/account %)))))
           _ (assert (= 2 (count items)) "Expected 2 items for the test")
           created (assert-created
                     #:reconciliation{:account savings
@@ -203,10 +204,10 @@
                                      :status :completed
                                      :balance 300M
                                      :items items})
-          simplify #(select-keys % [:account-item/action
-                                    :account-item/account
-                                    :account-item/quantity])
-          retrieved (entities/select {:account-item/reconciliation created})]
+          simplify #(select-keys % [:transaction-item/action
+                                    :transaction-item/account
+                                    :transaction-item/quantity])
+          retrieved (entities/select {:transaction-item/reconciliation created})]
       (is (= (->> items
                   (map simplify)
                   set)
@@ -233,7 +234,7 @@
     (is (comparable? #:reconciliation{:balance 447M}
                      (recons/find-working (find-account "Checking"))))))
 
-(dbtest account-item-can-only-belong-to-one-reconciliation
+(dbtest transaction-item-can-only-belong-to-one-reconciliation
   (with-context existing-reconciliation-context
     (assert-invalid
       #:reconciliation{:account (find-account "Checking")
@@ -242,9 +243,9 @@
                        :items (entities/select
                                 (util/entity-type
                                   {:transaction/transaction-date (t/local-date 2017 1 1)
-                                   :account-item/quantity 1000M
+                                   :transaction-item/quantity 1000M
                                    :account/name "Checking"}
-                                  :account-item)) }
+                                  :transaction-item)) }
       {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (dbtest a-working-reconciliation-can-be-updated
@@ -281,19 +282,19 @@
           "The retrieved record reflects the updated attributes")
       (is (seq-of-maps-like?
             [{:transaction/transaction-date (t/local-date 2017 1 1)
-              :account-item/quantity 1000M
-              :account-item/reconciliation (->entity-ref previous-rec)}
+              :transaction-item/quantity 1000M
+              :transaction-item/reconciliation (->entity-ref previous-rec)}
              {:transaction/transaction-date (t/local-date 2017 1 2)
-              :account-item/quantity -500M
-              :account-item/reconciliation (->entity-ref result)}
+              :transaction-item/quantity 500M
+              :transaction-item/reconciliation (->entity-ref result)}
              {:transaction/transaction-date (t/local-date 2017 1 3)
-              :account-item/quantity -45M
-              :account-item/reconciliation (->entity-ref result)}
+              :transaction-item/quantity 45M
+              :transaction-item/reconciliation (->entity-ref result)}
              {:transaction/transaction-date (t/local-date 2017 1 10)
-              :account-item/quantity -53M
-              :account-item/reconciliation nil}]
+              :transaction-item/quantity 53M
+              :transaction-item/reconciliation nil}]
             (map #(update-in %
-                             [:account-item/reconciliation]
+                             [:transaction-item/reconciliation]
                              identity)
                  (entities/select
                    (-> checking entities/find acts/->criteria)
@@ -344,7 +345,7 @@
                     ["Checking" (t/local-date 2017 1 3)]))]
       (prop/delete-and-propagate recon)
       (is (empty? (entities/select
-                    {:account-item/reconciliation recon}))
+                    {:transaction-item/reconciliation recon}))
           "The reconciliation is not associated with any items after delete"))))
 
 (dbtest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
@@ -367,5 +368,5 @@
                             (prop/delete-and-propagate recon))
           "an exception is thrown during propagation")
       (is (seq (entities/select
-                 {:account-item/reconciliation recon}))
+                 {:transaction-item/reconciliation recon}))
           "The transaction items are still associated with the reconciliation"))))
