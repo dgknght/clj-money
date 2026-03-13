@@ -175,6 +175,17 @@
         :bilateral (lookup-accounts-bilateral input)
         :unilateral (lookup-accounts-unilateral input)))))
 
+(defn- strip-redundant-values
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             (fn [items]
+               (map (fn [{:transaction-item/keys [value quantity] :as item}]
+                      (if (= value quantity)
+                        (dissoc item :transaction-item/value)
+                        item))
+                    items))))
+
 (defn normalize
   "Convert the transaction from the given format to unilateral
   and infer missing values where possible"
@@ -184,7 +195,8 @@
   ; and let validation identify the problem
   (or (some-> trx
               lookup-accounts
-              trxs/->unilateral)
+              trxs/->unilateral
+              strip-redundant-values)
       trx))
 
 (defmethod entities/before-validation :transaction

@@ -158,6 +158,8 @@
    {:id :transaction-item
     :fields #{{:id :quantity
                :type :decimal}
+              {:id :value
+               :type :decimal}
               {:id :balance
                :type :decimal}
               {:id :index

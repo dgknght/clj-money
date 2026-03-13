@@ -10,6 +10,10 @@
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
   :db/doc "The amount debited or credited, vis-a-vis the account (i.e. positive or negative)"}
+ {:db/ident :transaction-item/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The value of the quantity expressed in the default currency (when the account does not track the default currency)"}
  {:db/ident :transaction-item/index
   :db/valueType :db.type/long
   :db/cardinality :db.cardinality/one
