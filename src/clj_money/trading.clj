@@ -318,8 +318,8 @@
                  fee
                  fee-account]
     :or {fee 0M}}]
-  (cond-> [(trx/item :debit account value)
-           (trx/item :credit commodity-account shares (- value fee))]
+  (cond-> [(trx/item :debit account (- value fee))
+           (trx/item :credit commodity-account shares value)]
     (not (zero? fee))
     (conj (trx/item :debit fee-account fee))))
 
