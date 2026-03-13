@@ -545,16 +545,16 @@
                 c1)
               "The first call puts the modified transaction")
           (is (seq-of-maps-like?
-                [#:account-item{:index 1
-                                :quantity -102M
-                                :balance 898M}
-                 #:account-item{:index 2
-                                :quantity -101M
-                                :balance 797M}]
+                [#:transaction-item{:index 1
+                                    :quantity 102M
+                                    :balance 898M}
+                 #:transaction-item{:index 2
+                                    :quantity 101M
+                                    :balance 797M}]
                 (filter (every-pred
-                          (util/entity-type? :account-item)
+                          (util/entity-type? :transaction-item)
                           (comp (partial util/id= checking)
-                                :account-item/account))
+                                :transaction-item/account))
                         c2))
               "The second call includes the updated line items")
           (is (->> c2
