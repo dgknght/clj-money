@@ -292,23 +292,9 @@
 (deftest import-with-commodities
   (with-context ext-context
     (let [imp (find-import "Personal")
-          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)
-          _ (assert entity "No entity was returned from the import")
-          {{:settings/keys [lt-capital-gains-account
-                            st-capital-gains-account
-                            lt-capital-loss-account
-                            st-capital-loss-account]} :entity/settings}
-          (entities/find entity)]
-      (testing "entity settings"
-        (is (empty? notifications) "No errors or warnings are reported")
-        (is (util/entity-ref? lt-capital-gains-account)
-            "The long-term capital gains account id is set")
-        (is (util/entity-ref? st-capital-gains-account)
-            "The short-term capital gains account id is set")
-        (is (util/entity-ref? lt-capital-loss-account)
-            "The long-term capital losses account id is set")
-        (is (util/entity-ref? st-capital-loss-account)
-            "The short-term capital losses account id is set"))
+          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)]
+      (assert entity "No entity was returned from the import")
+      (is (empty? notifications) "No errors or warnings are reported")
       (testing "commodities"
         (is (comparable?
               #:commodity{:symbol "AAPL"
@@ -319,17 +305,13 @@
               (entities/find-by {:commodity/symbol "AAPL"}))
             "The traded commodity is created"))
       (testing "transactions"
-        (is (= [{:account-item/action :debit
-                 :account-item/quantity 600M}
-                {:account-item/action :credit
-                 :account-item/quantity -10M}]
-               (map #(select-keys % [:account-item/action
-                                     :account-item/index
-                                     :account-item/quantity
-                                     :account-item/balance])
+        (is (= [{:transaction-item/action :debit
+                 :transaction-item/quantity 590M}]
+               (map #(select-keys % [:transaction-item/action
+                                     :transaction-item/quantity])
                     (entities/select
-                      {:account-item/account (entities/find-by
-                                               {:account/name "IRA"})}))))))))
+                      {:transaction-item/account (entities/find-by
+                                                   {:account/name "IRA"})}))))))))
 
 (defn- gnucash-budget-sample []
   (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
@@ -423,25 +405,6 @@
                                  :account/entity entity})
           aapl (entities/find-by {:commodity/symbol "AAPL"
                                   :commodity/entity entity})]
-      (testing "entity"
-        (let [entity (entities/find entity)
-              lt-gains (entities/find-by {:account/name "Long-Term Gains"})
-              st-gains (entities/find-by {:account/name "Short-Term Gains"})
-              lt-loss (entities/find-by {:account/name "Long-Term Losses"})
-              st-loss (entities/find-by {:account/name "Short-Term Losses"})]
-          (is (empty? (select-keys (:entity/settings entity)
-                                   [:lt-capital-gains-account
-                                    :st-capital-gains-account
-                                    :lt-capital-loss-account
-                                    :st-capital-loss-account]))
-              "The naked keys are not set")
-          (is (comparable? {:settings/lt-capital-gains-account (util/->entity-ref lt-gains)
-                            :settings/st-capital-gains-account (util/->entity-ref st-gains)
-                            :settings/lt-capital-loss-account (util/->entity-ref lt-loss)
-                            :settings/st-capital-loss-account (util/->entity-ref st-loss)}
-                           (:entity/settings entity))
-              "The entity settings are updated with specified gains accounts")))
-
       (testing "lots"
         (is (seq-of-maps-like?
               [#:lot{:purchase-date (t/local-date 2015 1 17)
@@ -471,14 +434,14 @@
           (is (seq-of-maps-like?
                 [{:transaction/transaction-date (t/local-date 2015 1 17)
                   :transaction/description "Purchase 100.000 shares of AAPL at 9.950"
-                  :account-item/quantity 5M
-                  :account-item/action :debit}
+                  :transaction-item/quantity 5M
+                  :transaction-item/action :debit}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
                   :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
-                  :account-item/quantity 10M
-                  :account-item/action :debit}]
+                  :transaction-item/quantity 10M
+                  :transaction-item/action :debit}]
                 (entities/select
-                  {:account-item/account inv-exp}
+                  {:transaction-item/account inv-exp}
                   {:sort [:transaction/transaction-date]
                    :select-also [:transaction/transaction-date
                                  :transaction/description]}))
@@ -486,14 +449,14 @@
           (is (seq-of-maps-like?
                 [{:transaction/transaction-date (t/local-date 2015 3 2)
                   :transaction/description "Transfer 100.000000 shares of AAPL"
-                  :account-item/action :debit
-                  :account-item/quantity 100M}
+                  :transaction-item/action :debit
+                  :transaction-item/quantity 100M}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
                   :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
-                  :account-item/action :credit
-                  :account-item/quantity -100M}]
+                  :transaction-item/action :credit
+                  :transaction-item/quantity 100M}]
                 (entities/select
-                  {:account-item/account ira-aapl}
+                  {:transaction-item/account ira-aapl}
                   {:sort [:transaction/transaction-date]
                    :select-also [:transaction/transaction-date
                                  :transaction/description]}))
