@@ -183,11 +183,12 @@
         default-body #:transaction{:description "Paycheck"
                                    :transaction-date (t/local-date 2016 03 02)
                                    :memo "Seems like there should be more"
-                                   :items [#:transaction-item{:debit-item
-                                                              {:account-item/account (util/->entity-ref checking)}
-                                                              :credit-item
-                                                              {:account-item/account (util/->entity-ref salary)}
-                                                              :value 1000M}]}
+                                   :items [#:transaction-item{:action :debit
+                                                              :account (util/->entity-ref checking)
+                                                              :quantity 1000M}
+                                           #:transaction-item{:action :credit
+                                                              :account (util/->entity-ref salary)
+                                                              :quantity 1000M}]}
         request-body (or body default-body)
         response (-> (request :post (path :api
                                           :entities
@@ -238,11 +239,13 @@
                                 :body {:description "Paycheck"
                                        :transactionDate "2016-03-02"
                                        :memo "Seems like there should be more"
-                                       :items [{:debit-item {:account {:id (:id checking)}
-                                                             :_type "account-item"}
-                                                :credit-item {:account {:id (:id salary)}
-                                                              :_type "account-item"}
-                                                :value 1000
+                                       :items [{:action "debit"
+                                                :account {:id (:id checking)}
+                                                :quantity 1000
+                                                :_type "transaction-item"}
+                                               {:action "credit"
+                                                :quantity 1000
+                                                :account {:id (:id salary)}
                                                 :_type "transaction-item"}]
                                        :_type "transaction"})
           :expected-response {:description "Paycheck"
