@@ -52,48 +52,57 @@
         #:transaction{:transaction-date (t/local-date 2016 1 1)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:value 724M
-                                                 :debit-item #:account-item{:account "Checking"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 200M
-                                                 :debit-item #:account-item{:account "FIT"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 62M
-                                                 :debit-item #:account-item{:account "Social Security"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 15M
-                                                 :debit-item #:account-item{:account "Medicare"}
-                                                 :credit-item #:account-item{:account "Salary"}}]}
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 724M}
+                              #:transaction-item{:action :debit
+                                                 :account "FIT"
+                                                 :quantity 200M}
+                              #:transaction-item{:action :debit
+                                                 :account "Social Security"
+                                                 :quantity 62M}
+                              #:transaction-item{:action :debit
+                                                 :account "Medicare"
+                                                 :quantity 15M}
+                              #:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1001M}]}
         #:transaction{:transaction-date (t/local-date 2016 1 15)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:value 725M
-                                                 :debit-item #:account-item{:account "Checking"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 200M
-                                                 :debit-item #:account-item{:account "FIT"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 62M
-                                                 :debit-item #:account-item{:account "Social Security"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 15M
-                                                 :debit-item #:account-item{:account "Medicare"}
-                                                 :credit-item #:account-item{:account "Salary"}}]}
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 725M}
+                              #:transaction-item{:action :debit
+                                                 :account "FIT"
+                                                 :quantity 200M}
+                              #:transaction-item{:action :debit
+                                                 :account "Social Security"
+                                                 :quantity 62M}
+                              #:transaction-item{:action :debit
+                                                 :account "Medicare"
+                                                 :quantity 15M}
+                              #:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1002M}]}
         #:transaction{:transaction-date (t/local-date 2016 2 1)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:value 726M
-                                                 :debit-item #:account-item{:account "Checking"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 200M
-                                                 :debit-item #:account-item{:account "FIT"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 62M
-                                                 :debit-item #:account-item{:account "Social Security"}
-                                                 :credit-item #:account-item{:account "Salary"}}
-                              #:transaction-item{:value 15M
-                                                 :debit-item #:account-item{:account "Medicare"}
-                                                 :credit-item #:account-item{:account "Salary"}}]}
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 726M}
+                              #:transaction-item{:action :debit
+                                                 :account "FIT"
+                                                 :quantity 200M}
+                              #:transaction-item{:action :debit
+                                                 :account "Social Security"
+                                                 :quantity 62M}
+                              #:transaction-item{:action :debit
+                                                 :account "Medicare"
+                                                 :quantity 15M}
+                              #:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1003M}]}
         #:transaction{:transaction-date (t/local-date 2016 2 15)
                       :entity "Personal"
                       :description "Paycheck"
@@ -413,120 +422,57 @@
         #:transaction{:transaction-date (t/local-date 2016 01 01)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:value 724M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Checking"
-                                                                :quantity 724M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 724M}}
-                              #:transaction-item{:value 200M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "FIT"
-                                                                :quantity 200M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 200M}}
-                              #:transaction-item{:value 62M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Social Security"
-                                                                :quantity 62M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 62M}}
-                              #:transaction-item{:value 15M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Medicare"
-                                                                :quantity 15M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 15M}}]}
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 724M}
+                              #:transaction-item{:action :debit
+                                                 :account "FIT"
+                                                 :quantity 200M}
+                              #:transaction-item{:action :debit
+                                                 :account "Social Security"
+                                                 :quantity 62M}
+                              #:transaction-item{:action :debit
+                                                 :account "Medicare"
+                                                 :quantity 15M}
+                              #:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1001M}]}
         #:transaction{:transaction-date (t/local-date 2016 01 15)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:value 725M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Checking"
-                                                                :quantity 725M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 725M}}
-                              #:transaction-item{:value 200M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "FIT"
-                                                                :quantity 200M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 200M}}
-                              #:transaction-item{:value 62M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Social Security"
-                                                                :quantity 62M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 62M}}
-                              #:transaction-item{:value 15M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Medicare"
-                                                                :quantity 15M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 15M}}]}
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 725M}
+                              #:transaction-item{:action :debit
+                                                 :account "FIT"
+                                                 :quantity 200M}
+                              #:transaction-item{:action :debit
+                                                 :account "Social Security"
+                                                 :quantity 62M}
+                              #:transaction-item{:action :debit
+                                                 :account "Medicare"
+                                                 :quantity 15M}
+                              #:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1002M}]}
         #:transaction{:transaction-date (t/local-date 2016 02 01)
                       :entity "Personal"
                       :description "Paycheck"
-                      :items [#:transaction-item{:value 726M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Checking"
-                                                                :quantity 726M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 726M}}
-                              #:transaction-item{:value 200M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "FIT"
-                                                                :quantity 200M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 200M}}
-                              #:transaction-item{:value 62M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Social Security"
-                                                                :quantity 62M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 62M}}
-                              #:transaction-item{:value 15M
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :account "Medicare"
-                                                                :quantity 15M}
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :account "Salary"
-                                                                :quantity 15M}}]}
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 726M}
+                              #:transaction-item{:action :debit
+                                                 :account "FIT"
+                                                 :quantity 200M}
+                              #:transaction-item{:action :debit
+                                                 :account "Social Security"
+                                                 :quantity 62M}
+                              #:transaction-item{:action :debit
+                                                 :account "Medicare"
+                                                 :quantity 15M}
+                              #:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1003M}]}
         #:transaction{:transaction-date (t/local-date 2016 02 15)
                       :entity "Personal"
                       :description "Paycheck"
