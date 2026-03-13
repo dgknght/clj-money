@@ -14,6 +14,16 @@
             [clj-money.accounts :refer [polarize-quantity
                                         left-side?]]))
 
+(defn item
+  "Create and return a transaction item map"
+  ([action account quantity]
+   (item action account quantity nil))
+  ([action account quantity value]
+   (cond-> #:transaction-item{:action action
+                              :account account
+                              :quantity quantity}
+     value (assoc :transaction-item/value value))))
+
 (def ^:private val-or-qty
   (some-fn :transaction-item/value
            :transaction-item/quantity))
@@ -467,6 +477,7 @@
           (recur o d c))))))
 
 (defn- account->transaction-item
+  "Converts an account-item into a transaction-item"
   [item]
   (-> item
       (rename-keys {:account-item/memo :transaction-item/memo
