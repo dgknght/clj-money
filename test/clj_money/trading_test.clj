@@ -80,15 +80,13 @@
                                          :price 10M}]
 
                              :items
-                             [#:transaction-item{:value 1000M
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :quantity -1000M
-                                                                :account (util/->entity-ref ira)}
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :quantity 100M
-                                                                :account (util/->entity-ref (:trade/commodity-account result))}}]}]
+                             [#:transaction-item{:action :credit
+                                                 :account (util/->entity-ref ira)
+                                                 :quantity 1000M}
+                              #:transaction-item{:action :debit
+                                                 :account (util/->entity-ref (:trade/commodity-account result))
+                                                 :quantity 100M
+                                                 :value 1000M}]}]
 
               (:trade/transactions result))
             "A transaction is created and returned"))
