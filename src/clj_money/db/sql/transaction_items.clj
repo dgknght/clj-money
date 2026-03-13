@@ -4,9 +4,12 @@
             [clj-money.util :refer [temp-id?]]))
 
 (defmethod sql/resolve-temp-ids :transaction-item
-  [{:transaction-item/keys [transaction-id]
+  [{:transaction-item/keys [transaction-id reconciliation-id]
     :as item}
    id-map]
   (cond-> item
     (temp-id? transaction-id)
-    (update-in [:transaction-item/transaction-id] id-map)))
+    (update-in [:transaction-item/transaction-id] id-map)
+
+    (temp-id? reconciliation-id)
+    (update-in [:transaction-item/reconciliation-id] id-map)))
