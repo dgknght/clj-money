@@ -6,16 +6,16 @@
             [clj-money.entities :as entities]))
 
 (defn realize-accounts
-  "Given a list of account items, lookup referenced accounts"
+  "Given a list of transaction items, lookup referenced accounts"
   [items]
   (when-let [account-ids (->> items
-                              (map (comp :id :account-item/account))
+                              (map (comp :id :transaction-item/account))
                               set
                               seq)]
     (let [accounts (index-by :id
                              (entities/find-many account-ids))]
       (map #(update-in %
-                       [:account-item/account]
+                       [:transaction-item/account]
                        (comp accounts :id))
            items))))
 

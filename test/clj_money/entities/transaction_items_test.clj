@@ -33,9 +33,9 @@
            (->> (entities/select
                   (util/entity-type
                     {:transaction/entity (find-entity "Personal")}
-                    :account-item)
-                  {:sort [[:account-item/index :asc]]})
+                    :transaction-item)
+                  {:sort [[:transaction-item/index :asc]]})
                 (trx-items/realize-accounts)
                 (map (comp :account/name
-                           :account-item/account))
+                           :transaction-item/account))
                 set)))))
