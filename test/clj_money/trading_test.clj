@@ -248,22 +248,22 @@
               (:trade/transactions result))
             "The transaction is created and returned")
         (is (seq-of-maps-like?
-              [{:account-item/action :debit
-                :account-item/quantity 2000M}
-               {:account-item/action :credit
-                :account-item/quantity -1000M}
-               {:account-item/action :debit
-                :account-item/quantity 375M}]
+              [{:transaction-item/action :debit
+                :transaction-item/quantity 2000M}
+               {:transaction-item/action :credit
+                :transaction-item/quantity 1000M}
+               {:transaction-item/action :debit
+                :transaction-item/quantity 375M}]
               (entities/select
-                {:account-item/account (find-account "IRA")}))
+                {:transaction-item/account (find-account "IRA")}))
             "The trading account is debited the total proceeds from the purchase")
         (is (seq-of-maps-like?
-              [{:account-item/action :debit
-                :account-item/quantity 100M}
-               {:account-item/action :credit
-                :account-item/quantity -25M}]
+              [{:transaction-item/action :debit
+                :transaction-item/quantity 100M}
+               {:transaction-item/action :credit
+                :transaction-item/quantity 25M}]
               (entities/select
-                {:account-item/account aapl-acc}))
+                {:transaction-item/account aapl-acc}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
 (deftest ^:multi-threaded propagate-a-sale
@@ -308,24 +308,24 @@
               (:trade/transactions result))
             "The result contains the transaction")
         (is (seq-of-maps-like?
-              [#:account-item{:action :debit
-                              :quantity 2000M}  ; fund the account
-               #:account-item{:action :credit
-                              :quantity -1000M} ; purchase the commodity
-               #:account-item{:action :debit
-                              :quantity 200M}]  ; sell a portion
+              [#:transaction-item{:action :debit
+                                  :quantity 2000M}  ; fund the account
+               #:transaction-item{:action :credit
+                                  :quantity 1000M} ; purchase the commodity
+               #:transaction-item{:action :debit
+                                  :quantity 200M}]  ; sell a portion
               (entities/select
-                {:account-item/account (find-account "IRA")}))
+                {:transaction-item/account (find-account "IRA")}))
             "The trading account is debited the total proceeds from the purchase")
         (is (seq-of-maps-like?
-              [#:account-item{:action :debit
-                              :quantity 100M}
-               #:account-item{:action :credit
-                              :quantity -25M}]
+              [#:transaction-item{:action :debit
+                                  :quantity 100M}
+               #:transaction-item{:action :credit
+                                  :quantity 25M}]
               (entities/select
-                {:account-item/account (entities/find-by
-                                         #:account{:entity (find-entity "Personal")
-                                                   :commodity (find-commodity "AAPL")})}))
+                {:transaction-item/account (entities/find-by
+                                             #:account{:entity (find-entity "Personal")
+                                                       :commodity (find-commodity "AAPL")})}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
 (deftest ^:multi-threaded sell-a-commodity-with-a-fee

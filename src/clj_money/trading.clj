@@ -318,17 +318,10 @@
                  fee
                  fee-account]
     :or {fee 0M}}]
-  (cond-> [#:transaction-item{:value value
-                              :debit-item #:account-item{:action :debit
-                                                         :account account
-                                                         :quantity value}
-                              :credit-item #:account-item{:action :credit
-                                                          :account commodity-account
-                                                          :quantity (- 0M shares)}}]
+  (cond-> [(trx/item :debit account value)
+           (trx/item :credit commodity-account shares (- value fee))]
     (not (zero? fee))
-    (conj #:transaction-item{:value fee
-                             :debit-item #:account-item{:account fee-account}
-                             :credit-item #:account-item{:account account}})))
+    (conj (trx/item :debit fee-account fee))))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
