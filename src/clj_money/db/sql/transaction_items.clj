@@ -13,3 +13,11 @@
 
     (temp-id? reconciliation-id)
     (update-in [:transaction-item/reconciliation-id] id-map)))
+
+(defmethod sql/post-select :transaction-item
+  [_ items]
+  (map (fn [{:as item :transaction-item/keys [value]}]
+         (cond-> item
+           (nil? value)
+           (dissoc :transaction-item/value)))
+       items))
