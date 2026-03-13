@@ -511,34 +511,34 @@
           to-account (find-account "IRA 2")
           commodity (entities/find (find-commodity "AAPL")) ; reload to get the date boundaries
           [result] (trading/transfer-and-propagate
-                   #:transfer{:commodity commodity
-                              :from-account from-account
-                              :to-account to-account
-                              :shares 100M
-                              :date (t/local-date 2016 4 2)})]
+                     #:transfer{:commodity commodity
+                                :from-account from-account
+                                :to-account to-account
+                                :shares 100M
+                                :date (t/local-date 2016 4 2)})]
       (testing "The transaction"
         (is (comparable?
               #:transaction{:transaction-date (t/local-date 2016 4 2)
                             :description "Transfer 100 shares of AAPL"
                             :entity (util/->entity-ref (find-entity "Personal"))
                             :items
-                            [#:transaction-item{:value 1000M
-                                                :credit-item
-                                                #:account-item{:quantity -100M
-                                                               :balance 0M
-                                                               :account (util/->entity-ref
-                                                                          (entities/find-by
-                                                                            #:account{:name "AAPL"
-                                                                                      :parent from-account}))}
-
-                                                :debit-item
-                                                #:account-item{:quantity 100M
-                                                               :balance 100M
-                                                               :account (util/->entity-ref
-                                                                          (entities/find-by
-                                                                            #:account{:name "AAPL"
-                                                                                      :parent to-account}))}}]}
-                            (entities/find (:transfer/transaction result)))
+                            [#:transaction-item{:action :credit
+                                                :account (util/->entity-ref
+                                                           (entities/find-by
+                                                             #:account{:name "AAPL"
+                                                                       :parent from-account}))
+                                                :quantity 100M
+                                                :value 1000M
+                                                :balance 0M}
+                             #:transaction-item{:action :debit
+                                                :account (util/->entity-ref
+                                                           (entities/find-by
+                                                             #:account{:name "AAPL"
+                                                                       :parent to-account}))
+                                                :quantity 100M
+                                                :value 1000M
+                                                :balance 100M}]}
+              (entities/find (:transfer/transaction result)))
             "A transaction is created and returned"))
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:commodity (util/->entity-ref commodity)
