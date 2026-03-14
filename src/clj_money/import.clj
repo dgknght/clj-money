@@ -620,10 +620,7 @@
   (try
     (let [balance (->> (or (seq items)
                            (fetch-reconciled-items recon))
-                       (map (comp #(polarize-quantity
-                                     {:account (:transaction-item/account %)
-                                      :action (:transaction-item/action %)
-                                      :quantity (:transaction-item/quantity %)})
+                       (map (comp polarize-quantity
                                   #(update-in %
                                               [:transaction-item/account]
                                               (comp accounts :id))))
