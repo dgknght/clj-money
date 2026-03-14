@@ -156,12 +156,10 @@
 
 (defn- polarize-item
   "Assoc :transaction-item/polarized-quantity to the item"
-  [{:as item :transaction-item/keys [account action quantity]}]
+  [item]
   (assoc item
          :transaction-item/polarized-quantity
-         (acts/polarize-quantity {:account account
-                                  :action action
-                                  :quantity quantity})))
+         (acts/polarize-quantity item)))
 
 (defn- account+children
   "Fetch and return the account children along with the given account"

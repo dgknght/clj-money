@@ -26,9 +26,7 @@
        realize-accounts
        (map #(assoc %
                     :transaction-item/polarized-quantity
-                    (polarize-quantity {:account (:transaction-item/account %)
-                                        :action (:transaction-item/action %)
-                                        :quantity (:transaction-item/quantity %)})))))
+                    (polarize-quantity %)))))
 
 (defn resolve-refs
   [items]
