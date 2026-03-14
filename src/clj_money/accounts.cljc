@@ -164,9 +164,9 @@
             earliest-date
             latest-date
             entity-type]
-     :or {account-attribute :account-item/account
+     :or {account-attribute :transaction-item/account
           date-attribute :transaction/transaction-date
-          entity-type :account-item}}
+          entity-type :transaction-item}}
     accounts]
    (let [range (->> accounts
                     (map :account/transaction-date-range)

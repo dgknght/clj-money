@@ -8,6 +8,7 @@
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.decimal :as d]
+            [clj-money.transactions :as trx]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
@@ -294,19 +295,10 @@
     :or {fee 0M}
     :as trade}]
   (let [currency-amount (+ value fee)
-        items (if (= 0M fee)
-                [#:transaction-item{:value currency-amount
-                                    :credit-item #:account-item{:account account}
-                                    :debit-item #:account-item{:account commodity-account
-                                                               :quantity shares}}]
-                [#:transaction-item{:value currency-amount
-                                    :credit-item #:account-item{:account account
-                                                                :quantity (- 0M (- currency-amount fee))}
-                                    :debit-item #:account-item{:account commodity-account
-                                                               :quantity shares}}
-                 #:transaction-item{:value fee
-                                    :credit-item #:account-item{:account account}
-                                    :debit-item #:account-item{:account fee-account}}])]
+        items (cond-> [(trx/item :credit account currency-amount)
+                       (trx/item :debit commodity-account shares (- currency-amount fee))]
+                (not (zero? fee))
+                (conj (trx/item :debit fee-account fee)))]
     (assoc trade
            :trade/transaction
            #:transaction{:entity entity
@@ -326,17 +318,10 @@
                  fee
                  fee-account]
     :or {fee 0M}}]
-  (cond-> [#:transaction-item{:value value
-                              :debit-item #:account-item{:action :debit
-                                                         :account account
-                                                         :quantity value}
-                              :credit-item #:account-item{:action :credit
-                                                          :account commodity-account
-                                                          :quantity (- 0M shares)}}]
+  (cond-> [(trx/item :debit account (- value fee))
+           (trx/item :credit commodity-account shares value)]
     (not (zero? fee))
-    (conj #:transaction-item{:value fee
-                             :debit-item #:account-item{:account fee-account}
-                             :credit-item #:account-item{:account account}})))
+    (conj (trx/item :debit fee-account fee))))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency

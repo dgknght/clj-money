@@ -23,7 +23,7 @@
 (defn- in-balance?
   [{:reconciliation/keys [balance] :as recon}]
   (let [calculated (->> (get-meta recon ::all-items)
-                        (map :account-item/quantity)
+                        (map :transaction-item/polarized-quantity)
                         (filter identity)
                         (reduce + (starting-balance recon)))]
     (= balance calculated)))
@@ -64,7 +64,7 @@
   [reconciliation]
   (if-let [new-items (seq (get-meta reconciliation ::new-items))]
     (let [accounts (get-meta reconciliation ::accounts)
-          match? (comp accounts :id :account-item/account)]
+          match? (comp accounts :id :transaction-item/account)]
       (every? match? new-items))
     true))
 
@@ -75,7 +75,7 @@
 (defn- items-not-already-reconciled?
   [{:keys [id] :as recon}]
   (->> (get-meta recon ::new-items)
-       (map (comp :id :account-item/reconciliation))
+       (map (comp :id :transaction-item/reconciliation))
        (remove (some-fn nil? #(= id %)))
        empty?))
 
@@ -110,9 +110,8 @@
 (s/def :reconciliation/status #{:new :completed})
 
 (s/def :reconciliation/item
-  (s/or :abbreviated (s/keys :opt [:transaction/transaction-date]
-                             :req-un [::entities/id])
-        :full ::entities/account-item))
+  (s/or :abbreviated (s/keys :req-un [::entities/id])
+        :full ::entities/transaction-item))
 
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
@@ -139,11 +138,11 @@
                                     {:include-children? true})
           by-id (index-by :id accounts)
           criteria (assoc (acts/->>criteria accounts)
-                          :account-item/reconciliation recon)]
-      (map #(update-in % [:account-item/account] (comp by-id :id))
+                          :transaction-item/reconciliation recon)]
+      (map #(update-in % [:transaction-item/account] (comp by-id :id))
            (entities/select criteria
-                            {:datalog/hints [:account-item/reconciliation
-                                             :account-item/account]})))
+                            {:datalog/hints [:transaction-item/reconciliation
+                                             :transaction-item/account]})))
     []))
 
 (defn- find-last-completed
@@ -155,34 +154,50 @@
                       (:id recon) (assoc :id [:!= (:id recon)]))
                     {:sort [[:reconciliation/end-of-period :desc]]})))
 
+(defn- polarize-item
+  "Assoc :transaction-item/polarized-quantity to the item"
+  [{:as item :transaction-item/keys [account action quantity]}]
+  (assoc item
+         :transaction-item/polarized-quantity
+         (acts/polarize-quantity {:account account
+                                  :action action
+                                  :quantity quantity})))
+
+(defn- account+children
+  "Fetch and return the account children along with the given account"
+  [account]
+  (entities/select (util/entity-type
+                     (util/->entity-ref account)
+                     :account)
+                   {:include-children? true}))
+
+(defn- fetch-transaction-items
+  ([recon]
+   (entities/select {:transaction-item/reconciliation recon}
+                    {:select-also :transaction/transaction-date
+                     :datalog/hints [:transaction-item/reconciliation
+                                     :transaction-item/transaction-item]})))
+
 (defmethod entities/before-validation :reconciliation
   [{:reconciliation/keys [account items] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items)
                    (:reconciliation/items recon))]}
   (let [accounts (when account
-                   (index-by :id
-                             (entities/select (util/entity-type
-                                                (util/->entity-ref account)
-                                                :account)
-                                              {:include-children? true})))
+                   (index-by :id (account+children account)))
         existing-items (if (:id recon)
-                         (map #(update-in %
-                                          [:account-item/account]
-                                          (comp accounts :id))
-                              (entities/select
-                                (-> (acts/->>criteria (vals accounts))
-                                    (assoc :account-item/reconciliation recon))
-                                {:datalog/hints [:account-item/reconciliation
-                                                 :account-item/account]}))
+                         (fetch-transaction-items recon)
                          [])
         ignore? (comp (->> existing-items
                            (map :id)
                            set)
                       :id)
-        new-items (->> items
-                       (remove ignore?)
-                       (map #(update-in % [:account-item/account] (comp accounts :id))))
-        all-items (concat existing-items new-items)]
+        new-items (remove ignore? items)
+        all-items (->> new-items
+                       (concat existing-items)
+                       (map (comp polarize-item
+                                  #(update-in %
+                                              [:transaction-item/account]
+                                              (comp accounts :id)))))]
     (-> recon
         (update-in [:reconciliation/status] (fnil identity :new))
         (vary-meta
@@ -193,14 +208,7 @@
                   ::existing-items existing-items
                   ::last-completed (find-last-completed recon))))))
 
-(defn- fetch-account-items
-  [recon]
-  (entities/select {:account-item/reconciliation recon}
-                   {:select-also :transaction/transaction-date
-                    :datalog/hints [:account-item/reconciliation
-                                    :account-item/transaction-item]}))
-
-(defn- append-account-items
+(defn- append-transaction-items
   [{:as recon :reconciliation/keys [items]}]
   ; we don't want to re-lookup items if the db implementation already
   ; keeps them with the reconciliation.
@@ -208,12 +216,12 @@
     recon
     (assoc recon
            :reconciliation/items
-           (fetch-account-items recon))))
+           (fetch-transaction-items recon))))
 
 (defmethod entities/after-read :reconciliation
   [recon _opts]
   (when recon
-    (append-account-items recon)))
+    (append-transaction-items recon)))
 
 (defmethod entities/before-delete :reconciliation
   [{:as recon :reconciliation/keys [account end-of-period]}]
@@ -225,5 +233,5 @@
 (defmethod prop/propagate :reconciliation
   [[recon after]]
   (when-not after
-    (map #(assoc % :account-item/reconciliation nil)
+    (map #(assoc % :transaction-item/reconciliation nil)
          (fetch-items recon))))

@@ -40,7 +40,7 @@
                                             ensure-empty-item
                                             ->bilateral]]
             [clj-money.components :refer [load-in-chunks]]
-            [clj-money.api.account-items :as account-items]
+            [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
             [clj-money.api.trading :as trading]))
@@ -93,7 +93,7 @@
                                                             (:account/transaction-date-range account))
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
-    (account-items/select
+    (trx-items/select
       criteria
       :callback -busy
       :on-success #(swap! page-state assoc :items %))))
@@ -112,7 +112,7 @@
   (completing
     (fn [ch criteria]
       (if criteria
-        (account-items/select criteria
+        (trx-items/select criteria
                                   :on-success #(xf ch %))
         (xf ch [])))))
 
@@ -159,7 +159,7 @@
   [account-item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (+busy)
-    (account-items/delete
+    (trx-items/delete
       account-item
       :callback -busy
       :on-success #(reset-item-loading page-state))))
@@ -338,7 +338,7 @@
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
-    (account-items/select (accounts/->criteria @account)
+    (trx-items/select (accounts/->criteria @account)
                           :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless
