@@ -117,6 +117,15 @@
                           :on-success #(xf ch %))
         (xf ch [])))))
 
+(defn- polarize-quantities
+  [account]
+  (fn [items]
+    (map (comp #(assoc %
+                       :transaction-item/polarized-quantity
+                       (polarize-quantity %))
+               #(assoc % :transaction-item/account account))
+         items)))
+
 (defn init-item-loading
   [page-state]
   (let [account (get-in @page-state [:view-account])
@@ -134,12 +143,7 @@
                                                   :chunk-size 100}))
                 out-ch (a/chan
                          1
-                         (map (fn [items]
-                                (map (comp #(assoc %
-                                                   :transaction-item/polarized-quantity
-                                                   (polarize-quantity %))
-                                           #(assoc % :transaction-item/account account))
-                                     items))))]
+                         (map (polarize-quantities account)))]
             (a/pipe items-ch out-ch)
             (go-loop [items (<! out-ch)]
                      (if items
@@ -343,24 +347,13 @@
    [:td.text-end (format-decimal balance 4)]
    [:td.text-end (currency-format (or value polarized-quantity))]])
 
-(defn- polarize-items
-  [account]
-  (fn [items]
-    (map (comp #(assoc %
-                       :transaction-item/polarized-quantity
-                       (polarize-quantity %))
-               #(assoc %
-                       :transaction-item/account
-                       account))
-         items)))
-
 (defn fund-transactions-table
   [page-state]
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
     (trx-items/select (accounts/->criteria @account)
-                      :post-xf (map (polarize-items @account))
+                      :post-xf (map (polarize-quantities @account))
                       :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless
