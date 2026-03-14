@@ -377,3 +377,12 @@
                              (update-in [:entity-type]
                                         #(or % (util/entity-type entity)))))
             entity))
+
+(defn resolve-temp-ids
+  [entity id-map & keys]
+  (reduce (fn [e k]
+            (if (util/temp-id? (e k))
+              (update-in e [k] id-map)
+              e))
+          entity
+          keys))

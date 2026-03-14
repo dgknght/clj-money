@@ -1,21 +1,15 @@
 (ns clj-money.db.sql.transaction-items
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.db.sql :as sql]
-            [clj-money.util :refer [temp-id?]]))
+            [clj-money.db.sql.types :as types]))
 
 (defmethod sql/resolve-temp-ids :transaction-item
-  [{:transaction-item/keys [account-id transaction-id reconciliation-id]
-    :as item}
+  [item
    id-map]
-  (cond-> item
-    (temp-id? transaction-id)
-    (update-in [:transaction-item/transaction-id] id-map)
-
-    (temp-id? account-id)
-    (update-in [:transaction-item/account-id] id-map)
-
-    (temp-id? reconciliation-id)
-    (update-in [:transaction-item/reconciliation-id] id-map)))
+  (types/resolve-temp-ids item id-map
+    :transaction-item/transaction-id
+    :transaction-item/account-id
+    :transaction-item/reconciliation-id))
 
 (defmethod sql/post-select :transaction-item
   [_ items]
