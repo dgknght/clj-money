@@ -120,8 +120,16 @@
 (defn polarize-quantity
   "Given a quantity, action, and an account, returns the quantity
   vis a vis the account (i.e., positive or negative)."
-  ([{:keys [quantity action account]}]
-   (polarize-quantity quantity action account))
+  ([input]
+   (polarize-quantity ((some-fn :quantity
+                                :transaction-item/quantity)
+                       input)
+                      ((some-fn :action
+                                :transaction-item/action)
+                       input)
+                      ((some-fn :account
+                                :transaction-item/account)
+                       input)))
   ([quantity action account]
    {:pre [quantity
           action
