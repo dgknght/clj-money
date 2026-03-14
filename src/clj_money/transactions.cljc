@@ -228,11 +228,12 @@
 
 (defn- summarize-period
   [[start-date end-date] items]
+  {:pre [(every? :transaction-item/polarized-quantity items)]}
   {:start-date start-date
    :end-date end-date
    :quantity (->> items
                   (filter #(dates/within? (:transaction/transaction-date %) start-date end-date))
-                  (map :account-item/quantity)
+                  (map :transaction-item/polarized-quantity)
                   (reduce d/+ (d 0)))})
 
 (defn summarize-items

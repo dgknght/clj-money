@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [index-by]]
             [clj-money.util :as util]
+            [clj-money.accounts :refer [polarize-quantity]]
             [clj-money.entities :as entities]))
 
 (defn realize-accounts
@@ -18,6 +19,16 @@
                        [:transaction-item/account]
                        (comp accounts :id))
            items))))
+
+(defn polarize-quantities
+  [items]
+  (->> items
+       realize-accounts
+       (map #(assoc %
+                    :transaction-item/polarized-quantity
+                    (polarize-quantity {:account (:transaction-item/account %)
+                                        :action (:transaction-item/action %)
+                                        :quantity (:transaction-item/quantity %)})))))
 
 (defn resolve-refs
   [items]

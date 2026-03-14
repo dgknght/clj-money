@@ -1,4 +1,4 @@
-(ns clj-money.api.account-items
+(ns clj-money.api.transaction-items
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
@@ -11,14 +11,15 @@
             [clj-money.comparatives :as comparatives]
             [clj-money.transactions :refer [summarize-items]]
             [clj-money.entities :as entities]
+            [clj-money.entities.transaction-items :as trx-items]
             [clj-money.authorization :refer [+scope]]
-            [clj-money.authorization.account-items]))
+            [clj-money.authorization.transaction-items]))
 
 (defn- apply-account-recursion
   [{:keys [include-children] :as criteria}]
   (if (parse-bool include-children)
     (update-in criteria
-               [:account-item/account]
+               [:transaction-item/account]
                (fn [id]
                  [:in (map :id (entities/select
                                  (util/entity-type {:id id}
@@ -34,7 +35,7 @@
   [{{:keys [unreconciled]} :params} items]
   (if (parse-bool unreconciled)
     (if-let [recon-ids (->> items
-                            (map (comp :id :account-item/reconciliation))
+                            (map (comp :id :transaction-item/reconciliation))
                             set
                             seq)]
       (let [unreconciled? (complement
@@ -45,7 +46,7 @@
                                  set))]
         (filter (comp unreconciled?
                       :id
-                      :account-item/reconciliation)
+                      :transaction-item/reconciliation)
                 items))
       items)
     items))
@@ -65,19 +66,19 @@
       comparatives/symbolize
       (update-in-if [:transaction-date] unserialize-date)
       (rename-keys {:transaction-date :transaction/transaction-date
-                    :account-id :account-item/account
+                    :account-id :transaction-item/account
                     :entity-id :transaction/entity
-                    :reconciliation-id :account-item/reconciliation})
+                    :reconciliation-id :transaction-item/reconciliation})
       apply-account-recursion
-      (update-in-if [:account-item/account] util/->entity-ref)
-      (update-in-if [:account-item/reconciliation] (comp util/->entity-ref
+      (update-in-if [:transaction-item/account] util/->entity-ref)
+      (update-in-if [:transaction-item/reconciliation] (comp util/->entity-ref
                                                          uuid))
       (update-in-if [:transaction/entity] util/->entity-ref)
       (select-keys [:transaction/transaction-date
-                    :account-item/account
-                    :account-item/reconciliation
+                    :transaction-item/account
+                    :transaction-item/reconciliation
                     :transaction/entity])
-      (+scope :account-item authenticated)))
+      (+scope :transaction-item authenticated)))
 
 (defn- extract-options
   [{:keys [params]}]
@@ -96,7 +97,7 @@
 (defn- ->entity-refs
   [items]
   (map #(update-in %
-                   [:account-item/account]
+                   [:transaction-item/account]
                    util/->entity-ref)
        items))
 
@@ -106,7 +107,7 @@
            extract-criteria
            (entities/select (assoc (extract-options req)
                                  :sort [[:transaction/transaction-date :desc]
-                                        [:account-item/index :desc]]
+                                        [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
                                                :transaction/transaction-date
                                                :transaction/attachment-count]
@@ -129,16 +130,16 @@
   {:pre [(s/valid? ::raw-summary-criteria (:params req))]}
   (-> params
       (rename-keys {:transaction-date :transaction/transaction-date
-                    :account-id :account-item/account
+                    :account-id :transaction-item/account
                     :entity-id :transaction/entity})
       (update-in [:transaction/transaction-date]
                  (fn [dates]
                    (apply vector
                           :between>
                           (map dates/unserialize-local-date dates))))
-      (update-in-if [:account-item/account] util/->entity-ref)
+      (update-in-if [:transaction-item/account] util/->entity-ref)
       (update-in-if [:transaction/entity] util/->entity-ref)
-      (select-keys [:account-item/account
+      (select-keys [:transaction-item/account
                     :transaction/transaction-date
                     :transaction/entity])))
 
@@ -158,14 +159,15 @@
   (let [{[_ since as-of] :transaction/transaction-date
          :as criteria} (extract-summary-criteria req)]
     (->> (entities/select (+scope criteria
-                                  :account-item
+                                  :transaction-item
                                   authenticated)
                           {:select-also [:transaction/transaction-date]})
+         trx-items/polarize-quantities
          (summarize-items (assoc (extract-summary-options req)
                                  :since since
                                  :as-of as-of))
          api/response)))
 
 (def routes
-  [["accounts/:account-id/account-items" {:get {:handler index}}]
-   ["entities/:entity-id/account-items/summarize" {:get {:handler summarize}}]])
+  [["accounts/:account-id/transaction-items" {:get {:handler index}}]
+   ["entities/:entity-id/transaction-items/summarize" {:get {:handler summarize}}]])

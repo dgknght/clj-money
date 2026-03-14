@@ -1,4 +1,4 @@
-(ns clj-money.api.account-items
+(ns clj-money.api.transaction-items
   (:require [clojure.set :refer [rename-keys]]
             [cljs.pprint :refer [pprint]]
             [lambdaisland.uri :refer [map->query-string]]
@@ -22,14 +22,14 @@
   (-> criteria
       (update-in [:transaction/transaction-date] serialize-date)
       comparatives/nominalize
-      (dissoc :account-item/account)))
+      (dissoc :transaction-item/account)))
 
 (defn select
   [criteria & {:as opts}]
-  {:pre [(:account-item/account criteria)]}
+  {:pre [(:transaction-item/account criteria)]}
   (api/get (api/path :accounts
-                     (:account-item/account criteria)
-                     :account-items)
+                     (:transaction-item/account criteria)
+                     :transaction-items)
            (prepare-criteria criteria)
            (add-error-handler opts "Unable to retrieve the transaction items: %s")))
 
@@ -39,9 +39,9 @@
       (dissoc :period)
       (update-in [:transaction/transaction-date 0] serialize-local-date)
       (update-in [:transaction/transaction-date 1] serialize-local-date)
-      (update-in-if [:account-item/account] :id)
+      (update-in-if [:transaction-item/account] :id)
       (rename-keys {:transaction/transaction-date :transaction-date
-                    :account-item/account :account-id})
+                    :transaction-item/account :account-id})
       (assoc :period-type (name (second period)))
       (assoc :period-count (first period))
       map->query-string))

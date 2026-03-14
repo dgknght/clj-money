@@ -27,7 +27,7 @@
                                      busy?]]
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
-            [clj-money.api.account-items :as act-items]
+            [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.budgets :as api]
             [clj-money.api.budget-items :as items]
             [cljs.core :as c]))
@@ -417,7 +417,7 @@
         (let [updated (a/<! (budgets/calc-periods
                               item
                               budget
-                              :fetch-item-summaries act-items/summarize))]
+                              :fetch-item-summaries trx-items/summarize))]
           (reset! periods updated))))))
 
 (defn- periods-table
