@@ -50,8 +50,8 @@
         (schema/prune :transaction)
         (f opts))))
 
-(defn get-by-account-item
+(defn get-by-transaction-item
   [{:keys [id]} & {:as opts}]
   (api/get (api/path :transactions)
-           {:account-item-id id}
+           {:transaction-item-id id}
            (add-error-handler opts "Unable to retrieve the transaction: %s")))

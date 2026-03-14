@@ -28,7 +28,7 @@
 (defn- extract-account-criteria
   [{:keys [authenticated] {:keys [account-id]} :params}]
   (+scope
-    {:account-item/account {:id account-id}}
+    {:transaction-item/account {:id account-id}}
     :attachment
     authenticated))
 

@@ -47,7 +47,7 @@
                        {:transaction/entity entity
                         :transaction/transaction-date [:between> start-date end-date]
                         :account/type [:in #{:income :expense}]}
-                       :account-item)
+                       :transaction-item)
                      {:select-also [:transaction/transaction-date]})))
 
 (defn- auto-create-items
@@ -57,7 +57,7 @@
   (let [end-date (t/plus start-date
                          (dates/period period))]
     (->> (historical-items budget start-date)
-         (trx-items/realize-accounts)
+         (trx-items/polarize-quantities)
          (create-items-from-history
            budget
            start-date

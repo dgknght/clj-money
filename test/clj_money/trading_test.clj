@@ -80,15 +80,13 @@
                                          :price 10M}]
 
                              :items
-                             [#:transaction-item{:value 1000M
-                                                 :credit-item
-                                                 #:account-item{:action :credit
-                                                                :quantity -1000M
-                                                                :account (util/->entity-ref ira)}
-                                                 :debit-item
-                                                 #:account-item{:action :debit
-                                                                :quantity 100M
-                                                                :account (util/->entity-ref (:trade/commodity-account result))}}]}]
+                             [#:transaction-item{:action :credit
+                                                 :account (util/->entity-ref ira)
+                                                 :quantity 1000M}
+                              #:transaction-item{:action :debit
+                                                 :account (util/->entity-ref (:trade/commodity-account result))
+                                                 :quantity 100M
+                                                 :value 1000M}]}]
 
               (:trade/transactions result))
             "A transaction is created and returned"))
@@ -250,22 +248,22 @@
               (:trade/transactions result))
             "The transaction is created and returned")
         (is (seq-of-maps-like?
-              [{:account-item/action :debit
-                :account-item/quantity 2000M}
-               {:account-item/action :credit
-                :account-item/quantity -1000M}
-               {:account-item/action :debit
-                :account-item/quantity 375M}]
+              [{:transaction-item/action :debit
+                :transaction-item/quantity 2000M}
+               {:transaction-item/action :credit
+                :transaction-item/quantity 1000M}
+               {:transaction-item/action :debit
+                :transaction-item/quantity 375M}]
               (entities/select
-                {:account-item/account (find-account "IRA")}))
+                {:transaction-item/account (find-account "IRA")}))
             "The trading account is debited the total proceeds from the purchase")
         (is (seq-of-maps-like?
-              [{:account-item/action :debit
-                :account-item/quantity 100M}
-               {:account-item/action :credit
-                :account-item/quantity -25M}]
+              [{:transaction-item/action :debit
+                :transaction-item/quantity 100M}
+               {:transaction-item/action :credit
+                :transaction-item/quantity 25M}]
               (entities/select
-                {:account-item/account aapl-acc}))
+                {:transaction-item/account aapl-acc}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
 (deftest ^:multi-threaded propagate-a-sale
@@ -310,24 +308,24 @@
               (:trade/transactions result))
             "The result contains the transaction")
         (is (seq-of-maps-like?
-              [#:account-item{:action :debit
-                              :quantity 2000M}  ; fund the account
-               #:account-item{:action :credit
-                              :quantity -1000M} ; purchase the commodity
-               #:account-item{:action :debit
-                              :quantity 200M}]  ; sell a portion
+              [#:transaction-item{:action :debit
+                                  :quantity 2000M}  ; fund the account
+               #:transaction-item{:action :credit
+                                  :quantity 1000M} ; purchase the commodity
+               #:transaction-item{:action :debit
+                                  :quantity 200M}]  ; sell a portion
               (entities/select
-                {:account-item/account (find-account "IRA")}))
+                {:transaction-item/account (find-account "IRA")}))
             "The trading account is debited the total proceeds from the purchase")
         (is (seq-of-maps-like?
-              [#:account-item{:action :debit
-                              :quantity 100M}
-               #:account-item{:action :credit
-                              :quantity -25M}]
+              [#:transaction-item{:action :debit
+                                  :quantity 100M}
+               #:transaction-item{:action :credit
+                                  :quantity 25M}]
               (entities/select
-                {:account-item/account (entities/find-by
-                                         #:account{:entity (find-entity "Personal")
-                                                   :commodity (find-commodity "AAPL")})}))
+                {:transaction-item/account (entities/find-by
+                                             #:account{:entity (find-entity "Personal")
+                                                       :commodity (find-commodity "AAPL")})}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
 (deftest ^:multi-threaded sell-a-commodity-with-a-fee
@@ -513,34 +511,34 @@
           to-account (find-account "IRA 2")
           commodity (entities/find (find-commodity "AAPL")) ; reload to get the date boundaries
           [result] (trading/transfer-and-propagate
-                   #:transfer{:commodity commodity
-                              :from-account from-account
-                              :to-account to-account
-                              :shares 100M
-                              :date (t/local-date 2016 4 2)})]
+                     #:transfer{:commodity commodity
+                                :from-account from-account
+                                :to-account to-account
+                                :shares 100M
+                                :date (t/local-date 2016 4 2)})]
       (testing "The transaction"
         (is (comparable?
               #:transaction{:transaction-date (t/local-date 2016 4 2)
                             :description "Transfer 100 shares of AAPL"
                             :entity (util/->entity-ref (find-entity "Personal"))
                             :items
-                            [#:transaction-item{:value 1000M
-                                                :credit-item
-                                                #:account-item{:quantity -100M
-                                                               :balance 0M
-                                                               :account (util/->entity-ref
-                                                                          (entities/find-by
-                                                                            #:account{:name "AAPL"
-                                                                                      :parent from-account}))}
-
-                                                :debit-item
-                                                #:account-item{:quantity 100M
-                                                               :balance 100M
-                                                               :account (util/->entity-ref
-                                                                          (entities/find-by
-                                                                            #:account{:name "AAPL"
-                                                                                      :parent to-account}))}}]}
-                            (entities/find (:transfer/transaction result)))
+                            [#:transaction-item{:action :credit
+                                                :account (util/->entity-ref
+                                                           (entities/find-by
+                                                             #:account{:name "AAPL"
+                                                                       :parent from-account}))
+                                                :quantity 100M
+                                                :value 1000M
+                                                :balance 0M}
+                             #:transaction-item{:action :debit
+                                                :account (util/->entity-ref
+                                                           (entities/find-by
+                                                             #:account{:name "AAPL"
+                                                                       :parent to-account}))
+                                                :quantity 100M
+                                                :value 1000M
+                                                :balance 100M}]}
+              (entities/find (:transfer/transaction result)))
             "A transaction is created and returned"))
       (testing "The lots"
         (is (seq-of-maps-like? [#:lot{:commodity (util/->entity-ref commodity)
