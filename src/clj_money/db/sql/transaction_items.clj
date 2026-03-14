@@ -4,8 +4,7 @@
             [clj-money.db.sql.types :as types]))
 
 (defmethod sql/resolve-temp-ids :transaction-item
-  [item
-   id-map]
+  [item id-map]
   (types/resolve-temp-ids item id-map
     :transaction-item/transaction-id
     :transaction-item/account-id
