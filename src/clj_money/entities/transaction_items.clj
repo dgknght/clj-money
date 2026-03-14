@@ -33,7 +33,7 @@
 (defn resolve-refs
   [items]
   {:pre [(s/valid? :reconciliation/items items)]}
-  (let [[full abbr] (split-with :account-item/account
+  (let [[full abbr] (split-with :transaction-item/account
                                 items)]
     (concat
       full
@@ -41,4 +41,4 @@
         (entities/select
           (util/entity-type
             {:id [:in (map :id abbr)]}
-            :account-item))))))
+            :transaction-item))))))
