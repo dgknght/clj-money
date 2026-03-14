@@ -31,7 +31,8 @@
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :as accounts :refer [find-by-path
-                                                     format-quantity]]
+                                                     format-quantity
+                                                     polarize-quantity]]
             [clj-money.transactions :refer [accountify
                                             unaccountify
                                             can-accountify?
@@ -50,11 +51,11 @@
   (map (fn [item]
          (-> item
              (update-in [:transaction-item/debit-item
-                         :account-item/account]
+                         :transaction-item/account]
                         (comp @accounts-by-id
                               :id))
              (update-in [:transaction-item/credit-item
-                         :account-item/account]
+                         :transaction-item/account]
                         (comp @accounts-by-id
                               :id))))
        items))
@@ -71,10 +72,10 @@
          f))))
 
 (defn- edit-transaction
-  [account-item page-state]
+  [transaction-item page-state]
   (+busy)
-  (transactions/get-by-account-item
-    account-item
+  (transactions/get-by-transaction-item
+    transaction-item
     :callback -busy
     :post-xf (comp (map first)
                    (map (prepare-transaction-for-edit
@@ -113,7 +114,7 @@
     (fn [ch criteria]
       (if criteria
         (trx-items/select criteria
-                                  :on-success #(xf ch %))
+                          :on-success #(xf ch %))
         (xf ch [])))))
 
 (defn init-item-loading
@@ -127,11 +128,20 @@
                                                  {:fetch-xf (comp
                                                               (map (fn [[start end :as range]]
                                                                      (when (seq range)
-                                                                       {:account-item/account (util/->entity-ref account)
+                                                                       {:transaction-item/account (util/->entity-ref account)
                                                                         :transaction/transaction-date [:between> start end]})))
                                                               fetch-items)
-                                                  :chunk-size 100}))]
-            (go-loop [items (<! items-ch)]
+                                                  :chunk-size 100}))
+                out-ch (a/chan
+                         1
+                         (map (fn [items]
+                                (map (comp #(assoc %
+                                                   :transaction-item/polarized-quantity
+                                                   (polarize-quantity %))
+                                           #(assoc % :transaction-item/account account))
+                                     items))))]
+            (a/pipe items-ch out-ch)
+            (go-loop [items (<! out-ch)]
                      (if items
                        (do
                          (swap! page-state update-in [:items] (fnil concat []) items)
@@ -156,11 +166,11 @@
       (init-item-loading page-state)))
 
 (defn- delete-transaction
-  [account-item page-state]
+  [transaction-item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (+busy)
     (trx-items/delete
-      account-item
+      transaction-item
       :callback -busy
       :on-success #(reset-item-loading page-state))))
 
@@ -197,9 +207,9 @@
            reconciliation
            styles]}
    page-state]
-  (fn [{:account-item/keys [attachment-count
-                            quantity
-                            balance]
+  (fn [{:transaction-item/keys [attachment-count
+                                polarized-quantity
+                                balance]
         :reconciliation/keys [status]
         :transaction/keys [description
                            transaction-date]
@@ -226,7 +236,7 @@
       [:span.d-md-none (format-date transaction-date "M/d")]
       [:span.d-none.d-md-inline (format-date transaction-date)]]
      [:td {:style (get-in styles [(:id item)])} description]
-     [:td.text-end (format-quantity quantity account)]
+     [:td.text-end (format-quantity polarized-quantity account)]
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
         [forms/checkbox-input
@@ -270,7 +280,7 @@
   (let [raw-items (r/cursor page-state [:items])
         items (make-reaction (fn []
                                (when @raw-items
-                                 (map (fn [{:account-item/keys [reconciliation]
+                                 (map (fn [{:transaction-item/keys [reconciliation]
                                             :keys [id]
                                             :as item}]
                                         (assoc item
@@ -288,7 +298,7 @@
                                    (if @include-children?
                                      identity
                                      #(id= @account
-                                           (:account-item/account %)))))]
+                                           (:transaction-item/account %)))))]
     (fn []
       [:table.table.table-striped.table-hover
        [:thead
@@ -322,16 +332,16 @@
   [{:as item
     :transaction/keys [transaction-date
                        description]
-    :account-item/keys [quantity
-                        balance
-                        value]}]
+    :transaction-item/keys [polarized-quantity
+                            balance
+                            value]}]
   ^{:key (str "item-" (:id item))}
   [:tr
    [:td.text-end (format-date transaction-date)]
    [:td description]
-   [:td.text-end (format-decimal quantity 4)]
+   [:td.text-end (format-decimal polarized-quantity 4)]
    [:td.text-end (format-decimal balance 4)]
-   [:td.text-end (currency-format (or value quantity))]])
+   [:td.text-end (currency-format (or value polarized-quantity))]])
 
 (defn fund-transactions-table
   [page-state]
