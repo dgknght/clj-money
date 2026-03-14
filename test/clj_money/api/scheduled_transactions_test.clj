@@ -338,7 +338,10 @@
   (is (seq-of-maps-like?
         [#:transaction{:description "Paycheck"
                        :transaction-date (t/local-date 2016 2 1)
-                       :items [#:transaction-item{:value 1000M}]}]
+                       :items [#:transaction-item{:quantity 1000M
+                                                  :action :debit}
+                               #:transaction-item{:quantity 1000M
+                                                  :action :credit}]}]
         (entities/select #:transaction{:description "Paycheck"}))
       "The transaction is created with the next projected transaction date")
   (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 2 1)}

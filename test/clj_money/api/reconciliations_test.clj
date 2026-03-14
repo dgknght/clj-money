@@ -139,8 +139,8 @@
 
 (defn- select-recon-items []
   (map #(select-keys % [:id])
-       (entities/select {:account-item/account (find-account "Checking")
-                         :account-item/quantity -101M})))
+       (entities/select #:transaction-item{:account (find-account "Checking")
+                                           :quantity 101M})))
 
 (defn- build-recon
   [status]
