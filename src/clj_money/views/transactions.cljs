@@ -343,13 +343,25 @@
    [:td.text-end (format-decimal balance 4)]
    [:td.text-end (currency-format (or value polarized-quantity))]])
 
+(defn- polarize-items
+  [account]
+  (fn [items]
+    (map (comp #(assoc %
+                       :transaction-item/polarized-quantity
+                       (polarize-quantity %))
+               #(assoc %
+                       :transaction-item/account
+                       account))
+         items)))
+
 (defn fund-transactions-table
   [page-state]
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
     (trx-items/select (accounts/->criteria @account)
-                          :on-success #(swap! page-state assoc :items %))
+                      :post-xf (map (polarize-items @account))
+                      :on-success #(swap! page-state assoc :items %))
     (fn []
       [:table.table.table-hover.table-borderless
        [:thead
