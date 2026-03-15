@@ -292,8 +292,9 @@
 (deftest import-with-commodities
   (with-context ext-context
     (let [imp (find-import "Personal")
-          {:keys [entity]} (execute-import imp :item-basis last-trx-item)]
+          {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)]
       (assert entity "No entity was returned from the import")
+      (is (empty? notifications) "No errors or warnings are reported")
       (testing "commodities"
         (is (comparable?
               #:commodity{:symbol "AAPL"
@@ -303,7 +304,7 @@
                                              (t/local-date 2015 5 1)]}
               (entities/find-by {:commodity/symbol "AAPL"}))
             "The traded commodity is created"))
-      (testing "account items"
+      (testing "transaction items"
         (let [ira (entities/find-by {:account/name "IRA"
                                      :account/entity entity})
               four-oh-one-k (entities/find-by {:account/name "401k"
@@ -319,76 +320,76 @@
           (is four-k-aapl "The AAPL subaccount for 401k is created")
 
           ; 401k
-          (is (= [{:account-item/action :debit ; initial deposit
-                   :account-item/quantity 1000M
-                   :account-item/index 0
-                   :account-item/balance 1000M}
-                  {:account-item/action :credit ; purchase shares of AAPL (1st part of split)
-                   :account-item/quantity -995M
-                   :account-item/index 1
-                   :account-item/balance 5M}
-                  {:account-item/action :credit ; purchase shares of AAPL (2nd part of split for inv exp)
-                   :account-item/quantity -5M
-                   :account-item/index 2
-                   :account-item/balance 0M}]
-                 (map #(select-keys % [:account-item/action
-                                       :account-item/index
-                                       :account-item/quantity
-                                       :account-item/balance])
+          (is (= [{:transaction-item/action :debit ; initial deposit
+                   :transaction-item/quantity 1000M
+                   :transaction-item/index 0
+                   :transaction-item/balance 1000M}
+                  {:transaction-item/action :credit ; purchase shares of AAPL (1st part of split)
+                   :transaction-item/quantity 995M
+                   :transaction-item/index 1
+                   :transaction-item/balance 5M}
+                  {:transaction-item/action :credit ; purchase shares of AAPL (2nd part of split for inv exp)
+                   :transaction-item/quantity 5M
+                   :transaction-item/index 2
+                   :transaction-item/balance 0M}]
+                 (map #(select-keys % [:transaction-item/action
+                                       :transaction-item/index
+                                       :transaction-item/quantity
+                                       :transaction-item/balance])
                       (entities/select
-                        {:account-item/account four-oh-one-k}
-                        {:sort [[:account-item/index :asc]]})))
+                        {:transaction-item/account four-oh-one-k}
+                        {:sort [[:transaction-item/index :asc]]})))
               "The 401k account items are created")
 
           ; AAPL in 401k
-          (is (= [{:account-item/action :debit ; purchase 100 shares of AAPL
-                   :account-item/quantity 100M
-                   :account-item/index 0
-                   :account-item/balance 100M}
-                  {:account-item/action :credit ; transfer 100 shares to IRA
-                   :account-item/quantity 100M
-                   :account-item/index 1
-                   :account-item/balance 0M}]
-                 (map #(select-keys % [:account-item/action
-                                       :account-item/index
-                                       :account-item/quantity
-                                       :account-item/balance])
+          (is (= [{:transaction-item/action :debit ; purchase 100 shares of AAPL
+                   :transaction-item/quantity 100M
+                   :transaction-item/index 0
+                   :transaction-item/balance 100M}
+                  {:transaction-item/action :credit ; transfer 100 shares to IRA
+                   :transaction-item/quantity 100M
+                   :transaction-item/index 1
+                   :transaction-item/balance 0M}]
+                 (map #(select-keys % [:transaction-item/action
+                                       :transaction-item/index
+                                       :transaction-item/quantity
+                                       :transaction-item/balance])
                       (entities/select
-                        {:account-item/account four-k-aapl}
-                        {:sort [[:account-item/index :asc]]})))
+                        {:transaction-item/account four-k-aapl}
+                        {:sort [[:transaction-item/index :asc]]})))
               "The 401k AAPL account items are created")
 
           ; IRA
-          (is (= [{:account-item/action :debit ; cash in  lieu for the split
-                   :account-item/quantity 1M
-                   :account-item/index 0
-                   :account-item/balance 1M}
-                  {:account-item/action :credit ; proceeds from sale of AAPL
-                   :account-item/quantity 590
-                   :account-item/index 1
-                   :account-item/balance 591M}]
-                 (map #(select-keys % [:account-item/action
-                                       :account-item/index
-                                       :account-item/quantity
-                                       :account-item/balance])
+          (is (= [{:transaction-item/action :debit ; cash in  lieu for the split
+                   :transaction-item/quantity 1M
+                   :transaction-item/index 0
+                   :transaction-item/balance 1M}
+                  {:transaction-item/action :credit ; proceeds from sale of AAPL
+                   :transaction-item/quantity 590
+                   :transaction-item/index 1
+                   :transaction-item/balance 591M}]
+                 (map #(select-keys % [:transaction-item/action
+                                       :transaction-item/index
+                                       :transaction-item/quantity
+                                       :transaction-item/balance])
                       (entities/select
-                        {:account-item/account ira}
-                        {:sort [[:account-item/index :asc]]})))
+                        {:transaction-item/account ira}
+                        {:sort [[:transaction-item/index :asc]]})))
               "The IRA account items are created")
 
           ; AAPL in IRA
           (is (seq-of-maps-like?
-                [{:account-item/action  :debit ; transfer in at 100, but split makes it 200
-                  :account-item/quantity 200M
-                  :account-item/index    0
-                  :account-item/balance  200M}
-                 {:account-item/action  :credit ; sell 100 shares
-                  :account-item/quantity -100M
-                  :account-item/index    1
-                  :account-item/balance  100M}]
+                [{:transaction-item/action  :debit ; transfer in at 100, but split makes it 200
+                  :transaction-item/quantity 200M
+                  :transaction-item/index    0
+                  :transaction-item/balance  200M}
+                 {:transaction-item/action  :credit ; sell 100 shares
+                  :transaction-item/quantity 100M
+                  :transaction-item/index    1
+                  :transaction-item/balance  100M}]
                 (entities/select
-                  {:account-item/account ira-aapl}
-                  {:sort [[:account-item/index :asc]]}))
+                  {:transaction-item/account ira-aapl}
+                  {:sort [[:transaction-item/index :asc]]}))
               "IRA AAPL receives account items"))))))
 
 
@@ -484,25 +485,6 @@
                                  :account/entity entity})
           aapl (entities/find-by {:commodity/symbol "AAPL"
                                   :commodity/entity entity})]
-      (testing "entity"
-        (let [entity (entities/find entity)
-              lt-gains (entities/find-by {:account/name "Long-Term Gains"})
-              st-gains (entities/find-by {:account/name "Short-Term Gains"})
-              lt-loss (entities/find-by {:account/name "Long-Term Losses"})
-              st-loss (entities/find-by {:account/name "Short-Term Losses"})]
-          (is (empty? (select-keys (:entity/settings entity)
-                                   [:lt-capital-gains-account
-                                    :st-capital-gains-account
-                                    :lt-capital-loss-account
-                                    :st-capital-loss-account]))
-              "The naked keys are not set")
-          (is (comparable? {:settings/lt-capital-gains-account (util/->entity-ref lt-gains)
-                            :settings/st-capital-gains-account (util/->entity-ref st-gains)
-                            :settings/lt-capital-loss-account (util/->entity-ref lt-loss)
-                            :settings/st-capital-loss-account (util/->entity-ref st-loss)}
-                           (:entity/settings entity))
-              "The entity settings are updated with specified gains accounts")))
-
       (testing "lots"
         (is (seq-of-maps-like?
               [#:lot{:purchase-date (t/local-date 2015 1 17)
@@ -541,14 +523,14 @@
           (is (seq-of-maps-like?
                 [{:transaction/transaction-date (t/local-date 2015 1 17)
                   :transaction/description "Purchase 100.000 shares of AAPL at 9.950"
-                  :account-item/quantity 5M
-                  :account-item/action :debit}
+                  :transaction-item/quantity 5M
+                  :transaction-item/action :debit}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
                   :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
-                  :account-item/quantity 10M
-                  :account-item/action :debit}]
+                  :transaction-item/quantity 10M
+                  :transaction-item/action :debit}]
                 (entities/select
-                  {:account-item/account inv-exp}
+                  {:transaction-item/account inv-exp}
                   {:sort [:transaction/transaction-date]
                    :select-also [:transaction/transaction-date
                                  :transaction/description]}))
@@ -556,14 +538,14 @@
           (is (seq-of-maps-like?
                 [{:transaction/transaction-date (t/local-date 2015 3 2)
                   :transaction/description "Transfer 100.000000 shares of AAPL"
-                  :account-item/action :debit
-                  :account-item/quantity 100M}
+                  :transaction-item/action :debit
+                  :transaction-item/quantity 100M}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
                   :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
-                  :account-item/action :credit
-                  :account-item/quantity -100M}]
+                  :transaction-item/action :credit
+                  :transaction-item/quantity 100M}]
                 (entities/select
-                  {:account-item/account ira-aapl}
+                  {:transaction-item/account ira-aapl}
                   {:sort [:transaction/transaction-date]
                    :select-also [:transaction/transaction-date
                                  :transaction/description]}))

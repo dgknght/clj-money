@@ -8,6 +8,7 @@
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.decimal :as d]
+            [clj-money.transactions :as trx]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
@@ -279,6 +280,17 @@
                       trade)))
     trade))
 
+(defn- index-items
+  [items item-basis]
+  (map (fn [{:as item :transaction-item/keys [account]}]
+         (if-let [basis (item-basis account)]
+           (assoc item
+                  :index (inc (:transaction-item/index basis))
+                  :balance (+ (:transaction-item/balance basis)
+                              (:transaction-item/quantity item)))
+           item))
+       items))
+
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
   transaction"
@@ -295,51 +307,14 @@
     :as trade}
    {:keys [item-basis]}]
   (let [currency-amount (+ value fee)
-        commodity-basis (item-basis commodity-account)
-        account-basis (item-basis account)
-        commodity-item #:account-item{:account commodity-account
-                                      :quantity shares
-                                      :index (inc (:transaction-item/index
-                                                    commodity-basis))
-                                      :balance (+ (:transaction-item/balance
-                                                    commodity-basis)
-                                                  shares)}
-        items (if (= 0M fee)
-                [#:transaction-item{:value currency-amount
-                                    :credit-item #:account-item
-                                                 {:account account
-                                                  :index (inc (:transaction-item/index
-                                                                account-basis))
-                                                  :balance (- (:transaction-item/balance
-                                                                account-basis)
-                                                              currency-amount)}
-                                    :debit-item commodity-item}]
-                (let [fee-account-basis (item-basis fee-account)]
-                  [#:transaction-item{:value currency-amount
-                                      :credit-item #:account-item
-                                                   {:account account
-                                                    :quantity (- 0M (- currency-amount fee))
-                                                    :index (inc (:transaction-item/index
-                                                                  account-basis))
-                                                    :balance (- (:transaction-item/balance
-                                                                  account-basis)
-                                                                (- currency-amount fee))}
-                                      :debit-item commodity-item}
-                   #:transaction-item{:value fee
-                                      :credit-item #:account-item
-                                                   {:account account
-                                                    :index (+ 2 (:transaction-item/index
-                                                                  account-basis))
-                                                    :balance (- (:transaction-item/balance
-                                                                  account-basis)
-                                                                currency-amount)}
-                                      :debit-item #:account-item
-                                                  {:account fee-account
-                                                   :index (inc (:transaction-item/index
-                                                                 fee-account-basis))
-                                                   :balance (+ (:transaction-item/balance
-                                                                 fee-account-basis)
-                                                               fee)}}]))]
+        items (cond-> [(trx/item :credit account currency-amount)
+                       (trx/item :debit commodity-account shares (- currency-amount fee))]
+
+                (not (zero? fee))
+                (conj (trx/item :debit fee-account fee))
+
+                item-basis
+                (index-items item-basis))]
     (assoc trade
            :trade/transaction
            #:transaction{:entity entity
@@ -360,45 +335,14 @@
                  fee-account]
     :or {fee 0M}}
    {:keys [item-basis]}]
-  (let [commodity-basis (item-basis commodity-account)
-        account-basis (item-basis account)]
-    (cond-> [#:transaction-item{:value value
-                                :debit-item #:account-item
-                                           {:action :debit
-                                            :account account
-                                            :quantity value
-                                            :index (inc (:transaction-item/index
-                                                          account-basis))
-                                            :balance (+ (:transaction-item/balance
-                                                          account-basis)
-                                                        value)}
-                                :credit-item #:account-item
-                                            {:action :credit
-                                             :account commodity-account
-                                             :quantity (- 0M shares)
-                                             :index (inc (:transaction-item/index
-                                                           commodity-basis))
-                                             :balance (+ (:transaction-item/balance
-                                                           commodity-basis)
-                                                         (- 0M shares))}}]
-      (not (zero? fee))
-      (conj (let [fee-account-basis (item-basis fee-account)]
-              #:transaction-item
-              {:value fee
-               :debit-item #:account-item
-                           {:account fee-account
-                            :index (inc (:transaction-item/index
-                                          fee-account-basis))
-                            :balance (+ (:transaction-item/balance
-                                          fee-account-basis)
-                                        fee)}
-               :credit-item #:account-item
-                            {:account account
-                             :index (+ 2 (:transaction-item/index
-                                          account-basis))
-                             :balance (+ (:transaction-item/balance
-                                          account-basis)
-                                         (- value fee))}})))))
+  (cond-> [(trx/item :debit account (- value fee))
+           (trx/item :credit commodity-account shares value)]
+
+    (not (zero? fee))
+    (conj (trx/item :debit fee-account fee))
+
+    item-basis
+    (index-items item-basis)))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency

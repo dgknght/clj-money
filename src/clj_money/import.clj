@@ -665,7 +665,7 @@
 
 (defn- fetch-reconciled-items
   [{:keys [id]}]
-  (entities/select {:account-item/reconciliation {:id id}}))
+  (entities/select {:transaction-item/reconciliation {:id id}}))
 
 (defn- process-reconciliation
   [{:as recon :reconciliation/keys [account items]}
@@ -673,7 +673,10 @@
   (try
     (let [balance (->> (or (seq items)
                            (fetch-reconciled-items recon))
-                       (map :account-item/quantity)
+                       (map (comp polarize-quantity
+                                  #(update-in %
+                                              [:transaction-item/account]
+                                              (comp accounts :id))))
                        (reduce + 0M))]
       (-> recon
           (assoc :reconciliation/balance balance

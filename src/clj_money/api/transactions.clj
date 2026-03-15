@@ -80,20 +80,18 @@
 
 (def ^:private item-keys
   [:id
-   :transaction-item/debit-item
-   :transaction-item/credit-item
-   :transaction-item/value])
+   :transaction-item/action
+   :transaction-item/account
+   :transaction-item/quantity
+   :transaction-item/value
+   :transaction-item/memo])
 
 (defn- refine-item
   [item]
   (-> item
       (select-keys item-keys)
-      (update-in-if [:transaction-item/credit-item
-                     :account-item/quantity]
-                    bigdec)
-      (update-in-if [:transaction-item/debit-item
-                     :account-item/quantity]
-                    bigdec)
+      (update-in-if [:transaction-item/quantity] bigdec)
+      (update-in-if [:transaction-item/action] keyword)
       (update-in-if [:transaction-item/value] bigdec)))
 
 (defn- extract-transaction

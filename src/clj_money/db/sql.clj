@@ -70,12 +70,8 @@
    :scheduled-transaction [{:foreign-ref-key :scheduled-transaction-item/scheduled-transaction
                             :child? :scheduled-transaction-item/action
                             :children-key :scheduled-transaction/items}]
-   :transaction [{:parent? :account-item/quantity
-                  :foreign-ref-key :transaction-item/debit-item}
-                 {:parent? :account-item/quantity
-                  :foreign-ref-key :transaction-item/credit-item}
-                 {:foreign-ref-key :transaction-item/transaction
-                  :child? :transaction-item/value
+   :transaction [{:foreign-ref-key :transaction-item/transaction
+                  :child? :transaction-item/action
                   :children-key :transaction/items}
                  {:foreign-ref-key :lot-item/transaction
                   :child? :lot-item/value

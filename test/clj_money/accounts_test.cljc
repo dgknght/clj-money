@@ -11,9 +11,9 @@
 
 (deftest create-criteria-from-one-account
   (is (= {:transaction/transaction-date [:between
-                                              (t/local-date 2020 1 1)
-                                              (t/local-date 2020 12 31)]
-          :account-item/account {:id 101}}
+                                         (t/local-date 2020 1 1)
+                                         (t/local-date 2020 12 31)]
+          :transaction-item/account {:id 101}}
          (accounts/->criteria
            {:id 101
             :account/transaction-date-range [(t/local-date 2020 1 1)
@@ -21,9 +21,9 @@
 
 (deftest create-criteria-from-multiple-accounts
   (is (= {:transaction/transaction-date [:between
-                                              (t/local-date 2020 1 1)
-                                              (t/local-date 2020 2 29)]
-          :account-item/account {:id [:in #{101 102}]}}
+                                         (t/local-date 2020 1 1)
+                                         (t/local-date 2020 2 29)]
+          :transaction-item/account {:id [:in #{101 102}]}}
          (accounts/->>criteria
            [{:id 101
              :account/transaction-date-range [(t/local-date 2020 2 1)

@@ -51,7 +51,7 @@
     :reconciliation        '[?x :reconciliation/status ?reconciliation-status]
     :scheduled-transaction '[?x :scheduled-transaction/description ?scheduled-transaction-description]
     :transaction           '[?x :transaction/description ?transaction-description]
-    :transaction-item      '[?x :transaction-item/value ?transaction-item-value]
+    :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
     :account-item          '[?x :account-item/action ?account-item-action]
     :user                  '[?x :user/email ?user-email]))
 
@@ -180,9 +180,7 @@
       (f x))))
 
 (def ^:private ref-keys
-  (disj schema/entity-ref-keys
-        :transaction-item/credit-item
-        :transaction-item/debit-item))
+  schema/entity-ref-keys)
 
 (defn- put*
   [entities {:keys [api]}]
