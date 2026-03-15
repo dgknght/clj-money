@@ -239,15 +239,19 @@
   ([identifier] (find-lot *context* identifier))
   ([ctx [account commodity date]]
    (let [act (util/->entity-ref (if (map? account)
-                                 account
-                                 (find-account ctx account)))
+                                  account
+                                  (find-account ctx account)))
          cmd (util/->entity-ref (if (map? commodity)
-                                 commodity
-                                 (find-commodity ctx commodity)))]
-     (find ctx
-           :lot/account act
-           :lot/commodity cmd
-           :lot/purchase-date date))))
+                                  commodity
+                                  (find-commodity ctx commodity)))]
+     (if date
+       (find ctx
+             :lot/account act
+             :lot/commodity cmd
+             :lot/purchase-date date)
+       (find ctx
+             :lot/account act
+             :lot/commodity cmd)))))
 
 (defn find-lot-note
   ([identifier] (find-lot-note *context* identifier))
