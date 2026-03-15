@@ -324,13 +324,9 @@
                    :transaction-item/quantity 1000M
                    :transaction-item/index 0
                    :transaction-item/balance 1000M}
-                  {:transaction-item/action :credit ; purchase shares of AAPL (1st part of split)
-                   :transaction-item/quantity 995M
+                  {:transaction-item/action :credit ; purchase shares of AAPL
+                   :transaction-item/quantity 1000M
                    :transaction-item/index 1
-                   :transaction-item/balance 5M}
-                  {:transaction-item/action :credit ; purchase shares of AAPL (2nd part of split for inv exp)
-                   :transaction-item/quantity 5M
-                   :transaction-item/index 2
                    :transaction-item/balance 0M}]
                  (map #(select-keys % [:transaction-item/action
                                        :transaction-item/index
