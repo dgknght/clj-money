@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [ "$( psql -XtAc "SELECT 1 FROM pg_database WHERE datname='datomic'" )" = '1' ]
 then
 	echo "datomic database already exists"
