@@ -285,9 +285,13 @@
   (map (fn [{:as item :transaction-item/keys [account]}]
          (if-let [basis (item-basis account)]
            (assoc item
-                  :index (inc (:transaction-item/index basis))
-                  :balance (+ (:transaction-item/balance basis)
-                              (:transaction-item/quantity item)))
+
+                  :transaction-item/index
+                  (inc (:transaction-item/index basis))
+
+                  :transaction-item/balance
+                  (+ (:transaction-item/balance basis)
+                     (:transaction-item/quantity item)))
            item))
        items))
 
