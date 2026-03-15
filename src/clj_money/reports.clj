@@ -50,7 +50,7 @@
 
 (defn- last-item
   [inclusion date items]
-  {:pre [(every? :account-item/index items)]}
+  {:pre [(every? :transaction-item/index items)]}
   (let [pred (case inclusion
                :on-or-before (fn [{:transaction/keys [transaction-date]}]
                                (or (= transaction-date date)
