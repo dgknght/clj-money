@@ -162,26 +162,26 @@
       (render-tagged items tags)
       (render-untagged items))))
 
-(defn- account-items->budget-item
+(defn- transaction-items->budget-item
   [{[_ period-type] :budget/period}
    since
    as-of]
-  (fn [[account account-items]]
+  (fn [[account trx-items]]
     #:budget-item{:account account
-                  :periods (->> account-items
+                  :periods (->> trx-items
                                 (txns/summarize-items {:period [1 period-type]
                                                        :since since
                                                        :as-of as-of})
                                 (mapv :quantity))}))
 
 (defn create-items-from-history
-  [budget since as-of account-items]
-  (->> account-items
+  [budget since as-of trx-items]
+  (->> trx-items
        (group-by (comp util/->entity-ref
-                       :account-item/account))
-       (map (account-items->budget-item budget
-                                        since
-                                        (t/minus as-of (t/days 1))))))
+                       :transaction-item/account))
+       (map (transaction-items->budget-item budget
+                                            since
+                                            (t/minus as-of (t/days 1))))))
 
 (def ^:private period-map
   {:month (t/months 1)

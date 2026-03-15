@@ -14,24 +14,32 @@
             [clj-money.accounts :refer [polarize-quantity
                                         left-side?]]))
 
+(defn item
+  "Create and return a transaction item map"
+  ([action account quantity]
+   (item action account quantity nil))
+  ([action account quantity value]
+   (cond-> #:transaction-item{:action action
+                              :account account
+                              :quantity quantity}
+     value (assoc :transaction-item/value value))))
+
 (def ^:private val-or-qty
   (some-fn :transaction-item/value
            :transaction-item/quantity))
 
 (defn sum-of-credits-equals-sum-of-debits?
   [{:transaction/keys [items]}]
-  (if (= 1 (count items))
-    (zero? (:transaction-item/value (first items))) ; a split transaction will have one item with a value of zero
-    (let [{:keys [debit credit]}
-          (->> items
-               (map second)
-               (group-by :transaction-item/action)
-               (map #(update-in % [1] (fn [itms]
-                                        (->> itms
-                                             (map val-or-qty)
-                                             (reduce d/+ 0M)))))
-               (into {}))]
-      (= debit credit))))
+  (let [{:keys [debit credit]}
+        (->> items
+             (map second)
+             (group-by :transaction-item/action)
+             (map #(update-in % [1] (fn [itms]
+                                      (->> itms
+                                           (map val-or-qty)
+                                           (reduce d/+ 0M)))))
+             (into {}))]
+    (= debit credit)))
 
 (s/def ::id (complement nil?))
 (s/def ::entity-ref (s/keys :req-un [::id]))
@@ -220,11 +228,12 @@
 
 (defn- summarize-period
   [[start-date end-date] items]
+  {:pre [(every? :transaction-item/polarized-quantity items)]}
   {:start-date start-date
    :end-date end-date
    :quantity (->> items
                   (filter #(dates/within? (:transaction/transaction-date %) start-date end-date))
-                  (map :account-item/quantity)
+                  (map :transaction-item/polarized-quantity)
                   (reduce d/+ (d 0)))})
 
 (defn summarize-items
@@ -469,6 +478,7 @@
           (recur o d c))))))
 
 (defn- account->transaction-item
+  "Converts an account-item into a transaction-item"
   [item]
   (-> item
       (rename-keys {:account-item/memo :transaction-item/memo
@@ -488,16 +498,14 @@
                             value
                             memo]
     :keys [id]}]
-  [(cond->
-     (-> debit-item
-         account->transaction-item
-         (assoc :transaction-item/value value))
-     id (assoc :ids #{id})
+  [(cond-> (-> debit-item
+               account->transaction-item
+               (assoc :transaction-item/value value))
+     id   (assoc :ids #{id})
      memo (assoc :transaction-item/memo memo))
-   (cond->
-     (-> credit-item
-         account->transaction-item
-         (assoc :transaction-item/value value))
+   (cond-> (-> credit-item
+               account->transaction-item
+               (assoc :transaction-item/value value))
      id (assoc :ids #{id})
      memo (assoc :transaction-item/memo memo))])
 
