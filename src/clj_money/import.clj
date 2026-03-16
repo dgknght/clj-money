@@ -176,13 +176,14 @@
 
 (defmethod ^:private import-transaction :default
   [{:as ctx :keys [entity]} transaction]
-  (update-last-trxs ctx
-                    (-> transaction
-                        (assoc :transaction/entity entity)
-                        purge-import-keys
-                        (update-in [:transaction/items] (index-trx-items ctx))
-                        entities/put
-                        (log-transaction "standard"))))
+  (update-last-trxs
+    ctx
+    (-> transaction
+        purge-import-keys
+        (assoc :transaction/entity entity)
+        (update-in [:transaction/items] (index-trx-items ctx))
+        entities/put
+        (log-transaction "standard"))))
 
 (defn- inv-transaction-fee-info
   [{:transaction/keys [items]}]
