@@ -293,7 +293,7 @@
   (with-context ext-context
     (let [imp (find-import "Personal")
           {:keys [entity notifications]} (execute-import imp :item-basis last-trx-item)]
-      (assert entity "No entity was returned from the import")
+      (is entity "The entity is returned")
       (is (empty? notifications) "No errors or warnings are reported")
       (testing "commodities"
         (is (comparable?
@@ -312,7 +312,7 @@
               four-k-aapl (entities/find-by {:account/parent four-oh-one-k
                                              :account/name "Apple, Inc"})
               ira-aapl (entities/find-by #:account{:parent ira
-                                                   :name "Apple, Inc"})]
+                                                   :name "Apple, Inc."})]
 
           (is ira "The IRA account is created")
           (is ira-aapl "The AAPL subaccount for IRA is created")
