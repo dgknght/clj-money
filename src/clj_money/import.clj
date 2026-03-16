@@ -130,13 +130,11 @@
       (assoc item
              :transaction-item/index (inc (:transaction-item/index basis))
              :transaction-item/balance (+ (:transaction-item/balance basis)
-                                          (:transaction-item/polarized-quantity item))))))
+                                          (polarize-quantity item))))))
 (defn- index-trx-items
   [ctx]
   (fn [items]
-    (map (comp #(dissoc % :transaction-item/polarized-quantity)
-               (index-trx-item ctx)
-               polarize-item-quantity)
+    (map (index-trx-item ctx)
          items)))
 
 (defn- update-last-trxs
