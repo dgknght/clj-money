@@ -217,12 +217,14 @@
         purchase (cond-> #:trade{:date transaction-date
                                  :shares shares
                                  :value value}
-                   commodity-account-id (assoc :trade/commodity-account (-> commodity-account-id
-                                                                            account-ids
-                                                                            accounts))
-                   account-id           (assoc :trade/account (-> account-id
-                                                                  account-ids
-                                                                  accounts))
+                   commodity-account-id (assoc :trade/commodity-account
+                                               (-> commodity-account-id
+                                                   account-ids
+                                                   accounts))
+                   account-id           (assoc :trade/account
+                                               (-> account-id
+                                                   account-ids
+                                                   accounts))
                    fee                  (assoc :trade/fee fee
                                                :trade/fee-account fee-account))
         {trx :trade/transaction :as result} (trading/buy purchase
