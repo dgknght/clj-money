@@ -171,7 +171,8 @@
   (log/infof "[import] imported %s transaction on %s: \"%s\""
              transaction-type
              (:transaction/transaction-date transaction)
-             (:transaction/description transaction)))
+             (:transaction/description transaction))
+  transaction)
 
 (defmethod ^:private import-transaction :default
   [{:as ctx :keys [entity]} transaction]
