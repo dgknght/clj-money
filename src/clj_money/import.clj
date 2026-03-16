@@ -123,14 +123,6 @@
            #:transaction-item{:index -1
                               :balance 0M})))
 
-(defn- polarize-item-quantity
-  [{:transaction-item/keys [account action quantity] :as item}]
-  (assoc item
-         :transaction-item/polarized-quantity
-         (polarize-quantity {:account account
-                             :action action
-                             :quantity quantity})))
-
 (defn- index-trx-item
   [ctx]
   (fn [{:as item :transaction-item/keys [account]}]
@@ -434,6 +426,14 @@
                                (refine-recon-info ctx)
                                (resolve-account-reference ctx)
                                purge-import-keys)))))))
+
+(defn- polarize-item-quantity
+  [{:transaction-item/keys [account action quantity] :as item}]
+  (assoc item
+         :transaction-item/polarized-quantity
+         (polarize-quantity {:account account
+                             :action action
+                             :quantity quantity})))
 
 (defn- apply-transaction-to-accounts
   ([trx] #(apply-transaction-to-accounts % trx))
