@@ -129,8 +129,8 @@
       "The entity can be retrieved"
       (is (seq-of-maps-like? (expected-accounts)
                              (entities/select {:account/entity entity}
-                                            {:sort [:account/name]}))
-          "The accounts are created")
+                                              {:sort [:account/name]}))
+          "The accounts can be retrieved")
       (is (seq-of-maps-like? [#:reconciliation{:account (util/->entity-ref (entities/find-by {:account/name "Checking"}))
                                                :status :completed
                                                :end-of-period (t/local-date 2015 1 15)
