@@ -481,17 +481,15 @@
 (defmethod import-record* :transaction
   [ctx transaction]
   (with-fatal-exceptions
+
+    (when-not (after-last-trx? transaction ctx)
+      (throw-out-of-order-trx transaction ctx))
+
     (let [trx (prepare-trx-items transaction ctx)]
-      (cond
-        (empty? (:transaction/items trx))
+      (if (empty? (:transaction/items trx))
         (do
           (log/warnf "[import] Transaction with no items: %s" trx)
           (assoc-warning ctx "Transaction with no items" trx))
-
-        (not (after-last-trx? trx ctx))
-        (throw-out-of-order-trx trx ctx)
-
-        :else
         (-> ctx
             (import-transaction trx)
             (update-in [:accounts] (apply-transaction-to-accounts trx))
