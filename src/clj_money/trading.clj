@@ -9,7 +9,8 @@
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.decimal :as d]
             [clj-money.transactions :as trx]
-            [clj-money.accounts :refer [system-tagged?]]
+            [clj-money.accounts :refer [system-tagged?
+                                        polarize-quantity]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
@@ -283,15 +284,10 @@
 (defn- index-items
   [items item-basis]
   (map (fn [{:as item :transaction-item/keys [account]}]
-         (if-let [basis (item-basis account)]
+         (if-let [{:transaction-item/keys [index balance]} (item-basis account)]
            (assoc item
-
-                  :transaction-item/index
-                  (inc (:transaction-item/index basis))
-
-                  :transaction-item/balance
-                  (+ (:transaction-item/balance basis)
-                     (:transaction-item/quantity item)))
+                  :transaction-item/index   (inc index)
+                  :transaction-item/balance (+ balance (polarize-quantity item)))
            item))
        items))
 
