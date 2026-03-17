@@ -360,8 +360,8 @@
                    :transaction-item/quantity 1M
                    :transaction-item/index 0
                    :transaction-item/balance 1M}
-                  {:transaction-item/action :credit ; proceeds from sale of AAPL
-                   :transaction-item/quantity 590
+                  {:transaction-item/action :debit ; proceeds from sale of AAPL
+                   :transaction-item/quantity 590M
                    :transaction-item/index 1
                    :transaction-item/balance 591M}]
                  (map #(select-keys % [:transaction-item/action
@@ -386,7 +386,7 @@
                 (entities/select
                   {:transaction-item/account ira-aapl}
                   {:sort [[:transaction-item/index :asc]]}))
-              "IRA AAPL receives account items"))))))
+              "IRA AAPL account items are created"))))))
 
 
 (defn- gnucash-budget-sample []
