@@ -788,8 +788,8 @@
   (assoc split
          :split/lots
          (entities/select #:lot{:commodity commodity
-                              :account account
-                              :shares-owned [:!= 0M]})))
+                                :account account
+                                :shares-owned [:!= 0M]})))
 
 (defn- append-split-ratio
   [{:split/keys [shares-gained lots] :as split}]
