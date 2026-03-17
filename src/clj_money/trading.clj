@@ -282,14 +282,16 @@
     trade))
 
 (defn- index-items
-  [items item-basis]
-  (map (fn [{:as item :transaction-item/keys [account]}]
-         (if-let [{:transaction-item/keys [index balance]} (item-basis account)]
-           (assoc item
-                  :transaction-item/index   (inc index)
-                  :transaction-item/balance (+ balance (polarize-quantity item)))
-           item))
-       items))
+  ([item-basis]
+   #(index-items % item-basis))
+  ([items item-basis]
+   (map (fn [{:as item :transaction-item/keys [account]}]
+          (if-let [{:transaction-item/keys [index balance]} (item-basis account)]
+            (assoc item
+                   :transaction-item/index   (inc index)
+                   :transaction-item/balance (+ balance (polarize-quantity item)))
+            item))
+        items)))
 
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
