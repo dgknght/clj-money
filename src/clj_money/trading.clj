@@ -846,6 +846,8 @@
 
 (defn- adjust-split-transaction-items
   [{:split/keys [commodity-account ratio] :as split}]
+  ; TODO: Get the transactions to be adjusted via lot -> lot-items
+  ; This way we ensure we only update relevant trx items
   (if commodity-account
     (let [items (entities/select
                   {:transaction-item/account commodity-account}
@@ -896,17 +898,27 @@
                       :transaction-date date
                       :memo (format "%s split" (ratio->words ratio))})))
 
+(defn- create-split-transaction
+  [{:as ctx :split/keys [transaction]} {:keys [item-basis]}]
+  (cond-> ctx
+    (and transaction item-basis)
+    (update-in [:split/transaction
+                :transaction/items]
+               (index-items item-basis))))
+
 (defn- put-split
   [{:split/keys [lots
                  lot-items
                  lot-note
                  account-items
                  commodity-account
-                 ratio]}
+                 ratio
+                 transaction]}
    opts]
   (let [result (->> lots
                     (concat lot-items
-                            [lot-note]
+                            [transaction
+                             lot-note]
                             account-items
                             (when commodity-account [commodity-account]))
                     (filter identity)
@@ -915,6 +927,7 @@
     {:split/lots (:lot result)
      :split/lot-items (:lot-item result)
      :split/lot-note (first (:lot-note result))
+     :split/transaction (first (:transaction result))
      :split/ratio ratio}))
 
 (s/def :split/date t/local-date?)
@@ -949,6 +962,7 @@
             adjust-split-lots
             adjust-split-transaction-items
             create-split-note
+            (create-split-transaction opts)
             (put-split opts)))))
 
 (def split-and-propagate

@@ -303,17 +303,27 @@
   [{:as context
     :keys [account-parents
            account-ids
-           accounts]}
+           accounts
+           entity]}
    {:as transaction
     :import/keys [commodity-account-id]}]
   ; this logic to adjust accounts may be specific to gnucash
-  (let [split-params (-> transaction
+  (let [items (remove (comp zero? :transaction-item/value)
+                      (:transaction/items transaction))
+        trx (when (seq items)
+              (-> transaction
+                  (select-keys [:transaction/transaction-date
+                                :transaction/description])
+                  (assoc :transaction/entity entity
+                         :transaction/items items)))
+        split-params (-> transaction
                          (select-keys [:split/date
                                        :split/shares-gained])
                          (assoc :split/account
                                 {:id (-> commodity-account-id
                                          account-ids
                                          account-parents)}
+
                                 :split/commodity
                                 (-> commodity-account-id
                                     account-ids
@@ -322,13 +332,15 @@
         note-key [(-> split-params :split/commodity :id)
                   (:split/date split-params)]
         existing (get-in context [:split-lot-notes note-key])
-        result (trading/split split-params
+        result (trading/split (cond-> split-params
+                                trx (assoc :split/transaction trx))
                               :lot-note existing
                               :item-basis (last-trx-item context))]
     (log-transaction (:split/transaction result) "commodity split")
-    (if result
-      (assoc-in context [:split-lot-notes note-key] (:split/lot-note result))
-      context)))
+    (cond-> context
+      result (assoc-in [:split-lot-notes note-key]
+                       (:split/lot-note result))
+      (:split/transaction result) (update-last-trxs (:split/transaction result)))))
 
 (defn- get-source-type
   [{:image/keys [content-type]}]
