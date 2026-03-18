@@ -847,14 +847,8 @@
 (defn- adjust-split-transaction-items
   [{:split/keys [commodity-account ratio lot-items] :as split}]
   (if commodity-account
-    (let [lot-item-ids (->> lot-items
-                            (map :id)
-                            set)
-          items (->> (entities/select
-                       (util/entity-type
-                         {:transaction/lot-items [:in lot-item-ids]
-                          :transaction-item/account commodity-account}
-                         :transaction-item)))
+    ; TODO: We should be able to select only items that relate to the lot-items already in the split map
+    (let [items (entities/select {:transaction-item/account commodity-account})
           [final-balance adjusted]
           (reduce (fn [[bal acc] item]
                     (let [new-qty (apply-ratio
