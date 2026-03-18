@@ -914,12 +914,14 @@
                  account-items
                  commodity-account
                  ratio
-                 transaction]}
+                 transaction
+                 transaction-items]}
    opts]
   (let [result (->> lots
                     (concat lot-items
                             [transaction
                              lot-note]
+                            transaction-items
                             account-items
                             (when commodity-account [commodity-account]))
                     (filter identity)
