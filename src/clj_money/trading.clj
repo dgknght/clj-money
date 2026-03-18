@@ -845,15 +845,16 @@
            :split/lot-items lot-items)))
 
 (defn- adjust-split-transaction-items
-  [{:split/keys [commodity-account ratio] :as split}]
-  ; TODO: Get the transactions to be adjusted via lot -> lot-items
-  ; This way we ensure we only update relevant trx items
+  [{:split/keys [commodity-account ratio lot-items] :as split}]
   (if commodity-account
-    (let [items (entities/select
-                  {:transaction-item/account commodity-account}
-                  {:sort [:transaction/transaction-date
-                          :transaction-item/index]
-                   :select-also [:transaction/transaction-date]})
+    (let [lot-item-ids (->> lot-items
+                            (map :id)
+                            set)
+          items (->> (entities/select
+                       (util/entity-type
+                         {:transaction/lot-items [:in lot-item-ids]
+                          :transaction-item/account commodity-account}
+                         :transaction-item)))
           [final-balance adjusted]
           (reduce (fn [[bal acc] item]
                     (let [new-qty (apply-ratio
