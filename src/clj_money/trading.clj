@@ -724,7 +724,7 @@
                                                     :value value
                                                     :account from-commodity-account
                                                     :index (inc (:transaction-item/index from-basis))
-                                                    :balance (+ (:transaction-item/balance from-basis)
+                                                    :balance (- (:transaction-item/balance from-basis)
                                                                 shares)}
                                  #:transaction-item{:action :debit
                                                     :quantity shares
