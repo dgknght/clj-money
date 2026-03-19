@@ -925,6 +925,7 @@
      :split/lot-items (:lot-item result)
      :split/lot-note (first (:lot-note result))
      :split/transaction (first (:transaction result))
+     :split/transaction-items (:transaction-item result)
      :split/ratio ratio}))
 
 (s/def :split/date t/local-date?)
