@@ -6,16 +6,19 @@
             [clj-money.util :as util]))
 
 (def ^:private joins
-  (->> schema/entities
-       (filter #(some map? (:refs %)))
-       (mapcat (fn [{:keys [refs id]}]
-                 (->> refs
-                      (filter (every-pred map?
-                                          :columns))
-                      (map (fn [{:keys [columns] :as ref}]
-                             [[(:id ref) id]
-                              columns])))))
-       (into {})))
+  (merge
+    (->> schema/entities
+         (filter #(some map? (:refs %)))
+         (mapcat (fn [{:keys [refs id]}]
+                   (->> refs
+                        (filter (every-pred map?
+                                            :columns))
+                        (map (fn [{:keys [columns] :as ref}]
+                               [[(:id ref) id]
+                                columns])))))
+         (into {}))
+    ; Explicit JOIN for array-based relationships
+    {[:lot :lot-note] [[:id [:any :lot-note/lot-ids]]]}))
 
 (def ^:private default-options
   {:relationships schema/relationships
