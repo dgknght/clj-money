@@ -520,10 +520,12 @@
                 [{:transaction/transaction-date (t/local-date 2015 1 17)
                   :transaction/description "Purchase 100.000 shares of AAPL at 9.950"
                   :transaction-item/quantity 5M
+                  :transaction-item/balance 5M
                   :transaction-item/action :debit}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
                   :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
                   :transaction-item/quantity 10M
+                  :transaction-item/balance 15M
                   :transaction-item/action :debit}]
                 (entities/select
                   {:transaction-item/account inv-exp}
@@ -535,11 +537,13 @@
                 [{:transaction/transaction-date (t/local-date 2015 3 2)
                   :transaction/description "Transfer 100.000000 shares of AAPL"
                   :transaction-item/action :debit
-                  :transaction-item/quantity 100M}
+                  :transaction-item/quantity 200M
+                  :transaction-item/balance 200M}
                  {:transaction/transaction-date (t/local-date 2015 5 1)
                   :transaction/description "Sell 100.000 shares of AAPL at 6.000 for 102.500 short-term gain"
                   :transaction-item/action :credit
-                  :transaction-item/quantity 100M}]
+                  :transaction-item/quantity 100M
+                  :transaction-item/balance 100M}]
                 (entities/select
                   {:transaction-item/account ira-aapl}
                   {:sort [:transaction/transaction-date]
