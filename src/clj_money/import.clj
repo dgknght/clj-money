@@ -299,6 +299,30 @@
         (update-in [:accounts] apply-transfer-to-accounts result)
         (update-last-trxs trx))))
 
+(defn- update-last-trx-items
+  "Takes transaction item items updated ad hoc and applies
+  updates to any trx items that are already in :last-trx-items"
+  [ctx items]
+  ; Note that theoratically we may have ad hoc updates that are from the same
+  ; account but older than the currently held last-trx-item. I don't think this
+  ; will happen in practice since this is specifically here for splits and all
+  ; trx items, including the latest, will be updated, but just in case, I'll
+  ; accomodate the posibility
+  (let [items-by-account-id (->> items
+                                 (group-by (comp :id :transaction-item/account))
+                                 (map #(update-in % [1] (comp last
+                                                              (partial sort-by :transaction-item/index)))))]
+    (update-in ctx
+               [:last-trx-items]
+               (fn [items]
+                 (reduce (fn [res [account-id item]]
+                           (if (<= (get-in res [account-id :transaction-item/index])
+                                   (:transaction-item/index item))
+                             (assoc res account-id item)
+                             res))
+                         items
+                         items-by-account-id)))))
+
 (defmethod ^:private import-transaction :split
   [{:as context
     :keys [account-parents
@@ -340,7 +364,12 @@
     (cond-> context
       result (assoc-in [:split-lot-notes note-key]
                        (:split/lot-note result))
-      (:split/transaction result) (update-last-trxs (:split/transaction result)))))
+
+      (:split/transaction result)
+      (update-last-trxs (:split/transaction result))
+
+      (seq (:split/transaction-items result))
+      (update-last-trx-items (:split/transaction-items result)))))
 
 (defn- get-source-type
   [{:image/keys [content-type]}]
