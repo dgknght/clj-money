@@ -863,10 +863,11 @@
                                         :transaction-item/balance new-bal))]))
                   [0M []]
                   items)]
-      (assoc split
-             :split/transaction-items adjusted
-             :split/commodity-account
-             (assoc commodity-account :account/quantity final-balance)))
+      (-> split
+          (assoc :split/transaction-items adjusted)
+          (assoc-in [:split/commodity-account
+                     :account/quantity]
+                    final-balance)))
     split))
 
 (defn ratio->words
@@ -882,8 +883,9 @@
   [{:as split :split/keys [commodity account]}]
   (-> split
       (update-in [:split/account] entities/resolve-ref)
-      (assoc :split/commodity-account (entities/find-by #:account{:commodity commodity
-                                                                :parent account}))))
+      (assoc :split/commodity-account
+             (entities/find-by #:account{:commodity commodity
+                                         :parent account}))))
 
 (defn- create-split-note
   [{:split/keys [lots date ratio lot-note] :as split}]
@@ -916,10 +918,10 @@
   (let [result (->> lots
                     (concat lot-items
                             [transaction
-                             lot-note]
+                             lot-note
+                             (when commodity-account commodity-account)]
                             transaction-items
-                            account-items
-                            (when commodity-account [commodity-account]))
+                            account-items)
                     (filter identity)
                     (entities/put-many opts)
                     (group-by util/entity-type))]
