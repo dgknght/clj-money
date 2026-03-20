@@ -10,9 +10,11 @@
     (set/difference
       schema/relationships
       #{[:budget :budget-item]
+        [:lot :lot-note]
         [:transaction :lot-item]
         [:transaction :transaction-item]})
     #{[:budget-item :budget :items]
+      [:lot :lot-note :lots]
       [:lot-item :transaction :lot-items]
       [:transaction-item :transaction :items]}))
 

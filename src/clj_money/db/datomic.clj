@@ -46,6 +46,7 @@
     :import                '[?x :import/entity-name ?import-entity-name]
     :lot                   '[?x :lot/purchase-date ?lot-purchase-date]
     :lot-item              '[?x :lot-item/action ?lot-item-action]
+    :lot-note              '[?x :lot-note/memo ?lot-note-memo]
     :price                 '[?x :price/value ?price-value]
     :reconciliation        '[?x :reconciliation/status ?reconciliation-status]
     :scheduled-transaction '[?x :scheduled-transaction/description ?scheduled-transaction-description]

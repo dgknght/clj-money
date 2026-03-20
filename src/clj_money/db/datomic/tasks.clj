@@ -24,6 +24,7 @@
            "transaction"
            "transaction_item"
            "lot"
+           "lot_note"
            "lot_item"
            "image"
            "import"

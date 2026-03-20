@@ -9,7 +9,8 @@
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.decimal :as d]
             [clj-money.transactions :as trx]
-            [clj-money.accounts :refer [system-tagged?]]
+            [clj-money.accounts :refer [system-tagged?
+                                        polarize-quantity]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
@@ -280,6 +281,18 @@
                       trade)))
     trade))
 
+(defn- index-items
+  ([item-basis]
+   #(index-items % item-basis))
+  ([items item-basis]
+   (map (fn [{:as item :transaction-item/keys [account]}]
+          (if-let [{:transaction-item/keys [index balance]} (item-basis account)]
+            (assoc item
+                   :transaction-item/index   (inc index)
+                   :transaction-item/balance (+ balance (polarize-quantity item)))
+            item))
+        items)))
+
 (defn- create-purchase-transaction
   "Given a trade map, creates the general currency
   transaction"
@@ -293,12 +306,17 @@
                  account
                  commodity-account]
     :or {fee 0M}
-    :as trade}]
+    :as trade}
+   {:keys [item-basis]}]
   (let [currency-amount (+ value fee)
         items (cond-> [(trx/item :credit account currency-amount)
                        (trx/item :debit commodity-account shares (- currency-amount fee))]
+
                 (not (zero? fee))
-                (conj (trx/item :debit fee-account fee)))]
+                (conj (trx/item :debit fee-account fee))
+
+                item-basis
+                (index-items item-basis))]
     (assoc trade
            :trade/transaction
            #:transaction{:entity entity
@@ -317,25 +335,31 @@
                  commodity-account
                  fee
                  fee-account]
-    :or {fee 0M}}]
+    :or {fee 0M}}
+   {:keys [item-basis]}]
   (cond-> [(trx/item :debit account (- value fee))
            (trx/item :credit commodity-account shares value)]
+
     (not (zero? fee))
-    (conj (trx/item :debit fee-account fee))))
+    (conj (trx/item :debit fee-account fee))
+
+    item-basis
+    (index-items item-basis)))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [date account lot-items] :as trade}]
-  (let [items (create-sale-transaction-items trade)]
-    (update-in trade
-               [:trade/transactions]
-               (fnil conj [])
-               #:transaction{:entity (:account/entity account)
-                             :transaction-date date
-                             :description (sale-transaction-description trade)
-                             :items (vec items)
-                             :lot-items lot-items})))
+  [{:trade/keys [date account lot-items] :as trade}
+   opts]
+  (let [items (create-sale-transaction-items trade opts)
+        trx #:transaction{:entity (:account/entity account)
+                          :transaction-date date
+                          :description (sale-transaction-description trade)
+                          :items (vec items)
+                          :lot-items lot-items}]
+    (-> trade
+        (update-in [:trade/transactions] (fnil conj []) trx)
+        (assoc :trade/transaction trx))))
 
 (defn- create-lot
   "Given a trade map, creates and appends the commodity lot"
@@ -419,7 +443,7 @@
           update-accounts
           create-lot
           (create-dividend-transaction opts)
-          create-purchase-transaction
+          (create-purchase-transaction opts)
           (put-purchase opts)))))
 
 (def buy-and-propagate
@@ -597,7 +621,7 @@
           push-commodity-price-boundary
           update-accounts
           process-lot-sales
-          create-sale-transaction
+          (create-sale-transaction opts)
           (put-sale opts)))))
 
 (def sell-and-propagate
@@ -700,7 +724,7 @@
                                                     :value value
                                                     :account from-commodity-account
                                                     :index (inc (:transaction-item/index from-basis))
-                                                    :balance (+ (:transaction-item/balance from-basis)
+                                                    :balance (- (:transaction-item/balance from-basis)
                                                                 shares)}
                                  #:transaction-item{:action :debit
                                                     :quantity shares
@@ -766,8 +790,8 @@
   (assoc split
          :split/lots
          (entities/select #:lot{:commodity commodity
-                              :account account
-                              :shares-owned [:!= 0M]})))
+                                :account account
+                                :shares-owned [:!= 0M]})))
 
 (defn- append-split-ratio
   [{:split/keys [shares-gained lots] :as split}]
@@ -820,35 +844,92 @@
            :split/lots lots
            :split/lot-items lot-items)))
 
-#_(defn- ratio->words
+(defn- adjust-split-transaction-items
+  [{:split/keys [commodity-account ratio] :as split}]
+  (if commodity-account
+    ; TODO: We should be able to select only items that relate to the lot-items already in the split map
+    (let [items (entities/select {:transaction-item/account commodity-account})
+          [final-balance adjusted]
+          (reduce (fn [[bal acc] {:as item :transaction-item/keys [action]}]
+                    (let [new-qty (apply-ratio
+                                    (:transaction-item/quantity item)
+                                    ratio)
+                          new-bal (+ bal (polarize-quantity {:quantity new-qty
+                                                             :account commodity-account
+                                                             :action action}))]
+                      [new-bal
+                       (conj acc (assoc item
+                                        :transaction-item/quantity new-qty
+                                        :transaction-item/balance new-bal))]))
+                  [0M []]
+                  items)]
+      (-> split
+          (assoc :split/transaction-items adjusted)
+          (assoc-in [:split/commodity-account
+                     :account/quantity]
+                    final-balance)))
+    split))
+
+(defn ratio->words
+  "Returns a human-readable ratio string.
+  ratio 2   → \"2 for 1\"
+  ratio 0.5 → \"1 for 2\""
   [ratio]
-  ; We'll need to expand this at some point to handle
-  ; reverse splits and stranger splits, like 3:2
-  (let [[n d] (cond->> [ratio 1]
-                (< ratio 1)
-                (map (comp int
-                           #(with-precision 1
-                              (/ % ratio)))))]
-    (format "%s for %s" n d)))
+  (if (>= ratio 1M)
+    (format "%s for 1" (int ratio))
+    (format "1 for %s" (int (with-precision 10 (/ 1M ratio))))))
 
 (defn- append-split-accounts
   [{:as split :split/keys [commodity account]}]
   (-> split
       (update-in [:split/account] entities/resolve-ref)
-      (assoc :split/commodity-account (entities/find-by #:account{:commodity commodity
-                                                                :parent account}))))
+      (assoc :split/commodity-account
+             (entities/find-by #:account{:commodity commodity
+                                         :parent account}))))
+
+(defn- create-split-note
+  [{:split/keys [lots date ratio lot-note] :as split}]
+  (assoc split
+         :split/lot-note
+         (if lot-note
+           (update lot-note :lot-note/lots into (map util/->entity-ref lots))
+           #:lot-note{:lots (mapv util/->entity-ref lots)
+                      :transaction-date date
+                      :memo (format "%s split" (ratio->words ratio))})))
+
+(defn- create-split-transaction
+  [{:as ctx :split/keys [transaction]} {:keys [item-basis]}]
+  (cond-> ctx
+    (and transaction item-basis)
+    (update-in [:split/transaction
+                :transaction/items]
+               (index-items item-basis))))
 
 (defn- put-split
   [{:split/keys [lots
                  lot-items
-                 ratio]}
+                 lot-note
+                 account-items
+                 commodity-account
+                 ratio
+                 transaction
+                 transaction-items]}
    opts]
   (let [result (->> lots
-                    (concat lot-items)
+                    (concat lot-items
+                            [transaction
+                             lot-note
+                             (when commodity-account commodity-account)]
+                            transaction-items
+                            account-items)
+                    (filter identity)
                     (entities/put-many opts)
                     (group-by util/entity-type))]
     {:split/lots (:lot result)
      :split/lot-items (:lot-item result)
+     :split/lot-note (first (:lot-note result))
+     :split/transaction (first (:transaction result))
+     :split/transaction-items (:transaction-item result)
      :split/ratio ratio}))
 
 (s/def :split/date t/local-date?)
@@ -866,17 +947,24 @@
   :commodity     - the commodity being split
   :date          - the date the split is effective
   :shares-gained - the difference in the number of shares held before and after the split
-  :account       - the trading account through which the commodity was purchased"
+  :account       - the trading account through which the commodity was purchased
 
-  [split & {:as options}]
-  (let [opts (merge default-opts options)]
+  Options:
+  :lot-note - an existing lot-note to update with the split's lots instead of
+              creating a new one"
+
+  [split & {:keys [lot-note] :as options}]
+  (let [opts (merge default-opts (dissoc options :lot-note))]
     (with-ex-validation split ::entities/split
-    (some-> split
+    (some-> (cond-> split lot-note (assoc :split/lot-note lot-note))
             (update-in [:split/commodity] entities/resolve-ref)
             append-split-accounts
             append-split-lots
             append-split-ratio
             adjust-split-lots
+            adjust-split-transaction-items
+            create-split-note
+            (create-split-transaction opts)
             (put-split opts)))))
 
 (def split-and-propagate

@@ -213,7 +213,9 @@
                c
                (second c)))
            columns)
-      [(str (name (:id ref)) "-id")])))
+      (if (vector? (:type ref))
+        [(str (str/replace (name (:id ref)) #"s\z" "") "-ids")]
+        [(str (name (:id ref)) "-id")]))))
 
 (defn- build-attributes
   [[t fields refs]]
@@ -478,7 +480,9 @@
 
 (defn- reset*
   [ds]
-  (jdbc/execute! ds ["delete from cached_price; delete from transaction_item; delete from \"user\" cascade"]))
+  (jdbc/execute!
+    ds
+    ["delete from lot_note; delete from cached_price; delete from transaction_item; delete from \"user\" cascade"]))
 
 (defn- sql-storage
   [config]
