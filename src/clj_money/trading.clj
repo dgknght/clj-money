@@ -850,11 +850,13 @@
     ; TODO: We should be able to select only items that relate to the lot-items already in the split map
     (let [items (entities/select {:transaction-item/account commodity-account})
           [final-balance adjusted]
-          (reduce (fn [[bal acc] item]
+          (reduce (fn [[bal acc] {:as item :transaction-item/keys [action]}]
                     (let [new-qty (apply-ratio
                                     (:transaction-item/quantity item)
                                     ratio)
-                          new-bal (+ bal new-qty)]
+                          new-bal (+ bal (polarize-quantity {:quantity new-qty
+                                                             :account commodity-account
+                                                             :action action}))]
                       [new-bal
                        (conj acc (assoc item
                                         :transaction-item/quantity new-qty
