@@ -58,7 +58,9 @@
       (assert to-account
               (format "Unable to find an account named \"%s\"."
                       to-account))
-      (transactions/migrate-account from-account to-account))))
+      (transactions/migrate-account from-account to-account)
+      (shutdown-agents)
+      (System/exit 0))))
 
 (def ^:priviate re-index-cli-options
   {:usage "lein re-index -- <options>"
