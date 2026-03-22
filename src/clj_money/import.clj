@@ -124,18 +124,28 @@
                               :balance 0M})))
 
 (defn- index-trx-item
-  [ctx]
-  (fn [{:as item :transaction-item/keys [account]}]
-    (let [basis (last-trx-item account ctx)]
-      (assoc item
-             :transaction-item/index (inc (:transaction-item/index basis))
-             :transaction-item/balance (+ (:transaction-item/balance basis)
-                                          (polarize-quantity item))))))
+  [result {:as item :transaction-item/keys [account]}]
+  (let [basis (last-trx-item account (:context result))
+        updated (assoc item
+
+                       :transaction-item/index
+                       (inc (:transaction-item/index basis))
+
+                       :transaction-item/balance
+                       (+ (:transaction-item/balance basis)
+                          (polarize-quantity item)))]
+    (-> result
+        (assoc-in [:context :last-trx-items (:id account)] updated)
+        (update-in [:items] conj updated))))
+
 (defn- index-trx-items
-  [ctx]
-  (fn [items]
-    (map (index-trx-item ctx)
-         items)))
+  [trx ctx]
+  (let [{:keys [items context]} (reduce index-trx-item
+                                        {:context ctx
+                                         :items []}
+                                        (:transaction/items trx))]
+    {:context context
+     :transaction (assoc trx :transaction/items items)}))
 
 (defn- update-last-trxs
   [context {:transaction/keys [items transaction-date]}]
@@ -165,15 +175,15 @@
   transaction)
 
 (defmethod ^:private import-transaction :default
-  [{:as ctx :keys [entity]} transaction]
-  (update-last-trxs
-    ctx
+  [{:as ctx :keys [entity]} trx]
+  (let [{:keys [context transaction]} (-> trx
+                                          purge-import-keys
+                                          (assoc :transaction/entity entity)
+                                          (index-trx-items ctx))]
     (-> transaction
-        purge-import-keys
-        (assoc :transaction/entity entity)
-        (update-in [:transaction/items] (index-trx-items ctx))
         entities/put
-        (log-transaction "standard"))))
+        (log-transaction "standard"))
+    context))
 
 (defn- inv-transaction-fee-info
   [{:transaction/keys [items]}]
