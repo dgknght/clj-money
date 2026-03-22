@@ -157,6 +157,7 @@ services:
     build:
       target: util
     command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; sleep 5s; done && lein with-profile util datomic-schema && touch /init-markers/datomic-schema-complete"
+    restart: on-failure
     volumes:
       - type: bind
         source: ./env/docker
@@ -177,12 +178,13 @@ services:
       - datomic-peer
       - datomic-client
     image: docker.io/dgknght/datomic-pro:1.0.7075
-    depends_on:
-      datomic-transactor:
-        condition: service_healthy
     restart: on-failure
     ports:
       - 4050:8080
+    environment:
+      SQL_HOST: ${SQL_HOST}
+      SQL_APP_USER: ${SQL_APP_USER}
+      SQL_APP_PASSWORD: ${SQL_APP_PASSWORD}
     command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; sleep 5s; done && ./bin/console -p '8080' sql 'datomic:sql://?jdbc:postgresql://${SQL_HOST}:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}'"
     volumes:
       - type: volume
