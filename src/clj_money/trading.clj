@@ -202,13 +202,14 @@
 (defn- gains-words
   [gains]
   (->> gains
-       (map (fn [{:keys [quantity long-term?]}]
-         (format "%,1.3f %s %s"
-                 (abs quantity)
-                 (if long-term? "long-term" "short-term")
-                 (if (< quantity 0M)
-                   "loss"
-                   "gain"))))
+       (group-by (juxt :long-term? #(< (:quantity %) 0M)))
+       (sort-by (fn [[[long-term? loss?] _]] [(not long-term?) loss?]))
+       (map (fn [[[long-term? loss?] entries]]
+              (let [total (transduce (map :quantity) + 0M entries)]
+                (format "%,1.3f %s %s"
+                        (abs total)
+                        (if long-term? "long-term" "short-term")
+                        (if loss? "loss" "gain")))))
        (string/join ", ")))
 
 (defn- sale-transaction-description

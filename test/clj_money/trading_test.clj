@@ -439,6 +439,25 @@
                              {:sort [[:lot/purchase-date :asc]]}))
           "Shares are sold from the earliest lot"))))
 
+(deftest sell-from-multiple-lots-aggregates-the-description
+  (with-context multi-lot-context
+    (let [commodity (find-commodity "AAPL")
+          ira (find-account "IRA")
+          result (trading/sell
+                   #:trade{:date (t/local-date 2017 1 1)
+                           :account ira
+                           :commodity commodity
+                           :shares 150M
+                           :value 3750M
+                           :inventory-method :fifo})]
+      (is (seq-of-maps-like?
+            [#:transaction{:description
+                           (str "Sell 150.000 shares of AAPL at 25.000"
+                                " for 1,500.000 long-term gain,"
+                                " 250.000 short-term gain")}]
+            (:trade/transactions result))
+          "Gains from multiple lots are aggregated by category in the description"))))
+
 (deftest ^:multi-threaded undo-a-purchase
   (with-context sale-context
     (trading/unbuy-and-propagate
