@@ -476,7 +476,7 @@
                                          process)))
                             [])
                     (mapv post-process))]
-    (prop/propagate-all {})
+    (prop/propagate-all)
     result))
 
 (defmacro with-context

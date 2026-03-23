@@ -20,6 +20,8 @@
 
   Model namespaces register a function with add-full-propagation so that when
   this function is called, all of the mode-specific propagations will be executed."
+  ([]
+   (propagate-all {}))
   ([opts]
    (doseq [entity (entities/select (util/entity-type {} :entity))]
      (propagate-all entity opts)))
