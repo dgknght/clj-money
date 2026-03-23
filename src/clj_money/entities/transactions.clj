@@ -661,10 +661,8 @@
   [from-account to-account]
   {:pre [(id= (:account/entity from-account)
               (:account/entity to-account))]}
-  (println "moving transaction items...")
   (entities/update {:transaction-item/account (util/->entity-ref to-account)}
                    {:transaction-item/account (util/->entity-ref from-account)})
-  (println "updating account quantities")
   (entities/put-many [(assoc from-account :account/quantity 0M)
                       (assoc to-account :account/quantity (:account/quantity from-account))]))
 
