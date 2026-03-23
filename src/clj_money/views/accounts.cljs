@@ -31,6 +31,7 @@
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
+            [clj-money.api.lot-notes :as lot-notes]
             [clj-money.api.prices :as prices]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.commodities :as cmdts]
@@ -563,6 +564,8 @@
                                    (swap! page-state dissoc
                                           :view-account
                                           :items
+                                          :lots
+                                          :lot-notes
                                           :all-items-fetched?))
                        :title "Click here to return to the account list."}
                 :caption "Back"
@@ -753,6 +756,9 @@
 (defn- lots-table
   [page-state]
   (let [lots (r/cursor page-state [:lots])
+        held-lots (make-reaction
+                    #(filter (comp pos? :lot/shares-owned)
+                             @lots))
         prices (r/cursor page-state [:prices])
         latest-price (make-reaction #(->> @prices
                                           (sort-by :price/trade-date t/after?)
@@ -788,15 +794,18 @@
              [:div.spinner-border {:role :status}
               [:span.visually-hidden "Loading"]]]]]
 
-          (seq @lots)
-          (doall (for [lot (sort-by (comp serialize-local-date
-                                          :lot/purchase-date)
-                                    @lots)]
-                   (lot-row lot @latest-price @gain-loss)))
+          (seq @held-lots)
+          (->> @held-lots
+               (sort-by (comp serialize-local-date
+                              :lot/purchase-date))
+               (map #(lot-row % @latest-price @gain-loss))
+               doall)
 
           :else
-          [:tr [:td.text-center.fw-lighter {:col-span 6} "No lots of this commidty are currently held."]])]
-       (when (seq @lots)
+          [:tr
+           [:td.text-center.fw-lighter {:col-span 6}
+            "No lots of this commidty are currently held."]])]
+       (when (seq @held-lots)
          [:tfoot
           [:tr
            [:td.text-end {:col-span 2}
@@ -806,30 +815,49 @@
                            (format-date (:price/trade-date @latest-price))))]
            [:td.text-end (format-decimal @total-shares 4)]
            [:td.text-end (currency-format @total-value)]
-           [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+           [:td.text-end
+            {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
             (currency-format @gain-loss)]
-           [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+           [:td.text-end
+            {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
             (format-percent (/ @gain-loss
                                @total-cost)
-                            3)]]])])))
+                            3)]
+           [:td (html/space)]]])])))
 
-(defn- tradable-account-items
+(defn- load-lot-notes
   [page-state]
-  (let [current-nav (r/atom :lots)
-        account (r/cursor page-state [:view-account])
-        {:account/keys [parent
-                        entity
-                        commodity
-                        transaction-date-range]} @account]
-    (lots/select #:lot{:account parent
-                       :commodity commodity
-                       :shares-owned [:!= 0]}
-                 :on-success #(swap! page-state assoc :lots %))
+  (let [{:keys [view-account]} @page-state]
+    (lot-notes/select
+      #:lot{:account view-account}
+      :on-success (partial swap! page-state assoc :lot-notes))))
+
+(defn- load-lots
+  [page-state]
+  (let [{:account/keys [parent commodity]}
+        (:view-account @page-state)]
+    (lots/select
+      #:lot{:account parent
+            :commodity commodity}
+      :on-success (partial swap! page-state assoc :lots))))
+
+(defn- load-prices
+  [page-state]
+  (let [{:account/keys [commodity transaction-date-range]}
+        (:view-account @page-state)]
     (when transaction-date-range
       (prices/select
         #:price{:commodity commodity
                 :trade-date (apply vector :between transaction-date-range)}
-        :on-success #(swap! page-state assoc :prices %)))
+        :on-success #(swap! page-state assoc :prices %)))))
+
+(defn- tradable-account-items
+  [page-state]
+  (let [current-nav (r/atom :lots)
+        account (r/cursor page-state [:view-account])]
+   (load-lots page-state)
+   (load-lot-notes page-state)
+   (load-prices page-state)
     (fn []
       [:section
        (bs/nav-tabs [{:id :lots-nav
@@ -850,7 +878,9 @@
          [:button.btn.btn-primary
           {:title "Click here to buy or sell this commodity."
            :on-click (fn []
-                       (swap! page-state
+                       (let [{:account/keys [entity parent commodity]}
+                             @account]
+                         (swap! page-state
                               assoc
                               :trade
                               #:trade{:date (t/today)
@@ -858,13 +888,15 @@
                                       :entity entity
                                       :account parent
                                       :commodity commodity
-                                      :commodity-account @account})
+                                      :commodity-account @account}))
                        (set-focus "trade-date"))}
           (icon-with-text :plus "Buy/Sell")]
          [:button.btn.btn-secondary.ms-2
           {:title "Click here to return the the account list."
            :on-click #(swap! page-state dissoc
                              :view-account
+                             :lots
+                             :lot-notes
                              :items
                              :all-items-fetched?)}
           (icon-with-text :arrow-left-short "Back")]]]])))

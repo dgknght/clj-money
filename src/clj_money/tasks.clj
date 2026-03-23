@@ -9,7 +9,9 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.entities :as entities]
-            [clj-money.accounts :refer [nest unnest]]
+            [clj-money.accounts :refer [nest
+                                        unnest
+                                        polarize-quantity]]
             [clj-money.entities.transactions :as transactions]))
 
 (def ^:private migrate-account-cli-options
@@ -56,11 +58,13 @@
       (assert to-account
               (format "Unable to find an account named \"%s\"."
                       to-account))
-      (transactions/migrate-account from-account to-account))))
+      (transactions/migrate-account from-account to-account)
+      (shutdown-agents)
+      (System/exit 0))))
 
 (def ^:priviate re-index-cli-options
   {:usage "lein re-index -- <options>"
-   :description "Recalculate :account-item/index and :account-item/balance for the specified account or for all accounts in the specified entity"
+   :description "Recalculate :transaction-item/index and :transaction-item/balance for the specified account or for all accounts in the specified entity"
    :options (conj default-options
                   ["-a" "--account ACCOUNT" "The name of the account to re-index"
                    :id :account-name]
@@ -94,7 +98,8 @@
         (println "Reindexing" (:account/name account) "...")
         (transactions/propagate-account-from-start entity account))
       (println "Done.")))
-  (shutdown-agents))
+  (shutdown-agents)
+  (System/exit 0))
 
 (def ^:private export-user-tags-cli-options
   {:usage "lein export-user-tags -- <options>"
@@ -229,13 +234,14 @@
                "Memo"
                "Quantity"
                "Balance"]
-              (map (juxt (comp format-date
-                               :transaction/transaction-date)
-                         :transaction/description
-                         :account-item/memo
-                         :account-item/quantity
-                         :account-item/balance)
-                   (entities/select {:account-item/account account}
+              (map (comp (juxt (comp format-date
+                                     :transaction/transaction-date)
+                               :transaction/description
+                               :transaction-item/memo
+                               polarize-quantity
+                               :transaction-item/balance)
+                         #(assoc % :transaction-item/account account))
+                   (entities/select {:transaction-item/account account}
                                     {:select-also [:transaction/transaction-date
                                                    :transaction/description]})))
         :separator sep)

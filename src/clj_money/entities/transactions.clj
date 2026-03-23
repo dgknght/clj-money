@@ -657,19 +657,14 @@
 (prop/add-full-propagation propagate-all :priority 5)
 
 (defn migrate-account
-  "Moves all transaction items from from-account to to-account and recalculates the accounts"
+  "Moves all transaction items from from-account to to-account and updates the account quantities"
   [from-account to-account]
   {:pre [(id= (:account/entity from-account)
               (:account/entity to-account))]}
-  (let [entity (-> from-account :account/entity entities/find)
-        as-of (or (get-in from-account [:account/transaction-date-range 0])
-                  (get-in entity [:entity/transaction-date-range 0]))]
-    (assert as-of "Unable to find the earliest transaction date.")
-    (entities/update {:transaction-item/account (util/->entity-ref to-account)}
-                     {:transaction-item/account (util/->entity-ref from-account)
-                      :transaction/transaction-date [:>= as-of]})
-    (doseq [account [from-account to-account]]
-      (propagate-account-from-start entity account))))
+  (entities/update {:transaction-item/account (util/->entity-ref to-account)}
+                   {:transaction-item/account (util/->entity-ref from-account)})
+  (entities/put-many [(assoc from-account :account/quantity 0M)
+                      (assoc to-account :account/quantity (:account/quantity from-account))]))
 
 (defn propagate-accounts
   "Takes a map of account ids to dates and recalculates indices and balances for those

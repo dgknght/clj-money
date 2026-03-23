@@ -50,6 +50,7 @@
 
 (defn- last-item
   [inclusion date items]
+  {:pre [(every? :transaction-item/index items)]}
   (let [pred (case inclusion
                :on-or-before (fn [{:transaction/keys [transaction-date]}]
                                (or (= transaction-date date)
@@ -805,7 +806,7 @@
                         cost-basis
                         gain]}]
          {:report/caption (dates/format-local-date purchase-date)
-          :report/depth depth
+          :report/depth (inc depth)
           :report/style :data
           :report/shares-purchased shares-purchased
           :report/shares-owned shares-owned
@@ -832,9 +833,10 @@
     :as account}
    & {:keys [depth] :or {depth 0}}]
   {:pre [(:account/total-value account)
-         (:account/value account)
-         (:account/cost-basis account)]}
-  (let [shared {:report/caption name
+         (:account/value account)]}
+  (let [cost-basis (or cost-basis value 0M)
+        gain (or gain (- value cost-basis))
+        shared {:report/caption name
                 :report/depth depth
                 :report/cost-basis cost-basis
                 :report/gain-loss gain
@@ -851,6 +853,7 @@
                     :report/caption name})
             (cons {:report/caption "Cash"
                    :report/style :subheader
+                   :report/depth (inc depth)
                    :report/current-value value
                    :report/cost-basis value
                    :report/gain-loss 0M}
@@ -980,6 +983,10 @@
          (filter (some-fn (system-tagged? :tradable)
                           (system-tagged? :trading))) ; TODO: Make the system tag query above work
          (map #(update-in % [:account/commodity] (comp commodities :id)))
+         (map (fn [account]
+                (if (system-tagged? account :trading)
+                  (dissoc account :account/parent)
+                  account)))
          (valuate-accounts options)
          (aggregate)
          (append-portfolio-total))))

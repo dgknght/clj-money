@@ -8,6 +8,7 @@ sleep 0.5
 tmux send-keys 'clear' C-m 'lein repl' C-m
 
 tmux split-window -v
+while [ ! -f .nrepl-port ]; do sleep 1; done
 sleep 0.5
 tmux send-keys 'lein fig:build' C-m
 
