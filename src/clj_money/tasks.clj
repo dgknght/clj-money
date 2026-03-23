@@ -98,7 +98,8 @@
         (println "Reindexing" (:account/name account) "...")
         (transactions/propagate-account-from-start entity account))
       (println "Done.")))
-  (shutdown-agents))
+  (shutdown-agents)
+  (System/exit 0))
 
 (def ^:private export-user-tags-cli-options
   {:usage "lein export-user-tags -- <options>"
