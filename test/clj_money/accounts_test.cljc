@@ -557,3 +557,25 @@
        :debit true
        :credit true
        :add false))
+
+(deftest check-if-an-account-is-a-trading-account
+  (is (accounts/trading? {:account/system-tags #{:trading}})
+      "An account with the :trading system tag is a trading account")
+  (is (accounts/trading? {:account/system-tags #{:trading
+                                                 :other}})
+      "An account with multiple system tags including :trading is a trading account")
+  (is (not (accounts/trading? {:account/system-tags #{:tradable}}))
+      "An account with systems tags that do not include :trading is not tradable")
+  (is (not (accounts/trading? {:account/system-tags #{}}))
+      "An account with no systems tags is not tradable"))
+
+(deftest check-if-an-account-is-a-tradable-account
+  (is (accounts/tradable? {:account/system-tags #{:tradable}})
+      "An account with the :tradable system tag is a tradable account")
+  (is (accounts/tradable? {:account/system-tags #{:tradable
+                                                 :other}})
+      "An account with multiple system tags including :tradable is a tradable account")
+  (is (not (accounts/tradable? {:account/system-tags #{:trading}}))
+      "An account with systems tags that do not include :tradable is not tradable")
+  (is (not (accounts/tradable? {:account/system-tags #{}}))
+      "An account with no systems tags is not tradable"))

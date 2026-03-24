@@ -989,12 +989,12 @@
 
 (dbtest migrate-items-from-one-account-to-another
   (with-context migrate-context
-    (let [checking (find-account "Checking")
-          savings (find-account "Savings")]
+    (let [checking (reload-account "Checking")
+          savings (reload-account "Savings")]
       (transactions/migrate-account checking savings)
       (is (comparable? #:account{:quantity 0M}
                        (entities/find checking))
-          "The from account has a zero balance after the transfer")
+          "The \"from\" account has a zero balance after the transfer")
       (is (comparable? #:account{:quantity 900M}
                        (entities/find savings))
-          "The to account has the balance the from account had before the transfer"))))
+          "The \"to\" account has the balance the from account had before the transfer"))))

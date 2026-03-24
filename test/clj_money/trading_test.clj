@@ -608,10 +608,21 @@
                                       :shares-owned 200M}]
                                (entities/select #:lot{:commodity commodity}))
             "The lots are adjusted correctly"))
+      (testing "The lot note"
+        (is (comparable? #:lot-note{:transaction-date (t/local-date 2016 3 3)
+                                    :memo "2 for 1 split"}
+                         (:split/lot-note result))
+            "A lot note describing the split is created"))
       (testing "The trading account"
         (is (comparable? {:account/quantity 1000M}
                          (entities/find ira))
-            "The account balance is unchanged")))))
+            "The account balance is unchanged"))
+      (testing "The commodity account"
+        (is (comparable? {:account/quantity 200M}
+                         (entities/find-by
+                           #:account{:commodity commodity
+                                     :parent ira}))
+            "The commodity account quantity reflects the split")))))
 
 (def ^:private rev-split-context
   (conj base-context

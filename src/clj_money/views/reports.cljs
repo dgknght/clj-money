@@ -462,7 +462,7 @@
    visible-ids
    page-state]
   ^{:key (str "report-row-" caption)}
-  [:tr {:class (cond-> [(str "report-" style)]
+  [:tr {:class (cond-> [(str "report-" (name style))]
                  (not (visible? record visible-ids))
                  (conj "d-none"))
         :on-click (when-not (= "data" style)
@@ -483,6 +483,12 @@
                                                   "text-danger"
                                                   "text-success")}
     (format-percent gain-loss-percent)]])
+
+(defn- empty-position?
+  [{:report/keys [style current-value shares-owned]}]
+  (and (not= style :summary)
+       (d/zero? (or current-value 0M))
+       (d/zero? (or shares-owned 0M))))
 
 (defn- render-portfolio
   [page-state]
@@ -506,7 +512,10 @@
           [:tr [:td.text-center {:col-span 7} (bs/spinner)]]
 
           (seq @report)
-          (doall (map #(portfolio-report-row % @visible-ids page-state) @report))
+          (->> @report
+               (remove empty-position?)
+               (map #(portfolio-report-row % @visible-ids page-state))
+               doall)
 
           :else
           [:tr [:td.inline-status {:col-span 7} "No investment accounts found."]])]])))
