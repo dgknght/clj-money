@@ -459,11 +459,9 @@
         [sched-tran-form page-state]]])))
 
 (defn load-pending-count []
-  (+busy)
   (sched-trans/select {:scheduled-transaction/enabled true
                        :scheduled-transaction/start-date [:<= (t/today)]
                        :scheduled-transaction/end-date [:> (t/today)]}
-                      :callback -busy
                       :on-success (fn [results]
                                     (let [r (map-next-occurrence results)]
                                       (reset! auto-loaded (seq r))
