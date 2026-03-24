@@ -73,7 +73,7 @@
           (dissoc :user/password)
           (assoc :type :cemerick.friend/auth
                  :identity (:id user)
-                 :roles #{:user})))))
+                 :roles (:user/roles user))))))
 
 (defn full-name
   "Returns the user's full name"

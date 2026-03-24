@@ -24,4 +24,8 @@
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
   :db/noHistory true
-  :db/doc "The date on which the password reset token expires"}]
+  :db/doc "The date on which the password reset token expires"}
+ {:db/ident :user/roles
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/many
+  :db/doc "The roles assigned to this user"}]

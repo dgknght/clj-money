@@ -57,7 +57,8 @@
   [#:user{:first-name "John"
           :last-name "Doe"
           :email "john@doe.com"
-          :password "please01"}])
+          :password "please01"
+          :roles #{:user}}])
 
 (dbtest email-is-unique
   (with-context existing-user-ctx
