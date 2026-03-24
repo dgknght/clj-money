@@ -27,7 +27,7 @@
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.reports]
-            [clj-money.views.scheduled]
+            [clj-money.views.scheduled :refer [load-pending-count]]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
@@ -237,7 +237,9 @@
   [[entity :as entities]]
   (state/set-entities entities)
   (if entity
-    (secretary/dispatch! "/scheduled/autorun")
+    (do
+      (load-pending-count)
+      (secretary/dispatch! "/"))
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []

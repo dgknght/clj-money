@@ -25,7 +25,8 @@
                                      accounts-by-id
                                      +busy
                                      -busy
-                                     busy?]]
+                                     busy?
+                                     pending-scheduled-count]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
@@ -457,29 +458,19 @@
        [:div {:class (when-not @selected "d-none")}
         [sched-tran-form page-state]]])))
 
-(defn- autorun []
+(defn load-pending-count []
   (+busy)
   (sched-trans/select {:scheduled-transaction/enabled true
                        :scheduled-transaction/start-date [:<= (t/today)]
                        :scheduled-transaction/end-date [:> (t/today)]}
                       :callback -busy
                       :on-success (fn [results]
-                                    (let [r (map-next-occurrence results)
-                                          destination (if (some pending? r)
-                                                        "/scheduled"
-                                                        "/")]
+                                    (let [r (map-next-occurrence results)]
                                       (reset! auto-loaded (seq r))
-                                      (secretary/dispatch! destination))))
-  (fn []
-    [:div.row.mt-3
-     [:div.col-md-4.offset-md-4
-      [:h1 "Welcome!"]
-      [:div "We are automatically processing scheduled transactions. One moment, please."]
-      [:div.d-flex.justify-content-around
-       [:div.spinner-border {:role :status}
-        [:span.visually-hidden "Loading..."]]]]]))
+                                      (->> r
+                                           (filter pending?)
+                                           count
+                                           (reset! pending-scheduled-count))))))
 
 (secretary/defroute "/scheduled" []
   (swap! app-state assoc :page #'index))
-(secretary/defroute "/scheduled/autorun" []
-  (swap! app-state assoc :page #'autorun))
