@@ -138,11 +138,28 @@
         :style {:max-width "32px"}
         :alt "Profile Photo"}])]])
 
+(defmulti ^:private decorate-nav-item
+  (fn [{:keys [id]} _opts]
+    id))
+
+(defmethod decorate-nav-item :default [item _opts] item)
+
+(defmethod decorate-nav-item :scheduled
+  [item {:keys [pending-scheduled-count]}]
+  (cond-> item
+    (pos? pending-scheduled-count)
+    (assoc :badge pending-scheduled-count
+           :badge-class "bg-info text-bg-info")))
+
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])
-        items (make-reaction #(nav-items @active-nav
-                                         @current-user
-                                         @current-entity))]
+        items (make-reaction
+                (fn []
+                  (map #(decorate-nav-item %
+                         {:pending-scheduled-count @state/pending-scheduled-count})
+                       (nav-items @active-nav
+                                  @current-user
+                                  @current-entity))))]
     (fn []
       (navbar
         @items
