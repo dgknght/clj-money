@@ -1,6 +1,5 @@
 (ns clj-money.views.users
-  (:require [clojure.pprint :refer [pprint]]
-            [secretary.core :as secretary :include-macros true]
+  (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
@@ -10,32 +9,9 @@
             [clj-money.state :as state :refer [app-state
                                                +busy
                                                -busy]]
-            [clj-money.api.users :as users]
-            [clj-money.api.entities :as entities]
-            [clj-money.api.scheduled-transactions :as sched-trxs]))
+            [clj-money.app :refer [fetch-entities]]
+            [clj-money.api.users :as users]))
 
-(defn- load-pending-count []
-  (try
-    (sched-trxs/count
-      {:pending true}
-      :on-success #(reset! state/pending-scheduled-count (:count %)))
-    (catch js/Error e
-      (.error js/console "Unable to load the count of pending scheduled transactions." e))))
-
-; TODO: fix this duplication from clj-money.core
-(defn- receive-entities
-  [[entity :as entities]]
-  (state/set-entities entities)
-  (if entity
-    (do
-      (load-pending-count)
-      (secretary/dispatch! "/"))
-    (secretary/dispatch! "/entities")))
-
-(defn- fetch-entities []
-  (+busy)
-  (entities/select :callback -busy
-                   :on-success receive-entities))
 
 (defn- authenticate
   [page-state]

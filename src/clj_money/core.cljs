@@ -31,8 +31,7 @@
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
-            [clj-money.api.scheduled-transactions :as sched-trxs]
-            [clj-money.api.entities :as entities]
+            [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
@@ -235,26 +234,6 @@
       (swap! app-state assoc :mounted? true :page #'home-page)
       (render [current-page] (.getElementById js/document "app")))))
 
-(defn- load-pending-count []
-  (try
-    (sched-trxs/count {:pending true}
-                      :on-success #(reset! state/pending-scheduled-count (:count %)))
-    (catch js/Error e
-      (.error js/console "Unable to fetch the count of pending scheduled transactions." e))))
-
-(defn- receive-entities
-  [[entity :as entities]]
-  (state/set-entities entities)
-  (if entity
-    (do
-      (load-pending-count)
-      (secretary/dispatch! "/"))
-    (secretary/dispatch! "/entities")))
-
-(defn- fetch-entities []
-  (+busy)
-  (entities/select :callback -busy
-                   :on-success receive-entities))
 
 (defn- fetch-current-user []
   (+busy)
