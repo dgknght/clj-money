@@ -1,5 +1,5 @@
 (ns clj-money.app
-  (:require [secretary.core :as secretary :include-macros true]
+  (:require [accountant.core :as accountant]
             [clj-money.state :as state :refer [+busy -busy]]
             [clj-money.api.entities :as entities]
             [clj-money.api.scheduled-transactions :as sched-trxs]))
@@ -20,8 +20,8 @@
   (if entity
     (do
       (load-pending-count)
-      (secretary/dispatch! "/"))
-    (secretary/dispatch! "/entities")))
+      (accountant/navigate! "/"))
+    (accountant/navigate! "/entities")))
 
 (defn fetch-entities []
   (+busy)
