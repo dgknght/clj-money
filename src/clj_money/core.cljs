@@ -69,6 +69,7 @@
     :tool-tip "Click here to manage schedule transactions"}
    {:id :logout
     :tool-tip "Click here to sign out of the system"
+    :path "#"
     :nav-fn (fn []
               (state/logout)
               (cookies/remove! :auth-token)
