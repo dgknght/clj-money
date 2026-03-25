@@ -10,14 +10,21 @@
                                                +busy
                                                -busy]]
             [clj-money.api.users :as users]
-            [clj-money.api.entities :as entities]))
+            [clj-money.api.entities :as entities]
+            [clj-money.api.scheduled-transactions :as sched-trxs]))
+
+(defn- load-pending-count []
+  (sched-trxs/count {:pending true}
+    :on-success #(reset! state/pending-scheduled-count (:count %))))
 
 ; TODO: fix this duplication from clj-money.core
 (defn- receive-entities
   [[entity :as entities]]
   (state/set-entities entities)
   (if entity
-    (secretary/dispatch! "/scheduled/autorun")
+    (do
+      (load-pending-count)
+      (secretary/dispatch! "/"))
     (secretary/dispatch! "/entities")))
 
 (defn- fetch-entities []
