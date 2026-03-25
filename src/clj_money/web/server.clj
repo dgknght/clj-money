@@ -191,6 +191,7 @@
                                                           {:authenticate-fn find-user-by-auth-token}]}})
     (ring/routes
       (ring/create-resource-handler {:path "/"})
+      apps/spa-fallback
       (ring/create-default-handler))))
 
 (defn print-routes []

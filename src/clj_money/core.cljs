@@ -1,5 +1,6 @@
 (ns ^:figwheel-hooks clj-money.core
-  (:require [cljs.pprint :refer [pprint]]
+  (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
@@ -55,6 +56,15 @@
   (swap! app-state assoc :page (if @current-user
                                  #'dashboard
                                  #'home-page)))
+
+(defn- not-found []
+  [:div.mt-3
+   [:h1 "Page Not Found"]
+   [:p "The page you requested does not exist."]
+   [:a.btn.btn-secondary {:href "/"} "Return home"]])
+
+(secretary/defroute "/*path" []
+  (swap! app-state assoc :page #'not-found))
 
 (def authenticated-nav-items
   [{:id :commodities}
@@ -252,10 +262,15 @@
       (fetch-current-user)
       (fetch-entities))))
 
+(def ^:private server-path-prefixes
+  ["/api/" "/oapi/" "/auth/" "/app/"])
+
 (defn init! []
   (accountant/configure-navigation!
    {:nav-handler #(secretary/dispatch! %)
-    :path-exists? #(secretary/locate-route %)})
+    :path-exists? (fn [path]
+                    (and (not-any? #(string/starts-with? path %) server-path-prefixes)
+                         (secretary/locate-route path)))})
   (accountant/dispatch-current!)
   (sign-in-from-cookie)
   (mount-root))
