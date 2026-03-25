@@ -1,5 +1,5 @@
 (ns clj-money.api.scheduled-transactions
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update count])
   (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.dates :as dates]
@@ -71,6 +71,14 @@
     (-> sched-tran
         (schema/prune :scheduled-transaction)
         (f opts))))
+
+(defn count
+  [criteria & {:as opts}]
+  (api/get (path :count)
+           (comparatives/nominalize criteria)
+           (add-error-handler
+             opts
+             "Unable to retrieve the scheduled transaction count: %s")))
 
 (defn realize
   [& args]

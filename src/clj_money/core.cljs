@@ -31,7 +31,7 @@
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
-            [clj-money.api.entities :as entities]
+            [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
@@ -68,10 +68,11 @@
     :tool-tip "Click here to manage schedule transactions"}
    {:id :logout
     :tool-tip "Click here to sign out of the system"
+    :path "#"
     :nav-fn (fn []
               (state/logout)
               (cookies/remove! :auth-token)
-              (secretary/dispatch! "/"))}])
+              (accountant/navigate! "/"))}])
 
 (def unauthenticated-nav-items
   [{:id :login
@@ -138,11 +139,28 @@
         :style {:max-width "32px"}
         :alt "Profile Photo"}])]])
 
+(defmulti ^:private decorate-nav-item
+  (fn [{:keys [id]} _opts]
+    id))
+
+(defmethod decorate-nav-item :default [item _opts] item)
+
+(defmethod decorate-nav-item :scheduled
+  [item {:keys [pending-scheduled-count]}]
+  (cond-> item
+    (pos? pending-scheduled-count)
+    (assoc :badge pending-scheduled-count
+           :badge-class "bg-info text-bg-info")))
+
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])
-        items (make-reaction #(nav-items @active-nav
-                                         @current-user
-                                         @current-entity))]
+        items (make-reaction
+                (fn []
+                  (map #(decorate-nav-item %
+                         {:pending-scheduled-count @state/pending-scheduled-count})
+                       (nav-items @active-nav
+                                  @current-user
+                                  @current-entity))))]
     (fn []
       (navbar
         @items
@@ -216,17 +234,6 @@
       (swap! app-state assoc :mounted? true :page #'home-page)
       (render [current-page] (.getElementById js/document "app")))))
 
-(defn- receive-entities
-  [[entity :as entities]]
-  (state/set-entities entities)
-  (if entity
-    (secretary/dispatch! "/scheduled/autorun")
-    (secretary/dispatch! "/entities")))
-
-(defn- fetch-entities []
-  (+busy)
-  (entities/select :callback -busy
-                   :on-success receive-entities))
 
 (defn- fetch-current-user []
   (+busy)

@@ -9,21 +9,9 @@
             [clj-money.state :as state :refer [app-state
                                                +busy
                                                -busy]]
-            [clj-money.api.users :as users]
-            [clj-money.api.entities :as entities]))
+            [clj-money.app :refer [fetch-entities]]
+            [clj-money.api.users :as users]))
 
-; TODO: fix this duplication from clj-money.core
-(defn- receive-entities
-  [[entity :as entities]]
-  (state/set-entities entities)
-  (if entity
-    (secretary/dispatch! "/scheduled/autorun")
-    (secretary/dispatch! "/entities")))
-
-(defn- fetch-entities []
-  (+busy)
-  (entities/select :callback -busy
-                   :on-success receive-entities))
 
 (defn- authenticate
   [page-state]
