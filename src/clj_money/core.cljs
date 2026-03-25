@@ -27,10 +27,10 @@
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.reports]
-            [clj-money.views.scheduled :refer [load-pending-count]]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
+            [clj-money.api.scheduled-transactions :as sched-trxs]
             [clj-money.api.entities :as entities]
             [clj-money.api.users :as users]))
 
@@ -232,6 +232,10 @@
     (when-not @mounted?
       (swap! app-state assoc :mounted? true :page #'home-page)
       (render [current-page] (.getElementById js/document "app")))))
+
+(defn- load-pending-count []
+  (sched-trxs/count {:pending true}
+    :on-success #(reset! state/pending-scheduled-count (:count %))))
 
 (defn- receive-entities
   [[entity :as entities]]

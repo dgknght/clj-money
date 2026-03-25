@@ -25,8 +25,7 @@
                                      accounts-by-id
                                      +busy
                                      -busy
-                                     busy?
-                                     pending-scheduled-count]]
+                                     busy?]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
@@ -452,10 +451,6 @@
         [created page-state]]
        [:div {:class (when-not @selected "d-none")}
         [sched-tran-form page-state]]])))
-
-(defn load-pending-count []
-  (sched-trans/count {:pending true}
-    :on-success #(reset! pending-scheduled-count (:count %))))
 
 (secretary/defroute "/scheduled" []
   (swap! app-state assoc :page #'index))
