@@ -271,9 +271,9 @@
     :path-exists? (fn [path]
                     (and (not-any? #(string/starts-with? path %) server-path-prefixes)
                          (secretary/locate-route path)))})
-  (accountant/dispatch-current!)
+  (mount-root)
   (sign-in-from-cookie)
-  (mount-root))
+  (accountant/dispatch-current!))
 
 (init!)
 
