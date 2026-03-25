@@ -9,7 +9,7 @@
                                           parse-bool
                                           update-in-if]]
             [clj-money.authorization :refer [authorize
-                                             allowed?
+                                             allow?
                                              +scope]
              :as authorization]
             [clj-money.dates :as dates]
@@ -166,7 +166,7 @@
           (+scope :entity authenticated)
           entities/find-by))
 
-(defn- ready-to-realize
+(defn- enabled
   [req]
   (when-let [entity (fetch-entity req)]
     (entities/select
@@ -178,9 +178,9 @@
 
 (defn- mass-realize
   [{:as req :keys [authenticated]}]
-  (if-let [ready (ready-to-realize req)]
+  (if-let [ready (enabled req)]
     (->> ready
-         (filter #(allowed? % ::sched-trans-auth/realize authenticated))
+         (filter (allow? ::sched-trans-auth/realize authenticated))
          mass-realize-accounts
          (mapcat sched-trans/realize)
          put-many
@@ -189,10 +189,32 @@
          api/creation-response)
     api/not-found))
 
+(defn- add-next-occurrence
+  [sched-tran]
+  (assoc sched-tran
+         :scheduled-transaction/next-occurrence
+         (sched-trans/next-transaction-date sched-tran)))
+
+(defn- count-records
+  [{:as req :keys [authenticated params]}]
+  (if-let [enabled-trxs (enabled req)]
+    (let [pending? (parse-bool (:pending params))
+          filters (cond-> [(allow? ::sched-trans-auth/realize authenticated)]
+                    pending? (conj sched-trans/pending?))
+          include? (apply every-pred filters)]
+      (->> enabled-trxs
+           (map add-next-occurrence)
+           (filter include?)
+           count
+           (hash-map :count)
+           api/response))
+    api/not-found))
+
 (def routes
   [["entities/:entity-id/scheduled-transactions"
     ["" {:get {:handler index}
          :post {:handler create}}]
+    ["/count" {:get {:handler count-records}}]
     ["/realize" {:post {:handler mass-realize}}]]
    ["scheduled-transactions/:id"
     ["" {:patch {:handler update}

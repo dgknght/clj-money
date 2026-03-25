@@ -455,3 +455,61 @@
   (with-context mass-realize-context
     (assert-blocked-mass-realization
       (realize-all-trans "jane@doe.com"))))
+
+; Extends mass-realize-context with a transaction whose next occurrence
+; is more than 7 days away at the fixed test time, so it is active but
+; not pending.
+(def ^:private count-context
+  (conj mass-realize-context
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Far Future"
+                                :period [1 :month]
+                                :last-occurrence (t/local-date 2016 1 28)
+                                :start-date (t/local-date 2015 1 1)
+                                :enabled true
+                                :date-spec {:day 28}
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Checking"
+                                                                     :quantity 200M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Salary"
+                                                                     :quantity 200M}]}))
+
+(defn- get-count
+  [user-email & {:keys [pending?]}]
+  (let [entity (find-entity "Personal")
+        url (cond-> (path :api
+                          :entities
+                          (:id entity)
+                          :scheduled-transactions
+                          :count)
+              pending? (str "?pending=true"))]
+    (with-fixed-time "2016-02-02T00:00:00Z"
+      (-> (request :get url
+                   :user (find-user user-email))
+          app
+          parse-body))))
+
+(defn- assert-successful-count
+  [{:as response :keys [parsed-body]} expected]
+  (is (http-success? response))
+  (is (= {:count expected} parsed-body)
+      (str "The response contains the expected count of " expected)))
+
+(defn- assert-blocked-count
+  [response]
+  (is (http-not-found? response)))
+
+(deftest a-user-can-get-a-count-of-pending-scheduled-transactions
+  (with-context count-context
+    (testing "pending transactions only"
+      ; Paycheck (next 2016-02-01) and Groceries (next 2016-01-31) are within
+      ; 7 days; Far Future (next 2016-02-28) is excluded by the pending filter
+      (assert-successful-count (get-count "john@doe.com" :pending? true) 2))
+    (testing "all active transactions (no pending filter)"
+      ; Far Future is active (enabled, started, not ended) so it is included
+      (assert-successful-count (get-count "john@doe.com") 3))))
+
+(deftest a-user-cannot-get-a-count-of-pending-scheduled-transactions-for-anothers-entity
+  (with-context count-context
+    (assert-blocked-count (get-count "jane@doe.com" :pending? true))))
