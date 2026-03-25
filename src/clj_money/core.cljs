@@ -27,6 +27,7 @@
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.reports]
+            [clj-money.views.scheduled]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
