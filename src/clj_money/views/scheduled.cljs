@@ -32,8 +32,6 @@
                                                       pending? ]]
             [clj-money.api.scheduled-transactions :as sched-trans]))
 
-(defonce ^:private auto-loaded (atom []))
-
 (defn- map-next-occurrence
   [sched-trans]
   (map #(assoc %
@@ -415,14 +413,11 @@
 
 (defn- index
   []
-  (let [page-state (r/atom {:scheduled-transactions @auto-loaded
-                            :hide-inactive? true
+  (let [page-state (r/atom {:hide-inactive? true
                             :sort-on :scheduled-transaction/next-occurrence})
         selected (r/cursor page-state [:selected])]
-    (when-not @auto-loaded
-      (load-sched-trans page-state))
+    (load-sched-trans page-state)
     (add-watch current-entity ::index (fn [& _] (load-sched-trans page-state)))
-    (reset! auto-loaded nil)
     (fn []
       [:div.mt-3
        [:h1 "Scheduled Transactions"]
@@ -459,16 +454,8 @@
         [sched-tran-form page-state]]])))
 
 (defn load-pending-count []
-  (sched-trans/select {:scheduled-transaction/enabled true
-                       :scheduled-transaction/start-date [:<= (t/today)]
-                       :scheduled-transaction/end-date [:> (t/today)]}
-                      :on-success (fn [results]
-                                    (let [r (map-next-occurrence results)]
-                                      (reset! auto-loaded (seq r))
-                                      (->> r
-                                           (filter pending?)
-                                           count
-                                           (reset! pending-scheduled-count))))))
+  (sched-trans/count {:pending true}
+    :on-success #(reset! pending-scheduled-count (:count %))))
 
 (secretary/defroute "/scheduled" []
   (swap! app-state assoc :page #'index))
