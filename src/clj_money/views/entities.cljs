@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
+            [accountant.core :as accountant]
             [dgknght.app-lib.core :refer [parse-int]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
@@ -173,7 +174,7 @@
          [button
           {:html {:title "Click here to import an entity from another accounting system."
                   :class "ms-2 btn-secondary"
-                  :on-click #(secretary/dispatch! "/imports")}
+                  :on-click #(accountant/navigate! "/imports")}
            :caption "Import"
            :icon :upload}]]
         (when @selected

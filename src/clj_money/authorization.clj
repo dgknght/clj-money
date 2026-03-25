@@ -16,6 +16,12 @@
       (assert entity-type (prn-str entity))
       [entity-type action])))
 
+(defn allow?
+  ([action user]
+   #(allow? % action user))
+  ([entity action user]
+   (allowed? entity action user)))
+
 (defn opaque?
   [error]
   (::opaque? (ex-data error)))
