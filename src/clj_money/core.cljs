@@ -72,7 +72,7 @@
     :nav-fn (fn []
               (state/logout)
               (cookies/remove! :auth-token)
-              (accountant/navigate! "/"))}])
+              (accountant/navigate! "/login"))}])
 
 (def unauthenticated-nav-items
   [{:id :login
