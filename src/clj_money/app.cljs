@@ -18,9 +18,7 @@
   [[entity :as entities]]
   (state/set-entities entities)
   (if entity
-    (do
-      (load-pending-count)
-      (accountant/navigate! "/"))
+    (load-pending-count)
     (accountant/navigate! "/entities")))
 
 (defn fetch-entities []
