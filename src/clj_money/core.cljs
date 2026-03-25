@@ -236,8 +236,11 @@
       (render [current-page] (.getElementById js/document "app")))))
 
 (defn- load-pending-count []
-  (sched-trxs/count {:pending true}
-    :on-success #(reset! state/pending-scheduled-count (:count %))))
+  (try
+    (sched-trxs/count {:pending true}
+                      :on-success #(reset! state/pending-scheduled-count (:count %)))
+    (catch js/Error e
+      (.error js/console "Unable to fetch the count of pending scheduled transactions." e))))
 
 (defn- receive-entities
   [[entity :as entities]]
