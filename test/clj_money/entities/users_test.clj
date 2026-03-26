@@ -69,6 +69,18 @@
   (assert-invalid (assoc attributes :user/email "notvalid")
                   {:user/email ["Email must be a valid email address"]}))
 
+(dbtest role-can-be-admin
+  (assert-created (assoc attributes :user/roles #{:admin})
+                  :ignore-attributes [:user/password]))
+
+(dbtest role-can-be-user
+  (assert-created (assoc attributes :user/roles #{:user})
+                  :ignore-attributes [:user/password]))
+
+(dbtest role-cannot-be-anything-other-than-admin-or-user
+  (assert-invalid (assoc attributes :user/roles #{:unknown})
+                  {:user/roles {0 ["Value must be admin or user"]}}))
+
 (dbtest authenticate-a-user
   (with-context existing-user-ctx
     (let [user (find-user "john@doe.com")
@@ -78,7 +90,7 @@
                     :user/first-name "John"
                     :user/last-name "Doe"}
           authenticated (users/authenticate {:username "john@doe.com"
-                                            :password "please01"})]
+                                             :password "please01"})]
       (is (comparable? expected authenticated)
           "The returned value should be the user information")
       (is (nil? (:user/password authenticated))

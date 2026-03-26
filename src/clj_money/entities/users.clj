@@ -30,6 +30,9 @@
 (s/def :user/email (s/and string?
                       present?
                       v/email?))
+(s/def ::role #{:admin :user})
+(s/def :user/roles (s/coll-of ::role :kind set?))
+
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/user (s/and (s/keys :req [:user/first-name :user/last-name :user/email]
                                     :opt [:user/password])

@@ -43,7 +43,9 @@
               {:id :password-reset-token
                :type :string}
               {:id :token-expires-at
-               :type :date-time}}}
+               :type :date-time}
+              {:id :roles
+               :type :set}}}
    {:id :identity
     :fields #{{:id :provider
                :type :string}
