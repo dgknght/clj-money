@@ -1,5 +1,6 @@
 (ns ^:figwheel-hooks clj-money.core
-  (:require [cljs.pprint :refer [pprint]]
+  (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
@@ -31,7 +32,7 @@
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
-            [clj-money.api.entities :as entities]
+            [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
@@ -56,6 +57,15 @@
                                  #'dashboard
                                  #'home-page)))
 
+(defn- not-found []
+  [:div.mt-3
+   [:h1 "Page Not Found"]
+   [:p "The page you requested does not exist."]
+   [:a.btn.btn-secondary {:href "/"} "Return home"]])
+
+(secretary/defroute "/*path" []
+  (swap! app-state assoc :page #'not-found))
+
 (def authenticated-nav-items
   [{:id :commodities}
    {:id :accounts}
@@ -68,10 +78,11 @@
     :tool-tip "Click here to manage schedule transactions"}
    {:id :logout
     :tool-tip "Click here to sign out of the system"
+    :path "#"
     :nav-fn (fn []
               (state/logout)
               (cookies/remove! :auth-token)
-              (secretary/dispatch! "/"))}])
+              (accountant/navigate! "/login"))}])
 
 (def unauthenticated-nav-items
   [{:id :login
@@ -138,11 +149,28 @@
         :style {:max-width "32px"}
         :alt "Profile Photo"}])]])
 
+(defmulti ^:private decorate-nav-item
+  (fn [{:keys [id]} _opts]
+    id))
+
+(defmethod decorate-nav-item :default [item _opts] item)
+
+(defmethod decorate-nav-item :scheduled
+  [item {:keys [pending-scheduled-count]}]
+  (cond-> item
+    (pos? pending-scheduled-count)
+    (assoc :badge pending-scheduled-count
+           :badge-class "bg-info text-bg-info")))
+
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])
-        items (make-reaction #(nav-items @active-nav
-                                         @current-user
-                                         @current-entity))]
+        items (make-reaction
+                (fn []
+                  (map #(decorate-nav-item %
+                         {:pending-scheduled-count @state/pending-scheduled-count})
+                       (nav-items @active-nav
+                                  @current-user
+                                  @current-entity))))]
     (fn []
       (navbar
         @items
@@ -216,17 +244,6 @@
       (swap! app-state assoc :mounted? true :page #'home-page)
       (render [current-page] (.getElementById js/document "app")))))
 
-(defn- receive-entities
-  [[entity :as entities]]
-  (state/set-entities entities)
-  (if entity
-    (secretary/dispatch! "/scheduled/autorun")
-    (secretary/dispatch! "/entities")))
-
-(defn- fetch-entities []
-  (+busy)
-  (entities/select :callback -busy
-                   :on-success receive-entities))
 
 (defn- fetch-current-user []
   (+busy)
@@ -245,13 +262,18 @@
       (fetch-current-user)
       (fetch-entities))))
 
+(def ^:private server-path-prefixes
+  ["/api/" "/oapi/" "/auth/" "/app/"])
+
 (defn init! []
   (accountant/configure-navigation!
    {:nav-handler #(secretary/dispatch! %)
-    :path-exists? #(secretary/locate-route %)})
-  (accountant/dispatch-current!)
+    :path-exists? (fn [path]
+                    (and (not-any? #(string/starts-with? path %) server-path-prefixes)
+                         (secretary/locate-route path)))})
+  (mount-root)
   (sign-in-from-cookie)
-  (mount-root))
+  (accountant/dispatch-current!))
 
 (init!)
 

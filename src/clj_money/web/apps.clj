@@ -1,5 +1,6 @@
 (ns clj-money.web.apps
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [clj-money.config :refer [env]]
             [hiccup.page :refer [html5 include-js]]))
 
@@ -53,6 +54,15 @@
     (let [res (handler req)]
       (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
       res)))
+
+(def ^:private server-prefixes
+  ["/api/" "/oapi/" "/auth/" "/app/"])
+
+(defn spa-fallback
+  [{:keys [request-method uri] :as req}]
+  (when (and (= :get request-method)
+             (not-any? #(string/starts-with? uri %) server-prefixes))
+    (index req)))
 
 (def routes
   ["" {:get {:handler index

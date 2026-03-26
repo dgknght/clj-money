@@ -34,6 +34,7 @@
 (def accounts-by-id (make-reaction #(when @accounts (lib/index-by :id @accounts))))
 (def bg-proc-count (r/cursor app-state [:bg-proc-count]))
 (def busy? (make-reaction #(not (zero? @bg-proc-count))))
+(defonce pending-scheduled-count (r/atom 0))
 
 (defn +busy []
   (swap! bg-proc-count inc))
@@ -79,6 +80,7 @@
                         (assoc :current-entity entity))))
 
 (defn logout []
+  (reset! pending-scheduled-count 0)
   (swap! app-state
          dissoc
          :auth-token
