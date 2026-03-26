@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test :refer [with-mail-capture]]
             [clj-money.json]
             [clj-money.entities :as entities]
             [clj-money.entities.ref]
@@ -66,22 +66,28 @@
 
 (deftest an-admin-can-create-an-invitation
   (with-context admin-ctx
-    (let [user (find-user "admin@example.com")
-          response (-> (request :post (path :api :invitations)
-                                :user user
-                                :body #:invitation{:recipient "new@example.com"
-                                                   :status :unsent})
-                       app
-                       parse-body)]
-      (is (http-created? response))
-      (is (comparable? #:invitation{:recipient "new@example.com"
-                                    :status :unsent}
-                       (:parsed-body response))
-          "The new invitation is returned in the response")
-      (is (seq-of-maps-like?
-            [#:invitation{:recipient "new@example.com"}]
-            (entities/select {:invitation/user user}))
-          "The invitation is retrievable from the database"))))
+    (let [user (find-user "admin@example.com")]
+      (with-mail-capture [mailbox]
+        (let [response (-> (request :post (path :api :invitations)
+                                    :user user
+                                    :body #:invitation{:recipient "new@example.com"
+                                                       :status :unsent})
+                           app
+                           parse-body)]
+          (is (http-created? response))
+          (is (comparable? #:invitation{:recipient "new@example.com"
+                                        :status :sent}
+                           (:parsed-body response))
+              "The new invitation is returned in the response")
+          (is (seq-of-maps-like?
+                [#:invitation{:recipient "new@example.com"}]
+                (entities/select {:invitation/user user}))
+              "The invitation is retrievable from the database")
+          (is (= 1 (count @mailbox))
+              "One email is sent")
+          (is (comparable? {:to "new@example.com"}
+                           (first @mailbox))
+              "The email is sent to the recipient"))))))
 
 (def ^:private show-ctx
   (conj list-ctx

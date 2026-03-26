@@ -1,8 +1,7 @@
 (ns clj-money.mailers
   (:require [postal.core :refer [send-message]]
             [clj-money.config :refer [env]]
-            [selmer.parser :refer [render]]
-            [clj-money.entities.users :as users]))
+            [selmer.parser :refer [render]]))
 
 (defn- alt-body
   [parts context]
@@ -10,7 +9,7 @@
    [:alternative]
    (map #(-> %
              (assoc :content (-> (:template-path %)
-                                 slurp ; will this work on heroku?
+                                 slurp
                                  (render context)))
              (dissoc :template-path))
         parts)))
@@ -21,18 +20,19 @@
    {:type "text/html"
     :template-path "resources/templates/mailers/invite_user.html"}])
 
-(defn- invite-user-context
-  [to-user from-user url]
-  {:recipient-first-name (:first-name to-user)
-   :sender-full-name (users/full-name from-user)
-   :app-name "clj-money"
-   :url url})
+(defn- invitation-context
+  [{:invitation/keys [user]}]
+  {:sender-full-name (format "%s %s"
+                             (:user/first-name user)
+                             (:user/last-name user))
+   :app-name (env :application-name)
+   :url (str (env :site-protocol) "://" (env :site-host) "/login")})
 
-(defn invite-user
-  [{:keys [from-user to-user url]}]
+(defn send-invitation
+  [invitation]
   (send-message {:host (env :mailer-host)}
-                {:to (:email to-user)
+                {:to (:invitation/recipient invitation)
                  :from (env :mailer-from)
                  :subject (format "Invitation to %s" (env :application-name))
                  :body (alt-body invite-user-parts
-                                 (invite-user-context to-user from-user url))}))
+                                 (invitation-context invitation))}))

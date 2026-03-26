@@ -22,3 +22,5 @@
     - declined
   - user (the admin user that created the invitation)
 - On the "Users" page, an administrator can see all invitations for the site.
+- When an invitation is created, an email is sent to the recipient.
+- When the email is sent, the invitation status is changed from :unsent to :sent.

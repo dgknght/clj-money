@@ -20,15 +20,12 @@
             :content expected-html}]}])
 
 (deftest send-user-invitation-email
-  (let [inviter {:first-name "John"
-                 :last-name "Doe"
-                 :email "john@doe.com"}
-        invitee {:first-name "Jane"
-                 :last-nmae "Doe"
-                 :email "jane@doe.com"}]
+  (let [invitation #:invitation{:recipient "jane@doe.com"
+                                 :status :unsent
+                                 :user #:user{:first-name "John"
+                                              :last-name "Doe"
+                                              :email "john@doe.com"}}]
     (with-mail-capture [mailbox]
-      (mailers/invite-user {:from-user inviter
-                            :to-user invitee
-                            :url "http://clj-money.com/users/abcdef"})
+      (mailers/send-invitation invitation)
       (is (= expected-messages @mailbox)
           "The correct messages are delivered"))))

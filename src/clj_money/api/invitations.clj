@@ -4,7 +4,8 @@
             [clj-money.entities :as entities]
             [clj-money.authorization :refer [authorize +scope]
              :as authorization]
-            [clj-money.authorization.invitations]))
+            [clj-money.authorization.invitations]
+            [clj-money.mailers :as mailers]))
 
 (defn- extract-invitation
   [{:keys [params authenticated]}]
@@ -15,11 +16,13 @@
       (assoc :invitation/user authenticated)))
 
 (defn- create
-  [req]
-  (-> req
-      extract-invitation
-      entities/put
-      (api/response 201)))
+  [{:keys [authenticated] :as req}]
+  (let [inv (-> req extract-invitation entities/put)]
+    (mailers/send-invitation (assoc inv :invitation/user authenticated))
+    (api/response (-> inv
+                      (assoc :invitation/status :sent)
+                      entities/put)
+                  201)))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
