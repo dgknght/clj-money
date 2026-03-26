@@ -9,7 +9,7 @@
             [clj-money.state :as state :refer [app-state
                                                +busy
                                                -busy]]
-            [clj-money.app :refer [fetch-entities]]
+            [clj-money.app :refer [init-client-app]]
             [clj-money.api.users :as users]))
 
 
@@ -22,7 +22,7 @@
                                     (swap! app-state assoc
                                            :current-user user
                                            :auth-token auth-token)
-                                    (fetch-entities))))
+                                    (init-client-app :redirect-to "/"))))
 
 (defn- login []
   (let [page-state (r/atom {:credentials {}})

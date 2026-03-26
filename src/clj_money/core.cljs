@@ -32,7 +32,7 @@
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
-            [clj-money.app :refer [fetch-entities]]
+            [clj-money.app :refer [init-client-app]]
             [clj-money.api.users :as users]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
@@ -255,12 +255,12 @@
     (do
       (if (util/entity-ref? @current-user)
         (users/me :on-success #(reset! current-user %))
-        (fetch-entities))
-      (fetch-entities))
+        (init-client-app))
+      (init-client-app))
     (when-let [auth-token (cookies/get :auth-token)]
       (swap! app-state assoc :auth-token auth-token)
       (fetch-current-user)
-      (fetch-entities))))
+      (init-client-app))))
 
 (def ^:private server-path-prefixes
   ["/api/" "/oapi/" "/auth/" "/app/"])

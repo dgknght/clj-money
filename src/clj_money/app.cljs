@@ -15,13 +15,17 @@
               e))))
 
 (defn- receive-entities
-  [[entity :as entities]]
-  (state/set-entities entities)
-  (if entity
-    (load-pending-count)
-    (accountant/navigate! "/entities")))
+  [{:keys [redirect-to]}]
+  (fn [[entity :as entities]]
+    (state/set-entities entities)
+    (if entity
+      (do (load-pending-count)
+          (when redirect-to
+            (accountant/navigate! redirect-to)))
+      (accountant/navigate! "/entities"))))
 
-(defn fetch-entities []
+(defn init-client-app
+  [& {:as opts}]
   (+busy)
   (entities/select :callback -busy
-                   :on-success receive-entities))
+                   :on-success (receive-entities opts)))
