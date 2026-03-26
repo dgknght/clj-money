@@ -76,6 +76,9 @@
     :tool-tip "Click here to view reports"}
    {:id :scheduled
     :tool-tip "Click here to manage schedule transactions"}
+   {:id :users
+    :tool-tip "Click here to manage users"
+    :required-role :admin}
    {:id :logout
     :tool-tip "Click here to sign out of the system"
     :path "#"
@@ -99,20 +102,22 @@
                   ".")})
 
 (defn- available?
-  [entity]
-  (fn [nav-item]
-    (or (:path nav-item)
-        (:nav-fn nav-item)
-        entity)))
+  [entity {:user/keys [roles]}]
+  (fn [{:keys [required-role] :as nav-item}]
+    (and (or (:path nav-item)
+             (:nav-fn nav-item)
+             entity)
+         (or (nil? required-role)
+             (roles required-role)))))
 
 (defn- nav-items
   [active-nav current-user current-entity]
   (->> (if current-user
-           authenticated-nav-items
-           unauthenticated-nav-items)
-         (filter (available? current-entity))
-         (map #(merge (default-nav-item % active-nav)
-                   %))))
+         authenticated-nav-items
+         (filter (available? current-entity current-user)
+                 unauthenticated-nav-items))
+       (map #(merge (default-nav-item % active-nav)
+                    %))))
 
 (defn navbar
   [items entity-name {:keys [profile-photo-url]}]

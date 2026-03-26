@@ -55,3 +55,11 @@
 
 (secretary/defroute "/login" []
   (swap! app-state assoc :page #'login))
+
+(defn- users-index []
+  [:div.mt-3
+   [:h1 "Users"]
+   [:p "User management coming soon."]])
+
+(secretary/defroute "/users" []
+  (swap! app-state assoc :page #'users-index :active-nav :users))
