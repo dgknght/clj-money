@@ -65,7 +65,7 @@
 
    (if-let [s (scope entity-type user)]
      (if (empty? criteria)
-       s
+       (cond-> s (empty? s) (util/entity-type entity-type))
        (vary-meta [:and criteria s]
                   #(merge {:clj-money/entity-type entity-type}
                           %)))

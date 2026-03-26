@@ -51,15 +51,18 @@
             (:parsed-body response))
           "The response contains the admin's invitations"))))
 
-(deftest an-admin-only-sees-his-own-invitations
+(deftest an-admin-can-see-all-invitations
   (with-context list-ctx
     (let [response (-> (request :get (path :api :invitations)
                                 :user (find-user "other@example.com"))
                        app
                        parse-body)]
       (is (http-success? response))
-      (is (empty? (:parsed-body response))
-          "No invitations are included for another admin"))))
+      (is (seq-of-maps-like?
+            [#:invitation{:recipient "first@example.com"}
+             #:invitation{:recipient "second@example.com"}]
+            (:parsed-body response))
+          "All site invitations are visible to any admin"))))
 
 (deftest an-admin-can-create-an-invitation
   (with-context admin-ctx
@@ -99,11 +102,22 @@
                        (:parsed-body response))
           "The invitation is returned in the response"))))
 
-(deftest an-admin-cannot-view-anothers-invitation
+(deftest any-admin-can-view-any-invitation
   (with-context show-ctx
     (let [inv (find-invitation "first@example.com")
           response (-> (request :get (path :api :invitations (:id inv))
                                 :user (find-user "other@example.com"))
+                       app
+                       parse-body)]
+      (is (http-success? response))
+      (is (comparable? #:invitation{:recipient "first@example.com"}
+                       (:parsed-body response))))))
+
+(deftest a-non-admin-cannot-view-an-invitation
+  (with-context show-ctx
+    (let [inv (find-invitation "first@example.com")
+          response (-> (request :get (path :api :invitations (:id inv))
+                                :user (find-user "non-admin@example.com"))
                        app)]
       (is (http-not-found? response)))))
 
@@ -121,14 +135,17 @@
                        (:parsed-body response))
           "The updated invitation is returned in the response"))))
 
-(deftest an-admin-cannot-update-anothers-invitation
+(deftest any-admin-can-update-any-invitation
   (with-context show-ctx
     (let [inv (find-invitation "first@example.com")
           response (-> (request :patch (path :api :invitations (:id inv))
                                 :user (find-user "other@example.com")
                                 :body #:invitation{:status :sent})
-                       app)]
-      (is (http-not-found? response)))))
+                       app
+                       parse-body)]
+      (is (http-success? response))
+      (is (comparable? #:invitation{:status :sent}
+                       (:parsed-body response))))))
 
 (deftest an-admin-can-delete-an-invitation
   (with-context show-ctx
@@ -140,12 +157,12 @@
       (is (nil? (entities/find inv))
           "The invitation is no longer retrievable"))))
 
-(deftest an-admin-cannot-delete-anothers-invitation
+(deftest any-admin-can-delete-any-invitation
   (with-context show-ctx
     (let [inv (find-invitation "first@example.com")
           response (-> (request :delete (path :api :invitations (:id inv))
                                 :user (find-user "other@example.com"))
                        app)]
-      (is (http-not-found? response))
-      (is (entities/find inv)
-          "The invitation is still retrievable"))))
+      (is (http-success? response))
+      (is (nil? (entities/find inv))
+          "The invitation is no longer retrievable"))))

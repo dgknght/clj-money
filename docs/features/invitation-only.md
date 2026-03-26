@@ -20,3 +20,5 @@
     - sent
     - accepted
     - declined
+  - user (the admin user that created the invitation)
+- On the "Users" page, an administrator can see all invitations for the site.
