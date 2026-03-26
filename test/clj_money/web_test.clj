@@ -1,8 +1,10 @@
 (ns clj-money.web-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest testing is]]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
+            [hickory.core :as hick]
+            [hickory.select :as hsel]
             [dgknght.app-lib.test-assertions]
             [clj-money.web.server :refer [app]]))
 
@@ -24,7 +26,16 @@
             "The response basics are logged at the info level")))))
 
 (deftest an-unknown-url-returns-a-404
-  (is (http-not-found? (app (req/request :get "/not-a-valid-path")))))
+  (testing "that is not an api request"
+    (let [res (app (req/request :get "/not-a-valid-path"))]
+      (is (http-success? res))
+      (is (->> (:body res)
+               hick/parse
+               hick/as-hickory
+               (hsel/select (hsel/id "app")))
+          "It includes the SPA mount point")))
+  (testing "that is not api request"
+    (is (http-not-found? (app (req/request :get "/api/not-a-valid-path"))))))
 
 (deftest images-are-returned
   (is (http-success? (app (req/request :get "/images/logo.svg")))))
