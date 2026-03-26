@@ -245,5 +245,24 @@ Specify a strategy for a single test
 lein fig:test
 ```
 
+## Running end-to-end tests (Playwright)
+
+Playwright tests require a running local server. Start the server and client
+as described above, then:
+
+```bash
+E2E_EMAIL=<your-email> E2E_PASSWORD=<your-password> npx playwright test
+```
+
+To run with the Playwright UI:
+```bash
+E2E_EMAIL=<your-email> E2E_PASSWORD=<your-password> npx playwright test --ui
+```
+
+To target a specific browser (default is Chromium):
+```bash
+npx playwright test --project=chromium
+```
+
 ## License
 Distributed under the Eclipse Public License, the same as Clojure.
