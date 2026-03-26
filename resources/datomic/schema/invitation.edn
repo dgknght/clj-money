@@ -1,0 +1,16 @@
+[{:db/ident :invitation/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The admin user that created the invitation"}
+ {:db/ident :invitation/recipient
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The email address of the person being invited"}
+ {:db/ident :invitation/note
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "An optional note from the admin to the invitee"}
+ {:db/ident :invitation/status
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The status of the invitation (unsent, sent, accepted, declined)"}]

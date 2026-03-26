@@ -104,6 +104,11 @@
   ([context email]
    (find context :user/email email)))
 
+(defn find-invitation
+  ([recipient] (find-invitation *context* recipient))
+  ([context recipient]
+   (find context :invitation/recipient recipient)))
+
 (defn- context+
   [args]
   (if (map? (first args))
@@ -384,6 +389,10 @@
                                     (mapv (comp util/->entity-ref
                                                 (find-image ctx))
                                           img-refs)))))
+
+(defmethod prepare :invitation
+  [attr ctx]
+  (update-in attr [:invitation/user] (find-user ctx)))
 
 (defmethod prepare :lot
   [attr ctx]

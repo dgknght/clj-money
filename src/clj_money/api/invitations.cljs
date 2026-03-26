@@ -1,0 +1,27 @@
+(ns clj-money.api.invitations
+  (:refer-clojure :exclude [update])
+  (:require [clj-money.api :as api :refer [add-error-handler]]))
+
+(defn select
+  [& {:as opts}]
+  (api/get (api/path :invitations)
+           {}
+           (add-error-handler opts "Unable to retrieve the invitations: %s")))
+
+(defn create
+  [invitation & {:as opts}]
+  (api/post (api/path :invitations)
+            invitation
+            (add-error-handler opts "Unable to create the invitation: %s")))
+
+(defn update
+  [invitation & {:as opts}]
+  (api/patch (api/path :invitations invitation)
+             (select-keys invitation [:invitation/status
+                                      :invitation/note])
+             (add-error-handler opts "Unable to update the invitation: %s")))
+
+(defn delete
+  [invitation & {:as opts}]
+  (api/delete (api/path :invitations invitation)
+              (add-error-handler opts "Unable to delete the invitation: %s")))

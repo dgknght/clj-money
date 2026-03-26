@@ -6,12 +6,10 @@
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.html :refer [google-g]]
-            [clj-money.state :as state :refer [app-state
-                                               +busy
-                                               -busy]]
+            [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.app :refer [fetch-entities]]
-            [clj-money.api.users :as users]))
-
+            [clj-money.api.users :as users]
+            [clj-money.views.invitations :refer [index]]))
 
 (defn- authenticate
   [page-state]
@@ -59,7 +57,7 @@
 (defn- users-index []
   [:div.mt-3
    [:h1 "Users"]
-   [:p "User management coming soon."]])
+   [index]])
 
 (secretary/defroute "/users" []
   (swap! app-state assoc :page #'users-index :active-nav :users))

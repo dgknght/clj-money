@@ -53,7 +53,8 @@
     :transaction           '[?x :transaction/description ?transaction-description]
     :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
     :account-item          '[?x :account-item/action ?account-item-action]
-    :user                  '[?x :user/email ?user-email]))
+    :user                  '[?x :user/email ?user-email]
+    :invitation            '[?x :invitation/recipient ?invitation-recipient]))
 
 (defn- unbounded?
   [{:keys [where]}]

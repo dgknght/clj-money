@@ -25,6 +25,7 @@
             [clj-money.views.accounts]
             [clj-money.views.transactions]
             [clj-money.views.users]
+            [clj-money.views.invitations]
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.reports]

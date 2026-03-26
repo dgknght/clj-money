@@ -270,7 +270,15 @@
               {:id :exchange
                :type :keyword}
               {:id :value
-               :type :decimal}}}])
+               :type :decimal}}}
+   {:id :invitation
+    :fields #{{:id :recipient
+               :type :string}
+              {:id :note
+               :type :string}
+              {:id :status
+               :type :keyword}}
+    :refs #{:user}}])
 
 (assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")

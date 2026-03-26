@@ -31,7 +31,8 @@
            "budget"
            "budget_item"
            "reconciliation"
-           "scheduled_transaction"]))
+           "scheduled_transaction"
+           "invitation"]))
 
 (defn apply-schema
   ([] (apply-schema :datomic-peer))
