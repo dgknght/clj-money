@@ -155,7 +155,8 @@
                                          wrap-parse-id-params
                                          wrap-exceptions
                                          wrap-request-logging]}
-                   users-api/unauthenticated-routes]
+                   users-api/unauthenticated-routes
+                   invitations-api/unauthenticated-routes]
                   ["api/" {:middleware [:api
                                         :wrap-format
                                         wrap-decimals

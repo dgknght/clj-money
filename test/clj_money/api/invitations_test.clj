@@ -33,9 +33,11 @@
                :roles #{:admin}}
         #:invitation{:recipient "first@example.com"
                      :status :unsent
+                     :token "token-first-123"
                      :user "admin@example.com"}
         #:invitation{:recipient "second@example.com"
                      :status :unsent
+                     :token "token-second-123"
                      :user "admin@example.com"}))
 
 (deftest an-admin-can-get-a-list-of-invitations
@@ -172,3 +174,47 @@
       (is (http-success? response))
       (is (nil? (entities/find inv))
           "The invitation is no longer retrievable"))))
+
+(def ^:private token-ctx
+  (conj admin-ctx
+        #:invitation{:recipient "invited@example.com"
+                     :status :sent
+                     :token "test-token-123"
+                     :user "admin@example.com"}))
+
+(deftest anyone-can-find-an-invitation-by-token
+  (with-context token-ctx
+    (let [response (-> (request :get (path :oapi :invitations :accept "test-token-123"))
+                       app
+                       parse-body)]
+      (is (http-success? response))
+      (is (comparable? #:invitation{:recipient "invited@example.com"}
+                       (:parsed-body response))
+          "The invitation is returned"))))
+
+(deftest a-bad-token-returns-not-found
+  (with-context token-ctx
+    (let [response (-> (request :get (path :oapi :invitations :accept "bad-token"))
+                       app)]
+      (is (http-not-found? response)))))
+
+(deftest a-recipient-can-accept-an-invitation
+  (with-context token-ctx
+    (let [response (-> (request :post (path :oapi :invitations :accept)
+                                :body {:token "test-token-123"
+                                       :user/first-name "New"
+                                       :user/last-name "User"
+                                       :user/password "please01"})
+                       app
+                       parse-body)]
+      (is (http-created? response))
+      (is (:auth-token (:parsed-body response))
+          "An auth token is returned")
+      (is (comparable? #:user{:email "invited@example.com"
+                              :first-name "New"
+                              :last-name "User"}
+                       (:user (:parsed-body response)))
+          "The new user is returned")
+      (is (comparable? #:invitation{:status :accepted}
+                       (entities/find-by {:invitation/recipient "invited@example.com"}))
+          "The invitation status is updated to :accepted"))))

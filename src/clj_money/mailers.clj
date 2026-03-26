@@ -21,12 +21,13 @@
     :template-path "resources/templates/mailers/invite_user.html"}])
 
 (defn- invitation-context
-  [{:invitation/keys [user]}]
+  [{:invitation/keys [token user]}]
   {:sender-full-name (format "%s %s"
                              (:user/first-name user)
                              (:user/last-name user))
    :app-name (env :application-name)
-   :url (str (env :site-protocol) "://" (env :site-host) "/login")})
+   :url (str (env :site-protocol) "://" (env :site-host)
+             "/accept-invitation/" token)})
 
 (defn send-invitation
   [invitation]

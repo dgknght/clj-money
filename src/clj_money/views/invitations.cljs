@@ -6,6 +6,7 @@
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.util :refer [id=]]
+            [clj-money.app :refer [fetch-entities]]
             [clj-money.api.invitations :as invitations]))
 
 (def ^:private status-options
@@ -112,3 +113,77 @@
 
 (secretary/defroute "/invitations" []
   (swap! app-state assoc :page #'index :active-nav :users))
+
+(defn- load-invitation-by-token
+  [page-state token]
+  (+busy)
+  (invitations/find-by-token
+    token
+    :callback -busy
+    :on-success #(swap! page-state assoc
+                        :invitation %
+                        :user {:user/email (:invitation/recipient %)})))
+
+(defn- do-accept-invitation
+  [page-state]
+  (+busy)
+  (invitations/accept
+    (assoc (:user @page-state) :token (:token @page-state))
+    :callback -busy
+    :on-success (fn [{:keys [user auth-token]}]
+                  (swap! app-state assoc
+                         :current-user user
+                         :auth-token auth-token)
+                  (fetch-entities))))
+
+(defn- acceptance-form
+  [page-state]
+  (let [user (r/cursor page-state [:user])]
+    (fn []
+      [:form.mt-3
+       {:no-validate true
+        :on-submit (fn [e]
+                     (.preventDefault e)
+                     (v/validate user)
+                     (when (v/valid? user)
+                       (do-accept-invitation page-state)))}
+       [:div.row.g-2
+        [:div.col-md-6
+         [forms/text-field user
+          [:user/first-name]
+          {:validations #{::v/required}
+           :label "First Name"}]]
+        [:div.col-md-6
+         [forms/text-field user
+          [:user/last-name]
+          {:validations #{::v/required}
+           :label "Last Name"}]]
+        [:div.col-md-12
+         [forms/email-field user
+          [:user/email]
+          {:label "Email"
+           :disabled true}]]
+        [:div.col-md-6
+         [forms/password-field user
+          [:user/password]
+          {:validations #{::v/required}
+           :label "Password"}]]]
+       [:button.btn.btn-primary.mt-2
+        {:type :submit
+         :title "Click here to create your account"}
+        (icon-with-text :person-plus "Create Account")]])))
+
+(defn- accept-invitation-page
+  [token]
+  (let [page-state (r/atom {:token token})]
+    (load-invitation-by-token page-state token)
+    (fn []
+      [:div.mt-3
+       [:h2 "Create Your Account"]
+       (if (:invitation @page-state)
+         [acceptance-form page-state]
+         [:p "Loading..."])])))
+
+(secretary/defroute "/accept-invitation/:token" {:as params}
+  (let [token (:token params)]
+    (swap! app-state assoc :page #(accept-invitation-page token))))

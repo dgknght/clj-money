@@ -24,3 +24,14 @@
 - On the "Users" page, an administrator can see all invitations for the site.
 - When an invitation is created, an email is sent to the recipient.
 - When the email is sent, the invitation status is changed from :unsent to :sent.
+- The email contains a link that the recipient can click to accept the invitation
+  and create an account.
+  - This link includes a secure token to ensure that only the recipient can
+    accept the invitation.
+  - On following this link, the user is presented with a form to fill out the
+    fields required to create a `user` entity.
+  - Known values, like `email` are prefilled from the invitation.
+  - On successfully submitting the form and creating a `user` record, the status
+    of the invitation is updated to `:accepted`.
+  - After successful submission, the new user is redirected to the entities view
+    to create an entity.

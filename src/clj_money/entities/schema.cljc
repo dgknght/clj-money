@@ -277,7 +277,9 @@
               {:id :note
                :type :string}
               {:id :status
-               :type :keyword}}
+               :type :keyword}
+              {:id :token
+               :type :string}}
     :refs #{:user}}])
 
 (assert (s/valid? (s/coll-of ::entity) entities)

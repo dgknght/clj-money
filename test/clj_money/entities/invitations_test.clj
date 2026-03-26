@@ -19,6 +19,7 @@
 (defn- attributes []
   #:invitation{:recipient "new@example.com"
                :status :unsent
+               :token "test-token-abc"
                :user (find-user "admin@example.com")})
 
 (dbtest create-an-invitation
@@ -51,3 +52,8 @@
   (with-context user-ctx
     (assert-invalid (assoc (attributes) :invitation/status :invalid)
                     {:invitation/status ["Status must be unsent, accepted, sent, or declined"]})))
+
+(dbtest token-is-required
+  (with-context user-ctx
+    (assert-invalid (dissoc (attributes) :invitation/token)
+                    {:invitation/token ["Token is required"]})))

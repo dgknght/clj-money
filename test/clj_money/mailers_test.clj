@@ -22,6 +22,7 @@
 (deftest send-user-invitation-email
   (let [invitation #:invitation{:recipient "jane@doe.com"
                                  :status :unsent
+                                 :token "abc123"
                                  :user #:user{:first-name "John"
                                               :last-name "Doe"
                                               :email "john@doe.com"}}]

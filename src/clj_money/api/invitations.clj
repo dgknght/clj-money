@@ -5,7 +5,9 @@
             [clj-money.authorization :refer [authorize +scope]
              :as authorization]
             [clj-money.authorization.invitations]
-            [clj-money.mailers :as mailers]))
+            [clj-money.entities.invitations :as invitations]
+            [clj-money.mailers :as mailers]
+            [clj-money.web.auth :refer [make-token]]))
 
 (defn- extract-invitation
   [{:keys [params authenticated]}]
@@ -17,7 +19,10 @@
 
 (defn- create
   [{:keys [authenticated] :as req}]
-  (let [inv (-> req extract-invitation entities/put)]
+  (let [inv (-> req
+                extract-invitation
+                (assoc :invitation/token (invitations/generate-token))
+                entities/put)]
     (mailers/send-invitation (assoc inv :invitation/user authenticated))
     (api/response (-> inv
                       (assoc :invitation/status :sent)
@@ -62,6 +67,29 @@
       (api/response))
     api/not-found))
 
+(defn- find-by-token
+  [{:keys [params]}]
+  (if-let [inv (entities/find-by {:invitation/token (:token params)})]
+    (api/response inv)
+    api/not-found))
+
+(defn- accept
+  [{:keys [params]}]
+  (if-let [inv (entities/find-by {:invitation/token (:token params)})]
+    (let [user (-> params
+                   (select-keys [:user/first-name
+                                 :user/last-name
+                                 :user/password])
+                   (assoc :user/email (:invitation/recipient inv)
+                          :user/roles #{:user})
+                   entities/put)]
+      (-> inv
+          (assoc :invitation/status :accepted)
+          entities/put)
+      (api/creation-response {:user user
+                              :auth-token (make-token user)}))
+    api/not-found))
+
 (def routes
   [["invitations"
     ["" {:get {:handler index}
@@ -69,3 +97,8 @@
     ["/:id" {:get {:handler show}
              :patch {:handler patch}
              :delete {:handler delete}}]]])
+
+(def unauthenticated-routes
+  [["invitations/accept"
+    ["/:token" {:get {:handler find-by-token}}]
+    ["" {:post {:handler accept}}]]])
