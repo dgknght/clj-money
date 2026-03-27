@@ -6,7 +6,8 @@
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.components :refer [button
                                           spinner]]
-            [clj-money.icons :refer [icon-with-text]]
+            [clj-money.icons :refer [icon-with-text
+                                     icon]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.util :refer [id=]]
             [clj-money.app :refer [fetch-entities]]
@@ -53,12 +54,12 @@
   [:tr
    [:td (:invitation/recipient inv)]
    [:td (name (:invitation/status inv))]
-   [:td (:invitation/note inv)]
    [:td
-    [:button.btn.btn-sm.btn-danger
-     {:on-click #(delete-invitation inv page-state)
-      :title "Click here to delete this invitation"}
-     (icon-with-text :x-circle "Delete")]]])
+    [:div.btn-group
+     [:button.btn.btn-sm.btn-danger.d-flex.align-items-center
+      {:on-click #(delete-invitation inv page-state)
+       :title "Click here to remove this budget."}
+      (icon :x-circle :size :small)]]]])
 
 (defn- invitation-form
   [page-state]
