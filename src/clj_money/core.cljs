@@ -64,9 +64,6 @@
    [:p "The page you requested does not exist."]
    [:a.btn.btn-secondary {:href "/"} "Return home"]])
 
-(secretary/defroute #"/.*" {:as args}
-  (.warn js/console "An unknown path was requested" (clj->js args))
-  (swap! app-state assoc :page #'not-found))
 
 (def authenticated-nav-items
   [{:id :commodities}
@@ -272,12 +269,17 @@
 (def ^:private server-path-prefixes
   ["/api/" "/oapi/" "/auth/" "/app/"])
 
+(defn- dispatch-or-not-found
+  [path]
+  (if (secretary/locate-route path)
+    (secretary/dispatch! path)
+    (swap! app-state assoc :page #'not-found)))
+
 (defn init! []
   (accountant/configure-navigation!
-   {:nav-handler secretary/dispatch!
+   {:nav-handler dispatch-or-not-found
     :path-exists? (fn [path]
-                    (and (not-any? #(string/starts-with? path %) server-path-prefixes)
-                         (secretary/locate-route path)))})
+                    (not-any? #(string/starts-with? path %) server-path-prefixes))})
   (mount-root)
   (sign-in-from-cookie)
   (accountant/dispatch-current!))
