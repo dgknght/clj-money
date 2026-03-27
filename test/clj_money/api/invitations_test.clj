@@ -184,7 +184,7 @@
 
 (deftest anyone-can-find-an-invitation-by-token
   (with-context token-ctx
-    (let [response (-> (request :get (path :oapi :invitations :accept "test-token-123"))
+    (let [response (-> (request :get (path :oapi :invitations "test-token-123" :accept))
                        app
                        parse-body)]
       (is (http-success? response))
@@ -194,15 +194,14 @@
 
 (deftest a-bad-token-returns-not-found
   (with-context token-ctx
-    (let [response (-> (request :get (path :oapi :invitations :accept "bad-token"))
+    (let [response (-> (request :get (path :oapi :invitations "bad-token" :accept))
                        app)]
       (is (http-not-found? response)))))
 
 (deftest a-recipient-can-accept-an-invitation
   (with-context token-ctx
-    (let [response (-> (request :post (path :oapi :invitations :accept)
-                                :body {:token "test-token-123"
-                                       :user/first-name "New"
+    (let [response (-> (request :post (path :oapi :invitations "test-token-123" :accept)
+                                :body {:user/first-name "New"
                                        :user/last-name "User"
                                        :user/password "please01"})
                        app
@@ -221,7 +220,7 @@
 
 (deftest a-recipient-can-decline-an-invitation
   (with-context token-ctx
-    (let [response (-> (request :post (path :oapi :invitations :decline "test-token-123"))
+    (let [response (-> (request :post (path :oapi :invitations "test-token-123" :decline))
                        app)]
       (is (http-success? response))
       (is (comparable? #:invitation{:status :declined}
@@ -230,6 +229,6 @@
 
 (deftest a-bad-decline-token-returns-not-found
   (with-context token-ctx
-    (let [response (-> (request :post (path :oapi :invitations :decline "bad-token"))
+    (let [response (-> (request :post (path :oapi :invitations "bad-token" :decline))
                        app)]
       (is (http-not-found? response)))))

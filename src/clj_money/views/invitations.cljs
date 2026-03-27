@@ -128,7 +128,8 @@
   [page-state]
   (+busy)
   (invitations/accept
-    (assoc (:user @page-state) :token (:token @page-state))
+    (:token @page-state)
+    (:user @page-state)
     :callback -busy
     :on-success (fn [{:keys [user auth-token]}]
                   (swap! app-state assoc

@@ -90,14 +90,6 @@
                               :auth-token (make-token user)}))
     api/not-found))
 
-(def routes
-  [["invitations"
-    ["" {:get {:handler index}
-         :post {:handler create}}]
-    ["/:id" {:get {:handler show}
-             :patch {:handler patch}
-             :delete {:handler delete}}]]])
-
 (defn- decline
   [{:keys [params]}]
   (if-let [inv (entities/find-by {:invitation/token (:token params)})]
@@ -108,9 +100,16 @@
       (api/response))
     api/not-found))
 
+(def routes
+  [["invitations"
+    ["" {:get {:handler index}
+         :post {:handler create}}]
+    ["/:id" {:get {:handler show}
+             :patch {:handler patch}
+             :delete {:handler delete}}]]])
+
 (def unauthenticated-routes
-  [["invitations/accept"
-    ["/:token" {:get {:handler find-by-token}}]
-    ["" {:post {:handler accept}}]]
-   ["invitations/decline"
-    ["/:token" {:post {:handler decline}}]]])
+  [["invitations/:token"
+    ["/accept" {:get {:handler find-by-token}
+                :post {:handler accept}}]
+    ["/decline" {:post {:handler decline}}]]])

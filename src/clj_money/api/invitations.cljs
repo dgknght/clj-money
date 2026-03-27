@@ -29,18 +29,18 @@
 
 (defn find-by-token
   [token & {:as opts}]
-  (api/get (path :oapi :invitations :accept token)
+  (api/get (path :oapi :invitations token :accept)
            {}
            (add-error-handler opts "Unable to retrieve the invitation: %s")))
 
 (defn accept
-  [attrs & {:as opts}]
-  (api/post (path :oapi :invitations :accept)
+  [token attrs & {:as opts}]
+  (api/post (path :oapi :invitations token :accept)
             attrs
             (add-error-handler opts "Unable to accept the invitation: %s")))
 
 (defn decline
   [token & {:as opts}]
-  (api/post (path :oapi :invitations :decline token)
+  (api/post (path :oapi :invitations token :decline)
             {}
             (add-error-handler opts "Unable to decline the invitation: %s")))
