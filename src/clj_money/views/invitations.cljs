@@ -1,6 +1,5 @@
 (ns clj-money.views.invitations
-  (:require [cljs.pprint :refer [pprint]]
-            [secretary.core :as secretary :include-macros true]
+  (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.forms :as forms]
@@ -28,17 +27,9 @@
            #(-> %
                 (update-in [:invitations]
                            (fn [invs]
-
-                             (pprint {::upsert saved
-                                      ::into invs})
-
-                             (let [res (util/upsert-into saved
-                                                         {:sort-key :invitation/recipient}
-                                                         invs)]
-                               
-                               (pprint {::result res})
-                               
-                               res)))
+                             (util/upsert-into saved
+                                               {:sort-key :invitation/recipient}
+                                               invs)))
                 (dissoc :invitation)))))
 
 (defn- save-invitation
