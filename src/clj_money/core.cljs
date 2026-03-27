@@ -64,7 +64,8 @@
    [:p "The page you requested does not exist."]
    [:a.btn.btn-secondary {:href "/"} "Return home"]])
 
-(secretary/defroute "/*path" []
+(secretary/defroute #"/.*" {:as args}
+  (.warn js/console "An unknown path was requested" (clj->js args))
   (swap! app-state assoc :page #'not-found))
 
 (def authenticated-nav-items
