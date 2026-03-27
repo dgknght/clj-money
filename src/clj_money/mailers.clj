@@ -1,5 +1,6 @@
 (ns clj-money.mailers
-  (:require [postal.core :refer [send-message]]
+  (:require [clojure.tools.logging :as log]
+            [postal.core :refer [send-message]]
             [clj-money.config :refer [env]]
             [selmer.parser :refer [render]]))
 
@@ -30,11 +31,16 @@
      :accept-url (str base-url "/accept-invitation/" token)
      :decline-url (str base-url "/decline-invitation/" token)}))
 
+(defn- deliver-message
+  [message]
+  (if (env :mailer-enabled?)
+    (send-message {:host (env :mailer-host)} message)
+    (log/infof "Mailer disabled. Would have sent: %s" (pr-str message))))
+
 (defn send-invitation
   [invitation]
-  (send-message {:host (env :mailer-host)}
-                {:to (:invitation/recipient invitation)
-                 :from (env :mailer-from)
-                 :subject (format "Invitation to %s" (env :application-name))
-                 :body (alt-body invite-user-parts
-                                 (invitation-context invitation))}))
+  (deliver-message {:to (:invitation/recipient invitation)
+                    :from (env :mailer-from)
+                    :subject (format "Invitation to %s" (env :application-name))
+                    :body (alt-body invite-user-parts
+                                    (invitation-context invitation))}))
