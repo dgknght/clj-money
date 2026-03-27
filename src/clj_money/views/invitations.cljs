@@ -256,10 +256,8 @@
          [acceptance-form page-state]
          [:p "Loading..."])])))
 
-(secretary/defroute "/accept-invitation/:token" {:as params}
-  (let [token (:token params)]
-    (swap! app-state assoc :page #(accept-invitation-page token))))
+(secretary/defroute #"/accept-invitation/(.+)" [token]
+  (swap! app-state assoc :page #(accept-invitation-page token)))
 
-(secretary/defroute "/decline-invitation/:token" {:as params}
-  (let [token (:token params)]
-    (swap! app-state assoc :page #(decline-invitation-page token))))
+(secretary/defroute #"/decline-invitation/(.+)" [token]
+  (swap! app-state assoc :page #(decline-invitation-page token)))
