@@ -1,8 +1,11 @@
 (ns clj-money.views.invitations
   (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.components :refer [button
+                                          spinner]]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.util :refer [id=]]
@@ -26,13 +29,13 @@
   [page-state]
   (+busy)
   (invitations/create
-    (get-in @page-state [:new-invitation])
+    (get-in @page-state [:invitation])
     :callback -busy
     :on-success (fn [inv]
                   (swap! page-state
                          #(-> %
                               (update-in [:invitations] conj inv)
-                              (dissoc :new-invitation))))))
+                              (dissoc :invitation))))))
 
 (defn- delete-invitation
   [inv page-state]
@@ -59,57 +62,79 @@
 
 (defn- invitation-form
   [page-state]
-  (let [invitation (r/cursor page-state [:new-invitation])]
+  (let [invitation (r/cursor page-state [:invitation])]
     (fn []
-      [:form.mt-3
-       {:no-validate true
-        :on-submit (fn [e]
-                     (.preventDefault e)
-                     (v/validate invitation)
-                     (when (v/valid? invitation)
-                       (save-invitation page-state)))}
-       [:div.row.g-2.align-items-end
-        [:div.col-md-4
+      (when @invitation
+        [:form.mt-3
+         {:no-validate true
+          :on-submit (fn [e]
+                       (.preventDefault e)
+                       (v/validate invitation)
+                       (when (v/valid? invitation)
+                         (save-invitation page-state)))}
          [forms/email-field invitation
           [:invitation/recipient]
           {:validations #{::v/required}
-           :label "Recipient"}]]
-        [:div.col-md-2
-         [forms/select-field invitation
-          [:invitation/status]
-          status-options
-          {:validations #{::v/required}
-           :label "Status"}]]
-        [:div.col-md-4
-         [forms/text-field invitation
+           :label "Recipient"}]
+         [forms/textarea-field invitation
           [:invitation/note]
-          {:label "Note"}]]
-        [:div.col-md-2.d-flex.align-items-end
-         [:button.btn.btn-primary
-          {:type :submit
-           :title "Click here to send the invitation"}
-          (icon-with-text :envelope "Invite")]]]])))
+          {:label "Note"}]
+         [:div.d-flex
+          [:button.btn.btn-primary
+           {:type :submit
+            :title "Click here to send the invitation"}
+           (icon-with-text :envelope "Invite")]
+          [:button.btn.btn-secondary.ms-2
+           {:type :button
+            :title "Click here to cancel this invitation"
+            :on-click #(swap! page-state dissoc :invitation)}
+           (icon-with-text :x "Cancel")]]]))))
+
+(defn- invitations-table
+  [page-state]
+  (let [invitations (r/cursor page-state [:invitations])]
+    (fn []
+      [:table.table.mt-3
+       [:thead
+        [:tr
+         [:th.col-sm-9 "Recipient"]
+         [:th.col-sm-3 "Status"]
+         [:th]]]
+       [:tbody
+        (cond
+          (seq @invitations)
+          (doall (map #(invitation-row % page-state) @invitations))
+          
+          @invitations
+          [:tr [:td.text-body-tertiary {:col-span 4} "There are no invitations"]]
+          
+          :else
+          [:tr [:td {:col-span 3} [spinner]]])]])))
 
 (defn index []
-  (let [page-state (r/atom {:invitations []
-                             :new-invitation {:invitation/status :unsent}})]
+  (let [page-state (r/atom {})
+        invitation (r/cursor page-state [:invitation])
+        disable-add (make-reaction #(not (not invitation)))]
     (load-invitations page-state)
     (fn []
-      (let [invs (:invitations @page-state)]
-        [:div.mt-3
-         [:h2 "Invitations"]
-         [invitation-form page-state]
-         (if (seq invs)
-           [:table.table.mt-3
-            [:thead
-             [:tr
-              [:th "Recipient"]
-              [:th "Status"]
-              [:th "Note"]
-              [:th]]]
-            [:tbody
-             (doall (map #(invitation-row % page-state) invs))]]
-           [:p.mt-3 "No invitations yet."])]))))
+      [:div.mt-3
+       [:h2 "Invitations"]
+       [:div.row
+        [:div.col-md-6
+         [invitations-table page-state]
+         [:div.mt-2
+          [button {:html {:class "btn-primary"
+                          :title "Click here to invite a user to use the system."
+                          :on-click (fn []
+                                      (swap! page-state
+                                             assoc
+                                             :invitation
+                                             {:invitation/status :unsent}))}
+                   :icon :plus
+                   :disabled disable-add
+                   :caption "Add"}]]]
+        [:div.col-md-6
+         [invitation-form page-state]]]])))
 
 (secretary/defroute "/invitations" []
   (swap! app-state assoc :page #'index :active-nav :users))
@@ -174,6 +199,20 @@
          :title "Click here to create your account"}
         (icon-with-text :person-plus "Create Account")]])))
 
+(defn- decline-invitation-page
+  [token]
+  (let [page-state (r/atom {})]
+    (+busy)
+    (invitations/decline
+      token
+      :callback -busy
+      :on-success #(swap! page-state assoc :declined? true))
+    (fn []
+      [:div.mt-3
+       (if (:declined? @page-state)
+         [:p "Thank you for taking the time to respond."]
+         [:p "Loading..."])])))
+
 (defn- accept-invitation-page
   [token]
   (let [page-state (r/atom {:token token})]
@@ -188,20 +227,6 @@
 (secretary/defroute "/accept-invitation/:token" {:as params}
   (let [token (:token params)]
     (swap! app-state assoc :page #(accept-invitation-page token))))
-
-(defn- decline-invitation-page
-  [token]
-  (let [page-state (r/atom {})]
-    (+busy)
-    (invitations/decline
-      token
-      :callback -busy
-      :on-success #(swap! page-state assoc :declined? true))
-    (fn []
-      [:div.mt-3
-       (if (:declined? @page-state)
-         [:p "Thank you for taking the time to respond."]
-         [:p "Loading..."])])))
 
 (secretary/defroute "/decline-invitation/:token" {:as params}
   (let [token (:token params)]
