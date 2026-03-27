@@ -3,3 +3,7 @@ Hi financial enthusiast!
 John Doe has invited you to use clj-money! Click the link below to get started.
 
 https://www.mymoney.com/accept-invitation/abc123
+
+If you'd prefer not to join, click the link below to decline.
+
+https://www.mymoney.com/decline-invitation/abc123

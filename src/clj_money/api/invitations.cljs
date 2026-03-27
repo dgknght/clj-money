@@ -38,3 +38,9 @@
   (api/post (path :oapi :invitations :accept)
             attrs
             (add-error-handler opts "Unable to accept the invitation: %s")))
+
+(defn decline
+  [token & {:as opts}]
+  (api/post (path :oapi :invitations :decline token)
+            {}
+            (add-error-handler opts "Unable to decline the invitation: %s")))

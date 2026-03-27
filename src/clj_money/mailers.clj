@@ -22,12 +22,13 @@
 
 (defn- invitation-context
   [{:invitation/keys [token user]}]
-  {:sender-full-name (format "%s %s"
-                             (:user/first-name user)
-                             (:user/last-name user))
-   :app-name (env :application-name)
-   :url (str (env :site-protocol) "://" (env :site-host)
-             "/accept-invitation/" token)})
+  (let [base-url (str (env :site-protocol) "://" (env :site-host))]
+    {:sender-full-name (format "%s %s"
+                               (:user/first-name user)
+                               (:user/last-name user))
+     :app-name (env :application-name)
+     :accept-url (str base-url "/accept-invitation/" token)
+     :decline-url (str base-url "/decline-invitation/" token)}))
 
 (defn send-invitation
   [invitation]

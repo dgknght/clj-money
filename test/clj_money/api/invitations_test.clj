@@ -218,3 +218,18 @@
       (is (comparable? #:invitation{:status :accepted}
                        (entities/find-by {:invitation/recipient "invited@example.com"}))
           "The invitation status is updated to :accepted"))))
+
+(deftest a-recipient-can-decline-an-invitation
+  (with-context token-ctx
+    (let [response (-> (request :post (path :oapi :invitations :decline "test-token-123"))
+                       app)]
+      (is (http-success? response))
+      (is (comparable? #:invitation{:status :declined}
+                       (entities/find-by {:invitation/recipient "invited@example.com"}))
+          "The invitation status is updated to :declined"))))
+
+(deftest a-bad-decline-token-returns-not-found
+  (with-context token-ctx
+    (let [response (-> (request :post (path :oapi :invitations :decline "bad-token"))
+                       app)]
+      (is (http-not-found? response)))))

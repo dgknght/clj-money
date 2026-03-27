@@ -98,7 +98,19 @@
              :patch {:handler patch}
              :delete {:handler delete}}]]])
 
+(defn- decline
+  [{:keys [params]}]
+  (if-let [inv (entities/find-by {:invitation/token (:token params)})]
+    (do
+      (-> inv
+          (assoc :invitation/status :declined)
+          entities/put)
+      (api/response))
+    api/not-found))
+
 (def unauthenticated-routes
   [["invitations/accept"
     ["/:token" {:get {:handler find-by-token}}]
-    ["" {:post {:handler accept}}]]])
+    ["" {:post {:handler accept}}]]
+   ["invitations/decline"
+    ["/:token" {:post {:handler decline}}]]])

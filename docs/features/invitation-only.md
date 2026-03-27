@@ -35,3 +35,9 @@
     of the invitation is updated to `:accepted`.
   - After successful submission, the new user is redirected to the entities view
     to create an entity.
+- The email contains a link that the recipient can click to decline the invitation.
+  - This link uses the same secure token as the "accept" link.
+  - On following this link:
+    - the user is presented a "thank you" message for taking
+      the time to respond.
+    - the invitation status is updated to `:declined`

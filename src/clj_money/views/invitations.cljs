@@ -187,3 +187,21 @@
 (secretary/defroute "/accept-invitation/:token" {:as params}
   (let [token (:token params)]
     (swap! app-state assoc :page #(accept-invitation-page token))))
+
+(defn- decline-invitation-page
+  [token]
+  (let [page-state (r/atom {})]
+    (+busy)
+    (invitations/decline
+      token
+      :callback -busy
+      :on-success #(swap! page-state assoc :declined? true))
+    (fn []
+      [:div.mt-3
+       (if (:declined? @page-state)
+         [:p "Thank you for taking the time to respond."]
+         [:p "Loading..."])])))
+
+(secretary/defroute "/decline-invitation/:token" {:as params}
+  (let [token (:token params)]
+    (swap! app-state assoc :page #(decline-invitation-page token))))
