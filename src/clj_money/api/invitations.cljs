@@ -10,17 +10,29 @@
            (add-error-handler opts "Unable to retrieve the invitations: %s")))
 
 (defn create
-  [invitation & {:as opts}]
+  [invitation opts]
   (api/post (api/path :invitations)
             invitation
             (add-error-handler opts "Unable to create the invitation: %s")))
 
 (defn update
-  [invitation & {:as opts}]
+  [invitation opts]
   (api/patch (api/path :invitations invitation)
-             (select-keys invitation [:invitation/status
+             (select-keys invitation [:invitation/recipient
                                       :invitation/note])
              (add-error-handler opts "Unable to update the invitation: %s")))
+
+(defn save
+  [invitation & {:as opts}]
+  (if (:id invitation)
+    (update invitation opts)
+    (create invitation opts)))
+
+(defn send
+  [invitation & {:as opts}]
+  (api/post (api/path :invitations invitation :send)
+            {}
+            (add-error-handler opts "Unable to send the invitation: %s")))
 
 (defn delete
   [invitation & {:as opts}]

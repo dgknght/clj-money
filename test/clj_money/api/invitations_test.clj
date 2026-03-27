@@ -66,21 +66,21 @@
             (:parsed-body response))
           "All site invitations are visible to any admin"))))
 
-(deftest an-admin-can-create-an-invitation
+(deftest an-admin-can-create-an-invitation-and-send-immediately
   (with-context admin-ctx
     (let [user (find-user "admin@example.com")]
       (with-mail-capture [mailbox]
         (let [response (-> (request :post (path :api :invitations)
                                     :user user
                                     :body #:invitation{:recipient "new@example.com"
-                                                       :status :unsent})
+                                                       :status :sent})
                            app
                            parse-body)]
           (is (http-created? response))
           (is (comparable? #:invitation{:recipient "new@example.com"
                                         :status :sent}
                            (:parsed-body response))
-              "The new invitation is returned in the response")
+              "The new invitation is returned with :sent status")
           (is (seq-of-maps-like?
                 [#:invitation{:recipient "new@example.com"}]
                 (entities/select {:invitation/user user}))
@@ -90,6 +90,23 @@
           (is (comparable? {:to "new@example.com"}
                            (first @mailbox))
               "The email is sent to the recipient"))))))
+
+(deftest an-admin-can-create-an-invitation-without-sending
+  (with-context admin-ctx
+    (let [user (find-user "admin@example.com")]
+      (with-mail-capture [mailbox]
+        (let [response (-> (request :post (path :api :invitations)
+                                    :user user
+                                    :body #:invitation{:recipient "new@example.com"})
+                           app
+                           parse-body)]
+          (is (http-created? response))
+          (is (comparable? #:invitation{:recipient "new@example.com"
+                                        :status :unsent}
+                           (:parsed-body response))
+              "The new invitation is returned with :unsent status")
+          (is (zero? (count @mailbox))
+              "No email is sent"))))))
 
 (def ^:private show-ctx
   (conj list-ctx
@@ -134,12 +151,12 @@
     (let [inv (find-invitation "first@example.com")
           response (-> (request :patch (path :api :invitations (:id inv))
                                 :user (find-user "admin@example.com")
-                                :body #:invitation{:status :sent})
+                                :body #:invitation{:note "Hello there"})
                        app
                        parse-body)]
       (is (http-success? response))
       (is (comparable? #:invitation{:recipient "first@example.com"
-                                    :status :sent}
+                                    :note "Hello there"}
                        (:parsed-body response))
           "The updated invitation is returned in the response"))))
 
@@ -148,11 +165,11 @@
     (let [inv (find-invitation "first@example.com")
           response (-> (request :patch (path :api :invitations (:id inv))
                                 :user (find-user "other@example.com")
-                                :body #:invitation{:status :sent})
+                                :body #:invitation{:note "Hello there"})
                        app
                        parse-body)]
       (is (http-success? response))
-      (is (comparable? #:invitation{:status :sent}
+      (is (comparable? #:invitation{:note "Hello there"}
                        (:parsed-body response))))))
 
 (deftest an-admin-can-delete-an-invitation
@@ -174,6 +191,49 @@
       (is (http-success? response))
       (is (nil? (entities/find inv))
           "The invitation is no longer retrievable"))))
+
+(def ^:private sent-inv-ctx
+  (conj admin-ctx
+        #:invitation{:recipient "sent@example.com"
+                     :status :sent
+                     :token "token-sent-123"
+                     :user "admin@example.com"}))
+
+(deftest a-sent-invitation-cannot-be-deleted
+  (with-context sent-inv-ctx
+    (let [inv (find-invitation "sent@example.com")
+          response (-> (request :delete (path :api :invitations (:id inv))
+                                :user (find-user "admin@example.com"))
+                       app)]
+      (is (http-unprocessable? response)))))
+
+(deftest a-sent-invitation-cannot-be-updated
+  (with-context sent-inv-ctx
+    (let [inv (find-invitation "sent@example.com")
+          response (-> (request :patch (path :api :invitations (:id inv))
+                                :user (find-user "admin@example.com")
+                                :body #:invitation{:note "Hello"})
+                       app)]
+      (is (http-unprocessable? response)))))
+
+(deftest an-admin-can-send-an-invitation
+  (with-context show-ctx
+    (let [inv (find-invitation "first@example.com")
+          user (find-user "admin@example.com")]
+      (with-mail-capture [mailbox]
+        (let [response (-> (request :post (path :api :invitations (:id inv) :send)
+                                    :user user)
+                           app
+                           parse-body)]
+          (is (http-success? response))
+          (is (comparable? #:invitation{:status :sent}
+                           (:parsed-body response))
+              "The invitation status is updated to :sent")
+          (is (= 1 (count @mailbox))
+              "One email is sent")
+          (is (comparable? {:to "first@example.com"}
+                           (first @mailbox))
+              "The email is sent to the recipient"))))))
 
 (def ^:private token-ctx
   (conj admin-ctx

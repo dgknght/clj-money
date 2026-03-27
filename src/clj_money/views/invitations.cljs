@@ -1,5 +1,6 @@
 (ns clj-money.views.invitations
-  (:require [secretary.core :as secretary :include-macros true]
+  (:require [cljs.pprint :refer [pprint]]
+            [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.forms :as forms]
@@ -9,34 +10,55 @@
             [clj-money.icons :refer [icon-with-text
                                      icon]]
             [clj-money.state :refer [app-state +busy -busy]]
-            [clj-money.util :refer [id=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.app :refer [fetch-entities]]
             [clj-money.api.invitations :as invitations]))
-
-(def ^:private status-options
-  [[:unsent "Unsent"]
-   [:sent "Sent"]
-   [:accepted "Accepted"]
-   [:declined "Declined"]])
 
 (defn- load-invitations
   [page-state]
   (+busy)
   (invitations/select
     :callback -busy
-    :on-success #(swap! page-state assoc :invitations %)))
+    :on-success #(swap! page-state assoc :invitations (sort-by :invitation/recipient %))))
+
+(defn- post-save-invitation
+  [page-state]
+  (fn [saved]
+    (swap! page-state
+           #(-> %
+                (update-in [:invitations]
+                           (fn [invs]
+
+                             (pprint {::upsert saved
+                                      ::into invs})
+
+                             (let [res (util/upsert-into saved
+                                                         {:sort-key :invitation/recipient}
+                                                         invs)]
+                               
+                               (pprint {::result res})
+                               
+                               res)))
+                (dissoc :invitation)))))
 
 (defn- save-invitation
   [page-state]
   (+busy)
-  (invitations/create
-    (get-in @page-state [:invitation])
-    :callback -busy
-    :on-success (fn [inv]
-                  (swap! page-state
-                         #(-> %
-                              (update-in [:invitations] conj inv)
-                              (dissoc :invitation))))))
+  (let [inv (get-in @page-state [:invitation])]
+    (invitations/save inv
+                      :callback -busy
+                      :on-success (post-save-invitation page-state))))
+
+(defn- send-invitation
+  [inv page-state]
+  (when (js/confirm "Are you sure you want to send this invitation?")
+    (+busy)
+    (invitations/send
+      inv
+      :callback -busy
+      :on-success (fn [sent]
+                    (swap! page-state update-in [:invitations]
+                           #(mapv (fn [i] (if (id= i inv) sent i)) %))))))
 
 (defn- delete-invitation
   [inv page-state]
@@ -55,11 +77,23 @@
    [:td (:invitation/recipient inv)]
    [:td (name (:invitation/status inv))]
    [:td
-    [:div.btn-group
-     [:button.btn.btn-sm.btn-danger.d-flex.align-items-center
-      {:on-click #(delete-invitation inv page-state)
-       :title "Click here to remove this budget."}
-      (icon :x-circle :size :small)]]]])
+    (let [disabled (not= :unsent (:invitation/status inv))]
+      [:div.btn-group
+       [:button.btn.btn-sm.btn-info.d-flex.align-items-center
+        {:on-click #(send-invitation inv page-state)
+         :title "Click here to send this invitation"
+         :disabled disabled}
+        (icon :envelope :size :small)]
+       [:button.btn.btn-sm.btn-secondary.d-flex.align-items-center
+        {:on-click #(swap! page-state assoc :invitation inv)
+         :title "Click here to edit this invitation"
+         :disabled disabled}
+        (icon :pencil :size :small)]
+       [:button.btn.btn-sm.btn-danger.d-flex.align-items-center
+        {:on-click #(delete-invitation inv page-state)
+         :title "Click here to remove this invitation"
+         :disabled disabled}
+        (icon :x-circle :size :small)]])]])
 
 (defn- invitation-form
   [page-state]
@@ -76,18 +110,24 @@
          [forms/email-field invitation
           [:invitation/recipient]
           {:validations #{::v/required}
-           :label "Recipient"}]
+           :label "Recipient"
+           :disabled (boolean (:id @invitation))}]
          [forms/textarea-field invitation
           [:invitation/note]
           {:label "Note"}]
+         (when-not (:id @invitation)
+           [forms/checkbox-field
+            invitation
+            [:send?]
+            {:caption "Send immediately"}])
          [:div.d-flex
           [:button.btn.btn-primary
            {:type :submit
-            :title "Click here to send the invitation"}
-           (icon-with-text :envelope "Invite")]
+            :title "Click here to save the invitation"}
+           (icon-with-text :check "Save")]
           [:button.btn.btn-secondary.ms-2
            {:type :button
-            :title "Click here to cancel this invitation"
+            :title "Click here to cancel"
             :on-click #(swap! page-state dissoc :invitation)}
            (icon-with-text :x "Cancel")]]]))))
 
@@ -130,7 +170,7 @@
                                       (swap! page-state
                                              assoc
                                              :invitation
-                                             {:invitation/status :unsent}))}
+                                             {:send? true}))}
                    :icon :plus
                    :disabled disable-add
                    :caption "Add"}]]]

@@ -13,21 +13,29 @@
   [{:keys [params authenticated]}]
   (-> params
       (select-keys [:invitation/recipient
-                    :invitation/note
-                    :invitation/status])
-      (assoc :invitation/user authenticated)))
+                    :invitation/note])
+      (assoc :invitation/user authenticated
+             :invitation/status :unsent)))
+
+(defn- send-invitation
+  [inv]
+  (mailers/send-invitation inv)
+  inv)
 
 (defn- create
-  [{:keys [authenticated] :as req}]
+  [{:keys [params] :as req}]
   (let [inv (-> req
                 extract-invitation
                 (assoc :invitation/token (invitations/generate-token))
                 entities/put)]
-    (mailers/send-invitation (assoc inv :invitation/user authenticated))
-    (api/response (-> inv
-                      (assoc :invitation/status :sent)
-                      entities/put)
-                  201)))
+    (api/response
+      (if (= :sent (:invitation/status params))
+        (-> inv
+            send-invitation
+            (assoc :invitation/status :sent)
+            entities/put)
+        inv)
+      201)))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
@@ -51,20 +59,35 @@
 
 (defn- patch
   [req]
-  (or (some-> (find-and-authorize req ::authorization/update)
-              (merge (select-keys (:params req)
-                                  [:invitation/status
-                                   :invitation/note]))
-              entities/put
-              api/response)
-      api/not-found))
+  (if-let [inv (find-and-authorize req ::authorization/update)]
+    (if (= :unsent (:invitation/status inv))
+      (-> inv
+          (merge (select-keys (:params req)
+                               [:invitation/recipient
+                                :invitation/note]))
+          entities/put
+          api/response)
+      api/unprocessable)
+    api/not-found))
 
 (defn- delete
   [req]
   (if-let [inv (find-and-authorize req ::authorization/destroy)]
-    (do
-      (entities/delete inv)
-      (api/response))
+    (if (= :unsent (:invitation/status inv))
+      (do
+        (entities/delete inv)
+        (api/response))
+      api/unprocessable)
+    api/not-found))
+
+(defn- send-existing
+  [{:keys [authenticated] :as req}]
+  (if-let [inv (find-and-authorize req ::authorization/update)]
+    (if (= :unsent (:invitation/status inv))
+      (do
+        (mailers/send-invitation (assoc inv :invitation/user authenticated))
+        (api/response (-> inv (assoc :invitation/status :sent) entities/put)))
+      api/unprocessable)
     api/not-found))
 
 (defn- find-by-token
@@ -104,9 +127,11 @@
   [["invitations"
     ["" {:get {:handler index}
          :post {:handler create}}]
-    ["/:id" {:get {:handler show}
-             :patch {:handler patch}
-             :delete {:handler delete}}]]])
+    ["/:id"
+     ["" {:get {:handler show}
+          :patch {:handler patch}
+          :delete {:handler delete}}]
+     ["/send" {:post {:handler send-existing}}]]]])
 
 (def unauthenticated-routes
   [["invitations/:token"

@@ -41,3 +41,8 @@
     - the user is presented a "thank you" message for taking
       the time to respond.
     - the invitation status is updated to `:declined`
+- An administrator can choose to send the invitation immediately on save or defer
+  until later.
+- An invitation that has not been sent can be sent.
+- An invitation that has been sent cannot be deleted.
+- An invitation that has not been sent can be edited.

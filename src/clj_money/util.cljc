@@ -521,7 +521,7 @@
   ([m {:keys [sort-key comp] :or {sort-key identity comp compare}} coll]
    (sort-by #(sort-key %)
             comp
-            (cons m (remove #(entity= m %) coll)))))
+            (cons m (remove #(id= m %) coll)))))
 
 (defn match?
   "Given a search term and a list of keys, returns a predicate function that
