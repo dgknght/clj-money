@@ -274,7 +274,7 @@
 
 (defn init! []
   (accountant/configure-navigation!
-   {:nav-handler #(secretary/dispatch! %)
+   {:nav-handler secretary/dispatch!
     :path-exists? (fn [path]
                     (and (not-any? #(string/starts-with? path %) server-path-prefixes)
                          (secretary/locate-route path)))})
