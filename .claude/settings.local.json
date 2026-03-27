@@ -38,6 +38,10 @@
       "Bash(lein check:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "~/code/dgknght/app-lib",
+      "~/code/dgknght/stowaway"
+    ]
   }
 }
