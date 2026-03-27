@@ -19,13 +19,15 @@
 (s/def :invitation/status #{:unsent :sent :accepted :declined})
 (s/def :invitation/user ::entities/entity-ref)
 (s/def :invitation/token (s/and string? present?))
+(s/def :invitation/expires-at inst?)
 
 ^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/invitation
   (s/and (s/keys :req [:invitation/recipient
                         :invitation/status
                         :invitation/user
-                        :invitation/token]
+                        :invitation/token
+                        :invitation/expires-at]
                   :opt [:invitation/note])
          recipient-is-not-a-user?))
 

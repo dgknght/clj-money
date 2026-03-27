@@ -179,7 +179,11 @@
     :callback -busy
     :on-success #(swap! page-state assoc
                         :invitation %
-                        :user {:user/email (:invitation/recipient %)})))
+                        :user {:user/email (:invitation/recipient %)})
+    :on-error (fn [e]
+                (if (= "invitation expired" (:message (ex-data e)))
+                  (swap! page-state assoc :expired? true)
+                  (swap! page-state assoc :not-found? true)))))
 
 (defn- do-accept-invitation
   [page-state]
@@ -238,11 +242,23 @@
     (invitations/decline
       token
       :callback -busy
-      :on-success #(swap! page-state assoc :declined? true))
+      :on-success #(swap! page-state assoc :declined? true)
+      :on-error (fn [e]
+                  (swap! page-state assoc
+                         (if (= "invitation expired" (:message (ex-data e)))
+                           :expired?
+                           :not-found?)
+                         true)))
     (fn []
       [:div.mt-3
-       (if (:declined? @page-state)
+       (cond
+         (:declined? @page-state)
          [:p "Thank you for taking the time to respond."]
+
+         (:expired? @page-state)
+         [:p "This invitation has expired. Please contact an administrator."]
+
+         :else
          [:p "Loading..."])])))
 
 (defn- accept-invitation-page
@@ -252,8 +268,17 @@
     (fn []
       [:div.mt-3
        [:h2 "Create Your Account"]
-       (if (:invitation @page-state)
+       (cond
+         (:expired? @page-state)
+         [:p "This invitation has expired. Please contact an administrator for a new invitation."]
+
+         (:not-found? @page-state)
+         [:p "This invitation was not found."]
+
+         (:invitation @page-state)
          [acceptance-form page-state]
+
+         :else
          [:p "Loading..."])])))
 
 (secretary/defroute #"/accept-invitation/(.+)" [token]

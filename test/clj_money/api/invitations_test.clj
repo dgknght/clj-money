@@ -1,5 +1,6 @@
 (ns clj-money.api.invitations-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test :refer [with-mail-capture]]
@@ -34,10 +35,12 @@
         #:invitation{:recipient "first@example.com"
                      :status :unsent
                      :token "token-first-123"
+                     :expires-at (t/plus (t/instant) (t/days 10))
                      :user "admin@example.com"}
         #:invitation{:recipient "second@example.com"
                      :status :unsent
                      :token "token-second-123"
+                     :expires-at (t/plus (t/instant) (t/days 10))
                      :user "admin@example.com"}))
 
 (deftest an-admin-can-get-a-list-of-invitations
@@ -197,6 +200,7 @@
         #:invitation{:recipient "sent@example.com"
                      :status :sent
                      :token "token-sent-123"
+                     :expires-at (t/plus (t/instant) (t/days 10))
                      :user "admin@example.com"}))
 
 (deftest a-sent-invitation-cannot-be-deleted
@@ -240,6 +244,7 @@
         #:invitation{:recipient "invited@example.com"
                      :status :sent
                      :token "test-token-123"
+                     :expires-at (t/plus (t/instant) (t/days 10))
                      :user "admin@example.com"}))
 
 (deftest anyone-can-find-an-invitation-by-token
@@ -292,3 +297,35 @@
     (let [response (-> (request :post (path :oapi :invitations "bad-token" :decline))
                        app)]
       (is (http-not-found? response)))))
+
+(def ^:private expired-inv-ctx
+  (conj admin-ctx
+        #:invitation{:recipient "expired@example.com"
+                     :status :sent
+                     :token "expired-token-123"
+                     :expires-at (t/minus (t/instant) (t/days 1))
+                     :user "admin@example.com"}))
+
+(deftest an-expired-invitation-cannot-be-found-by-token
+  (with-context expired-inv-ctx
+    (let [response (-> (request :get (path :oapi :invitations "expired-token-123" :accept))
+                       app)]
+      (is (= 410 (:status response))
+          "A 410 Gone response is returned"))))
+
+(deftest an-expired-invitation-cannot-be-accepted
+  (with-context expired-inv-ctx
+    (let [response (-> (request :post (path :oapi :invitations "expired-token-123" :accept)
+                                :body {:user/first-name "New"
+                                       :user/last-name "User"
+                                       :user/password "please01"})
+                       app)]
+      (is (= 410 (:status response))
+          "A 410 Gone response is returned"))))
+
+(deftest an-expired-invitation-cannot-be-declined
+  (with-context expired-inv-ctx
+    (let [response (-> (request :post (path :oapi :invitations "expired-token-123" :decline))
+                       app)]
+      (is (= 410 (:status response))
+          "A 410 Gone response is returned"))))

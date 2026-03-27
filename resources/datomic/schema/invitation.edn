@@ -18,4 +18,8 @@
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
   :db/unique :db.unique/value
-  :db/doc "Secure token for the invitation acceptance link"}]
+  :db/doc "Secure token for the invitation acceptance link"}
+ {:db/ident :invitation/expires-at
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date and time at which the invitation expires"}]

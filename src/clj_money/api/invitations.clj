@@ -1,5 +1,7 @@
 (ns clj-money.api.invitations
-  (:require [dgknght.app-lib.api :as api]
+  (:require [java-time.api :as t]
+            [dgknght.app-lib.api :as api]
+            [clj-money.config :refer [env]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.authorization :refer [authorize +scope]
@@ -9,13 +11,18 @@
             [clj-money.mailers :as mailers]
             [clj-money.web.auth :refer [make-token]]))
 
+(defn- expiration-instant []
+  (t/plus (t/instant)
+          (t/days (or (env :invitation-expiration-days) 10))))
+
 (defn- extract-invitation
   [{:keys [params authenticated]}]
   (-> params
       (select-keys [:invitation/recipient
                     :invitation/note])
       (assoc :invitation/user authenticated
-             :invitation/status :unsent)))
+             :invitation/status :unsent
+             :invitation/expires-at (expiration-instant))))
 
 (defn- send-invitation
   [inv]
@@ -32,7 +39,8 @@
       (if (= :sent (:invitation/status params))
         (-> inv
             send-invitation
-            (assoc :invitation/status :sent)
+            (assoc :invitation/status :sent
+                   :invitation/expires-at (expiration-instant))
             entities/put)
         inv)
       201)))
@@ -86,41 +94,58 @@
     (if (= :unsent (:invitation/status inv))
       (do
         (mailers/send-invitation (assoc inv :invitation/user authenticated))
-        (api/response (-> inv (assoc :invitation/status :sent) entities/put)))
+        (api/response (-> inv
+                          (assoc :invitation/status :sent
+                                 :invitation/expires-at (expiration-instant))
+                          entities/put)))
       api/unprocessable)
     api/not-found))
+
+(def ^:private invitation-expired
+  (api/response {:message "invitation expired"} 410))
+
+(defn- expired?
+  [{:invitation/keys [expires-at]}]
+  (and expires-at
+       (t/before? (t/instant expires-at) (t/instant))))
 
 (defn- find-by-token
   [{:keys [params]}]
   (if-let [inv (entities/find-by {:invitation/token (:token params)})]
-    (api/response inv)
+    (if (expired? inv)
+      invitation-expired
+      (api/response inv))
     api/not-found))
 
 (defn- accept
   [{:keys [params]}]
   (if-let [inv (entities/find-by {:invitation/token (:token params)})]
-    (let [user (-> params
-                   (select-keys [:user/first-name
-                                 :user/last-name
-                                 :user/password])
-                   (assoc :user/email (:invitation/recipient inv)
-                          :user/roles #{:user})
-                   entities/put)]
-      (-> inv
-          (assoc :invitation/status :accepted)
-          entities/put)
-      (api/creation-response {:user user
-                              :auth-token (make-token user)}))
+    (if (expired? inv)
+      invitation-expired
+      (let [user (-> params
+                     (select-keys [:user/first-name
+                                   :user/last-name
+                                   :user/password])
+                     (assoc :user/email (:invitation/recipient inv)
+                            :user/roles #{:user})
+                     entities/put)]
+        (-> inv
+            (assoc :invitation/status :accepted)
+            entities/put)
+        (api/creation-response {:user user
+                                :auth-token (make-token user)})))
     api/not-found))
 
 (defn- decline
   [{:keys [params]}]
   (if-let [inv (entities/find-by {:invitation/token (:token params)})]
-    (do
-      (-> inv
-          (assoc :invitation/status :declined)
-          entities/put)
-      (api/response))
+    (if (expired? inv)
+      invitation-expired
+      (do
+        (-> inv
+            (assoc :invitation/status :declined)
+            entities/put)
+        (api/response)))
     api/not-found))
 
 (def routes
