@@ -47,3 +47,4 @@
 - An invitation that has been sent cannot be deleted.
 - An invitation that has not been sent can be edited.
 - An invitation expires after a configurable amount of time that defaults to 10 days.
+- An administrator can see a list of all of the site users.

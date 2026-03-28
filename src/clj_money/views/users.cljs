@@ -4,12 +4,14 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.html :refer [google-g]]
+            [clj-money.components :refer [spinner]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]
-            [clj-money.views.invitations :refer [index]]))
+            [clj-money.views.invitations :as invs]))
 
 (defn- authenticate
   [page-state]
@@ -54,10 +56,51 @@
 (secretary/defroute "/login" []
   (swap! app-state assoc :page #'login))
 
-(defn- users-index []
-  [:div.mt-3
-   [:h1 "Users"]
-   [index]])
+(defn- load-users
+  [page-state]
+  (+busy)
+  (users/select
+    :callback -busy
+    :on-success #(swap! page-state assoc :users %)))
+
+(defn- user-row
+  [{:user/keys [first-name last-name email roles]}]
+  ^{:key email}
+  [:tr
+   [:td (str first-name " " last-name)]
+   [:td email]
+   [:td (->> roles (map (comp humanize name)) (interpose ", ") (apply str))]])
+
+(defn- users-table
+  [page-state]
+  (let [site-users (r/cursor page-state [:users])]
+    (fn []
+      [:table.table.mt-3
+       [:thead
+        [:tr
+         [:th "Name"]
+         [:th "Email"]
+         [:th "Roles"]]]
+       [:tbody
+        (cond
+          (seq @site-users)
+          (doall (map user-row @site-users))
+
+          @site-users
+          [:tr [:td.text-body-tertiary {:col-span 3} "There are no users"]]
+
+          :else
+          [:tr [:td {:col-span 3} [spinner]]])]])))
+
+(defn- index []
+  (let [page-state (r/atom {})]
+    (load-users page-state)
+    (fn []
+      [:div.mt-3
+       [:h1 "Users"]
+       [users-table page-state]
+       [:h1 "Invitations"]
+       [invs/index]])))
 
 (secretary/defroute "/users" []
-  (swap! app-state assoc :page #'users-index :active-nav :users))
+  (swap! app-state assoc :page #'index :active-nav :users))

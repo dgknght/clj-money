@@ -2,8 +2,16 @@
   (:refer-clojure :exclude [find])
   (:require [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.api :as api]
+            [clj-money.util :as util]
+            [clj-money.entities :as entities]
             [clj-money.web.auth :refer [make-token]]
             [clj-money.entities.users :as users]))
+
+(defn- index
+  [{:keys [authenticated]}]
+  (if (contains? (:user/roles authenticated) :admin)
+    (api/response (entities/select (util/entity-type {} :user)))
+    api/forbidden))
 
 (defn- find
   [{:keys [authenticated]}]
@@ -30,7 +38,9 @@
       api/not-found))
 
 (def routes
-  ["users/me" {:get {:handler find}}])
+  [["users"
+    ["" {:get {:handler index}}]
+    ["/me" {:get {:handler find}}]]])
 
 (def unauthenticated-routes
   ["users/authenticate" {:post {:handler authenticate}}])
