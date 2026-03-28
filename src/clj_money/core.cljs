@@ -100,23 +100,21 @@
                   (humanize id)
                   ".")})
 
-(defn- available?
-  [entity {:user/keys [roles]}]
-  (fn [{:keys [required-role] :as nav-item}]
-    (and (or (:path nav-item)
-             (:nav-fn nav-item)
-             entity)
-         (or (nil? required-role)
-             (roles required-role)))))
+(defn- authorized?
+  [{:user/keys [roles]}]
+  (fn [{:keys [required-role]}]
+    (or (nil? required-role)
+        ((or roles {}) required-role))))
 
 (defn- nav-items
   [active-nav current-user current-entity]
-  (->> (if current-user
-         authenticated-nav-items
-         (filter (available? current-entity current-user)
-                 unauthenticated-nav-items))
-       (map #(merge (default-nav-item % active-nav)
-                    %))))
+  (let [entity-filter (if current-entity
+                        (constantly true)
+                        (some-fn :path :nav-fn))]
+    (->> authenticated-nav-items
+         (filter (every-pred entity-filter
+                             (authorized? current-user)))
+         (map #(merge (default-nav-item % active-nav) %)))))
 
 (defn navbar
   [items entity-name {:keys [profile-photo-url]}]
