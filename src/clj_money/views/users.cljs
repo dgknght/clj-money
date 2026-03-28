@@ -1,10 +1,12 @@
 (ns clj-money.views.users
   (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
-            [dgknght.app-lib.inflection :refer [humanize]]
+            [dgknght.app-lib.inflection :refer [humanize title-case]]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.html :refer [google-g]]
             [clj-money.components :refer [spinner]]
@@ -92,15 +94,31 @@
           :else
           [:tr [:td {:col-span 3} [spinner]]])]])))
 
+(def ^:private tab-types
+  [:users :invitations])
+
+(defn- tab-nav-item-fn
+  [page-state]
+  (fn [id]
+    {:id id
+     :label (title-case (humanize id))
+     :active? (= id (get-in @page-state [:selected-nav]))
+     :nav-fn #(swap! page-state assoc :selected-nav id)}))
+
 (defn- index []
-  (let [page-state (r/atom {})]
+  (let [page-state (r/atom {:selected-nav :users})
+        selected-nav (r/cursor page-state [:selected-nav])]
     (load-users page-state)
     (fn []
       [:div.mt-3
        [:h1 "Users"]
-       [users-table page-state]
-       [:h1 "Invitations"]
-       [invs/index]])))
+        (bs/nav-tabs (map (tab-nav-item-fn page-state) tab-types))
+       (case @selected-nav
+         :users
+         [users-table page-state]
+
+         :invitations
+         [invs/index])])))
 
 (secretary/defroute "/users" []
   (swap! app-state assoc :page #'index :active-nav :users))
