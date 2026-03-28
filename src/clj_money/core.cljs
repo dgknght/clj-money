@@ -216,7 +216,7 @@
                          ^{:key (str "entity-selection-" (:id entity))}
                          [:button.list-group-item
                           {:on-click #(swap! app-state assoc :current-entity entity)
-                           :data-bs-toggle :offcanvas
+                           :data-bs-dismiss :offcanvas
                            :class (when (= (:id entity)
                                            (:id current))
                                     "active")}
@@ -225,11 +225,11 @@
           [:ul.nav.nav-pills.nav-fill.flex-md-column
            [:li.nav-item
             [:a.nav-link {:href "/entities"
-                          :data-bs-toggle :offcanvas}
+                          :data-bs-dismiss :offcanvas}
              "Manage Entities"]]
            [:li.nav-item
             [:a.nav-link {:href "/imports"
-                          :data-bs-toggle :offcanvas}
+                          :data-bs-dismiss :offcanvas}
              "Manage Imports"]]]]]]])))
 
 (defn- current-page []
