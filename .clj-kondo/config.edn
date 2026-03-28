@@ -5,6 +5,7 @@
                                                            http-not-found?
                                                            http-unauthorized?
                                                            http-forbidden?
+                                                           http-unprocessable?
                                                            http-redirect-to?
                                                            http-response-with-cookie?
                                                            thrown-with-ex-data?
@@ -49,6 +50,7 @@
                                                         dgknght.app-lib.test-assertions/seq-with-no-map-like?
                                                         dgknght.app-lib.test-assertions/seq-of-maps-like?
                                                         dgknght.app-lib.test-assertions/includes-progress-notification?])
+                                         (secretary.core/defroute)
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
                                          (clj-money.entities.transactions/with-delayed-propagation)

@@ -1,7 +1,6 @@
 (ns clj-money.views.users
   (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
-            [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
