@@ -257,4 +257,4 @@
          [results-table page-state]]]])))
 
 (secretary/defroute "/receipts" []
-  (swap! app-state assoc :page #'index))
+  (swap! app-state assoc :page #'index :active-nav :receipts))
