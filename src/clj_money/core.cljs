@@ -128,8 +128,7 @@
             :width 24
             :height 24}]]
     (when entity-name
-      [:a.navbar-brand {:href "javascript:void(0)"
-                        :data-bs-toggle "offcanvas"
+      [:a.navbar-brand {:data-bs-toggle "offcanvas"
                         :data-bs-target "#entity-selection"
                         :role :button
                         :aria-controls "entity-selection"}

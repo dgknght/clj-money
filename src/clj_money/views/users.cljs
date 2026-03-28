@@ -1,5 +1,4 @@
 (ns clj-money.views.users
-
   (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [dgknght.app-lib.dom :refer [set-focus]]
