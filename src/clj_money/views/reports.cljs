@@ -658,4 +658,4 @@
         [portfolio page-state]]])))
 
 (secretary/defroute "/reports" []
-  (swap! app-state assoc :page #'index))
+  (swap! app-state assoc :page #'index :active-nav :reports))

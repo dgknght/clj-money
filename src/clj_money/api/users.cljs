@@ -2,6 +2,12 @@
   (:require [dgknght.app-lib.web :refer [path]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
+(defn select
+  [& {:as opts}]
+  (api/get (api/path :users)
+           {}
+           (add-error-handler opts "Unable to retrieve the users: %s")))
+
 (defn authenticate
   [credentials & {:as opts}]
   (api/post (path :oapi :users :authenticate)

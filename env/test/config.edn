@@ -14,6 +14,7 @@
                     :uri "datomic:mem://money_test"}}
       :active :datomic-peer}
  :detailed-import-logging "false"
+ :invitation-expiration-days 10
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
                  :host "localhost"
                  :post 5432
@@ -21,8 +22,9 @@
                  :password :config/sql-app-password
                  :dbtype "postgresql"
                  :dbname :config/sql-db-name}
- :mailer-host "testmailer.com"
+ :mailer-enabled? true
  :mailer-from "no-reply@clj-money.com"
+ :mailer-host "testmailer.com"
  :partition-period :year
  :progress {:strategies {:redis {:clj-money.progress/strategy :clj-money.progress/redis
                                  :prefix "test"

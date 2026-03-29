@@ -509,4 +509,4 @@
          [price-form page-state]]]])))
 
 (secretary/defroute "/commodities" []
-  (swap! app-state assoc :page #'index))
+  (swap! app-state assoc :page #'index :active-nav :commodities))

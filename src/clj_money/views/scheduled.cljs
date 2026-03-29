@@ -453,4 +453,4 @@
         [sched-tran-form page-state]]])))
 
 (secretary/defroute "/scheduled" []
-  (swap! app-state assoc :page #'index))
+  (swap! app-state assoc :page #'index :active-nav :scheduled))
