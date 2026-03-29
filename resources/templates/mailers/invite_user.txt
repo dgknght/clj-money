@@ -1,5 +1,9 @@
-Hi {{recipient-first-name}}!
+Hi financial enthusiast!
 
 {{sender-full-name}} has invited you to use {{app-name}}! Click the link below to get started.
 
-{{url}}
+{{accept-url}}
+
+If you'd prefer not to join, click the link below to decline.
+
+{{decline-url}}

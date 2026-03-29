@@ -8,4 +8,5 @@
     #:user{:first-name first-name
            :last-name (names/last-name)
            :email (internet/email first-name)
-           :password "please01"}))
+           :password "please01"
+           :roles #{:user}}))

@@ -1135,4 +1135,4 @@
          [asset-allocation page-state])])))
 
 (secretary/defroute "/accounts" []
-  (swap! app-state assoc :page #'index))
+  (swap! app-state assoc :page #'index :active-nav :accounts))

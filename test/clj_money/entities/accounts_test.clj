@@ -152,10 +152,7 @@
           "The result contains lists of account-plus-ancestors"))))
 
 (def ^:private tag-context
-  [#:user{:email "john@doe.com"
-          :first-name "John"
-          :last-name "Doe"
-          :password "Please001!"}
+  [(factory :user {:user/email "john@doe.com"})
    #:entity{:name "Personal"
             :user "john@doe.com"}
    #:commodity{:name "US Dollar"

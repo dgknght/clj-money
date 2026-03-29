@@ -33,7 +33,8 @@
   (let [user (entities/put #:user{:email email
                                   :first-name given_name
                                   :last-name family_name
-                                  :password "please001!"})
+                                  :password "please001!"
+                                  :roles #{:user}})
         ident (entities/put #:identity{:provider provider
                                        :provider-id id
                                        :user user})]
