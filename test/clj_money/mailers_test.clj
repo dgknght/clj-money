@@ -23,9 +23,9 @@
   (let [invitation #:invitation{:recipient "jane@doe.com"
                                 :status :unsent
                                 :token "abc123"
-                                :user #:user{:first-name "John"
-                                             :last-name "Doe"
-                                             :email "john@doe.com"}}]
+                                :invited-by #:user{:first-name "John"
+                                                   :last-name "Doe"
+                                                   :email "john@doe.com"}}]
     (with-mail-capture [mailbox]
       (mailers/send-invitation invitation)
       (let [[m :as ms] @mailbox]
