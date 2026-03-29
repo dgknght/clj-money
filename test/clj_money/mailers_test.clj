@@ -31,4 +31,4 @@
                             :to-user invitee
                             :url "http://clj-money.com/users/abcdef"})
       (is (= expected-messages @mailbox)
-          "The correct messages are delivered"))))
+          "The messages are delivered"))))
