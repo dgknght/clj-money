@@ -146,13 +146,15 @@
 (defn index []
   (let [page-state (r/atom {})
         invitation (r/cursor page-state [:invitation])
-        disable-add (make-reaction #(not (not invitation)))]
+        disable-add (make-reaction #(not (not invitation)))
+        hide? (make-reaction #(boolean @invitation))]
     (load-invitations page-state)
     (fn []
       [:div.mt-3
        [:h2 "Invitations"]
        [:div.row
-        [:div.col-md-6
+        [:div {:class (cond-> "col-md-6"
+                        @hide? (str " d-none d-lg-block"))}
          [invitations-table page-state]
          [:div.mt-2
           [button {:html {:class "btn-primary"
