@@ -20,11 +20,13 @@
   [#:user{:email "john@doe.com"
           :first-name "John"
           :last-name "Doe"
-          :password "Please001!"}
+          :password "Please001!"
+          :roles #{:user}}
    #:user {:email "jane@doe.com"
            :first-name "Jane"
            :last-name "Doe"
-           :password "Please001!"}
+           :password "Please001!"
+           :roles #{:user}}
    #:entity{:name "Personal"
             :user "john@doe.com"}
    #:entity{:name "Business"
