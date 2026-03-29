@@ -392,7 +392,7 @@
 
 (defmethod prepare :invitation
   [attr ctx]
-  (update-in attr [:invitation/user] (find-user ctx)))
+  (update-in attr [:invitation/invited-by] (find-user ctx)))
 
 (defmethod prepare :lot
   [attr ctx]

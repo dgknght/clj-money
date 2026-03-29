@@ -1,5 +1,6 @@
 (ns clj-money.entities.invitations-test
   (:require [clojure.test :refer [is]]
+            [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [clj-money.entity-helpers :refer [assert-created
                                               assert-invalid]]
@@ -20,13 +21,21 @@
   #:invitation{:recipient "new@example.com"
                :status :unsent
                :token "test-token-abc"
-               :user (find-user "admin@example.com")})
+               :expires-at (t/plus (t/instant) (t/days 10))
+               :invited-by (find-user "admin@example.com")})
 
 (dbtest create-an-invitation
   (with-context user-ctx
-    (let [inv (assert-created (attributes) :refs [:invitation/user])]
+    (let [inv (assert-created (attributes)
+                              :refs [:invitation/invited-by]
+                              :ignore-attributes [:invitation/expires-at])]
       (is (= :unsent (:invitation/status inv))
           "The status is a keyword"))))
+
+(dbtest invited-by-is-required
+  (with-context user-ctx
+    (assert-invalid (dissoc (attributes) :invitation/invited-by)
+                    {:invitation/invited-by ["Invited by is required"]})))
 
 (dbtest recipient-is-required
   (with-context user-ctx

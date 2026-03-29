@@ -36,12 +36,12 @@
                      :status :unsent
                      :token "token-first-123"
                      :expires-at (t/plus (t/instant) (t/days 10))
-                     :user "admin@example.com"}
+                     :invited-by "admin@example.com"}
         #:invitation{:recipient "second@example.com"
                      :status :unsent
                      :token "token-second-123"
                      :expires-at (t/plus (t/instant) (t/days 10))
-                     :user "admin@example.com"}))
+                     :invited-by "admin@example.com"}))
 
 (deftest an-admin-can-get-a-list-of-invitations
   (with-context list-ctx
@@ -86,7 +86,7 @@
               "The new invitation is returned with :sent status")
           (is (seq-of-maps-like?
                 [#:invitation{:recipient "new@example.com"}]
-                (entities/select {:invitation/user user}))
+                (entities/select {:invitation/invited-by user}))
               "The invitation is retrievable from the database")
           (is (= 1 (count @mailbox))
               "One email is sent")
@@ -201,7 +201,7 @@
                      :status :sent
                      :token "token-sent-123"
                      :expires-at (t/plus (t/instant) (t/days 10))
-                     :user "admin@example.com"}))
+                     :invited-by "admin@example.com"}))
 
 (deftest a-sent-invitation-cannot-be-deleted
   (with-context sent-inv-ctx
@@ -245,7 +245,7 @@
                      :status :sent
                      :token "test-token-123"
                      :expires-at (t/plus (t/instant) (t/days 10))
-                     :user "admin@example.com"}))
+                     :invited-by "admin@example.com"}))
 
 (deftest anyone-can-find-an-invitation-by-token
   (with-context token-ctx
@@ -281,7 +281,10 @@
           "The new user is returned")
       (is (comparable? #:invitation{:status :accepted}
                        (entities/find-by {:invitation/recipient "invited@example.com"}))
-          "The invitation status is updated to :accepted"))))
+          "The invitation status is updated to :accepted")
+      (is (some? (:invitation/user
+                   (entities/find-by {:invitation/recipient "invited@example.com"})))
+          "The invitation is linked to the new user"))))
 
 (deftest a-recipient-can-decline-an-invitation
   (with-context token-ctx
@@ -304,7 +307,7 @@
                      :status :sent
                      :token "expired-token-123"
                      :expires-at (t/minus (t/instant) (t/days 1))
-                     :user "admin@example.com"}))
+                     :invited-by "admin@example.com"}))
 
 (deftest an-expired-invitation-cannot-be-found-by-token
   (with-context expired-inv-ctx

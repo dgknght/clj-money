@@ -279,8 +279,11 @@
               {:id :status
                :type :keyword}
               {:id :token
-               :type :string}}
-    :refs #{:user}}])
+               :type :string}
+              {:id :expires-at
+               :type :date-time}}
+    :refs #{{:id :invited-by :type :user}
+            :user}}])
 
 (assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")

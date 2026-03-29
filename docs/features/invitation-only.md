@@ -20,7 +20,8 @@
     - sent
     - accepted
     - declined
-  - user (the admin user that created the invitation)
+  - invited-by (the admin user that created the invitation)
+  - user (when the invitation has been accepted, the new user record that was created)
 - On the "Users" page, an administrator can see all invitations for the site.
 - When an invitation is created, an email is sent to the recipient.
 - When the email is sent, the invitation status is changed from :unsent to :sent.

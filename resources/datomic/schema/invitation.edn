@@ -1,7 +1,11 @@
-[{:db/ident :invitation/user
+[{:db/ident :invitation/invited-by
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The admin user that created the invitation"}
+ {:db/ident :invitation/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user created when the invitation was accepted"}
  {:db/ident :invitation/recipient
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one

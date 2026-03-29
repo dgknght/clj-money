@@ -17,7 +17,8 @@
                                     v/email?))
 (s/def :invitation/note (s/nilable string?))
 (s/def :invitation/status #{:unsent :sent :accepted :declined})
-(s/def :invitation/user ::entities/entity-ref)
+(s/def :invitation/invited-by ::entities/entity-ref)
+(s/def :invitation/user (s/nilable ::entities/entity-ref))
 (s/def :invitation/token (s/and string? present?))
 (s/def :invitation/expires-at inst?)
 
@@ -25,10 +26,11 @@
 (s/def ::entities/invitation
   (s/and (s/keys :req [:invitation/recipient
                         :invitation/status
-                        :invitation/user
+                        :invitation/invited-by
                         :invitation/token
                         :invitation/expires-at]
-                  :opt [:invitation/note])
+                  :opt [:invitation/note
+                        :invitation/user])
          recipient-is-not-a-user?))
 
 (defn generate-token []

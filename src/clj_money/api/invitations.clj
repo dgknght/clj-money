@@ -20,7 +20,7 @@
   (-> params
       (select-keys [:invitation/recipient
                     :invitation/note])
-      (assoc :invitation/user authenticated
+      (assoc :invitation/invited-by authenticated
              :invitation/status :unsent
              :invitation/expires-at (expiration-instant))))
 
@@ -93,7 +93,7 @@
   (if-let [inv (find-and-authorize req ::authorization/update)]
     (if (= :unsent (:invitation/status inv))
       (do
-        (mailers/send-invitation (assoc inv :invitation/user authenticated))
+        (mailers/send-invitation (assoc inv :invitation/invited-by authenticated))
         (api/response (-> inv
                           (assoc :invitation/status :sent
                                  :invitation/expires-at (expiration-instant))
@@ -130,7 +130,8 @@
                             :user/roles #{:user})
                      entities/put)]
         (-> inv
-            (assoc :invitation/status :accepted)
+            (assoc :invitation/status :accepted
+                   :invitation/user user)
             entities/put)
         (api/creation-response {:user user
                                 :auth-token (make-token user)})))
