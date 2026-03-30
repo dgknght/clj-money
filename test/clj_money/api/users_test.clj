@@ -23,6 +23,44 @@
           :password "please01"
           :password-confirmation "please01"}])
 
+(def ^:private admin-ctx
+  [#:user{:email "admin@example.com"
+          :first-name "Admin"
+          :last-name "User"
+          :password "please01"
+          :roles #{:admin}}
+   #:user{:email "user1@example.com"
+          :first-name "First"
+          :last-name "User"
+          :password "please01"
+          :roles #{:user}}
+   #:user{:email "user2@example.com"
+          :first-name "Second"
+          :last-name "User"
+          :password "please01"
+          :roles #{:user}}])
+
+(deftest an-admin-can-list-users
+  (with-context admin-ctx
+    (let [response (-> (request :get (path :api :users)
+                                :user (find-user "admin@example.com"))
+                       app
+                       parse-body)]
+      (is (http-success? response))
+      (is (seq-of-maps-like?
+            [#:user{:email "admin@example.com"}
+             #:user{:email "user1@example.com"}
+             #:user{:email "user2@example.com"}]
+            (:parsed-body response))
+          "All users are returned"))))
+
+(deftest a-non-admin-cannot-list-users
+  (with-context admin-ctx
+    (let [response (-> (request :get (path :api :users)
+                                :user (find-user "user1@example.com"))
+                       app)]
+      (is (http-forbidden? response)))))
+
 (deftest a-user-gets-his-own-info
   (with-context context
     (testing "default format"

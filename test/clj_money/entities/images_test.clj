@@ -8,6 +8,7 @@
             [clj-money.images.sql]
             [clj-money.io :refer [read-bytes]]
             [clj-money.entities.images :as imgs]
+            [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-user]]
@@ -15,10 +16,7 @@
             [clj-money.entity-helpers :refer [assert-invalid] :as helpers]))
 
 (def image-context
-  [#:user{:email "john@doe.com"
-          :first-name "John"
-          :last-name "Doe"
-          :password "Please001!"}])
+  [(factory :user, {:user/email "john@doe.com"})])
 
 (defn attributes []
   #:image{:user (find-user "john@doe.com")

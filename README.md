@@ -70,6 +70,13 @@ Create a `env/dev/config.edn` by copying `env/test/config.edn` and changing
 - Remove `:test? true`
 - Change `:site-protocol` to "http"
 
+To suppress outgoing email during local development (logging the message
+instead of sending it), omit `:mailer-enabled?` or set it to `false` in your
+`env/dev/config.edn`. To enable sending, add:
+```edn
+:mailer-enabled? true
+```
+
 ### Running with Docker (Podman)
 
 Create a `.env` file in the project root (see `.env` for an example) with at
@@ -116,8 +123,9 @@ change.
                  :password :config/sql-app-password
                  :dbtype "postgresql"
                  :dbname :config/sql-db-name}
- :mailer-host "localhost"
+ :mailer-enabled? true
  :mailer-from "no-reply@clj-money.com"
+ :mailer-host "localhost"
  :partition-period :year
  :progress {:strategies {:redis {:clj-money.progress/strategy :clj-money.progress/redis
                                  :prefix "docker"

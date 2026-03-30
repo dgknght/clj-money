@@ -4,14 +4,17 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [dgknght.app-lib.inflection :refer [humanize title-case]]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.html :refer [google-g]]
             [clj-money.state :as state :refer [app-state
                                                +busy
                                                -busy]]
+            [clj-money.views.invitations :as invs]
             [clj-money.app :refer [init-client-app]]
+            [clj-money.components :refer [spinner]]
             [clj-money.api.users :as users]))
-
 
 (defn- authenticate
   [page-state]
@@ -55,3 +58,68 @@
 
 (secretary/defroute "/login" []
   (swap! app-state assoc :page #'login))
+
+(defn- load-users
+  [page-state]
+  (+busy)
+  (users/select
+    :callback -busy
+    :on-success #(swap! page-state assoc :users %)))
+
+(defn- user-row
+  [{:user/keys [first-name last-name email roles]}]
+  ^{:key email}
+  [:tr
+   [:td (str first-name " " last-name)]
+   [:td email]
+   [:td (->> roles (map (comp humanize name)) (interpose ", ") (apply str))]])
+
+(defn- users-table
+  [page-state]
+  (let [site-users (r/cursor page-state [:users])]
+    (fn []
+      [:table.table.mt-3
+       [:thead
+        [:tr
+         [:th "Name"]
+         [:th "Email"]
+         [:th "Roles"]]]
+       [:tbody
+        (cond
+          (seq @site-users)
+          (doall (map user-row @site-users))
+
+          @site-users
+          [:tr [:td.text-body-tertiary {:col-span 3} "There are no users"]]
+
+          :else
+          [:tr [:td {:col-span 3} [spinner]]])]])))
+
+(def ^:private tab-types
+  [:users :invitations])
+
+(defn- tab-nav-item-fn
+  [page-state]
+  (fn [id]
+    {:id id
+     :label (title-case (humanize id))
+     :active? (= id (get-in @page-state [:selected-nav]))
+     :nav-fn #(swap! page-state assoc :selected-nav id)}))
+
+(defn- index []
+  (let [page-state (r/atom {:selected-nav :users})
+        selected-nav (r/cursor page-state [:selected-nav])]
+    (load-users page-state)
+    (fn []
+      [:div.mt-3
+       [:h1 "Users"]
+        (bs/nav-tabs (map (tab-nav-item-fn page-state) tab-types))
+       (case @selected-nav
+         :users
+         [users-table page-state]
+
+         :invitations
+         [invs/index])])))
+
+(secretary/defroute "/users" []
+  (swap! app-state assoc :page #'index :active-nav :users))

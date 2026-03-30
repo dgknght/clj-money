@@ -43,7 +43,9 @@
               {:id :password-reset-token
                :type :string}
               {:id :token-expires-at
-               :type :date-time}}}
+               :type :date-time}
+              {:id :roles
+               :type :set}}}
    {:id :identity
     :fields #{{:id :provider
                :type :string}
@@ -268,7 +270,20 @@
               {:id :exchange
                :type :keyword}
               {:id :value
-               :type :decimal}}}])
+               :type :decimal}}}
+   {:id :invitation
+    :fields #{{:id :recipient
+               :type :string}
+              {:id :note
+               :type :string}
+              {:id :status
+               :type :keyword}
+              {:id :token
+               :type :string}
+              {:id :expires-at
+               :type :date-time}}
+    :refs #{{:id :invited-by :type :user}
+            :user}}])
 
 (assert (s/valid? (s/coll-of ::entity) entities)
         "The schema is not valid")

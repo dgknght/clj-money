@@ -9,26 +9,27 @@
 (def expected-html
   (slurp "resources/fixtures/mailers/user_invitation_expected.html"))
 
-(def expected-messages
-  [{:to "jane@doe.com"
-    :from "no-reply@clj-money.com"
-    :subject "Invitation to clj-money"
-    :body [:alternative
-           {:type "text/plain"
-            :content expected-text}
-           {:type "text/html"
-            :content expected-html}]}])
+(def invitation-message
+  {:to "jane@doe.com"
+   :from "no-reply@clj-money.com"
+   :subject "Invitation to clj-money"
+   :body [:alternative
+          {:type "text/plain"
+           :content expected-text}
+          {:type "text/html"
+           :content expected-html}]})
 
 (deftest send-user-invitation-email
-  (let [inviter {:first-name "John"
-                 :last-name "Doe"
-                 :email "john@doe.com"}
-        invitee {:first-name "Jane"
-                 :last-nmae "Doe"
-                 :email "jane@doe.com"}]
+  (let [invitation #:invitation{:recipient "jane@doe.com"
+                                :status :unsent
+                                :token "abc123"
+                                :invited-by #:user{:first-name "John"
+                                                   :last-name "Doe"
+                                                   :email "john@doe.com"}}]
     (with-mail-capture [mailbox]
-      (mailers/invite-user {:from-user inviter
-                            :to-user invitee
-                            :url "http://clj-money.com/users/abcdef"})
-      (is (= expected-messages @mailbox)
-          "The messages are delivered"))))
+      (mailers/send-invitation invitation)
+      (let [[m :as ms] @mailbox]
+        (is (= 1 (count ms))
+            "One message is delivered")
+        (is (= invitation-message m)
+            "The invitation message is delivered")))))

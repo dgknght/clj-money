@@ -659,4 +659,4 @@
             [budget-form page-state]]])]])))
 
 (secretary/defroute "/budgets" []
-  (swap! app-state assoc :page #'index))
+  (swap! app-state assoc :page #'index :active-nav :budgets))

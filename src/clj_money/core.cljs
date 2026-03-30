@@ -25,6 +25,7 @@
             [clj-money.views.accounts]
             [clj-money.views.transactions]
             [clj-money.views.users]
+            [clj-money.views.invitations]
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.reports]
@@ -63,8 +64,6 @@
    [:p "The page you requested does not exist."]
    [:a.btn.btn-secondary {:href "/"} "Return home"]])
 
-(secretary/defroute "/*path" []
-  (swap! app-state assoc :page #'not-found))
 
 (def authenticated-nav-items
   [{:id :commodities}
@@ -76,6 +75,9 @@
     :tool-tip "Click here to view reports"}
    {:id :scheduled
     :tool-tip "Click here to manage schedule transactions"}
+   {:id :users
+    :tool-tip "Click here to manage users"
+    :required-role :admin}
    {:id :logout
     :tool-tip "Click here to sign out of the system"
     :path "#"
@@ -98,21 +100,21 @@
                   (humanize id)
                   ".")})
 
-(defn- available?
-  [entity]
-  (fn [nav-item]
-    (or (:path nav-item)
-        (:nav-fn nav-item)
-        entity)))
+(defn- authorized?
+  [{:user/keys [roles]}]
+  (fn [{:keys [required-role]}]
+    (or (nil? required-role)
+        ((or roles {}) required-role))))
 
 (defn- nav-items
   [active-nav current-user current-entity]
-  (->> (if current-user
-           authenticated-nav-items
-           unauthenticated-nav-items)
-         (filter (available? current-entity))
-         (map #(merge (default-nav-item % active-nav)
-                   %))))
+  (let [entity-filter (if current-entity
+                        (constantly true)
+                        (some-fn :path :nav-fn))]
+    (->> authenticated-nav-items
+         (filter (every-pred entity-filter
+                             (authorized? current-user)))
+         (map #(merge (default-nav-item % active-nav) %)))))
 
 (defn navbar
   [items entity-name {:keys [profile-photo-url]}]
@@ -124,8 +126,8 @@
             :width 24
             :height 24}]]
     (when entity-name
-      [:a.navbar-brand {:href "#entity-selection"
-                        :data-bs-toggle "offcanvas"
+      [:a.navbar-brand {:data-bs-toggle "offcanvas"
+                        :data-bs-target "#entity-selection"
                         :role :button
                         :aria-controls "entity-selection"}
        entity-name])
@@ -211,7 +213,7 @@
                          ^{:key (str "entity-selection-" (:id entity))}
                          [:button.list-group-item
                           {:on-click #(swap! app-state assoc :current-entity entity)
-                           :data-bs-toggle :offcanvas
+                           :data-bs-dismiss :offcanvas
                            :class (when (= (:id entity)
                                            (:id current))
                                     "active")}
@@ -220,11 +222,11 @@
           [:ul.nav.nav-pills.nav-fill.flex-md-column
            [:li.nav-item
             [:a.nav-link {:href "/entities"
-                          :data-bs-toggle :offcanvas}
+                          :data-bs-dismiss :offcanvas}
              "Manage Entities"]]
            [:li.nav-item
             [:a.nav-link {:href "/imports"
-                          :data-bs-toggle :offcanvas}
+                          :data-bs-dismiss :offcanvas}
              "Manage Imports"]]]]]]])))
 
 (defn- current-page []
@@ -265,12 +267,17 @@
 (def ^:private server-path-prefixes
   ["/api/" "/oapi/" "/auth/" "/app/"])
 
+(defn- dispatch-or-not-found
+  [path]
+  (if (secretary/locate-route path)
+    (secretary/dispatch! path)
+    (swap! app-state assoc :page #'not-found)))
+
 (defn init! []
   (accountant/configure-navigation!
-   {:nav-handler #(secretary/dispatch! %)
+   {:nav-handler dispatch-or-not-found
     :path-exists? (fn [path]
-                    (and (not-any? #(string/starts-with? path %) server-path-prefixes)
-                         (secretary/locate-route path)))})
+                    (not-any? #(string/starts-with? path %) server-path-prefixes))})
   (mount-root)
   (sign-in-from-cookie)
   (accountant/dispatch-current!))
