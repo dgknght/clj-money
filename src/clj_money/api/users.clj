@@ -13,6 +13,17 @@
     (api/response (entities/select (util/entity-type {} :user)))
     api/forbidden))
 
+(defn- destroy
+  [{:keys [authenticated params]}]
+  (if (contains? (:user/roles authenticated) :admin)
+    (if-let [user (entities/find-by
+                    (util/entity-type (select-keys params [:id]) :user))]
+      (do
+        (entities/delete user)
+        (api/response))
+      api/not-found)
+    api/forbidden))
+
 (defn- find
   [{:keys [authenticated]}]
   (api/response authenticated))
@@ -40,7 +51,8 @@
 (def routes
   [["users"
     ["" {:get {:handler index}}]
-    ["/me" {:get {:handler find}}]]])
+    ["/me" {:get {:handler find}}]
+    ["/:id" {:delete {:handler destroy}}]]])
 
 (def unauthenticated-routes
   ["users/authenticate" {:post {:handler authenticate}}])

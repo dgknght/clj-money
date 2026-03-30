@@ -259,12 +259,15 @@ Playwright tests require a running local server. Start the server and client
 as described above, then:
 
 ```bash
-E2E_EMAIL=<your-email> E2E_PASSWORD=<your-password> npx playwright test
+E2E_ADMIN_EMAIL=<admin-email> E2E_ADMIN_PASSWORD=<admin-password> npx playwright test
 ```
+
+The test suite creates and tears down its own isolated test user using the
+provided admin credentials. No pre-existing test user is required.
 
 To run with the Playwright UI:
 ```bash
-E2E_EMAIL=<your-email> E2E_PASSWORD=<your-password> npx playwright test --ui
+E2E_ADMIN_EMAIL=<admin-email> E2E_ADMIN_PASSWORD=<admin-password> npx playwright test --ui
 ```
 
 To target a specific browser (default is Chromium):
