@@ -10,7 +10,7 @@
                                      icon]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.util :as util :refer [id=]]
-            [clj-money.app :refer [fetch-entities]]
+            [clj-money.app :refer [init-client-app]]
             [clj-money.api.invitations :as invitations]))
 
 (defn- load-invitations
@@ -198,7 +198,7 @@
                   (swap! app-state assoc
                          :current-user user
                          :auth-token auth-token)
-                  (fetch-entities))))
+                  (init-client-app))))
 
 (defn- acceptance-form
   [page-state]
