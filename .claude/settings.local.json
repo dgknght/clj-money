@@ -35,7 +35,10 @@
       "Bash(podman-compose:*)",
       "Bash(podman images:*)",
       "Bash(podman inspect:*)",
-      "Bash(lein check:*)"
+      "Bash(lein check:*)",
+      "Bash(E2E_ADMIN_EMAIL=dougbknight@gmail.com E2E_ADMIN_PASSWORD='Please001!' npx playwright test e2e/commodities.spec.js --reporter=line 2>&1)",
+      "Bash(curl -s -X POST http://localhost:3000/oapi/users/authenticate -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"dougbknight@gmail.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Please001!\"\"\"\"}')",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": [],

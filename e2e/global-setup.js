@@ -3,6 +3,7 @@ import {
   TEST_USER_PASSWORD,
   TEST_USER_FIRST_NAME,
   TEST_USER_LAST_NAME,
+  TEST_ENTITY_NAME,
 } from './constants.js';
 
 const JSON_HEADERS = {
@@ -81,7 +82,7 @@ export default async function globalSetup(config) {
   );
 
   // Accept the invitation to create the test user
-  await apiPost(
+  const { authToken: testUserToken } = await apiPost(
     baseURL,
     `/oapi/invitations/${invitation.token}/accept`,
     {
@@ -90,5 +91,13 @@ export default async function globalSetup(config) {
       lastName: TEST_USER_LAST_NAME,
       password: TEST_USER_PASSWORD,
     }
+  );
+
+  // Create a test entity for the test user
+  await apiPost(
+    baseURL,
+    '/api/entities',
+    { _type: 'entity', name: TEST_ENTITY_NAME },
+    testUserToken
   );
 }
