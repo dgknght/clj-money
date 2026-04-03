@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [clj-http.core :as http]
-            [cheshire.core :as json]
+            [jsonista.core :as json]
             [buddy.sign.jwt :as jwt]
             [ring.mock.request :as req]
             [dgknght.app-lib.core :as app-lib]
@@ -24,7 +24,7 @@
   [payload]
   (ByteArrayInputStream.
     (.getBytes
-      (json/generate-string payload))))
+      (json/write-value-as-string payload))))
 
 (defn- json-response
   [payload]
