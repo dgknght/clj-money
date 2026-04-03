@@ -54,9 +54,11 @@
     [:span "Sign in with Google"]]])
 
 (secretary/defroute "/" []
-  (swap! app-state assoc :page (if @current-user
-                                 #'dashboard
-                                 #'home-page)))
+  (swap! app-state assoc :page
+         (fn []
+           (if @current-user
+             [dashboard]
+             [home-page]))))
 
 (defn- not-found []
   [:div.mt-3
