@@ -7,7 +7,6 @@
                                          format-decimal]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.test]
-            [clj-money.json]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.entities :as entities]

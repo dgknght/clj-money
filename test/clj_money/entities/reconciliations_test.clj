@@ -5,7 +5,6 @@
             [dgknght.app-lib.test]
             [clj-money.util :as util :refer [id=
                                              ->entity-ref]]
-            [clj-money.json]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [dbtest]]
             [clj-money.accounts :as acts]

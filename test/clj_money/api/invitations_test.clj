@@ -4,7 +4,6 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test :refer [with-mail-capture]]
-            [clj-money.json]
             [clj-money.entities :as entities]
             [clj-money.entities.ref]
             [clj-money.db.ref]

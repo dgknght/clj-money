@@ -2,8 +2,8 @@
   (:require [ring.util.response :as res]
             [buddy.sign.jwt :as jwt]
             [clj-http.client :as http]
-            [cheshire.core :as json]
             [clj-money.config :refer [env]]
+            [jsonista.core :as json]
             [clj-money.entities.identities :as idents]))
 
 (defn make-token
@@ -14,7 +14,8 @@
   [method uri options]
   (let [req (merge options {:accept :json})
         res (method uri req)]
-    (json/parse-string (:body res) true)))
+    (json/read-value (:body res)
+                     (json/object-mapper {:decode-key-fn true}))))
 
 (defn- request-user-info
   [access-token]

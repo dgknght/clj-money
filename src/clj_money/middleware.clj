@@ -8,6 +8,8 @@
                                          wrap-format-request
                                          wrap-format-response]]
             [muuntaja.core :as muuntaja]
+            [clj-money.dates :refer [serialize-local-date
+                                     serialize-local-date-time]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.inflection :refer [singular]]
@@ -187,7 +189,15 @@
       (assoc-in [:formats "application/json" :encoder-opts]
                 {:encoders {clj_money.entities.CompositeID
                             (fn [x ^JsonGenerator gen]
-                              (.writeString gen (str x)))}})))
+                              (.writeString gen (str x)))
+                            java.time.LocalDate
+                            (fn [date ^JsonGenerator gen]
+                              (.writeString gen (serialize-local-date date)))
+                            java.time.LocalDateTime
+                            (fn [date-time ^JsonGenerator gen]
+                              (.writeString gen
+                                            (serialize-local-date-time
+                                              date-time)))}})))
 
 (def ^:private muunstance
   (muuntaja/create muuntoptions))

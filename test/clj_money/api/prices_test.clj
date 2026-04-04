@@ -7,7 +7,6 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
             [java-time.api :as t]
-            [clj-money.json]
             [clj-money.util :as util]
             [clj-money.factories.user-factory]
             [clj-money.dates :as dates :refer [with-fixed-time]]

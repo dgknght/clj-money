@@ -217,7 +217,6 @@
               :high-watermark 97
               :ns-exclude-regex [#"clj-money.api"
                                  #"clj-money.db.sql.tasks"
-                                 #"clj-money.json"
                                  #"clj-money.repl"
                                  #"clj-money.tasks"]}
   :eftest {:multithread? :namespaces

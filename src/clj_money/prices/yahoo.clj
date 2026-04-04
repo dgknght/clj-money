@@ -4,6 +4,7 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clj-http.client :as http]
+            [jsonista.core :as json]
             [java-time.api :as t]
             [clj-money.config :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
@@ -25,11 +26,13 @@
   [symbols]
   (let [url (get-quotes-uri symbols)
         _ (log/infof "get-quotes %s" url)
-        res (http/get url {:as :json
+        res (http/get url {:as :string
                            :headers {:x-rapidapi-host rapidapi-host
-                                     :x-rapidapi-key (env :yahoo-api-key)}})]
+                                     :x-rapidapi-key (env :yahoo-api-key)}})
+        body (json/read-value (:body res)
+                              (json/object-mapper {:decode-key-fn keyword}))]
     (log/debugf "get-quotes %s: %s" url (prn-str res))
-    (->> (get-in res [:body :quoteResponse :result])
+    (->> (get-in body [:quoteResponse :result])
          (map (fn [m]
                 (-> m ; There are like 1,000 other conversions we could do, but this is all we need right now
                     (update-in [:regularMarketTime] (comp t/instant

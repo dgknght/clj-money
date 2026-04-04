@@ -4,8 +4,7 @@
             [clojure.walk :refer [prewalk
                                   postwalk]]
             [clojure.spec.alpha :as s]
-            [cheshire.core :as json]
-            [cheshire.generate :refer [add-encoder]]
+            [jsonista.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
             [next.jdbc.date-time]
@@ -54,11 +53,6 @@
     (.write "#clj-money/qid \"")
     (.write (str this))
     (.write "\"")))
-
-(add-encoder
-  QualifiedID
-  (fn [id gen]
-    (.writeString gen (str id))))
 
 (defn unserialize-qid
   [s]
@@ -122,23 +116,25 @@
 
 (next.jdbc.date-time/read-as-local)
 
+(def ^:private jsonb-mapper
+  (json/object-mapper
+    {:decode-key-fn (fn [k]
+                      (if (re-matches #"\d+" k)
+                        (Integer/parseInt k)
+                        (keyword k)))}))
+
 (defn- map->pg-object
   [m]
   (doto (PGobject.)
     (.setType "jsonb")
-    (.setValue (json/generate-string m))))
+    (.setValue (json/write-value-as-string m))))
 
 (defn- <-pg-object
   [^PGobject obj]
   (case (.getType obj)
 
     ("jsonb" "json")
-    (json/parse-string (.getValue obj)
-                       (fn [k]
-                         ; Account use account ids as keys for the allocations
-                         (if (re-matches #"\d+" k)
-                           (Integer/parseInt k)
-                           (keyword k))))
+    (json/read-value (.getValue obj) jsonb-mapper)
 
     (.getValue obj)))
 

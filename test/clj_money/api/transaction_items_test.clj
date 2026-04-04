@@ -5,7 +5,6 @@
             [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
-            [clj-money.json]
             [clj-money.util :as util]
             [clj-money.api.test-helper :refer [parse-body
                                                request
