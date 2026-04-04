@@ -4,7 +4,6 @@
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
-            [clj-money.json]
             [clj-money.util :as util]
             [clj-money.entities.ref]
             [clj-money.db.ref]

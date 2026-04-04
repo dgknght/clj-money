@@ -8,7 +8,6 @@
             [clojure.walk :refer [postwalk]]
             [clojure.tools.logging :as log]
             [dgknght.app-lib.validation :as v]
-            [clj-money.json] ; to ensure encoders are registered
             [clj-money.util :as util :refer [entity=]]
             [clj-money.db :as db]))
 
