@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
             [clj-http.client :as http]
+            [jsonista.core :as json]
             [java-time.api :as t]
             [clj-money.config :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
@@ -77,11 +78,11 @@
   [sym]
   (let [url (get-quote-uri sym)
         _ (log/infof "get-quote %s" url)
-        res (http/get url {:as :json-string-keys
+        res (http/get url {:as :string
                            :headers {:x-rapidapi-host rapidapi-host
                                      :x-rapidapi-key (env :alpha-vantage-api-key)}})]
     (log/debugf "get-response response %s: %s" url (prn-str res))
-    (-> (get-in res [:body])
+    (-> (json/read-value (:body res))
         extract-daily-currency-maps
         adj-keys
         (update-in [:meta-data :last-refreshed] (partial t/local-date-time date-time-formatter)))))

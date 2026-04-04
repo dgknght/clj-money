@@ -4,7 +4,7 @@
             [buddy.sign.jwt :as jwt]
             [clj-http.client :as http]
             [clj-money.config :refer [env]]
-            [cheshire.core :as json]
+            [jsonista.core :as json]
             [dgknght.app-lib.core :refer [uuid]]
             [lambdaisland.uri :refer [uri map->query-string]]
             [clj-money.entities.identities :as idents]))
@@ -38,7 +38,8 @@
   [method uri options]
   (let [req (merge options {:accept :json})
         res (method uri req)]
-    (json/parse-string (:body res) true)))
+    (json/read-value (:body res)
+                     (json/object-mapper {:decode-key-fn true}))))
 
 (defn- request-access-token
   [code]

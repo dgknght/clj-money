@@ -7,7 +7,6 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.formats :as fmt]
-            [clj-money.json]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.ref]

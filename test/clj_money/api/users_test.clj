@@ -4,7 +4,6 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
-            [clj-money.json]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
