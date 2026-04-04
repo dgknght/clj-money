@@ -17,7 +17,6 @@
                                                -busy
                                                current-user
                                                current-entity]]
-            [clj-money.html :refer [google-g]]
             [clj-money.util :as util]
             [clj-money.views.entities]
             [clj-money.views.imports]
@@ -30,7 +29,7 @@
             [clj-money.views.receipts]
             [clj-money.views.reports]
             [clj-money.views.scheduled]
-            [clj-money.views.dashboard :refer [dashboard]]
+            [clj-money.views.dashboard :as dashboard]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
             [clj-money.app :refer [fetch-entities]]
@@ -38,27 +37,6 @@
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
 (swap! api/defaults assoc :extract-body :before)
-
-(defn home-page []
-  [:div.jumbotron.mt-3
-   [:div.d-flex
-    [:img {:src "/images/logo.svg"
-           :alt "abacus logo"
-           :width 64
-           :height 64}]
-    [:h1.display-5.ms-3 "clj-money"]]
-   [:p "This is a double-entry accounting application that aims to be available anywhere."]
-   [:a#login.btn.btn-secondary {:href "/auth/google/start"
-                            :title "Click here to sign in with a Google account"}
-    (google-g)
-    [:span "Sign in with Google"]]])
-
-(secretary/defroute "/" []
-  (swap! app-state assoc :page
-         (fn []
-           (if @current-user
-             [dashboard]
-             [home-page]))))
 
 (defn- not-found []
   [:div.mt-3
@@ -245,7 +223,7 @@
 (defn mount-root []
   (let [mounted? (r/cursor app-state [:mounted?])]
     (when-not @mounted?
-      (swap! app-state assoc :mounted? true :page #'home-page)
+      (swap! app-state assoc :mounted? true :page #'dashboard/index)
       (render [current-page] (.getElementById js/document "app")))))
 
 
