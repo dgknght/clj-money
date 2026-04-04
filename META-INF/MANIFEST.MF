@@ -1,9 +1,0 @@
-Manifest-Version: 1.0
-Leiningen-Project-GroupId: metosin
-Built-By: runner
-Leiningen-Project-Version: 0.6.11
-Leiningen-Project-ArtifactId: muuntaja
-Created-By: Leiningen 2.9.4
-Build-Jdk: 1.8.0_432
-Main-Class: clojure.main
-
