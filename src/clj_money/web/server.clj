@@ -9,6 +9,9 @@
             [ring.middleware.defaults :refer [wrap-defaults
                                               site-defaults
                                               api-defaults]]
+            [ring.middleware.oauth2 :as oauth2]
+            [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.session :refer [wrap-session]]
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.session.cookie :refer [cookie-store]]
@@ -114,14 +117,12 @@
   (fn [{:keys [path-params body-params] :as req}]
     (handler (update-in req [:params] merge path-params body-params))))
 
+(def ^:private session-store (cookie-store))
+
 (defn- wrap-site []
-  (let [c-store (cookie-store)]
-    [wrap-defaults (update-in site-defaults
-                              [:session]
-                              merge
-                              {:store c-store
-                               :cookie-attrs {:same-site :lax
-                                              :http-only true}})]))
+  [wrap-defaults (-> site-defaults
+                     (dissoc :session)
+                     (update :security dissoc :anti-forgery))])
 
 (defn- wrap-decimals
   [handler]
@@ -131,69 +132,83 @@
         (update-in [:body] d/wrap-decimals))))
 
 
+(defn- maybe-wrap-oauth2
+  [handler]
+  (if (env :google-client-id)
+    (oauth2/wrap-oauth2 handler (web-auth/oauth2-profiles))
+    handler))
+
 (def app
-  (ring/ring-handler
-    (ring/router ["/" {:middleware [otel/wrap-otel]}
-                  apps/routes
-                  ["auth/" {:middleware [:site
-                                         wrap-merge-params
-                                         wrap-request-logging]}
-                   web-auth/routes]
-                  ["app/" {:middleware [:site
-                                        :wrap-format
-                                        wrap-merge-params
-                                        wrap-parse-id-params
-                                        :authentication
-                                        wrap-request-logging]}
-                   images/routes]
-                  ["oapi/" {:middleware [:api
-                                         :wrap-format
-                                         wrap-decimals
-                                         wrap-merge-params
-                                         wrap-parse-id-params
-                                         wrap-exceptions
-                                         wrap-request-logging]}
-                   users-api/unauthenticated-routes
-                   invitations-api/unauthenticated-routes]
-                  ["api/" {:middleware [:api
-                                        :wrap-format
-                                        wrap-decimals
-                                        wrap-merge-params
-                                        wrap-parse-id-params
-                                        :authentication
-                                        wrap-exceptions
-                                        wrap-request-logging]}
-                   users-api/routes
-                   entities-api/routes
-                   commodities-api/routes
-                   accounts-api/routes
-                   transactions-api/routes
-                   att-api/routes
-                   budgets-api/routes
-                   budget-items-api/routes
-                   imports-api/routes
-                   prices-api/routes
-                   lots-api/routes
-                   lot-notes-api/routes
-                   recs-api/routes
-                   reports-api/routes
-                   trading-api/routes
-                   transaction-items-api/routes
-                   sched-trans-api/routes
-                   invitations-api/routes]]
+  (-> (ring/ring-handler
+        (ring/router ["/" {:middleware [otel/wrap-otel]}
+                      apps/routes
+                      ["auth/google/done"
+                       {:middleware [:site
+                                     wrap-merge-params
+                                     wrap-request-logging]
+                        :get {:handler web-auth/google-redirect-handler}}]
+                      ["app/" {:middleware [:site
+                                            :wrap-format
+                                            wrap-merge-params
+                                            wrap-parse-id-params
+                                            :authentication
+                                            wrap-request-logging]}
+                       images/routes]
+                      ["oapi/" {:middleware [:api
+                                             :wrap-format
+                                             wrap-decimals
+                                             wrap-merge-params
+                                             wrap-parse-id-params
+                                             wrap-exceptions
+                                             wrap-request-logging]}
+                       users-api/unauthenticated-routes
+                       invitations-api/unauthenticated-routes]
+                      ["api/" {:middleware [:api
+                                            :wrap-format
+                                            wrap-decimals
+                                            wrap-merge-params
+                                            wrap-parse-id-params
+                                            :authentication
+                                            wrap-exceptions
+                                            wrap-request-logging]}
+                       users-api/routes
+                       entities-api/routes
+                       commodities-api/routes
+                       accounts-api/routes
+                       transactions-api/routes
+                       att-api/routes
+                       budgets-api/routes
+                       budget-items-api/routes
+                       imports-api/routes
+                       prices-api/routes
+                       lots-api/routes
+                       lot-notes-api/routes
+                       recs-api/routes
+                       reports-api/routes
+                       trading-api/routes
+                       transaction-items-api/routes
+                       sched-trans-api/routes
+                       invitations-api/routes]]
                  {:conflicts (fn [conflicts]
-                               (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))
+                               (log/warnf "The application has conflicting routes: %s"
+                                          (format-exception :path-conflicts nil conflicts)))
                   ::middleware/registry {:site (wrap-site)
-                                         :api [wrap-defaults (-> api-defaults
-                                                                 (assoc-in [:params :multipart] true)
-                                                                 (assoc-in [:security :anti-forgery] false))]
+                                         :api [wrap-defaults
+                                               (-> api-defaults
+                                                   (assoc-in [:params :multipart] true)
+                                                   (assoc-in [:security :anti-forgery] false))]
                                          :wrap-format wrap-format
                                          :authentication [api/wrap-authentication
                                                           {:authenticate-fn find-user-by-auth-token}]}})
-    (ring/routes
-      (ring/create-resource-handler {:path "/"})
-      apps/spa-fallback
-      (ring/create-default-handler))))
+        (ring/routes
+          (ring/create-resource-handler {:path "/"})
+          apps/spa-fallback
+          (ring/create-default-handler)))
+      maybe-wrap-oauth2
+      (wrap-session {:store session-store
+                     :cookie-attrs {:same-site :lax
+                                    :http-only true}})
+      wrap-params))
 
 (defn print-routes []
   (doseq [[method path handler]
