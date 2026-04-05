@@ -34,7 +34,8 @@
           (res/set-cookie :auth-token auth-token {:path "/"})))
     (res/redirect "/?error=oauth_failed")))
 
-(def oauth2-profiles
+(defn oauth2-profiles
+  []
   {:google
    {:authorize-uri    "https://accounts.google.com/o/oauth2/v2/auth"
     :access-token-uri "https://www.googleapis.com/oauth2/v4/token"

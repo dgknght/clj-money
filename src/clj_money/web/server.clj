@@ -132,6 +132,12 @@
         (update-in [:body] d/wrap-decimals))))
 
 
+(defn- maybe-wrap-oauth2
+  [handler]
+  (if (env :google-client-id)
+    (oauth2/wrap-oauth2 handler (web-auth/oauth2-profiles))
+    handler))
+
 (def app
   (-> (ring/ring-handler
         (ring/router ["/" {:middleware [otel/wrap-otel]}
@@ -184,11 +190,13 @@
                        sched-trans-api/routes
                        invitations-api/routes]]
                  {:conflicts (fn [conflicts]
-                               (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))
+                               (log/warnf "The application has conflicting routes: %s"
+                                          (format-exception :path-conflicts nil conflicts)))
                   ::middleware/registry {:site (wrap-site)
-                                         :api [wrap-defaults (-> api-defaults
-                                                                 (assoc-in [:params :multipart] true)
-                                                                 (assoc-in [:security :anti-forgery] false))]
+                                         :api [wrap-defaults
+                                               (-> api-defaults
+                                                   (assoc-in [:params :multipart] true)
+                                                   (assoc-in [:security :anti-forgery] false))]
                                          :wrap-format wrap-format
                                          :authentication [api/wrap-authentication
                                                           {:authenticate-fn find-user-by-auth-token}]}})
@@ -196,7 +204,7 @@
           (ring/create-resource-handler {:path "/"})
           apps/spa-fallback
           (ring/create-default-handler)))
-      (oauth2/wrap-oauth2 web-auth/oauth2-profiles)
+      maybe-wrap-oauth2
       (wrap-session {:store session-store
                      :cookie-attrs {:same-site :lax
                                     :http-only true}})
