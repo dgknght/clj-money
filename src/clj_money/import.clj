@@ -120,10 +120,10 @@
   (update-in context
              [:last-trx-dates]
              merge
-             (into {}
-                   (map #(vector (-> % :transaction-item/account :id)
+             (->> items
+                  (map #(vector (-> % :transaction-item/account :id)
                                  transaction-date))
-                   items)))
+                  (into {}))))
 
 (defmulti ^:private import-transaction
   (fn [_ transaction]
