@@ -215,18 +215,18 @@
   (with-context gnucash-context
     (let [og-put-many entities/put-many]
       (with-redefs [entities/put-many (fn [& args]
-                                      (if (and (= 2 (count args))
-                                               (util/entity-type? (first (second args))
-                                                                 :commodity))
-                                        (throw (ex-info "Induced error" {:one 1}))
-                                        (apply og-put-many args)))]
+                                        (if (and (= 2 (count args))
+                                                 (util/entity-type? (first (second args))
+                                                                    :commodity))
+                                          (throw (ex-info "Induced error" {:one 1}))
+                                          (apply og-put-many args)))]
         (let [imp (find-import "Personal")
               records (atom [])
               out-chan (a/chan)
               _ (a/go-loop [x (a/<! out-chan)]
-                  (when x
-                    (swap! records conj x)
-                    (recur (a/<! out-chan))))
+                           (when x
+                             (swap! records conj x)
+                             (recur (a/<! out-chan))))
               {:keys [wait-chan]} (import-data imp :out-chan out-chan)
               [result] (a/alts!! [wait-chan (a/timeout 5000)])]
           (is (seq-of-maps-like? [{:notification/severity :fatal
@@ -241,8 +241,8 @@
                                    :notification/message "An error occurred while trying to save record of type \"commodity\": Induced error"
                                    :notification/data {:record {:import/record-type :commodity}}}
                                   {:import/record-type :termination-signal}]
-                                   @records)
-                "The error notification is sent to the out-chan"))))))
+                                 @records)
+              "The error notification is sent to the out-chan"))))))
 
 (def ^:private edn-context
   (conj base-context
