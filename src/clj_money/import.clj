@@ -775,8 +775,8 @@
                              :entity entity})
                           a/<!!)]
           (entities/put-many (vals (:accounts result)))
-          (prop/propagate-all (:entity result) {:progress-chan out-chan})
           (when-not (::abend? result)
+            (prop/propagate-all (:entity result) {:progress-chan out-chan})
             (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))
             (let [t (a/timeout (* 30 60 1000))
