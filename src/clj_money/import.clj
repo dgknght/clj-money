@@ -774,7 +774,8 @@
                              :sorted-trxs (sorted-map)
                              :entity entity})
                           a/<!!)]
-          (entities/put-many (vals (:accounts result)))
+          (when (seq (:accounts result))
+            (entities/put-many (vals (:accounts result))))
           (when-not (::abend? result)
             (prop/propagate-all (:entity result) {:progress-chan out-chan})
             (log/debugf "[import] data imported, start reconciliations for %s"
@@ -789,8 +790,7 @@
                             "[import] finished processing reconciliations for %s")
                           (:import/entity-name import-spec))))
           (when out-chan
-            (a/go
-              (a/>! out-chan {:import/record-type :termination-signal})))
+            (a/>! out-chan {:import/record-type :termination-signal}))
           (a/>! wait-chan (select-keys result [:notifications :entity])))
         (finally
           (log/infof "[import] Import process has ended for \"%s\"."
