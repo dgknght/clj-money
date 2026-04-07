@@ -14,10 +14,9 @@
 
 (defn- email-is-unique?
   [{:keys [id] :as user}]
-  (-> (select-keys user [:user/email])
-      (assoc-if :id (when id [:!= id]))
-      entities/find-by
-      nil?))
+  (zero? (entities/count
+           (-> (select-keys user [:user/email])
+               (assoc-if :id (when id [:!= id]))))))
 (v/reg-spec email-is-unique? {:message "%s is already in use"
                               :path [:user/email]})
 

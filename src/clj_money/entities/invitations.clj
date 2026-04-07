@@ -8,7 +8,7 @@
 (defn- recipient-is-not-a-user?
   [{:keys [id] :invitation/keys [recipient]}]
   (or id
-      (nil? (entities/find-by {:user/email recipient}))))
+      (zero? (entities/count {:user/email recipient}))))
 (v/reg-spec recipient-is-not-a-user? {:message "%s is already in use"
                                       :path [:invitation/recipient]})
 

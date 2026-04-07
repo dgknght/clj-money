@@ -7,7 +7,7 @@
 
 (defn- image-is-unique?
   [img]
-  (= 0 (count (entities/select (select-keys img [:image/uuid :image/user])))))
+  (zero? (entities/count (select-keys img [:image/uuid :image/user]))))
 (v/reg-spec image-is-unique? {:message "The image has already been added"
                                   :path [:image/uuid]})
 

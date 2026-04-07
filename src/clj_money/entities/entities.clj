@@ -9,11 +9,10 @@
 
 (defn- name-is-unique?
   [{:as entity :keys [id]}]
-  (-> entity
-      (select-keys [:entity/name :entity/user])
-      (assoc-if :id (when id [:!= id]))
-      entities/find-by
-      nil?))
+  (zero? (entities/count
+           (-> entity
+               (select-keys [:entity/name :entity/user])
+               (assoc-if :id (when id [:!= id]))))))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:entity/name]})
 
