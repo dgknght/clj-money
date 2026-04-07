@@ -146,18 +146,21 @@
                              items))))
          trxs)))
 
-(defn- realize-accounts
-  [trx]
-  (first (mass-realize-accounts [trx])))
+(defn- realize-all
+  [sched-trans]
+  (->> sched-trans
+       mass-realize-accounts
+       (mapcat sched-trans/realize)
+       put-many
+       (filter (util/entity-type? :transaction))
+       (sort-by :transaction/transaction-date t/before?)
+       api/creation-response))
 
 (defn- realize
   [req]
-  (or (some-> (find-and-authorize req ::sched-trans-auth/realize)
-              realize-accounts
-              sched-trans/realize
-              put-many
-              api/creation-response)
-      api/not-found))
+  (if-let [sched-tran (find-and-authorize req ::sched-trans-auth/realize)]
+    (realize-all [sched-tran])
+    api/not-found))
 
 (defn- fetch-entity
   [{:keys [params authenticated]}]
@@ -181,12 +184,7 @@
   (if-let [ready (enabled req)]
     (->> ready
          (filter (allow? ::sched-trans-auth/realize authenticated))
-         mass-realize-accounts
-         (mapcat sched-trans/realize)
-         put-many
-         (filter (util/entity-type? :transaction))
-         (sort-by :transaction/transaction-date t/before?)
-         api/creation-response)
+         realize-all)
     api/not-found))
 
 (defn- add-next-occurrence
