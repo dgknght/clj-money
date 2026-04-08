@@ -59,13 +59,14 @@
            (-> m util/entity-type name)))
 
 (defn validate
-  [entity & {:as opts}]
-  (when-let [data (s/explain-data (validation-key entity)
-                                  entity)]
-    (log/debugf "[validation] Invalid entity %s" (with-out-str (pprint data)))
-    (throw (ex-info "Validation failed"
-                    {::v/errors (v/extract-errors data opts)})))
-  entity)
+  ([entity] (validate entity {}))
+  ([entity {:as opts :keys [suspend-validation]}]
+   (when-not (contains? suspend-validation (util/entity-type entity))
+     (when-let [data (s/explain-data (validation-key entity) entity)]
+       (log/debugf "[validation] Invalid entity %s" (with-out-str (pprint data)))
+       (throw (ex-info "Validation failed"
+                       {::v/errors (v/extract-errors data opts)}))))
+   entity))
 
 (defn before
   ([entity]
