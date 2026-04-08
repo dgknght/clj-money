@@ -16,7 +16,6 @@
             [next.jdbc.date-time]
             [next.jdbc.result-set :as result-set]
             [stowaway.criteria :as crt]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [temp-id?
                                              live-id?]]
             [clj-money.entities :as entities]
@@ -98,16 +97,6 @@
     (util/reconstruct rules entities)
     entities))
 
-; post-read coercions
-(def ^:private coercions
-  {:transaction-item/action keyword})
-
-(defn- apply-coercions
-  [x]
-  (reduce (fn [m [k f]]
-            (update-in-if m [k] f))
-          x
-          coercions))
 
 (defmulti post-select
   (fn [_opts ms]
@@ -369,7 +358,7 @@
   ([options]
    (comp #(types/generalize % (assoc options :sql-ref-keys sql-ref-keys))
          after-read
-         apply-coercions
+         (partial types/apply-coercions types/read-coercions)
          (refine-qualifiers options))))
 
 ; To save an entity, we need to convert from this:
@@ -400,6 +389,8 @@
                       (map (comp #(update-in %
                                              [1]
                                              (comp before-save
+                                                   (partial types/apply-coercions
+                                                            types/save-coercions)
                                                    sqlize))
                                  wrap-oper))
                       (reduce (execute-and-aggregate tx)

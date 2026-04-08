@@ -5,14 +5,17 @@
                                   postwalk]]
             [clojure.spec.alpha :as s]
             [jsonista.core :as json]
+            [java-time.api :as t]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
             [next.jdbc.date-time]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db :as db]
             [clj-money.entities :as e]
+            [clj-money.entities.schema :as schema]
             [clj-money.util :as util])
   (:import org.postgresql.util.PGobject
+           org.postgresql.jdbc.PgArray
            [java.sql Array Connection ParameterMetaData PreparedStatement]))
 
 (deftype QualifiedID [id entity-type]
@@ -382,3 +385,51 @@
               e))
           entity
           keys))
+
+(defmulti ->keyword-set type)
+
+(defmethod ->keyword-set :default
+  [coll]
+  (when coll
+    (->> coll seq (map keyword) set)))
+
+(defmethod ->keyword-set PgArray
+  [^PgArray pg-arr]
+  (->keyword-set (.getArray pg-arr)))
+
+(defn ->str-array
+  [coll]
+  (when (seq coll)
+    (into-array (map name coll))))
+
+(def read-coercions
+  (->> schema/entities
+       (mapcat (fn [{:keys [id fields]}]
+                 (->> fields
+                      (keep (fn [{field-id :id type :type}]
+                              (let [k (keyword (name id) (name field-id))]
+                                (case type
+                                  :keyword [k keyword]
+                                  :date    [k t/local-date]
+                                  :set     [k ->keyword-set]
+                                  nil)))))))
+       (into {})))
+
+(def save-coercions
+  (->> schema/entities
+       (mapcat (fn [{:keys [id fields]}]
+                 (->> fields
+                      (keep (fn [{field-id :id type :type}]
+                              (let [k (keyword (name id) (name field-id))]
+                                (case type
+                                  :keyword [k name]
+                                  :set     [k ->str-array]
+                                  nil)))))))
+       (into {})))
+
+(defn apply-coercions
+  [coercions entity]
+  (reduce (fn [m [k f]]
+            (update-in-if m [k] f))
+          entity
+          coercions))
