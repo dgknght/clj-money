@@ -54,7 +54,6 @@
                          :monthly (s/keys :req-un [::day])
                          :weekly (s/keys :req-un [::days])))
 (s/def :scheduled-transaction/date-spec ::date-spec)
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/scheduled-transaction (s/keys :req [:scheduled-transaction/entity
                                                     :scheduled-transaction/description
                                                     :scheduled-transaction/period

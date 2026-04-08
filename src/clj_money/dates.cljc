@@ -43,7 +43,6 @@
            (-pr-writer [date writer _]
              (write-all writer "#clj-money/local-date-time \"" (serialize-local-date-time date) "\""))))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn local-date
   [x]
   #?(:clj (t/local-date x)
@@ -53,7 +52,6 @@
   #?(:clj t/local-date?
      :cljs (partial instance? Date)))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn local-date-time
   [x]
   #?(:clj (t/local-date-time x)

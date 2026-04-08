@@ -22,7 +22,6 @@
 (s/def :invitation/token (s/and string? present?))
 (s/def :invitation/expires-at inst?)
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/invitation
   (s/and (s/keys :req [:invitation/recipient
                         :invitation/status

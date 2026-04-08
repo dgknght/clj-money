@@ -10,7 +10,6 @@
 (s/def :attachment/transaction ::entities/entity-ref)
 (s/def :attachment/image ::entities/entity-ref)
 (s/def :attachment/caption string?)
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/attachment (s/keys :req [:attachment/transaction
                                          :attachment/image]
                                    :opt [:attachment/caption]))

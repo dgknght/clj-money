@@ -36,7 +36,6 @@
 (s/def :budget/start-date t/local-date?)
 (s/def :budget/period ::dates/period)
 (s/def :budget/entity ::entities/entity-ref)
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/budget (s/and (s/keys :req [:budget/name
                                             :budget/start-date
                                             :budget/period

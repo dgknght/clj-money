@@ -22,7 +22,6 @@
               (.write (.toString this))
               (.write "\""))))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (def d
   #?(:clj bigdec
      :cljs decimal/->decimal))

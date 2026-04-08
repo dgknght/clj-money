@@ -116,7 +116,6 @@
                     dbname
                     (env :sql-ddl-user))}])
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn create
   "Creates the database and users specified in the configuration.
 

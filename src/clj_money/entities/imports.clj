@@ -10,7 +10,6 @@
 (s/def :import/images (s/coll-of ::entities/entity-ref :min-count 1))
 (s/def :import/user ::entities/entity-ref)
 (s/def :import/options (s/nilable (s/map-of keyword? string?)))
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/import (s/keys :req [:import/user
                                      :import/entity-name
                                      :import/images]
