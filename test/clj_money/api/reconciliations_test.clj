@@ -6,7 +6,6 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]
-            [clj-money.json]
             [clj-money.entities.ref]
             [clj-money.util :as util]
             [clj-money.db.ref]

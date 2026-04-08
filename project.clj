@@ -108,9 +108,10 @@
                                                            com.fasterxml.jackson.core/jackson-core]]
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
+                 [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.43"
+                  "0.3.44"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
@@ -216,7 +217,6 @@
               :high-watermark 97
               :ns-exclude-regex [#"clj-money.api"
                                  #"clj-money.db.sql.tasks"
-                                 #"clj-money.json"
                                  #"clj-money.repl"
                                  #"clj-money.tasks"]}
   :eftest {:multithread? :namespaces

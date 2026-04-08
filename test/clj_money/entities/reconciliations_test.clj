@@ -5,7 +5,6 @@
             [dgknght.app-lib.test]
             [clj-money.util :as util :refer [id=
                                              ->entity-ref]]
-            [clj-money.json]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [dbtest]]
             [clj-money.accounts :as acts]
@@ -24,7 +23,7 @@
                                             find-accounts
                                             find-transaction-item
                                             find-reconciliation]]
-            [clj-money.entities.reconciliations :as recons]))
+            [clj-money.entities.reconciliations]))
 
 (def ^:private reconciliation-context
   (conj basic-context
@@ -215,24 +214,6 @@
                   (map simplify)
                   set))
           "The items are updated with a reference to the reconciliation"))))
-
-(def ^:private working-rec-context
-  (conj reconciliation-context
-        #:reconciliation{:account "Checking"
-                         :end-of-period (t/local-date 2017 1 1)
-                         :balance 447M
-                         :status :new
-                         :items [[(t/local-date 2017 1 1)
-                                      1000M]
-                                     [(t/local-date 2017 1 2)
-                                      500M]
-                                     [(t/local-date 2017 1 10)
-                                      53M]]}))
-
-(dbtest find-the-working-reconciliation
-  (with-context working-rec-context
-    (is (comparable? #:reconciliation{:balance 447M}
-                     (recons/find-working (find-account "Checking"))))))
 
 (dbtest transaction-item-can-only-belong-to-one-reconciliation
   (with-context existing-reconciliation-context

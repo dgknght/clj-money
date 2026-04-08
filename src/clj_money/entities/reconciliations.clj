@@ -39,19 +39,13 @@
             {:message "%s must match the calculated balance"
              :path [:reconciliation/balance]})
 
-(defn find-working
-  "Returns the uncompleted reconciliation for the specified
-  account, if one exists"
-  [account]
-  (entities/find-by #:reconciliation{:status :new
-                                     :account account}))
-
 (defn- working-reconciliation-exists?
   [{:reconciliation/keys [account] :keys [id]}]
-  (when-let [existing (when account
-                        (find-working account))]
-    (or (nil? id)
-        (not= id (:id existing)))))
+  (when account
+    (< 0 (entities/count
+           (cond-> #:reconciliation{:status :new
+                                    :account account}
+             id (assoc :id [:!= id]))))))
 
 (def no-working-conflict?
   (complement working-reconciliation-exists?))

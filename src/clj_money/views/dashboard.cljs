@@ -4,6 +4,7 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
+            [secretary.core :as secretary :include-macros true]
             [dgknght.app-lib.inflection :refer [title-case]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
@@ -12,10 +13,13 @@
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
+            [clj-money.html :refer [google-g]]
             [clj-money.icons :refer [icon]]
-            [clj-money.state :refer [current-entity
+            [clj-money.state :refer [current-user
+                                     current-entity
                                      accounts
                                      accounts-by-id
+                                     app-state
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
@@ -24,9 +28,11 @@
 
 (defn- load-monitors
   [state]
-  (+busy)
-  (reports/budget-monitors :callback -busy
-                           :on-success #(swap! state assoc :monitors %)))
+  (if @current-entity
+    (do (+busy)
+        (reports/budget-monitors :callback -busy
+                                 :on-success #(swap! state assoc :monitors %)))
+    (swap! state dissoc :monitors)))
 
 (defn- save-monitor
   [state]
@@ -202,7 +208,7 @@
                   :caption "Add"
                   :icon :plus}])])))
 
-(defn dashboard []
+(defn- dashboard []
   [:div.row.mt-3
    [:div.col-md-9
     (if @current-entity
@@ -210,3 +216,26 @@
       [:a {:href "/entities"} "Create an entity"])]
    [:div.col-md-3
     [monitors]]])
+
+(defn- welcome []
+  [:div.jumbotron.mt-3
+   [:div.d-flex
+    [:img {:src "/images/logo.svg"
+           :alt "abacus logo"
+           :width 64
+           :height 64}]
+    [:h1.display-5.ms-3 "clj-money"]]
+   [:p "This is a double-entry accounting application that aims to be available anywhere."]
+   [:a#login.btn.btn-secondary {:href "/auth/google/start"
+                                :title "Click here to sign in with a Google account"}
+    (google-g)
+    [:span "Sign in with Google"]]])
+
+(defn- index
+  []
+  (if @current-user
+    [dashboard]
+    [welcome]))
+
+(secretary/defroute "/" []
+  (swap! app-state assoc :page #'index))

@@ -1,30 +1,30 @@
 (ns clj-money.web.auth-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [clojure.pprint :refer [pprint]]
+            [clojure.string :as str]
             [clj-http.core :as http]
-            [cheshire.core :as json]
+            [jsonista.core :as json]
             [buddy.sign.jwt :as jwt]
             [ring.mock.request :as req]
-            [dgknght.app-lib.core :as app-lib]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]
             [clj-money.entities.users :as usrs])
-  (:import java.io.ByteArrayInputStream))
+  (:import java.io.ByteArrayInputStream
+           java.net.URLDecoder))
 
 (use-fixtures :each reset-db)
 
 (deftest start-the-oauth-process
-  (with-redefs [app-lib/uuid (constantly "abc123")]
-    (is (http-redirect-to? "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=google-id&redirect_uri=https%3A//www.mymoney.com/auth/google/callback&state=abc123&scope=email+profile"
-                         (app (req/request :get "/auth/google/start"))))))
+  (is (http-redirect-to?
+        #"https://accounts\.google\.com/o/oauth2/v2/auth\?.*client_id=google-id.*scope=email"
+        (app (req/request :get "/auth/google/start")))))
 
 (defn- json-body
   [payload]
   (ByteArrayInputStream.
     (.getBytes
-      (json/generate-string payload))))
+      (json/write-value-as-string payload))))
 
 (defn- json-response
   [payload]
@@ -46,17 +46,50 @@
                       :given_name "John"
                       :family_name "Doe"})})
 
+(defn- query-param
+  "Extracts a single query parameter value from a URL string."
+  [url param]
+  (when-let [pair (->> (str/split url #"[\?&]")
+                       (filter #(str/starts-with? % (str param "=")))
+                       first)]
+    (URLDecoder/decode (subs pair (inc (count param))) "UTF-8")))
+
+(defn- extract-session-cookie
+  "Extracts the ring-session name=value from a response's Set-Cookie headers,
+  suitable for use as a Cookie request header."
+  [response]
+  (some->> (get-in response [:headers "Set-Cookie"])
+           flatten
+           (filter #(str/starts-with? % "ring-session="))
+           first
+           (re-find #"ring-session=[^;]+")))
+
 (deftest handle-a-successful-oauth-callback-for-a-new-user
-  (with-web-mocks [calls] mocks
+  (with-web-mocks [_calls] mocks
     (with-redefs [jwt/sign (constantly "abc123")]
-      (let [req-url "https://www.mymoney.com/auth/google/callback?state=abc123&code=4%2F0AVG7fiSLQL3IaL7KvlRvL1aOzG_q8MzSVzgPbT0hIK4vd56n0LqwDKUfdiER1SAUlV2wDg&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&authuser=0&prompt=none"
-            res 
-            (app (req/request :get req-url))]
-        (is (http-redirect-to? "/" res)
-            "The site redirects back to the root page")
-        (is (http-response-with-cookie? "auth-token" "abc123" res)
-            "The redirect contains the auth token")
-        (is (comparable? #:user{:email "john@doe.com"
-                                :first-name "John"
-                                :last-name "Doe"}
-                         (usrs/find-by-email "john@doe.com")))))))
+      ;; Step 1: Start the OAuth flow to capture the state and session cookie
+      (let [start-res    (app (req/request :get "/auth/google/start"))
+            location     (get-in start-res [:headers "Location"])
+            state        (query-param location "state")
+            session-hdr  (extract-session-cookie start-res)
+            ;; Step 2: Simulate Google's callback with the matching state
+            callback-req (-> (req/request :get "/auth/google/callback")
+                             (req/header "Cookie" session-hdr)
+                             (assoc :query-params {"code"  "auth-code"
+                                                   "state" state}))
+            callback-res (app callback-req)]
+        (is (http-redirect-to? "/auth/google/done" callback-res)
+            "ring-oauth2 redirects to the landing URI after token exchange")
+        ;; Step 3: Follow the redirect to /done with the updated session
+        (let [done-session-hdr (extract-session-cookie callback-res)
+              done-req         (-> (req/request :get "/auth/google/done")
+                                   (req/header "Cookie" done-session-hdr))
+              done-res         (app done-req)]
+          (is (http-redirect-to? "/" done-res)
+              "The done handler redirects to the root page")
+          (is (http-response-with-cookie? "auth-token" "abc123" done-res)
+              "The redirect contains the auth token")
+          (is (comparable? #:user{:email "john@doe.com"
+                                  :first-name "John"
+                                  :last-name "Doe"}
+                           (usrs/find-by-email "john@doe.com"))))))))
