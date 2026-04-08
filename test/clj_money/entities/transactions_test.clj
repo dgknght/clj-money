@@ -420,7 +420,8 @@
           (entities/select #:transaction{:transaction-date [:between
                                                           (t/local-date 2017 6 1)
                                                           (t/local-date 2017 6 30)]
-                                       :entity (find-entity "Personal")}))
+                                       :entity (find-entity "Personal")}
+                         {:sort [[:transaction/transaction-date :asc]]}))
         "The transactions from the specified date range are returned")))
 
 (dbtest ^:multi-threaded update-a-transaction-change-quantity
