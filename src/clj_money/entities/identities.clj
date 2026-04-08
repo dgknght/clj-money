@@ -7,7 +7,6 @@
 (s/def :identity/user ::entities/entity-ref)
 (s/def :identity/provider #{:google})
 (s/def :identity/provider-id string?)
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/identity (s/keys :req [:identity/user
                                        :identity/provider
                                        :identity/provider-id]))

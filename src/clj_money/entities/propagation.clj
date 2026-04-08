@@ -55,7 +55,6 @@
         (map #(when (seq %)
                 (entities/put-many %)))))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defmacro with-propagation
   "Propagate puts that occur during the block. The two bindings must be
   passed to entities/put-many and are:

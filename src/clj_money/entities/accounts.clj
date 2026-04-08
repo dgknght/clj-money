@@ -47,7 +47,6 @@
 (s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
                                                            dates/local-date?)))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/account (s/and (s/keys :req [:account/entity
                                              :account/type
                                              :account/name

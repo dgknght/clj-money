@@ -57,7 +57,6 @@
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/commodity
   (s/and (s/keys :req [:commodity/type
                        :commodity/name

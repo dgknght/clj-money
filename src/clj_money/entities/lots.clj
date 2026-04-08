@@ -17,7 +17,6 @@
 (s/def :lot/purchase-price decimal?)
 (s/def :lot/shares-purchased decimal?)
 (s/def :lot/shares-owned decimal?)
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/lot (s/keys :req [:lot/account
                                   :lot/commodity
                                   :lot/purchase-date

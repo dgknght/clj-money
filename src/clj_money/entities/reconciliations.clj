@@ -109,7 +109,6 @@
 
 (s/def :reconciliation/items (s/coll-of :reconciliation/item))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/reconciliation
   (s/and (s/keys :req [:reconciliation/account
                        :reconciliation/end-of-period

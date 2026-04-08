@@ -59,15 +59,36 @@
                                          (clj-money.cli/with-options)
                                          (clj-money.progress.redis-test/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}
-           :unused-private-var {:exclude #{clj-money.entities.transactions/simplify}}
-           :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
+           :unused-private-var {:exclude #{clj-money.entities/change
+                                           clj-money.entities.transactions/simplify}}
+           :clojure-lsp/unused-public-var {:exclude #{clj-money.dates/local-date
+                                                      clj-money.dates/local-date-time
+                                                      clj-money.db.datomic/q
+                                                      clj-money.db.sql.tasks/remigrate
+                                                      clj-money.db.sql.tasks/create
                                                       clj-money.db.sql.tasks/create-partitions
                                                       clj-money.db.sql.tasks/check-transaction-balances
+                                                      clj-money.decimal/d
                                                       clj-money.decimal/>=
                                                       clj-money.decimal/<=
-                                                      clj-money.entities/transaction
+                                                      clj-money.entities/account
                                                       clj-money.entities/account-item
+                                                      clj-money.entities/attachment
+                                                      clj-money.entities/budget
+                                                      clj-money.entities/cached-price
+                                                      clj-money.entities/commodity
+                                                      clj-money.entities/entity
+                                                      clj-money.entities/identity
+                                                      clj-money.entities/import
+                                                      clj-money.entities/invitation
+                                                      clj-money.entities/lot
+                                                      clj-money.entities/lot-note
+                                                      clj-money.entities/price
                                                       clj-money.entities/reconciliation
+                                                      clj-money.entities/scheduled-transaction
+                                                      clj-money.entities/transaction
+                                                      clj-money.entities/user
+                                                      clj-money.entities.propagation/with-propagation
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.util/simplify
