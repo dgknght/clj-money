@@ -48,7 +48,7 @@
                :type :set}}}
    {:id :identity
     :fields #{{:id :provider
-               :type :string}
+               :type :keyword}
               {:id :provider-id
                :type :string}}
     :refs #{:user}}
@@ -266,7 +266,7 @@
     :fields #{{:id :trade-date
                :type :date}
               {:id :symbol
-               :type :keyword}
+               :type :string}
               {:id :exchange
                :type :keyword}
               {:id :value
