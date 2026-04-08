@@ -815,6 +815,17 @@
                     final-balance)))
     split))
 
+(defn- adjust-split-reconciliations
+  [{:split/keys [commodity-account ratio] :as split}]
+  (if commodity-account
+    (assoc split
+           :split/reconciliations
+           (->> (entities/select
+                  {:reconciliation/account commodity-account
+                   :reconciliation/status :completed})
+                (mapv #(update % :reconciliation/balance * ratio))))
+    split))
+
 (defn ratio->words
   "Returns a human-readable ratio string.
   ratio 2   → \"2 for 1\"
@@ -850,6 +861,7 @@
                  account-items
                  commodity-account
                  ratio
+                 reconciliations
                  transaction
                  transaction-items]}
    opts]
@@ -859,9 +871,10 @@
                              lot-note
                              (when commodity-account commodity-account)]
                             transaction-items
-                            account-items)
+                            account-items
+                            reconciliations)
                     (filter identity)
-                    (entities/put-many opts)
+                    (entities/put-many (assoc opts :suspend-validation #{:reconciliation}))
                     (group-by util/entity-type))]
     {:split/lots (:lot result)
      :split/lot-items (:lot-item result)
@@ -900,6 +913,7 @@
             append-split-ratio
             adjust-split-lots
             adjust-split-transaction-items
+            adjust-split-reconciliations
             create-split-note
             (put-split (dissoc opts :lot-note)))))
 
