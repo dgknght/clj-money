@@ -59,7 +59,7 @@
   (let [commodity (r/cursor page-state [:selected])
         types (make-reaction #(if (and (:id @commodity)
                                        (= (:id @commodity)
-                                          (get-in @current-entity [:entity/settings :settings/default-commodity-id])))
+                                          (get-in @current-entity [:entity/settings :settings/default-commodity :id])))
                                 ["currency"]
                                 ["currency" "stock" "fund"]))]
     (fn []
