@@ -47,6 +47,7 @@
  :redis-host "localhost"
  :redis-password "please04"
  :secret "test-secret-for-testing"
+ :session-secret "test-session-key"
  :show-error-messages true
  :sql-adm-user "adm_user"
  :sql-adm-password "please03"
