@@ -100,16 +100,17 @@
                 uri
                 (with-out-str
                   (pprint
-                    (dissoc req
-                            :reitit.core/match
-                            :reitit.core/router))))
+                    (-> req
+                        (dissoc :reitit.core/match
+                                :reitit.core/router)
+                        entities/scrub-sensitive-data))))
     (let [res (handler req)]
       (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
       (log/debugf "Response details %s \"%s\": %s"
                   request-method
                   uri
                   (with-out-str
-                    (pprint res)))
+                    (pprint (entities/scrub-sensitive-data res))))
       res)))
 
 (defn- wrap-merge-params

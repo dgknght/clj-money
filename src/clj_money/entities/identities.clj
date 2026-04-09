@@ -37,8 +37,10 @@
         ident (entities/put #:identity{:provider provider
                                        :provider-id id
                                        :user user})]
-    (log/debugf "created user from profile %s" (prn-str user))
-    (log/debugf "created identity from profile %s" (prn-str ident))
+    (log/debugf "created user from profile %s"
+                (prn-str (entities/scrub-sensitive-data user)))
+    (log/debugf "created identity from profile %s"
+                (prn-str (entities/scrub-sensitive-data ident)))
     user))
 
 (def find-or-create-from-profile
