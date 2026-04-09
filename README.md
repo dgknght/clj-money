@@ -1,10 +1,13 @@
 # clj-money
+
 Clojure cloud accounting application
 
 ![build status](https://github.com/dgknght/clj-money/actions/workflows/clojure.yml/badge.svg)
 
 ## ERD
+
 These are the essential entities of the system.
+
 ```mermaid
 erDiagram
   user ||--o{ entity : owns
@@ -39,28 +42,46 @@ erDiagram
     decimal value
   }
 ```
+
 See more at [ERD.md](ERD.md)
 
 ## Running locally
 
 ### Running services
+
+Docker
+
 ```bash
 docker compose up -d
 ```
 
-### Setup the database:
+Podman
+
+```bash
+podman-compose --with-profile datomic start
+```
+
+### Setup the database
+
 Development
+
 ```bash
 lein do create-sql, migrate, migrate-auxiliary, partition <start-date> <end-date>
 ```
 
 Test
+
 ```bash
-lein with-profile test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
+lein with-profile test do create-sql, \
+  migrate, \
+  migrate-auxiliary, \
+  partition 2015-01-01 2017-12-31
 ```
 
 ### Start local services
+
 Create a `env/dev/config.edn` by copying `env/test/config.edn` and changing
+
 - The datbase details (should be just the dbname)
 - The image storage details (should be just the dbname)
 - The Google OAuth keys
@@ -73,6 +94,7 @@ Create a `env/dev/config.edn` by copying `env/test/config.edn` and changing
 To suppress outgoing email during local development (logging the message
 instead of sending it), omit `:mailer-enabled?` or set it to `false` in your
 `env/dev/config.edn`. To enable sending, add:
+
 ```edn
 :mailer-enabled? true
 ```
@@ -81,11 +103,15 @@ instead of sending it), omit `:mailer-enabled?` or set it to `false` in your
 
 Create a `.env` file in the project root (see `.env` for an example) with at
 minimum:
+
 ```bash
 REDIS_PASSWORD=...
-SQL_ADM_USER=...   SQL_ADM_PASSWORD=...
-SQL_DDL_USER=...   SQL_DDL_PASSWORD=...
-SQL_APP_USER=...   SQL_APP_PASSWORD=...
+SQL_ADM_USER=...
+SQL_ADM_PASSWORD=...
+SQL_DDL_USER=...
+SQL_DDL_PASSWORD=...
+SQL_APP_USER=...
+SQL_APP_PASSWORD=...
 SQL_DB_NAME=...
 SQL_HOST=sql
 DATOMIC_DB_NAME=...
@@ -176,69 +202,92 @@ object-cache-max=128m
 Then bring up the stack with the desired profile:
 
 Basic
+
 ```bash
 podman-compose up
 ```
 
 Datomic Peer
+
 ```bash
 podman-compose --profile datomic-peer up
 ```
 
 Start the web server with
+
 ```bash
 lein repl
 ```
+
 Or, if you want to work with OpenTelemetry integration:
-  - download the [java agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar), if not already downloaded
-    ```bash
-    curl ./scripts/download-otel
-    ```
-  - start the server with:
-    ```bash
-    lein with-profile +otel repl
-    ```
-then
-```clojure
-(start-server)
-```
-To stop
+
+- download the
+  [java agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar)
+  , if not already downloaded
+
+  ```bash
+  curl ./scripts/download-otel
+  ```
+
+- start the server with:
+
+  ```bash
+  lein with-profile +otel repl
+  ```
+
+  then
+
+  ```clojure
+  (start-server)
+  ```
+
+  To stop
+
 ```clojure
 (stop-server)
-
 ```
+
 Compile the sass files with:
+
 ```bash
 npm install -g sass # if not already installed
 sass --watch src/scss/site.scss resources/public/css/site.css
 ```
+
 Start the client with:
+
 ```bash
 lein fig:build
 ```
+
 Stop the client with:
-```
+
+```clojure
 :cljs/quit
 ```
 
 ## Running server tests
 
 Serial
+
 ```bash
 lein test
 ```
 
 Parallel
+
 ```bash
 lein ptest
 ```
 
 Target a data storage strategy
+
 ```bash
 lein test :datomic-peer
 ```
 
 Specify a strategy for a single test
+
 ```clojure
 (dbtest create-a-resource {:only :sql}
   (rest-of-the-test :goes-here)
@@ -249,9 +298,11 @@ Specify a strategy for a single test
 ```
 
 ## Running client tests
+
 ```bash
 lein fig:test
 ```
 
 ## License
+
 Distributed under the Eclipse Public License, the same as Clojure.

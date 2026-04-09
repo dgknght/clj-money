@@ -1,17 +1,53 @@
-# Instructions for Claude
+# CLAUDE.md
 
-You're an experienced Clojure developer who values readable, self-documenting
-code and avoids repetition.
+This file provides guidance to Claude Code (claude.ai/code) when working
+with code in this repository.
 
 ## Topic Docs (in `.claude/`)
-- [Architecture](.claude/architecture.md) — project layout, entity pattern, auth flow
-- [New Entity Checklist](.claude/new-entity.md) — all steps to add a new entity type
+
+- [Architecture](.claude/architecture.md) — project layout, entity pattern,
+  auth flow
+- [New Entity Checklist](.claude/new-entity.md) — all steps to add a new
+  entity type
 - [stowaway](.claude/stowaway.md) — storage abstraction library (local dep)
 - [app-lib](.claude/app-lib.md) — utility library (local dep)
 - [Code Style](.claude/instructions.md) — naming, conventions, REPL workflow
-- [Patterns](.claude/patterns.md) — cross-backend query patterns, solved problems
+- [Patterns](.claude/patterns.md) — cross-backend query patterns, solved
+  problems
+
+## Development
+
+### Local services (Docker)
+
+```bash
+docker compose up -d
+lein do create-sql, migrate, migrate-auxiliary, \
+     partition <start-date> <end-date>
+```
+
+### Backend server
+
+```bash
+lein run
+```
+
+### ClojureScript (Figwheel)
+
+```bash
+lein fig:build   # dev build with REPL
+lein fig:prod    # production build (advanced optimizations)
+```
+
+### Linting
+
+```bash
+clj-kondo --lint src
+```
+
+Resolve all warnings before committing.
 
 ## Tests
+
 - Full suite (serial, slow): `lein test`
 - Most of the suite (parallel, false): `lein ptest`
 - Target strategy: `lein ptest -s sql` or `lein ptest -s datomic-peer`
@@ -23,7 +59,9 @@ code and avoids repetition.
   implementation.
 
 ## Commits
+
 - Avoid committing code that fails linting rules or the test suite.
 
 ## Style
+
 - Maximum 80 characters per line.
