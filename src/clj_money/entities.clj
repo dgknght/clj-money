@@ -312,7 +312,10 @@
   #{:user/email
     :user/password
     :user/password-reset-token
-    :identity/provider-id})
+    :user/token-expires-at
+    :identity/provider-id
+    :invitation/token
+    :oauth2/access-tokens})
 
 (defn scrub-sensitive-data
   [m]
