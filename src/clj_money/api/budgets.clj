@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [java-time.api :as t]
             [clj-money.authorization
              :as auth
              :refer [+scope
@@ -12,8 +11,7 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
-            [clj-money.budgets :refer [create-items-from-history]]
-            [clj-money.entities.transaction-items :as trx-items]
+            [clj-money.entities.budgets :as entities.budgets]
             [clj-money.authorization.budgets]))
 
 (defn- extract-criteria
@@ -39,47 +37,16 @@
       (update-in-if [:budget/period 1] util/ensure-keyword)
       (update-in-if [:budget/start-date] dates/ensure-local-date)))
 
-(defn- historical-items
-  [{:budget/keys [entity period]} start-date]
-  (let [end-date (t/plus start-date
-                         (dates/period period))]
-    (entities/select (util/entity-type
-                       {:transaction/entity entity
-                        :transaction/transaction-date [:between> start-date end-date]
-                        :account/type [:in #{:income :expense}]}
-                       :transaction-item)
-                     {:select-also [:transaction/transaction-date]})))
-
-(defn- auto-create-items
-  [{:budget/keys [period]
-    :as budget}
-   start-date]
-  (let [end-date (t/plus start-date
-                         (dates/period period))]
-    (->> (historical-items budget start-date)
-         (trx-items/polarize-quantities)
-         (create-items-from-history
-           budget
-           start-date
-           end-date)
-         (map #(assoc % :budget-item/budget budget))
-         entities/put-many)))
-
-(defn- append-items
-  [budget start-date]
-  (cond-> budget
-    start-date (assoc :budget/items
-                      (auto-create-items budget
-                                         start-date))))
-
 (defn- create
   [{:keys [authenticated params] :as req}]
   (-> req
       extract-budget
-      (assoc :budget/entity {:id (:entity-id params)} )
+      (assoc :budget/entity {:id (:entity-id params)})
       (authorize ::auth/create authenticated)
       entities/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (append-items (dates/ensure-local-date (:budget/auto-create-start-date params)))
+      (entities.budgets/append-auto-created-items
+        (dates/ensure-local-date
+          (:budget/auto-create-start-date params)))
       api/creation-response))
 
 (defn- find-and-auth
