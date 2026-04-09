@@ -266,6 +266,26 @@ Stop the client with:
 :cljs/quit
 ```
 
+## Production configuration
+
+The following configuration values have insecure defaults and **must** be set
+to strong, unique values before deploying to a production environment:
+
+| Key | Description |
+|-----|-------------|
+| `:secret` | JWT signing secret — use a long random string |
+| `:session-secret` | Session cookie encryption key — must be exactly 16, 24, or 32 bytes |
+| `:google-client-id` | Google OAuth client ID |
+| `:google-client-secret` | Google OAuth client secret |
+| `:redis-password` | Redis authentication password |
+| `:sql-adm-password` | PostgreSQL admin user password |
+| `:sql-app-password` | PostgreSQL application user password |
+| `:sql-ddl-password` | PostgreSQL DDL user password |
+| `:alpha-vantage-key` | Alpha Vantage API key for price data |
+
+These can be supplied via `env/docker/config.edn` or overridden with
+environment variables (e.g. `SESSION_SECRET`, `SECRET`, `REDIS_PASSWORD`).
+
 ## Running server tests
 
 Serial
