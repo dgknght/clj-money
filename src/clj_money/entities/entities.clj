@@ -33,7 +33,6 @@
                                         :settings/monitored-accounts
                                         :settings/default-commodity])))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/entity (s/and (s/keys :req [:entity/name
                                             :entity/user]
                                       :opt [:entity/settings

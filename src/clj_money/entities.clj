@@ -195,7 +195,6 @@
   (let [[missing extra] (diff before after)]
     (or (seq missing) (seq extra))))
 
-^{:clj-kondo/ignore true}
 (defn- change
   [[before after]]
   (cond

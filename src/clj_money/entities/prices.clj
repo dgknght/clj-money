@@ -28,7 +28,6 @@
 (s/def :price/trade-date t/local-date?)
 (s/def :price/value decimal?)
 (s/def ::id uuid?)
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (s/def ::entities/price (s/and (s/keys :req [:price/commodity
                                            :price/trade-date
                                            :price/value]

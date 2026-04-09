@@ -434,7 +434,6 @@
         ; probably should not ever get here, as this is for unit tests only
         ))))
 
-^{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn q
   [qry & args]
   (let [api (init-api (get-in env [:db
