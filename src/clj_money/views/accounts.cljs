@@ -575,20 +575,18 @@
   [page-state]
   (fetch-accounts
     :post-xf (map (fn [accounts]
-                    ; The :view-account might now be stale, e.g., if the new transaction
-                    ; changes :latest-transaction-date
                     (let [account (get-in @page-state [:view-account])
                           updated (->> accounts
                                        (filter #(entity= account %))
                                        first)]
-                      (swap! page-state assoc :view-account updated))
+                      (swap! page-state assoc :view-account updated)
+                      (trns/reset-item-loading page-state))
                     accounts))))
 
 (defn- post-transaction-save
   [page-state]
   (fn [_]
     (swap! page-state dissoc :transaction :trade)
-    (trns/reset-item-loading page-state)
     (refresh-accounts page-state)))
 
 (defn- expand-trx []
