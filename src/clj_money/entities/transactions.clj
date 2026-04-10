@@ -721,12 +721,13 @@
          ctrl# (a/chan)
          pending# (atom 0)
          ready# (atom false)
+         complete# (a/promise-chan)
          _# (a/go-loop [msg# (a/<! ctrl#)]
                        (when msg#
                          (let [count# (swap! pending# (case msg# :start inc :finish dec))]
                            (when (and @ready#
                                       (= 0 count#))
-                             (a/close! out#))
+                             (a/>! complete# :done))
                            (recur (a/<! ctrl#)))))
          reduce# (a/transduce
                    extract-dates
@@ -736,6 +737,9 @@
                    out#)
          prim-result# (f# out# ctrl#)
          _# (reset! ready# true)
-         sec-result# (a/<!! reduce#)]
+         _# (when (= 0 @pending#)
+              (a/put! complete# :done))]
+     (a/alts!! [complete# (a/timeout 5000)])
+     (a/close! out#)
      (concat prim-result#
-             (propagate-accounts sec-result#))))
+             (propagate-accounts (a/<!! reduce#)))))
