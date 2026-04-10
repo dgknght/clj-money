@@ -38,7 +38,9 @@
       "Bash(lein check:*)",
       "mcp__trello__get-boards",
       "mcp__trello__get-tickets-by-list",
-      "mcp__trello__move-card"
+      "mcp__trello__move-card",
+      "Bash(gh pr:*)",
+      "Bash(gh run:*)"
     ],
     "deny": [],
     "ask": [],
