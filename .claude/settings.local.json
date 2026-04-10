@@ -35,7 +35,10 @@
       "Bash(podman-compose:*)",
       "Bash(podman images:*)",
       "Bash(podman inspect:*)",
-      "Bash(lein check:*)"
+      "Bash(lein check:*)",
+      "mcp__trello__get-boards",
+      "mcp__trello__get-tickets-by-list",
+      "mcp__trello__move-card"
     ],
     "deny": [],
     "ask": [],
@@ -43,5 +46,8 @@
       "~/code/dgknght/app-lib",
       "~/code/dgknght/stowaway"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "trello"
+  ]
 }

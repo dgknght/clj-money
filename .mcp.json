@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "trello": {
+      "command": "npx",
+      "args": ["-y", "trello-mcp-server"],
+      "env": {
+        "TRELLO_API_KEY": "${TRELLO_API_KEY}",
+        "TRELLO_API_TOKEN": "${TRELLO_API_TOKEN}"
+      }
+    }
+  }
+}
