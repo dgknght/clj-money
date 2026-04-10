@@ -68,13 +68,6 @@
 (v/reg-spec no-reconciled-quantities-changed? {:message "A reconciled quantity cannot be updated"
                                                :path [:transaction/items]})
 
-(defn- not-a-trading-transaction?
-  [{:keys [id] :transaction/keys [original-transaction-date]}]
-  (zero? (entities/count {:lot-item/transaction  {:id id}
-                        :transaction/transaction-date original-transaction-date})))
-
-(v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
-                                        :path []})
 
 (v/reg-msg trxs/sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
 
@@ -208,7 +201,7 @@
 (defmethod entities/before-save :transaction
   [{:transaction/keys [items] :as trx}]
   ; TODO: store this in meta data instead
-  (cond-> (dissoc trx :transaction/original-transaction-date)
+  (cond-> trx
     (seq items)
     (assoc :transaction/value (->> items
                                    (filter #(= :credit (:transaction-item/action %)))
