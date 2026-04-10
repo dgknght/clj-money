@@ -71,7 +71,6 @@
    :transaction/description
    :transaction/entity
    :transaction/transaction-date
-   :transaction/original-transaction-date
    :transaction/memo
    :transaction/items
    :transaction/debit-account
