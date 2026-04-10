@@ -1,3 +1,10 @@
+---
+name: next
+description: Fetch the next item from the clj-money Trello Backlog and begin working on it.
+user-invocable: true
+disable-model-invocation: true
+---
+
 Fetch the next item from the clj-money Trello Backlog and begin working on it.
 
 Steps:
