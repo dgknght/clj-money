@@ -718,17 +718,25 @@
   [bindings & body]
   `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
          out# (a/chan 10)
-         ctrl# (a/chan)
+         ; Buffered so that emit-changes can offer! :start synchronously
+         ; before spawning each goroutine without blocking the caller.
+         ctrl# (a/chan 1000)
          pending# (atom 0)
-         ready# (atom false)
+         all-started# (atom false)
          complete# (a/promise-chan)
          _# (a/go-loop [msg# (a/<! ctrl#)]
                        (when msg#
-                         (let [count# (swap! pending# (case msg# :start inc :finish dec))]
-                           (when (and @ready#
-                                      (= 0 count#))
-                             (a/>! complete# :done))
-                           (recur (a/<! ctrl#)))))
+                         (case msg#
+                           :start (swap! pending# inc)
+                           :finish (let [count# (swap! pending# dec)]
+                                     (when (and @all-started#
+                                                (= 0 count#))
+                                       (a/>! complete# :done)))
+                           :all-started (do
+                                          (reset! all-started# true)
+                                          (when (= 0 @pending#)
+                                            (a/>! complete# :done))))
+                         (recur (a/<! ctrl#))))
          reduce# (a/transduce
                    extract-dates
                    (completing accumulate-dates)
@@ -736,9 +744,11 @@
                     :accounts {}}
                    out#)
          prim-result# (f# out# ctrl#)
-         _# (reset! ready# true)
-         _# (when (= 0 @pending#)
-              (a/put! complete# :done))]
+         ; Sentinel: all puts have been called. The go-loop processes
+         ; messages in channel order, so all :start messages offered
+         ; synchronously during the body are already in the buffer ahead
+         ; of this sentinel.
+         _# (a/offer! ctrl# :all-started)]
      (a/alts!! [complete# (a/timeout 5000)])
      (a/close! out#)
      (concat prim-result#

@@ -67,7 +67,9 @@
                            concat
                            []
                            out#)
-         ctrl# (a/chan)
+         ; Buffered so that emit-changes can offer! :start synchronously
+         ; before spawning each goroutine without blocking the caller.
+         ctrl# (a/chan 1000)
          pending# (atom 0)
          prim-complete# (atom false)
          sec-complete# (a/promise-chan)
@@ -81,6 +83,10 @@
                         (recur (a/<! ctrl#))))
          prim-result# (f# out# ctrl#)
          _# (reset! prim-complete# true)
+         ; Signal completion in case all goroutines already finished
+         ; before prim-complete# was set.
+         _# (when (= 0 @pending#)
+              (a/put! sec-complete# :done))
          combine# (if (sequential? prim-result#)
                     concat
                     cons)]
