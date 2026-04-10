@@ -227,14 +227,17 @@
            ctrl-chan]
     :or {close-chan? true}}]
   (when out-chan
+    ; offer! :start synchronously before spawning the goroutine so
+    ; that the pending count is correct by the time put-many returns,
+    ; even if the goroutine hasn't been scheduled yet.
+    ; Requires a buffered ctrl-chan.
+    (when ctrl-chan
+      (a/offer! ctrl-chan :start))
     (a/go
       (when-let [changes (seq (calc-changes to-save saved))]
-        (when ctrl-chan
-          (a/>! ctrl-chan :start))
-        (let [c (a/onto-chan! out-chan changes close-chan?)]
-          (when ctrl-chan
-            (a/<!! c)
-            (a/>! ctrl-chan :finish)))))))
+        (a/<!! (a/onto-chan! out-chan changes close-chan?)))
+      (when ctrl-chan
+        (a/>! ctrl-chan :finish)))))
 
 (defn put-many
   "Save a sequence of entities to the database, providing lifecycle hooks that
