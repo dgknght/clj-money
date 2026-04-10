@@ -71,22 +71,27 @@
          ; before spawning each goroutine without blocking the caller.
          ctrl# (a/chan 1000)
          pending# (atom 0)
-         prim-complete# (atom false)
+         all-started# (atom false)
          sec-complete# (a/promise-chan)
          _# (a/go-loop [msg# (a/<! ctrl#)]
                       (when msg#
-                        (let [count# (swap! pending#
-                                            (case msg# :start inc :finish dec))]
-                          (when (and @prim-complete#
-                                     (= 0 count#))
-                            (a/>! sec-complete# :done)))
+                        (case msg#
+                          :start (swap! pending# inc)
+                          :finish (let [count# (swap! pending# dec)]
+                                    (when (and @all-started#
+                                               (= 0 count#))
+                                      (a/>! sec-complete# :done)))
+                          :all-started (do
+                                         (reset! all-started# true)
+                                         (when (= 0 @pending#)
+                                           (a/>! sec-complete# :done))))
                         (recur (a/<! ctrl#))))
          prim-result# (f# out# ctrl#)
-         _# (reset! prim-complete# true)
-         ; Signal completion in case all goroutines already finished
-         ; before prim-complete# was set.
-         _# (when (= 0 @pending#)
-              (a/put! sec-complete# :done))
+         ; Sentinel: all puts have been called. The go-loop processes
+         ; messages in channel order, so all :start messages offered
+         ; synchronously during the body are already in the buffer ahead
+         ; of this sentinel.
+         _# (a/offer! ctrl# :all-started)
          combine# (if (sequential? prim-result#)
                     concat
                     cons)]
