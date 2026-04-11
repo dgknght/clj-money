@@ -1,6 +1,7 @@
 (ns clj-money.views.users
   (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
+            [accountant.core :as accountant]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
@@ -23,7 +24,7 @@
                                     (swap! app-state assoc
                                            :current-user user
                                            :auth-token auth-token)
-                                    (fetch-entities))))
+                                    (fetch-entities #(accountant/navigate! "/")))))
 
 (defn- login []
   (let [page-state (r/atom {:credentials {}})
