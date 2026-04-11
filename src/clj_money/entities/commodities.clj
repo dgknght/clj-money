@@ -53,6 +53,7 @@
 (s/def :commodity/type #{:currency :stock :fund})
 (s/def :commodity/price-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
 (s/def :commodity/exchange (s/nilable #{:amex :nasdaq :nyse :otc}))
+(s/def :commodity/shares-owned decimal?)
 
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
@@ -64,7 +65,8 @@
                        :commodity/entity]
                  :opt [:commodity/price-config
                        :commodity/exchange
-                       :commodity/price-date-range])
+                       :commodity/price-date-range
+                       :commodity/shares-owned])
          name-is-unique?
          symbol-is-unique?
          exchange-is-satisfied?))
@@ -72,6 +74,22 @@
 (defmethod entities/before-validation :commodity
   [comm]
   (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
+
+(defn with-shares-owned
+  "Returns the commodity with :commodity/shares-owned set to the
+  sum of shares-owned across all lots for that commodity."
+  [commodity]
+  (let [shares (->> (entities/select
+                      #:lot{:commodity (util/->entity-ref commodity)
+                            :shares-owned [:> 0]})
+                    (map :lot/shares-owned)
+                    (reduce + 0M))]
+    (assoc commodity :commodity/shares-owned shares)))
+
+(defn recalc-shares-owned
+  "Recalculates and saves the shares-owned total for a commodity."
+  [commodity]
+  (entities/put (with-shares-owned commodity)))
 
 (defn- assign-default-commodity
   [entity]
@@ -86,6 +104,8 @@
 (defn propagate-all
   [entity _opts]
   {:pre [entity]}
+  (doseq [commodity (entities/select {:commodity/entity entity})]
+    (recalc-shares-owned commodity))
   (if (get-in entity [:entity/settings
                       :settings/default-commodity])
     entity
