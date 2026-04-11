@@ -14,11 +14,13 @@ Steps:
 1. Call `mcp__trello__get-tickets-by-list` with listId `5eb489c19f703934207bcdd9`
   (Backlog) and limit 1.
 2. Present the card name, description, and label(s) to the user.
-3. Create a new feature branch for this work. If we are not on the `main` branch,
-   confirm with the user.
-4. Call `mcp__trello__move-card` to move the card to the "In Progress" list (id
+3. Run `git branch --show-current` to determine the actual current branch (do not
+   rely on the gitStatus from the start of the session, which may be stale).
+   If we are not on `main`, confirm with the user before proceeding.
+4. Create a new feature branch for this work.
+5. Call `mcp__trello__move-card` to move the card to the "In Progress" list (id
    `5eb489c9c2840d7d90f0f325`).
-5. Confirm the move to the user, then begin implementing the work described in
+6. Confirm the move to the user, then begin implementing the work described in
    the card.
-6. Once the work is complete, push the branch and create a pull request using
+7. Once the work is complete, push the branch and create a pull request using
    `gh pr create`.

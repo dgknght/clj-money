@@ -40,7 +40,11 @@
       "mcp__trello__get-tickets-by-list",
       "mcp__trello__move-card",
       "Bash(gh pr:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(git checkout:*)",
+      "Bash(lein migrate:*)",
+      "Bash(git push:*)",
+      "Bash(gh auth:*)"
     ],
     "deny": [],
     "ask": [],
