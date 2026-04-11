@@ -2,7 +2,9 @@
   (:require [clojure.spec.alpha :as s]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [clj-money.entities :as entities]))
+            [clj-money.entities :as entities]
+            [clj-money.entities.commodities :as commodities]
+            [clj-money.entities.propagation :as prop]))
 
 (defn- asset-account?
   [account]
@@ -23,3 +25,10 @@
                                   :lot/purchase-price
                                   :lot/shares-purchased]
                             :opt [:lot/shares-owned]))
+
+(defmethod prop/propagate :lot
+  [[before after]]
+  (when-let [commodity (some-> (or after before)
+                               :lot/commodity
+                               (entities/find))]
+    [(commodities/with-shares-owned commodity)]))
