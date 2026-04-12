@@ -40,27 +40,11 @@
                (fetch-current-price %))
        commodities))
 
-(defn- append-shares-owned
-  [commodities]
-  (if (seq commodities)
-    (let [lots (->> (entities/select #:lot{:commodity [:in (map util/->entity-ref commodities)]
-                                         :shares-owned [:> 0]})
-                    (group-by (comp :id :lot/commodity))
-                    (map #(update-in % [1] (fn [lots]
-                                             (->> lots
-                                                  (map :lot/shares-owned)
-                                                  (reduce + 0M)))))
-                    (into {}))]
-      (map #(assoc % :lot/shares-owned (get-in lots [(:id %)] 0M))
-           commodities))
-    commodities))
-
 (defn- index
   [req]
   (->> (entities/select (extract-criteria req)
                       {:sort [:commodity/symbol]})
        append-current-prices
-       append-shares-owned
        api/response))
 
 (defn- find-and-authorize

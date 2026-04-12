@@ -28,6 +28,11 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The entity that tracks this commodity"}
+ {:db/ident :commodity/shares-owned
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/noHistory true
+  :db/doc "The total shares currently owned across all lots for this commodity"}
  {:db/ident :price-config/enabled
   :db/valueType :db.type/boolean
   :db/cardinality :db.cardinality/one

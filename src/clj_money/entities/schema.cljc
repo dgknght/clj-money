@@ -100,6 +100,8 @@
                :type :keyword}
               {:id :price-config
                :type :map}
+              {:id :shares-owned
+               :type :decimal}
               {:id :price-date-range
                :type :tuple
                :transient? true}}
