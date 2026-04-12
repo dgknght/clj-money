@@ -7,11 +7,27 @@
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
+(defn- deleted-items
+  [trx]
+  (when-let [before (-> trx
+                        meta
+                        :clj-money.entities/original
+                        :scheduled-transaction/items
+                        seq)]
+    (let [current? (comp (set
+                           (map :id
+                                (:scheduled-transaction/items trx)))
+                         :id)]
+      (->> before
+           (remove current?)
+           (map #(vector ::db/delete %))))))
+
 (defmethod sql/deconstruct :scheduled-transaction
   [{:scheduled-transaction/keys [items] :keys [id] :as trx}]
   (cons (dissoc trx :scheduled-transaction/items)
-        (map #(assoc % :scheduled-transaction-item/scheduled-transaction-id id)
-             items)))
+        (concat (map #(assoc % :scheduled-transaction-item/scheduled-transaction-id id)
+                     items)
+                (deleted-items trx))))
 
 (defn- ->keyword
   [x]
