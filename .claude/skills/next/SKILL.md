@@ -12,7 +12,9 @@ Fetch the next item from the clj-money Trello Backlog and begin working on it.
 Steps:
 
 1. Call `mcp__trello__get-tickets-by-list` with listId `5eb489c19f703934207bcdd9`
-  (Backlog) and limit 1.
+  (Backlog) and limit 50. The API does not return cards in visual (position)
+  order, so select the card with the lowest `pos` value — that is the card
+  at the top of the list.
 2. Present the card name, description, and label(s) to the user.
 3. Run `git branch --show-current` to determine the actual current branch (do not
    rely on the gitStatus from the start of the session, which may be stale).

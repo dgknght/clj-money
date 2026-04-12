@@ -251,6 +251,30 @@
                              (:scheduled-transaction/items (entities/find result)))
           "The returned value has the updated items"))))
 
+(dbtest remove-an-item
+  (with-context update-context
+    (let [trx (find-scheduled-transaction "Paycheck")
+          result (entities/put
+                   (-> trx
+                       (assoc-in [:scheduled-transaction/items
+                                  0
+                                  :scheduled-transaction-item/quantity]
+                                 1000M)
+                       (update :scheduled-transaction/items
+                               (fn [items]
+                                 (vec (concat (take 1 items)
+                                              (drop 2 items)))))))]
+      (is (seq-of-maps-like?
+            [#:scheduled-transaction-item{:quantity 1000M}
+             #:scheduled-transaction-item{:quantity 1000M}]
+            (:scheduled-transaction/items result))
+          "The returned value has the updated items")
+      (is (seq-of-maps-like?
+            [#:scheduled-transaction-item{:quantity 1000M}
+             #:scheduled-transaction-item{:quantity 1000M}]
+            (:scheduled-transaction/items (entities/find result)))
+          "The retrieved value has the updated items"))))
+
 (dbtest delete-a-scheduled-transaction
   (with-context update-context
     (assert-deleted (find-scheduled-transaction "Paycheck"))))
