@@ -17,7 +17,8 @@ Steps:
 3. Run `git branch --show-current` to determine the actual current branch (do not
    rely on the gitStatus from the start of the session, which may be stale).
    If we are not on `main`, confirm with the user before proceeding.
-4. Create a new feature branch for this work.
+4. Create a new feature branch for this work. Try to limit the branch name to
+   three or four words.
 5. Call `mcp__trello__move-card` to move the card to the "In Progress" list (id
    `5eb489c9c2840d7d90f0f325`).
 6. Confirm the move to the user, then begin implementing the work described in
