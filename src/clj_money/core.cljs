@@ -88,12 +88,15 @@
 
 (defn- nav-items
   [active-nav current-user current-entity]
-  (let [entity-filter (if current-entity
-                        (constantly true)
-                        (some-fn :path :nav-fn))]
-    (->> authenticated-nav-items
-         (filter (every-pred entity-filter
-                             (authorized? current-user)))
+  (if current-user
+    (let [entity-filter (if current-entity
+                          (constantly true)
+                          (some-fn :path :nav-fn))]
+      (->> authenticated-nav-items
+           (filter (every-pred entity-filter
+                               (authorized? current-user)))
+           (map #(merge (default-nav-item % active-nav) %))))
+    (->> unauthenticated-nav-items
          (map #(merge (default-nav-item % active-nav) %)))))
 
 (defn navbar
