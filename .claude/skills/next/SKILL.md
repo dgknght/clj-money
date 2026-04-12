@@ -26,4 +26,4 @@ Steps:
 6. Confirm the move to the user, then begin implementing the work described in
    the card.
 7. Once the work is complete, push the branch and create a pull request using
-   `gh pr create`.
+   `gh pr create`. This repository uses `main` as the default branch.
