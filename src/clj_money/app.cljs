@@ -15,17 +15,17 @@
               e))))
 
 (defn- receive-entities
-  [[entity :as entities] on-complete]
-  (state/set-entities entities)
-  (if entity
-    (do
-      (load-pending-count)
-      (when on-complete (on-complete)))
-    (accountant/navigate! "/entities")))
+  [on-complete]
+  (fn [[entity :as entities]]
+    (state/set-entities entities)
+    (if entity
+      (do
+        (load-pending-count)
+        (when on-complete (on-complete)))
+      (accountant/navigate! "/entities"))))
 
 (defn fetch-entities
-  ([] (fetch-entities nil))
-  ([on-complete]
-   (+busy)
-   (entities/select :callback -busy
-                    :on-success #(receive-entities % on-complete))))
+  [& {:keys [on-complete]}]
+  (+busy)
+  (entities/select :callback -busy
+                   :on-success (receive-entities on-complete)))

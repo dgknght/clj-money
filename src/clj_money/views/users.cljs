@@ -18,13 +18,14 @@
 (defn- authenticate
   [page-state]
   (+busy)
-  (users/authenticate (:credentials @page-state)
-                      :callback -busy
-                      :on-success (fn [{:keys [user auth-token]}]
-                                    (swap! app-state assoc
-                                           :current-user user
-                                           :auth-token auth-token)
-                                    (fetch-entities #(accountant/navigate! "/")))))
+  (users/authenticate
+    (:credentials @page-state)
+    :callback -busy
+    :on-success (fn [{:keys [user auth-token]}]
+                  (swap! app-state assoc
+                         :current-user user
+                         :auth-token auth-token)
+                  (fetch-entities :on-complete #(accountant/navigate! "/")))))
 
 (defn- login []
   (let [page-state (r/atom {:credentials {}})
