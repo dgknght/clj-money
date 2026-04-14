@@ -1,12 +1,57 @@
 (ns clj-money.repl
   (:require [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
+            [clojure.string :as string]
+            [reitit.core :as reitit]
+            [reitit.ring :as ring]
             [clj-money.web.server :as s]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
             [clj-money.entities.prices :as prices]))
+
+(defn pp->
+  [v m & {:keys [meta? transform]
+          :or {transform identity}
+          :as opts}]
+  (when (or (nil? (:if opts))
+            ((:if opts) v))
+    (binding [*print-meta* meta?]
+      (pprint {m (transform v)})))
+  v)
+
+(defn pp->>
+  ([m v] (pp->> m {} v))
+  ([m {:keys [transform] :or {transform identity}} v]
+   (pprint {m (transform v)})
+   v))
+
+(defn spit->>
+  [path v]
+  (spit path (with-out-str (pprint v)))
+  v)
+
+(defn spit->
+  [v path]
+  (spit path (with-out-str (pprint v)))
+  v)
+
+(defn print-routes []
+  (doseq [[method path handler]
+          (->> (-> s/app
+                   ring/get-router
+                   reitit/compiled-routes)
+               (mapcat (fn [[path opts]]
+                         (->> [:get :post :put :patch :delete]
+                              (map (juxt identity opts))
+                              (filter (comp identity second))
+                              (map (fn [[method opts]]
+                                     [method path (:handler opts)]))))))]
+    (println (string/upper-case (name method))
+             path
+             "->"
+             (class handler))))
 
 (def server (atom nil))
 

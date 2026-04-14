@@ -1,8 +1,6 @@
 (ns clj-money.web.server
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [clojure.string :as string]
-            [reitit.core :as reitit]
             [reitit.ring :as ring]
             [reitit.exception :refer [format-exception]]
             [reitit.middleware :as middleware]
@@ -210,22 +208,6 @@
                      :cookie-attrs {:same-site :lax
                                     :http-only true}})
       wrap-params))
-
-(defn print-routes []
-  (doseq [[method path handler]
-          (->> (-> app
-                   ring/get-router
-                   reitit/compiled-routes)
-               (mapcat (fn [[path opts]]
-                         (->> [:get :post :put :patch :delete]
-                              (map (juxt identity opts))
-                              (filter (comp identity second))
-                              (map (fn [[method opts]]
-                                     [method path (:handler opts)]))))))]
-    (println (string/upper-case (name method))
-             path
-             "->"
-             (class handler))))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 3000))]
