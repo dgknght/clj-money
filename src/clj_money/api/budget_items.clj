@@ -1,7 +1,6 @@
 (ns clj-money.api.budget-items
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
-            [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization
              :as auth
@@ -22,11 +21,8 @@
   [{:keys [authenticated] :as req}]
   (-> req
       extract-criteria
-      (util/pp-> ::criteria)
       (+scope :budget-item authenticated)
-      (util/pp-> ::scoped)
       entities/select
-      (util/pp-> ::selected)
       api/response))
 
 (defn- extract-item

@@ -44,7 +44,6 @@
   [v m & {:keys [meta? transform]
           :or {transform identity}
           :as opts}]
-
   (when (or (nil? (:if opts))
             ((:if opts) v))
     (binding [*print-meta* meta?]
