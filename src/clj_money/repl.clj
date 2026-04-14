@@ -11,32 +11,6 @@
             [clj-money.entities.transactions :as trx]
             [clj-money.entities.prices :as prices]))
 
-(defn pp->
-  [v m & {:keys [meta? transform]
-          :or {transform identity}
-          :as opts}]
-  (when (or (nil? (:if opts))
-            ((:if opts) v))
-    (binding [*print-meta* meta?]
-      (pprint {m (transform v)})))
-  v)
-
-(defn pp->>
-  ([m v] (pp->> m {} v))
-  ([m {:keys [transform] :or {transform identity}} v]
-   (pprint {m (transform v)})
-   v))
-
-(defn spit->>
-  [path v]
-  (spit path (with-out-str (pprint v)))
-  v)
-
-(defn spit->
-  [v path]
-  (spit path (with-out-str (pprint v)))
-  v)
-
 (defn print-routes []
   (doseq [[method path handler]
           (->> (-> s/app

@@ -92,6 +92,10 @@
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.util/simplify
+                                                      clj-money.util/pp->
+                                                      clj-money.util/pp->>
+                                                      clj-money.util/spit->
+                                                      clj-money.util/spit->>
                                                       clj-money.accounts/format-quantity
                                                       clj-money.repl
                                                       clj-money.runner/eftest
