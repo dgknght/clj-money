@@ -92,10 +92,6 @@
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.util/simplify
-                                                      clj-money.util/pp->
-                                                      clj-money.util/pp->>
-                                                      clj-money.util/spit->
-                                                      clj-money.util/spit->>
                                                       clj-money.accounts/format-quantity
                                                       clj-money.repl
                                                       clj-money.runner/eftest
@@ -105,6 +101,10 @@
                                                       clj-money.tasks/migrate-account
                                                       clj-money.tasks/account-report
                                                       clj-money.tasks/re-index
+                                                      clj-money.util/pp->
+                                                      clj-money.util/pp->>
+                                                      clj-money.util/spit->
+                                                      clj-money.util/spit->>
                                                       clj-money.views.reconciliations/load-working-reconciliation
                                                       clj-money.views.reconciliations/reconciliation-form}}
            :unresolved-var {:exclude [honeysql.helpers/select
