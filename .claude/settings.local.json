@@ -45,7 +45,8 @@
       "Bash(lein migrate:*)",
       "Bash(git push:*)",
       "Bash(gh auth:*)",
-      "Bash(du:*)"
+      "Bash(du:*)",
+      "mcp__trello__add-comment"
     ],
     "deny": [],
     "ask": [],
