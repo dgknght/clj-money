@@ -101,8 +101,8 @@
            ([^java.math.BigDecimal n places]
             (.setScale n places BigDecimal/ROUND_HALF_UP))))
 
-#?(:cljs (defn abs [n] (decimal/abs n))
-   :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))
+#?(:cljs (def abs decimal/abs)
+   :clj  (def abs core/abs))
 
 (def ^:private parsers
    [{:pattern #".*"
