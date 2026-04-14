@@ -27,3 +27,5 @@ Steps:
    the card.
 7. Once the work is complete, push the branch and create a pull request using
    `gh pr create`. This repository uses `main` as the default branch.
+8. Using the Github power up, associate the Trello work item with the branch
+   created in the previous step.
