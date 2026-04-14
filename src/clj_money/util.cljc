@@ -5,8 +5,6 @@
             [clojure.walk :refer [postwalk]]
             [clojure.spec.alpha :as s]
             #?(:cljs [goog.string])
-            #?(:clj [clojure.pprint :refer [pprint]]
-               :cljs [cljs.pprint :refer [pprint]])
             [clj-money.entities.schema :as schema]))
 
 (derive #?(:clj java.lang.String
@@ -39,33 +37,6 @@
 (derive ::vector ::collection)
 (derive ::list ::collection)
 (derive ::map ::collection)
-
-(defn pp->
-  [v m & {:keys [meta? transform]
-          :or {transform identity}
-          :as opts}]
-
-  (when (or (nil? (:if opts))
-            ((:if opts) v))
-    (binding [*print-meta* meta?]
-      (pprint {m (transform v)})))
-  v)
-
-(defn pp->>
-  ([m v] (pp->> m {} v))
-  ([m {:keys [transform] :or {transform identity}} v]
-   (pprint {m (transform v)})
-   v))
-
-#?(:clj (defn spit->>
-          [path v]
-          (spit path (with-out-str (pprint v)))
-          v))
-
-#?(:clj (defn spit->
-          [v path]
-          (spit path (with-out-str (pprint v)))
-          v))
 
 (def entity-types
   (->> schema/entities
