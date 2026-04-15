@@ -1,0 +1,4 @@
+[{:db/ident       :audit/description
+  :db/valueType   :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc         "Human-readable description of the operation that caused this transaction"}]

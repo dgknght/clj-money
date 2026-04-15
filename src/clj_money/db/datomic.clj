@@ -184,14 +184,16 @@
   schema/entity-ref-keys)
 
 (defn- put*
-  [entities {:keys [api]}]
+  [entities {:keys [api]} {:keys [tx-meta]}]
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
                      (map (pass-through (datomize {:ref-keys ref-keys})))
-                     (mapcat #(prep-for-put % api)))
-
-        {:keys [tempids]} (transact api prepped {})]
+                     (mapcat #(prep-for-put % api))
+                     vec)
+        tx-data (cond-> prepped
+                  tx-meta (conj (assoc tx-meta :db/id "datomic.tx")))
+        {:keys [tempids]} (transact api tx-data {})]
     (->> prepped
          (map (comp #(tempids % %)
                     :db/id))
@@ -445,7 +447,7 @@
   [config]
   (let [api (init-api config)]
     (reify db/Storage
-      (put [_ entities]       (put* entities {:api api}))
+      (put [_ opts entities]  (put* entities {:api api} opts))
       (find [_ id]            (find* id {:api api}))
       (find-many [_ ids]      (find-many* ids {:api api}))
       (select [_ crit opts]   (select* crit opts {:api api}))

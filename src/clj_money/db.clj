@@ -12,7 +12,7 @@
 
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
-  (put [this entities] "Saves the specified entities to the data store")
+  (put [this opts entities] "Saves the specified entities to the data store")
   (find [this id] "Fetches the entity with the given id")
   (find-many [this ids] "Fetches the entities with the given ids")
   (select [this criteria options] "Retrieves entities from the data store")
@@ -46,11 +46,11 @@
 (defn tracing-storage
   [storage prefix]
   (reify Storage
-    (put [_ entities]
+    (put [_ opts entities]
       (with-tracing [span (format "%s/put %s"
                                   prefix
                                   (-> entities first util/entity-type))]
-        (put storage entities)))
+        (put storage opts entities)))
 
     (find [_ id]
       (with-tracing [span (format "%s/find %s"
