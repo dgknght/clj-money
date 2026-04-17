@@ -255,3 +255,7 @@ lein fig:test
 
 ## License
 Distributed under the Eclipse Public License, the same as Clojure.
+
+## Links
+
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/clj-money)
