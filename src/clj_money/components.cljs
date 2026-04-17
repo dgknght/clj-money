@@ -2,6 +2,8 @@
   (:require [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
+            [dgknght.app-lib.web :refer [format-date
+                                         format-decimal]]
             [clj-money.icons :as icons]
             [clj-money.state :refer [busy?]]
             [clj-money.util
@@ -136,3 +138,40 @@
         [spinner :size :small]
         (icons/icon icon))
       [:span.ms-2 caption]]]))
+
+(defn audit-history-popover
+  "Renders a clock-history button that shows a floating popover table
+  with the history of an attribute value. Only renders when history is
+  non-empty.
+
+  history   - seq of {:tx-instant <date> :value <decimal> :description <str>}
+  expanded? - whether the popover is currently visible
+  toggle-fn - 0-arity fn called when the button is clicked"
+  [history expanded? toggle-fn]
+  (when (seq history)
+    [:span.position-relative
+     [:button.btn.btn-sm.btn-link.p-0
+      {:title "View history"
+       :on-click (fn [e]
+                   (.stopPropagation e)
+                   (toggle-fn))}
+      [icons/icon :clock-history]]
+     (when expanded?
+       [:div.position-absolute.bg-white.border.rounded.shadow.p-2
+        {:style {:min-width "360px"
+                 :top "100%"
+                 :right 0
+                 :z-index 1000}}
+        [:table.table.table-sm.mb-0
+         [:thead
+          [:tr
+           [:th "Date"]
+           [:th.text-end "Value"]
+           [:th "Description"]]]
+         [:tbody
+          (for [{:keys [tx-instant value description]} history]
+            ^{:key (str tx-instant)}
+            [:tr
+             [:td (format-date tx-instant)]
+             [:td.text-end (format-decimal value 4)]
+             [:td description]])]]])]))

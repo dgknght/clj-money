@@ -40,7 +40,8 @@
                                             unentryfy
                                             ensure-empty-item
                                             ->bilateral]]
-            [clj-money.components :refer [load-in-chunks]]
+            [clj-money.components :refer [load-in-chunks
+                                          audit-history-popover]]
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
@@ -349,25 +350,6 @@
              (let [s (or expanded #{})]
                (if (s id) (disj s id) (conj s id)))))))
 
-(defn- trx-item-audit-row
-  [history item-id]
-  ^{:key (str "trx-item-audit-" item-id)}
-  [:tr
-   [:td {:col-span 5}
-    [:table.table.table-sm.mb-0
-     [:thead
-      [:tr
-       [:th "Date"]
-       [:th.text-end "Quantity"]
-       [:th "Description"]]]
-     [:tbody
-      (for [{:keys [tx-instant value description]} history]
-        ^{:key (str tx-instant)}
-        [:tr
-         [:td (format-date tx-instant)]
-         [:td.text-end (format-decimal value 4)]
-         [:td description]])]]]])
-
 (defn- fund-transaction-row
   [{:as item
     :transaction/keys [transaction-date
@@ -376,19 +358,20 @@
                             balance
                             value]}
    page-state]
-  (let [audit-history (get-in @page-state [:trx-item-audit-histories (:id item)])]
-    ^{:key (str "item-" (:id item))}
+  (let [id (:id item)
+        audit-history (get-in @page-state [:trx-item-audit-histories id])
+        expanded? (contains? (:trx-item-audit-expanded @page-state) id)]
+    ^{:key (str "item-" id)}
     [:tr
      [:td.text-end (format-date transaction-date)]
      [:td description]
      [:td.text-end
       [:div.d-flex.justify-content-end.align-items-center.gap-1
        (format-decimal polarized-quantity 4)
-       (when (seq audit-history)
-         [:button.btn.btn-sm.btn-link.p-0
-          {:title "View history"
-           :on-click #(toggle-trx-item-audit! page-state item)}
-          [icon :clock-history]])]]
+       [audit-history-popover
+        audit-history
+        expanded?
+        #(toggle-trx-item-audit! page-state item)]]]
      [:td.text-end (format-decimal balance 4)]
      [:td.text-end (currency-format (or value polarized-quantity))]]))
 
@@ -422,42 +405,34 @@
                                     (doseq [item items]
                                       (load-trx-item-audit! page-state item))))
     (fn []
-      (let [trx-item-audit-histories (r/cursor page-state [:trx-item-audit-histories])
-            trx-item-audit-expanded  (r/cursor page-state [:trx-item-audit-expanded])]
-        [:table.table.table-hover.table-borderless
-         [:thead
+      [:table.table.table-hover.table-borderless
+       [:thead
+        [:tr
+         [:th.text-end "Transaction Date"]
+         [:th "Description"]
+         [:th.text-end "Qty."]
+         [:th.text-end "Bal."]
+         [:th.text-end "Value"]]]
+       [:tbody
+        (cond
+          (nil? @items)
           [:tr
-           [:th.text-end "Transaction Date"]
-           [:th "Description"]
-           [:th.text-end "Qty."]
-           [:th.text-end "Bal."]
-           [:th.text-end "Value"]]]
-         [:tbody
-          (cond
-            (nil? @items)
-            [:tr
-             [:td.text-center.fw-lighter {:col-span 5}
-              [:div.d-flex.justify-content-center.m2
-               [:div.spinner-border {:role :status}
-                [:span.visually-hidden "Loading"]]]]]
+           [:td.text-center.fw-lighter {:col-span 5}
+            [:div.d-flex.justify-content-center.m2
+             [:div.spinner-border {:role :status}
+              [:span.visually-hidden "Loading"]]]]]
 
-            (seq @items)
-            (doall
-              (mapcat (fn [row]
-                        (if (:lot-note/transaction-date row)
-                          [(lot-note-row row)]
-                          (let [id (:id row)]
-                            (cond-> [(fund-transaction-row row page-state)]
-                              (contains? @trx-item-audit-expanded id)
-                              (conj (trx-item-audit-row
-                                      (get @trx-item-audit-histories id)
-                                      id))))))
-                      @all-rows))
+          (seq @items)
+          (doall
+            (for [row @all-rows]
+              (if (:lot-note/transaction-date row)
+                (lot-note-row row)
+                (fund-transaction-row row page-state))))
 
-            :else
-            [:tr [:td.text-center.fw-lighter
-                  {:col-span 5}
-                  "No transaction for this commodity."]])]]))))
+          :else
+          [:tr [:td.text-center.fw-lighter
+                {:col-span 5}
+                "No transaction for this commodity."]])]])))
 
 (defn- ensure-entry-state
   [page-state]
