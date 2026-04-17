@@ -878,7 +878,8 @@
                     (entities/put-many
                       (assoc opts
                              :suspend-validation #{:reconciliation}
-                             :tx-meta {:audit/description
+                             :tx-meta {:db/id "datomic.tx"
+                                       :audit/description
                                        (format "%s split of %s on %s, %s shares gained"
                                                (ratio->words ratio)
                                                (-> split :split/commodity :commodity/symbol)
