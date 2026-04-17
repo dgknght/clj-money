@@ -46,7 +46,8 @@
       "Bash(git push:*)",
       "Bash(gh auth:*)",
       "Bash(du:*)",
-      "mcp__trello__add-comment"
+      "mcp__trello__add-comment",
+      "Bash(podman compose:*)"
     ],
     "deny": [],
     "ask": [],
