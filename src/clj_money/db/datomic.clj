@@ -26,6 +26,7 @@
   (pull [this id])
   (pull-many [this ids])
   (query [this arg-map])
+  (history [this entity-id attr])
   (reset [this]))
 
 ; TODO: Get this from the schema
@@ -409,6 +410,17 @@
                                         d-peer/db)
                                     %))
           d-peer/qseq))
+    (history [_ entity-id attr]
+      (d-peer/q
+        '[:find ?v ?tx-inst ?desc
+          :in $ ?e ?a
+          :where
+          [?e ?a ?v ?tx true]
+          [?tx :db/txInstant ?tx-inst]
+          [?tx :audit/description ?desc]]
+        (-> uri d-peer/connect d-peer/db d-peer/history)
+        entity-id
+        attr))
     (reset [_]
       (d-peer/delete-database uri)
       (apply-schema config {:suppress-output? true}))))
@@ -432,6 +444,17 @@
         (apply d-client/q
                query
                (cons (d-client/db conn) args)))
+      (history [_ entity-id attr]
+        (d-client/q
+          {:query '[:find ?v ?tx-inst ?desc
+                    :in $ ?e ?a
+                    :where
+                    [?e ?a ?v ?tx true]
+                    [?tx :db/txInstant ?tx-inst]
+                    [?tx :audit/description ?desc]]
+           :args [(d-client/history (d-client/db conn))
+                  entity-id
+                  attr]}))
       (reset [_]
         ; probably should not ever get here, as this is for unit tests only
         ))))
@@ -443,6 +466,20 @@
                                    :datomic-peer]))]
     (query api {:query qry :args args})))
 
+(defn- ->local-date
+  [^java.util.Date d]
+  (java.time.LocalDate/ofInstant (.toInstant d)
+                                 (java.time.ZoneId/of "UTC")))
+
+(defn- history*
+  [entity-id attr {:keys [api]}]
+  (->> (history api entity-id attr)
+       (map (fn [[v tx-inst desc]]
+              {:value       v
+               :tx-instant  (->local-date tx-inst)
+               :description desc}))
+       (sort-by :tx-instant)))
+
 (defn- datomic-storage
   [config]
   (let [api (init-api config)]
@@ -453,6 +490,7 @@
       (select [_ crit opts]   (select* crit opts {:api api}))
       (delete [_ entities]    (delete* entities {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
+      (history [_ entity-id attr] (history* entity-id attr {:api api}))
       (close [_])
       (reset [this]           (reset api) this))))
 

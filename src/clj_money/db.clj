@@ -18,6 +18,8 @@
   (select [this criteria options] "Retrieves entities from the data store")
   (update [this changes criteria] "Performs a batch data update")
   (delete [this entities] "Removes entities from the data store")
+  (history [this entity-id attr]
+    "Returns the history of values for the attribute of the given entity")
   (close [this] "Releases an resources held by the instance")
   (reset [this] "Deletes all data in the data store")) ; This is only ever needed for testing. Maybe there's a better way than putting it here?
 
@@ -73,6 +75,10 @@
                                   prefix
                                   (-> entities first util/entity-type))]
         (delete storage entities)))
+
+    (history [_ entity-id attr]
+      (with-tracing [span (format "%s/history %s" prefix attr)]
+        (history storage entity-id attr)))
 
     (update [_ changes criteria]
       (with-tracing [span (format "%s/update %s"

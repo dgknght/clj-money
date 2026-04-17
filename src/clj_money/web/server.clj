@@ -43,6 +43,7 @@
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.api.lot-notes :as lot-notes-api]
+            [clj-money.api.audit :as audit-api]
             [clj-money.api.invitations :as invitations-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
             [clj-money.web.apps :as apps]
@@ -182,6 +183,7 @@
                        prices-api/routes
                        lots-api/routes
                        lot-notes-api/routes
+                       audit-api/routes
                        recs-api/routes
                        reports-api/routes
                        trading-api/routes

@@ -485,6 +485,7 @@
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))
+      (history [_ _entity-id _attr] [])
       (close [_] #_noop)
       (reset [this] (reset* ds) this))))
 
