@@ -5,24 +5,29 @@
             [clj-money.authorization :refer [+scope authorize]
              :as authorization]
             [clj-money.entities :as entities]
-            [clj-money.authorization.lots]))
+            [clj-money.authorization.lots]
+            [clj-money.authorization.transaction-items]))
 
-(defn- find-lot-and-auth
-  [{:keys [path-params authenticated]}]
+(defn- find-and-auth
+  [path-params id-key entity-type authenticated]
   (some-> path-params
-          (select-keys [:lot-id])
-          (update-in [:lot-id] unserialize-id)
-          (rename-keys {:lot-id :id})
-          (+scope :lot authenticated)
+          (select-keys [id-key])
+          (update-in [id-key] unserialize-id)
+          (rename-keys {id-key :id})
+          (+scope entity-type authenticated)
           entities/find-by
           (authorize ::authorization/show authenticated)))
 
-(defn- lot-audit
-  [{:as req :keys [params]}]
-  (if-let [lot (find-lot-and-auth req)]
-    (api/response
-      (db/history (db/storage) (:id lot) (keyword (:attr params))))
-    api/not-found))
+(defn- audit-handler
+  [id-key entity-type]
+  (fn [{:keys [path-params params authenticated]}]
+    (if-let [entity (find-and-auth path-params id-key entity-type authenticated)]
+      (api/response
+        (db/history (db/storage) (:id entity) (keyword (:attr params))))
+      api/not-found)))
 
 (def routes
-  [["lots/:lot-id/audit" {:get {:handler lot-audit}}]])
+  [["lots/:lot-id/audit"
+    {:get {:handler (audit-handler :lot-id :lot)}}]
+   ["transaction-items/:transaction-item-id/audit"
+    {:get {:handler (audit-handler :transaction-item-id :transaction-item)}}]])

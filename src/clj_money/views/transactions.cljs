@@ -44,7 +44,8 @@
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
-            [clj-money.api.trading :as trading]))
+            [clj-money.api.trading :as trading]
+            [clj-money.api.audit :as audit]))
 
 (defn- supply-accounts
   [items]
@@ -332,20 +333,64 @@
           :else
           [:tr [:td.text-center {:col-span 6} (bs/spinner {:size :small})]])]])))
 
+(defn- load-trx-item-audit!
+  [page-state item]
+  (audit/select :transaction-items (:id item) "transaction-item/quantity"
+                :on-success
+                #(swap! page-state assoc-in
+                        [:trx-item-audit-histories (:id item)]
+                        %)))
+
+(defn- toggle-trx-item-audit!
+  [page-state item]
+  (let [id (:id item)]
+    (swap! page-state update :trx-item-audit-expanded
+           (fn [expanded]
+             (let [s (or expanded #{})]
+               (if (s id) (disj s id) (conj s id)))))))
+
+(defn- trx-item-audit-row
+  [history item-id]
+  ^{:key (str "trx-item-audit-" item-id)}
+  [:tr
+   [:td {:col-span 5}
+    [:table.table.table-sm.mb-0
+     [:thead
+      [:tr
+       [:th "Date"]
+       [:th.text-end "Quantity"]
+       [:th "Description"]]]
+     [:tbody
+      (for [{:keys [tx-instant value description]} history]
+        ^{:key (str tx-instant)}
+        [:tr
+         [:td (format-date tx-instant)]
+         [:td.text-end (format-decimal value 4)]
+         [:td description]])]]]])
+
 (defn- fund-transaction-row
   [{:as item
     :transaction/keys [transaction-date
                        description]
     :transaction-item/keys [polarized-quantity
                             balance
-                            value]}]
-  ^{:key (str "item-" (:id item))}
-  [:tr
-   [:td.text-end (format-date transaction-date)]
-   [:td description]
-   [:td.text-end (format-decimal polarized-quantity 4)]
-   [:td.text-end (format-decimal balance 4)]
-   [:td.text-end (currency-format (or value polarized-quantity))]])
+                            value]}
+   page-state]
+  (let [audit-history (get-in @page-state [:trx-item-audit-histories (:id item)])]
+    ^{:key (str "item-" (:id item))}
+    [:tr
+     [:td.text-end (format-date transaction-date)]
+     [:td description]
+     [:td.text-end
+      [:div.d-flex.justify-content-end.align-items-center.gap-1
+       (format-decimal polarized-quantity 4)
+       (when (seq audit-history)
+         [:button.btn.btn-sm.btn-link.p-0
+          {:title "View history"
+           :on-click #(toggle-trx-item-audit! page-state item)}
+          [icon :clock-history]])]]
+     [:td.text-end (format-decimal balance 4)]
+     [:td.text-end (currency-format (or value polarized-quantity))]]))
 
 (defn- lot-note-row
   [{:lot-note/keys [transaction-date memo] :as note}]
@@ -372,36 +417,47 @@
     ; I don't think we need to chunk this, but maybe we do
     (trx-items/select (accounts/->criteria @account)
                       :post-xf (map (polarize-quantities @account))
-                      :on-success #(swap! page-state assoc :items %))
+                      :on-success (fn [items]
+                                    (swap! page-state assoc :items items)
+                                    (doseq [item items]
+                                      (load-trx-item-audit! page-state item))))
     (fn []
-      [:table.table.table-hover.table-borderless
-       [:thead
-        [:tr
-         [:th.text-end "Transaction Date"]
-         [:th "Description"]
-         [:th.text-end "Qty."]
-         [:th.text-end "Bal."]
-         [:th.text-end "Value"]]]
-       [:tbody
-        (cond
-          (nil? @items)
+      (let [trx-item-audit-histories (r/cursor page-state [:trx-item-audit-histories])
+            trx-item-audit-expanded  (r/cursor page-state [:trx-item-audit-expanded])]
+        [:table.table.table-hover.table-borderless
+         [:thead
           [:tr
-           [:td.text-center.fw-lighter {:col-span 5}
-            [:div.d-flex.justify-content-center.m2
-             [:div.spinner-border {:role :status}
-              [:span.visually-hidden "Loading"]]]]]
+           [:th.text-end "Transaction Date"]
+           [:th "Description"]
+           [:th.text-end "Qty."]
+           [:th.text-end "Bal."]
+           [:th.text-end "Value"]]]
+         [:tbody
+          (cond
+            (nil? @items)
+            [:tr
+             [:td.text-center.fw-lighter {:col-span 5}
+              [:div.d-flex.justify-content-center.m2
+               [:div.spinner-border {:role :status}
+                [:span.visually-hidden "Loading"]]]]]
 
-          (seq @items)
-          (doall
-            (for [row @all-rows]
-              (if (:lot-note/transaction-date row)
-                (lot-note-row row)
-                (fund-transaction-row row))))
+            (seq @items)
+            (doall
+              (mapcat (fn [row]
+                        (if (:lot-note/transaction-date row)
+                          [(lot-note-row row)]
+                          (let [id (:id row)]
+                            (cond-> [(fund-transaction-row row page-state)]
+                              (contains? @trx-item-audit-expanded id)
+                              (conj (trx-item-audit-row
+                                      (get @trx-item-audit-histories id)
+                                      id))))))
+                      @all-rows))
 
-          :else
-          [:tr [:td.text-center.fw-lighter
-                {:col-span 5}
-                "No transaction for this commodity."]])]])))
+            :else
+            [:tr [:td.text-center.fw-lighter
+                  {:col-span 5}
+                  "No transaction for this commodity."]])]]))))
 
 (defn- ensure-entry-state
   [page-state]
