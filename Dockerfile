@@ -13,7 +13,7 @@ RUN apt-get install --yes nodejs npm && \
 
 RUN mkdir resources/public/css && \
     sass src/scss/site.scss resources/public/css/site.css && \
-    lein do fig:prod, uberjar
+    SESSION_SECRET=clj-money-build! lein do fig:prod, uberjar
 
 FROM docker.io/clojure:temurin-25-lein-bookworm-slim AS web
 WORKDIR /opt/clj-money
