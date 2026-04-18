@@ -15,10 +15,15 @@
 
 (use-fixtures :each reset-db)
 
-(deftest start-the-oauth-process
+(deftest start-the-google-oauth-process
   (is (http-redirect-to?
         #"https://accounts\.google\.com/o/oauth2/v2/auth\?.*client_id=google-id.*scope=email"
         (app (req/request :get "/auth/google/start")))))
+
+(deftest start-the-github-oauth-process
+  (is (http-redirect-to?
+        #"https://github\.com/login/oauth/authorize\?.*client_id=github-id"
+        (app (req/request :get "/auth/github/start")))))
 
 (defn- json-body
   [payload]
@@ -36,7 +41,7 @@
   [payload]
   (-> payload json-response constantly))
 
-(def ^:private mocks
+(def ^:private google-mocks
   {"https://www.googleapis.com/oauth2/v4/token"
    (json-response-fn {:access_token "hij789"})
 
@@ -45,6 +50,18 @@
                       :email "john@doe.com"
                       :given_name "John"
                       :family_name "Doe"})})
+
+(def ^:private mocks google-mocks)
+
+(def ^:private github-mocks
+  {"https://github.com/login/oauth/access_token"
+   (json-response-fn {:access_token "ghp_abc123"})
+
+   "https://api.github.com/user"
+   (json-response-fn {:id 12345
+                      :email "jane@doe.com"
+                      :name "Jane Doe"
+                      :login "janedoe"})})
 
 (defn- query-param
   "Extracts a single query parameter value from a URL string."
@@ -93,3 +110,30 @@
                                   :first-name "John"
                                   :last-name "Doe"}
                            (usrs/find-by-email "john@doe.com"))))))))
+
+(deftest handle-a-successful-github-oauth-callback-for-a-new-user
+  (with-web-mocks [_calls] github-mocks
+    (with-redefs [jwt/sign (constantly "ghtoken123")]
+      (let [start-res    (app (req/request :get "/auth/github/start"))
+            location     (get-in start-res [:headers "Location"])
+            state        (query-param location "state")
+            session-hdr  (extract-session-cookie start-res)
+            callback-req (-> (req/request :get "/auth/github/callback")
+                             (req/header "Cookie" session-hdr)
+                             (assoc :query-params {"code"  "gh-auth-code"
+                                                   "state" state}))
+            callback-res (app callback-req)]
+        (is (http-redirect-to? "/auth/github/done" callback-res)
+            "ring-oauth2 redirects to the landing URI after token exchange")
+        (let [done-session-hdr (extract-session-cookie callback-res)
+              done-req         (-> (req/request :get "/auth/github/done")
+                                   (req/header "Cookie" done-session-hdr))
+              done-res         (app done-req)]
+          (is (http-redirect-to? "/" done-res)
+              "The done handler redirects to the root page")
+          (is (http-response-with-cookie? "auth-token" "ghtoken123" done-res)
+              "The redirect contains the auth token")
+          (is (comparable? #:user{:email "jane@doe.com"
+                                  :first-name "Jane"
+                                  :last-name "Doe"}
+                           (usrs/find-by-email "jane@doe.com"))))))))
