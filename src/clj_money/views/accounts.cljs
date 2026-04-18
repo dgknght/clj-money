@@ -828,8 +828,8 @@
 
           :else
           [:tr
-           [:td.text-center.fw-lighter {:col-span 6}
-            "No lots of this commidty are currently held."]])]
+           [:td.text-center.text-body-tertiary {:col-span 6}
+            "No current lots for this commodity."]])]
        (when (seq @held-lots)
          [:tfoot
           [:tr
