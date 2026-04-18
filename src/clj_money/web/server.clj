@@ -136,8 +136,8 @@
 
 (defn- maybe-wrap-oauth2
   [handler]
-  (if (env :google-client-id)
-    (oauth2/wrap-oauth2 handler (web-auth/oauth2-profiles))
+  (if-let [profiles (not-empty (web-auth/oauth2-profiles))]
+    (oauth2/wrap-oauth2 handler profiles)
     handler))
 
 (def app
@@ -149,6 +149,11 @@
                                      wrap-merge-params
                                      wrap-request-logging]
                         :get {:handler web-auth/google-redirect-handler}}]
+                      ["auth/github/done"
+                       {:middleware [:site
+                                     wrap-merge-params
+                                     wrap-request-logging]
+                        :get {:handler web-auth/github-redirect-handler}}]
                       ["app/" {:middleware [:site
                                             :wrap-format
                                             wrap-merge-params
