@@ -439,6 +439,10 @@
   #?(:clj (t/instant (t/formatter :iso-instant) s)
      :cljs (tf/parse-local-date (tf/formatters :date-time) s)))
 
+(defn parse-instant
+  [s]
+  (->instant s))
+
 (defmacro with-fixed-time
   [time & body]
   #?(:clj `(t/with-clock
