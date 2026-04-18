@@ -384,6 +384,14 @@
 
 (defmulti init-api ::db/strategy)
 
+(def ^:private history-query
+  '[:find ?v ?tx-inst ?desc
+    :in $ ?e ?a
+    :where
+    [?e ?a ?v ?tx true]
+    [?tx :db/txInstant ?tx-inst]
+    [(get-else $ ?tx :audit/description "") ?desc]])
+
 (defmethod init-api :clj-money.db/datomic-peer
   [{:keys [uri] :as config}]
   (reify DatomicAPI
@@ -412,12 +420,7 @@
           d-peer/qseq))
     (history [_ entity-id attr]
       (d-peer/q
-        '[:find ?v ?tx-inst ?desc
-          :in $ ?e ?a
-          :where
-          [?e ?a ?v ?tx true]
-          [?tx :db/txInstant ?tx-inst]
-          [?tx :audit/description ?desc]]
+        history-query
         (-> uri d-peer/connect d-peer/db d-peer/history)
         entity-id
         attr))
@@ -446,12 +449,7 @@
                (cons (d-client/db conn) args)))
       (history [_ entity-id attr]
         (d-client/q
-          {:query '[:find ?v ?tx-inst ?desc
-                    :in $ ?e ?a
-                    :where
-                    [?e ?a ?v ?tx true]
-                    [?tx :db/txInstant ?tx-inst]
-                    [?tx :audit/description ?desc]]
+          {:query history-query
            :args [(d-client/history (d-client/db conn))
                   entity-id
                   attr]}))
