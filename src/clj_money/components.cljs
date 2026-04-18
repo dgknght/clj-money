@@ -164,12 +164,17 @@
                  :top "100%"
                  :right 0
                  :z-index 1000}}
-        (for [{:keys [tx-instant value description]} history]
-          ^{:key (str tx-instant)}
-          [:div.d-flex.flex-column.justify-content-start.pb-2.mb-2.border-bottom
-           [:div.d-flex.justify-content-between.mb-2
-            [:span (format-date-time tx-instant)]
-            [:span (format-decimal value 4)]]
-           [:div.text-start
-            (or (presence description)
-                [:span.text-body-tertiary "No description"])]])])]))
+        (let [items (vec history)
+              last-idx (dec (count items))]
+          (map-indexed
+            (fn [idx {:keys [tx-instant value description]}]
+              ^{:key (str tx-instant)}
+              [:div.d-flex.flex-column.justify-content-start
+               {:class (when (< idx last-idx) "pb-2 mb-2 border-bottom")}
+               [:div.d-flex.justify-content-between.mb-2
+                [:span (format-date-time tx-instant)]
+                [:span (format-decimal value 4)]]
+               [:div.text-start
+                (or (presence description)
+                    [:span.text-body-tertiary "No description"])]])
+            items))])]))
