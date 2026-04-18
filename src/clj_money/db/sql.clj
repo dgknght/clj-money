@@ -479,12 +479,13 @@
   [config]
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
-      (put [_ entities] (put* ds entities))
+      (put [_ _opts entities] (put* ds entities))
       (find [this id] (find* ds id {:storage this}))
       (find-many [this ids] (find-many* ds ids {:storage this}))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ entities] (delete* ds entities))
       (update [_ changes criteria] (update* ds changes criteria))
+      (history [_ _entity-id _attr] [])
       (close [_] #_noop)
       (reset [this] (reset* ds) this))))
 

@@ -267,8 +267,7 @@
                                    #(validate % opts)
                                    before-validation))))
          result (->> to-save
-                     (db/put (or storage
-                                 (db/storage)))
+                     (db/put (or storage (db/storage)) opts)
                      (map (comp append-before
                                 after-save
                                 #(after-read* % {}))))]

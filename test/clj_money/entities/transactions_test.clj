@@ -536,7 +536,7 @@
             (assoc :transaction/transaction-date
                    (t/local-date (t/local-date 2016 3 8)))
             prop/put-and-propagate)
-        (let [[[c1] [c2] :as cs] (spy/calls storage :put)
+        (let [[[_ c1] [_ c2] :as cs] (spy/calls storage :put)
               checking (find-account "Checking")]
           (is (= 2 (count cs))
               "Two calls are made to write to storage (the primary and the propagation)")

@@ -27,12 +27,14 @@
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.components :refer [load-on-scroll
-                                          button]]
+                                          button
+                                          audit-history-popover]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
             [clj-money.api.lot-notes :as lot-notes]
             [clj-money.api.prices :as prices]
+            [clj-money.api.audit :as audit]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :refer [account-types
@@ -725,16 +727,41 @@
         @attachments-item    [atts/attachments-card page-state]
         :else                [transaction-item-list page-state]))))
 
+(defn- load-lot-audit!
+  [page-state lot]
+  (audit/select lot :lot/shares-purchased
+                :on-success
+                #(swap! page-state assoc-in
+                        [:lot-audit-histories (:id lot)]
+                        %)))
+
+(defn- toggle-lot-audit!
+  [page-state lot]
+  (let [id (:id lot)]
+    (swap! page-state update :lot-audit-expanded
+           (fn [expanded]
+             (let [s (or expanded #{})]
+               (if (s id) (disj s id) (conj s id)))))))
+
 (defn- lot-row
-  [lot latest-price gain-loss]
+  [lot latest-price gain-loss page-state]
   (let [g-l (- (* (:price/value latest-price)
                   (:lot/shares-owned lot))
                (* (:lot/purchase-price lot)
-                  (:lot/shares-owned lot)))]
-    ^{:key (str "lot-" (:id lot))}
+                  (:lot/shares-owned lot)))
+        id (:id lot)
+        audit-history (get-in @page-state [:lot-audit-histories id])
+        expanded? (contains? (:lot-audit-expanded @page-state) id)]
+    ^{:key (str "lot-" id)}
     [:tr
      [:td.text-end (format-date (:lot/purchase-date lot))]
-     [:td.text-end (format-decimal (:lot/shares-purchased lot) 4)]
+     [:td.text-end
+      [:div.d-flex.align-items-center
+       (format-decimal (:lot/shares-purchased lot) 4)
+       [audit-history-popover
+        audit-history
+        expanded?
+        [:div.ms-auto #(toggle-lot-audit! page-state lot)]]]]
      [:td.text-end (format-decimal (:lot/shares-owned lot) 4)]
      [:td.text-end (format-decimal (:lot/purchase-price lot) 2)]
      [:td.text-end
@@ -796,13 +823,13 @@
           (->> @held-lots
                (sort-by (comp serialize-local-date
                               :lot/purchase-date))
-               (map #(lot-row % @latest-price @gain-loss))
+               (map #(lot-row % @latest-price @gain-loss page-state))
                doall)
 
           :else
           [:tr
-           [:td.text-center.fw-lighter {:col-span 6}
-            "No lots of this commidty are currently held."]])]
+           [:td.text-center.text-body-tertiary {:col-span 6}
+            "No current lots for this commodity."]])]
        (when (seq @held-lots)
          [:tfoot
           [:tr
@@ -837,7 +864,10 @@
     (lots/select
       #:lot{:account parent
             :commodity commodity}
-      :on-success (partial swap! page-state assoc :lots))))
+      :on-success (fn [lots]
+                    (swap! page-state assoc :lots lots)
+                    (doseq [lot lots]
+                      (load-lot-audit! page-state lot))))))
 
 (defn- load-prices
   [page-state]
@@ -896,7 +926,9 @@
                              :lots
                              :lot-notes
                              :items
-                             :all-items-fetched?)}
+                             :all-items-fetched?
+                             :lot-audit-histories
+                             :lot-audit-expanded)}
           (icon-with-text :arrow-left-short "Back")]]]])))
 
 (defn- tradable-account-details
