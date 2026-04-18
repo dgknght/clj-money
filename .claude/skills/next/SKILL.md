@@ -16,16 +16,10 @@ Steps:
   order, so select the card with the lowest `pos` value — that is the card
   at the top of the list.
 2. Present the card name, description, and label(s) to the user.
-3. Run `git branch --show-current` to determine the actual current branch (do not
-   rely on the gitStatus from the start of the session, which may be stale).
-   If we are not on `main`, confirm with the user before proceeding.
-4. Create a new feature branch for this work. Try to limit the branch name to
-   three or four words.
-5. Call `mcp__trello__move-card` to move the card to the "In Progress" list (id
+3. Create a new feature branch for this work.
+4. Call `mcp__trello__move-card` to move the card to the "In Progress" list (id
    `5eb489c9c2840d7d90f0f325`).
-6. Confirm the move to the user, then begin implementing the work described in
+5. Confirm the move to the user, then begin implementing the work described in
    the card.
-7. Once the work is complete, push the branch and create a pull request using
+6. Once the work is complete, push the branch and create a pull request using
    `gh pr create`. This repository uses `main` as the default branch.
-8. Using the Github power up, associate the Trello work item with the branch
-   created in the previous step.
