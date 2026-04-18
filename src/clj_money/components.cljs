@@ -3,7 +3,7 @@
             [reagent.core :as r]
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
             [dgknght.app-lib.core :refer [present?]]
-            [dgknght.app-lib.web :refer [format-date
+            [dgknght.app-lib.web :refer [format-date-time
                                          format-decimal]]
             [clj-money.icons :as icons]
             [clj-money.state :refer [busy?]]
@@ -173,6 +173,6 @@
           (for [{:keys [tx-instant value description]} history]
             ^{:key (str tx-instant)}
             [:tr
-             [:td (format-date tx-instant)]
+             [:td (format-date-time tx-instant)]
              [:td.text-end (format-decimal value 4)]
              [:td description]])]]])]))

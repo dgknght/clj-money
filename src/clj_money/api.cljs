@@ -11,6 +11,7 @@
 
 (reader/register-tag-parser! 'clj-money/local-date-time clj-money.dates/local-date-time)
 (reader/register-tag-parser! 'clj-money/local-date clj-money.dates/local-date)
+(reader/register-tag-parser! 'clj-money/instant clj-money.dates/unserialize-instant)
 (reader/register-tag-parser! 'clj-money/decimal clj-money.decimal/d)
 
 (def default-options

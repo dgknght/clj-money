@@ -464,17 +464,12 @@
                                    :datomic-peer]))]
     (query api {:query qry :args args})))
 
-(defn- ->local-date
-  [^java.util.Date d]
-  (java.time.LocalDate/ofInstant (.toInstant d)
-                                 (java.time.ZoneId/of "UTC")))
-
 (defn- history*
   [entity-id attr {:keys [api]}]
   (->> (history api entity-id attr)
        (map (fn [[v tx-inst desc]]
               {:value       v
-               :tx-instant  (->local-date tx-inst)
+               :tx-instant  (.toInstant tx-inst)
                :description desc}))
        (sort-by :tx-instant)))
 
