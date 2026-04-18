@@ -82,7 +82,7 @@ lein with-profile test do create-sql, \
 
 Create a `env/dev/config.edn` by copying `env/test/config.edn` and changing
 
-- The datbase details (should be just the dbname)
+- The database details (should be just the dbname)
 - The image storage details (should be just the dbname)
 - The Google OAuth keys
   - `:google-client-id`
@@ -115,6 +115,7 @@ SQL_APP_PASSWORD=...
 SQL_DB_NAME=...
 SQL_HOST=sql
 DATOMIC_DB_NAME=...
+SESSION_SECRET=...
 ```
 
 Create `env/docker/config.edn` (this file is gitignored, so credentials are
@@ -161,6 +162,7 @@ change.
             :active :redis}
  :redis-password "<redis-password>"
  :secret "dev secret"
+ :session-secret "session secret"
  :show-error-messages? true
  :site-host "localhost:3000"
  :site-protocol "http"

@@ -51,12 +51,15 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run ClojureScript tests
         run: lein fig:test
+        env:
+          SESSION_SECRET: ci-secret-16byte
       - name: Set up the database
         run: lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
       - name: Run tests
         run: lein cloverage
         env:
           REDIS_PASSWORD: ""
+          SESSION_SECRET: ci-secret-16byte
 
   tag:
     needs: build
