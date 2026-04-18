@@ -367,11 +367,11 @@
      [:td description]
      [:td.text-end
       [:div.d-flex.justify-content-end.align-items-center.gap-1
-       (format-decimal polarized-quantity 4)
        [audit-history-popover
         audit-history
         expanded?
-        #(toggle-trx-item-audit! page-state item)]]]
+        #(toggle-trx-item-audit! page-state item)]
+       (format-decimal polarized-quantity 4)]]
      [:td.text-end (format-decimal balance 4)]
      [:td.text-end (currency-format (or value polarized-quantity))]]))
 
