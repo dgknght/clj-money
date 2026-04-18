@@ -2,7 +2,8 @@
   (:require [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
-            [dgknght.app-lib.core :refer [present?]]
+            [dgknght.app-lib.core :refer [present?
+                                          presence]]
             [dgknght.app-lib.web :refer [format-date-time
                                          format-decimal]]
             [clj-money.icons :as icons]
@@ -158,21 +159,17 @@
                    (toggle-fn))}
       [icons/icon :clock-history]]
      (when expanded?
-       [:div.position-absolute.border-2.border-light.rounded.p-2.bg-body
-        {:style {:min-width "20em"
+       [:div.position-absolute.d-flex.flex-column.bg-body-tertiary.p-2.rounded
+        {:style {:min-width "30em"
                  :top "100%"
                  :right 0
                  :z-index 1000}}
-        [:table.table.table-sm.mb-0
-         [:thead
-          [:tr
-           [:th "Date"]
-           [:th.text-end "Value"]
-           [:th "Description"]]]
-         [:tbody
-          (for [{:keys [tx-instant value description]} history]
-            ^{:key (str tx-instant)}
-            [:tr
-             [:td (format-date-time tx-instant)]
-             [:td.text-end (format-decimal value 4)]
-             [:td description]])]]])]))
+        (for [{:keys [tx-instant value description]} history]
+          ^{:key (str tx-instant)}
+          [:div.d-flex.flex-column.justify-content-start.pb-2.mb-2.border-bottom
+           [:div.d-flex.justify-content-between.mb-2
+            [:span (format-date-time tx-instant)]
+            [:span (format-decimal value 4)]]
+           [:div.text-start
+            (or (presence description)
+                [:span.text-body-tertiary "No description"])]])])]))
