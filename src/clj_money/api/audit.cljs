@@ -2,7 +2,8 @@
   (:require [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn select
-  [entity-type entity-id attr & {:as opts}]
-  (api/get (api/path entity-type entity-id :audit)
-           {:attr attr}
+  [{:keys [id] :as entity} attr & {:as opts}]
+  {:pre [(:id entity)]}
+  (api/get (api/path :entities id :audit)
+           {:attr (str (namespace attr) "/" (name attr))}
            (add-error-handler opts "Unable to retrieve audit history: %s")))

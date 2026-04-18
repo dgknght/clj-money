@@ -48,7 +48,7 @@
 (defn- get-lot-audit
   [email]
   (let [lot (find-lot ["IRA" "AAPL" (t/local-date 2020 1 15)])]
-    (-> (request :get (str (path :api :lots (:id lot) :audit)
+    (-> (request :get (str (path :api :entities (:id lot) :audit)
                            "?"
                            (map->query-string {:attr "lot/shares-owned"}))
                  :user (find-user email))
@@ -58,7 +58,7 @@
 (defn- get-transaction-item-audit
   [email]
   (let [item (find-transaction-item [(t/local-date 2020 1 1) 1000M "Checking"])]
-    (-> (request :get (str (path :api :transaction-items (:id item) :audit)
+    (-> (request :get (str (path :api :entities (:id item) :audit)
                            "?"
                            (map->query-string {:attr "transaction-item/memo"}))
                  :user (find-user email))

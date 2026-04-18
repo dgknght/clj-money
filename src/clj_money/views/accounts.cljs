@@ -729,7 +729,7 @@
 
 (defn- load-lot-audit!
   [page-state lot]
-  (audit/select :lots (:id lot) "lot/shares-purchased"
+  (audit/select lot :lot/shares-purchased
                 :on-success
                 #(swap! page-state assoc-in
                         [:lot-audit-histories (:id lot)]

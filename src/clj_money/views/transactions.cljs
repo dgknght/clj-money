@@ -336,7 +336,7 @@
 
 (defn- load-trx-item-audit!
   [page-state item]
-  (audit/select :transaction-items (:id item) "transaction-item/quantity"
+  (audit/select item :transaction-item/quantity
                 :on-success
                 #(swap! page-state
                         assoc-in
