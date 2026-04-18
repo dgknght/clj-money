@@ -18,16 +18,18 @@
           entities/find-by
           (authorize ::authorization/show authenticated)))
 
-(defn- audit-handler
+(defn- index
   [id-key entity-type]
   (fn [{:keys [path-params params authenticated]}]
     (if-let [entity (find-and-auth path-params id-key entity-type authenticated)]
       (api/response
-        (db/history (db/storage) (:id entity) (keyword (:attr params))))
+        (db/history (db/storage)
+                    (:id entity)
+                    (keyword (:attr params))))
       api/not-found)))
 
 (def routes
   [["lots/:lot-id/audit"
-    {:get {:handler (audit-handler :lot-id :lot)}}]
+    {:get {:handler (index :lot-id :lot)}}]
    ["transaction-items/:transaction-item-id/audit"
-    {:get {:handler (audit-handler :transaction-item-id :transaction-item)}}]])
+    {:get {:handler (index :transaction-item-id :transaction-item)}}]])
