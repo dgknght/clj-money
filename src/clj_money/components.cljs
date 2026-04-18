@@ -2,6 +2,7 @@
   (:require [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
+            [dgknght.app-lib.core :refer [present?]]
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal]]
             [clj-money.icons :as icons]
@@ -148,7 +149,7 @@
   expanded? - whether the popover is currently visible
   toggle-fn - 0-arity fn called when the button is clicked"
   [history expanded? toggle-fn]
-  (when (seq history)
+  (when (->> history (filter (comp present? :description)) seq)
     [:span.position-relative
      [:button.btn.btn-sm.btn-link.p-0
       {:title "View history"
@@ -157,8 +158,8 @@
                    (toggle-fn))}
       [icons/icon :clock-history]]
      (when expanded?
-       [:div.position-absolute.bg-white.border.rounded.shadow.p-2
-        {:style {:min-width "360px"
+       [:div.position-absolute.border-2.border-light.rounded.p-2.bg-body
+        {:style {:min-width "20em"
                  :top "100%"
                  :right 0
                  :z-index 1000}}
