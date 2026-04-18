@@ -338,7 +338,8 @@
   [page-state item]
   (audit/select :transaction-items (:id item) "transaction-item/quantity"
                 :on-success
-                #(swap! page-state assoc-in
+                #(swap! page-state
+                        assoc-in
                         [:trx-item-audit-histories (:id item)]
                         %)))
 
