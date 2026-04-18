@@ -116,7 +116,7 @@
   (fn [{:keys [path-params body-params] :as req}]
     (handler (update-in req [:params] merge path-params body-params))))
 
-(def ^:private session-store (cookie-store {:key (env :session-secret)}))
+(def ^:private session-store (cookie-store {:key (.getBytes (env :session-secret))}))
 
 (defn- wrap-site []
   [wrap-defaults (-> site-defaults
