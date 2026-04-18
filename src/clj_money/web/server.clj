@@ -116,7 +116,7 @@
   (fn [{:keys [path-params body-params] :as req}]
     (handler (update-in req [:params] merge path-params body-params))))
 
-(def ^:private session-store (cookie-store {:key (.getBytes (env :session-secret))}))
+(def ^:private session-store (delay (cookie-store {:key (.getBytes (env :session-secret))})))
 
 (defn- wrap-site []
   [wrap-defaults (-> site-defaults
@@ -204,7 +204,7 @@
           apps/spa-fallback
           (ring/create-default-handler)))
       maybe-wrap-oauth2
-      (wrap-session {:store session-store
+      (wrap-session {:store @session-store
                      :cookie-attrs {:same-site :lax
                                     :http-only true}})
       wrap-params))
