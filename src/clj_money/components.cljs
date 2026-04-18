@@ -2,6 +2,10 @@
   (:require [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
+            [dgknght.app-lib.core :refer [present?
+                                          presence]]
+            [dgknght.app-lib.web :refer [format-date-time
+                                         format-decimal]]
             [clj-money.icons :as icons]
             [clj-money.state :refer [busy?]]
             [clj-money.util
@@ -136,3 +140,41 @@
         [spinner :size :small]
         (icons/icon icon))
       [:span.ms-2 caption]]]))
+
+(defn audit-history-popover
+  "Renders a clock-history button that shows a floating popover table
+  with the history of an attribute value. Only renders when history is
+  non-empty.
+
+  history   - seq of {:tx-instant <date> :value <decimal> :description <str>}
+  expanded? - whether the popover is currently visible
+  toggle-fn - 0-arity fn called when the button is clicked"
+  [history expanded? toggle-fn]
+  (when (->> history (filter (comp present? :description)) seq)
+    [:span.position-relative
+     [:button.btn.btn-sm.btn-link.p-0
+      {:title "View history"
+       :on-click (fn [e]
+                   (.stopPropagation e)
+                   (toggle-fn))}
+      [icons/icon :clock-history :size :small]]
+     (when expanded?
+       [:div.position-absolute.d-flex.flex-column.bg-body-tertiary.p-2.rounded
+        {:style {:min-width "30em"
+                 :top "100%"
+                 :right 0
+                 :z-index 1000}}
+        (let [items (vec history)
+              last-idx (dec (count items))]
+          (map-indexed
+            (fn [idx {:keys [tx-instant value description]}]
+              ^{:key (str tx-instant)}
+              [:div.d-flex.flex-column.justify-content-start
+               {:class (when (< idx last-idx) "pb-2 mb-2 border-bottom")}
+               [:div.d-flex.justify-content-between.mb-2
+                [:span (format-date-time tx-instant)]
+                [:span (format-decimal value 4)]]
+               [:div.text-start
+                (or (presence description)
+                    [:span.text-body-tertiary "No description"])]])
+            items))])]))

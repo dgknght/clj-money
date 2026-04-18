@@ -10,9 +10,9 @@
   (let [calls (atom {})]
     (reify
       db/Storage
-      (put [_ entities]
-        (swap! calls update-in [:put] (fnil conj []) [entities])
-        (db/put storage entities))
+      (put [_ opts entities]
+        (swap! calls update-in [:put] (fnil conj []) [opts entities])
+        (db/put storage opts entities))
       (find [_ id]
         (swap! calls update-in [:find] (fnil conj []) [id])
         (db/find storage id))

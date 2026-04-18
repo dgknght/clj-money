@@ -26,6 +26,7 @@
   (pull [this id])
   (pull-many [this ids])
   (query [this arg-map])
+  (history [this entity-id attr])
   (reset [this]))
 
 ; TODO: Get this from the schema
@@ -184,14 +185,16 @@
   schema/entity-ref-keys)
 
 (defn- put*
-  [entities {:keys [api]}]
+  [entities {:keys [api]} {:keys [tx-meta]}]
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
                      (map (pass-through (datomize {:ref-keys ref-keys})))
-                     (mapcat #(prep-for-put % api)))
-
-        {:keys [tempids]} (transact api prepped {})]
+                     (mapcat #(prep-for-put % api))
+                     vec)
+        tx-data (cond-> prepped
+                  tx-meta (conj (assoc tx-meta :db/id "datomic.tx")))
+        {:keys [tempids]} (transact api tx-data {})]
     (->> prepped
          (map (comp #(tempids % %)
                     :db/id))
@@ -381,6 +384,14 @@
 
 (defmulti init-api ::db/strategy)
 
+(def ^:private history-query
+  '[:find ?v ?tx-inst ?desc
+    :in $ ?e ?a
+    :where
+    [?e ?a ?v ?tx true]
+    [?tx :db/txInstant ?tx-inst]
+    [(get-else $ ?tx :audit/description "") ?desc]])
+
 (defmethod init-api :clj-money.db/datomic-peer
   [{:keys [uri] :as config}]
   (reify DatomicAPI
@@ -407,6 +418,12 @@
                                         d-peer/db)
                                     %))
           d-peer/qseq))
+    (history [_ entity-id attr]
+      (d-peer/q
+        history-query
+        (-> uri d-peer/connect d-peer/db d-peer/history)
+        entity-id
+        attr))
     (reset [_]
       (d-peer/delete-database uri)
       (apply-schema config {:suppress-output? true}))))
@@ -430,6 +447,12 @@
         (apply d-client/q
                query
                (cons (d-client/db conn) args)))
+      (history [_ entity-id attr]
+        (d-client/q
+          {:query history-query
+           :args [(d-client/history (d-client/db conn))
+                  entity-id
+                  attr]}))
       (reset [_]
         ; probably should not ever get here, as this is for unit tests only
         ))))
@@ -441,16 +464,26 @@
                                    :datomic-peer]))]
     (query api {:query qry :args args})))
 
+(defn- history*
+  [entity-id attr {:keys [api]}]
+  (->> (history api entity-id attr)
+       (map (fn [[v tx-inst desc]]
+              {:value       v
+               :tx-instant  (.toInstant tx-inst)
+               :description desc}))
+       (sort-by :tx-instant)))
+
 (defn- datomic-storage
   [config]
   (let [api (init-api config)]
     (reify db/Storage
-      (put [_ entities]       (put* entities {:api api}))
+      (put [_ opts entities]  (put* entities {:api api} opts))
       (find [_ id]            (find* id {:api api}))
       (find-many [_ ids]      (find-many* ids {:api api}))
       (select [_ crit opts]   (select* crit opts {:api api}))
       (delete [_ entities]    (delete* entities {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
+      (history [_ entity-id attr] (history* entity-id attr {:api api}))
       (close [_])
       (reset [this]           (reset api) this))))
 

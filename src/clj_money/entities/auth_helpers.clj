@@ -71,6 +71,13 @@
       {:account/_self account}
       :entity)))
 
+(defmethod fetch-entity :transaction-item
+  [{:transaction-item/keys [account]}]
+  (entities/find-by
+    (util/entity-type
+      {:account/_self account}
+      :entity)))
+
 (defmethod fetch-entity :lot-note
   [{:lot-note/keys [lots]}]
   (fetch-entity (entities/find (first lots))))

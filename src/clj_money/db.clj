@@ -12,12 +12,14 @@
 
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
-  (put [this entities] "Saves the specified entities to the data store")
+  (put [this opts entities] "Saves the specified entities to the data store")
   (find [this id] "Fetches the entity with the given id")
   (find-many [this ids] "Fetches the entities with the given ids")
   (select [this criteria options] "Retrieves entities from the data store")
   (update [this changes criteria] "Performs a batch data update")
   (delete [this entities] "Removes entities from the data store")
+  (history [this entity-id attr]
+    "Returns the history of values for the attribute of the given entity")
   (close [this] "Releases an resources held by the instance")
   (reset [this] "Deletes all data in the data store")) ; This is only ever needed for testing. Maybe there's a better way than putting it here?
 
@@ -46,11 +48,11 @@
 (defn tracing-storage
   [storage prefix]
   (reify Storage
-    (put [_ entities]
+    (put [_ opts entities]
       (with-tracing [span (format "%s/put %s"
                                   prefix
                                   (-> entities first util/entity-type))]
-        (put storage entities)))
+        (put storage opts entities)))
 
     (find [_ id]
       (with-tracing [span (format "%s/find %s"
@@ -73,6 +75,10 @@
                                   prefix
                                   (-> entities first util/entity-type))]
         (delete storage entities)))
+
+    (history [_ entity-id attr]
+      (with-tracing [span (format "%s/history %s" prefix attr)]
+        (history storage entity-id attr)))
 
     (update [_ changes criteria]
       (with-tracing [span (format "%s/update %s"

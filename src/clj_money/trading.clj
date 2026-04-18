@@ -855,7 +855,8 @@
 
 
 (defn- put-split
-  [{:split/keys [lots
+  [{:as split
+    :split/keys [lots
                  lot-items
                  lot-note
                  account-items
@@ -874,14 +875,23 @@
                             account-items
                             reconciliations)
                     (filter identity)
-                    (entities/put-many (assoc opts :suspend-validation #{:reconciliation}))
+                    (entities/put-many
+                      (assoc opts
+                             :suspend-validation #{:reconciliation}
+                             :tx-meta {:db/id "datomic.tx"
+                                       :audit/description
+                                       (format "%s split of %s on %s, %s shares gained"
+                                               (ratio->words ratio)
+                                               (-> split :split/commodity :commodity/symbol)
+                                               (:split/date split)
+                                               (:split/shares-gained split))}))
                     (group-by util/entity-type))]
-    {:split/lots (:lot result)
-     :split/lot-items (:lot-item result)
-     :split/lot-note (first (:lot-note result))
-     :split/transaction (first (:transaction result))
+    {:split/lots          (:lot result)
+     :split/lot-items     (:lot-item result)
+     :split/lot-note      (first (:lot-note result))
+     :split/transaction   (first (:transaction result))
      :split/transaction-items (:transaction-item result)
-     :split/ratio ratio}))
+     :split/ratio         ratio}))
 
 (s/def :split/date t/local-date?)
 (s/def :split/commodity ::entities/entity-ref)
