@@ -367,12 +367,12 @@
      [:td.text-end (format-date transaction-date)]
      [:td description]
      [:td.text-end
-      [:div.d-flex.justify-content-end.align-items-center.gap-1
+      [:div.d-flex.align-items-center
        [audit-history-popover
         audit-history
         expanded?
         #(toggle-trx-item-audit! page-state item)]
-       (format-decimal polarized-quantity 4)]]
+       [:div.ms-auto (format-decimal polarized-quantity 4)]]]
      [:td.text-end (format-decimal balance 4)]
      [:td.text-end (currency-format (or value polarized-quantity))]]))
 

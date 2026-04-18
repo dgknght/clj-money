@@ -157,7 +157,7 @@
        :on-click (fn [e]
                    (.stopPropagation e)
                    (toggle-fn))}
-      [icons/icon :clock-history]]
+      [icons/icon :clock-history :size :small]]
      (when expanded?
        [:div.position-absolute.d-flex.flex-column.bg-body-tertiary.p-2.rounded
         {:style {:min-width "30em"
