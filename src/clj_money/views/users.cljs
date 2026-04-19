@@ -8,7 +8,8 @@
             [dgknght.app-lib.inflection :refer [humanize title-case]]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon-with-text]]
-            [clj-money.html :refer [google-g]]
+            [clj-money.html :refer [google-logo
+                                    github-logo]]
             [clj-money.components :refer [spinner]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.app :refer [fetch-entities]]
@@ -53,8 +54,13 @@
           [:li.list-group-item.d-flex.justify-content-center
            [:a#login.btn.btn-secondary {:href "/auth/google/start"
                                     :title "Click here to sign in with a Google account"}
-            (google-g)
-            [:span "Sign in with Google"]]]]]]])))
+            (google-logo)
+            [:span "Sign in with Google"]]]
+          [:li.list-group-item.d-flex.justify-content-center
+           [:a#login.btn.btn-secondary {:href "/auth/github/start"
+                                    :title "Click here to sign in with a Github account"}
+            (github-logo)
+            [:span "Sign in with Github"]]]]]]])))
 
 (secretary/defroute "/login" []
   (swap! app-state assoc :page #'login))
