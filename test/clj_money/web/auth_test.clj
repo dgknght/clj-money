@@ -63,6 +63,24 @@
                       :name "Jane Doe"
                       :login "janedoe"})})
 
+(def ^:private github-private-email-mocks
+  {"https://github.com/login/oauth/access_token"
+   (json-response-fn {:access_token "ghp_abc123"})
+
+   "https://api.github.com/user"
+   (json-response-fn {:id 12345
+                      :email nil
+                      :name "Jane Doe"
+                      :login "janedoe"})
+
+   "https://api.github.com/user/emails"
+   (json-response-fn [{:email "jane@doe.com"
+                       :primary true
+                       :verified true}
+                      {:email "janedoe@users.noreply.github.com"
+                       :primary false
+                       :verified true}])})
+
 (defn- query-param
   "Extracts a single query parameter value from a URL string."
   [url param]
@@ -137,3 +155,25 @@
                                   :first-name "Jane"
                                   :last-name "Doe"}
                            (usrs/find-by-email "jane@doe.com"))))))))
+
+(deftest handle-github-oauth-for-user-with-private-email
+  (with-web-mocks [_calls] github-private-email-mocks
+    (with-redefs [jwt/sign (constantly "ghtoken123")]
+      (let [start-res    (app (req/request :get "/auth/github/start"))
+            location     (get-in start-res [:headers "Location"])
+            state        (query-param location "state")
+            session-hdr  (extract-session-cookie start-res)
+            callback-req (-> (req/request :get "/auth/github/callback")
+                             (req/header "Cookie" session-hdr)
+                             (assoc :query-params {"code"  "gh-auth-code"
+                                                   "state" state}))
+            callback-res (app callback-req)
+            done-session-hdr (extract-session-cookie callback-res)
+            done-req     (-> (req/request :get "/auth/github/done")
+                             (req/header "Cookie" done-session-hdr))
+            done-res     (app done-req)]
+        (is (http-redirect-to? "/" done-res))
+        (is (comparable? #:user{:email "jane@doe.com"
+                                :first-name "Jane"
+                                :last-name "Doe"}
+                         (usrs/find-by-email "jane@doe.com")))))))
