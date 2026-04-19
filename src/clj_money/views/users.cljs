@@ -9,9 +9,10 @@
             [dgknght.app-lib.inflection :refer [humanize title-case]]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon-with-text]]
+            [clj-money.env :refer [env]]
             [clj-money.html :as html]
             [clj-money.components :refer [spinner]]
-            [clj-money.state :refer [app-state +busy -busy oauth-providers]]
+            [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]
             [clj-money.views.invitations :as invs]))
@@ -41,7 +42,7 @@
     [:span (str "Sign in with " (string/capitalize (name provider)))]]])
 
 (defn- login []
-  (let [page-state (r/atom {:credentials {}})
+  (let [page-state  (r/atom {:credentials {}})
         credentials (r/cursor page-state [:credentials])]
     (set-focus "email")
     (fn []
@@ -60,11 +61,11 @@
           [:button.btn.btn-primary {:type :submit
                                     :title "Click here to sign in."}
            (icon-with-text :box-arrow-in-left "Sign in")]]]
-        (when (seq @oauth-providers)
+        (when (seq (env :oauth-providers))
           [:div.col-md-6
            [:h3.mt-3 "Other sign in options:"]
            [:ul.list-group
-            (doall (map oauth-button @oauth-providers))]])]])))
+            (doall (map oauth-button (env :oauth-providers)))]])]])))
 
 (secretary/defroute "/login" []
   (swap! app-state assoc :page #'login))
@@ -117,13 +118,13 @@
      :nav-fn #(swap! page-state assoc :selected-nav id)}))
 
 (defn- index []
-  (let [page-state (r/atom {:selected-nav :users})
+  (let [page-state  (r/atom {:selected-nav :users})
         selected-nav (r/cursor page-state [:selected-nav])]
     (load-users page-state)
     (fn []
       [:div.mt-3
        [:h1 "Users"]
-        (bs/nav-tabs (map (tab-nav-item-fn page-state) tab-types))
+       (bs/nav-tabs (map (tab-nav-item-fn page-state) tab-types))
        (case @selected-nav
          :users
          [users-table page-state]

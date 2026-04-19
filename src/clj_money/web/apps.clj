@@ -4,6 +4,9 @@
             [clj-money.config :refer [env]]
             [hiccup.page :refer [html5 include-js]]))
 
+(def ^:private client-config-keys
+  #{:oauth-providers})
+
 (defn- head []
   [:head
    [:meta  {:charset "utf-8"}]
@@ -15,6 +18,8 @@
    [:meta  {:name "author" :content "Doug Knight"}]
    [:link  {:rel "icon" :href "images/logo.svg"}]
    [:title (env :application-name "clj-money?")]
+   [:script {:type "application/edn" :id "app-config"}
+    (pr-str (select-keys env client-config-keys))]
 
    (include-js "https://unpkg.com/@popperjs/core@2")
    (include-js "js/bootstrap.min.js")

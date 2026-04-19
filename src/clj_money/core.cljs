@@ -33,7 +33,6 @@
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
             [clj-money.app :refer [fetch-entities]]
-            [clj-money.api.config :as config-api]
             [clj-money.api.users :as users]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
@@ -231,10 +230,6 @@
       (render [current-page] (.getElementById js/document "app")))))
 
 
-(defn- fetch-config []
-  (config-api/fetch
-    :on-success #(swap! app-state assoc :oauth-providers (:oauth-providers %))))
-
 (defn- fetch-current-user []
   (+busy)
   (users/me :callback -busy
@@ -284,7 +279,6 @@
     :path-exists? (fn [path]
                     (not-any? #(string/starts-with? path %) server-path-prefixes))})
   (mount-root)
-  (fetch-config)
   (sign-in-from-cookie)
   (check-url-error)
   (accountant/dispatch-current!))

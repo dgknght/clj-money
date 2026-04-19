@@ -13,6 +13,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
+            [clj-money.env :refer [env]]
             [clj-money.html :refer [logo]]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [current-user
@@ -20,7 +21,6 @@
                                      accounts
                                      accounts-by-id
                                      app-state
-                                     oauth-providers
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
@@ -239,10 +239,10 @@
            :height 64}]
     [:h1.display-5.ms-3 "clj-money"]]
    [:p "This is a double-entry accounting application that aims to be available anywhere."]
-   (when (seq @oauth-providers)
+   (when (seq (env :oauth-providers))
      [:div.d-flex.justify-content-center
       [:ul.list-group
-       (doall (map oauth-button @oauth-providers))]])])
+       (doall (map oauth-button (env :oauth-providers)))]])])
 
 (defn- index
   []
