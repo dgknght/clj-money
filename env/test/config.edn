@@ -42,6 +42,8 @@
  ; environment variables when running in public environments
 
  :alpha-vantage-api-key "alpha-vantage-api-key"
+ :github-client-id "github-id"
+ :github-client-secret "github-client-secret"
  :google-client-id "google-id"
  :google-client-secret "google-client-secret"
  :redis-host "localhost"

@@ -247,6 +247,23 @@
       (fetch-current-user)
       (fetch-entities))))
 
+(def ^:private oauth-error-messages
+  {"oauth_failed"
+   "Sign in failed. Please try again."
+
+   "github_email_required"
+   (str "Unable to retrieve your GitHub email address. "
+        "Please make an email address public in your GitHub profile settings, "
+        "then revoke and re-authorize this app from GitHub Settings "
+        "\u2192 Applications \u2192 Authorized OAuth Apps.")})
+
+(defn- check-url-error []
+  (let [params (js/URLSearchParams. js/window.location.search)
+        error  (.get params "error")]
+    (when error
+      (notify/danger (get oauth-error-messages error "An unexpected error occurred."))
+      (.replaceState js/window.history nil "" js/window.location.pathname))))
+
 (def ^:private server-path-prefixes
   ["/api/" "/oapi/" "/auth/" "/app/"])
 
@@ -263,6 +280,7 @@
                     (not-any? #(string/starts-with? path %) server-path-prefixes))})
   (mount-root)
   (sign-in-from-cookie)
+  (check-url-error)
   (accountant/dispatch-current!))
 
 (init!)
