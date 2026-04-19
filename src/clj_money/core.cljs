@@ -247,7 +247,7 @@
       (fetch-current-user)
       (fetch-entities))))
 
-(def ^:private oauth-error-messages
+(def ^:private error-messages
   {"oauth_failed"
    "Sign in failed. Please try again."
 
@@ -261,7 +261,7 @@
   (let [params (js/URLSearchParams. js/window.location.search)
         error  (.get params "error")]
     (when error
-      (notify/danger (get oauth-error-messages error "An unexpected error occurred."))
+      (notify/danger (get error-messages error "An unexpected error occurred."))
       (.replaceState js/window.history nil "" js/window.location.pathname))))
 
 (def ^:private server-path-prefixes
