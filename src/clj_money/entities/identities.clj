@@ -5,7 +5,7 @@
             [clj-money.entities :as entities]))
 
 (s/def :identity/user ::entities/entity-ref)
-(s/def :identity/provider #{:google})
+(s/def :identity/provider #{:google :github})
 (s/def :identity/provider-id string?)
 (s/def ::entities/identity (s/keys :req [:identity/user
                                        :identity/provider

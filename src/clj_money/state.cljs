@@ -27,6 +27,7 @@
            (fn [_ _ _ state]
              (cookies/set! :state (serialize state))))
 
+(def oauth-providers (r/cursor app-state [:oauth-providers]))
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
 (def auth-token (r/cursor app-state [:auth-token]))
