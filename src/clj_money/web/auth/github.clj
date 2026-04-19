@@ -15,10 +15,12 @@
 
 (defn- request-primary-email
   [access-token]
-  (->> (github-get access-token "/user/emails")
-       (filter :primary)
-       first
-       :email))
+  (try
+    (->> (github-get access-token "/user/emails")
+         (filter :primary)
+         first
+         :email)
+    (catch Exception _ nil)))
 
 (defn- request-user-info
   [access-token]
@@ -40,14 +42,15 @@
 (defn redirect-handler
   [request]
   (if-let [token (get-in request [:oauth2/access-tokens :github :token])]
-    (let [user-info  (-> token
-                         request-user-info
-                         normalize-profile)
-          user       (idents/find-or-create-from-profile [:github user-info])
-          auth-token (make-token user)]
-      (-> "/"
-          res/redirect
-          (res/set-cookie :auth-token auth-token {:path "/"})))
+    (let [profile   (request-user-info token)
+          user-info (normalize-profile profile)]
+      (if (:email user-info)
+        (let [user       (idents/find-or-create-from-profile [:github user-info])
+              auth-token (make-token user)]
+          (-> "/"
+              res/redirect
+              (res/set-cookie :auth-token auth-token {:path "/"})))
+        (res/redirect "/?error=github_email_required")))
     (res/redirect "/?error=oauth_failed")))
 
 (defn oauth2-profile
