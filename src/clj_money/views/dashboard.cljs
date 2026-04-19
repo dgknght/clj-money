@@ -13,7 +13,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
-            [clj-money.html :refer [provider-logo]]
+            [clj-money.html :refer [logo]]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [current-user
                                      current-entity
@@ -231,12 +231,12 @@
      [:li.list-group-item.d-flex.justify-content-center
       [:a#login.btn.btn-secondary {:href "/auth/google/start"
                                    :title "Click here to sign in with a Google account"}
-       (provider-logo :google)
+       (logo :google)
        [:span "Sign in with Google"]]]
      [:li.list-group-item.d-flex.justify-content-center
       [:a#login.btn.btn-secondary {:href "/auth/github/start"
                                    :title "Click here to sign in with a Github account"}
-       (provider-logo :github)
+       (logo :github)
        [:span "Sign in with Github"]]]]]])
 
 (defn- index
