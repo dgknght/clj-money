@@ -13,7 +13,8 @@
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
-            [clj-money.html :refer [google-g]]
+            [clj-money.config :refer [env]]
+            [clj-money.html :refer [logo]]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [current-user
                                      current-entity
@@ -217,6 +218,17 @@
    [:div.col-md-3
     [monitors]]])
 
+(defn- oauth-button
+  [provider]
+  ^{:key (name provider)}
+  [:a.btn.btn-secondary.d-flex.mb-2
+   {:href  (str "/auth/" (name provider) "/start")
+    :title (str "Click here to sign in with a "
+                (string/capitalize (name provider))
+                " account")}
+   (logo provider)
+   [:div.ms-2 (str "Sign in with " (string/capitalize (name provider)))]])
+
 (defn- welcome []
   [:div.jumbotron.mt-3
    [:div.d-flex
@@ -226,10 +238,11 @@
            :height 64}]
     [:h1.display-5.ms-3 "clj-money"]]
    [:p "This is a double-entry accounting application that aims to be available anywhere."]
-   [:a#login.btn.btn-secondary {:href "/auth/google/start"
-                                :title "Click here to sign in with a Google account"}
-    (google-g)
-    [:span "Sign in with Google"]]])
+   [:hr]
+   (when (seq (env :oauth-providers))
+     [:div.d-flex.justify-content-center
+      [:div.d-flex.flex-column
+       (doall (map oauth-button (env :oauth-providers)))]])])
 
 (defn- index
   []

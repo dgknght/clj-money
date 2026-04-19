@@ -1,5 +1,6 @@
 (ns clj-money.views.users
-  (:require [secretary.core :as secretary :include-macros true]
+  (:require [clojure.string :as string]
+            [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [accountant.core :as accountant]
             [dgknght.app-lib.dom :refer [set-focus]]
@@ -8,7 +9,8 @@
             [dgknght.app-lib.inflection :refer [humanize title-case]]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon-with-text]]
-            [clj-money.html :refer [google-g]]
+            [clj-money.config :refer [env]]
+            [clj-money.html :as html]
             [clj-money.components :refer [spinner]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.app :refer [fetch-entities]]
@@ -27,8 +29,19 @@
                          :auth-token auth-token)
                   (fetch-entities :on-complete #(accountant/navigate! "/")))))
 
+(defn- oauth-button
+  [provider]
+  ^{:key (name provider)}
+  [:a.btn.btn-secondary.d-flex.justify-content-center.mb-2
+   {:href  (str "/auth/" (name provider) "/start")
+    :title (str "Click here to sign in with a "
+                (string/capitalize (name provider))
+                " account")}
+   (html/logo provider)
+   [:div.ms-2 (str "Sign in with " (string/capitalize (name provider)))]])
+
 (defn- login []
-  (let [page-state (r/atom {:credentials {}})
+  (let [page-state  (r/atom {:credentials {}})
         credentials (r/cursor page-state [:credentials])]
     (set-focus "email")
     (fn []
@@ -47,14 +60,11 @@
           [:button.btn.btn-primary {:type :submit
                                     :title "Click here to sign in."}
            (icon-with-text :box-arrow-in-left "Sign in")]]]
-        [:div.col-md-6
-         [:h3.mt-3 "Other sign in options:"]
-         [:ul.list-group
-          [:li.list-group-item.d-flex.justify-content-center
-           [:a#login.btn.btn-secondary {:href "/auth/google/start"
-                                    :title "Click here to sign in with a Google account"}
-            (google-g)
-            [:span "Sign in with Google"]]]]]]])))
+        (when (seq (env :oauth-providers))
+          [:div.col-md-6
+           [:h3.mt-3 "Other sign in options:"]
+           [:div.d-flex.flex-column
+            (doall (map oauth-button (env :oauth-providers)))]])]])))
 
 (secretary/defroute "/login" []
   (swap! app-state assoc :page #'login))
@@ -107,13 +117,13 @@
      :nav-fn #(swap! page-state assoc :selected-nav id)}))
 
 (defn- index []
-  (let [page-state (r/atom {:selected-nav :users})
+  (let [page-state  (r/atom {:selected-nav :users})
         selected-nav (r/cursor page-state [:selected-nav])]
     (load-users page-state)
     (fn []
       [:div.mt-3
        [:h1 "Users"]
-        (bs/nav-tabs (map (tab-nav-item-fn page-state) tab-types))
+       (bs/nav-tabs (map (tab-nav-item-fn page-state) tab-types))
        (case @selected-nav
          :users
          [users-table page-state]
