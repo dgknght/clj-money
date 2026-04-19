@@ -1,4 +1,4 @@
-(ns clj-money.env
+(ns clj-money.config
   (:require [cljs.reader :as reader]))
 
 (def env

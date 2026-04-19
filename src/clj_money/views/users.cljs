@@ -9,7 +9,7 @@
             [dgknght.app-lib.inflection :refer [humanize title-case]]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon-with-text]]
-            [clj-money.env :refer [env]]
+            [clj-money.config :refer [env]]
             [clj-money.html :as html]
             [clj-money.components :refer [spinner]]
             [clj-money.state :refer [app-state +busy -busy]]
@@ -32,14 +32,13 @@
 (defn- oauth-button
   [provider]
   ^{:key (name provider)}
-  [:li.list-group-item.d-flex.justify-content-center
-   [:a.btn.btn-secondary
-    {:href  (str "/auth/" (name provider) "/start")
-     :title (str "Click here to sign in with a "
-                 (string/capitalize (name provider))
-                 " account")}
-    (html/logo provider)
-    [:span (str "Sign in with " (string/capitalize (name provider)))]]])
+  [:a.btn.btn-secondary.d-flex.justify-content-center.mb-2
+   {:href  (str "/auth/" (name provider) "/start")
+    :title (str "Click here to sign in with a "
+                (string/capitalize (name provider))
+                " account")}
+   (html/logo provider)
+   [:div.ms-2 (str "Sign in with " (string/capitalize (name provider)))]])
 
 (defn- login []
   (let [page-state  (r/atom {:credentials {}})
@@ -64,7 +63,7 @@
         (when (seq (env :oauth-providers))
           [:div.col-md-6
            [:h3.mt-3 "Other sign in options:"]
-           [:ul.list-group
+           [:div.d-flex.flex-column
             (doall (map oauth-button (env :oauth-providers)))]])]])))
 
 (secretary/defroute "/login" []
