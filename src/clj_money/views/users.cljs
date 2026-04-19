@@ -1,5 +1,6 @@
 (ns clj-money.views.users
-  (:require [secretary.core :as secretary :include-macros true]
+  (:require [clojure.string :as string]
+            [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [accountant.core :as accountant]
             [dgknght.app-lib.dom :refer [set-focus]]
@@ -10,7 +11,7 @@
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.html :as html]
             [clj-money.components :refer [spinner]]
-            [clj-money.state :refer [app-state +busy -busy]]
+            [clj-money.state :refer [app-state +busy -busy oauth-providers]]
             [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]
             [clj-money.views.invitations :as invs]))
@@ -26,6 +27,18 @@
                          :current-user user
                          :auth-token auth-token)
                   (fetch-entities :on-complete #(accountant/navigate! "/")))))
+
+(defn- oauth-button
+  [provider]
+  ^{:key (name provider)}
+  [:li.list-group-item.d-flex.justify-content-center
+   [:a.btn.btn-secondary
+    {:href  (str "/auth/" (name provider) "/start")
+     :title (str "Click here to sign in with a "
+                 (string/capitalize (name provider))
+                 " account")}
+    (html/logo provider)
+    [:span (str "Sign in with " (string/capitalize (name provider)))]]])
 
 (defn- login []
   (let [page-state (r/atom {:credentials {}})
@@ -47,19 +60,11 @@
           [:button.btn.btn-primary {:type :submit
                                     :title "Click here to sign in."}
            (icon-with-text :box-arrow-in-left "Sign in")]]]
-        [:div.col-md-6
-         [:h3.mt-3 "Other sign in options:"]
-         [:ul.list-group
-          [:li.list-group-item.d-flex.justify-content-center
-           [:a#login.btn.btn-secondary {:href "/auth/google/start"
-                                    :title "Click here to sign in with a Google account"}
-            (html/logo :google)
-            [:span "Sign in with Google"]]]
-          [:li.list-group-item.d-flex.justify-content-center
-           [:a#login.btn.btn-secondary {:href "/auth/github/start"
-                                    :title "Click here to sign in with a Github account"}
-            (html/logo :github)
-            [:span "Sign in with Github"]]]]]]])))
+        (when (seq @oauth-providers)
+          [:div.col-md-6
+           [:h3.mt-3 "Other sign in options:"]
+           [:ul.list-group
+            (doall (map oauth-button @oauth-providers))]])]])))
 
 (secretary/defroute "/login" []
   (swap! app-state assoc :page #'login))

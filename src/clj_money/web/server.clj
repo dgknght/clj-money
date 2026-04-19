@@ -45,6 +45,7 @@
             [clj-money.api.lots :as lots-api]
             [clj-money.api.lot-notes :as lot-notes-api]
             [clj-money.api.audit :as audit-api]
+            [clj-money.api.config :as config-api]
             [clj-money.api.invitations :as invitations-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
             [clj-money.web.apps :as apps]
@@ -137,10 +138,13 @@
 
 (defn- maybe-wrap-oauth2
   [handler]
-  (if-let [profiles (not-empty (merge (google-auth/oauth2-profile)
-                                      (github-auth/oauth2-profile)))]
-    (oauth2/wrap-oauth2 handler profiles)
-    handler))
+  (let [providers (set (env :oauth-providers))
+        profiles  (not-empty
+                    (merge (when (:google providers) (google-auth/oauth2-profile))
+                           (when (:github providers) (github-auth/oauth2-profile))))]
+    (if profiles
+      (oauth2/wrap-oauth2 handler profiles)
+      handler)))
 
 (def app
   (-> (ring/ring-handler
@@ -170,6 +174,7 @@
                                              wrap-parse-id-params
                                              wrap-exceptions
                                              wrap-request-logging]}
+                       config-api/unauthenticated-routes
                        users-api/unauthenticated-routes
                        invitations-api/unauthenticated-routes]
                       ["api/" {:middleware [:api

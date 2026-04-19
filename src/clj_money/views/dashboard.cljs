@@ -20,6 +20,7 @@
                                      accounts
                                      accounts-by-id
                                      app-state
+                                     oauth-providers
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
@@ -217,6 +218,18 @@
    [:div.col-md-3
     [monitors]]])
 
+(defn- oauth-button
+  [provider]
+  ^{:key (name provider)}
+  [:li.list-group-item.d-flex.justify-content-center
+   [:a.btn.btn-secondary
+    {:href  (str "/auth/" (name provider) "/start")
+     :title (str "Click here to sign in with a "
+                 (string/capitalize (name provider))
+                 " account")}
+    (logo provider)
+    [:span (str "Sign in with " (string/capitalize (name provider)))]]])
+
 (defn- welcome []
   [:div.jumbotron.mt-3
    [:div.d-flex
@@ -226,18 +239,10 @@
            :height 64}]
     [:h1.display-5.ms-3 "clj-money"]]
    [:p "This is a double-entry accounting application that aims to be available anywhere."]
-   [:div.d-flex.justify-content-center
-    [:ul.list-group
-     [:li.list-group-item.d-flex.justify-content-center
-      [:a#login.btn.btn-secondary {:href "/auth/google/start"
-                                   :title "Click here to sign in with a Google account"}
-       (logo :google)
-       [:span "Sign in with Google"]]]
-     [:li.list-group-item.d-flex.justify-content-center
-      [:a#login.btn.btn-secondary {:href "/auth/github/start"
-                                   :title "Click here to sign in with a Github account"}
-       (logo :github)
-       [:span "Sign in with Github"]]]]]])
+   (when (seq @oauth-providers)
+     [:div.d-flex.justify-content-center
+      [:ul.list-group
+       (doall (map oauth-button @oauth-providers))]])])
 
 (defn- index
   []

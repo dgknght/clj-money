@@ -46,6 +46,7 @@
  :github-client-secret "github-client-secret"
  :google-client-id "google-id"
  :google-client-secret "google-client-secret"
+ :oauth-providers #{:google :github}
  :redis-host "localhost"
  :redis-password "please04"
  :secret "test-secret-for-testing"
