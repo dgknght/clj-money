@@ -3,7 +3,11 @@
   :url "http://money.herokuapp.com"
   :license {:name "Eclipse Public License v1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.0" :exclusions [org.clojure/tools.reader]]
+  :managed-dependencies [[clj-time "0.15.2"]
+                         [ring/ring-core "1.12.2"]
+                         [commons-io "2.16.1"]
+                         [joda-time "2.10"]]
+  :dependencies [[org.clojure/clojure "1.12.4" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/core.async "1.6.681" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.cli "1.0.206" :exclusions [org.clojure/tools.reader]]
@@ -27,11 +31,10 @@
                                                                            org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
-                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M3" :exclusions [commons-io]]
+                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M1" :exclusions [commons-io]]
                  [ring "1.10.0" :exclusions [commons-codec
                                             commons-io]]
                  [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
-                                                          joda-time
                                                           ring/ring-core]]
                  [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
@@ -52,8 +55,7 @@
                  [hiccup "2.0.0" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.48" :exclusions [org.clojure/tools.reader
                                                   org.clojure/tools.namespace]]
-                 [selmer "1.12.61" :exclusions [joda-time
-                                               com.google.javascript/closure-compiler
+                 [selmer "1.12.61" :exclusions [com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
                  [reagent "1.2.0" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
@@ -86,7 +88,6 @@
                  [com.andrewmcveigh/cljs-time "0.5.2"]
                  [com.datomic/peer "1.0.7364" :exclusions [com.google.errorprone/error_prone_annotations
                                                            commons-codec
-                                                           joda-time
                                                            org.apache.httpcomponents/httpclient
                                                            org.clojure/tools.cli
                                                            org.slf4j/slf4j-api]]
@@ -107,7 +108,7 @@
                                                            commons-codec
                                                            com.fasterxml.jackson.core/jackson-core]]
                  [org.mindrot/jbcrypt "0.3m"]
-                 [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
+                 [co.deps/ring-etag-middleware "0.2.1"]
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
@@ -136,8 +137,6 @@
                    commons-io
                    commons-codec
                    clj-http
-                   joda-time
-                   clj-time
                    com.google.jsinterop/jsinterop-annotations
                    org.apache.httpcomponents/httpclient
                    com.google.code.findbugs/jsr305
@@ -239,8 +238,6 @@
                                     org.eclipse.jetty/jetty-util
                                     com.google.guava/guava
                                     commons-codec
-                                    joda-time
-                                    clj-time
                                     org.slf4j/slf4j-api]]
                                   [com.bhauman/rebel-readline-cljs "0.1.4"]
                                   [ring/ring-mock "0.4.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
