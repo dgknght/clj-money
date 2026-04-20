@@ -3,7 +3,11 @@
   :url "http://money.herokuapp.com"
   :license {:name "Eclipse Public License v1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.0" :exclusions [org.clojure/tools.reader]]
+  :managed-dependencies [[clj-time "0.15.2"]
+                         [ring/ring-core "1.12.2"]
+                         [commons-io "2.16.1"]
+                         [joda-time "2.10"]]
+  :dependencies [[org.clojure/clojure "1.12.4" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/core.async "1.6.681" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.cli "1.0.206" :exclusions [org.clojure/tools.reader]]
