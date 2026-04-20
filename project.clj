@@ -31,7 +31,7 @@
                                                                            org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
-                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M3" :exclusions [commons-io]]
+                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M1" :exclusions [commons-io]]
                  [ring "1.10.0" :exclusions [commons-codec
                                             commons-io]]
                  [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
