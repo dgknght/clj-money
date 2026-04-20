@@ -19,7 +19,8 @@
             [clj-money.config :refer [env]]
             [clj-money.core]
             [clj-money.decimal :as d]
-            [clj-money.web.auth :as web-auth]
+            [clj-money.web.auth.google :as google-auth]
+            [clj-money.web.auth.github :as github-auth]
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-parse-id-params
                                           wrap-exceptions
@@ -136,9 +137,13 @@
 
 (defn- maybe-wrap-oauth2
   [handler]
-  (if (env :google-client-id)
-    (oauth2/wrap-oauth2 handler (web-auth/oauth2-profiles))
-    handler))
+  (let [providers (set (env :oauth-providers))
+        profiles  (not-empty
+                    (merge (when (:google providers) (google-auth/oauth2-profile))
+                           (when (:github providers) (github-auth/oauth2-profile))))]
+    (if profiles
+      (oauth2/wrap-oauth2 handler profiles)
+      handler)))
 
 (def app
   (-> (ring/ring-handler
@@ -148,7 +153,12 @@
                        {:middleware [:site
                                      wrap-merge-params
                                      wrap-request-logging]
-                        :get {:handler web-auth/google-redirect-handler}}]
+                        :get {:handler google-auth/redirect-handler}}]
+                      ["auth/github/done"
+                       {:middleware [:site
+                                     wrap-merge-params
+                                     wrap-request-logging]
+                        :get {:handler github-auth/redirect-handler}}]
                       ["app/" {:middleware [:site
                                             :wrap-format
                                             wrap-merge-params
