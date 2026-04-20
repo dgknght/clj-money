@@ -11,7 +11,8 @@
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal ]]
             [dgknght.app-lib.inflection :refer [humanize]]
-            [dgknght.app-lib.dom :refer [set-focus
+            [dgknght.app-lib.dom :refer [debounce
+                                         set-focus
                                          key-code
                                          shift-key?]]
             [dgknght.app-lib.html :refer [space
@@ -27,7 +28,7 @@
                                      +busy
                                      -busy]]
             [clj-money.dnd :as dnd]
-            [clj-money.util :as util :refer [debounce id=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :as accounts :refer [find-by-path
@@ -229,12 +230,12 @@
                               :color "var(--white)"
                               :cursor :copy})
       :on-drag-leave (debounce
-                       100
                        #(swap! page-state
                                update-in
                                [:item-row-styles]
                                dissoc
-                               (:id item)))
+                               (:id item))
+                       100)
       :on-drag-over #(.preventDefault %)
       :on-drop #(handle-item-row-drop item % page-state)
       :style (get-in styles [(:id item)])}
