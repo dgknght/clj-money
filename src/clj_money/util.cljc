@@ -209,17 +209,6 @@
            {}
            coll)))
 
-#?(:cljs
-   (defn debounce
-     [timeout f]
-     (let [t (atom nil)]
-       (fn [& args]
-         (when @t (js/clearTimeout @t))
-         (reset! t (js/setTimeout (fn []
-                                    (reset! t nil)
-                                    (apply f args))
-                                  timeout))))))
-
 (defn make-series
   "Given a template and a list of maps, create a sequence
   of the template merged with each map in the list"

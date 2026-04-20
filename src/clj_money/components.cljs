@@ -4,13 +4,11 @@
             [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
             [dgknght.app-lib.core :refer [present?
                                           presence]]
+            [dgknght.app-lib.dom :refer [debounce]]
             [dgknght.app-lib.web :refer [format-date-time
                                          format-decimal]]
             [clj-money.icons :as icons]
-            [clj-money.state :refer [busy?]]
-            [clj-money.util
-             :as util
-             :refer [debounce]]))
+            [clj-money.state :refer [busy?]]))
 
 (defn load-on-scroll
   "Adds load-on-scroll behavior to a component.
@@ -49,7 +47,7 @@
                                                                   fully-loaded-content
                                                                   partially-loaded-content))
                                                250))))) ; a callback would be nice, but complicated. Let's just show a brief message)))
-        debounced-scroll-listener (debounce 200 scroll-listener)
+        debounced-scroll-listener (debounce scroll-listener 200)
         attach-scroll-listener (fn [this]
                                  (let [targetElem (if target
                                                     (.getElementById js/document target)
