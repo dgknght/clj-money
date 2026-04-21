@@ -78,7 +78,7 @@
   [depth records]
   (if (some? depth)
     (remove #(and (= :data (:report/style %))
-                  (> (:report/depth %) depth))
+                  (> (:report/depth %) (dec depth)))
             records)
     records))
 
@@ -622,9 +622,11 @@
            :income-statement {:options
                               {:start-date (start-of-year)
                                :end-date (t/today)
-                               :hide-zeros? true}}
+                               :hide-zeros? true
+                               :depth 2}}
            :balance-sheet {:options {:as-of (t/today)
-                                     :hide-zeros? true}}
+                                     :hide-zeros? true
+                                     :depth 1}}
            :budget {:options {:depth 1
                               :tags [:tax :mandatory :discretionary]}} ; TODO: make this user editable
            :portfolio {:options {:filter {:aggregate :by-account
