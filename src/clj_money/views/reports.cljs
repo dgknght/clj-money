@@ -144,6 +144,14 @@
       [:hide-zeros?]
       {:caption "Hide Zero-Balance Accounts"}]]))
 
+(defn- apply-depth
+  [depth records]
+  (if (some? depth)
+    (remove #(and (= :data (:report/style %))
+                  (> (:report/depth %) depth))
+            records)
+    records))
+
 (defn- balance-sheet-header
   [page-state]
   (let [selected (r/cursor page-state [:selected])
@@ -156,19 +164,28 @@
 (defn- balance-sheet
   [page-state]
   (let [hide-zeros? (r/cursor page-state [:balance-sheet :options :hide-zeros?])
+        depth (r/cursor page-state [:balance-sheet :options :depth])
         selected (r/cursor page-state [:selected])
         hide? (make-reaction #(not= :balance-sheet @selected))
         report (r/cursor page-state [:balance-sheet :report])]
     (fn []
-      [:div.row
-       [:div.col-md-6.offset-md-3
-        [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
-         [:tbody
-          (if @report
-            (doall (map #(report-row % @hide-zeros?) @report))
-            [:tr
-             [:td.text-center
-              [bs/spinner]]])]]]])))
+      [:div {:class (when @hide? "d-none")}
+       [:div.d-flex.justify-content-end.mt-3
+        [forms/integer-field
+         page-state
+         [:balance-sheet :options :depth]
+         {:placeholder "Depth"
+          :style {:width "5em"}}]]
+       [:div.row
+        [:div.col-md-6.offset-md-3
+         [:table.table.table-hover.table-borderless
+          [:tbody
+           (if @report
+             (doall (map #(report-row % @hide-zeros?)
+                         (apply-depth @depth @report)))
+             [:tr
+              [:td.text-center
+               [bs/spinner]]])]]]]])))
 
 (defn- receive-budget-report
   [page-state]
