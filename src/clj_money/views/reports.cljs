@@ -142,7 +142,13 @@
      [forms/checkbox-field
       options
       [:hide-zeros?]
-      {:caption "Hide Zero-Balance Accounts"}]]))
+      {:caption "Hide Zero-Balance Accounts"}]
+     [forms/integer-field
+      options
+      [:depth]
+      {:class "ms-sm-2"
+       :placeholder "Depth"
+       :style {:width "5em"}}]]))
 
 (defn- apply-depth
   [depth records]
@@ -169,23 +175,16 @@
         hide? (make-reaction #(not= :balance-sheet @selected))
         report (r/cursor page-state [:balance-sheet :report])]
     (fn []
-      [:div {:class (when @hide? "d-none")}
-       [:div.d-flex.justify-content-end.mt-3
-        [forms/integer-field
-         page-state
-         [:balance-sheet :options :depth]
-         {:placeholder "Depth"
-          :style {:width "5em"}}]]
-       [:div.row
-        [:div.col-md-6.offset-md-3
-         [:table.table.table-hover.table-borderless
-          [:tbody
-           (if @report
-             (doall (map #(report-row % @hide-zeros?)
-                         (apply-depth @depth @report)))
-             [:tr
-              [:td.text-center
-               [bs/spinner]]])]]]]])))
+      [:div.row
+       [:div.col-md-6.offset-md-3
+        [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
+         [:tbody
+          (if @report
+            (doall (map #(report-row % @hide-zeros?)
+                        (apply-depth @depth @report)))
+            [:tr
+             [:td.text-center
+              [bs/spinner]]])]]]])))
 
 (defn- receive-budget-report
   [page-state]
