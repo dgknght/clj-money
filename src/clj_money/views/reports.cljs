@@ -82,30 +82,43 @@
             records)
     records))
 
+(defn- report-max-depth
+  [records]
+  (when (seq records)
+    (->> records
+         (filter #(= :data (:report/style %)))
+         (map :report/depth)
+         (reduce max 0)
+         inc)))
+
 (defn- income-statement-options
-  [options]
-  (fn []
-    [:<>
-     [forms/date-field
-      options
-      [:start-date]
-      {:placeholder "Start date"
-       :validate [:required]}]
-     [forms/date-field
-      options
-      [:end-date]
-      {:placeholder "End date"
-       :validate [:required]}]
-     [forms/checkbox-field
-      options
-      [:hide-zeros?]
-      {:caption "Hide Zero-Balance Accounts"}]
-     [forms/integer-field
-      options
-      [:depth]
-      {:class "ms-sm-2"
-       :placeholder "Depth"
-       :style {:width "5em"}}]]))
+  [options page-state]
+  (let [report (r/cursor page-state [:income-statement :report])
+        max-depth (make-reaction #(report-max-depth @report))]
+    (fn []
+      [:<>
+       [forms/date-field
+        options
+        [:start-date]
+        {:placeholder "Start date"
+         :validate [:required]}]
+       [forms/date-field
+        options
+        [:end-date]
+        {:placeholder "End date"
+         :validate [:required]}]
+       [forms/checkbox-field
+        options
+        [:hide-zeros?]
+        {:caption "Hide Zero-Balance Accounts"}]
+       [forms/integer-field
+        options
+        [:depth]
+        {:class "ms-sm-2"
+         :placeholder "Depth"
+         :style {:width "5em"}
+         :html (cond-> {:min 1}
+                 @max-depth (assoc :max @max-depth))}]])))
 
 (defn- income-statement-header
   [page-state]
@@ -147,24 +160,28 @@
                      :on-success #(swap! page-state assoc-in [:balance-sheet :report] %)))
 
 (defn- balance-sheet-options
-  [options]
-  (fn []
-    [:<>
-     [forms/date-field
-      options
-      [:as-of]
-      {:placeholder "As Of"
-       :validate [:required]}]
-     [forms/checkbox-field
-      options
-      [:hide-zeros?]
-      {:caption "Hide Zero-Balance Accounts"}]
-     [forms/integer-field
-      options
-      [:depth]
-      {:class "ms-sm-2"
-       :placeholder "Depth"
-       :style {:width "5em"}}]]))
+  [options page-state]
+  (let [report (r/cursor page-state [:balance-sheet :report])
+        max-depth (make-reaction #(report-max-depth @report))]
+    (fn []
+      [:<>
+       [forms/date-field
+        options
+        [:as-of]
+        {:placeholder "As Of"
+         :validate [:required]}]
+       [forms/checkbox-field
+        options
+        [:hide-zeros?]
+        {:caption "Hide Zero-Balance Accounts"}]
+       [forms/integer-field
+        options
+        [:depth]
+        {:class "ms-sm-2"
+         :placeholder "Depth"
+         :style {:width "5em"}
+         :html (cond-> {:min 1}
+                 @max-depth (assoc :max @max-depth))}]])))
 
 (defn- balance-sheet-header
   [page-state]
@@ -596,8 +613,8 @@
                          (when (v/valid? options)
                            (load-report page-state)))}
      (case @selected
-       :income-statement [income-statement-options options]
-       :balance-sheet    [balance-sheet-options options]
+       :income-statement [income-statement-options options page-state]
+       :balance-sheet    [balance-sheet-options options page-state]
        :budget           [budget-options options page-state]
        :portfolio        [portfolio-options options page-state])
      [:div.mt-3
