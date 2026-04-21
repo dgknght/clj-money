@@ -104,18 +104,6 @@
 #?(:cljs (def abs decimal/abs)
    :clj  (def abs core/abs))
 
-(def ^:private parsers
-   [{:pattern #".*"
-     :fn math/eval}
-    {:pattern #"(\d+)(?:,(\d+))*"
-     :fn #(->> %
-                 (drop 1)
-                 (string/join "")
-                 (d))}])
-
 (defn parse
    [s]
-   (some (fn [{:keys [pattern fn]}]
-            (when-let [match (re-find pattern s)]
-               (fn match)))
-         parsers))
+   (math/eval (string/replace s "," "")))
