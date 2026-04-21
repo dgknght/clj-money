@@ -74,6 +74,14 @@
                                               [:income-statement :report]
                                               %))))
 
+(defn- apply-depth
+  [depth records]
+  (if (some? depth)
+    (remove #(and (= :data (:report/style %))
+                  (> (:report/depth %) (dec depth)))
+            records)
+    records))
+
 (defn- income-statement-options
   [options]
   (fn []
@@ -91,7 +99,13 @@
      [forms/checkbox-field
       options
       [:hide-zeros?]
-      {:caption "Hide Zero-Balance Accounts"}]]))
+      {:caption "Hide Zero-Balance Accounts"}]
+     [forms/integer-field
+      options
+      [:depth]
+      {:class "ms-sm-2"
+       :placeholder "Depth"
+       :style {:width "5em"}}]]))
 
 (defn- income-statement-header
   [page-state]
@@ -108,6 +122,7 @@
 (defn- income-statement
   [page-state]
   (let [hide-zeros? (r/cursor page-state [:income-statement :options :hide-zeros?])
+        depth (r/cursor page-state [:income-statement :options :depth])
         selected (r/cursor page-state [:selected])
         hide? (make-reaction #(not= :income-statement @selected))
         report (r/cursor page-state [:income-statement :report])]
@@ -117,7 +132,8 @@
         [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
          [:tbody
           (if @report
-            (doall (map #(report-row % @hide-zeros?) @report))
+            (doall (map #(report-row % @hide-zeros?)
+                        (apply-depth @depth @report)))
             [:tr
              [:td.text-center
               [bs/spinner]]])]]]])))
@@ -142,7 +158,13 @@
      [forms/checkbox-field
       options
       [:hide-zeros?]
-      {:caption "Hide Zero-Balance Accounts"}]]))
+      {:caption "Hide Zero-Balance Accounts"}]
+     [forms/integer-field
+      options
+      [:depth]
+      {:class "ms-sm-2"
+       :placeholder "Depth"
+       :style {:width "5em"}}]]))
 
 (defn- balance-sheet-header
   [page-state]
@@ -156,6 +178,7 @@
 (defn- balance-sheet
   [page-state]
   (let [hide-zeros? (r/cursor page-state [:balance-sheet :options :hide-zeros?])
+        depth (r/cursor page-state [:balance-sheet :options :depth])
         selected (r/cursor page-state [:selected])
         hide? (make-reaction #(not= :balance-sheet @selected))
         report (r/cursor page-state [:balance-sheet :report])]
@@ -165,7 +188,8 @@
         [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
          [:tbody
           (if @report
-            (doall (map #(report-row % @hide-zeros?) @report))
+            (doall (map #(report-row % @hide-zeros?)
+                        (apply-depth @depth @report)))
             [:tr
              [:td.text-center
               [bs/spinner]]])]]]])))
@@ -598,9 +622,11 @@
            :income-statement {:options
                               {:start-date (start-of-year)
                                :end-date (t/today)
-                               :hide-zeros? true}}
+                               :hide-zeros? true
+                               :depth 2}}
            :balance-sheet {:options {:as-of (t/today)
-                                     :hide-zeros? true}}
+                                     :hide-zeros? true
+                                     :depth 1}}
            :budget {:options {:depth 1
                               :tags [:tax :mandatory :discretionary]}} ; TODO: make this user editable
            :portfolio {:options {:filter {:aggregate :by-account
