@@ -10,5 +10,7 @@
       "A ratio is parsed into a decimal")
   (is (= (d/d 5000) (d/parse "5,000"))
       "A number formatted with commas is parsed into a decimal")
+  (is (= (d/d 1000.0) (d/parse "1,000.0"))
+      "A decimal formatted with commas is parsed into a decimal")
   (is (= (d/d 2) (d/parse "1+1"))
       "A basic mathematical expression is calculated"))
