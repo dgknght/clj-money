@@ -286,16 +286,20 @@
 
 (defn delete-many
   ([entities] (delete-many {} entities))
-  ([{:keys [out-chan]} entities]
+  ([{:keys [out-chan ctrl-chan]} entities]
    {:pre [(seq (filter identity entities))]}
    (let [result (->> entities
                      (map before-delete)
                      (db/delete (db/storage)))]
      (when out-chan
+       (when ctrl-chan
+         (a/offer! ctrl-chan :start))
        (a/go
          (->> entities
               (map #(vector % nil))
-              (a/onto-chan!! out-chan))))
+              (a/onto-chan!! out-chan))
+         (when ctrl-chan
+           (a/>! ctrl-chan :finish))))
      result)))
 
 (defn delete
