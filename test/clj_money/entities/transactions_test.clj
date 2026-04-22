@@ -999,3 +999,24 @@
       (is (comparable? #:account{:quantity 900M}
                        (entities/find savings))
           "The \"to\" account has the balance the from account had before the transfer"))))
+
+(def ^:private parent-only-context
+  (conj base-context
+        #:account{:name "Expenses"
+                  :type :expense
+                  :entity "Personal"
+                  :parent-only true}))
+
+(dbtest cannot-use-parent-only-account-in-transaction-items
+  (with-context parent-only-context
+    (assert-invalid
+      (assoc (attributes)
+             :transaction/items
+             [#:transaction-item{:action :debit
+                                 :account (find-account "Expenses")
+                                 :quantity 1000M}
+              #:transaction-item{:action :credit
+                                 :account (find-account "Salary")
+                                 :quantity 1000M}])
+      {:transaction/items
+       ["A parent-only account cannot receive transaction items"]})))

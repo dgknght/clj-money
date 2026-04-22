@@ -44,6 +44,16 @@
             {:message "A new transaction must have items"
              :path [:transaction/items]})
 
+(defn- no-items-use-parent-only-account?
+  [{:transaction/keys [items]}]
+  (->> (or items [])
+       (map :transaction-item/account)
+       (not-any? :account/parent-only)))
+
+(v/reg-spec no-items-use-parent-only-account?
+            {:message "A parent-only account cannot receive transaction items"
+             :path [:transaction/items]})
+
 (defn- qty-comparable
   [item]
   (select-keys item [:id :account-item/quantity]))
@@ -87,7 +97,8 @@
 (s/def ::entities/transaction (s/and (s/merge ::trxs/unilateral-transaction
                                               (s/keys :opt [:transaction/lot-items]))
                                      no-reconciled-quantities-changed?
-                                     new-transaction-has-items?))
+                                     new-transaction-has-items?
+                                     no-items-use-parent-only-account?))
 
 (defn- specified-entry?
   [ks]

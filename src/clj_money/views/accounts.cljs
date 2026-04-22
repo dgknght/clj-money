@@ -450,6 +450,11 @@
           [:trading]
           {:caption "Check here if this account is used to trade commodities"
            :form-group-attr {:class (when-not (= :asset (:account/type @account)) "d-none")}}]
+         [forms/checkbox-field
+          account
+          [:account/parent-only]
+          {:caption "Prevent this account from receiving transaction items directly"
+           :form-group-attr {:class (when-not (-> @account :account/parent :id) "d-none")}}]
          [:fieldset
           [:legend "Tags"]
           [forms/typeahead-input
