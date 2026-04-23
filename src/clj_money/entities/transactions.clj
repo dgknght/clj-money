@@ -47,8 +47,9 @@
 (defn- no-items-use-parent-only-account?
   [{:transaction/keys [items]}]
   (->> (or items [])
+       (map #(if (vector? %) (second %) %))
        (map :transaction-item/account)
-       (not-any? :account/parent-only)))
+       (not-any? #(-> % :account/system-tags :parent-only))))
 
 (v/reg-spec no-items-use-parent-only-account?
             {:message "A parent-only account cannot receive transaction items"

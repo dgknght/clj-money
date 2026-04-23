@@ -46,14 +46,12 @@
 (s/def :account/allocations (s/nilable (s/map-of ::entities/id decimal?)))
 (s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
                                                            dates/local-date?)))
-(s/def :account/parent-only (s/nilable boolean?))
 
 (s/def ::entities/account (s/and (s/keys :req [:account/entity
                                              :account/type
                                              :account/name
                                              :account/commodity]
                                          :opt [:account/parent
-                                               :account/parent-only
                                                :account/system-tags
                                                :account/user-tags
                                                :account/allocations

@@ -74,7 +74,6 @@
    :account/system-tags
    :account/user-tags
    :account/parent
-   :account/parent-only
    :account/allocations])
 
 (defn- extract-account

@@ -126,8 +126,6 @@
                :type :set}
               {:id :hidden
                :type :boolean}
-              {:id :parent-only
-               :type :boolean}
               {:id :quantity
                :type :decimal
                :transient? true}

@@ -353,7 +353,7 @@
                               :type :asset
                               :commodity (find-commodity "USD")
                               :parent (find-account "Savings")
-                              :parent-only true
+                              :system-tags #{:parent-only}
                               :entity (find-entity "Personal")})))
 
 (dbtest delete-an-account

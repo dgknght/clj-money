@@ -1005,7 +1005,7 @@
         #:account{:name "Expenses"
                   :type :expense
                   :entity "Personal"
-                  :parent-only true}))
+                  :system-tags #{:parent-only}}))
 
 (dbtest cannot-use-parent-only-account-in-transaction-items
   (with-context parent-only-context
