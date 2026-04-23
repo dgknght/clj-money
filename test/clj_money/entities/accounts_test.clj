@@ -340,6 +340,22 @@
                        (:id (:account/parent (entities/find result))))
           "The retrieved account has the correct parent-id value"))))
 
+(def ^:private parent-only-context
+  (conj select-context
+        #:account{:name "Savings"
+                  :type :asset
+                  :entity "Personal"
+                  :commodity "USD"}))
+
+(dbtest create-a-parent-only-account
+  (with-context parent-only-context
+    (assert-created #:account{:name "Car"
+                              :type :asset
+                              :commodity (find-commodity "USD")
+                              :parent (find-account "Savings")
+                              :system-tags #{:parent-only}
+                              :entity (find-entity "Personal")})))
+
 (dbtest delete-an-account
   (with-context select-context
     (assert-deleted (find-account "Checking"))))
