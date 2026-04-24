@@ -40,7 +40,7 @@
                                             entryfy
                                             unentryfy
                                             ensure-empty-item
-                                            ->bilateral]]
+                                            ->unilateral]]
             [clj-money.components :refer [load-in-chunks
                                           audit-history-popover]]
             [clj-money.api.transaction-items :as trx-items]
@@ -537,7 +537,7 @@
                       (v/validate transaction)
                       (when (v/valid? transaction)
                        (+busy)
-                       (transactions/save (unentryfy @transaction)
+                       (transactions/save (-> @transaction unentryfy ->unilateral)
                                           :callback -busy
                                           :on-success on-save)))}
         [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]
@@ -579,7 +579,7 @@
                        (+busy)
                        (-> @transaction
                            unaccountify
-                           ->bilateral
+                           ->unilateral
                            (transactions/save :callback -busy
                                               :on-success on-save))))}
        [forms/date-field
