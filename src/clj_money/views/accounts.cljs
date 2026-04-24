@@ -377,12 +377,13 @@
          (into {}))))
 
 (defn- prepare-for-save
-  [{:as account :keys [trading]}]
+  [{:as account :keys [trading parent-only]}]
   ; TODO: Add logic to turn trading attribute into a system tag
   (cond-> (-> account
               (update-in [:account/type] keyword)
               (update-in [:account/allocations] prepare-allocations))
-    trading (update-in [:account/system-tags] (fnil conj #{}) :trading)))
+    trading     (update-in [:account/system-tags] (fnil conj #{}) :trading)
+    parent-only (update-in [:account/system-tags] (fnil conj #{}) :parent-only)))
 
 (defn- save-account
   [page-state]
@@ -450,6 +451,11 @@
           [:trading]
           {:caption "Check here if this account is used to trade commodities"
            :form-group-attr {:class (when-not (= :asset (:account/type @account)) "d-none")}}]
+         [forms/checkbox-field
+          account
+          [:parent-only]
+          {:caption "Prevent this account from receiving transaction items directly"
+           :form-group-attr {:class (when-not (-> @account :account/parent :id) "d-none")}}]
          [:fieldset
           [:legend "Tags"]
           [forms/typeahead-input
