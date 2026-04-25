@@ -1,5 +1,6 @@
 (ns clj-money.import.edn
   (:require [clojure.java.io :refer [reader]]
+            [clojure.edn :as edn]
             [clojure.core.async :as a]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream]))
@@ -9,7 +10,7 @@
   (-> (GZIPInputStream. input)
       reader
       slurp
-      read-string))
+      edn/read-string))
 
 (defmethod read-source :edn
   [_ inputs]

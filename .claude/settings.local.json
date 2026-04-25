@@ -47,7 +47,9 @@
       "Bash(gh auth:*)",
       "Bash(du:*)",
       "mcp__trello__add-comment",
-      "Bash(podman compose:*)"
+      "Bash(podman compose:*)",
+      "WebFetch(domain:funcool.github.io)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": [],
