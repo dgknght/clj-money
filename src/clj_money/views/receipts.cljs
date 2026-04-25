@@ -23,7 +23,6 @@
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.receipts :as receipts]
-            [clj-money.transactions :refer [->unilateral]]
             [clj-money.api.transactions :as trn]))
 
 (defn- new-receipt
