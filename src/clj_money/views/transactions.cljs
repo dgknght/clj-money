@@ -537,7 +537,7 @@
                       (v/validate transaction)
                       (when (v/valid? transaction)
                        (+busy)
-                       (transactions/save (-> @transaction unentryfy ->unilateral)
+                       (transactions/save (unentryfy @transaction)
                                           :callback -busy
                                           :on-success on-save)))}
         [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]

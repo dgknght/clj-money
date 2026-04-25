@@ -52,7 +52,6 @@
   [page-state]
   (-> (:receipt @page-state)
       receipts/->transaction
-      ->unilateral
       (trn/save
         :callback -busy
         :on-success (fn [trx]
