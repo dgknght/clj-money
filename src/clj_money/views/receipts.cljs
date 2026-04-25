@@ -23,7 +23,6 @@
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.receipts :as receipts]
-            [clj-money.transactions :refer [->bilateral]]
             [clj-money.api.transactions :as trn]))
 
 (defn- new-receipt
@@ -52,7 +51,6 @@
   [page-state]
   (-> (:receipt @page-state)
       receipts/->transaction
-      ->bilateral
       (trn/save
         :callback -busy
         :on-success (fn [trx]

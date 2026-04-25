@@ -630,7 +630,7 @@
     :transaction-item/memo (:account-item/memo debit-item)}])
 
 (defn entryfy
-  "Accepts a bilateral transaction and returns the transaction
+  "Accepts a unilateral transaction and returns the transaction
   with line items adjusted for easy entry, with no :action
   attribute, one :credit-quantity and one :debit-quantity"
   [transaction]
@@ -664,13 +664,11 @@
 (defn unentryfy
   "Reverses an entryfy operation"
   [trx]
-  ; entryfied -> unilateral -> bilateral
-  (->bilateral
-    (update-in trx
-               [:transaction/items]
-               #(->> %
-                     (remove empty-item?)
-                     (mapv unentryfy-item)))))
+  (update-in trx
+             [:transaction/items]
+             #(->> %
+                   (remove empty-item?)
+                   (mapv unentryfy-item))))
 
 (defn accountify
   "Accepts a bilateral transaction with one line item and

@@ -250,6 +250,10 @@
   [account]
   (system-tagged? account :tradable))
 
+(defn parent-only?
+  [account]
+  (system-tagged? account :parent-only))
+
 (defn format-quantity
   [quantity {:account/keys [commodity]}]
   (format-decimal quantity
