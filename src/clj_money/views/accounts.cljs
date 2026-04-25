@@ -37,9 +37,9 @@
             [clj-money.api.audit :as audit]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.commodities :as cmdts]
-            [clj-money.accounts :refer [account-types
-                                        allocate
-                                        find-by-path]]
+            [clj-money.accounts :as acts :refer [account-types
+                                                 allocate
+                                                 find-by-path]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -524,20 +524,25 @@
 
 (defn- account-buttons
   [page-state]
-  (let  [transaction (r/cursor page-state [:transaction])]
+  (let [transaction (r/cursor page-state [:transaction])
+        view-account (r/cursor page-state [:view-account])
+        parent-only? (make-reaction #(acts/parent-only? @view-account))
+        disable-trx? (make-reaction #(or @parent-only?
+                                         (not (not @transaction))))]
     (fn []
       [:div.d-flex.justify-content-between
        [:div {:class "btn-group"}
         [:button.btn.btn-primary
          {:title "Click here to enter a transaction."
           :type :button
-          :on-click #(new-transaction page-state)
-          :disabled (not (nil? @transaction))
+          :on-click (when-not @parent-only? #(new-transaction page-state))
+          :disabled @disable-trx?
           :data-bs-toggle :dropdown
           :aria-expanded :false}
          (icon-with-text :plus "Add")]
         [:button.btn.btn-primary.dropdown-toggle.dropdown-toggle-split
          {:type :button
+          :disabled @disable-trx?
           :data-bs-toggle :dropdown
           :aria-expanded :false}
          [:span.visually-hidden "Toggle Dropdown"]]
