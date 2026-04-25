@@ -579,3 +579,13 @@
       "An account with systems tags that do not include :tradable is not tradable")
   (is (not (accounts/tradable? {:account/system-tags #{}}))
       "An account with no systems tags is not tradable"))
+
+(deftest identity-a-parent-only-account
+  (is (accounts/parent-only? {:account/system-tags #{:parent-only}})
+      "An account with the system tag :parent-only is parent-only")
+  (is (not (accounts/parent-only? {:account/system-tags #{:trading}}))
+      "An account with systems tags that do not include :parent-only is not parent-only")
+  (is (not (accounts/parent-only? {:account/system-tags #{}}))
+      "An account with empty systems tags is not parent-only")
+  (is (not (accounts/parent-only? {}))
+      "An account without systems tags is not parent-only"))

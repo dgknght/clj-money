@@ -40,7 +40,7 @@
                                             entryfy
                                             unentryfy
                                             ensure-empty-item
-                                            ->bilateral]]
+                                            ->unilateral]]
             [clj-money.components :refer [load-in-chunks
                                           audit-history-popover]]
             [clj-money.api.transaction-items :as trx-items]
@@ -579,7 +579,7 @@
                        (+busy)
                        (-> @transaction
                            unaccountify
-                           ->bilateral
+                           ->unilateral
                            (transactions/save :callback -busy
                                               :on-success on-save))))}
        [forms/date-field
