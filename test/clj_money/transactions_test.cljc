@@ -199,17 +199,17 @@
   (let [expected #:transaction{:transaction-date (dates/local-date "2020-01-01")
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :items [#:transaction-item{:credit-item #:account-item{:account {:id 1
-                                                                                                :account/type :asset}
-                                                                                     :action :credit
-                                                                                     :quantity (d/- d/zero
-                                                                                                    (d 10))
-                                                                                     :memo "checking memo"}
-                                                          :debit-item #:account-item{:account {:id 2
-                                                                                               :account/type :expense}
-                                                                                     :action :debit
-                                                                                     :quantity (d 10)
-                                                                                     :memo "groceries memo"}
+                               :items [#:transaction-item{:action :credit
+                                                          :memo "checking memo"
+                                                          :account {:id 1
+                                                                    :account/type :asset}
+                                                          :quantity (d 10)
+                                                          :value (d 10)}
+                                       #:transaction-item{:action :debit
+                                                          :memo "groceries memo"
+                                                          :account {:id 2
+                                                                    :account/type :expense}
+                                                          :quantity (d 10)
                                                           :value (d 10)}]}
         transaction #:transaction{:transaction-date (dates/local-date "2020-01-01")
                                   :description "ACME Store"
