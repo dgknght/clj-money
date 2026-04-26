@@ -15,10 +15,10 @@
 
 (defn- read-input
   [input]
-  (-> (GZIPInputStream. input)
-      reader
-      slurp
-      (edn/read-string {:readers edn-readers})))
+  (edn/read-string {:readers edn-readers}
+                   (-> (GZIPInputStream. input)
+                       reader
+                       slurp)))
 
 (defmethod read-source :edn
   [_ inputs]
