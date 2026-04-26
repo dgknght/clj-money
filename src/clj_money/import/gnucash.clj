@@ -23,15 +23,9 @@
             FileInputStream
             FileOutputStream]
            java.math.BigDecimal
-           javax.xml.stream.XMLInputFactory
            [clojure.data.xml.event StartElementEvent
             CharsEvent
             EndElementEvent]))
-
-(def ^:private safe-xml-factory
-  (doto (XMLInputFactory/newInstance)
-    (.setProperty XMLInputFactory/IS_SUPPORTING_EXTERNAL_ENTITIES false)
-    (.setProperty XMLInputFactory/SUPPORT_DTD false)))
 
 (defn- blank-string?
   [v]
@@ -917,9 +911,7 @@
       (->> inputs
            (map #(GZIPInputStream. %))
            (map io/reader)
-           (mapcat #(xml/event-seq
-                      (.createXMLStreamReader safe-xml-factory %)
-                      {}))
+           (mapcat #(xml/event-seq % {:support-dtd false}))
            (reduce process-event
                    {:elems []
                     :content []
