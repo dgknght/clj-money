@@ -64,7 +64,6 @@
                  [org.clojure/google-closure-library "0.0-20230227-c7c0a541"]
                  [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler
                                                  org.clojure/tools.reader]]
-                 [reagent-forms "0.5.41"]
                  [reagent-utils "0.3.8"]
                  [org.clojure/clojurescript "1.11.132" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "31.0.1-jre" :exclusions [com.google.code.findbugs/jsr305
