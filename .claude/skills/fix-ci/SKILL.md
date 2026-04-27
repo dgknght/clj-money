@@ -21,3 +21,4 @@ Steps:
    for the smallest subset that covers the failure).
 7. Run `clj-kondo --lint src` and resolve any warnings before committing.
 8. Commit the fix with a descriptive message.
+9. Push the branch with the new commits.

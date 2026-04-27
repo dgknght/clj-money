@@ -62,6 +62,18 @@ Resolve all warnings before committing.
 
 - Avoid committing code that fails linting rules or the test suite.
 
+## Security
+
+Run `/security-review` before merging PRs that touch auth, API endpoints, or
+file-handling code.
+
+Key rules:
+- Use `clojure.edn/read-string` (never `clojure.core/read-string`) for
+  user-supplied data — the core variant executes reader macros and can cause RCE.
+- Disable external entity processing when parsing XML from user-supplied files:
+  set `XMLInputFactory/IS_SUPPORTING_EXTERNAL_ENTITIES false` and
+  `XMLInputFactory/SUPPORT_DTD false` on the factory before creating a reader.
+
 ## Style
 
 - Maximum 80 characters per line.

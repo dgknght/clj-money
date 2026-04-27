@@ -911,7 +911,7 @@
       (->> inputs
            (map #(GZIPInputStream. %))
            (map io/reader)
-           (mapcat #(xml/event-seq % {}))
+           (mapcat #(xml/event-seq % {:support-dtd false}))
            (reduce process-event
                    {:elems []
                     :content []
