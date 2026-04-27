@@ -1,6 +1,5 @@
 (ns clj-money.views.reports
   (:require [clojure.string :as string]
-            [cljs.pprint :refer [pprint]]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -84,12 +83,13 @@
 
 (defn- report-max-depth
   [records]
-  (when (seq records)
+  (if (seq records)
     (->> records
          (filter #(= :data (:report/style %)))
          (map :report/depth)
          (reduce max 0)
-         inc)))
+         inc)
+    9))
 
 (defn- income-statement-options
   [options page-state]
@@ -117,8 +117,8 @@
         {:class "ms-sm-2"
          :placeholder "Depth"
          :style {:width "5em"}
-         :html (cond-> {:min 1}
-                 @max-depth (assoc :max @max-depth))}]])))
+         :min 1
+         :max max-depth}]])))
 
 (defn- income-statement-header
   [page-state]
@@ -180,8 +180,8 @@
         {:class "ms-sm-2"
          :placeholder "Depth"
          :style {:width "5em"}
-         :html (cond-> {:min 1}
-                 @max-depth (assoc :max @max-depth))}]])))
+         :min 1
+         :max max-depth}]])))
 
 (defn- balance-sheet-header
   [page-state]
