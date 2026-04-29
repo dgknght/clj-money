@@ -111,11 +111,14 @@
         trading-account-ids (->> accounts
                                  (filter (system-tagged? :trading))
                                  (map :id))
+        [earliest-date] (:entity/transaction-date-range entity)
         lots (when (seq trading-account-ids)
                (group-by (juxt (comp :id :lot/account)
                                (comp :id :lot/commodity))
                          (entities/select {:lot/account [:in trading-account-ids]
-                                           :lot/purchase-date [:<= as-of]})))
+                                           :lot/purchase-date [:between
+                                                               earliest-date
+                                                               as-of]})))
         lot-items (when (seq lots)
                     (group-by (comp :id :lot-item/lot)
                               (entities/select
@@ -123,7 +126,9 @@
                                   {:lot-item/lot [:in (->> (vals lots)
                                                            (mapcat identity)
                                                            (mapv :id))]
-                                   :transaction/transaction-date [:<= as-of]}
+                                   :transaction/transaction-date [:between
+                                                                  earliest-date
+                                                                  as-of]}
                                   :lot-item))))
         prices (atom {})]
     (reify accounts/ValuationData
