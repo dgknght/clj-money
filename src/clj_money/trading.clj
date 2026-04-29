@@ -199,6 +199,24 @@
   (update-in trade [:trade/entity] (fnil entities/resolve-ref
                                          entity)))
 
+(defn- resolve-gains-accounts
+  [{:trade/keys [entity] :as trade}]
+  (let [settings (:entity/settings entity)]
+    (reduce (fn [t [trade-key settings-key]]
+              (cond
+                (map? (get t trade-key)) t
+                (some? (get t trade-key))
+                (update t trade-key entities/resolve-ref)
+                (some? (get settings settings-key))
+                (assoc t trade-key
+                       (entities/resolve-ref (get settings settings-key)))
+                :else t))
+            trade
+            [[:trade/lt-capital-gains-account :settings/lt-capital-gains-account]
+             [:trade/lt-capital-loss-account  :settings/lt-capital-loss-account]
+             [:trade/st-capital-gains-account :settings/st-capital-gains-account]
+             [:trade/st-capital-loss-account  :settings/st-capital-loss-account]])))
+
 (defn- gains-words
   [gains]
   (->> gains
@@ -298,19 +316,57 @@
                                                 :price (with-precision 4 (/ value shares))
                                                 :shares shares}]})))
 
+(defn- gains-account
+  [{:trade/keys [lt-capital-gains-account
+                 lt-capital-loss-account
+                 st-capital-gains-account
+                 st-capital-loss-account]}
+   long-term?
+   gain?]
+  (cond
+    (and long-term? gain?)       lt-capital-gains-account
+    (and long-term? (not gain?)) lt-capital-loss-account
+    (and (not long-term?) gain?) st-capital-gains-account
+    :else                        st-capital-loss-account))
+
+(defn- create-gains-transaction-items
+  [{:trade/keys [gains] :as trade}]
+  (->> gains
+       (group-by (juxt :long-term? #(pos? (:quantity %))))
+       (keep (fn [[[long-term? gain?] entries]]
+               (when-let [account (gains-account trade long-term? gain?)]
+                 (let [total (transduce (map :quantity) + 0M entries)]
+                   (if gain?
+                     (trx/item :credit account total)
+                     (trx/item :debit account (- total)))))))))
+
 (defn- create-sale-transaction-items
   [{:trade/keys [shares
                  value
                  account
                  commodity-account
                  fee
-                 fee-account]
-    :or {fee 0M}}]
-  (cond-> [(trx/item :debit account (- value fee))
-           (trx/item :credit commodity-account shares value)]
+                 fee-account
+                 gains]
+    :or {fee 0M}
+    :as trade}]
+  (let [gains-items (seq (create-gains-transaction-items trade))
+        recognized-qty (when gains-items
+                         (->> gains
+                              (filter (fn [{:keys [long-term? quantity]}]
+                                        (gains-account trade long-term? (pos? quantity))))
+                              (transduce (map :quantity) + 0M)))
+        commodity-value (if recognized-qty
+                          (- value recognized-qty)
+                          value)]
+    (cond-> [(trx/item :debit account (- value fee))
+             (trx/item :credit commodity-account shares commodity-value)]
 
-    (not (zero? fee))
-    (conj (trx/item :debit fee-account fee))))
+      (not (zero? fee))
+      (conj (trx/item :debit fee-account fee))
+
+      gains-items
+      (into gains-items))))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
@@ -573,6 +629,7 @@
         append-commodity
         append-accounts
         append-entity
+        resolve-gains-accounts
         acquire-lots
         update-entity-settings
         create-price
