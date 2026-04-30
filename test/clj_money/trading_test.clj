@@ -165,7 +165,7 @@
       (is (comparable? #:transaction{:description "Dividend received from AAPL"}
                        (first transactions))
           "The transaction for the receipt of the dividend is returned")
-      (is (comparable? #:transaction{:description "Reinvest dividend of 50.00: purchase 4.500 shares of AAPL at 11.110"}
+      (is (comparable? #:transaction{:description "Reinvest dividend of 50.00: purchase 4.500 shares of AAPL at 11.111"}
                        (second transactions))
           "The transaction for the purchase of shares with dividend is returned")
       (is (comparable? #:account{:quantity 50M
