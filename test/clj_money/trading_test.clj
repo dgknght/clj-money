@@ -815,17 +815,28 @@
               (entities/select {:transaction-item/account st-gains-acc}))
             "ST gain from lot 2")))))
 
-(deftest sell-without-gains-accounts-is-unchanged
-  ; No gains accounts => existing behavior: commodity credited at proceeds
+(deftest sell-creates-default-gains-accounts
+  ; No gains accounts configured => auto-creates "Long-term Capital Gains"
   (with-context sale-context
-    (let [aapl-acc (entities/find-by
-                     #:account{:entity (find-entity "Personal")
-                               :commodity (find-commodity "AAPL")})]
-      (trading/sell (sale-attributes))
-      (is (seq-of-maps-like?
-            [#:transaction-item{:action :debit :quantity 100M}
-             #:transaction-item{:action :credit
-                                :quantity 25M
-                                :value 375M}]
-            (entities/select {:transaction-item/account aapl-acc}))
-          "Commodity account is credited at proceeds when no gains accounts are configured"))))
+    (trading/sell (sale-attributes))
+    (let [entity (find-entity "Personal")
+          lt-gains-acc (entities/find-by {:account/entity entity
+                                          :account/name "Long-term Capital Gains"})
+          aapl-acc (entities/find-by #:account{:entity entity
+                                               :commodity (find-commodity "AAPL")})]
+      (testing "The default gains account is created"
+        (is (comparable? #:account{:name "Long-term Capital Gains"
+                                   :type :income}
+                         lt-gains-acc)
+            "A Long-term Capital Gains account is auto-created"))
+      (testing "The default gains account is credited"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :credit :quantity 125M}]
+              (entities/select {:transaction-item/account lt-gains-acc}))
+            "The auto-created account is credited the gain"))
+      (testing "The commodity account is credited at cost basis"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :debit :quantity 100M}
+               #:transaction-item{:action :credit :quantity 25M :value 250M}]
+              (entities/select {:transaction-item/account aapl-acc}))
+            "The commodity account is credited at cost basis")))))

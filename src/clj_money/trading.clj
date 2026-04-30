@@ -199,23 +199,61 @@
   (update-in trade [:trade/entity] (fnil entities/resolve-ref
                                          entity)))
 
+(def ^:private gains-account-specs
+  [{:trade-key     :trade/lt-capital-gains-account
+    :settings-key  :settings/lt-capital-gains-account
+    :default-name  "Long-term Capital Gains"
+    :account-type  :income
+    :long-term?    true
+    :gain?         true}
+   {:trade-key     :trade/lt-capital-loss-account
+    :settings-key  :settings/lt-capital-loss-account
+    :default-name  "Long-term Capital Loss"
+    :account-type  :expense
+    :long-term?    true
+    :gain?         false}
+   {:trade-key     :trade/st-capital-gains-account
+    :settings-key  :settings/st-capital-gains-account
+    :default-name  "Short-term Capital Gains"
+    :account-type  :income
+    :long-term?    false
+    :gain?         true}
+   {:trade-key     :trade/st-capital-loss-account
+    :settings-key  :settings/st-capital-loss-account
+    :default-name  "Short-term Capital Loss"
+    :account-type  :expense
+    :long-term?    false
+    :gain?         false}])
+
+(defn- find-or-create-gains-account
+  [{:trade/keys [entity]} account-name account-type]
+  (or (entities/find-by {:account/entity entity
+                         :account/name account-name})
+      (entities/put {:account/name account-name
+                     :account/type account-type
+                     :account/entity entity})))
+
 (defn- resolve-gains-accounts
-  [{:trade/keys [entity] :as trade}]
-  (let [settings (:entity/settings entity)]
-    (reduce (fn [t [trade-key settings-key]]
-              (cond
-                (map? (get t trade-key)) t
-                (some? (get t trade-key))
-                (update t trade-key entities/resolve-ref)
-                (some? (get settings settings-key))
-                (assoc t trade-key
-                       (entities/resolve-ref (get settings settings-key)))
-                :else t))
-            trade
-            [[:trade/lt-capital-gains-account :settings/lt-capital-gains-account]
-             [:trade/lt-capital-loss-account  :settings/lt-capital-loss-account]
-             [:trade/st-capital-gains-account :settings/st-capital-gains-account]
-             [:trade/st-capital-loss-account  :settings/st-capital-loss-account]])))
+  [{:trade/keys [entity gains] :as trade}]
+  (let [settings   (:entity/settings entity)
+        gain-types (->> gains
+                        (map (juxt :long-term? #(pos? (:quantity %))))
+                        set)]
+    (reduce
+      (fn [t {:keys [trade-key settings-key default-name account-type long-term? gain?]}]
+        (if-not (contains? gain-types [long-term? gain?])
+          t
+          (let [val      (get t trade-key)
+                resolved (cond
+                           (map? val)                    val
+                           (some? val)                   (entities/resolve-ref val)
+                           (some? (get settings settings-key))
+                           (entities/resolve-ref (get settings settings-key)))]
+            (assoc t trade-key
+                   (or resolved
+                       (find-or-create-gains-account t default-name account-type))))))
+      trade
+      gains-account-specs)))
 
 (defn- gains-words
   [gains]
@@ -629,13 +667,13 @@
         append-commodity
         append-accounts
         append-entity
-        resolve-gains-accounts
         acquire-lots
         update-entity-settings
         create-price
         push-commodity-price-boundary
         update-accounts
         process-lot-sales
+        resolve-gains-accounts
         create-sale-transaction
         (put-sale opts))))
 
