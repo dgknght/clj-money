@@ -165,7 +165,7 @@
       (is (comparable? #:transaction{:description "Dividend received from AAPL"}
                        (first transactions))
           "The transaction for the receipt of the dividend is returned")
-      (is (comparable? #:transaction{:description "Reinvest dividend of 50.00: purchase 4.500 shares of AAPL at 11.110"}
+      (is (comparable? #:transaction{:description "Reinvest dividend of 50.00: purchase 4.500 shares of AAPL at 11.111"}
                        (second transactions))
           "The transaction for the purchase of shares with dividend is returned")
       (is (comparable? #:account{:quantity 50M
@@ -692,3 +692,151 @@
                       :commodity commodity
                       :shares-owned [:!= 0M]}))
             "All lots are emptied")))))
+
+(def ^:private gains-context
+  (into sale-context
+        [#:account{:name "LT Capital Gains"
+                   :entity "Personal"
+                   :type :income}
+         #:account{:name "ST Capital Gains"
+                   :entity "Personal"
+                   :type :income}
+         #:account{:name "LT Capital Loss"
+                   :entity "Personal"
+                   :type :expense}
+         #:account{:name "ST Capital Loss"
+                   :entity "Personal"
+                   :type :expense}]))
+
+; Sale context: 100 shares purchased 2016-3-2 at $10
+; LT sale:      25 shares sold       2017-3-2 at $15 => gain $125
+; cost basis: 25 x $10 = $250, proceeds $375
+
+(deftest sell-records-lt-capital-gain
+  (with-context gains-context
+    (let [result (trading/sell
+                   (assoc (sale-attributes)
+                          :trade/lt-capital-gains-account
+                          (find-account "LT Capital Gains")))
+          lt-gains-acc (find-account "LT Capital Gains")
+          aapl-acc (entities/find-by
+                     #:account{:entity (find-entity "Personal")
+                               :commodity (find-commodity "AAPL")})]
+      (testing "The capital gains account is credited the gain"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :credit
+                                  :quantity 125M}]
+              (entities/select
+                {:transaction-item/account lt-gains-acc}))
+            "LT Capital Gains is credited the gain amount"))
+      (testing "The commodity account is credited at cost basis"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :debit :quantity 100M}
+               #:transaction-item{:action :credit
+                                  :quantity 25M
+                                  :value 250M}]
+              (entities/select {:transaction-item/account aapl-acc}))
+            "The commodity account is credited shares at cost basis"))
+      (testing "The result contains the transaction"
+        (is (= 1 (count (:trade/transactions result)))
+            "Only one transaction is created")))))
+
+(deftest sell-records-lt-capital-loss
+  ; Sell 25 shares at $8 => loss $50  (cost basis $250, proceeds $200)
+  (with-context gains-context
+    (let [lt-loss-acc (find-account "LT Capital Loss")]
+      (trading/sell
+        (assoc (sale-attributes)
+               :trade/value 200M
+               :trade/lt-capital-loss-account lt-loss-acc))
+      (testing "The capital loss account is debited the loss"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :debit
+                                  :quantity 50M}]
+              (entities/select
+                {:transaction-item/account lt-loss-acc}))
+            "LT Capital Loss is debited the loss amount")))))
+
+(deftest sell-records-st-capital-gain
+  ; Purchase 2016-3-2, sell 2016-12-1 (< 1 year => ST)
+  ; Sell 25 shares at $15 => gain $125
+  (with-context gains-context
+    (let [st-gains-acc (find-account "ST Capital Gains")]
+      (trading/sell
+        (assoc (sale-attributes)
+               :trade/date (t/local-date 2016 12 1)
+               :trade/st-capital-gains-account st-gains-acc))
+      (testing "The short-term capital gains account is credited"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :credit
+                                  :quantity 125M}]
+              (entities/select
+                {:transaction-item/account st-gains-acc}))
+            "ST Capital Gains is credited the gain amount")))))
+
+; multi-lot-context: lot 1 = 100 shares @ $10 (2015-3-2), lot 2 = 100 shares @ $20 (2016-3-2)
+; Sell 150 shares @ $25 on 2017-1-1
+;   lot 1 (LT): cut-off 2016-3-2 < 2017-1-1 => LT, gain = 100 x (25-10) = $1,500
+;   lot 2 (ST): cut-off 2017-3-2 > 2017-1-1 => ST, gain = 50 x (25-20) = $250
+;   cost basis = 100x10 + 50x20 = $2,000, proceeds = $3,750
+
+(def ^:private multi-lot-gains-context
+  (into multi-lot-context
+        [#:account{:name "LT Capital Gains"
+                   :entity "Personal"
+                   :type :income}
+         #:account{:name "ST Capital Gains"
+                   :entity "Personal"
+                   :type :income}]))
+
+(deftest sell-records-gains-from-multiple-lots
+  (with-context multi-lot-gains-context
+    (let [commodity (find-commodity "AAPL")
+          ira (find-account "IRA")
+          lt-gains-acc (find-account "LT Capital Gains")
+          st-gains-acc (find-account "ST Capital Gains")]
+      (trading/sell
+        #:trade{:date (t/local-date 2017 1 1)
+                :account ira
+                :commodity commodity
+                :shares 150M
+                :value 3750M
+                :inventory-method :fifo
+                :lt-capital-gains-account lt-gains-acc
+                :st-capital-gains-account st-gains-acc})
+      (testing "LT Capital Gains is credited correctly"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :credit :quantity 1500M}]
+              (entities/select {:transaction-item/account lt-gains-acc}))
+            "LT gain from lot 1"))
+      (testing "ST Capital Gains is credited correctly"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :credit :quantity 250M}]
+              (entities/select {:transaction-item/account st-gains-acc}))
+            "ST gain from lot 2")))))
+
+(deftest sell-creates-default-gains-accounts
+  ; No gains accounts configured => auto-creates "Long-term Capital Gains"
+  (with-context sale-context
+    (trading/sell (sale-attributes))
+    (let [entity (find-entity "Personal")
+          lt-gains-acc (entities/find-by {:account/entity entity
+                                          :account/name "Long-term Capital Gains"})
+          aapl-acc (entities/find-by #:account{:entity entity
+                                               :commodity (find-commodity "AAPL")})]
+      (testing "The default gains account is created"
+        (is (comparable? #:account{:name "Long-term Capital Gains"
+                                   :type :income}
+                         lt-gains-acc)
+            "A Long-term Capital Gains account is auto-created"))
+      (testing "The default gains account is credited"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :credit :quantity 125M}]
+              (entities/select {:transaction-item/account lt-gains-acc}))
+            "The auto-created account is credited the gain"))
+      (testing "The commodity account is credited at cost basis"
+        (is (seq-of-maps-like?
+              [#:transaction-item{:action :debit :quantity 100M}
+               #:transaction-item{:action :credit :quantity 25M :value 250M}]
+              (entities/select {:transaction-item/account aapl-acc}))
+            "The commodity account is credited at cost basis")))))
