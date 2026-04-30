@@ -112,7 +112,8 @@
                  #(dates/latest % date))
       (assoc :trade/price (assoc (find-price #:price{:commodity commodity
                                                      :trade-date date})
-                                 :price/value (with-precision 4 (/ value shares))))))
+                                 :price/value (with-precision 10 (/ value shares))))))
+
 
 (defn- push-commodity-price-boundary
   [{:trade/keys [date] :as trade}]
@@ -198,6 +199,63 @@
   [{{:account/keys [entity]} :trade/account :as trade}]
   (update-in trade [:trade/entity] (fnil entities/resolve-ref
                                          entity)))
+
+(def ^:private gains-account-specs
+  [{:trade-key     :trade/lt-capital-gains-account
+    :settings-key  :settings/lt-capital-gains-account
+    :default-name  "Long-term Capital Gains"
+    :account-type  :income
+    :long-term?    true
+    :gain?         true}
+   {:trade-key     :trade/lt-capital-loss-account
+    :settings-key  :settings/lt-capital-loss-account
+    :default-name  "Long-term Capital Loss"
+    :account-type  :expense
+    :long-term?    true
+    :gain?         false}
+   {:trade-key     :trade/st-capital-gains-account
+    :settings-key  :settings/st-capital-gains-account
+    :default-name  "Short-term Capital Gains"
+    :account-type  :income
+    :long-term?    false
+    :gain?         true}
+   {:trade-key     :trade/st-capital-loss-account
+    :settings-key  :settings/st-capital-loss-account
+    :default-name  "Short-term Capital Loss"
+    :account-type  :expense
+    :long-term?    false
+    :gain?         false}])
+
+(defn- find-or-create-gains-account
+  [{:trade/keys [entity]} account-name account-type]
+  (or (entities/find-by {:account/entity entity
+                         :account/name account-name})
+      (entities/put {:account/name account-name
+                     :account/type account-type
+                     :account/entity entity})))
+
+(defn- resolve-gains-accounts
+  [{:trade/keys [entity gains] :as trade}]
+  (let [settings   (:entity/settings entity)
+        gain-types (->> gains
+                        (remove #(zero? (:quantity %)))
+                        (map (juxt :long-term? #(pos? (:quantity %))))
+                        set)]
+    (reduce
+      (fn [t {:keys [trade-key settings-key default-name account-type long-term? gain?]}]
+        (if-not (contains? gain-types [long-term? gain?])
+          t
+          (let [val      (get t trade-key)
+                resolved (cond
+                           (map? val)                    val
+                           (some? val)                   (entities/resolve-ref val)
+                           (some? (get settings settings-key))
+                           (entities/resolve-ref (get settings settings-key)))]
+            (assoc t trade-key
+                   (or resolved
+                       (find-or-create-gains-account t default-name account-type))))))
+      trade
+      gains-account-specs)))
 
 (defn- gains-words
   [gains]
@@ -295,8 +353,33 @@
                          :items items
                          :lot-items [#:lot-item{:lot lot
                                                 :action :buy
-                                                :price (with-precision 4 (/ value shares))
+                                                :price (with-precision 10 (/ value shares))
                                                 :shares shares}]})))
+
+(defn- gains-account
+  [{:trade/keys [lt-capital-gains-account
+                 lt-capital-loss-account
+                 st-capital-gains-account
+                 st-capital-loss-account]}
+   long-term?
+   gain?]
+  (cond
+    (and long-term? gain?)       lt-capital-gains-account
+    (and long-term? (not gain?)) lt-capital-loss-account
+    (and (not long-term?) gain?) st-capital-gains-account
+    :else                        st-capital-loss-account))
+
+(defn- create-gains-transaction-items
+  [{:trade/keys [gains] :as trade}]
+  (->> gains
+       (group-by (juxt :long-term? #(pos? (:quantity %))))
+       (keep (fn [[[long-term? gain?] entries]]
+               (when-let [account (gains-account trade long-term? gain?)]
+                 (let [total (transduce (map :quantity) + 0M entries)]
+                   (when-not (zero? total)
+                     (if gain?
+                       (trx/item :credit account total)
+                       (trx/item :debit account (- total))))))))))
 
 (defn- create-sale-transaction-items
   [{:trade/keys [shares
@@ -304,13 +387,27 @@
                  account
                  commodity-account
                  fee
-                 fee-account]
-    :or {fee 0M}}]
-  (cond-> [(trx/item :debit account (- value fee))
-           (trx/item :credit commodity-account shares value)]
+                 fee-account
+                 gains]
+    :or {fee 0M}
+    :as trade}]
+  (let [gains-items (seq (create-gains-transaction-items trade))
+        recognized-qty (when gains-items
+                         (->> gains
+                              (filter (fn [{:keys [long-term? quantity]}]
+                                        (gains-account trade long-term? (pos? quantity))))
+                              (transduce (map :quantity) + 0M)))
+        commodity-value (if recognized-qty
+                          (- value recognized-qty)
+                          value)]
+    (cond-> [(trx/item :debit account (- value fee))
+             (trx/item :credit commodity-account shares commodity-value)]
 
-    (not (zero? fee))
-    (conj (trx/item :debit fee-account fee))))
+      (not (zero? fee))
+      (conj (trx/item :debit fee-account fee))
+
+      gains-items
+      (into gains-items))))
 
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
@@ -454,11 +551,8 @@
                              (- shares-to-sell shares-owned)
                              0M])
         sale-price (:price/value price)
-        gain (.setScale
-              (- (* shares-sold sale-price)
-                 (* shares-sold purchase-price))
-              2
-              BigDecimal/ROUND_HALF_UP)
+        gain (- (* shares-sold sale-price)
+               (* shares-sold purchase-price))
         cut-off-date (t/plus (:lot/purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
                                   (:trade/date trade)))]
@@ -579,6 +673,7 @@
         push-commodity-price-boundary
         update-accounts
         process-lot-sales
+        resolve-gains-accounts
         create-sale-transaction
         (put-sale opts))))
 
