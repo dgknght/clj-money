@@ -347,7 +347,7 @@
              :account/value (sum :lot/value lots)
              :account/gain (sum :lot/gain lots)
              :account/current-price (:lot/current-price (first lots)))
-      account)))
+      (assoc account :account/value (fetch-balance data account)))))
 
 (defn- valuate-commodity-accounts
   [data accounts]
