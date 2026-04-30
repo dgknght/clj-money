@@ -237,6 +237,7 @@
   [{:trade/keys [entity gains] :as trade}]
   (let [settings   (:entity/settings entity)
         gain-types (->> gains
+                        (remove #(zero? (:quantity %)))
                         (map (juxt :long-term? #(pos? (:quantity %))))
                         set)]
     (reduce
@@ -374,9 +375,10 @@
        (keep (fn [[[long-term? gain?] entries]]
                (when-let [account (gains-account trade long-term? gain?)]
                  (let [total (transduce (map :quantity) + 0M entries)]
-                   (if gain?
-                     (trx/item :credit account total)
-                     (trx/item :debit account (- total)))))))))
+                   (when-not (zero? total)
+                     (if gain?
+                       (trx/item :credit account total)
+                       (trx/item :debit account (- total))))))))))
 
 (defn- create-sale-transaction-items
   [{:trade/keys [shares
