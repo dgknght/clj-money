@@ -112,7 +112,8 @@
                  #(dates/latest % date))
       (assoc :trade/price (assoc (find-price #:price{:commodity commodity
                                                      :trade-date date})
-                                 :price/value (with-precision 4 (/ value shares))))))
+                                 :price/value (with-precision 10 (/ value shares))))))
+
 
 (defn- push-commodity-price-boundary
   [{:trade/keys [date] :as trade}]
@@ -352,7 +353,7 @@
                          :items items
                          :lot-items [#:lot-item{:lot lot
                                                 :action :buy
-                                                :price (with-precision 4 (/ value shares))
+                                                :price (with-precision 10 (/ value shares))
                                                 :shares shares}]})))
 
 (defn- gains-account
@@ -550,11 +551,8 @@
                              (- shares-to-sell shares-owned)
                              0M])
         sale-price (:price/value price)
-        gain (.setScale
-              (- (* shares-sold sale-price)
-                 (* shares-sold purchase-price))
-              2
-              BigDecimal/ROUND_HALF_UP)
+        gain (- (* shares-sold sale-price)
+               (* shares-sold purchase-price))
         cut-off-date (t/plus (:lot/purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
                                   (:trade/date trade)))]
