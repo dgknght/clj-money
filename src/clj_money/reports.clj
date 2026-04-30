@@ -316,8 +316,8 @@
   [records]
   (let [{:keys [asset liability equity]} (map-record-headers records)
         l-and-e (+ liability equity)]
-    (when-not (= asset
-                 l-and-e)
+    (when (> (abs (- asset l-and-e))
+             0.01M)
       (log/warnf "Balance sheet out of balance. Asset: %s, Liability + Equity %s, difference %s"
                  asset
                  l-and-e
