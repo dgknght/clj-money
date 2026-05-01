@@ -92,8 +92,9 @@
     9))
 
 (defn- income-statement-options
-  [options page-state]
-  (let [report (r/cursor page-state [:income-statement :report])
+  [page-state]
+  (let [options (r/cursor page-state [:selected :options])
+        report (r/cursor page-state [:income-statement :report])
         max-depth (make-reaction #(report-max-depth @report))]
     (fn []
       [:<>
@@ -613,7 +614,7 @@
                          (when (v/valid? options)
                            (load-report page-state)))}
      (case @selected
-       :income-statement [income-statement-options options page-state]
+       :income-statement [income-statement-options page-state]
        :balance-sheet    [balance-sheet-options options page-state]
        :budget           [budget-options options page-state]
        :portfolio        [portfolio-options options page-state])
