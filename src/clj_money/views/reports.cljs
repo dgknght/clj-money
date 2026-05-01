@@ -651,6 +651,26 @@
                                  :by-account {:visible-ids #{}}
                                  :by-commodity {:visible-ids #{}}}}}))
 
+(defn- small-nav
+  [page-state]
+  (fn []
+    [:div.d-md-none.mt-2
+     [forms/select-elem
+      page-state
+      [:selected]
+      (map #(vector % (humanize %)) report-types)
+      {:transform-fn keyword
+       :on-change (fn [s field]
+                    (when-not (get-in @page-state [(get-in @s field) :report])
+                      (load-report page-state)))}]]))
+
+(defn- big-nav
+  [page-state]
+  (fn []
+    (bs/nav-tabs {:class "d-none d-md-flex"}
+                 (map (report-nav-item-fn page-state)
+                      report-types))))
+
 (defn- index []
   (let [page-state (init-state)
         selected (r/cursor page-state [:selected])]
@@ -679,21 +699,9 @@
          [balance-sheet-header page-state]
          [budget-header page-state]]]
        [:div.d-print-none
-        ; small screen nav
-        [:div.d-md-none.mt-2
-         [forms/select-elem
-          page-state
-          [:selected]
-          (map #(vector % (humanize %)) report-types)
-          {:transform-fn keyword
-           :on-change (fn [s field]
-                        (when-not (get-in @page-state [(get-in @s field) :report])
-                          (load-report page-state)))}]]
-        ; big screen nav
-        (bs/nav-tabs {:class "d-none d-md-flex"}
-                     (map (report-nav-item-fn page-state)
-                          report-types))]
-       [filter-elem page-state] 
+        [filter-elem page-state]
+        [small-nav page-state]
+        [big-nav page-state]]
        [:div.mt-3
         [income-statement page-state]
         [balance-sheet page-state]
