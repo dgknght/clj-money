@@ -155,7 +155,7 @@
            [:tr
             [:td.text-center
              [bs/spinner]]])]]
-       [:div.ms-auto.ps-3.border-start
+       [:div.ms-auto.ps-3.border-start.d-print-none
         [:form {:no-validate true
                 :on-submit (fn [e]
                              (.preventDefault e)
@@ -216,22 +216,38 @@
 
 (defn- balance-sheet
   [page-state]
-  (let [hide-zeros? (r/cursor page-state [:balance-sheet :options :hide-zeros?])
-        depth (r/cursor page-state [:balance-sheet :options :depth])
+  (let [options (r/cursor page-state [:balance-sheet :options])
+        hide-zeros? (r/cursor options [:hide-zeros?])
+        depth (r/cursor options [:depth])
         selected (r/cursor page-state [:selected])
         hide? (make-reaction #(not= :balance-sheet @selected))
         report (r/cursor page-state [:balance-sheet :report])]
     (fn []
-      [:div.row
-       [:div.col-md-6.offset-md-3
-        [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
-         [:tbody
-          (if @report
-            (doall (map #(report-row % @hide-zeros?)
-                        (apply-depth @depth @report)))
-            [:tr
-             [:td.text-center
-              [bs/spinner]]])]]]])))
+      [:div.d-flex
+       {:class (when @hide? "d-none")}
+       [:table.table.table-hover.table-borderless
+        {:style {:max-width "40em"}}
+        [:tbody
+         (if @report
+           (doall (map #(report-row % @hide-zeros?)
+                       (apply-depth @depth @report)))
+           [:tr
+            [:td.text-center
+             [bs/spinner]]])]]
+       [:div.ms-auto.ps-3.border-start.d-print-none
+        [:form {:no-validate true
+                :on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate options)
+                             (when (v/valid? options)
+                               (load-report page-state)))}
+         [balance-sheet-options page-state]
+         [:div.mt-3
+          [:button.btn.btn-primary
+           {:type :submit
+            :data-bs-dismiss :offcanvas
+            :title "Click here to show the report with the specified parameters"}
+           (icon-with-text :arrow-repeat "Show")]]]]])))
 
 (defn- receive-budget-report
   [page-state]
@@ -640,7 +656,7 @@
                            (load-report page-state)))}
      (case @selected
        :income-statement nil
-       :balance-sheet    [balance-sheet-options page-state]
+       :balance-sheet    nil
        :budget           [budget-options page-state]
        :portfolio        [portfolio-options page-state])
      [:div.mt-3
