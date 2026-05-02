@@ -137,22 +137,38 @@
 
 (defn- income-statement
   [page-state]
-  (let [hide-zeros? (r/cursor page-state [:income-statement :options :hide-zeros?])
-        depth (r/cursor page-state [:income-statement :options :depth])
+  (let [options (r/cursor page-state [:income-statement :options])
+        hide-zeros? (r/cursor options [:hide-zeros?])
+        depth (r/cursor options [:depth])
         selected (r/cursor page-state [:selected])
         hide? (make-reaction #(not= :income-statement @selected))
         report (r/cursor page-state [:income-statement :report])]
     (fn []
-      [:div.row
-       [:div.col-md-6.offset-md-3
-        [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
-         [:tbody
-          (if @report
-            (doall (map #(report-row % @hide-zeros?)
-                        (apply-depth @depth @report)))
-            [:tr
-             [:td.text-center
-              [bs/spinner]]])]]]])))
+      [:div.d-flex
+       {:class (when @hide? "d-none")}
+       [:table.table.table-hover.table-borderless
+        {:style {:max-width "40em"}}
+        [:tbody
+         (if @report
+           (doall (map #(report-row % @hide-zeros?)
+                       (apply-depth @depth @report)))
+           [:tr
+            [:td.text-center
+             [bs/spinner]]])]]
+       [:div.ms-auto.ps-3.border-start
+        [:form {:no-validate true
+                :on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate options)
+                             (when (v/valid? options)
+                               (load-report page-state)))}
+         [income-statement-options page-state]
+         [:div.mt-3
+          [:button.btn.btn-primary
+           {:type :submit
+            :data-bs-dismiss :offcanvas
+            :title "Click here to show the report with the specified parameters"}
+           (icon-with-text :arrow-repeat "Show")]]]]])))
 
 (defmethod load-report :balance-sheet
   [page-state]
@@ -623,7 +639,7 @@
                          (when (v/valid? options)
                            (load-report page-state)))}
      (case @selected
-       :income-statement [income-statement-options page-state]
+       :income-statement nil
        :balance-sheet    [balance-sheet-options page-state]
        :budget           [budget-options page-state]
        :portfolio        [portfolio-options page-state])
@@ -692,15 +708,18 @@
                    (load-report page-state))))
     (fn []
       [:div.mt-3
-
        [:div.d-print-none.d-flex.justify-content-between
         [:h1 "Reports"]
-        [:button.btn.btn-dark
-         {:type :button
-          :data-bs-toggle "offcanvas"
-          :data-bs-target "#report-options"
-          :aria-controls "report-options" }
-         (icon :gear)]]
+        (when (#{:balance-sheet
+                 :portfolio
+                 :budget}
+                @selected)
+          [:button.btn.btn-dark
+           {:type :button
+            :data-bs-toggle "offcanvas"
+            :data-bs-target "#report-options"
+            :aria-controls "report-options" }
+           (icon :gear)])]
 
        [:div.d-none.d-print-block.text-center
         [:h1 (humanize @selected)]
