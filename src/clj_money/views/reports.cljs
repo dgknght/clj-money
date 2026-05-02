@@ -93,33 +93,35 @@
 
 (defn- income-statement-options
   [page-state]
-  (let [options (r/cursor page-state [:selected :options])
+  (let [selected (r/cursor page-state [:selected])
+        options (r/cursor page-state [:income-statement :options])
         report (r/cursor page-state [:income-statement :report])
         max-depth (make-reaction #(report-max-depth @report))]
     (fn []
-      [:<>
-       [forms/date-field
-        options
-        [:start-date]
-        {:placeholder "Start date"
-         :validate [:required]}]
-       [forms/date-field
-        options
-        [:end-date]
-        {:placeholder "End date"
-         :validate [:required]}]
-       [forms/checkbox-field
-        options
-        [:hide-zeros?]
-        {:caption "Hide Zero-Balance Accounts"}]
-       [forms/integer-field
-        options
-        [:depth]
-        {:class "ms-sm-2"
-         :placeholder "Depth"
-         :style {:width "5em"}
-         :min 1
-         :max max-depth}]])))
+      (when (= :income-statement @selected)
+        [:<>
+         [forms/date-field
+          options
+          [:start-date]
+          {:placeholder "Start date"
+           :validate [:required]}]
+         [forms/date-field
+          options
+          [:end-date]
+          {:placeholder "End date"
+           :validate [:required]}]
+         [forms/checkbox-field
+          options
+          [:hide-zeros?]
+          {:caption "Hide Zero-Balance Accounts"}]
+         [forms/integer-field
+          options
+          [:depth]
+          {:class "ms-sm-2"
+           :placeholder "Depth"
+           :style {:width "5em"}
+           :min 1
+           :max max-depth}]]))))
 
 (defn- income-statement-header
   [page-state]
@@ -161,11 +163,14 @@
                      :on-success #(swap! page-state assoc-in [:balance-sheet :report] %)))
 
 (defn- balance-sheet-options
-  [options page-state]
-  (let [report (r/cursor page-state [:balance-sheet :report])
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        options (r/cursor page-state [:balance-sheet :options])
+        report (r/cursor page-state [:balance-sheet :report])
         max-depth (make-reaction #(report-max-depth @report))]
     (fn []
-      [:<>
+      (when (= :balance-sheet @selected)
+        [:<>
        [forms/date-field
         options
         [:as-of]
@@ -182,7 +187,7 @@
          :placeholder "Depth"
          :style {:width "5em"}
          :min 1
-         :max max-depth}]])))
+         :max max-depth}]]))))
 
 (defn- balance-sheet-header
   [page-state]
@@ -232,13 +237,16 @@
       (swap! page-state assoc-in [:budget :report] []))))
 
 (defn- budget-options
-  [options page-state]
-  (let [budgets (r/cursor page-state [:budgets])
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        options (r/cursor page-state [:budget :options])
+        budgets (r/cursor page-state [:budgets])
         budget-items (make-reaction #(->> (vals @budgets)
                                           (sort-by :budget/start-date t/after?)
                                           (map (juxt :id :budget/name))))]
     (fn []
-      (when (seq @budget-items)
+      (when (and (= :budget @selected)
+                 (seq @budget-items))
         [:<>
          [forms/select-field options [:budget-id] budget-items]
          [forms/integer-field options [:depth] {:class "ms-sm-2"
@@ -563,8 +571,9 @@
           [:tr [:td.inline-status {:col-span 7} "No investment accounts found."]])]])))
 
 (defn- portfolio-options
-  [options page-state]
-  (let [current-nav (r/cursor page-state [:portfolio :options :filter :aggregate])]
+  [page-state]
+  (let [options (r/cursor page-state [:portfolio :options])
+        current-nav (r/cursor options [:filter :aggregate])]
     (fn []
       [:<>
        (bs/nav-pills {:class "mb-2"} (map (fn [id]
@@ -575,7 +584,7 @@
                                                        (load-report page-state))
                                              :active? (= id @current-nav)})
                                           [:by-account :by-commodity]))
-       [forms/date-field options [:as-of]]])))
+       [forms/date-field options [:filter :as-of]]])))
 
 (defn- portfolio
   [page-state]
@@ -615,9 +624,9 @@
                            (load-report page-state)))}
      (case @selected
        :income-statement [income-statement-options page-state]
-       :balance-sheet    [balance-sheet-options options page-state]
-       :budget           [budget-options options page-state]
-       :portfolio        [portfolio-options options page-state])
+       :balance-sheet    [balance-sheet-options page-state]
+       :budget           [budget-options page-state]
+       :portfolio        [portfolio-options page-state])
      [:div.mt-3
       [:button.btn.btn-primary
        {:type :submit
