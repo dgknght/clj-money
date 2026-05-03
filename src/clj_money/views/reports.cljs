@@ -155,7 +155,7 @@
            [:tr
             [:td.text-center
              [bs/spinner]]])]]
-       [:div.ms-auto.ps-3.border-start.d-print-none
+       [:div.ms-auto.ps-3.border-start.d-print-none.d-none.d-md-inline
         [:form {:no-validate true
                 :on-submit (fn [e]
                              (.preventDefault e)
@@ -234,7 +234,7 @@
            [:tr
             [:td.text-center
              [bs/spinner]]])]]
-       [:div.ms-auto.ps-3.border-start.d-print-none
+       [:div.ms-auto.ps-3.border-start.d-print-none.d-none.d-md-inline
         [:form {:no-validate true
                 :on-submit (fn [e]
                              (.preventDefault e)
@@ -726,16 +726,14 @@
       [:div.mt-3
        [:div.d-print-none.d-flex.justify-content-between
         [:h1 "Reports"]
-        (when (#{:balance-sheet
-                 :portfolio
-                 :budget}
-                @selected)
-          [:button.btn.btn-dark
-           {:type :button
-            :data-bs-toggle "offcanvas"
-            :data-bs-target "#report-options"
-            :aria-controls "report-options" }
-           (icon :gear)])]
+        [:button.btn.btn-dark
+         {:type :button
+          :class (when (#{:balance-sheet :income-statement} @selected)
+                   "d-md-none")
+          :data-bs-toggle "offcanvas"
+          :data-bs-target "#report-options"
+          :aria-controls "report-options" }
+         (icon :gear)]]
 
        [:div.d-none.d-print-block.text-center
         [:h1 (humanize @selected)]
