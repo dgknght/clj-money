@@ -99,7 +99,12 @@
         max-depth (make-reaction #(report-max-depth @report))]
     (fn []
       (when (= :income-statement @selected)
-        [:<>
+        [:form {:no-validate true
+                :on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate options)
+                             (when (v/valid? options)
+                               (load-report page-state)))}
          [forms/date-field
           options
           [:start-date]
@@ -121,7 +126,13 @@
            :placeholder "Depth"
            :style {:width "5em"}
            :min 1
-           :max max-depth}]]))))
+           :max max-depth}]
+         [:div.mt-3
+          [:button.btn.btn-primary
+           {:type :submit
+            :data-bs-dismiss :offcanvas
+            :title "Click here to show the report with the specified parameters"}
+           (icon-with-text :arrow-repeat "Show")]]]))))
 
 (defn- income-statement-header
   [page-state]
@@ -156,19 +167,7 @@
             [:td.text-center
              [bs/spinner]]])]]
        [:div.ms-auto.ps-3.border-start.d-print-none.d-none.d-md-inline
-        [:form {:no-validate true
-                :on-submit (fn [e]
-                             (.preventDefault e)
-                             (v/validate options)
-                             (when (v/valid? options)
-                               (load-report page-state)))}
-         [income-statement-options page-state]
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]]]])))
+        [income-statement-options page-state]]])))
 
 (defmethod load-report :balance-sheet
   [page-state]
@@ -186,24 +185,35 @@
         max-depth (make-reaction #(report-max-depth @report))]
     (fn []
       (when (= :balance-sheet @selected)
-        [:<>
-       [forms/date-field
-        options
-        [:as-of]
-        {:placeholder "As Of"
-         :validate [:required]}]
-       [forms/checkbox-field
-        options
-        [:hide-zeros?]
-        {:caption "Hide Zero-Balance Accounts"}]
-       [forms/integer-field
-        options
-        [:depth]
-        {:class "ms-sm-2"
-         :placeholder "Depth"
-         :style {:width "5em"}
-         :min 1
-         :max max-depth}]]))))
+        [:form {:no-validate true
+                :on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate options)
+                             (when (v/valid? options)
+                               (load-report page-state)))}
+         [forms/date-field
+          options
+          [:as-of]
+          {:placeholder "As Of"
+           :validate [:required]}]
+         [forms/checkbox-field
+          options
+          [:hide-zeros?]
+          {:caption "Hide Zero-Balance Accounts"}]
+         [forms/integer-field
+          options
+          [:depth]
+          {:class "ms-sm-2"
+           :placeholder "Depth"
+           :style {:width "5em"}
+           :min 1
+           :max max-depth}]
+         [:div.mt-3
+          [:button.btn.btn-primary
+           {:type :submit
+            :data-bs-dismiss :offcanvas
+            :title "Click here to show the report with the specified parameters"}
+           (icon-with-text :arrow-repeat "Show")]]]))))
 
 (defn- balance-sheet-header
   [page-state]
@@ -235,19 +245,7 @@
             [:td.text-center
              [bs/spinner]]])]]
        [:div.ms-auto.ps-3.border-start.d-print-none.d-none.d-md-inline
-        [:form {:no-validate true
-                :on-submit (fn [e]
-                             (.preventDefault e)
-                             (v/validate options)
-                             (when (v/valid? options)
-                               (load-report page-state)))}
-         [balance-sheet-options page-state]
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]]]])))
+        [balance-sheet-options page-state]]])))
 
 (defn- receive-budget-report
   [page-state]
