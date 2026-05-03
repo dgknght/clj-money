@@ -115,6 +115,13 @@
           [:end-date]
           {:placeholder "End date"
            :validate [:required]}]
+         [:div.mt-3
+          [:button.btn.btn-primary
+           {:type :submit
+            :data-bs-dismiss :offcanvas
+            :title "Click here to show the report with the specified parameters"}
+           (icon-with-text :arrow-repeat "Show")]]
+         [:hr]
          [forms/checkbox-field
           options
           [:hide-zeros?]
@@ -126,13 +133,7 @@
            :placeholder "Depth"
            :style {:width "5em"}
            :min 1
-           :max max-depth}]
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]]))))
+           :max max-depth}]]))))
 
 (defn- income-statement-header
   [page-state]
@@ -196,6 +197,13 @@
           [:as-of]
           {:placeholder "As Of"
            :validate [:required]}]
+         [:div.mt-3
+          [:button.btn.btn-primary
+           {:type :submit
+            :data-bs-dismiss :offcanvas
+            :title "Click here to show the report with the specified parameters"}
+           (icon-with-text :arrow-repeat "Show")]]
+         [:hr]
          [forms/checkbox-field
           options
           [:hide-zeros?]
@@ -207,13 +215,7 @@
            :placeholder "Depth"
            :style {:width "5em"}
            :min 1
-           :max max-depth}]
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]]))))
+           :max max-depth}]]))))
 
 (defn- balance-sheet-header
   [page-state]
