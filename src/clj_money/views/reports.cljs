@@ -14,12 +14,14 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.dom :as dom]
             [clj-money.decimal :as d]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts-by-id
+                                     busy?
                                      +busy
                                      -busy]]
             [clj-money.budgets :refer [period-description]]
@@ -126,14 +128,27 @@
           options
           [:hide-zeros?]
           {:caption "Hide Zero-Balance Accounts"}]
-         [forms/integer-field
-          options
-          [:depth]
-          {:class "ms-sm-2"
-           :placeholder "Depth"
-           :style {:width "5em"}
-           :min 1
-           :max max-depth}]]))))
+         [:label.form-label
+          {:for "income-statement-depth"}
+          "Depth"]
+         (if @busy?
+           [:p.placeholder-glow
+            [:span.placeholder.col-12]]
+           [:<>
+            [:input#income-statement-depth.form-range
+             {:type :range
+              :min 1
+              :max @max-depth
+              :step 1
+              :list "income-statement-depth-markers"
+              :on-change (fn [e]
+                           (let [v (dom/value (dom/target e))]
+                             (swap! options assoc :depth (dec (parse-long v)))))}]
+            [:div.d-flex.justify-content-between.px-1
+             {:style {:margin-top "-10px"}}
+             (for [x (range @max-depth)]
+               ^{:key (str "balance-sheet-depth-" x)}
+               [:span.border-start {:style {:height "10px"}}])]])]))))
 
 (defn- income-statement-header
   [page-state]
@@ -208,14 +223,26 @@
           options
           [:hide-zeros?]
           {:caption "Hide Zero-Balance Accounts"}]
-         [forms/integer-field
-          options
-          [:depth]
-          {:class "ms-sm-2"
-           :placeholder "Depth"
-           :style {:width "5em"}
-           :min 1
-           :max max-depth}]]))))
+         [:label.form-label
+          {:for "balance-sheet-depth"}
+          "Depth"]
+         (if @busy?
+           [:p.placeholder-glow
+            [:span.placeholder.col-12]]
+           [:<> [:input#balance-sheet-depth.form-range
+                 {:type :range
+                  :min 1
+                  :max @max-depth
+                  :step 1
+                  :list "balance-sheet-depth-markers"
+                  :on-change (fn [e]
+                               (let [v (dom/value (dom/target e))]
+                                 (swap! options assoc :depth (dec (parse-long v)))))}]
+            [:div.d-flex.justify-content-between.px-1
+             {:style {:margin-top "-10px"}}
+             (for [x (range @max-depth)]
+               ^{:key (str "balance-sheet-depth-" x)}
+               [:span.border-start {:style {:height "10px"}}])]])]))))
 
 (defn- balance-sheet-header
   [page-state]
