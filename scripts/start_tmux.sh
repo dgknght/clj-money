@@ -2,6 +2,10 @@ session=clj-money
 
 tmux new-session -d -s $session
 
+GREEN="#227b36"
+tmux set status-style "bg=$GREEN fg=#CCCCCC"
+tmux set pane-active-border-style "fg=$GREEN"
+
 # REPL window
 tmux rename-window -t 0 'repl'
 sleep 0.5
