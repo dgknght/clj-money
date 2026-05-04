@@ -8,10 +8,9 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.inflection :refer [humanize title-case]]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.icons :refer [icon-with-text]]
             [clj-money.config :refer [env]]
             [clj-money.html :as html]
-            [clj-money.components :refer [spinner]]
+            [clj-money.components :refer [button spinner]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]
@@ -57,9 +56,11 @@
                                 (authenticate page-state)))}
           [forms/email-field credentials [:email] {:validations #{::v/required}}]
           [forms/password-field credentials [:password] {:validations #{::v/required}}]
-          [:button.btn.btn-primary {:type :submit
-                                    :title "Click here to sign in."}
-           (icon-with-text :box-arrow-in-left "Sign in")]]]
+          [button {:html {:type :submit
+                          :class "btn-primary"
+                          :title "Click here to sign in."}
+                   :icon :box-arrow-in-left
+                   :caption "Sign in"}]]]
         (when (seq (env :oauth-providers))
           [:div.col-md-6
            [:h3.mt-3 "Other sign in options:"]
