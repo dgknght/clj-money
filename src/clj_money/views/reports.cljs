@@ -93,12 +93,60 @@
          inc)
     9))
 
+(defn- income-statement-option-fields
+  [page-state]
+  (let [options (r/cursor page-state [:income-statement :options])
+        report (r/cursor page-state [:income-statement :report])
+        max-depth (make-reaction #(report-max-depth @report))]
+    (fn []
+      [:<>
+       [forms/date-field
+        options
+        [:start-date]
+        {:placeholder "Start date"
+         :validate [:required]}]
+       [forms/date-field
+        options
+        [:end-date]
+        {:placeholder "End date"
+         :validate [:required]}]
+       [:div.mt-3
+        [:button.btn.btn-primary
+         {:type :submit
+          :data-bs-dismiss :offcanvas
+          :title "Click here to show the report with the specified parameters"}
+         (icon-with-text :arrow-repeat "Show")]]
+       [:hr]
+       [forms/checkbox-field
+        options
+        [:hide-zeros?]
+        {:caption "Hide Zero-Balance Accounts"}]
+       [:label.form-label
+        {:for "income-statement-depth"}
+        "Depth"]
+       (if @busy?
+         [:p.placeholder-glow
+          [:span.placeholder.col-12]]
+         [:<>
+          [:input#income-statement-depth.form-range
+           {:type :range
+            :min 1
+            :max @max-depth
+            :step 1
+            :list "income-statement-depth-markers"
+            :on-change (fn [e]
+                         (let [v (dom/value (dom/target e))]
+                           (swap! options assoc :depth (dec (parse-long v)))))}]
+          [:div.d-flex.justify-content-between.px-1
+           {:style {:margin-top "-10px"}}
+           (for [x (range @max-depth)]
+             ^{:key (str "balance-sheet-depth-" x)}
+             [:span.border-start {:style {:height "10px"}}])]])])))
+
 (defn- income-statement-options
   [page-state]
   (let [selected (r/cursor page-state [:selected])
-        options (r/cursor page-state [:income-statement :options])
-        report (r/cursor page-state [:income-statement :report])
-        max-depth (make-reaction #(report-max-depth @report))]
+        options (r/cursor page-state [:income-statement :options])]
     (fn []
       (when (= :income-statement @selected)
         [:form {:no-validate true
@@ -107,48 +155,7 @@
                              (v/validate options)
                              (when (v/valid? options)
                                (load-report page-state)))}
-         [forms/date-field
-          options
-          [:start-date]
-          {:placeholder "Start date"
-           :validate [:required]}]
-         [forms/date-field
-          options
-          [:end-date]
-          {:placeholder "End date"
-           :validate [:required]}]
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]
-         [:hr]
-         [forms/checkbox-field
-          options
-          [:hide-zeros?]
-          {:caption "Hide Zero-Balance Accounts"}]
-         [:label.form-label
-          {:for "income-statement-depth"}
-          "Depth"]
-         (if @busy?
-           [:p.placeholder-glow
-            [:span.placeholder.col-12]]
-           [:<>
-            [:input#income-statement-depth.form-range
-             {:type :range
-              :min 1
-              :max @max-depth
-              :step 1
-              :list "income-statement-depth-markers"
-              :on-change (fn [e]
-                           (let [v (dom/value (dom/target e))]
-                             (swap! options assoc :depth (dec (parse-long v)))))}]
-            [:div.d-flex.justify-content-between.px-1
-             {:style {:margin-top "-10px"}}
-             (for [x (range @max-depth)]
-               ^{:key (str "balance-sheet-depth-" x)}
-               [:span.border-start {:style {:height "10px"}}])]])]))))
+         [income-statement-option-fields page-state]]))))
 
 (defn- income-statement-header
   [page-state]
@@ -193,12 +200,54 @@
                      :callback -busy
                      :on-success #(swap! page-state assoc-in [:balance-sheet :report] %)))
 
+(defn- balance-sheet-option-fields
+  [page-state]
+  (fn []
+    (let [report (r/cursor page-state [:balance-sheet :report])
+          max-depth (make-reaction #(report-max-depth @report))
+          options (r/cursor page-state [:balance-sheet :options])]
+      [:<>
+       [forms/date-field
+        options
+        [:as-of]
+        {:placeholder "As Of"
+         :validate [:required]}]
+       [:div.mt-3
+        [:button.btn.btn-primary
+         {:type :submit
+          :data-bs-dismiss :offcanvas
+          :title "Click here to show the report with the specified parameters"}
+         (icon-with-text :arrow-repeat "Show")]]
+       [:hr]
+       [forms/checkbox-field
+        options
+        [:hide-zeros?]
+        {:caption "Hide Zero-Balance Accounts"}]
+       [:label.form-label
+        {:for "balance-sheet-depth"}
+        "Depth"]
+       (if @busy?
+         [:p.placeholder-glow
+          [:span.placeholder.col-12]]
+         [:<> [:input#balance-sheet-depth.form-range
+               {:type :range
+                :min 1
+                :max @max-depth
+                :step 1
+                :list "balance-sheet-depth-markers"
+                :on-change (fn [e]
+                             (let [v (dom/value (dom/target e))]
+                               (swap! options assoc :depth (dec (parse-long v)))))}]
+          [:div.d-flex.justify-content-between.px-1
+           {:style {:margin-top "-10px"}}
+           (for [x (range @max-depth)]
+             ^{:key (str "balance-sheet-depth-" x)}
+             [:span.border-start {:style {:height "10px"}}])]])])))
+
 (defn- balance-sheet-options
   [page-state]
   (let [selected (r/cursor page-state [:selected])
-        options (r/cursor page-state [:balance-sheet :options])
-        report (r/cursor page-state [:balance-sheet :report])
-        max-depth (make-reaction #(report-max-depth @report))]
+        options (r/cursor page-state [:balance-sheet :options])]
     (fn []
       (when (= :balance-sheet @selected)
         [:form {:no-validate true
@@ -207,42 +256,7 @@
                              (v/validate options)
                              (when (v/valid? options)
                                (load-report page-state)))}
-         [forms/date-field
-          options
-          [:as-of]
-          {:placeholder "As Of"
-           :validate [:required]}]
-         [:div.mt-3
-          [:button.btn.btn-primary
-           {:type :submit
-            :data-bs-dismiss :offcanvas
-            :title "Click here to show the report with the specified parameters"}
-           (icon-with-text :arrow-repeat "Show")]]
-         [:hr]
-         [forms/checkbox-field
-          options
-          [:hide-zeros?]
-          {:caption "Hide Zero-Balance Accounts"}]
-         [:label.form-label
-          {:for "balance-sheet-depth"}
-          "Depth"]
-         (if @busy?
-           [:p.placeholder-glow
-            [:span.placeholder.col-12]]
-           [:<> [:input#balance-sheet-depth.form-range
-                 {:type :range
-                  :min 1
-                  :max @max-depth
-                  :step 1
-                  :list "balance-sheet-depth-markers"
-                  :on-change (fn [e]
-                               (let [v (dom/value (dom/target e))]
-                                 (swap! options assoc :depth (dec (parse-long v)))))}]
-            [:div.d-flex.justify-content-between.px-1
-             {:style {:margin-top "-10px"}}
-             (for [x (range @max-depth)]
-               ^{:key (str "balance-sheet-depth-" x)}
-               [:span.border-start {:style {:height "10px"}}])]])]))))
+         [balance-sheet-option-fields page-state]]))))
 
 (defn- balance-sheet-header
   [page-state]
@@ -682,8 +696,8 @@
                          (when (v/valid? options)
                            (load-report page-state)))}
      (case @selected
-       :income-statement nil
-       :balance-sheet    nil
+       :income-statement [income-statement-option-fields page-state]
+       :balance-sheet    [balance-sheet-option-fields page-state]
        :budget           [budget-options page-state]
        :portfolio        [portfolio-options page-state])
      [:div.mt-3
