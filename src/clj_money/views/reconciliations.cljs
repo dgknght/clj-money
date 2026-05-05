@@ -117,58 +117,58 @@
         balanced? (make-reaction #(and (decimal/zero? @difference)
                                        (seq @item-selection)))
         disable? (make-reaction #(not @balanced?))]
-    (load-previous-balance page-state)
     (fn []
-      [:form {:no-validate true
-              :on-submit (fn [e]
-                           (.preventDefault e)
-                           (finish-reconciliation page-state))}
-       [:div.card
-        [:div.card-header [:strong "Reconcile"]]
-        [:div.card-body
-         [forms/date-field recon [:reconciliation/end-of-period]]
-         [forms/decimal-field recon [:reconciliation/balance]]
-         [forms/checkbox-field
-          page-state
-          [:include-children?]
-          {:on-change #(trns/load-unreconciled-items page-state)}]]
-        [:table.table
-         [:tbody
-          [:tr
-           [:th {:scope :col} "Previous Balance"]
-           [:td.text-end
-            (when @previous-balance
-              (accounts/format-quantity @previous-balance @account))]]
-          [:tr
-           [:th {:scope :col} "Reconciled"]
-           [:td.text-end
-            (accounts/format-quantity @reconciled-total @account)]]
-          [:tr
-           [:th {:scope :col} "New Balance"]
-           [:td.text-end
-            (accounts/format-quantity @working-balance @account)]]
-          [:tr {:class (when @balanced? "bg-success text-white")}
-           [:th {:scope :col} "Difference"]
-           [:td.text-end
-            (accounts/format-quantity @difference @account)]]]]
-        [:div.card-footer
-         [button {:html {:class "btn-success"
-                         :type :submit}
-                  :disabled? disable?
-                  :icon :check
-                  :caption "Finish"}]
-         (html/space)
-         [button {:html {:class "btn-info"
-                         :type :button
-                         :on-click #(save-reconciliation page-state)}
-                  :icon :download
-                  :caption "Save"}]
-         (html/space)
-         [button {:html {:class "btn-secondary"
-                         :type :button
-                         :on-click (fn []
-                                     (swap! page-state dissoc :reconciliation)
-                                     (trns/reset-item-loading page-state))
-                         :title "Click here to cancel this reconciliation."}
-                  :icon :x
-                  :caption "Cancel"}]]]])))
+      (when @recon
+        [:form {:no-validate true
+                :on-submit (fn [e]
+                             (.preventDefault e)
+                             (finish-reconciliation page-state))}
+         [:div.card
+          [:div.card-header [:strong "Reconcile"]]
+          [:div.card-body
+           [forms/date-field recon [:reconciliation/end-of-period]]
+           [forms/decimal-field recon [:reconciliation/balance]]
+           [forms/checkbox-field
+            page-state
+            [:include-children?]
+            {:on-change #(trns/load-unreconciled-items page-state)}]]
+          [:table.table
+           [:tbody
+            [:tr
+             [:th {:scope :col} "Previous Balance"]
+             [:td.text-end
+              (when @previous-balance
+                (accounts/format-quantity @previous-balance @account))]]
+            [:tr
+             [:th {:scope :col} "Reconciled"]
+             [:td.text-end
+              (accounts/format-quantity @reconciled-total @account)]]
+            [:tr
+             [:th {:scope :col} "New Balance"]
+             [:td.text-end
+              (accounts/format-quantity @working-balance @account)]]
+            [:tr {:class (when @balanced? "bg-success text-white")}
+             [:th {:scope :col} "Difference"]
+             [:td.text-end
+              (accounts/format-quantity @difference @account)]]]]
+          [:div.card-footer
+           [button {:html {:class "btn-success"
+                           :type :submit}
+                    :disabled? disable?
+                    :icon :check
+                    :caption "Finish"}]
+           (html/space)
+           [button {:html {:class "btn-info"
+                           :type :button
+                           :on-click #(save-reconciliation page-state)}
+                    :icon :download
+                    :caption "Save"}]
+           (html/space)
+           [button {:html {:class "btn-secondary"
+                           :type :button
+                           :on-click (fn []
+                                       (swap! page-state dissoc :reconciliation)
+                                       (trns/reset-item-loading page-state))
+                           :title "Click here to cancel this reconciliation."}
+                    :icon :x
+                    :caption "Cancel"}]]]]))))

@@ -70,18 +70,19 @@
   [page-state]
   (let [item (r/cursor page-state [:attachments-item])]
     (fn []
-      [:div.card
-       [:div.card-header
-        [:strong "Attachments"]
-        (str " "
-             (format-date (:transaction-date @item))
-             " "
-             (:description @item))]
-       [attachments-table page-state]
-       [:div.card-footer
-        [:button.btn.btn-secondary {:on-click #(swap! page-state dissoc :attachments-item)
-                                    :title "Click here to close this window."}
-         "Close"]]])))
+      (when @item
+        [:div.card
+         [:div.card-header
+          [:strong "Attachments"]
+          (str " "
+               (format-date (:transaction-date @item))
+               " "
+               (:description @item))]
+         [attachments-table page-state]
+         [:div.card-footer
+          [:button.btn.btn-secondary {:on-click #(swap! page-state dissoc :attachments-item)
+                                      :title "Click here to close this window."}
+           "Close"]]]))))
 
 (defn- post-save
   [page-state]
@@ -104,14 +105,15 @@
   [page-state]
   (let [attachment (r/cursor page-state [:selected-attachment])]
     (fn []
-      [:div.card.mb-2
-       [:div.card-header [:strong "Edit Attachment"]]
-       [:div.card-body
-        [forms/text-field attachment [:caption]]]
-       [:div.card-footer
-        [:button.btn.btn-primary {:on-click #(save-attachment page-state)
-                                  :title "Click here to save this attachment"}
-         "Save"]
-        [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :selected-attachment)
-                                         :title "Click here to cancel this edit operation."}
-         "Cancel"]]])))
+      (when @attachment
+        [:div.card.mb-2
+         [:div.card-header [:strong "Edit Attachment"]]
+         [:div.card-body
+          [forms/text-field attachment [:caption]]]
+         [:div.card-footer
+          [:button.btn.btn-primary {:on-click #(save-attachment page-state)
+                                    :title "Click here to save this attachment"}
+           "Save"]
+          [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :selected-attachment)
+                                           :title "Click here to cancel this edit operation."}
+           "Cancel"]]]))))
