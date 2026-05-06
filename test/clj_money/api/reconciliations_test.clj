@@ -270,3 +270,19 @@
 (deftest a-user-cannot-update-a-reconciliation-in-anothers-entity
   (with-context update-context
     (assert-blocked-update (update-reconciliation "jane@doe.com"))))
+
+(deftest ^:multi-threaded a-database-error-produces-a-parseable-500-response
+  (with-context recon-context
+    (with-redefs [entities/select (fn [& _]
+                                    (throw (Exception. "simulated database error")))]
+      (let [{:keys [status parsed-body]}
+            (-> (request :get (path :api
+                                    :accounts
+                                    (:id (find-account "Checking"))
+                                    :reconciliations)
+                         :user (find-user "john@doe.com"))
+                app
+                parse-body)]
+        (is (= 500 status))
+        (is (string? (:message parsed-body))
+            "client receives a readable error message rather than a masked server error")))))
