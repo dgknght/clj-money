@@ -104,7 +104,7 @@
 
 (defn- load-attachments
   [page-state]
-  (let [{{:transaction-item/keys [transaction]} :attachment-item} @page-state
+  (let [{{:transaction-item/keys [transaction]} :attachments-item} @page-state
         criteria {:attachment/transaction transaction}]
     (+busy)
     (atts/select criteria
