@@ -200,12 +200,14 @@
   (notify/toast "Success" "The attachment was saved successfully."))
 
 (defn- handle-item-row-drop
-  [item e page-state]
+  [{:as item :transaction-item/keys [transaction]} e page-state]
   (.preventDefault e)
   (+busy)
-  (atts/create {:transaction-id (:transaction-id item) ; TODO: use transaction-ref to combine these?
-                :transaction-date (:transaction-date item)
-                :file (first (dnd/data-files e))}
+
+  (pprint {::drop item})
+
+  (atts/create #:attachment{:transaction transaction
+                            :file (first (dnd/data-files e))}
                :callback -busy
                :on-success (post-item-row-drop page-state item)))
 

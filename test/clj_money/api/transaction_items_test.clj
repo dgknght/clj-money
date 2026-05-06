@@ -167,7 +167,12 @@
 (deftest a-user-can-get-a-list-of-transaction-items-in-his-entity
   (with-context context
     (testing "default format (edn)"
-      (assert-successful-list (get-a-list "john@doe.com")))
+      (assert-successful-list (get-a-list "john@doe.com"))
+      (is (= {:transaction-item/transaction {:id 1}}
+             (-> (get-a-list "john@doe.com")
+                 :parsed-body
+                 first))
+          "The transaction is included"))
     (testing "json format"
       (assert-successful-list
         (get-a-list "john@doe.com" :content-type "application/json")

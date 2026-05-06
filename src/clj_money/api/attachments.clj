@@ -64,6 +64,9 @@
 
 (defn- create
   [{:keys [authenticated] :as req}]
+
+  (pprint {::create (dissoc req :reitit.core/router :reitit.core/match)})
+
   (-> (extract-attachment req)
       (authorize ::auth/create authenticated)
       (assoc-image req)
