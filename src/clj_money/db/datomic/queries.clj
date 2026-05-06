@@ -5,7 +5,10 @@
             [clj-money.entities.schema :as schema]))
 
 ; TODO: reconcile this with the schema namespace
-(def ^:private relationships
+(def relationships
+  ; Some relationships work differently in datomic compare to
+  ; a relational database. Here we reverse the ones that work
+  ; differently
   (set/union
     (set/difference
       schema/relationships
