@@ -208,13 +208,36 @@
                :callback -busy
                :on-success (post-item-row-drop page-state item)))
 
+(defn- item-row-buttons
+  [{:as item :transaction-item/keys [attachment-count]} page-state]
+  (fn []
+    [:div.btn-group
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click #(edit-transaction item page-state)
+       :title "Click here to edit this transaction."}
+      (icon :pencil :size :small)]
+     [:button.btn.btn-secondary.btn-sm.d-none.d-md-block
+      {:on-click (fn []
+                   (swap! page-state
+                          assoc
+                          :attachments-item
+                          item)
+                   (load-attachments page-state))
+       :title "Click here to view attachments for this transaction"}
+      (if ((some-fn nil? zero?) attachment-count)
+        (icon :paperclip :size :small)
+        [:span.badge.bg-secondary attachment-count])]
+     [:button.btn.btn-danger.btn-sm
+      {:on-click #(delete-transaction item page-state)
+       :title "Click here to remove this transaction."}
+      (icon :x-circle :size :small)]]))
+
 (defn- item-row
   [{:keys [account
            reconciliation
            styles]}
    page-state]
-  (fn [{:transaction-item/keys [attachment-count
-                                polarized-quantity
+  (fn [{:transaction-item/keys [polarized-quantity
                                 balance]
         :reconciliation/keys [status]
         :transaction/keys [description
@@ -260,26 +283,7 @@
                                                              account)])
      (when-not @reconciliation
        [:td.d-flex.justify-content-end
-        [:div.btn-group
-         [:button.btn.btn-secondary.btn-sm
-          {:on-click #(edit-transaction item page-state)
-           :title "Click here to edit this transaction."}
-          (icon :pencil :size :small)]
-         [:button.btn.btn-secondary.btn-sm.d-none.d-md-block
-          {:on-click (fn []
-                       (swap! page-state
-                              assoc
-                              :attachments-item
-                              item)
-                       (load-attachments page-state))
-           :title "Click here to view attachments for this transaction"}
-          (if ((some-fn nil? zero?) attachment-count)
-            (icon :paperclip :size :small)
-            [:span.badge.bg-secondary attachment-count])]
-         [:button.btn.btn-danger.btn-sm
-          {:on-click #(delete-transaction item page-state)
-           :title "Click here to remove this transaction."}
-          (icon :x-circle :size :small)]]])]))
+        [item-row-buttons item page-state]])]))
 
 (defn items-table
   [page-state]
