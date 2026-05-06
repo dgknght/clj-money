@@ -203,9 +203,6 @@
   [{:as item :transaction-item/keys [transaction]} e page-state]
   (.preventDefault e)
   (+busy)
-
-  (pprint {::drop item})
-
   (atts/create #:attachment{:transaction transaction
                             :file (first (dnd/data-files e))}
                :callback -busy
