@@ -106,12 +106,11 @@
   (->> (-> req
            extract-criteria
            (entities/select (assoc (extract-options req)
-                                 :sort [[:transaction/transaction-date :desc]
-                                        [:transaction-item/index :desc]]
+                                 :sort [[:transaction-item/index :desc]]
                                  :select-also [:transaction/description
                                                :transaction/transaction-date
                                                :transaction/attachment-count
-                                               :transaction/_self]
+                                               :transaction-item/transaction]
                                  :nil-replacements {:transaction/attachment-count 0})))
        (filter-reconciled req)
        (apply-limit req)
