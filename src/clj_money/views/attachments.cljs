@@ -1,5 +1,6 @@
 (ns clj-money.views.attachments
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
             [dgknght.app-lib.web :refer [format-date
                                          path]]
             [dgknght.app-lib.html :as html]
@@ -28,16 +29,15 @@
                  :on-success (post-delete page-state))))
 
 (defn- attachment-row
-  [attachment page-state]
+  [{:as attachment :attachment/keys [caption created-at image]} page-state]
   ^{:key (str "attachment-row-" (:id attachment))}
   [:tr
-   [:td (or (:caption attachment)
-            (:created-at attachment))]
+   [:td (or caption created-at "unnamed")]
    [:td
     [:div.btn-group
      [:a.btn.btn-sm.btn-primary {:title "Click here to view this attachment."
                                  :href (path :images
-                                             (:id (:attachment/image attachment)))
+                                             (:id image))
                                  :target "_blank"}
       (icon :eye {:size :small})]
      [:button.btn.btn-sm.btn-secondary {:title "Click here to edit this attachment"
