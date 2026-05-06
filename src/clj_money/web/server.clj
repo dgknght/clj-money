@@ -145,74 +145,77 @@
       (oauth2/wrap-oauth2 handler profiles)
       handler)))
 
+(def router
+  (ring/router ["/" {:middleware [otel/wrap-otel]}
+                apps/routes
+                ["auth/google/done"
+                 {:middleware [:site
+                               wrap-merge-params
+                               wrap-request-logging]
+                  :get {:handler google-auth/redirect-handler}}]
+                ["auth/github/done"
+                 {:middleware [:site
+                               wrap-merge-params
+                               wrap-request-logging]
+                  :get {:handler github-auth/redirect-handler}}]
+                ["app/" {:middleware [:site
+                                      :wrap-format
+                                      wrap-merge-params
+                                      wrap-parse-id-params
+                                      :authentication
+                                      wrap-request-logging]}
+                 images/routes]
+                ["oapi/" {:middleware [:api
+                                       :wrap-format
+                                       wrap-decimals
+                                       wrap-merge-params
+                                       wrap-parse-id-params
+                                       wrap-exceptions
+                                       wrap-request-logging]}
+                 users-api/unauthenticated-routes
+                 invitations-api/unauthenticated-routes]
+                ["api/" {:middleware [:api
+                                      :wrap-format
+                                      wrap-decimals
+                                      wrap-merge-params
+                                      wrap-parse-id-params
+                                      :authentication
+                                      wrap-exceptions
+                                      wrap-request-logging]}
+                 users-api/routes
+                 entities-api/routes
+                 commodities-api/routes
+                 accounts-api/routes
+                 transactions-api/routes
+                 att-api/routes
+                 budgets-api/routes
+                 budget-items-api/routes
+                 imports-api/routes
+                 prices-api/routes
+                 lots-api/routes
+                 lot-notes-api/routes
+                 audit-api/routes
+                 recs-api/routes
+                 reports-api/routes
+                 trading-api/routes
+                 transaction-items-api/routes
+                 sched-trans-api/routes
+                 invitations-api/routes]]
+               {:conflicts (fn [conflicts]
+                             (log/warnf "The application has conflicting routes: %s"
+                                        (format-exception :path-conflicts nil conflicts)))
+                ::middleware/registry {:site (wrap-site)
+                                       :api [wrap-defaults
+                                             (-> api-defaults
+                                                 (assoc-in [:params :multipart] true)
+                                                 (assoc-in [:security :anti-forgery] false))]
+                                       :wrap-format wrap-format
+                                       :authentication [api/wrap-authentication
+                                                        {:authenticate-fn find-user-by-auth-token}]}}))
+
 (def app
   (-> (ring/ring-handler
-        (ring/router ["/" {:middleware [otel/wrap-otel]}
-                      apps/routes
-                      ["auth/google/done"
-                       {:middleware [:site
-                                     wrap-merge-params
-                                     wrap-request-logging]
-                        :get {:handler google-auth/redirect-handler}}]
-                      ["auth/github/done"
-                       {:middleware [:site
-                                     wrap-merge-params
-                                     wrap-request-logging]
-                        :get {:handler github-auth/redirect-handler}}]
-                      ["app/" {:middleware [:site
-                                            :wrap-format
-                                            wrap-merge-params
-                                            wrap-parse-id-params
-                                            :authentication
-                                            wrap-request-logging]}
-                       images/routes]
-                      ["oapi/" {:middleware [:api
-                                             :wrap-format
-                                             wrap-decimals
-                                             wrap-merge-params
-                                             wrap-parse-id-params
-                                             wrap-exceptions
-                                             wrap-request-logging]}
-                       users-api/unauthenticated-routes
-                       invitations-api/unauthenticated-routes]
-                      ["api/" {:middleware [:api
-                                            :wrap-format
-                                            wrap-decimals
-                                            wrap-merge-params
-                                            wrap-parse-id-params
-                                            :authentication
-                                            wrap-exceptions
-                                            wrap-request-logging]}
-                       users-api/routes
-                       entities-api/routes
-                       commodities-api/routes
-                       accounts-api/routes
-                       transactions-api/routes
-                       att-api/routes
-                       budgets-api/routes
-                       budget-items-api/routes
-                       imports-api/routes
-                       prices-api/routes
-                       lots-api/routes
-                       lot-notes-api/routes
-                       audit-api/routes
-                       recs-api/routes
-                       reports-api/routes
-                       trading-api/routes
-                       transaction-items-api/routes
-                       sched-trans-api/routes
-                       invitations-api/routes]]
-                 {:conflicts (fn [conflicts]
-                               (log/warnf "The application has conflicting routes: %s"
-                                          (format-exception :path-conflicts nil conflicts)))
-                  ::middleware/registry {:site (wrap-site)
-                                         :api [wrap-defaults
-                                               (-> api-defaults
-                                                   (assoc-in [:params :multipart] true)
-                                                   (assoc-in [:security :anti-forgery] false))]
-                                         :wrap-format wrap-format
-                                         :authentication [api/wrap-authentication
-                                                          {:authenticate-fn find-user-by-auth-token}]}})
+        router
         (ring/routes
           (ring/create-resource-handler {:path "/"})
           apps/spa-fallback
