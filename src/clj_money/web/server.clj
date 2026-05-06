@@ -159,7 +159,6 @@
                                wrap-request-logging]
                   :get {:handler github-auth/redirect-handler}}]
                 ["app/" {:middleware [:site
-                                      :wrap-format
                                       wrap-merge-params
                                       wrap-parse-id-params
                                       :authentication
