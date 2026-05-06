@@ -3,7 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
             [clojure.string :as string]
-            [ring.util.response :refer [response status header]]
+            [ring.util.response :refer [response status]]
             [muuntaja.middleware :refer [wrap-format-negotiate
                                          wrap-format-request
                                          wrap-format-response]]
@@ -87,8 +87,7 @@
   [_]
   (-> {:message "no authorization rules"}
       response
-      (status 500)
-      (header "Content-Type" "application/json")))
+      (status 500)))
 
 (defmethod handle-exception ::entities/not-found
   [_]
@@ -119,11 +118,9 @@
        (handle-exception e))
      (catch Exception e
        (log-error e "unexpected error")
-       ; TODO: only do this if in local development mode
        (-> {:message (str "unexpected error: " (ex-message e))}
            response
-           (status 500)
-           (header "Content-Type" "application/json"))))))
+           (status 500))))))
 
 (defmulti ^:private conventionalize-content
   (fn [_content content-type] content-type))
