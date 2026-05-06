@@ -36,7 +36,8 @@
    [:td
     [:div.btn-group
      [:a.btn.btn-sm.btn-primary {:title "Click here to view this attachment."
-                                 :href (path :images
+                                 :href (path :app
+                                             :images
                                              (:id image))
                                  :target "_blank"}
       (icon :eye {:size :small})]
