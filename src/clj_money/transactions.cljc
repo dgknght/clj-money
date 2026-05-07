@@ -72,7 +72,7 @@
 (s/def :transaction/description string?)
 (s/def :transaction/attachment-count (s/nilable
                                        (s/and integer?
-                                              pos?)))
+                                              (complement neg?))))
 
 (s/def ::common-transaction (s/keys :req [:transaction/entity
                                           :transaction/description
