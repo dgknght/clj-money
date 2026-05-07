@@ -38,6 +38,7 @@
 
 (defmethod prop/propagate :attachment
   [[before after]]
+  (log/infof "[propagation] %s -> %s" before after)
   (cond-> []
     (and after (not before))
     (conj (adjust-trx after inc))
@@ -47,7 +48,7 @@
 
 (defn propagate-all
   [entity _opts]
-  (log/debugf "[propagation] start entity %s"
+  (log/infof "[propagation] start entity %s"
               (:entity/name entity))
   (let [updated (some->> (entities/select
                            (util/entity-type {:transaction/entity entity}
