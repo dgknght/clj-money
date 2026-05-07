@@ -175,36 +175,35 @@
 
 (defn- account-row-buttons
   [account page-state]
-  (let []
-    (fn []
-      [:div.btn-group
-       [:button.btn.btn-secondary.btn-sm
-        {:on-click (select-account account page-state)
-         :title "Click here to view transactions for this account."}
-        (icon :collection :size :small)]
-       [:button.btn.btn-secondary.btn-sm
-        {:on-click (fn []
-                     (swap! page-state assoc :selected account)
-                     (set-focus "parent-id"))
-         :title "Click here to edit this account."}
-        (icon :pencil :size :small)]
-       [:button.btn.btn-secondary
-        {:on-click #(swap! page-state
-                           assoc
-                           :allocation
-                           {:account (prepare-for-allocation account)
-                            :cash (:account/value account)
-                            :withdrawal 0M})
-         :disabled (not (system-tagged? account :trading))
-         :title "Click here to manage asset allocation for this account."}
-        (icon (if (system-tagged? account :trading)
-                :pie-chart-fill
-                :pie-chart)
-              :size :small)]
-       [:button.btn.btn-danger.btn-sm
-        {:on-click #(delete account)
-         :title "Click here to remove this account."}
-        (icon :x-circle :size :small)]])))
+  (fn []
+    [:div.btn-group
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click (select-account account page-state)
+       :title "Click here to view transactions for this account."}
+      (icon :collection :size :small)]
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click (fn []
+                   (swap! page-state assoc :selected account)
+                   (set-focus "parent-id"))
+       :title "Click here to edit this account."}
+      (icon :pencil :size :small)]
+     [:button.btn.btn-secondary
+      {:on-click #(swap! page-state
+                         assoc
+                         :allocation
+                         {:account (prepare-for-allocation account)
+                          :cash (:account/value account)
+                          :withdrawal 0M})
+       :disabled (not (system-tagged? account :trading))
+       :title "Click here to manage asset allocation for this account."}
+      (icon (if (system-tagged? account :trading)
+              :pie-chart-fill
+              :pie-chart)
+            :size :small)]
+     [:button.btn.btn-danger.btn-sm
+      {:on-click #(delete account)
+       :title "Click here to remove this account."}
+      (icon :x-circle :size :small)]]))
 
 (defn- account-row
   [{:keys [id] :account/keys [parent-ids] :as account} expanded page-state]

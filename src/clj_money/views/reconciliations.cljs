@@ -78,7 +78,7 @@
   (swap! page-state assoc-in [:reconciliation :reconciliation/status] :new)
   (save-reconciliation* page-state))
 
-(defn- load-previous-balance
+#_(defn- load-previous-balance
   [page-state]
   (+busy)
   (recs/select (-> (get-in @page-state [:view-account])
