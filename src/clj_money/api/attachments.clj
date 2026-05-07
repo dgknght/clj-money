@@ -7,6 +7,7 @@
              :as auth
              :refer [+scope
                      authorize]]
+            [clj-money.entities.propagation :refer [+propagation]]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
             [clj-money.entities :as entities]
@@ -62,15 +63,15 @@
     (assoc att :attachment/image image)
     att))
 
+(def ^:private put
+  (+propagation entities/put))
+
 (defn- create
   [{:keys [authenticated] :as req}]
-
-  (pprint {::create (dissoc req :reitit.core/router :reitit.core/match)})
-
   (-> (extract-attachment req)
       (authorize ::auth/create authenticated)
       (assoc-image req)
-      entities/put
+      put
       api/creation-response))
 
 (defn- find-and-auth
