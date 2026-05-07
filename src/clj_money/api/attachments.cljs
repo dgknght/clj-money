@@ -1,39 +1,48 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update])
-  (:require [cljs-http.client :as http]
+  (:require [clojure.core.async :as a]
+            [cljs.pprint :refer [pprint]]
+            [cljs-http.client :as http]
             [dgknght.app-lib.api-async :as lib-api]
-            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api :as api :refer [add-error-handler]]
-            [clj-money.state :refer [app-state]]
-            [clj-money.comparatives :as comparatives]))
+            [clj-money.state :refer [app-state]]))
 
 (defn create
-  [{:keys [transaction-id transaction-date] :as attachment} & {:as opts}]
-  {:pre [(:transaction-id attachment)
-         (:transaction-date attachment)]}
+  [{:attachment/keys [transaction] :as attachment}
+   & {:as opts
+      :keys [on-success callback]
+      :or {on-success identity
+           callback identity}}]
+  {:pre [(:attachment/transaction attachment)]}
 
-  (http/post (api/path :transactions
-                       transaction-id
-                       (serialize-local-date transaction-date)
-                       :attachments)
-             (-> (lib-api/request opts)
-                 (lib-api/multipart-params (dissoc attachment
-                                                   :transaction-id
-                                                   :transaction-date))
-                 (add-error-handler "Unable to create the attachment: %s")
-                 (assoc :oauth-token (:auth-token @app-state)))))
-
-(defn- prepare-criteria
-  [criteria]
-  (comparatives/nominalize criteria))
+  (let [ch (http/post (api/path :transactions
+                                transaction
+                                :attachments)
+                      (-> (lib-api/request opts)
+                          (lib-api/multipart-params
+                            (dissoc attachment :attachment/transaction))
+                          (add-error-handler "Unable to create the attachment: %s")
+                          (assoc :oauth-token (:auth-token @app-state))))]
+    (a/go
+      (let [{:as res :attachment/keys [image]} (a/<! ch)]
+        (callback)
+        (when image
+          (on-success res))))))
 
 (defn select
-  [criteria & {:as opts}]
-  (api/get (api/path :attachments)
-           (prepare-criteria criteria)
-           (add-error-handler
-             opts
-             "Unable to retrieve the attachments: %s")))
+  [{:as criteria :attachment/keys [transaction]} & {:as opts}]
+  (let [[path crit] (if transaction
+                      [(api/path :transactions
+                                 (:id transaction)
+                                 :attachments)
+                       (dissoc criteria :attachment/transaction)]
+                      [(api/path :attachments)
+                       criteria])]
+    (api/get path
+             crit 
+             (add-error-handler
+               opts
+               "Unable to retrieve the attachments: %s"))))
 
 (defn update
   [attachment & {:as opts}]

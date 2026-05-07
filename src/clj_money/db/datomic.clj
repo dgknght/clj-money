@@ -2,6 +2,7 @@
   (:require [clojure.walk :refer [postwalk]]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
+            [clojure.set :refer [rename-keys]]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
             [stowaway.datalog :as dtl]
@@ -302,6 +303,10 @@
                     (into {}))))
       first)))
 
+(defn- adjust-reverse-refs
+  [m]
+  (rename-keys m {:transaction/_items :transaction-item/transaction}))
+
 (defn- apply-limit
   [{:keys [limit]} vs]
   (if limit
@@ -352,7 +357,8 @@
       (->> raw-result
            (map (extract-entity options))
            (remove naked-id?)
-           (map after-read*)
+           (map (comp after-read*
+                      adjust-reverse-refs))
            (util/apply-sort options)
            (apply-limit options)))))
 

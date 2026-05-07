@@ -31,12 +31,14 @@
 
 (defn- adjust-trx
   [att f]
-  (update-in (find-trx att)
-             [:transaction/attachment-count]
-             (fnil f 0)))
+  (-> (find-trx att)
+      (dissoc :transaction/items)
+      (update-in [:transaction/attachment-count]
+                 (fnil f 0))))
 
 (defmethod prop/propagate :attachment
   [[before after]]
+  (log/infof "[propagation] %s -> %s" before after)
   (cond-> []
     (and after (not before))
     (conj (adjust-trx after inc))
@@ -45,17 +47,24 @@
     (conj (adjust-trx before (fmin dec 0)))))
 
 (defn propagate-all
+  "Update attachment counts for transactions that have attachments. NB: This
+  does not reset the count for transactions without attachments to zero."
   [entity _opts]
-  (log/debugf "[propagation] start entity %s"
-              (:entity/name entity))
-  (let [updated (some->> (entities/select
-                           (util/entity-type {:transaction/entity entity}
-                                            :attachment))
-                         seq
-                         (map #(adjust-trx % inc))
-                         (entities/put-many))]
-    (log/infof "[propagation] finish entity %s"
-               (:entity/name entity))
-    updated))
+  (log/infof "[propagation] start entity %s"
+             (:entity/name entity))
+  (when-let [attachments (seq
+                           (entities/select
+                             (util/entity-type
+                               {:transaction/entity entity}
+                               :attachment)))]
+    (let [updates (->> attachments
+                       (group-by (comp :id :attachment/transaction))
+                       (map #(update-in % [1] count))
+                       (into {}))]
+      (->> (entities/find-many (keys updates))
+           (map (comp
+                  #(dissoc % :transaction/items)
+                  #(assoc % :transaction/attachment-count (updates (:id %)))))
+           entities/put-many))))
 
 (prop/add-full-propagation propagate-all)

@@ -3,19 +3,17 @@
             [clojure.java.io :as io]
             [clojure.string :as string]
             [reitit.core :as reitit]
-            [reitit.ring :as ring]
             [clj-money.web.server :as s]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
+            [clj-money.entities.attachments :as atts]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
             [clj-money.entities.prices :as prices]))
 
 (defn print-routes []
   (doseq [[method path handler]
-          (->> (-> s/app
-                   ring/get-router
-                   reitit/compiled-routes)
+          (->> (reitit/compiled-routes s/router)
                (mapcat (fn [[path opts]]
                          (->> [:get :post :put :patch :delete]
                               (map (juxt identity opts))
@@ -81,6 +79,11 @@
   [entity-name]
   (prices/propagate-all (entities/find-by {:entity/name entity-name})
                         {}))
+
+(defn propagate-attachments
+  [entity-name]
+  (atts/propagate-all (entities/find-by {:entity/name entity-name})
+                      {}))
 
 (defn parse-performance-logs
   [path]
