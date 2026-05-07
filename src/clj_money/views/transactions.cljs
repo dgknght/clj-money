@@ -183,7 +183,7 @@
 
 (defn- post-item-row-drop
   [page-state item]
-  (fn [{:keys [body]}]
+  (fn [created]
     (swap! page-state
            (fn [state]
              (-> state
@@ -193,12 +193,12 @@
                  (update-in [:items]
                             (fn [items]
                               (map (fn [item]
-                                     (if (id= (:attachment/transaction body)
-                                              (:attachment/transaction item))
-                                       (update-in item [:transaction/attachment-count] inc)
+                                     (if (id= (:attachment/transaction created)
+                                              (:transaction-item/transaction item))
+                                       (update-in item [:transaction/attachment-count] (fnil inc 0))
                                        item))
-                                   items)))))))
-  (notify/toast "Success" "The attachment was saved successfully."))
+                                   items))))))
+    (notify/toast "Success" "The attachment was saved successfully.")))
 
 (defn- handle-item-row-drop
   [{:as item :transaction-item/keys [transaction]} e page-state]
