@@ -1,14 +1,19 @@
 (ns clj-money.views.attachments
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [clojure.core.async :as a]
+            [reagent.core :as r]
             [dgknght.app-lib.web :refer [format-date
                                          path]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.dom :as dom]
             [dgknght.app-lib.forms :as forms]
+            [cljs-http.client :as http]
+            [clj-money.object-url :as obj-url]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [+busy
-                                     -busy]]
+                                     -busy
+                                     auth-token]]
             [clj-money.api.attachments :as atts]))
 
 (defn- post-delete
@@ -27,18 +32,25 @@
                  :callback -busy
                  :on-success (post-delete page-state))))
 
+(defn- view-image
+  [{:keys [id]}]
+  (a/go
+    (let [{:keys [body]} (a/<! (http/get (path :app :images id)
+                              {:with-credentials? false
+                               :response-type :blob
+                               :headers {"Authorization" (str "Bearer " @auth-token)}}))
+          url (obj-url/create body)]
+      (.open js/window url "_blank"))))
+
 (defn- attachment-row
-  [attachment page-state]
+  [{:as attachment :attachment/keys [caption created-at image]} page-state]
   ^{:key (str "attachment-row-" (:id attachment))}
   [:tr
-   [:td (or (:caption attachment)
-            (:created-at attachment))]
+   [:td (or caption created-at "unnamed")]
    [:td
     [:div.btn-group
-     [:a.btn.btn-sm.btn-primary {:title "Click here to view this attachment."
-                                 :href (path :images
-                                             (:id (:attachment/image attachment)))
-                                 :target "_blank"}
+     [:button.btn.btn-sm.btn-primary {:title "Click here to view this attachment."
+                                      :on-click #(view-image image)}
       (icon :eye {:size :small})]
      [:button.btn.btn-sm.btn-secondary {:title "Click here to edit this attachment"
                                    :on-click (fn []
@@ -90,8 +102,10 @@
                         (-> state
                             (dissoc :selected-attachment)
                             (update-in [:attachments]
-                                       util/upsert-into
-                                       attachment))))))
+                                       #(util/upsert-into
+                                          attachment
+                                          {:sort-key :attachment/caption}
+                                          %)))))))
 
 (defn- save-attachment
   [page-state]
@@ -107,7 +121,7 @@
       [:div.card.mb-2
        [:div.card-header [:strong "Edit Attachment"]]
        [:div.card-body
-        [forms/text-field attachment [:caption]]]
+        [forms/text-field attachment [:attachment/caption]]]
        [:div.card-footer
         [:button.btn.btn-primary {:on-click #(save-attachment page-state)
                                   :title "Click here to save this attachment"}

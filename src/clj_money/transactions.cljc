@@ -70,11 +70,15 @@
 (s/def :transaction/items (s/coll-of :clj-money.entities/transaction-item :min-count 1))
 (s/def :transaction/memo (s/nilable string?))
 (s/def :transaction/description string?)
+(s/def :transaction/attachment-count (s/nilable
+                                       (s/and integer?
+                                              (complement neg?))))
 
 (s/def ::common-transaction (s/keys :req [:transaction/entity
                                           :transaction/description
                                           :transaction/transaction-date]
-                                    :opt [:transaction/memo]))
+                                    :opt [:transaction/memo
+                                          :transaction/attachment-count]))
 
 (s/def ::simple-transaction (s/merge ::common-transaction
                                      (s/keys :req [:transaction/quantity
