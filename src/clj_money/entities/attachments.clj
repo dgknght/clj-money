@@ -31,9 +31,10 @@
 
 (defn- adjust-trx
   [att f]
-  (update-in (find-trx att)
-             [:transaction/attachment-count]
-             (fnil f 0)))
+  (-> (find-trx att)
+      (dissoc :transaction/items)
+      (update-in [:transaction/attachment-count]
+                 (fnil f 0))))
 
 (defmethod prop/propagate :attachment
   [[before after]]

@@ -64,13 +64,15 @@
 (defn- no-reconciled-quantities-changed*
   [{:transaction/keys [items] :as trx}]
   (if (:id trx)
-    (let [after (->> items
-                     (map (juxt :id qty-comparable))
-                     (into {}))]
-      (->> (reconciled-items-for-trx trx)
-           (map qty-comparable)
-           (remove #(= % (after (:id %))))
-           empty?))
+    (if (nil? items)
+      true
+      (let [after (->> items
+                       (map (juxt :id qty-comparable))
+                       (into {}))]
+        (->> (reconciled-items-for-trx trx)
+             (map qty-comparable)
+             (remove #(= % (after (:id %))))
+             empty?)))
     true))
 
 (def ^:private no-reconciled-quantities-changed?
@@ -95,8 +97,10 @@
                                          :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::entities/lot-item))
 
-(s/def ::entities/transaction (s/and (s/merge ::trxs/unilateral-transaction
-                                              (s/keys :opt [:transaction/lot-items]))
+(s/def ::entities/transaction (s/and (s/merge ::trxs/common-transaction
+                                              (s/keys :opt [:transaction/items
+                                                            :transaction/lot-items]))
+                                     trxs/sum-of-credits-equals-sum-of-debits?
                                      no-reconciled-quantities-changed?
                                      new-transaction-has-items?
                                      no-items-use-parent-only-account?))

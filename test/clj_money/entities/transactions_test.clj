@@ -144,7 +144,7 @@
 (dbtest items-must-be-specified
   (with-context base-context
     (assert-invalid (dissoc (attributes) :transaction/items)
-                    {:transaction/items ["Items is required"]})))
+                    {:transaction/items ["A new transaction must have items"]})))
 
 (dbtest items-cannot-be-nil
   (with-context base-context
@@ -349,6 +349,15 @@
                       :debit-account "Groceries"
                       :credit-account "Checking"
                       :quantity 102M}))
+
+(dbtest items-not-required-for-existing-transaction
+  (with-context update-context
+    (let [trx (find-transaction [(t/local-date 2016 3 2) "Paycheck"])]
+      (is (comparable? {:transaction/description "Wages"}
+                       (entities/put (-> trx
+                                        (assoc :transaction/description "Wages")
+                                        (dissoc :transaction/items))))
+          "An existing transaction can be updated without providing items"))))
 
 (dbtest get-a-transaction
   (with-context update-context
