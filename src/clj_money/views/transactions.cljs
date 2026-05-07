@@ -190,13 +190,14 @@
                  (update-in [:item-row-styles]
                             dissoc
                             (:id item))
-                 (update-in [:items] (fn [items]
-                                       (map (fn [item]
-                                              (if (id= (:attachment/transaction body)
-                                                            (:attachment/transaction item))
-                                                (update-in item [:transaction-item/attachment-count] inc)
-                                                item))
-                                            items)))))))
+                 (update-in [:items]
+                            (fn [items]
+                              (map (fn [item]
+                                     (if (id= (:attachment/transaction body)
+                                              (:attachment/transaction item))
+                                       (update-in item [:transaction/attachment-count] inc)
+                                       item))
+                                   items)))))))
   (notify/toast "Success" "The attachment was saved successfully."))
 
 (defn- handle-item-row-drop
@@ -209,7 +210,7 @@
                :on-success (post-item-row-drop page-state item)))
 
 (defn- item-row-buttons
-  [{:as item :transaction-item/keys [attachment-count]} page-state]
+  [{:as item :transaction/keys [attachment-count]} page-state]
   (fn []
     [:div.btn-group
      [:button.btn.btn-secondary.btn-sm
@@ -226,7 +227,7 @@
        :title "Click here to view attachments for this transaction"}
       (if ((some-fn nil? zero?) attachment-count)
         (icon :paperclip :size :small)
-        [:span.badge.bg-secondary attachment-count])]
+        [:span.badge.bg-info.text-dark attachment-count])]
      [:button.btn.btn-danger.btn-sm
       {:on-click #(delete-transaction item page-state)
        :title "Click here to remove this transaction."}

@@ -102,8 +102,10 @@
                         (-> state
                             (dissoc :selected-attachment)
                             (update-in [:attachments]
-                                       util/upsert-into
-                                       attachment))))))
+                                       #(util/upsert-into
+                                          attachment
+                                          {:sort-key :attachment/caption}
+                                          %)))))))
 
 (defn- save-attachment
   [page-state]
