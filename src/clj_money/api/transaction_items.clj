@@ -106,7 +106,8 @@
   (->> (-> req
            extract-criteria
            (entities/select (assoc (extract-options req)
-                                 :sort [[:transaction-item/index :desc]]
+                                 :sort [[:transaction/transaction-date :desc]
+                                        [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
                                                :transaction/transaction-date
                                                :transaction/attachment-count
