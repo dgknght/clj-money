@@ -57,7 +57,7 @@
 
 (defn- qty-comparable
   [item]
-  (select-keys item [:id :account-item/quantity]))
+  (select-keys item [:id :transaction-item/quantity]))
 
 (declare reconciled-items-for-trx)
 
