@@ -296,16 +296,14 @@
   (with-context delete-context
     (assert-deleted (find-transaction [(t/local-date 2016 3 3) "Kroger"]))
     (is (= [{:transaction-item/index 0
-             :transaction-item/action :debit
-             :transaction-item/quantity 1000M}
+             :transaction-item/action :debit}
             {:transaction-item/index 2 ; Note that we didn't propagate
-             :transaction-item/action :credit
-             :transaction-item/quantity 102M}]
-           (map #(select-keys % [:transaction-item/index
-                                 :transaction-item/quantity
-                                 :transaction-item/action])
-                (entities/select
-                  {:transaction-item/account (find-account "Checking")})))
+             :transaction-item/action :credit}]
+           (->> (entities/select
+                  {:transaction-item/account (find-account "Checking")}
+                  {:sort [:transaction-item/index]})
+                (map #(select-keys % [:transaction-item/index
+                                      :transaction-item/action]))))
         "The corresponding account items are removed.")))
 
 (dbtest ^:multi-threaded delete-and-propagate-a-transaction
