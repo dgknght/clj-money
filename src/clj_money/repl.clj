@@ -6,6 +6,7 @@
             [clj-money.web.server :as s]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
+            [clj-money.entities.attachments :as atts]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
             [clj-money.entities.prices :as prices]))
@@ -78,6 +79,11 @@
   [entity-name]
   (prices/propagate-all (entities/find-by {:entity/name entity-name})
                         {}))
+
+(defn propagate-attachments
+  [entity-name]
+  (atts/propagate-all (entities/find-by {:entity/name entity-name})
+                      {}))
 
 (defn parse-performance-logs
   [path]

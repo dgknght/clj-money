@@ -7,6 +7,7 @@
              :as auth
              :refer [+scope
                      authorize]]
+            [clj-money.entities.propagation :as prop]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
             [clj-money.entities :as entities]
@@ -67,7 +68,7 @@
   (-> (extract-attachment req)
       (authorize ::auth/create authenticated)
       (assoc-image req)
-      entities/put
+      prop/put-and-propagate
       api/creation-response))
 
 (defn- find-and-auth

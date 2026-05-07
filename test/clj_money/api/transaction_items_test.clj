@@ -12,6 +12,7 @@
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [basic-context
                                             with-context
+                                            find-transaction
                                             find-entity
                                             find-account
                                             find-user]]
@@ -167,7 +168,16 @@
 (deftest a-user-can-get-a-list-of-transaction-items-in-his-entity
   (with-context context
     (testing "default format (edn)"
-      (assert-successful-list (get-a-list "john@doe.com")))
+      (assert-successful-list (get-a-list "john@doe.com"))
+      (is (= (util/->entity-ref
+               (find-transaction
+                 [(t/local-date 2017 01 29)
+                  "Kroger"]))
+             (-> (get-a-list "john@doe.com")
+                 :parsed-body
+                 first
+                 :transaction-item/transaction))
+          "The transaction is included"))
     (testing "json format"
       (assert-successful-list
         (get-a-list "john@doe.com" :content-type "application/json")

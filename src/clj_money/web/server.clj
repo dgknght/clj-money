@@ -27,6 +27,7 @@
                                           wrap-format]]
             [clj-money.entities :as entities]
             [clj-money.db.ref]
+            [clj-money.entities.ref]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
@@ -159,7 +160,6 @@
                                wrap-request-logging]
                   :get {:handler github-auth/redirect-handler}}]
                 ["app/" {:middleware [:site
-                                      :wrap-format
                                       wrap-merge-params
                                       wrap-parse-id-params
                                       :authentication
