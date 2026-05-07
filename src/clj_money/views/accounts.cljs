@@ -39,7 +39,8 @@
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :as acts :refer [account-types
                                                  allocate
-                                                 find-by-path]]
+                                                 find-by-path
+                                                 system-tagged?]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -110,8 +111,102 @@
                        children))
         {}))))
 
+(defn- load-lot-notes
+  [page-state]
+  (let [{:keys [view-account]} @page-state]
+    (lot-notes/select
+      #:lot{:account view-account}
+      :on-success (partial swap! page-state assoc :lot-notes))))
+
+(defn- load-lot-audit!
+  [page-state lot]
+  (audit/select lot :lot/shares-purchased
+                :on-success
+                #(swap! page-state assoc-in
+                        [:lot-audit-histories (:id lot)]
+                        %)))
+
+(defn- load-lots
+  [page-state]
+  (let [{:account/keys [parent commodity]}
+        (:view-account @page-state)]
+    (lots/select
+      #:lot{:account parent
+            :commodity commodity}
+      :on-success (fn [lots]
+                    (swap! page-state assoc :lots lots)
+                    (doseq [lot lots]
+                      (load-lot-audit! page-state lot))))))
+
+(defn- load-prices
+  [page-state]
+  (let [{:account/keys [commodity transaction-date-range]}
+        (:view-account @page-state)]
+    (when transaction-date-range
+      (prices/select
+        #:price{:commodity commodity
+                :trade-date (apply vector :between transaction-date-range)}
+        :on-success #(swap! page-state assoc :prices %)))))
+
+(defn- load-tradable-account
+  [page-state]
+  (load-lots page-state)
+  (load-lot-notes page-state)
+  (load-prices page-state))
+
+(defn- load-regular-account
+  [page-state]
+  (trns/init-item-loading page-state))
+
+(defn- select-account
+  [account page-state]
+  (fn []
+    (swap! page-state
+           assoc
+           :view-account
+           (update-in account
+                      [:account/commodity]
+                      (comp (:commodities @page-state)
+                            :id)))
+    ; TODO: Maybe this belongs in a watch?
+    (if (system-tagged? account :tradable)
+      (load-tradable-account page-state)
+      (load-regular-account page-state))))
+
+(defn- account-row-buttons
+  [account page-state]
+  (fn []
+    [:div.btn-group
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click (select-account account page-state)
+       :title "Click here to view transactions for this account."}
+      (icon :collection :size :small)]
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click (fn []
+                   (swap! page-state assoc :selected account)
+                   (set-focus "parent-id"))
+       :title "Click here to edit this account."}
+      (icon :pencil :size :small)]
+     [:button.btn.btn-secondary
+      {:on-click #(swap! page-state
+                         assoc
+                         :allocation
+                         {:account (prepare-for-allocation account)
+                          :cash (:account/value account)
+                          :withdrawal 0M})
+       :disabled (not (system-tagged? account :trading))
+       :title "Click here to manage asset allocation for this account."}
+      (icon (if (system-tagged? account :trading)
+              :pie-chart-fill
+              :pie-chart)
+            :size :small)]
+     [:button.btn.btn-danger.btn-sm
+      {:on-click #(delete account)
+       :title "Click here to remove this account."}
+      (icon :x-circle :size :small)]]))
+
 (defn- account-row
-  [{:keys [id] :account/keys [parent-ids system-tags] :as account} expanded page-state]
+  [{:keys [id] :account/keys [parent-ids] :as account} expanded page-state]
   ^{:key (str "account-" id)}
   [:tr.align-middle
    [:td [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
@@ -130,38 +225,7 @@
     [forms/checkbox-input page-state [:bulk-edit :account-ids] {:no-bootstrap? true
                                                                 :html {:name "bulk-edit-id"}
                                                                 :value id}]]
-   [:td.text-center
-    [:div.btn-group
-     [:button.btn.btn-secondary.btn-sm
-      {:on-click #(swap! page-state assoc :view-account (update-in account
-                                                                   [:account/commodity]
-                                                                   (comp (:commodities @page-state)
-                                                                         :id)))
-       :title "Click here to view transactions for this account."}
-      (icon :collection :size :small)]
-     [:button.btn.btn-secondary.btn-sm
-      {:on-click (fn []
-                   (swap! page-state assoc :selected account)
-                   (set-focus "parent-id"))
-       :title "Click here to edit this account."}
-      (icon :pencil :size :small)]
-     [:button.btn.btn-secondary
-      {:on-click #(swap! page-state
-                         assoc
-                         :allocation
-                         {:account (prepare-for-allocation account)
-                          :cash (:account/value account)
-                          :withdrawal 0M})
-       :disabled (not (:trading system-tags))
-       :title "Click here to manage asset allocation for this account."}
-      (icon (if (:trading system-tags)
-              :pie-chart-fill
-              :pie-chart)
-            :size :small)]
-     [:button.btn.btn-danger.btn-sm
-      {:on-click #(delete account)
-       :title "Click here to remove this account."}
-      (icon :x-circle :size :small)]]]])
+   [:td.text-center [account-row-buttons account page-state]]])
 
 (defn- account-type-row
   [account-type group expanded page-state]
@@ -505,11 +569,17 @@
 
 (defn- new-trade
   [page-state]
-  (swap! page-state assoc
-         :trade #:trade{:entity @current-entity
-                        :action :buy
-                        :date (t/today)
-                        :account (:view-account @page-state)})
+  (let [account (:view-account @page-state)
+        commodity-account? (system-tagged? account :tradable)
+        trade #:trade{:entity @current-entity
+                      :action :buy
+                      :date (t/today)
+                      :commodity-account (when commodity-account?
+                                           account)
+                      :account (if commodity-account?
+                                 (:account/parent account)
+                                 account)}]
+    (swap! page-state assoc :trade trade))
   (set-focus "transaction-date"))
 
 (defn- new-dividend
@@ -522,16 +592,59 @@
                         :account (:view-account @page-state)})
   (set-focus "transaction-date"))
 
-(defn- account-buttons
+(defn- create-trx-button
   [page-state]
-  (let [transaction (r/cursor page-state [:transaction])
-        view-account (r/cursor page-state [:view-account])
+  (let [view-account (r/cursor page-state [:view-account])
         parent-only? (make-reaction #(acts/parent-only? @view-account))
+        transaction (r/cursor page-state [:transaction])
         disable-trx? (make-reaction #(or @parent-only?
                                          (not (not @transaction))))]
     (fn []
-      [:div.d-flex.justify-content-between
-       [:div {:class "btn-group"}
+      (cond
+        (system-tagged? @view-account :tradable)
+        [:button.btn.btn-primary
+         {:title "Click here to enter a purchase or a sale"
+          :type :button
+          :on-click #(new-trade page-state)
+          :disabled @disable-trx?
+          :data-bs-toggle :dropdown
+          :aria-expanded :false}
+         (icon-with-text :plus "Buy/Sell")]
+
+        (system-tagged? @view-account :trading)
+        [:div {:class "btn-group"}
+         [:button.btn.btn-primary
+          {:title "Click here to enter a transaction"
+           :type :button
+           :on-click (when-not @parent-only? #(new-transaction page-state))
+           :disabled @disable-trx?
+           :data-bs-toggle :dropdown
+           :aria-expanded :false}
+          (icon-with-text :plus "Add")]
+         [:button.btn.btn-primary.dropdown-toggle.dropdown-toggle-split
+          {:type :button
+           :disabled @disable-trx?
+           :data-bs-toggle :dropdown
+           :aria-expanded :false}
+          [:span.visually-hidden "Toggle Dropdown"]]
+         [:ul.dropdown-menu
+          [:li
+           [:a.dropdown-item
+            {:href "#"
+             :on-click #(new-transaction page-state)}
+            "Deposit/Withdrawal"]]
+          [:li
+           [:a.dropdown-item
+            {:href "#"
+             :on-click #(new-trade page-state)}
+            "Buy/Sell"]]
+          [:li
+           [:a.dropdown-item
+            {:href "#"
+             :on-click #(new-dividend page-state)}
+            "Dividend"]]]]
+
+        :else
         [:button.btn.btn-primary
          {:title "Click here to enter a transaction."
           :type :button
@@ -539,50 +652,40 @@
           :disabled @disable-trx?
           :data-bs-toggle :dropdown
           :aria-expanded :false}
-         (icon-with-text :plus "Add")]
-        [:button.btn.btn-primary.dropdown-toggle.dropdown-toggle-split
-         {:type :button
-          :disabled @disable-trx?
-          :data-bs-toggle :dropdown
-          :aria-expanded :false}
-         [:span.visually-hidden "Toggle Dropdown"]]
-        [:ul.dropdown-menu
-         [:li
-          [:a.dropdown-item
-           {:href "#"
-            :on-click #(new-transaction page-state)}
-           "Regular"]]
-         [:li
-          [:a.dropdown-item
-           {:href "#"
-            :on-click #(new-trade page-state)}
-           "Trade"]]
-         [:li
-          [:a.dropdown-item
-           {:href "#"
-            :on-click #(new-dividend page-state)}
-           "Dividend"]]]]
-       [button {:html {:class "btn-primary btn-secondary ms-2 d-none d-md-block"
-                       :on-click (fn []
-                                   (trns/stop-item-loading page-state)
-                                   (recs/load-working-reconciliation page-state)
-                                   (trns/load-unreconciled-items page-state)
-                                   (set-focus "end-of-period"))
-                       :disabled @busy?}
-                :caption "Reconcile"
-                :icon :list-check}]
-       [button {:html {:class "btn-secondary ms-2"
-                       :on-click (fn []
-                                   (trns/stop-item-loading page-state)
-                                   (swap! page-state dissoc
-                                          :view-account
-                                          :items
-                                          :lots
-                                          :lot-notes
-                                          :all-items-fetched?))
-                       :title "Click here to return to the account list."}
-                :caption "Back"
-                :icon :arrow-left-short}]])))
+         (icon-with-text :plus "Add")]))))
+
+(defn- unselect-account
+  [page-state]
+  (fn []
+    (trns/stop-item-loading page-state)
+    (swap! page-state dissoc
+           :view-account
+           :items
+           :lots
+           :lot-notes
+           :all-items-fetched?
+           :lot-audit-histories
+           :lot-audit-expanded)))
+
+(defn- account-buttons
+  [page-state]
+  (fn []
+    [:div.d-flex.justify-content-between
+     [create-trx-button page-state]
+     [button {:html {:class "btn-primary btn-secondary ms-2 d-none d-md-block"
+                     :on-click (fn []
+                                 (trns/stop-item-loading page-state)
+                                 (recs/load-working-reconciliation page-state)
+                                 (trns/load-unreconciled-items page-state)
+                                 (set-focus "end-of-period"))
+                     :disabled @busy?}
+              :caption "Reconcile"
+              :icon :list-check}]
+     [button {:html {:class "btn-secondary ms-2"
+                     :on-click (unselect-account page-state)
+                     :title "Click here to return to the account list."}
+              :caption "Back"
+              :icon :arrow-left-short}]]))
 
 (defn- refresh-accounts
   [page-state]
@@ -622,57 +725,60 @@
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])]
     (fn []
-      [:<>
-       [:div.d-flex.justify-content-between
-        [:h3 (if (:id @transaction)
-               "Edit Transaction"
-               "New Transaction")]
-        (cond
-          (accountified? @transaction)
-          [:button.btn.btn-dark {:title "Click here to show full transaction details."
-                                 :on-click (fn [_]
-                                             (swap! transaction (expand-trx)))}
-           (icon :arrows-expand)]
+      (when @transaction
+        [:<>
+         [:div.d-flex.justify-content-between
+          [:h3 (if (:id @transaction)
+                 "Edit Transaction"
+                 "New Transaction")]
+          (cond
+            (accountified? @transaction)
+            [:button.btn.btn-dark {:title "Click here to show full transaction details."
+                                   :on-click (fn [_]
+                                               (swap! transaction (expand-trx)))}
+             (icon :arrows-expand)]
 
-          (can-accountify? @transaction)
-          [:button.btn.btn-dark {:title "Click here to simplify transaction entry."
-                                 :on-click (fn [_]
-                                             (swap! transaction (collapse-trx page-state)))}
-           (icon :arrows-collapse)])]
-       [:div.mt-3
-        (let [f (if (accountified? @transaction)
-                  trns/simple-transaction-form
-                  trns/full-transaction-form)]
-          [f page-state :on-save (post-transaction-save page-state)])]
-       [:div
-        [:button.btn.btn-primary
-         {:type :submit
-          :form "transaction-form"
-          :title "Click here to save the transaction"}
-         (icon-with-text :check "Save")]
-        [:button.btn.btn-secondary.ms-2
-         {:on-click #(swap! page-state dissoc :transaction)
-          :title "Click here to cancel this transaction"}
-         (icon-with-text :x "Cancel")]]])))
+            (can-accountify? @transaction)
+            [:button.btn.btn-dark {:title "Click here to simplify transaction entry."
+                                   :on-click (fn [_]
+                                               (swap! transaction (collapse-trx page-state)))}
+             (icon :arrows-collapse)])]
+         [:div.mt-3
+          (let [f (if (accountified? @transaction)
+                    trns/simple-transaction-form
+                    trns/full-transaction-form)]
+            [f page-state :on-save (post-transaction-save page-state)])]
+         [:div
+          [:button.btn.btn-primary
+           {:type :submit
+            :form "transaction-form"
+            :title "Click here to save the transaction"}
+           (icon-with-text :check "Save")]
+          [:button.btn.btn-secondary.ms-2
+           {:on-click #(swap! page-state dissoc :transaction)
+            :title "Click here to cancel this transaction"}
+           (icon-with-text :x "Cancel")]]]))))
 
 (defn- trade-form
   [page-state]
-  (let [dividend? (r/cursor page-state [:trade :trade/dividend?])]
+  (let [trade (r/cursor page-state [:trade])
+        dividend? (r/cursor trade [:trade/dividend?])]
     (fn []
-      [:<>
-       [:h3 (if @dividend? "Reinvest Dividend" "New Trade")]
-       [:div.mt-3
-        [trns/trade-transaction-form page-state :on-save (post-transaction-save page-state)]]
-       [:div
-        [:button.btn.btn-primary
-         {:type :submit
-          :form "trade-form"
-          :title "Click here to record this trade"}
-         (icon-with-text :check "Save")]
-        [:button.btn.btn-secondary.ms-2
-         {:on-click #(swap! page-state dissoc :trade)
-          :title "Click here to cancel this trade"}
-         (icon-with-text :x "Cancel")]]])))
+      (when @trade
+        [:<>
+         [:h3 (if @dividend? "Reinvest Dividend" "New Trade")]
+         [:div.mt-3
+          [trns/trade-transaction-form page-state :on-save (post-transaction-save page-state)]]
+         [:div
+          [:button.btn.btn-primary
+           {:type :submit
+            :form "trade-form"
+            :title "Click here to record this trade"}
+           (icon-with-text :check "Save")]
+          [:button.btn.btn-secondary.ms-2
+           {:on-click #(swap! page-state dissoc :trade)
+            :title "Click here to cancel this trade"}
+           (icon-with-text :x "Cancel")]]]))))
 
 (defn- check-all-items
   ([page-state]  (check-all-items page-state true))
@@ -692,59 +798,42 @@
 
 (defn- transaction-item-list
   [page-state]
-  (let [ctl-chan (r/cursor page-state [:ctl-chan])
-        all-items-fetched? (r/cursor page-state [:all-items-fetched?])
-        reconciliation (r/cursor page-state [:reconciliation])]
-    (fn []
-      [:<>
-       [:div.d-flex.flex-row-reverse {:class (when-not @reconciliation "d-none")}
-        [:button.btn.btn-dark.ms-2
-         {:on-click #(uncheck-all-items page-state)
-          :title "Click here to mark all items as unreconciled"}
-         (icon :square :size :small)]
-        [:button.btn.btn-dark.ms-2
-         {:on-click #(check-all-items page-state)
-          :title "Click here to mark all items as reconciled"}
-         (icon :check-square :size :small)]]
-
-       [:div.d-flex.flex-column.h-75
-        [:div#items-container.flex-grow-1.overflow-auto {:style {:height "0"}}
-         [trns/items-table page-state]]
-        [:div.d-flex.mt-2 {:style {:flex :none}}
-         [account-buttons page-state]
-         [:span.ms-auto
-          [load-on-scroll {:target "items-container"
-                           :all-items-fetched? @all-items-fetched?
-                           :load-fn #(go (>! @ctl-chan :fetch))}]]]]])))
-
-(defn- currency-account-details
-  [page-state]
-  (let [transaction (r/cursor page-state [:transaction])
+  (let [account (r/cursor page-state [:view-account])
+        transaction (r/cursor page-state [:transaction])
         trade (r/cursor page-state [:trade])
+        show? (make-reaction #(and @account
+                                   (not (system-tagged? @account :tradable))
+                                   (not @transaction)
+                                   (not @trade)))
+        ctl-chan (r/cursor page-state [:ctl-chan])
+        all-items-fetched? (r/cursor page-state [:all-items-fetched?])
         reconciliation (r/cursor page-state [:reconciliation])
-        attachments-item (r/cursor page-state [:attachments-item])
-        selected-attachment (r/cursor page-state [:selected-attachment])]
-    (trns/init-item-loading page-state)
+        hide (make-reaction #(or @trade
+                                 (not @reconciliation)))]
     (fn []
-      (cond
-        @transaction         [transaction-form page-state]
-        @trade               [trade-form page-state]
-        @reconciliation      [:div.row
-                              [:div.col
-                               [transaction-item-list page-state]]
-                              [:div.col
-                               [recs/reconciliation-form page-state]]]
-        @selected-attachment [atts/attachment-form page-state]
-        @attachments-item    [atts/attachments-card page-state]
-        :else                [transaction-item-list page-state]))))
+      (when @show?
+        [:<>
+         [:div.d-flex.flex-row-reverse
+          {:class (when @hide "d-none")}
+          [:button.btn.btn-dark.ms-2
+           {:on-click #(uncheck-all-items page-state)
+            :title "Click here to mark all items as unreconciled"}
+           (icon :square :size :small)]
+          [:button.btn.btn-dark.ms-2
+           {:on-click #(check-all-items page-state)
+            :title "Click here to mark all items as reconciled"}
+           (icon :check-square :size :small)]]
 
-(defn- load-lot-audit!
-  [page-state lot]
-  (audit/select lot :lot/shares-purchased
-                :on-success
-                #(swap! page-state assoc-in
-                        [:lot-audit-histories (:id lot)]
-                        %)))
+         [:div.d-flex.flex-column.h-75
+          [:div#items-container.flex-grow-1.overflow-auto
+           {:style {:height "0"}}
+           [trns/items-table page-state]]
+          [:div.d-flex.mt-2 {:style {:flex :none}}
+           [account-buttons page-state]
+           [:span.ms-auto
+            [load-on-scroll {:target "items-container"
+                             :all-items-fetched? @all-items-fetched?
+                             :load-fn #(go (>! @ctl-chan :fetch))}]]]]]))))
 
 (defn- toggle-lot-audit!
   [page-state lot]
@@ -861,101 +950,39 @@
                             3)]
            [:td (html/space)]]])])))
 
-(defn- load-lot-notes
-  [page-state]
-  (let [{:keys [view-account]} @page-state]
-    (lot-notes/select
-      #:lot{:account view-account}
-      :on-success (partial swap! page-state assoc :lot-notes))))
-
-(defn- load-lots
-  [page-state]
-  (let [{:account/keys [parent commodity]}
-        (:view-account @page-state)]
-    (lots/select
-      #:lot{:account parent
-            :commodity commodity}
-      :on-success (fn [lots]
-                    (swap! page-state assoc :lots lots)
-                    (doseq [lot lots]
-                      (load-lot-audit! page-state lot))))))
-
-(defn- load-prices
-  [page-state]
-  (let [{:account/keys [commodity transaction-date-range]}
-        (:view-account @page-state)]
-    (when transaction-date-range
-      (prices/select
-        #:price{:commodity commodity
-                :trade-date (apply vector :between transaction-date-range)}
-        :on-success #(swap! page-state assoc :prices %)))))
-
 (defn- tradable-account-items
   [page-state]
-  (let [current-nav (r/atom :lots)
-        account (r/cursor page-state [:view-account])]
-   (load-lots page-state)
-   (load-lot-notes page-state)
-   (load-prices page-state)
-    (fn []
-      [:section
-       (bs/nav-tabs [{:id :lots-nav
-                      :label "Lots"
-                      :elem-key :lots
-                      :active? (= :lots @current-nav)
-                      :nav-fn #(reset! current-nav :lots)}
-                     {:id :transactions-nav
-                      :label "Transactions"
-                      :elem-key :transactions
-                      :active? (= :transactions @current-nav)
-                      :nav-fn #(reset! current-nav :transactions)}])
-       (case @current-nav
-         :lots         [lots-table page-state]
-         :transactions [trns/fund-transactions-table page-state])
-       [:div.row
-        [:div.col-md-6
-         [:button.btn.btn-primary
-          {:title "Click here to buy or sell this commodity."
-           :on-click (fn []
-                       (let [{:account/keys [entity parent commodity]}
-                             @account]
-                         (swap! page-state
-                              assoc
-                              :trade
-                              #:trade{:date (t/today)
-                                      :action :buy
-                                      :entity entity
-                                      :account parent
-                                      :commodity commodity
-                                      :commodity-account @account}))
-                       (set-focus "trade-date"))}
-          (icon-with-text :plus "Buy/Sell")]
-         [:button.btn.btn-secondary.ms-2
-          {:title "Click here to return the the account list."
-           :on-click #(swap! page-state dissoc
-                             :view-account
-                             :lots
-                             :lot-notes
-                             :items
-                             :all-items-fetched?
-                             :lot-audit-histories
-                             :lot-audit-expanded)}
-          (icon-with-text :arrow-left-short "Back")]]]])))
-
-(defn- tradable-account-details
-  [page-state]
-  (fn []
-    [tradable-account-items page-state]))
-
-(defn- account-details
-  [page-state]
   (let [account (r/cursor page-state [:view-account])
-        system-tags (r/cursor account [:account/system-tags])]
+        trade (r/cursor page-state [:trade])
+        show? (make-reaction #(and (system-tagged? @account :tradable)
+                                   (not @trade)))
+        current-nav (r/atom :lots)]
     (fn []
-      (when @account
-        (cond
-          (:tradable @system-tags) [tradable-account-details page-state]
-          :else [currency-account-details page-state])))))
+      (when @show?
+        [:section
+         (bs/nav-tabs [{:id :lots-nav
+                        :label "Lots"
+                        :elem-key :lots
+                        :active? (= :lots @current-nav)
+                        :nav-fn #(reset! current-nav :lots)}
+                       {:id :transactions-nav
+                        :label "Transactions"
+                        :elem-key :transactions
+                        :active? (= :transactions @current-nav)
+                        :nav-fn #(reset! current-nav :transactions)}])
+         (case @current-nav
+           :lots         [lots-table page-state]
+           :transactions [trns/fund-transactions-table page-state])
+         [:div.row
+          [:div.col-md-6
+           [:button.btn.btn-primary
+            {:title "Click here to buy or sell this commodity."
+             :on-click #(new-trade page-state)}
+            (icon-with-text :plus "Buy/Sell")]
+           [:button.btn.btn-secondary.ms-2
+            {:title "Click here to return the the account list."
+             :on-click (unselect-account page-state)}
+            (icon-with-text :arrow-left-short "Back")]]]]))))
 
 (defn- asset-allocation-row
   [{:keys [account
@@ -1171,7 +1198,12 @@
         [:div.col-md-6
          [:h2 (if (:id @selected) "Edit" "New")]
          [account-form page-state]]]
-       [account-details page-state]
+       [transaction-item-list page-state]
+       [tradable-account-items page-state]
+       [transaction-form page-state]
+       [trade-form page-state]
+       [recs/reconciliation-form page-state]
+       [atts/attachment-form page-state]
        (when @allocation-account
          [asset-allocation page-state])])))
 
