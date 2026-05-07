@@ -1,15 +1,19 @@
 (ns clj-money.views.attachments
   (:require [cljs.pprint :refer [pprint]]
+            [clojure.core.async :as a]
             [reagent.core :as r]
             [dgknght.app-lib.web :refer [format-date
                                          path]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.dom :as dom]
             [dgknght.app-lib.forms :as forms]
+            [cljs-http.client :as http]
+            [clj-money.object-url :as obj-url]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [+busy
-                                     -busy]]
+                                     -busy
+                                     auth-token]]
             [clj-money.api.attachments :as atts]))
 
 (defn- post-delete
@@ -28,6 +32,16 @@
                  :callback -busy
                  :on-success (post-delete page-state))))
 
+(defn- view-image
+  [{:keys [id]}]
+  (a/go
+    (let [{:keys [body]} (a/<! (http/get (path :app :images id)
+                              {:with-credentials? false
+                               :response-type :blob
+                               :headers {"Authorization" (str "Bearer " @auth-token)}}))
+          url (obj-url/create body)]
+      (.open js/window url "_blank"))))
+
 (defn- attachment-row
   [{:as attachment :attachment/keys [caption created-at image]} page-state]
   ^{:key (str "attachment-row-" (:id attachment))}
@@ -35,11 +49,8 @@
    [:td (or caption created-at "unnamed")]
    [:td
     [:div.btn-group
-     [:a.btn.btn-sm.btn-primary {:title "Click here to view this attachment."
-                                 :href (path :app
-                                             :images
-                                             (:id image))
-                                 :target "_blank"}
+     [:button.btn.btn-sm.btn-primary {:title "Click here to view this attachment."
+                                      :on-click #(view-image image)}
       (icon :eye {:size :small})]
      [:button.btn.btn-sm.btn-secondary {:title "Click here to edit this attachment"
                                    :on-click (fn []
