@@ -119,7 +119,7 @@
       [:div.card.mb-2
        [:div.card-header [:strong "Edit Attachment"]]
        [:div.card-body
-        [forms/text-field attachment [:caption]]]
+        [forms/text-field attachment [:attachment/caption]]]
        [:div.card-footer
         [:button.btn.btn-primary {:on-click #(save-attachment page-state)
                                   :title "Click here to save this attachment"}
