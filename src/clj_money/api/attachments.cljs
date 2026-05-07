@@ -24,6 +24,9 @@
                           (add-error-handler "Unable to create the attachment: %s")
                           (assoc :oauth-token (:auth-token @app-state))))]
     (a/go
+      ; TODO: This is returning a sequence because of the propagation
+      ; Ideally, we'd just return the attachment immediately and let the
+      ; propagation happen in the background
       (let [[{:as res :attachment/keys [image]}] (a/<! ch)]
         (callback)
         (when image
