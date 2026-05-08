@@ -260,9 +260,14 @@
 (defn id=
   "Given a list of maps, returns true if they all have the same :id attribute"
   [& entities]
-  (->> entities
-       (map :id)
-       (apply =)))
+  (if (= 1 (count entities))
+    (fn [& es]
+      (apply =
+             (:id (first entities))
+             (map :id es)))
+    (->> entities
+         (map :id)
+         (apply =))))
 
 (defn entity=
   "Given a list of maps, returns true if they all have the same :id
