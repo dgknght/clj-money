@@ -70,11 +70,12 @@
   (fn [xf]
     (completing
       (fn [ch items]
-        (when (seq items)
+        (if (seq items)
           (let [still-seeking (swap! count-sought - (count items))]
             (go (>! ctl-ch (if (< 0 still-seeking)
                              :fetch-more
-                             :force)))))
+                             :force))))
+          (go (>! ctl-ch :fetch-more)))
         (xf ch items)))))
 
 (defn load-in-chunks
