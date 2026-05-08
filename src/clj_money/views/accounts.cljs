@@ -569,13 +569,18 @@
 
 (defn- new-trade
   [page-state]
-  (let [account (:view-account @page-state)
+  (let [{:keys [commodities] account :view-account} @page-state
         commodity-account? (system-tagged? account :tradable)
         trade #:trade{:entity @current-entity
                       :action :buy
                       :date (t/today)
                       :commodity-account (when commodity-account?
                                            account)
+                      :commodity (when commodity-account?
+                                   (-> account
+                                       :account/commodity
+                                       :id
+                                       commodities))
                       :account (if commodity-account?
                                  (:account/parent account)
                                  account)}]
