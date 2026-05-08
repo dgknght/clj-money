@@ -48,6 +48,7 @@
       "Bash(du:*)",
       "mcp__trello__add-comment",
       "Bash(podman compose:*)",
+      "Bash(python3 .claude/scripts/parse_trello_cards.py)",
       "WebFetch(domain:funcool.github.io)",
       "WebFetch(domain:github.com)"
     ],
