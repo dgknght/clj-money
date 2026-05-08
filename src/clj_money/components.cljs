@@ -119,6 +119,36 @@
      {:ctl-ch ctl-ch
       :items-ch fetch-ch})))
 
+(defn fill-remaining-height
+  [& _args]
+  (let [height (r/atom nil)
+        node-ref (atom nil)
+        padding (atom 0)
+        update-height (fn []
+                        (when-let [node @node-ref]
+                          (let [top (.-top (.getBoundingClientRect node))]
+                            (reset! height (- js/window.innerHeight
+                                              top
+                                              @padding)))))]
+    (r/create-class
+      {:component-did-mount
+       (fn [_]
+         (.addEventListener js/window "resize" update-height)
+         (update-height))
+       :component-will-unmount
+       (fn [_]
+         (.removeEventListener js/window "resize" update-height))
+       :reagent-render
+       (fn [attrs & children]
+         (when-let [p (:vertical-padding attrs)]
+           (reset! padding p))
+         (into [:div (merge attrs
+                            {:ref #(reset! node-ref %)
+                             :style (merge (:style attrs)
+                                           (when @height
+                                             {:height (str @height "px")}))})]
+               children))})))
+
 (def ^:private spinner-size
   {:small "spinner-border-sm"})
 

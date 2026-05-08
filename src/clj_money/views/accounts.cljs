@@ -27,6 +27,7 @@
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.components :refer [load-on-scroll
+                                          fill-remaining-height
                                           button
                                           audit-history-popover]]
             [clj-money.api.commodities :as commodities]
@@ -828,10 +829,9 @@
            {:on-click #(check-all-items page-state)
             :title "Click here to mark all items as reconciled"}
            (icon :check-square :size :small)]]
-
-         [:div.d-flex.flex-column.h-75
+         [fill-remaining-height {:class "d-flex flex-column"
+                                 :vertical-padding 32}
           [:div#items-container.flex-grow-1.overflow-auto
-           {:style {:height "0"}}
            [trns/items-table page-state]]
           [:div.d-flex.mt-2 {:style {:flex :none}}
            [account-buttons page-state]
