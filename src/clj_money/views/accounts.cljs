@@ -23,7 +23,7 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.dates :refer [serialize-local-date]]
-            [clj-money.util :as util :refer [entity= id=]]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.components :refer [load-on-scroll
@@ -699,7 +699,7 @@
     :post-xf (map (fn [accounts]
                     (let [account (get-in @page-state [:view-account])
                           updated (->> accounts
-                                       (filter #(entity= account %))
+                                       (filter (id= account))
                                        first)]
                       (swap! page-state assoc :view-account updated)
                       (trns/reset-item-loading page-state))
