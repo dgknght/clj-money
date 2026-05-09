@@ -3,7 +3,8 @@
   :url "http://money.herokuapp.com"
   :license {:name "Eclipse Public License v1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :repositories [["sonatype" {:url "https://oss.sonatype.org/content/repositories/releases"}]]
+  :repositories [["sonatype" {:url "https://oss.sonatype.org/content/repositories/releases"}]
+                 ["sonatype-snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots"}]]
   :managed-dependencies [[clj-time "0.15.2"]
                          [ring/ring-core "1.12.2"]
                          [commons-io "2.16.1"]
