@@ -5,10 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :repositories [["sonatype" {:url "https://oss.sonatype.org/content/repositories/releases"}]
                  ["sonatype-snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots"}]]
-  :mirrors {"sonatype" {:name "sonatype"
-                        :url "https://oss.sonatype.org/content/repositories/releases"}
-            "sonatype-snapshots" {:name "sonatype-snapshots"
-                                  :url "https://oss.sonatype.org/content/repositories/snapshots"}}
+  :mirrors {"google-maven-central-mirror" {:url "https://maven-central.storage-download.googleapis.com/maven2/"}}
   :managed-dependencies [[clj-time "0.15.2"]
                          [ring/ring-core "1.12.2"]
                          [commons-io "2.16.1"]
