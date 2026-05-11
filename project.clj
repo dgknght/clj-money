@@ -6,7 +6,9 @@
   :repositories [["sonatype" {:url "https://oss.sonatype.org/content/repositories/releases"}]
                  ["sonatype-snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots"}]
                  ["google-maven-central-mirror" {:url "https://maven-central.storage-download.googleapis.com/maven2/"}]]
-  :mirrors {"sonatype" {:name "sonatype"
+  :mirrors {#"d3cbhizx7bu3at" {:name "central"
+                                :url "https://repo1.maven.org/maven2/"}
+            "sonatype" {:name "sonatype"
                         :url "https://oss.sonatype.org/content/repositories/releases"}
             "sonatype-snapshots" {:name "sonatype-snapshots"
                                   :url "https://oss.sonatype.org/content/repositories/snapshots"}}
