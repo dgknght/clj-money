@@ -27,7 +27,7 @@
          (re-find #"^\d{4}-\d{2}-\d{2}$" x)) (unserialize-local-date x)
     :else x))
 
-(defn- ->criteria
+(defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
       comparatives/symbolize
@@ -40,7 +40,7 @@
                     :account-item/_self])
       (+scope :transaction authenticated)))
 
-(defn- ->options
+(defn- extract-options
   [{:keys [params]}]
   (-> params
       (select-keys [:include-items])
@@ -49,7 +49,7 @@
 (defn- index
   [req]
   (api/response
-   (entities/select (->criteria req) (->options req))))
+   (entities/select (extract-criteria req) (extract-options req))))
 
 (defn- find-and-auth
   [{:keys [path-params authenticated]} action]
