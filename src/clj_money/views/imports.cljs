@@ -307,7 +307,7 @@
 (defn- start-after-save
   [page-state]
   (fn [result]
-    (state/add-entity (:import/entity result))
+    (state/add-entity (:entity result))
     (reset! auto-refresh true)
     (swap! page-state #(-> %
                            (dissoc :import-data)

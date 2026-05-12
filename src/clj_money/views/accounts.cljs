@@ -1087,12 +1087,13 @@
 
 (defn- load-commodities
   [page-state]
-  (+busy)
-  (commodities/select {}
-                      :on-success #(swap! page-state
-                                          assoc
-                                          :commodities (index-by :id %))
-                      :callback -busy))
+  (when @current-entity
+    (+busy)
+    (commodities/select {}
+                        :on-success #(swap! page-state
+                                            assoc
+                                            :commodities (index-by :id %))
+                        :callback -busy)))
 
 (defn- account-filter
   [page-state]
