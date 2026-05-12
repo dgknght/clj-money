@@ -172,15 +172,14 @@
   (let [transaction #:transaction{:transaction-date "2020-01-01"
                                   :description "ACME Store"
                                   :memo "transaction memo"
-                                  :items [#:transaction-item{:credit-item #:account-item{:account {:id 1}
-                                                                                         :memo "checking memo"
-                                                                                         :action :credit
-                                                                                         :quantity (d 10)}
-                                                             :debit-item #:account-item{:account {:id 2}
-                                                                                         :memo "groceries memo"
-                                                                                         :action :debit
-                                                                                         :quantity (d 10)}
-                                                             :value (d 10)}]}
+                                  :items [#:transaction-item{:account {:id 1}
+                                                             :memo "checking memo"
+                                                             :action :credit
+                                                             :quantity (d 10)}
+                                          #:transaction-item{:account {:id 2}
+                                                             :memo "groceries memo"
+                                                             :action :debit
+                                                             :quantity (d 10)}]}
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
