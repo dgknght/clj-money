@@ -51,16 +51,10 @@
 
 (defn- supply-accounts
   [items]
-  (map (fn [item]
-         (-> item
-             (update-in [:transaction-item/debit-item
-                         :transaction-item/account]
-                        (comp @accounts-by-id
-                              :id))
-             (update-in [:transaction-item/credit-item
-                         :transaction-item/account]
-                        (comp @accounts-by-id
-                              :id))))
+  (map #(update-in %
+                   [:transaction-item/account]
+                   (comp @accounts-by-id
+                         :id))
        items))
 
 (defn- prepare-transaction-for-edit
