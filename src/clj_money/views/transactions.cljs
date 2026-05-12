@@ -599,13 +599,13 @@
   [page-state & {:keys [on-save]}]
   (let [trade (r/cursor page-state [:trade])
         dividend? (r/cursor trade [:trade/dividend?])
-        price (make-reaction #(let [{:trade/keys [shares value fee fee-in-value? action]} @trade
+        price (make-reaction #(let [{:trade/keys [shares value fee value-includes-fee? action]} @trade
                                     fee (or fee 0M)
                                     adj-value (cond
                                                 (not (and shares value)) nil
-                                                (not fee-in-value?)      value
-                                                (= :sell action)         (+ value fee)
-                                                :else                    (- value fee))]
+                                                (not value-includes-fee?) value
+                                                (= :sell action)          (+ value fee)
+                                                :else                     (- value fee))]
                                 (when adj-value
                                   (decimal// adj-value shares))))
         commodities (r/cursor page-state [:commodities])]
@@ -652,7 +652,7 @@
            :find-fn (fn [{:keys [id]} callback]
                       (callback (@accounts-by-id id)))}]]
         [:div.col-md-4.d-flex.align-items-end
-         [forms/checkbox-field trade [:trade/fee-in-value?] {:caption "Fee in value"}]]]
+         [forms/checkbox-field trade [:trade/value-includes-fee?] {:caption "Value includes fee"}]]]
        [forms/typeahead-field
         trade
         [:trade/commodity]
