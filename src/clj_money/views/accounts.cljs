@@ -1147,9 +1147,13 @@
                                       :settings/default-commodity]))
         view-account (r/cursor page-state [:view-account])
         selected (r/cursor page-state [:selected])
+        transaction (r/cursor page-state [:transaction])
         allocation-account (r/cursor page-state [:allocation :account])
         bulk-select (r/cursor page-state [:bulk-edit :account-ids])
-        hide-table? (make-reaction #(or @selected @view-account @allocation-account))
+        hide-table? (make-reaction #(or @selected
+                                        @view-account
+                                        @allocation-account
+                                        @transaction))
         hide-funnel? (make-reaction #(or @selected @view-account))]
     (load-commodities page-state)
     (add-watch current-entity
