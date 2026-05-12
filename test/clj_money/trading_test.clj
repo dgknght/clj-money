@@ -150,28 +150,6 @@
       (is (= 5M (:account/quantity (entities/find inv-exp)))
           "The investment expense account reflects the fee"))))
 
-; purchase-attributes: 100 shares, value 1000M
-; With fee-in-value? and fee=5M, the user enters value=1005M (total cost including fee)
-; The price per share should still be (1005-5)/100 = 10M
-(deftest ^:multi-threaded purchase-a-commodity-with-fee-in-value
-  (with-context base-context
-    (let [ira (find-account "IRA")
-          inv-exp (find-account "Investment Expenses")
-          result (-> (purchase-attributes)
-                     (assoc :trade/value 1005M
-                            :trade/fee 5M
-                            :trade/fee-account inv-exp
-                            :trade/fee-in-value? true)
-                     trading/buy-and-propagate
-                     first)]
-      (is (comparable? #:price{:value 10M}
-                       (:trade/price result))
-          "The price is based on the fee-excluded value")
-      (is (= 995M (:account/quantity (entities/find ira)))
-          "The investment account balance reflects the total cost")
-      (is (= 5M (:account/quantity (entities/find inv-exp)))
-          "The fee expense account reflects the fee"))))
-
 (deftest ^:multi-threaded reinvest-a-dividend
   (with-context base-context
     (let [dividends (find-account "Dividends")
@@ -366,32 +344,6 @@
     (is (comparable? {:account/quantity 5M}
                      (entities/find (find-account "Investment Expenses")))
         "The investment fee account balance reflects the fee")))
-
-; sale-attributes: 25 shares, value 375M (15M/share)
-; With fee-in-value? and fee=5M, the user enters value=370M (net proceeds after fee)
-; The price per share should be (370+5)/25 = 15M
-(deftest ^:multi-threaded sell-a-commodity-with-fee-in-value
-  (with-context sale-context
-    (let [result (-> (sale-attributes)
-                     (assoc :trade/value 370M
-                            :trade/fee 5M
-                            :trade/fee-account (find-account "Investment Expenses")
-                            :trade/fee-in-value? true)
-                     trading/sell-and-propagate
-                     first)]
-      (is (comparable? #:price{:value 15M}
-                       (:trade/price result))
-          "The price is based on the fee-excluded gross proceeds")
-      ; Opening balance             $2,000
-      ; Purchase AAPL     -1,000 -> $1,000
-      ; Sell AAPL (net)    + 370 -> $1,370
-      ; Fee                  - 5 -> $1,370 (fee deducted from proceeds internally)
-      (is (comparable? {:account/quantity 1370M}
-                       (entities/find (find-account "IRA")))
-          "The investment account balance reflects the net proceeds")
-      (is (comparable? {:account/quantity 5M}
-                       (entities/find (find-account "Investment Expenses")))
-          "The fee expense account reflects the fee"))))
 
 (defn- assert-invalid-sale
   [attr errors]

@@ -30,7 +30,6 @@
 (s/def :trade/date t/local-date?)
 (s/def :trade/fee decimal?)
 (s/def :trade/fee-account ::entities/entity-ref)
-(s/def :trade/fee-in-value? boolean?)
 (s/def :trade/shares decimal?)
 (s/def :trade/value decimal?)
 (s/def :trade/dividend? boolean?)
@@ -49,7 +48,6 @@
                 :trade/commodity-account]
           :opt [:trade/fee
                 :trade/fee-account
-                :trade/fee-in-value?
                 :trade/dividend?
                 :trade/dividend-account]))
 
@@ -61,7 +59,6 @@
                 :trade/account]
           :opt [:trade/fee
                 :trade/fee-account
-                :trade/fee-in-value?
                 :trade/dividend?
                 :trade/dividend-account]))
 
@@ -84,8 +81,7 @@
                 :trade/st-capital-gains-account
                 :trade/st-capital-loss-account
                 :trade/fee
-                :trade/fee-account
-                :trade/fee-in-value?]))
+                :trade/fee-account]))
 
 (defmethod sale-spec :separate [_]
   (s/keys :req [:trade/date
@@ -99,8 +95,7 @@
                 :trade/st-capital-gains-account
                 :trade/st-capital-loss-account
                 :trade/fee
-                :trade/fee-account
-                :trade/fee-in-value?]))
+                :trade/fee-account]))
 
 (s/def ::entities/sale (s/multi-spec sale-spec :trade/commodity-account))
 
@@ -119,22 +114,6 @@
                                                      :trade-date date})
                                  :price/value (with-precision 10 (/ value shares))))))
 
-
-(defn- normalize-purchase-value
-  "When :trade/fee-in-value? is true, the user entered a value that already
-  includes the fee. Subtract the fee so that value represents shares × price."
-  [{:trade/keys [fee-in-value? fee value] :or {fee 0M} :as trade}]
-  (if (and fee-in-value? (pos? fee))
-    (assoc trade :trade/value (- value fee))
-    trade))
-
-(defn- normalize-sale-value
-  "When :trade/fee-in-value? is true, the user entered net proceeds (fee
-  already deducted). Add the fee back so that value represents shares × price."
-  [{:trade/keys [fee-in-value? fee value] :or {fee 0M} :as trade}]
-  (if (and fee-in-value? (pos? fee))
-    (assoc trade :trade/value (+ value fee))
-    trade))
 
 (defn- push-commodity-price-boundary
   [{:trade/keys [date] :as trade}]
@@ -515,7 +494,6 @@
         append-commodity
         append-accounts
         append-entity
-        normalize-purchase-value
         create-price
         push-commodity-price-boundary
         update-accounts
@@ -691,7 +669,6 @@
         append-entity
         acquire-lots
         update-entity-settings
-        normalize-sale-value
         create-price
         push-commodity-price-boundary
         update-accounts

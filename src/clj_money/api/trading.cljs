@@ -3,19 +3,29 @@
             [clj-money.util :as util]
             [clj-money.api :as api :refer [add-error-handler]]))
 
+(defn- adjust-value-for-fee
+  "When fee-in-value? is true, normalize value to shares × price before
+  sending to the API: subtract fee for purchases, add it back for sales."
+  [{:trade/keys [action fee fee-in-value? value] :or {fee 0} :as trade}]
+  (if (and fee-in-value? (pos? fee))
+    (assoc trade :trade/value (if (= :sell action)
+                                (+ value fee)
+                                (- value fee)))
+    trade))
+
 (defn create
   [{:trade/keys [entity] :as trade} & {:as opts}]
   {:pre [(:trade/entity trade)]}
 
   (api/post (api/path :entities entity :trades)
             (-> trade
+                adjust-value-for-fee
                 (select-keys [:trade/date
                               :trade/action
                               :trade/value
                               :trade/shares
                               :trade/fee
                               :trade/fee-account
-                              :trade/fee-in-value?
                               :trade/dividend?
                               :trade/account
                               :trade/commodity

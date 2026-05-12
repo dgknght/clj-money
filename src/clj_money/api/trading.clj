@@ -15,7 +15,6 @@
    :trade/value
    :trade/fee
    :trade/fee-account
-   :trade/fee-in-value?
    :trade/commodity
    :trade/account
    :trade/dividend?
