@@ -651,7 +651,7 @@
            :caption-fn (comp (partial string/join "/") :account/path)
            :find-fn (fn [{:keys [id]} callback]
                       (callback (@accounts-by-id id)))}]]
-        [:div.col-md-4.d-flex.align-items-end.mb-3
+        [:div.col-md-4.d-flex.align-items-end
          [forms/checkbox-field trade [:trade/fee-in-value?] {:caption "Fee in value"}]]]
        [forms/typeahead-field
         trade
