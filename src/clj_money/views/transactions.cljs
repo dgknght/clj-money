@@ -605,10 +605,15 @@
   [page-state & {:keys [on-save]}]
   (let [trade (r/cursor page-state [:trade])
         dividend? (r/cursor trade [:trade/dividend?])
-        price (make-reaction #(when (and (:trade/shares @trade)
-                                         (:trade/value @trade))
-                                (decimal// (:trade/value @trade)
-                                           (:trade/shares @trade))))
+        price (make-reaction #(let [{:trade/keys [shares value fee fee-in-value? action]} @trade
+                                    fee (or fee 0M)
+                                    adj-value (cond
+                                                (not (and shares value)) nil
+                                                (not fee-in-value?)      value
+                                                (= :sell action)         (+ value fee)
+                                                :else                    (- value fee))]
+                                (when adj-value
+                                  (decimal// adj-value shares))))
         commodities (r/cursor page-state [:commodities])]
     (fn []
       [:form#trade-form
@@ -638,12 +643,28 @@
         [:div.col-md-4.d-flex.flex-column
          [:span.mb-2 "Est. Price"]
          [:span.mb-3.ms-3 (when @price (format-decimal @price))]]]
+       [:div.row
+        [:div.col-md-4
+         [forms/decimal-field trade [:trade/fee]]]
+        [:div.col-md-4
+         [forms/typeahead-field
+          trade
+          [:trade/fee-account]
+          {:search-fn (fn [input callback]
+                        (->> @accounts
+                             (find-by-path input)
+                             callback))
+           :caption-fn (comp (partial string/join "/") :account/path)
+           :find-fn (fn [{:keys [id]} callback]
+                      (callback (@accounts-by-id id)))}]]
+        [:div.col-md-4.d-flex.align-items-end.mb-3
+         [forms/checkbox-field trade [:trade/fee-in-value?] {:caption "Fee in value"}]]]
        [forms/typeahead-field
         trade
         [:trade/commodity]
         {:search-fn (fn [input callback]
                       (callback (cmdts/search input (vals @commodities))))
-         :caption-fn cmdts/description 
+         :caption-fn cmdts/description
          :value-fn :id
          :find-fn (fn [{:keys [id]} callback]
                     (callback (@commodities id)))
