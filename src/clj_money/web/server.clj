@@ -10,10 +10,8 @@
             [ring.middleware.oauth2 :as oauth2]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
-            [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.session.cookie :refer [cookie-store]]
-            [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
             [clj-money.otel.web :as otel]
             [clj-money.config :refer [env]]
@@ -48,47 +46,7 @@
             [clj-money.api.audit :as audit-api]
             [clj-money.api.invitations :as invitations-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
-            [clj-money.web.apps :as apps]
-            [cljs.pprint :as pprint]))
-
-(defn- not-found []
-  (-> (slurp "resources/404.html")
-      res/response
-      (res/status 404)
-      (res/content-type "text/html")))
-
-(defn- forbidden []
-  (-> (slurp "resources/403.html")
-      res/response
-      (res/status 403)
-      (res/content-type "text/html")))
-
-(defn internal-error []
-  (-> (slurp "resources/500.html")
-      res/response
-      (res/status 500)
-      (res/content-type "text/html")))
-
-; TODO: Remove this duplicate with the API version of this fn
-(defmulti handle-exception :type)
-
-(defmethod handle-exception ::authorization/unauthorized
-  [data]
-  (if (:opaque? data)
-    (not-found)
-    (forbidden)))
-
-(defmethod handle-exception ::authorization/not-found
-  [_data]
-  (not-found))
-
-(defmethod handle-exception ::authorization/no-rules
-  [_data]
-  (internal-error))
-
-(defmethod handle-exception ::entities/not-found
-  [_data]
-  (not-found))
+            [clj-money.web.apps :as apps]))
 
 (defn- wrap-request-logging
   [handler]
@@ -135,7 +93,6 @@
         handler
         (update-in [:body] d/wrap-decimals))))
 
-
 (defn- maybe-wrap-oauth2
   [handler]
   (let [providers (set (env :oauth-providers))
@@ -149,16 +106,11 @@
 (def router
   (ring/router ["/" {:middleware [otel/wrap-otel]}
                 apps/routes
-                ["auth/google/done"
-                 {:middleware [:site
-                               wrap-merge-params
-                               wrap-request-logging]
-                  :get {:handler google-auth/redirect-handler}}]
-                ["auth/github/done"
-                 {:middleware [:site
-                               wrap-merge-params
-                               wrap-request-logging]
-                  :get {:handler github-auth/redirect-handler}}]
+                ["auth/" {:middleware [:site
+                                       wrap-merge-params
+                                       wrap-request-logging]}
+                 ["google/done" {:get {:handler google-auth/redirect-handler}}]
+                 ["github/done" {:get {:handler github-auth/redirect-handler}}]]
                 ["app/" {:middleware [:site
                                       wrap-merge-params
                                       wrap-parse-id-params
