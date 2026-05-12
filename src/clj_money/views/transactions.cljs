@@ -61,12 +61,12 @@
   ([account]
    #(prepare-transaction-for-edit % account))
   ([trx account]
-   (let [f (if (can-accountify? trx)
+   (let [prepare (if (can-accountify? trx)
              (accountify account)
              entryfy)]
      (-> trx
          (update-in [:transaction/items] supply-accounts)
-         f))))
+         prepare))))
 
 (defn- edit-transaction
   [transaction-item page-state]
