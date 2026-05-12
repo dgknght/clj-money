@@ -27,20 +27,20 @@
          (re-find #"^\d{4}-\d{2}-\d{2}$" x)) (unserialize-local-date x)
     :else x))
 
-(defn- ->criteria
+(defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
       comparatives/symbolize
       (update-in-if [:transaction-date] unserialize-date)
       (rename-keys {:transaction-date :transaction/transaction-date
-                    :account-item-id :account-item/_self})
-      (update-in-if [:account-item/_self] #(hash-map :id %))
+                    :transaction-item-id :transaction-item/_self})
+      (update-in-if [:transaction-item/_self] #(hash-map :id %))
       (select-keys [:transaction/entity
                     :transaction/transaction-date
-                    :account-item/_self])
+                    :transaction-item/_self])
       (+scope :transaction authenticated)))
 
-(defn- ->options
+(defn- extract-options
   [{:keys [params]}]
   (-> params
       (select-keys [:include-items])
@@ -49,7 +49,7 @@
 (defn- index
   [req]
   (api/response
-   (entities/select (->criteria req) (->options req))))
+   (entities/select (extract-criteria req) (extract-options req))))
 
 (defn- find-and-auth
   [{:keys [path-params authenticated]} action]
@@ -121,10 +121,10 @@
   [item]
   (-> item
       (update-in-if [:transaction-item/credit-item
-                     :account-item/action]
+                     :transaction-item/action]
                     util/ensure-keyword)
       (update-in-if [:transaction-item/debit-item
-                     :account-item/action]
+                     :transaction-item/action]
                     util/ensure-keyword)))
 
 (defn- apply-item-updates
