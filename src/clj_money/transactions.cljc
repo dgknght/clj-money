@@ -623,15 +623,12 @@
                                      value)))))
 
 (defn- entryfy-item
-  [{:transaction-item/keys [credit-item debit-item]}]
-  [{:transaction-item/debit-quantity  nil
-    :transaction-item/account (:account-item/account credit-item)
-    :transaction-item/credit-quantity (d/abs (:account-item/quantity credit-item))
-    :transaction-item/memo (:account-item/memo credit-item)}
-   {:transaction-item/debit-quantity (d/abs (:account-item/quantity debit-item))
-    :transaction-item/account (:account-item/account debit-item)
-    :transaction-item/credit-quantity nil
-    :transaction-item/memo (:account-item/memo debit-item)}])
+  [{:transaction-item/keys [quantity action] :as item}]
+  (-> item
+      (assoc :transaction-item/debit-quantity  (if (= :debit action) quantity nil)
+             :transaction-item/credit-quantity (if (= :credit action) quantity nil))
+      (dissoc :transaction-item/quantity
+              :transaction-item/action)))
 
 (defn entryfy
   "Accepts a unilateral transaction and returns the transaction
@@ -640,11 +637,8 @@
   [transaction]
   (update-in transaction
              [:transaction/items]
-             (fn [items]
-               (conj (->> items
-                          (mapcat entryfy-item)
-                          vec)
-                     {}))))
+             #(conj (mapv entryfy-item %)
+                    {})))
 
 (def ^:private has-quantity?
   (some-fn :transaction-item/debit-quantity
