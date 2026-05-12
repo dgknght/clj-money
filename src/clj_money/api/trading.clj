@@ -13,6 +13,9 @@
    :trade/entity
    :trade/shares
    :trade/value
+   :trade/fee
+   :trade/fee-account
+   :trade/fee-in-value?
    :trade/commodity
    :trade/account
    :trade/dividend?
@@ -34,6 +37,7 @@
       (select-keys create-attributes)
       (update-in-if [:trade/shares] bigdec)
       (update-in-if [:trade/value] bigdec)
+      (update-in-if [:trade/fee] bigdec)
       (update-in-if [:trade/date] dates/ensure-local-date)))
 
 (defn create

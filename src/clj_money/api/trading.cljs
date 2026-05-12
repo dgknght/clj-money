@@ -13,12 +13,16 @@
                               :trade/action
                               :trade/value
                               :trade/shares
+                              :trade/fee
+                              :trade/fee-account
+                              :trade/fee-in-value?
                               :trade/dividend?
                               :trade/account
                               :trade/commodity
                               :trade/dividend-account])
                 (update-in-if [:trade/account] util/->entity-ref)
                 (update-in-if [:trade/commodity] util/->entity-ref)
+                (update-in-if [:trade/fee-account] util/->entity-ref)
                 (update-in-if [:trade/dividend-account] util/->entity-ref)
                 (dissoc :trade/entity))
             (add-error-handler opts "Unable to create the trading transaction: %s")))
