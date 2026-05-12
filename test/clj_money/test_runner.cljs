@@ -1,11 +1,20 @@
 (ns clj-money.test-runner
-  (:require [clj-money.dates-test]
+  (:require [cljs.test :as t]
+            [clj-money.dates-test]
             [clj-money.accounts-test]
             [clj-money.budgets-test]
             [clj-money.util-test]
             [clj-money.transactions-test]
-            [clj-money.scheduled-transactions-test]
-            [figwheel.main.testing :refer [run-tests-async]]))
+            [clj-money.scheduled-transactions-test]))
+
+(defmethod t/report [:cljs.test/default :end-run-tests] [m]
+  (set! (.-exitCode js/process) (if (t/successful? m) 0 1)))
 
 (defn -main [& _args]
-  (run-tests-async 5000))
+  (t/run-tests
+    'clj-money.dates-test
+    'clj-money.accounts-test
+    'clj-money.budgets-test
+    'clj-money.util-test
+    'clj-money.transactions-test
+    'clj-money.scheduled-transactions-test))
