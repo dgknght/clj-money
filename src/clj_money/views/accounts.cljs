@@ -702,7 +702,9 @@
                                        (filter (id= account))
                                        first)]
                       (swap! page-state assoc :view-account updated)
-                      (trns/reset-item-loading page-state))
+                      (if (system-tagged? updated :tradable)
+                        (load-tradable-account page-state)
+                        (trns/reset-item-loading page-state)))
                     accounts))))
 
 (defn- post-transaction-save
