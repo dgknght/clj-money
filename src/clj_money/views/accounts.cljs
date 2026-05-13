@@ -866,7 +866,7 @@
        [audit-history-popover
         audit-history
         expanded?
-        [:div.ms-auto #(toggle-lot-audit! page-state lot)]]]]
+        #(toggle-lot-audit! page-state lot)]]]
      [:td.text-end (format-decimal (:lot/shares-owned lot) 4)]
      [:td.text-end (format-decimal (:lot/purchase-price lot) 2)]
      [:td.text-end
