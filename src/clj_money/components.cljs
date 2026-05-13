@@ -142,7 +142,7 @@
        (fn [attrs & children]
          (when-let [p (:vertical-padding attrs)]
            (reset! padding p))
-         (into [:div (merge attrs
+         (into [:div (merge (dissoc attrs :vertical-padding)
                             {:ref #(reset! node-ref %)
                              :style (merge (:style attrs)
                                            (when @height
