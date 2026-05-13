@@ -861,12 +861,14 @@
     [:tr
      [:td.text-end (format-date (:lot/purchase-date lot))]
      [:td.text-end
-      [:div.d-flex.align-items-center
-       (format-decimal (:lot/shares-purchased lot) 4)
-       [audit-history-popover
-        audit-history
-        expanded?
-        [:div.ms-auto #(toggle-lot-audit! page-state lot)]]]]
+      [:div.d-flex.justify-content-end.align-items-center
+       [:div.d-flex.align-items-center
+        [audit-history-popover
+         audit-history
+         expanded?
+         #(toggle-lot-audit! page-state lot)]
+        [:div.ms-2
+         (format-decimal (:lot/shares-purchased lot) 4)]]]]
      [:td.text-end (format-decimal (:lot/shares-owned lot) 4)]
      [:td.text-end (format-decimal (:lot/purchase-price lot) 2)]
      [:td.text-end
