@@ -180,7 +180,7 @@
   toggle-fn - 0-arity fn called when the button is clicked"
   [history expanded? toggle-fn]
   (when (->> history (filter (comp present? :description)) seq)
-    [:span.position-relative
+    [:span.position-relative.d-flex.align-items-center
      [:button.btn.btn-sm.btn-link.p-0
       {:title "View history"
        :on-click (fn [e]
