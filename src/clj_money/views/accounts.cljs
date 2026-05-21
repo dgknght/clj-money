@@ -739,13 +739,13 @@
                  "New Transaction")]
           (cond
             (accountified? @transaction)
-            [:button.btn.btn-dark {:title "Click here to show full transaction details."
+            [:button.btn.btn-secondary {:title "Click here to show full transaction details."
                                    :on-click (fn [_]
                                                (swap! transaction (expand-trx)))}
              (icon :arrows-expand)]
 
             (can-accountify? @transaction)
-            [:button.btn.btn-dark {:title "Click here to simplify transaction entry."
+            [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
                                    :on-click (fn [_]
                                                (swap! transaction (collapse-trx page-state)))}
              (icon :arrows-collapse)])]
@@ -821,11 +821,11 @@
         [:<>
          [:div.d-flex.flex-row-reverse
           {:class (when @hide "d-none")}
-          [:button.btn.btn-dark.ms-2
+          [:button.btn.btn-secondary.ms-2
            {:on-click #(uncheck-all-items page-state)
             :title "Click here to mark all items as unreconciled"}
            (icon :square :size :small)]
-          [:button.btn.btn-dark.ms-2
+          [:button.btn.btn-secondary.ms-2
            {:on-click #(check-all-items page-state)
             :title "Click here to mark all items as reconciled"}
            (icon :check-square :size :small)]]
@@ -1125,10 +1125,11 @@
          :input-container-html {:class "mb-1"}}]])))
 
 (defn- account-filter-toggle []
-  [:button.btn.btn-dark {:type :button
-                         :data-bs-toggle "offcanvas"
-                         :data-bs-target "#account-filter"
-                         :aria-controls "account-filter"}
+  [:button.btn.btn-outline-secondary
+   {:type :button
+    :data-bs-toggle "offcanvas"
+    :data-bs-target "#account-filter"
+    :aria-controls "account-filter"}
    (icon :funnel :size :small)])
 
 (defn- any-non-zero-balances?

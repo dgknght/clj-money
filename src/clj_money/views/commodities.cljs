@@ -494,10 +494,11 @@
        [:div.row
         [:div.col-md-8.d-flex.justify-content-between.align-items-center
          [:h1.mt-3 "Commodities"]
-         [:button.btn.btn-dark {:type :button
-                                :data-bs-toggle "offcanvas"
-                                :data-bs-target "#filter"
-                                :aria-controls "filter"}
+         [:button.btn.btn-outline-secondary
+          {:type :button
+           :data-bs-toggle "offcanvas"
+           :data-bs-target "#filter"
+           :aria-controls "filter"}
           (icon :funnel :size :small)]]]
        [filter-container page-state]
        [:div.row

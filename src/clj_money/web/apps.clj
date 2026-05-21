@@ -30,8 +30,7 @@
   [_req]
   {:status 200
    :body (html5
-           [:html.h-100 {:lang "en"
-                         :data-bs-theme "dark"}
+           [:html.h-100 {:lang "en"}
             (head)
             [:body.h-100
              [:div#app.h-100
