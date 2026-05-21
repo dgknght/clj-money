@@ -767,7 +767,7 @@
       [:div.mt-3
        [:div.d-print-none.d-flex.justify-content-between
         [:h1 "Reports"]
-        [:button.btn.btn-dark
+        [:button.btn.btn-secondary
          {:type :button
           :class (when (#{:balance-sheet :income-statement} @selected)
                    "d-md-none")
