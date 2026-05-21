@@ -103,14 +103,10 @@ jobs:
         with:
           images: ${{ matrix.image }}
           tags: |
-            type=ref,event=pr
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
           flavor: |
-            latest=auto
-            suffix=-{{sha}}
+            latest=false
 
       - name: Build and push the docker image
         uses: docker/build-push-action@v5.1.0
