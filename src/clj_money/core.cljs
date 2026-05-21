@@ -99,6 +99,13 @@
     (->> unauthenticated-nav-items
          (map #(merge (default-nav-item % active-nav) %)))))
 
+(defn- theme-toggle []
+  (let [dark? (= "dark" @state/theme)]
+    [:button.btn.btn-sm.btn-outline-secondary.ms-2
+     {:on-click (fn [_] (swap! state/theme #(if (= "dark" %) "light" "dark")))
+      :title (if dark? "Switch to light mode" "Switch to dark mode")}
+     (if dark? "☀" "🌙")]))
+
 (defn navbar
   [items entity-name {:keys [profile-photo-url]}]
   [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
@@ -127,12 +134,13 @@
         (->> items
              (map bs/nav-item)
              doall)]])
-
-    (when profile-photo-url ; TODO: Fetch this when authenticating via google
-      [:img.rounded-circle.d-none.d-lg-block
-       {:src profile-photo-url
-        :style {:max-width "32px"}
-        :alt "Profile Photo"}])]])
+    [:div.d-flex.align-items-center
+     [theme-toggle]
+     (when profile-photo-url ; TODO: Fetch this when authenticating via google
+       [:img.rounded-circle.d-none.d-lg-block.ms-2
+        {:src profile-photo-url
+         :style {:max-width "32px"}
+         :alt "Profile Photo"}])]]])
 
 (defmulti ^:private decorate-nav-item
   (fn [{:keys [id]} _opts]
