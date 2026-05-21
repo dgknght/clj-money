@@ -104,6 +104,7 @@ jobs:
           images: ${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value={{date 'YYYYMMDD-HHmm'}},enable={{is_default_branch}}
             type=sha,prefix=
           flavor: |
             latest=false
