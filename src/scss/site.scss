@@ -1,3 +1,7 @@
+// Theme customization - purpleish
+$primary: #6f42c1;
+$secondary: #6c6680;
+
 @import 'bootstrap/bootstrap';
 
 .account-type {
@@ -134,7 +138,7 @@
 }
 
 .typeahead-highlight {
-  background-color: #157BB1;
+  background-color: $primary;
   color: #fff;
 }
 
@@ -263,7 +267,7 @@ table tfoot td {
 }
 
 .account-tag {
-  background-color: #17a2b8;
+  background-color: $secondary;
   color: #fff;
 }
 

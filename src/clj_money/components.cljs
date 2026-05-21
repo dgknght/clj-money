@@ -177,10 +177,12 @@
 
   history   - seq of {:tx-instant <date> :value <decimal> :description <str>}
   expanded? - whether the popover is currently visible
-  toggle-fn - 0-arity fn called when the button is clicked"
-  [history expanded? toggle-fn]
+  toggle-fn - 0-arity fn called when the button is clicked
+  align     - :left (default) or :right; controls which edge of the button
+              the popover is anchored to"
+  [history expanded? toggle-fn & {:keys [align] :or {align :left}}]
   (when (->> history (filter (comp present? :description)) seq)
-    [:span.position-relative
+    [:span.position-relative.d-flex.align-items-center
      [:button.btn.btn-sm.btn-link.p-0
       {:title "View history"
        :on-click (fn [e]
@@ -189,10 +191,12 @@
       [icons/icon :clock-history :size :small]]
      (when expanded?
        [:div.position-absolute.d-flex.flex-column.bg-body-tertiary.p-2.rounded
-        {:style {:min-width "30em"
-                 :top "100%"
-                 :right 0
-                 :z-index 1000}}
+        {:style (merge {:min-width "30em"
+                        :top "100%"
+                        :z-index 1000}
+                       (if (= :right align)
+                         {:right 0}
+                         {:left 0}))}
         (let [items (vec history)
               last-idx (dec (count items))]
           (map-indexed
