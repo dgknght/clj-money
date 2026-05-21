@@ -1125,10 +1125,11 @@
          :input-container-html {:class "mb-1"}}]])))
 
 (defn- account-filter-toggle []
-  [:button.btn.btn-secondary {:type :button
-                         :data-bs-toggle "offcanvas"
-                         :data-bs-target "#account-filter"
-                         :aria-controls "account-filter"}
+  [:button.btn.btn-outline-secondary
+   {:type :button
+    :data-bs-toggle "offcanvas"
+    :data-bs-target "#account-filter"
+    :aria-controls "account-filter"}
    (icon :funnel :size :small)])
 
 (defn- any-non-zero-balances?
