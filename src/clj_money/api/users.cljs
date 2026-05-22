@@ -20,12 +20,6 @@
            {}
            (add-error-handler opts "Unable to retrieve your user profile: %s")))
 
-(defn any-users?
-  [& {:as opts}]
-  (api/get (path :oapi :users :any)
-           {}
-           (add-error-handler opts "Unable to check if any users exist: %s")))
-
 (defn create-admin
   [user & {:as opts}]
   (api/post (path :oapi :users :admin)

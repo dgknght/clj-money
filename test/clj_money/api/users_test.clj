@@ -123,23 +123,6 @@
         (is (http-success? response))
         (is (:authToken (:parsed-body response)))))))
 
-(deftest any-users-returns-false-when-no-users-exist
-  (let [response (-> (request :get (path :oapi :users :any)
-                               :content-type "application/edn")
-                     app
-                     parse-body)]
-    (is (http-success? response))
-    (is (= {:any-users? false} (:parsed-body response)))))
-
-(deftest any-users-returns-true-when-users-exist
-  (with-context context
-    (let [response (-> (request :get (path :oapi :users :any)
-                                :content-type "application/edn")
-                       app
-                       parse-body)]
-      (is (http-success? response))
-      (is (= {:any-users? true} (:parsed-body response))))))
-
 (deftest admin-user-can-be-created-when-no-users-exist
   (let [response (-> (request :post (path :oapi :users :admin)
                                :content-type "application/edn"

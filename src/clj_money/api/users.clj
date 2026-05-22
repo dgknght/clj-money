@@ -37,10 +37,6 @@
               api/creation-response)
       api/not-found))
 
-(defn- any-users?
-  [_req]
-  (api/response {:any-users? (pos? (entities/count (util/entity-type {} :user)))}))
-
 (defn- create-admin
   [{:keys [params]}]
   (if (pos? (entities/count (util/entity-type {} :user)))
@@ -62,5 +58,4 @@
 (def unauthenticated-routes
   ["users"
    ["/authenticate" {:post {:handler authenticate}}]
-   ["/any" {:get {:handler any-users?}}]
    ["/admin" {:post {:handler create-admin}}]])
