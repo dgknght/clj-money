@@ -1,12 +1,17 @@
 (ns clj-money.web-test
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [hickory.core :as hick]
             [hickory.select :as hsel]
             [dgknght.app-lib.test-assertions]
+            [clj-money.entities.ref]
+            [clj-money.db.ref]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
+
+(use-fixtures :each reset-db)
 
 (deftest ^:multi-threaded fetch-the-main-page
   (let [logs (atom [])]
@@ -17,7 +22,7 @@
             "The request is sucessful"))
       (let [[[_ l1 _ m1]
              [_ l2 _ m2]
-             :as ls] @logs]
+             :as ls] (filter #(= :info (second %)) @logs)]
         (is (= 2 (count ls))
             "Two request log entries and two response log entries are written")
         (is (= [:info "Request :get \"/\""] [l1 m1])

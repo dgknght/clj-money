@@ -2,12 +2,17 @@
   (:require [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clj-money.config :refer [env]]
+            [clj-money.util :as util]
+            [clj-money.entities :as entities]
             [hiccup.page :refer [html5 include-js]]))
 
 (def ^:private client-config-keys
   #{:oauth-providers})
 
-(defn- head []
+(defn- needs-setup? []
+  (zero? (entities/count (util/entity-type {} :user))))
+
+(defn- head [extra-config]
   [:head
    [:meta  {:charset "utf-8"}]
    [:meta  {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
@@ -19,7 +24,7 @@
    [:link  {:rel "icon" :href "images/logo.svg"}]
    [:title (env :application-name "clj-money?")]
    [:script {:type "application/edn" :id "app-config"}
-    (pr-str (select-keys env client-config-keys))]
+    (pr-str (merge (select-keys env client-config-keys) extra-config))]
 
    (include-js "https://unpkg.com/@popperjs/core@2")
    (include-js "js/bootstrap.min.js")
@@ -31,7 +36,7 @@
   {:status 200
    :body (html5
            [:html.h-100 {:lang "en"}
-            (head)
+            (head {:needs-setup? (needs-setup?)})
             [:body.h-100
              [:div#app.h-100
               [:nav.navbar.navbar-expand-lg.bg-body-tertiary

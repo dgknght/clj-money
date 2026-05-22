@@ -5,6 +5,7 @@
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
+            [accountant.core :as accountant]
             [dgknght.app-lib.inflection :refer [title-case]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
@@ -251,4 +252,6 @@
     [welcome]))
 
 (secretary/defroute "/" []
-  (swap! app-state assoc :page #'index))
+  (if (env :needs-setup?)
+    (accountant/navigate! "/setup")
+    (swap! app-state assoc :page #'index)))

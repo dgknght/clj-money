@@ -134,3 +134,52 @@
 
 (secretary/defroute "/users" []
   (swap! app-state assoc :page #'index :active-nav :users))
+
+(defn- do-create-admin
+  [page-state]
+  (+busy)
+  (users/create-admin
+    (:user @page-state)
+    :callback -busy
+    :on-success (fn [{:keys [user auth-token]}]
+                  (swap! app-state assoc
+                         :current-user user
+                         :auth-token auth-token)
+                  (fetch-entities :on-complete #(accountant/navigate! "/")))))
+
+(defn- setup []
+  (let [page-state (r/atom {:user {}})
+        user       (r/cursor page-state [:user])]
+    (set-focus "user-first-name")
+    (fn []
+      [:div.mt-5
+       [:div.row
+        [:div.col-md-6
+         [:h1 "Create Admin Account"]
+         [:p "No users exist yet. Create the first admin account to get started."]
+         [:form {:no-validate true
+                 :on-submit (fn [e]
+                              (.preventDefault e)
+                              (v/validate user)
+                              (when (v/valid? user)
+                                (do-create-admin page-state)))}
+          [:div.row.g-2
+           [:div.col-md-6
+            [forms/text-field user [:user/first-name] {:validations #{::v/required}
+                                                       :label "First Name"}]]
+           [:div.col-md-6
+            [forms/text-field user [:user/last-name] {:validations #{::v/required}
+                                                      :label "Last Name"}]]
+           [:div.col-md-12
+            [forms/email-field user [:user/email] {:validations #{::v/required}}]]
+           [:div.col-md-12
+            [forms/password-field user [:user/password] {:validations #{::v/required}}]]]
+          [:div.mt-2
+           [button {:html {:type :submit
+                           :class "btn-primary"
+                           :title "Click here to create the admin account"}
+                    :icon :person-plus
+                    :caption "Create Admin Account"}]]]]]])))
+
+(secretary/defroute "/setup" []
+  (swap! app-state assoc :page #'setup))
