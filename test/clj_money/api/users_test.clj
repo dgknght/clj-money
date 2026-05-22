@@ -122,3 +122,46 @@
                          parse-body)]
         (is (http-success? response))
         (is (:authToken (:parsed-body response)))))))
+
+(deftest any-users-returns-false-when-no-users-exist
+  (let [response (-> (request :get (path :oapi :users :any)
+                               :content-type "application/edn")
+                     app
+                     parse-body)]
+    (is (http-success? response))
+    (is (= {:any-users? false} (:parsed-body response)))))
+
+(deftest any-users-returns-true-when-users-exist
+  (with-context context
+    (let [response (-> (request :get (path :oapi :users :any)
+                                :content-type "application/edn")
+                       app
+                       parse-body)]
+      (is (http-success? response))
+      (is (= {:any-users? true} (:parsed-body response))))))
+
+(deftest admin-user-can-be-created-when-no-users-exist
+  (let [response (-> (request :post (path :oapi :users :admin)
+                               :content-type "application/edn"
+                               :body #:user{:first-name "Admin"
+                                            :last-name "User"
+                                            :email "admin@example.com"
+                                            :password "please01"})
+                     app
+                     parse-body)]
+    (is (http-created? response))
+    (is (comparable? #:user{:email "admin@example.com"
+                            :roles #{:admin}}
+                     (get-in response [:parsed-body :user])))
+    (is (:auth-token (:parsed-body response)))))
+
+(deftest admin-user-cannot-be-created-when-users-already-exist
+  (with-context context
+    (let [response (-> (request :post (path :oapi :users :admin)
+                                :content-type "application/edn"
+                                :body #:user{:first-name "Admin"
+                                             :last-name "User"
+                                             :email "admin@example.com"
+                                             :password "please01"})
+                       app)]
+      (is (http-forbidden? response)))))

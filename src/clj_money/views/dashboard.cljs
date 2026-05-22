@@ -5,6 +5,7 @@
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
+            [accountant.core :as accountant]
             [dgknght.app-lib.inflection :refer [title-case]]
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
@@ -25,7 +26,8 @@
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.api.entities :as entities]
-            [clj-money.api.reports :as reports]))
+            [clj-money.api.reports :as reports]
+            [clj-money.api.users :as users]))
 
 (defn- load-monitors
   [state]
@@ -230,19 +232,33 @@
    [:div.ms-2 (str "Sign in with " (string/capitalize (name provider)))]])
 
 (defn- welcome []
-  [:div.jumbotron.mt-3
-   [:div.d-flex
-    [:img {:src "/images/logo.svg"
-           :alt "abacus logo"
-           :width 64
-           :height 64}]
-    [:h1.display-5.ms-3 "clj-money"]]
-   [:p "This is a double-entry accounting application that aims to be available anywhere."]
-   [:hr]
-   (when (seq (env :oauth-providers))
-     [:div.d-flex.justify-content-center
-      [:div.d-flex.flex-column
-       (doall (map oauth-button (env :oauth-providers)))]])])
+  (let [page-state (r/atom {:checking? true})]
+    (+busy)
+    (users/any-users?
+      :callback -busy
+      :on-success (fn [{:keys [any-users?]}]
+                    (if any-users?
+                      (swap! page-state assoc :checking? false)
+                      (accountant/navigate! "/setup"))))
+    (fn []
+      (if (:checking? @page-state)
+        [:div.mt-3
+         [:div.d-flex.justify-content-around
+          [:div.spinner-border {:role :status}
+           [:span.visually-hidden "Loading..."]]]]
+        [:div.jumbotron.mt-3
+         [:div.d-flex
+          [:img {:src "/images/logo.svg"
+                 :alt "abacus logo"
+                 :width 64
+                 :height 64}]
+          [:h1.display-5.ms-3 "clj-money"]]
+         [:p "This is a double-entry accounting application that aims to be available anywhere."]
+         [:hr]
+         (when (seq (env :oauth-providers))
+           [:div.d-flex.justify-content-center
+            [:div.d-flex.flex-column
+             (doall (map oauth-button (env :oauth-providers)))]])]))))
 
 (defn- index
   []
