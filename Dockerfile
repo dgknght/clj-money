@@ -9,7 +9,7 @@ COPY . .
 
 FROM util AS build
 RUN apt-get install --yes nodejs npm && \
-    npm install --global sass
+    npm install --global sass@1.83.4
 
 RUN mkdir resources/public/css && \
     sass src/scss/site.scss resources/public/css/site.css && \
