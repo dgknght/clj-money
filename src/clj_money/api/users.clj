@@ -37,10 +37,25 @@
               api/creation-response)
       api/not-found))
 
+(defn- create-admin
+  [{:keys [params]}]
+  (if (pos? (entities/count (util/entity-type {} :user)))
+    api/forbidden
+    (let [user (-> params
+                   (select-keys [:user/first-name
+                                 :user/last-name
+                                 :user/email
+                                 :user/password])
+                   (assoc :user/roles #{:admin})
+                   entities/put)]
+      (api/creation-response (->auth-response user)))))
+
 (def routes
   [["users"
     ["" {:get {:handler index}}]
     ["/me" {:get {:handler find}}]]])
 
 (def unauthenticated-routes
-  ["users/authenticate" {:post {:handler authenticate}}])
+  ["users"
+   ["/authenticate" {:post {:handler authenticate}}]
+   ["/admin" {:post {:handler create-admin}}]])

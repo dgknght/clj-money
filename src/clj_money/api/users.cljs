@@ -19,3 +19,9 @@
   (api/get (api/path :users :me)
            {}
            (add-error-handler opts "Unable to retrieve your user profile: %s")))
+
+(defn create-admin
+  [user & {:as opts}]
+  (api/post (path :oapi :users :admin)
+            user
+            (add-error-handler opts "Unable to create the admin user: %s")))
