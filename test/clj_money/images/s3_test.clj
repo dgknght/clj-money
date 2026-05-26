@@ -9,8 +9,8 @@
 (def ^:private test-config
   {:clj-money.images/strategy :clj-money.images/s3
    :bucket "test-bucket"
-   :endpoint-host "localhost"
-   :endpoint-port 9000
+   :host "localhost"
+   :port 9000
    :access-key "minioadmin"
    :secret-key "minioadmin"})
 

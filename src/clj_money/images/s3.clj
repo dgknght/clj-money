@@ -6,14 +6,14 @@
   (:import [java.io ByteArrayInputStream]))
 
 (defn- make-client
-  [{:keys [endpoint-host endpoint-port access-key secret-key region]}]
+  [{:keys [host port access-key secret-key region]}]
   (aws/client
     (cond-> {:api :s3
              :region (or region "us-east-1")}
-      (and endpoint-host endpoint-port)
+      (and host port)
       (assoc :endpoint-override {:protocol :http
-                                 :hostname endpoint-host
-                                 :port endpoint-port})
+                                 :hostname host
+                                 :port port})
       (and access-key secret-key)
       (assoc :credentials-provider
              (credentials/basic-credentials-provider
