@@ -24,26 +24,34 @@
   [result]
   (boolean (:cognitect.anomalies/category result)))
 
+(defn- fetch*
+  [uuid client bucket]
+  (log/debugf "Fetching image %s from S3 bucket %s" uuid bucket)
+  (let [result (aws/invoke client {:op :GetObject
+                                   :request {:Bucket bucket
+                                             :Key uuid}})]
+    (when-not (anomaly? result)
+      (.readAllBytes ^java.io.InputStream (:Body result)))))
+
+(defn- stash*
+  [uuid content client bucket]
+  (log/debugf "Stashing image %s in S3 bucket %s" uuid bucket)
+  (let [result (aws/invoke client {:op :PutObject
+                                   :request {:Bucket bucket
+                                             :Key uuid
+                                             :Body (ByteArrayInputStream. ^bytes content)}})]
+    (when (anomaly? result)
+      (throw (ex-info "Failed to stash image in S3"
+                      {:uuid uuid
+                       :bucket bucket
+                       :anomaly result})))
+    uuid))
+
 (defmethod images/reify-storage ::images/s3
   [{:keys [bucket] :as config}]
   (let [client (make-client config)]
     (reify images/Storage
       (fetch [_ uuid]
-        (log/debugf "Fetching image %s from S3 bucket %s" uuid bucket)
-        (let [result (aws/invoke client {:op :GetObject
-                                         :request {:Bucket bucket
-                                                   :Key uuid}})]
-          (when-not (anomaly? result)
-            (.readAllBytes ^java.io.InputStream (:Body result)))))
+        (fetch* uuid client bucket))
       (stash [_ uuid content]
-        (log/debugf "Stashing image %s in S3 bucket %s" uuid bucket)
-        (let [result (aws/invoke client {:op :PutObject
-                                          :request {:Bucket bucket
-                                                    :Key uuid
-                                                    :Body (ByteArrayInputStream. ^bytes content)}})]
-          (when (anomaly? result)
-            (throw (ex-info "Failed to stash image in S3"
-                            {:uuid uuid
-                             :bucket bucket
-                             :anomaly result})))
-          uuid)))))
+        (stash* uuid content client bucket)))))
