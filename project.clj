@@ -165,9 +165,9 @@
                  [io.opentelemetry/opentelemetry-api "1.55.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
-                 [com.cognitect.aws/api "0.8.692"]
-                 [com.cognitect.aws/endpoints "1.1.12.773"]
-                 [com.cognitect.aws/s3 "875.2.1342.0"]]
+                 [com.cognitect.aws/api "0.8.824"]
+                 [com.cognitect.aws/endpoints "871.2.44.12"]
+                 [com.cognitect.aws/s3 "871.2.43.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
