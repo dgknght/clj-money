@@ -6,7 +6,7 @@
             [clj-money.util :as util]
             [clj-money.images :as images]
             [clj-money.images.sql]
-            [clj-money.images.minio]
+            [clj-money.images.s3]
             [clj-money.entities :as entities]
             [clj-money.authorization.images]))
 

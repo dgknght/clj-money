@@ -1,4 +1,4 @@
-(ns clj-money.images.minio
+(ns clj-money.images.s3
   (:require [clojure.tools.logging :as log]
             [cognitect.aws.client.api :as aws]
             [cognitect.aws.credentials :as credentials]
@@ -24,25 +24,25 @@
   [result]
   (boolean (:cognitect.anomalies/category result)))
 
-(defmethod images/reify-storage ::images/minio
+(defmethod images/reify-storage ::images/s3
   [{:keys [bucket] :as config}]
   (let [client (make-client config)]
     (reify images/Storage
       (fetch [_ uuid]
-        (log/debugf "Fetching image %s from MinIO bucket %s" uuid bucket)
+        (log/debugf "Fetching image %s from S3 bucket %s" uuid bucket)
         (let [result (aws/invoke client {:op :GetObject
                                          :request {:Bucket bucket
                                                    :Key uuid}})]
           (when-not (anomaly? result)
             (.readAllBytes ^java.io.InputStream (:Body result)))))
       (stash [_ uuid content]
-        (log/debugf "Stashing image %s in MinIO bucket %s" uuid bucket)
+        (log/debugf "Stashing image %s in S3 bucket %s" uuid bucket)
         (let [result (aws/invoke client {:op :PutObject
                                           :request {:Bucket bucket
                                                     :Key uuid
                                                     :Body (ByteArrayInputStream. ^bytes content)}})]
           (when (anomaly? result)
-            (throw (ex-info "Failed to stash image in MinIO"
+            (throw (ex-info "Failed to stash image in S3"
                             {:uuid uuid
                              :bucket bucket
                              :anomaly result})))
