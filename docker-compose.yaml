@@ -5,6 +5,7 @@ volumes:
   maven-data:
   redis-data-8:
   init-markers:
+  minio-data:
 services:
 
   redis:
@@ -66,6 +67,41 @@ services:
       - type: volume
         source: maven-data
         target: /root/.m2
+
+  # MinIO (S3-compatible image storage)
+  #-------------------------------------
+
+  minio:
+    image: docker.io/minio/minio:latest
+    pull_policy: always
+    command: server /data --console-address ":9001"
+    restart: on-failure
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio-init:
+    image: docker.io/minio/mc:latest
+    pull_policy: always
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin &&
+      /usr/bin/mc mb --ignore-existing myminio/clj-money-images &&
+      exit 0"
 
   # Datomic
   #--------
