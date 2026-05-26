@@ -7,12 +7,12 @@
   Call from each implementation's test namespace."
   [storage]
   (let [content (.getBytes "test image content")
-        uuid (str (java.util.UUID/randomUUID))]
+        uuid (str (random-uuid))]
     (testing "stash + fetch round trip"
       (images/stash storage uuid content)
       (is (= (seq content)
              (seq (images/fetch storage uuid)))
           "fetched content matches stashed content"))
     (testing "fetch of an unknown uuid"
-      (is (nil? (images/fetch storage (str (java.util.UUID/randomUUID))))
+      (is (nil? (images/fetch storage (str (random-uuid))))
           "returns nil"))))
