@@ -1218,6 +1218,7 @@
        [transaction-form page-state]
        [trade-form page-state]
        [recs/reconciliation-form page-state]
+       [atts/attachments-card page-state]
        [atts/attachment-form page-state]
        (when @allocation-account
          [asset-allocation page-state])])))
