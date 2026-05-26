@@ -164,7 +164,10 @@
                  [stowaway "0.2.13" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
                  [io.opentelemetry/opentelemetry-api "1.55.0"]
                  [org.clojure/data.csv "1.1.1"]
-                 [org.clj-commons/hickory "0.7.7"]]
+                 [org.clj-commons/hickory "0.7.7"]
+                 [com.cognitect.aws/api "0.8.824"]
+                 [com.cognitect.aws/endpoints "871.2.44.12"]
+                 [com.cognitect.aws/s3 "871.2.43.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
