@@ -357,6 +357,19 @@
                                         (dissoc :transaction/items))))
           "An existing transaction can be updated without providing items"))))
 
+(dbtest items-preserved-when-put-without-items
+  (with-context update-context
+    (let [trx (find-transaction [(t/local-date 2016 3 2) "Paycheck"])]
+      (entities/put (-> trx
+                        (assoc :transaction/description "Wages")
+                        (dissoc :transaction/items)))
+      (is (= 2
+             (count (:transaction/items
+                      (entities/find-by
+                        {:transaction/transaction-date (t/local-date 2016 3 2)
+                         :transaction/description "Wages"}))))
+          "Items are preserved when a transaction is put without providing them"))))
+
 (dbtest get-a-transaction
   (with-context update-context
     (let [retrieved (entities/find-by

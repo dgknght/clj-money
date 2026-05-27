@@ -51,10 +51,12 @@
 (dbtest ^:multi-threaded propagate-attachment-creation
   (with-context attach-context
     (put-and-propagate (attributes))
-    (is (comparable? {:transaction/attachment-count 1}
-                     (entities/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
-                                                   :description "Paycheck"}))
-        "The attachment count is incremented for the associated transaction")))
+    (let [trx (entities/find-by #:transaction{:transaction-date (t/local-date 2017 1 1)
+                                              :description "Paycheck"})]
+      (is (comparable? {:transaction/attachment-count 1} trx)
+          "The attachment count is incremented for the associated transaction")
+      (is (= 2 (count (:transaction/items trx)))
+          "Transaction items are preserved after attachment propagation"))))
 
 (dbtest transaction-is-required
   (with-context attach-context

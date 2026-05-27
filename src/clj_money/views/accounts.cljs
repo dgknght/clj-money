@@ -666,6 +666,7 @@
     (trns/stop-item-loading page-state)
     (swap! page-state dissoc
            :view-account
+           :attachments-item
            :items
            :lots
            :lot-notes
@@ -809,7 +810,9 @@
   (let [account (r/cursor page-state [:view-account])
         transaction (r/cursor page-state [:transaction])
         trade (r/cursor page-state [:trade])
+        attachments-item (r/cursor page-state [:attachments-item])
         show? (make-reaction #(and @account
+                                   (not @attachments-item)
                                    (not (system-tagged? @account :tradable))
                                    (not @transaction)
                                    (not @trade)))
