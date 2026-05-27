@@ -20,7 +20,8 @@
 
 (defmethod datomic/deconstruct :transaction
   [trx]
-  (if-let [before (::entities/before (meta trx))]
+  (if-let [before (when (contains? trx :transaction/items)
+                    (::entities/before (meta trx)))]
     (cons trx
           (item-redactions trx before))
     [trx]))
