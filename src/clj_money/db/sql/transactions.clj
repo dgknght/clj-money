@@ -6,18 +6,19 @@
 
 (defn- deleted-items
   [trx]
-  (when-let [before (-> trx
-                        meta
-                        :clj-money.entities/original
-                        :transaction/items
-                        seq)]
-    (let [current? (comp (set
-                           (map :id
-                                (:transaction/items trx)))
-                         :id)]
-      (->> before
-           (remove current?)
-           (map #(vector ::db/delete %))))))
+  (when (contains? trx :transaction/items)
+    (when-let [before (-> trx
+                          meta
+                          :clj-money.entities/original
+                          :transaction/items
+                          seq)]
+      (let [current? (comp (set
+                             (map :id
+                                  (:transaction/items trx)))
+                           :id)]
+        (->> before
+             (remove current?)
+             (map #(vector ::db/delete %)))))))
 
 (defmethod sql/deconstruct :transaction
   [{:transaction/keys [lot-items items] :keys [id] :as trx}]

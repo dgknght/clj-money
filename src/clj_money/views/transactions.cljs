@@ -1,6 +1,5 @@
 (ns clj-money.views.transactions
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [clojure.zip :as zip]
             [cljs.core.async :as a :refer [<! >! go go-loop]]
             [cljs-time.core :as t]
