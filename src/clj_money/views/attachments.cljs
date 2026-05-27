@@ -87,9 +87,9 @@
          [:div.card-header
           [:strong "Attachments"]
           (str " "
-               (format-date (:transaction-date @item))
+               (format-date (:transaction/transaction-date @item))
                " "
-               (:description @item))]
+               (:transaction/description @item))]
          [attachments-table page-state]
          [:div.card-footer
           [:button.btn.btn-secondary {:on-click #(swap! page-state dissoc :attachments-item)

@@ -205,27 +205,26 @@
 
 (defn- item-row-buttons
   [{:as item :transaction/keys [attachment-count]} page-state]
-  (fn []
-    [:div.btn-group
-     [:button.btn.btn-secondary.btn-sm
-      {:on-click #(edit-transaction item page-state)
-       :title "Click here to edit this transaction."}
-      (icon :pencil :size :small)]
-     [:button.btn.btn-secondary.btn-sm.d-none.d-md-block
-      {:on-click (fn []
-                   (swap! page-state
-                          assoc
-                          :attachments-item
-                          item)
-                   (load-attachments page-state))
-       :title "Click here to view attachments for this transaction"}
-      (if ((some-fn nil? zero?) attachment-count)
-        (icon :paperclip :size :small)
-        [:span.badge.bg-info.text-dark attachment-count])]
-     [:button.btn.btn-danger.btn-sm
-      {:on-click #(delete-transaction item page-state)
-       :title "Click here to remove this transaction."}
-      (icon :x-circle :size :small)]]))
+  [:div.btn-group
+   [:button.btn.btn-secondary.btn-sm
+    {:on-click #(edit-transaction item page-state)
+     :title "Click here to edit this transaction."}
+    (icon :pencil :size :small)]
+   [:button.btn.btn-secondary.btn-sm.d-none.d-md-block
+    {:on-click (fn []
+                 (swap! page-state
+                        assoc
+                        :attachments-item
+                        item)
+                 (load-attachments page-state))
+     :title "Click here to view attachments for this transaction"}
+    (if ((some-fn nil? zero?) attachment-count)
+      (icon :paperclip :size :small)
+      [:span.badge.bg-info.text-dark attachment-count])]
+   [:button.btn.btn-danger.btn-sm
+    {:on-click #(delete-transaction item page-state)
+     :title "Click here to remove this transaction."}
+    (icon :x-circle :size :small)]])
 
 (defn- item-row
   [{:keys [account
