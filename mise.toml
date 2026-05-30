@@ -1,0 +1,54 @@
+[tools]
+java = "temurin-25"
+node = "22"
+lein = "2.11.2"
+clj-kondo = "2026.01.19"
+
+[tasks.lint]
+description = "Lint Clojure source"
+run = "clj-kondo --lint src:test"
+
+[tasks.setup]
+description = "Full first-time project setup (datomic strategy)"
+depends = ["docker-up", "lein-deps", "npm-install", "deps-system", "sass", "lint-deps", "download-otel"]
+
+[tasks.lint-deps]
+description = "Initialize clj-kondo configs for all dependencies"
+depends = ["lein-deps"]
+run = """clj-kondo --lint "$(lein classpath)" --dependencies --parallel --copy-configs"""
+
+[tasks.deps-system]
+description = "Install system dependencies (requires sudo)"
+run = "sudo dnf install -y postgresql"
+
+[tasks.docker-up]
+description = "Start Docker containers (datomic-peer profile)"
+run = "podman-compose --profile datomic-peer up -d"
+
+[tasks.lein-deps]
+description = "Install Clojure dependencies"
+run = "lein deps"
+
+[tasks.npm-install]
+description = "Install JavaScript dependencies"
+run = "npm install"
+
+[tasks.sass]
+description = "Install sass and compile stylesheets"
+run = """
+npm install -g sass
+sass src/scss/site.scss resources/public/css/site.css
+"""
+
+[tasks.download-otel]
+description = "Download OpenTelemetry Java agent"
+run = "./scripts/download-otel"
+
+[tasks.sql-setup]
+description = "Create SQL databases and run migrations (SQL strategy)"
+depends = ["docker-up"]
+run = """
+until bash -c '</dev/tcp/localhost/5432' 2>/dev/null; do sleep 1; done
+lein do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2030-12-31
+lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
+"""
