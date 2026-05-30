@@ -45,61 +45,99 @@ erDiagram
 
 See more at [ERD.md](ERD.md)
 
-## Running locally
+## Development mode
 
-### Running services
+### Tools
 
-Docker
+1. Install [mise](https://mise.jdx.dev/getting-started.html) and run `mise install` in the project root. This installs Java, Node, lein, and clj-kondo automatically.
+2. Install [Podman](https://podman.io/docs/installation) and [podman-compose](https://github.com/containers/podman-compose).
+
+### Setup
+
+1. Run the system setup task (requires sudo for the PostgreSQL client install):
+
+   ```bash
+   mise run deps-system
+   ```
+
+2. Run the full setup task:
+
+   ```bash
+   mise run setup
+   ```
+
+   The `setup` task:
+   - Starts Podman containers (datomic-peer profile: PostgreSQL, Redis, Memcached, Datomic transactor)
+   - Installs Clojure and JS dependencies
+   - Installs the sass CLI and does an initial compile
+   - Downloads the OpenTelemetry Java agent
+   - Initializes clj-kondo configs for all dependencies
+
+   Datomic schema initialization runs automatically inside the Docker stack.
+
+3. Create `env/dev/config.edn` by copying `env/test/config.edn` and adjusting:
+   - The database details (change `:dbname` to the dev database name)
+   - The image storage details (change `:dbname` to the dev database name)
+   - OAuth keys: `:google-client-id` and `:google-client-secret`
+   - Add `:dev? true`, remove `:test? true`
+   - Change `:site-protocol` to `"http"`
+
+   To suppress outgoing email during local development, omit `:mailer-enabled?` or set it to `false`.
+
+#### SQL storage strategy
+
+If you need to work with the SQL storage strategy, also run:
 
 ```bash
-docker compose up -d
+mise run sql-setup
 ```
 
-Podman
+This creates and migrates both the development and test SQL databases.
+
+### Running the app
+
+Start the backend REPL:
 
 ```bash
-podman-compose --with-profile datomic start
+lein repl
 ```
 
-### Setup the database
+Then start/stop the server from the REPL:
 
-Development
+```clojure
+(start-server)
+(stop-server)
+```
+
+Compile and watch sass:
 
 ```bash
-lein do create-sql, migrate, migrate-auxiliary, partition <start-date> <end-date>
+sass --watch src/scss/site.scss resources/public/css/site.css
 ```
 
-Test
+Start the ClojureScript frontend:
 
 ```bash
-lein with-profile test do create-sql, \
-  migrate, \
-  migrate-auxiliary, \
-  partition 2015-01-01 2017-12-31
+lein fig:build
 ```
 
-### Start local services
+Stop the client:
 
-Create a `env/dev/config.edn` by copying `env/test/config.edn` and changing
-
-- The database details (should be just the dbname)
-- The image storage details (should be just the dbname)
-- The Google OAuth keys
-  - `:google-client-id`
-  - `:google-client-secret`
-- Add `:dev? true`
-- Remove `:test? true`
-- Change `:site-protocol` to "http"
-
-To suppress outgoing email during local development (logging the message
-instead of sending it), omit `:mailer-enabled?` or set it to `false` in your
-`env/dev/config.edn`. To enable sending, add:
-
-```edn
-:mailer-enabled? true
+```clojure
+:cljs/quit
 ```
 
-### Running with Docker (Podman)
+### OpenTelemetry
+
+The OTEL Java agent is downloaded by `mise run setup`. To use it:
+
+```bash
+lein with-profile +otel repl
+```
+
+Then start the server as usual with `(start-server)`.
+
+## Running with Docker (Podman)
 
 Create a `.env` file in the project root (see `.env` for an example) with at
 minimum:
@@ -215,58 +253,7 @@ Datomic Peer
 podman-compose --profile datomic-peer up
 ```
 
-Start the web server with
-
-```bash
-lein repl
-```
-
-Or, if you want to work with OpenTelemetry integration:
-
-- download the
-  [java agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar)
-  , if not already downloaded
-
-  ```bash
-  curl ./scripts/download-otel
-  ```
-
-- start the server with:
-
-  ```bash
-  lein with-profile +otel repl
-  ```
-
-  then
-
-  ```clojure
-  (start-server)
-  ```
-
-  To stop
-
-```clojure
-(stop-server)
-```
-
-Compile the sass files with:
-
-```bash
-npm install -g sass # if not already installed
-sass --watch src/scss/site.scss resources/public/css/site.css
-```
-
-Start the client with:
-
-```bash
-lein fig:build
-```
-
-Stop the client with:
-
-```clojure
-:cljs/quit
-```
+Then run the app as described in [Development mode](#development-mode).
 
 ## Production configuration
 
