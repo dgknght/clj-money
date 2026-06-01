@@ -1,3 +1,6 @@
+[env]
+_.file = ".env"
+
 [tools]
 java = "temurin-25"
 node = "22"
