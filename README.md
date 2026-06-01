@@ -69,7 +69,30 @@ See more at [ERD.md](ERD.md)
 
    To suppress outgoing email during local development, omit `:mailer-enabled?` or set it to `false`.
 
-3. Run the full setup task:
+3. Add a `env/docker/transactor.properties` file
+
+  ```bash
+  host=0.0.0.0
+  alt-host=datomic-transactor
+  port=4334
+
+  ping-host=0.0.0.0
+  ping-port=9999
+
+  protocol=sql
+  sql-user=app_user
+  sql-password=<app user password>
+  sql-url=jdbc:postgresql://sql:5432/datomic
+  sql-driver-class=org.postgresql.Driver
+
+  memory-index-threshold=64m
+  memory-index-max=1024m
+  object-cache-max=512m
+
+  memcached=memcached:11211
+  ```
+
+4. Run the full setup task:
 
    ```bash
    mise run setup
