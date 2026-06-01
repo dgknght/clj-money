@@ -271,6 +271,33 @@
   (with-context update-context
     (assert-blocked-update (update-reconciliation "jane@doe.com"))))
 
+(defn- get-reconciliations-by-status
+  [email status]
+  (let [account (find-account "Checking")]
+    (-> (request :get (str (path :api
+                                 :accounts
+                                 (:id account)
+                                 :reconciliations)
+                           "?reconciliation_status=" (name status))
+                 :user (find-user email))
+        app
+        parse-body)))
+
+(deftest a-user-can-filter-reconciliations-by-status
+  (with-context update-context
+    (testing "filtering by :new status returns only in-progress reconciliations"
+      (let [{:as response :keys [parsed-body]} (get-reconciliations-by-status "john@doe.com" :new)]
+        (is (http-success? response))
+        (is (seq-of-maps-like? [#:reconciliation{:end-of-period (t/local-date 2015 2 4)}]
+                               parsed-body)
+            "Only the :new reconciliation is returned")))
+    (testing "filtering by :completed status returns only completed reconciliations"
+      (let [{:as response :keys [parsed-body]} (get-reconciliations-by-status "john@doe.com" :completed)]
+        (is (http-success? response))
+        (is (seq-of-maps-like? [#:reconciliation{:end-of-period (t/local-date 2015 1 4)}]
+                               parsed-body)
+            "Only the :completed reconciliation is returned")))))
+
 (deftest ^:multi-threaded a-database-error-produces-a-parseable-500-response
   (with-context recon-context
     (with-redefs [entities/select (fn [& _]

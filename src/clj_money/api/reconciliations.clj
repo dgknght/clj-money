@@ -36,6 +36,7 @@
       (select-keys [:reconciliation/account
                     :reconciliation/status
                     :reconciliation/end-of-period])
+      (update-in-if [:reconciliation/status] util/ensure-keyword)
       (+scope :reconciliation authenticated)))
 
 (defn- translate-sort
