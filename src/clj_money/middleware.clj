@@ -17,7 +17,8 @@
             [clj-money.formats :as fmts]
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
-            [clj-money.api :refer [log-error]])
+            [clj-money.api :refer [log-error]]
+            [clj-money.honeybadger :as honeybadger])
   (:import com.fasterxml.jackson.core.JsonGenerator))
 
 (defn- param-name
@@ -105,6 +106,7 @@
   (if-let [details (ex-data e)]
     (log/errorf e "Unexpected ExceptionInfo was encountered while handling the web request: %s" (pr-str details))
     (log/error e "Unexpected ExceptionInfo was encountered while handling the web request."))
+  (honeybadger/notify e)
   api/internal-server-error)
 
 ; TODO: Move this to the api namespace
@@ -118,6 +120,7 @@
        (handle-exception e))
      (catch Exception e
        (log-error e "unexpected error")
+       (honeybadger/notify e)
        (-> {:message (str "unexpected error: " (ex-message e))}
            response
            (status 500))))))
