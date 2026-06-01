@@ -60,7 +60,16 @@ See more at [ERD.md](ERD.md)
    mise run deps-system
    ```
 
-2. Run the full setup task:
+2. Create `env/dev/config.edn` and `env/docker/config.edn` by copying `env/test/config.edn` and adjusting:
+   - The database details (change `:dbname` to the dev database name)
+   - The image storage details (change `:dbname` to the dev database name)
+   - OAuth keys: `:google-client-id` and `:google-client-secret`
+   - Add `:dev? true`, remove `:test? true`
+   - Change `:site-protocol` to `"http"`
+
+   To suppress outgoing email during local development, omit `:mailer-enabled?` or set it to `false`.
+
+3. Run the full setup task:
 
    ```bash
    mise run setup
@@ -74,15 +83,6 @@ See more at [ERD.md](ERD.md)
    - Initializes clj-kondo configs for all dependencies
 
    Datomic schema initialization runs automatically inside the Docker stack.
-
-3. Create `env/dev/config.edn` by copying `env/test/config.edn` and adjusting:
-   - The database details (change `:dbname` to the dev database name)
-   - The image storage details (change `:dbname` to the dev database name)
-   - OAuth keys: `:google-client-id` and `:google-client-secret`
-   - Add `:dev? true`, remove `:test? true`
-   - Change `:site-protocol` to `"http"`
-
-   To suppress outgoing email during local development, omit `:mailer-enabled?` or set it to `false`.
 
 #### SQL storage strategy
 
