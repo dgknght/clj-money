@@ -14,8 +14,7 @@
                     config/env (fn [k]
                                  (when (= :honeybadger-api-key k)
                                    "test-api-key"))]
-        (let [f (honeybadger/notify test-error)]
-          (when f @f))
+        (honeybadger/notify test-error)
         (is (= 1 (count @calls))
             "One POST request is made")
         (let [{:keys [url opts]} (first @calls)]

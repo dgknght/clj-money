@@ -24,13 +24,12 @@
 (defn notify
   [^Throwable e]
   (when-let [api-key (env :honeybadger-api-key)]
-    (future
-      (try
-        (http/post "https://api.honeybadger.io/v1/notices"
-                   {:headers {"X-API-Key" api-key
-                              "Content-Type" "application/json"
-                              "Accept" "application/json"}
-                    :body (json/generate-string (exception->payload e))
-                    :throw-exceptions false})
-        (catch Exception err
-          (log/error err "Failed to notify HoneyBadger"))))))
+    (try
+      (http/post "https://api.honeybadger.io/v1/notices"
+                 {:headers {"X-API-Key" api-key
+                            "Content-Type" "application/json"
+                            "Accept" "application/json"}
+                  :body (json/generate-string (exception->payload e))
+                  :throw-exceptions false})
+      (catch Exception err
+        (log/error err "Failed to notify HoneyBadger")))))
