@@ -261,7 +261,9 @@
               {:id :balance
                :type :decimal}
               {:id :end-of-period
-               :type :date}}
+               :type :date}
+              {:id :items
+               :type :vector}}
     :refs #{:account}}
    {:id :cached-price
     :primary-key [:trade-date :id]

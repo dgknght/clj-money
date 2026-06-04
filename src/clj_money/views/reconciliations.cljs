@@ -3,7 +3,6 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.core :refer [index-by]]
-            [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [cljs-time.core :as t]
@@ -32,21 +31,13 @@
                     :reconciliation/end-of-period (or end-of-period
                                                       (t/today)))))))
 
-(defn- ->criteria
-  [recon]
-  (accounts/->criteria
-    recon
-    {:account-attribute :reconciliation/account
-     :date-attribute :reconciliation/end-of-period}))
-
 (defn load-working-reconciliation
   [page-state]
   (+busy)
-  (recs/select (-> (get-in @page-state [:view-account])
-                   ->criteria
-                   (assoc :desc :reconciliation/end-of-period
-                          :limit 1
-                          :reconciliation/status :new))
+  (recs/select {:reconciliation/status :new
+                :reconciliation/account (:view-account @page-state)
+                :limit 1
+                :desc :reconciliation/end-of-period}
                :callback -busy
                :on-success (comp (receive-reconciliation page-state)
                                  first)))
@@ -78,20 +69,19 @@
   (swap! page-state assoc-in [:reconciliation :reconciliation/status] :new)
   (save-reconciliation* page-state))
 
-#_(defn- load-previous-balance
+(defn load-previous-balance
   [page-state]
   (+busy)
-  (recs/select (-> (get-in @page-state [:view-account])
-                   ->criteria
-                   (assoc :desc :reconciliation/end-of-period
-                          :reconciliation/status :completed
-                          :limit 1))
+  (recs/select {:reconciliation/account (:view-account @page-state)
+                :reconciliation/status :completed
+                :limit 1
+                :desc :reconciliation/end-of-period}
                :callback -busy
                :on-success (fn [[r]]
                              (swap! page-state assoc
-                                   :previous-reconciliation
-                                   (or r
-                                       {:reconciliation/balance 0M})))))
+                                    :previous-reconciliation
+                                    (or r
+                                        {:reconciliation/balance 0M})))))
 
 (defn- finish-reconciliation
   [page-state]
@@ -118,57 +108,53 @@
                                        (seq @item-selection)))
         disable? (make-reaction #(not @balanced?))]
     (fn []
-      (when @recon
-        [:form {:no-validate true
-                :on-submit (fn [e]
-                             (.preventDefault e)
-                             (finish-reconciliation page-state))}
-         [:div.card
-          [:div.card-header [:strong "Reconcile"]]
-          [:div.card-body
-           [forms/date-field recon [:reconciliation/end-of-period]]
-           [forms/decimal-field recon [:reconciliation/balance]]
-           [forms/checkbox-field
-            page-state
-            [:include-children?]
-            {:on-change #(trns/load-unreconciled-items page-state)}]]
-          [:table.table
-           [:tbody
-            [:tr
-             [:th {:scope :col} "Previous Balance"]
-             [:td.text-end
-              (when @previous-balance
-                (accounts/format-quantity @previous-balance @account))]]
-            [:tr
-             [:th {:scope :col} "Reconciled"]
-             [:td.text-end
-              (accounts/format-quantity @reconciled-total @account)]]
-            [:tr
-             [:th {:scope :col} "New Balance"]
-             [:td.text-end
-              (accounts/format-quantity @working-balance @account)]]
-            [:tr {:class (when @balanced? "bg-success text-white")}
-             [:th {:scope :col} "Difference"]
-             [:td.text-end
-              (accounts/format-quantity @difference @account)]]]]
-          [:div.card-footer
-           [button {:html {:class "btn-success"
-                           :type :submit}
-                    :disabled? disable?
-                    :icon :check
-                    :caption "Finish"}]
-           (html/space)
-           [button {:html {:class "btn-info"
-                           :type :button
-                           :on-click #(save-reconciliation page-state)}
-                    :icon :download
-                    :caption "Save"}]
-           (html/space)
-           [button {:html {:class "btn-secondary"
-                           :type :button
-                           :on-click (fn []
-                                       (swap! page-state dissoc :reconciliation)
-                                       (trns/reset-item-loading page-state))
-                           :title "Click here to cancel this reconciliation."}
-                    :icon :x
-                    :caption "Cancel"}]]]]))))
+      [:form {:no-validate true
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           (finish-reconciliation page-state))}
+       [:div.card
+        [:div.card-header [:strong "Reconcile"]]
+        [:div.card-body
+         [forms/date-field recon [:reconciliation/end-of-period]]
+         [forms/decimal-field recon [:reconciliation/balance]]
+         [forms/checkbox-field
+          page-state
+          [:include-children?]
+          {:on-change #(trns/load-unreconciled-items page-state)}]]
+        [:table.table
+         [:tbody
+          [:tr
+           [:th {:scope :col} "Previous Balance"]
+           [:td.text-end
+            (when @previous-balance
+              (accounts/format-quantity @previous-balance @account))]]
+          [:tr
+           [:th {:scope :col} "Reconciled"]
+           [:td.text-end
+            (accounts/format-quantity @reconciled-total @account)]]
+          [:tr
+           [:th {:scope :col} "New Balance"]
+           [:td.text-end
+            (accounts/format-quantity @working-balance @account)]]
+          [:tr {:class (when @balanced? "bg-success text-white")}
+           [:th {:scope :col} "Difference"]
+           [:td.text-end
+            (accounts/format-quantity @difference @account)]]]]
+        [:div.btn-group {:role :group}
+         [button {:html {:class "btn-success"
+                         :title "Click here to complete this reconciliation."
+                         :type :submit}
+                  :disabled? disable?
+                  :icon :check}]
+         [button {:html {:class "btn-info"
+                         :title "Click here to save this reconciliation for later."
+                         :type :button
+                         :on-click #(save-reconciliation page-state)}
+                  :icon :download}]
+         [button {:html {:class "btn-secondary"
+                         :title "Click here to discard this reconciliation."
+                         :type :button
+                         :on-click (fn []
+                                     (swap! page-state dissoc :reconciliation)
+                                     (trns/reset-item-loading page-state))}
+                  :icon :x}]]]])))

@@ -667,6 +667,7 @@
     (swap! page-state dissoc
            :view-account
            :attachments-item
+           :reconciliation
            :items
            :lots
            :lot-notes
@@ -683,6 +684,7 @@
                      :on-click (fn []
                                  (trns/stop-item-loading page-state)
                                  (recs/load-working-reconciliation page-state)
+                                 (recs/load-previous-balance page-state)
                                  (trns/load-unreconciled-items page-state)
                                  (set-focus "end-of-period"))
                      :disabled @busy?}
@@ -1154,6 +1156,7 @@
                                      [:entity/settings
                                       :settings/default-commodity]))
         view-account (r/cursor page-state [:view-account])
+        reconciliation (r/cursor page-state [:reconciliation])
         selected (r/cursor page-state [:selected])
         transaction (r/cursor page-state [:transaction])
         allocation-account (r/cursor page-state [:allocation :account])
@@ -1216,11 +1219,15 @@
         [:div.col-md-6
          [:h2 (if (:id @selected) "Edit" "New")]
          [account-form page-state]]]
-       [transaction-item-list page-state]
+       [:div.row
+        [:div {:class (if @reconciliation "col-lg-8" "col")}
+         [transaction-item-list page-state]]
+        (when @reconciliation
+          [:div.col-lg-4
+           [recs/reconciliation-form page-state]])]
        [tradable-account-items page-state]
        [transaction-form page-state]
        [trade-form page-state]
-       [recs/reconciliation-form page-state]
        [atts/attachments-card page-state]
        [atts/attachment-form page-state]
        (when @allocation-account
