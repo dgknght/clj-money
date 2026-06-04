@@ -54,9 +54,10 @@
 
 (defn- index
   [req]
-  (api/response
-    (entities/select (extract-criteria req)
-                   (extract-options req))))
+  (-> req
+      extract-criteria
+      (entities/select (extract-options req))
+      api/response))
 
 (defn- refine-item
   [item]

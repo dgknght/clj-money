@@ -164,11 +164,11 @@
   (fn []
     [:button.btn (merge html
                         {:disabled (when disabled? @disabled?)})
-     [:span.d-flex.align-items-center
+     [:span.d-flex.align-items-center.justify-content-around
       (if @busy?
         [spinner :size :small]
         (icons/icon icon))
-      [:span.ms-2 caption]]]))
+      (when caption [:span.ms-1 caption])]]))
 
 (defn audit-history-popover
   "Renders a clock-history button that shows a floating popover table

@@ -80,19 +80,29 @@
                   (swap! page-state assoc :transaction trx)
                   (set-focus "transaction-date"))))
 
+(defn- polarize-quantities
+  [account]
+  (fn [items]
+    (map (comp #(assoc %
+                       :transaction-item/polarized-quantity
+                       (polarize-quantity %))
+               #(assoc % :transaction-item/account account))
+         items)))
+
 (defn load-unreconciled-items
   [page-state]
   (+busy)
   (let [account (:view-account @page-state)
         criteria {:transaction-item/account account
                   :transaction/transaction-date (apply vector
-                                                            :between
-                                                            (:account/transaction-date-range account))
+                                                       :between
+                                                       (:account/transaction-date-range account))
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
     (trx-items/select
       criteria
       :callback -busy
+      :post-xf (map (polarize-quantities account))
       :on-success #(swap! page-state assoc :items %))))
 
 (defn- load-attachments
@@ -112,15 +122,6 @@
         (trx-items/select criteria
                           :on-success #(xf ch %))
         (xf ch [])))))
-
-(defn- polarize-quantities
-  [account]
-  (fn [items]
-    (map (comp #(assoc %
-                       :transaction-item/polarized-quantity
-                       (polarize-quantity %))
-               #(assoc % :transaction-item/account account))
-         items)))
 
 (defn init-item-loading
   [page-state]
