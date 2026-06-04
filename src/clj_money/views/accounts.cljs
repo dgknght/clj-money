@@ -684,6 +684,7 @@
                      :on-click (fn []
                                  (trns/stop-item-loading page-state)
                                  (recs/load-working-reconciliation page-state)
+                                 (recs/load-previous-balance page-state)
                                  (trns/load-unreconciled-items page-state)
                                  (set-focus "end-of-period"))
                      :disabled @busy?}
