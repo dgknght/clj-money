@@ -98,6 +98,16 @@ Stop the client:
 :cljs/quit
 ```
 
+## Dependency Updates
+
+Dependencies are kept current via [Renovate](https://github.com/apps/renovate). It is configured in `renovate.json` to open weekly PRs (Monday mornings, America/Chicago) covering:
+
+- Clojure dependencies (`project.clj`) — grouped into a single PR
+- Tool versions (`mise.toml`) — grouped into a single PR
+- Docker image versions (`docker-compose.yaml`) — one PR per image
+
+To activate Renovate on a new fork or installation, install the [Renovate GitHub App](https://github.com/apps/renovate) and grant it access to this repository.
+
 ## OpenTelemetry
 
 The OTEL Java agent is downloaded by `mise run setup`. To use it:
