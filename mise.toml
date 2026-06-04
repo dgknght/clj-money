@@ -11,9 +11,9 @@ clj-kondo = "2026.01.19"
 description = "Lint Clojure source"
 run = "clj-kondo --lint src:test"
 
-[tasks.setup]
-description = "Full first-time project setup (datomic strategy)"
-depends = ["docker-up", "lein-deps", "npm-install", "deps-system", "sass", "lint-deps", "download-otel"]
+[tasks.install-hooks]
+description = "Configure git to use the repo's hooks/ directory"
+run = "git config core.hooksPath hooks"
 
 [tasks.lint-deps]
 description = "Initialize clj-kondo configs for all dependencies"
@@ -23,6 +23,15 @@ run = """clj-kondo --lint "$(lein classpath)" --dependencies --parallel --copy-c
 [tasks.deps-system]
 description = "Install system dependencies (requires sudo)"
 run = "sudo dnf install -y postgresql"
+
+[tasks.setup-parallel]
+description = "Non-interactive setup tasks (run in parallel after deps-system)"
+depends = ["docker-up", "lein-deps", "npm-install", "sass", "lint-deps", "download-otel", "install-hooks"]
+
+[tasks.setup]
+description = "Full first-time project setup (datomic strategy)"
+depends = ["deps-system"]
+run = "mise run setup-parallel"
 
 [tasks.docker-up]
 description = "Start Docker containers (datomic-peer profile)"

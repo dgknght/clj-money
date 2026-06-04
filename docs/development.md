@@ -7,13 +7,7 @@
 
 ## Setup
 
-1. Run the system setup task (requires sudo for the PostgreSQL client install):
-
-   ```bash
-   mise run deps-system
-   ```
-
-2. Create `env/dev/config.edn` and `env/docker/config.edn` by copying `env/test/config.edn` and adjusting:
+1. Create `env/dev/config.edn` and `env/docker/config.edn` by copying `env/test/config.edn` and adjusting:
    - The database details (change `:dbname` to the dev database name)
    - The image storage details (change `:dbname` to the dev database name)
    - OAuth keys: `:google-client-id` and `:google-client-secret`
@@ -22,7 +16,7 @@
 
    To suppress outgoing email during local development, omit `:mailer-enabled?` or set it to `false`.
 
-3. Add a `env/docker/transactor.properties` file
+2. Add a `env/docker/transactor.properties` file
 
   ```bash
   host=0.0.0.0
@@ -45,18 +39,19 @@
   memcached=memcached:11211
   ```
 
-4. Run the full setup task:
+3. Run the full setup task:
 
    ```bash
    mise run setup
    ```
 
-   The `setup` task:
+   You will be prompted for your sudo password to install the PostgreSQL client. After that, the following run in parallel:
    - Starts Podman containers (datomic-peer profile: PostgreSQL, Redis, Memcached, Datomic transactor)
    - Installs Clojure and JS dependencies
    - Installs the sass CLI and does an initial compile
    - Downloads the OpenTelemetry Java agent
    - Initializes clj-kondo configs for all dependencies
+   - Configures git to use the repo's pre-push hook (runs the linter before each push)
 
    Datomic schema initialization runs automatically inside the Docker stack.
 
