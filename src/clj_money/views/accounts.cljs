@@ -667,6 +667,7 @@
     (swap! page-state dissoc
            :view-account
            :attachments-item
+           :reconciliation
            :items
            :lots
            :lot-notes
