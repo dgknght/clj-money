@@ -150,24 +150,21 @@
            [:th {:scope :col} "Difference"]
            [:td.text-end
             (accounts/format-quantity @difference @account)]]]]
-        [:div.card-footer
+        [:div.btn-group {:role :group}
          [button {:html {:class "btn-success"
+                         :title "Click here to complete this reconciliation."
                          :type :submit}
                   :disabled? disable?
-                  :icon :check
-                  :caption "Finish"}]
-         (html/space)
+                  :icon :check}]
          [button {:html {:class "btn-info"
+                         :title "Click here to save this reconciliation for later."
                          :type :button
                          :on-click #(save-reconciliation page-state)}
-                  :icon :download
-                  :caption "Save"}]
-         (html/space)
+                  :icon :download}]
          [button {:html {:class "btn-secondary"
+                         :title "Click here to discard this reconciliation."
                          :type :button
                          :on-click (fn []
                                      (swap! page-state dissoc :reconciliation)
-                                     (trns/reset-item-loading page-state))
-                         :title "Click here to cancel this reconciliation."}
-                  :icon :x
-                  :caption "Cancel"}]]]])))
+                                     (trns/reset-item-loading page-state))}
+                  :icon :x}]]]])))
