@@ -27,8 +27,7 @@
 
 (defn select
   [{:reconciliation/keys [account] :as criteria} & {:as opts}]
-  {:pre [(:reconciliation/account criteria)
-         (:reconciliation/end-of-period criteria)]}
+  {:pre [(:reconciliation/account criteria)]}
   (api/get (api/path :accounts
                      account
                      :reconciliations)
@@ -52,7 +51,7 @@
                       :reconciliations)
             (-> recon
                 simplify-items
-                (dissoc recon :reconciliation/account))
+                (dissoc :reconciliation/account))
             (add-error-handler opts "Unable to create the reconciliation: %s")))
 
 (defn update
