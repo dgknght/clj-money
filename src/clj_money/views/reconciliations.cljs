@@ -3,7 +3,6 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.core :refer [index-by]]
-            [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [cljs-time.core :as t]
@@ -32,21 +31,13 @@
                     :reconciliation/end-of-period (or end-of-period
                                                       (t/today)))))))
 
-(defn- ->criteria
-  [recon]
-  (accounts/->criteria
-    recon
-    {:account-attribute :reconciliation/account
-     :date-attribute :reconciliation/end-of-period}))
-
 (defn load-working-reconciliation
   [page-state]
   (+busy)
-  (recs/select (-> (get-in @page-state [:view-account])
-                   ->criteria
-                   (assoc :desc :reconciliation/end-of-period
-                          :limit 1
-                          :reconciliation/status :new))
+  (recs/select {:reconciliation/status :new
+                :reconciliation/account (:view-account @page-state)
+                :limit 1
+                :desc :reconciliation/end-of-period}
                :callback -busy
                :on-success (comp (receive-reconciliation page-state)
                                  first)))
@@ -78,20 +69,19 @@
   (swap! page-state assoc-in [:reconciliation :reconciliation/status] :new)
   (save-reconciliation* page-state))
 
-#_(defn- load-previous-balance
+(defn load-previous-balance
   [page-state]
   (+busy)
-  (recs/select (-> (get-in @page-state [:view-account])
-                   ->criteria
-                   (assoc :desc :reconciliation/end-of-period
-                          :reconciliation/status :completed
-                          :limit 1))
+  (recs/select {:reconciliation/account (:view-account @page-state)
+                :reconciliation/status :completed
+                :limit 1
+                :desc :reconciliation/end-of-period}
                :callback -busy
                :on-success (fn [[r]]
                              (swap! page-state assoc
-                                   :previous-reconciliation
-                                   (or r
-                                       {:reconciliation/balance 0M})))))
+                                    :previous-reconciliation
+                                    (or r
+                                        {:reconciliation/balance 0M})))))
 
 (defn- finish-reconciliation
   [page-state]
