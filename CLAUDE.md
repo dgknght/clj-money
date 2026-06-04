@@ -27,14 +27,9 @@ We own two of the libraries used throughout this projects.
 - `dgknght.app-lib` - Source at `../app-lib`
 - `stowaway` - Source at `../stowaway`
 
-## See also
+## Guidelines
 
-- [Architecture](.claude/architecture.md) — project layout, entity pattern,
-  auth flow
-- [New Entity Checklist](.claude/new-entity.md) — all steps to add a new
-  entity type
-- [stowaway](.claude/stowaway.md) — storage abstraction library (local dep)
-- [app-lib](.claude/app-lib.md) — utility library (local dep)
-- [Code Style](.claude/instructions.md) — naming, conventions, REPL workflow
-- [Patterns](.claude/patterns.md) — cross-backend query patterns, solved
-  problems
+- After making changes:
+  - Review the documentation and ensure that it is up-to-date.
+  - Run unit tests with code coverage to ensure all tests pass
+    and coverage has not slipped below the configured minimum.

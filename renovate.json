@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "America/Chicago",
+  "schedule": ["before 9am on Monday"],
+  "packageRules": [
+    {
+      "description": "Group Clojure dependency updates into a single PR",
+      "matchManagers": ["leiningen"],
+      "groupName": "Clojure dependencies"
+    },
+    {
+      "description": "Group mise tool version updates",
+      "matchManagers": ["mise"],
+      "groupName": "mise tools"
+    },
+    {
+      "description": "Ignore custom internal Docker images",
+      "matchPackageNames": ["dgknght/datomic-pro"],
+      "enabled": false
+    }
+  ]
+}
