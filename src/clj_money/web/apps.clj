@@ -4,13 +4,19 @@
             [clj-money.config :refer [env]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
+            [clj-money.web.auth.google :as google-auth]
+            [clj-money.web.auth.github :as github-auth]
             [hiccup.page :refer [html5 include-js]]))
-
-(def ^:private client-config-keys
-  #{:oauth-providers})
 
 (defn- needs-setup? []
   (zero? (entities/count (util/entity-type {} :user))))
+
+(defn- configured-oauth-providers
+  []
+  (let [providers (set (env :oauth-providers))]
+    (keys (not-empty
+            (merge (when (:google providers) (google-auth/oauth2-profile))
+                   (when (:github providers) (github-auth/oauth2-profile)))))))
 
 (defn- head [extra-config]
   [:head
@@ -24,7 +30,7 @@
    [:link  {:rel "icon" :href "images/logo.svg"}]
    [:title (env :application-name "clj-money?")]
    [:script {:type "application/edn" :id "app-config"}
-    (pr-str (merge (select-keys env client-config-keys) extra-config))]
+    (pr-str extra-config)]
 
    (include-js "https://unpkg.com/@popperjs/core@2")
    (include-js "js/bootstrap.min.js")
@@ -36,7 +42,8 @@
   {:status 200
    :body (html5
            [:html.h-100 {:lang "en"}
-            (head {:needs-setup? (needs-setup?)})
+            (head {:needs-setup? (needs-setup?)
+                   :oauth-providers (configured-oauth-providers)})
             [:body.h-100
              [:div#app.h-100
               [:nav.navbar.navbar-expand-lg.bg-body-tertiary
