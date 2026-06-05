@@ -61,25 +61,11 @@
   ([date]
    (t/local-date (t/year date) 1 1)))
 
-(defmulti load-report #(:selected (deref %)))
-
-(defmethod load-report :income-statement
-  [page-state]
-  (+busy)
-  (swap! page-state update-in [:income-statement] dissoc :report)
-  (let [report-spec (get-in @page-state [:income-statement :options])]
-    (rpt/income-statement report-spec
-                          :callback -busy
-                          :on-success #(swap! page-state
-                                              assoc-in
-                                              [:income-statement :report]
-                                              %))))
-
 (defn- apply-depth
   [depth records]
   (if (some? depth)
     (remove #(and (= :data (:report/style %))
-                  (> (:report/depth %) (dec depth)))
+                  (> (:report/depth %) depth))
             records)
     records))
 
@@ -93,10 +79,27 @@
          inc)
     9))
 
+(defmulti load-report #(:selected (deref %)))
+
+(defmethod load-report :income-statement
+  [page-state]
+  (+busy)
+  (swap! page-state update-in [:income-statement] dissoc :report)
+  (let [report-spec (get-in @page-state [:income-statement :options])]
+    (rpt/income-statement report-spec
+                          :callback -busy
+                          :on-success (fn [report]
+                                        (let [max-d (report-max-depth report)]
+                                          (swap! page-state
+                                                 #(-> %
+                                                      (assoc-in [:income-statement :report] report)
+                                                      (assoc-in [:income-statement :options :depth] (dec max-d)))))))))
+
 (defn- income-statement-option-fields
   [page-state]
   (let [options (r/cursor page-state [:income-statement :options])
         report (r/cursor page-state [:income-statement :report])
+        depth (r/cursor options [:depth])
         max-depth (make-reaction #(report-max-depth @report))]
     (fn []
       [:<>
@@ -133,6 +136,7 @@
             :min 1
             :max @max-depth
             :step 1
+            :value (or (some-> @depth inc) @max-depth)
             :list "income-statement-depth-markers"
             :on-change (fn [e]
                          (let [v (dom/value (dom/target e))]
@@ -140,7 +144,7 @@
           [:div.d-flex.justify-content-between.px-1
            {:style {:margin-top "-10px"}}
            (for [x (range @max-depth)]
-             ^{:key (str "balance-sheet-depth-" x)}
+             ^{:key (str "income-statement-depth-" x)}
              [:span.border-start {:style {:height "10px"}}])]])])))
 
 (defn- income-statement-options
@@ -198,14 +202,20 @@
   (swap! page-state update-in [:balance-sheet] dissoc :report)
   (rpt/balance-sheet (get-in @page-state [:balance-sheet :options])
                      :callback -busy
-                     :on-success #(swap! page-state assoc-in [:balance-sheet :report] %)))
+                     :on-success (fn [report]
+                                   (let [max-d (report-max-depth report)]
+                                     (swap! page-state
+                                            #(-> %
+                                                 (assoc-in [:balance-sheet :report] report)
+                                                 (assoc-in [:balance-sheet :options :depth] (dec max-d))))))))
 
 (defn- balance-sheet-option-fields
   [page-state]
-  (fn []
-    (let [report (r/cursor page-state [:balance-sheet :report])
-          max-depth (make-reaction #(report-max-depth @report))
-          options (r/cursor page-state [:balance-sheet :options])]
+  (let [report (r/cursor page-state [:balance-sheet :report])
+        max-depth (make-reaction #(report-max-depth @report))
+        options (r/cursor page-state [:balance-sheet :options])
+        depth (r/cursor options [:depth])]
+    (fn []
       [:<>
        [forms/date-field
         options
@@ -234,6 +244,7 @@
                 :min 1
                 :max @max-depth
                 :step 1
+                :value (or (some-> @depth inc) @max-depth)
                 :list "balance-sheet-depth-markers"
                 :on-change (fn [e]
                              (let [v (dom/value (dom/target e))]
@@ -723,10 +734,10 @@
                               {:start-date (start-of-year)
                                :end-date (t/today)
                                :hide-zeros? true
-                               :depth 2}}
+                               :depth nil}}
            :balance-sheet {:options {:as-of (t/today)
                                      :hide-zeros? true
-                                     :depth 1}}
+                                     :depth nil}}
            :budget {:options {:depth 1
                               :tags [:tax :mandatory :discretionary]}} ; TODO: make this user editable
            :portfolio {:options {:filter {:aggregate :by-account
