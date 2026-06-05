@@ -13,7 +13,7 @@
             "sonatype-snapshots" {:name "sonatype-snapshots"
                                   :url "https://oss.sonatype.org/content/repositories/snapshots"}}
   :managed-dependencies [[clj-time "0.15.2"]
-                         [ring/ring-core "1.15.4"]
+                         [ring/ring-core "1.12.2"]
                          [commons-io "2.22.0"]
                          [joda-time "2.14.2"]]
   :dependencies [[org.clojure/clojure "1.12.5" :exclusions [org.clojure/tools.reader]]
@@ -41,9 +41,9 @@
                  [org.threeten/threeten-extra "1.9.0"]
                  [clojure.java-time "1.4.3"]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
-                 [ring "1.15.4" :exclusions [commons-codec
+                 [ring "1.10.0" :exclusions [commons-codec
                                             commons-io]]
-                 [ring/ring-defaults "0.7.0" :exclusions [commons-fileupload
+                 [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
                                                           ring/ring-core]]
                  [metosin/reitit "0.10.1" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
