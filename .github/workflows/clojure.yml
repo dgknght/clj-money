@@ -99,7 +99,7 @@ jobs:
 
       - name: Extract tags and labels
         id: meta
-        uses: docker/metadata-action@v5.4.0
+        uses: docker/metadata-action@v5.10.0
         with:
           images: ${{ matrix.image }}
           tags: |
