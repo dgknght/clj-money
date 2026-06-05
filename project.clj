@@ -13,39 +13,39 @@
             "sonatype-snapshots" {:name "sonatype-snapshots"
                                   :url "https://oss.sonatype.org/content/repositories/snapshots"}}
   :managed-dependencies [[clj-time "0.15.2"]
-                         [ring/ring-core "1.12.2"]
-                         [commons-io "2.16.1"]
-                         [joda-time "2.10"]]
-  :dependencies [[org.clojure/clojure "1.12.4" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/tools.logging "1.3.0" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/core.async "1.6.681" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/tools.cli "1.0.206" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/tools.reader "1.3.4"]
-                 [org.clojure/data.json "2.5.1"]
-                 [org.clojure/data.xml "0.2.0-alpha6"]
+                         [ring/ring-core "1.15.4"]
+                         [commons-io "2.22.0"]
+                         [joda-time "2.14.2"]]
+  :dependencies [[org.clojure/clojure "1.12.5" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/tools.logging "1.3.1" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/core.async "1.9.865" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/tools.cli "1.4.256" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/tools.reader "1.6.0"]
+                 [org.clojure/data.json "2.5.2"]
+                 [org.clojure/data.xml "0.2.0-alpha11"]
                  [clj-http "3.13.1" :exclusions [org.clojure/tools.reader
                                                 commons-io]]
                  [cheshire "5.13.0" :exclusions [org.clojure/tools.reader]]
-                 [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
-                 [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/java.jdbc "0.7.11" :exclusions [org.clojure/tools.reader]]
-                 [com.github.seancorfield/next.jdbc "1.3.1002"]
-                 [org.postgresql/postgresql "42.7.4" :exclusions [org.clojure/tools.reader]]
+                 [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
+                 [ch.qos.logback/logback-classic "1.5.34" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
+                 [com.github.seancorfield/next.jdbc "1.3.1108"]
+                 [org.postgresql/postgresql "42.7.11" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.6.1126" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.7.1368" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
-                 [org.threeten/threeten-extra "1.8.0"]
-                 [clojure.java-time "1.4.2"]
-                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M1" :exclusions [commons-io]]
-                 [ring "1.10.0" :exclusions [commons-codec
+                 [org.threeten/threeten-extra "1.9.0"]
+                 [clojure.java-time "1.4.3"]
+                 [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
+                 [ring "1.15.4" :exclusions [commons-codec
                                             commons-io]]
-                 [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
+                 [ring/ring-defaults "0.7.0" :exclusions [commons-fileupload
                                                           ring/ring-core]]
-                 [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
+                 [metosin/reitit "0.10.1" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
                                                       com.bhauman/spell-spec
                                                       ring/ring-core
@@ -60,22 +60,22 @@
                  [metosin/muuntaja "0.6.11" :exclusions [com.fasterxml.jackson.core/jackson-annotations
                                                          com.fasterxml.jackson.core/jackson-databind
                                                          com.fasterxml.jackson.core/jackson-core]]
-                 [com.cognitect/transit-clj "1.0.333"]
+                 [com.cognitect/transit-clj "1.1.357"]
                  [hiccup "2.0.0" :exclusions [org.clojure/tools.reader]]
-                 [cljs-http "0.1.48" :exclusions [org.clojure/tools.reader
+                 [cljs-http "0.1.49" :exclusions [org.clojure/tools.reader
                                                   org.clojure/tools.namespace]]
-                 [selmer "1.12.61" :exclusions [com.google.javascript/closure-compiler
+                 [selmer "1.13.4" :exclusions [com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
-                 [reagent "1.2.0" :exclusions [com.google.code.findbugs/jsr305
+                 [reagent "1.3.0" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
-                 [cljsjs/react "18.2.0-1"]
-                 [cljsjs/react-dom "18.2.0-1"]
-                 [org.clojure/google-closure-library "0.0-20230227-c7c0a541"]
+                 [cljsjs/react "18.3.1-1"]
+                 [cljsjs/react-dom "18.3.1-1"]
+                 [org.clojure/google-closure-library "0.0-20250515-87401eb8"]
                  [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler
                                                  org.clojure/tools.reader]]
                  [reagent-utils "0.3.8"]
-                 [org.clojure/clojurescript "1.11.132" :exclusions [org.clojure/tools.reader]]
-                 [com.google.guava/guava "31.0.1-jre" :exclusions [com.google.code.findbugs/jsr305
+                 [org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]
+                 [com.google.guava/guava "31.1-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
@@ -85,37 +85,37 @@
                                                             org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
-                 [yogthos/config "1.2.0" :exclusions [org.clojure/spec.alpha
+                 [yogthos/config "1.2.1" :exclusions [org.clojure/spec.alpha
                                                       org.clojure/clojure
                                                       org.clojure/core.specs.alpha]]
-                 [ragtime "0.7.2" :exclusions [org.clojure/tools.reader]]
+                 [ragtime "0.8.1" :exclusions [org.clojure/tools.reader]]
                  [clj-factory "0.2.1" :exclusions [org.clojure/tools.reader]]
-                 [digest "1.4.8" :exclusions [org.clojure/tools.reader]]
+                 [digest "1.4.10" :exclusions [org.clojure/tools.reader]]
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
-                 [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
+                 [com.draines/postal "2.0.5" :exclusions [org.clojure/tools.reader]]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [com.datomic/peer "1.0.7364" :exclusions [com.google.errorprone/error_prone_annotations
+                 [com.datomic/peer "1.0.7622" :exclusions [com.google.errorprone/error_prone_annotations
                                                            commons-codec
                                                            org.apache.httpcomponents/httpclient
                                                            org.clojure/tools.cli
                                                            org.slf4j/slf4j-api]]
-                 [com.datomic/client-pro "1.0.81" :exclusions [com.cognitect/transit-java
+                 [com.datomic/client-pro "1.0.82" :exclusions [com.cognitect/transit-java
                                                                commons-codec
                                                                com.cognitect/transit-clj
                                                                org.eclipse.jetty/jetty-http
                                                                org.eclipse.jetty/jetty-io]]
                  [crypto-random "1.2.1" :exclusions [commons-codec]] ; added to clarify dependencies
-                 [buddy/buddy-sign "3.1.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                 [buddy/buddy-sign "3.6.1-359" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                         com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
                                                         cheshire
                                                         commons-codec
                                                         com.fasterxml.jackson.core/jackson-core]]
-                 [buddy/buddy-hashers "1.4.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                 [buddy/buddy-hashers "1.8.158" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                            com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
                                                            cheshire
                                                            commons-codec
                                                            com.fasterxml.jackson.core/jackson-core]]
-                 [org.mindrot/jbcrypt "0.3m"]
+                 [org.mindrot/jbcrypt "0.4"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
@@ -159,20 +159,20 @@
                    ring/ring-jetty-adapter
                    com.fasterxml.jackson.core/jackson-core
                    lein-doo]]
-                 [lambdaisland/uri "1.4.54"]
-                 [com.taoensso/carmine "3.4.1" :exclusions [org.clojure/tools.reader commons-codec]]
+                 [lambdaisland/uri "1.19.155"]
+                 [com.taoensso/carmine "3.5.0" :exclusions [org.clojure/tools.reader commons-codec]]
                  [stowaway "0.2.13" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
-                 [io.opentelemetry/opentelemetry-api "1.55.0"]
+                 [io.opentelemetry/opentelemetry-api "1.63.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.824"]
-                 [com.cognitect.aws/endpoints "871.2.44.12"]
+                 [com.cognitect.aws/endpoints "871.2.46.0"]
                  [com.cognitect.aws/s3 "871.2.43.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
-  :plugins [[lein-cljfmt "0.7.0"]
-            [lein-cloverage "1.2.2"]]
+  :plugins [[lein-cljfmt "0.9.2"]
+            [lein-cloverage "1.2.4"]]
   :hooks []
   :uberjar-name "clj-money.jar"
   :aot [clj-money.web.server]
@@ -231,11 +231,11 @@
                                  #"clj-money.tasks"]}
   :eftest {:multithread? :namespaces
            :capture-output? false}
-  :profiles {:test {:dependencies [[peridot "0.5.2"]
+  :profiles {:test {:dependencies [[peridot "0.5.4"]
                                   [eftest "0.6.0"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]}
              :dev {:dependencies [[com.bhauman/figwheel-main
-                                   "0.2.17"
+                                   "0.2.20"
                                    :exclusions
                                    [ring/ring-anti-forgery
                                     ring/ring-codec
@@ -250,8 +250,8 @@
                                     com.google.guava/guava
                                     commons-codec
                                     org.slf4j/slf4j-api]]
-                                  [com.bhauman/rebel-readline-cljs "0.1.4"]
-                                  [ring/ring-mock "0.4.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                                  [com.bhauman/rebel-readline-cljs "0.1.5"]
+                                  [ring/ring-mock "0.6.2" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                                        com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
                                                                        ring/ring-codec
                                                                        cheshire
