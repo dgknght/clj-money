@@ -9,6 +9,7 @@
     {
       "description": "Group Clojure dependency updates into a single PR",
       "matchManagers": ["leiningen"],
+      "registryUrls": ["https://repo.clojars.org", "https://repo1.maven.org/maven2"],
       "groupName": "Clojure dependencies"
     },
     {
