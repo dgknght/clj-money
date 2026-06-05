@@ -11,12 +11,12 @@
 (defn- needs-setup? []
   (zero? (entities/count (util/entity-type {} :user))))
 
-(defn- configured-oauth-providers
-  []
-  (let [providers (set (env :oauth-providers))]
-    (keys (not-empty
-            (merge (when (:google providers) (google-auth/oauth2-profile))
-                   (when (:github providers) (github-auth/oauth2-profile)))))))
+(defn- oauth-providers []
+  (->> {:google (google-auth/oauth2-profile)
+        :github (github-auth/oauth2-profile)}
+       (filter second)
+       (map first)
+       set))
 
 (defn- head [extra-config]
   [:head
@@ -42,8 +42,8 @@
   {:status 200
    :body (html5
            [:html.h-100 {:lang "en"}
-            (head {:needs-setup? (needs-setup?)
-                   :oauth-providers (configured-oauth-providers)})
+            (head (merge {:needs-setup? (needs-setup?)
+                          :oauth-providers (oauth-providers)}))
             [:body.h-100
              [:div#app.h-100
               [:nav.navbar.navbar-expand-lg.bg-body-tertiary
