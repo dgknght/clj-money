@@ -11,9 +11,18 @@
 (defn- needs-setup? []
   (zero? (entities/count (util/entity-type {} :user))))
 
+(def ^:private all-oauth-providers
+  {:google (google-auth/oauth2-profile)
+   :github (github-auth/oauth2-profile)})
+
+(def ^:private allow-listed-oauth-providers
+  (if-let [providers (env :oauth-providerrs)]
+    (select-keys all-oauth-providers
+                 providers)
+    all-oauth-providers))
+
 (defn- oauth-providers []
-  (->> {:google (google-auth/oauth2-profile)
-        :github (github-auth/oauth2-profile)}
+  (->> allow-listed-oauth-providers
        (filter second)
        (map first)
        set))
