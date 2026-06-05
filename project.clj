@@ -103,7 +103,9 @@
                                                                commons-codec
                                                                com.cognitect/transit-clj
                                                                org.eclipse.jetty/jetty-http
-                                                               org.eclipse.jetty/jetty-io]]
+                                                               org.eclipse.jetty/jetty-io
+                                                               org.eclipse.jetty/jetty-util
+                                                               org.eclipse.jetty/jetty-client]]
                  [crypto-random "1.2.1" :exclusions [commons-codec]] ; added to clarify dependencies
                  [buddy/buddy-sign "3.6.1-359" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                         com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
