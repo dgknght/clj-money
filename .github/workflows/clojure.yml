@@ -110,7 +110,7 @@ jobs:
             latest=false
 
       - name: Build and push the docker image
-        uses: docker/build-push-action@v5.1.0
+        uses: docker/build-push-action@v7.2.0
         with:
           context: .
           file: ./Dockerfile
