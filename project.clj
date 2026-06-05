@@ -13,7 +13,7 @@
             "sonatype-snapshots" {:name "sonatype-snapshots"
                                   :url "https://oss.sonatype.org/content/repositories/snapshots"}}
   :managed-dependencies [[clj-time "0.15.2"]
-                         [ring/ring-core "1.12.2"]
+                         [ring/ring-core "1.15.4"]
                          [commons-io "2.22.0"]
                          [joda-time "2.14.2"]]
   :dependencies [[org.clojure/clojure "1.12.5" :exclusions [org.clojure/tools.reader]]
