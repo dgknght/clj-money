@@ -79,7 +79,7 @@
   [depth records]
   (if (some? depth)
     (remove #(and (= :data (:report/style %))
-                  (> (:report/depth %) (dec depth)))
+                  (> (:report/depth %) depth))
             records)
     records))
 
@@ -97,6 +97,7 @@
   [page-state]
   (let [options (r/cursor page-state [:income-statement :options])
         report (r/cursor page-state [:income-statement :report])
+        depth (r/cursor options [:depth])
         max-depth (make-reaction #(report-max-depth @report))]
     (fn []
       [:<>
@@ -133,6 +134,7 @@
             :min 1
             :max @max-depth
             :step 1
+            :value (or (some-> @depth inc) @max-depth)
             :list "income-statement-depth-markers"
             :on-change (fn [e]
                          (let [v (dom/value (dom/target e))]
@@ -140,7 +142,7 @@
           [:div.d-flex.justify-content-between.px-1
            {:style {:margin-top "-10px"}}
            (for [x (range @max-depth)]
-             ^{:key (str "balance-sheet-depth-" x)}
+             ^{:key (str "income-statement-depth-" x)}
              [:span.border-start {:style {:height "10px"}}])]])])))
 
 (defn- income-statement-options
@@ -205,7 +207,8 @@
   (fn []
     (let [report (r/cursor page-state [:balance-sheet :report])
           max-depth (make-reaction #(report-max-depth @report))
-          options (r/cursor page-state [:balance-sheet :options])]
+          options (r/cursor page-state [:balance-sheet :options])
+          depth (r/cursor options [:depth])]
       [:<>
        [forms/date-field
         options
@@ -234,6 +237,7 @@
                 :min 1
                 :max @max-depth
                 :step 1
+                :value (or (some-> @depth inc) @max-depth)
                 :list "balance-sheet-depth-markers"
                 :on-change (fn [e]
                              (let [v (dom/value (dom/target e))]
@@ -723,10 +727,10 @@
                               {:start-date (start-of-year)
                                :end-date (t/today)
                                :hide-zeros? true
-                               :depth 2}}
+                               :depth nil}}
            :balance-sheet {:options {:as-of (t/today)
                                      :hide-zeros? true
-                                     :depth 1}}
+                                     :depth nil}}
            :budget {:options {:depth 1
                               :tags [:tax :mandatory :discretionary]}} ; TODO: make this user editable
            :portfolio {:options {:filter {:aggregate :by-account
