@@ -22,7 +22,8 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.dates :refer [serialize-local-date]]
+            [clj-money.dates :refer [serialize-local-date
+                                      push-entity-boundary]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -712,8 +713,15 @@
 
 (defn- post-transaction-save
   [page-state]
-  (fn [_]
-    (swap! page-state dissoc :transaction :trade)
+  (fn [saved]
+    (let [trx-date (:transaction/transaction-date saved)]
+      (swap! page-state
+             (fn [state]
+               (cond-> (dissoc state :transaction :trade)
+                 trx-date (update-in [:view-account]
+                                     push-entity-boundary
+                                     :account/transaction-date-range
+                                     trx-date)))))
     (refresh-accounts page-state)))
 
 (defn- expand-trx []
