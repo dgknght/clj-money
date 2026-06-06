@@ -21,12 +21,6 @@
       "description": "Ignore custom internal Docker images",
       "matchPackageNames": ["dgknght/datomic-pro"],
       "enabled": false
-    },
-    {
-      "description": "Pin ring until Jetty 12 / jakarta.servlet conflict with cognitect http-client is resolved",
-      "matchManagers": ["leiningen"],
-      "matchPackageNames": ["ring", "ring/ring-defaults", "ring/ring-core"],
-      "enabled": false
     }
   ]
 }

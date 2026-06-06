@@ -41,9 +41,9 @@
                  [org.threeten/threeten-extra "1.9.0"]
                  [clojure.java-time "1.4.3"]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
-                 [ring "1.10.0" :exclusions [commons-codec
+                 [ring "1.15.4" :exclusions [commons-codec
                                             commons-io]]
-                 [ring/ring-defaults "0.4.0" :exclusions [commons-fileupload
+                 [ring/ring-defaults "0.7.0" :exclusions [commons-fileupload
                                                           ring/ring-core]]
                  [metosin/reitit "0.10.1" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
@@ -103,7 +103,9 @@
                                                                commons-codec
                                                                com.cognitect/transit-clj
                                                                org.eclipse.jetty/jetty-http
-                                                               org.eclipse.jetty/jetty-io]]
+                                                               org.eclipse.jetty/jetty-io
+                                                               org.eclipse.jetty/jetty-util
+                                                               org.eclipse.jetty/jetty-client]]
                  [crypto-random "1.2.1" :exclusions [commons-codec]] ; added to clarify dependencies
                  [buddy/buddy-sign "3.6.1-359" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                         com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
