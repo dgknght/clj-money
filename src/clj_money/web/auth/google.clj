@@ -14,7 +14,8 @@
 (defn redirect-handler
   [request]
   (if-let [token (get-in request [:oauth2/access-tokens :google :token])]
-    (let [user-info  (request-user-info token)
+    (let [raw-info   (request-user-info token)
+          user-info  (assoc raw-info :profile_photo (:picture raw-info))
           user       (idents/find-or-create-from-profile [:google user-info])
           auth-token (make-token user)]
       (-> "/"

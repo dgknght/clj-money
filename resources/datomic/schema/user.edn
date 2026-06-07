@@ -28,4 +28,8 @@
  {:db/ident :user/roles
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/many
-  :db/doc "The roles assigned to this user"}]
+  :db/doc "The roles assigned to this user"}
+ {:db/ident :user/profile-photo
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "URL of the user's profile photo from an OAuth provider"}]

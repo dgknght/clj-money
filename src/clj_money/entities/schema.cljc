@@ -40,6 +40,8 @@
                :type :string}
               {:id :last-name
                :type :string}
+              {:id :profile-photo
+               :type :string}
               {:id :password-reset-token
                :type :string}
               {:id :token-expires-at

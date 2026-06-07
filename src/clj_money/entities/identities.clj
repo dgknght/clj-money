@@ -12,27 +12,30 @@
                                        :identity/provider-id]))
 
 (defn- find-by-identity
-  [[provider {:keys [id]}]]
+  [[provider {:keys [id profile_photo]}]]
   (some-> #:identity{:provider provider
                      :provider-id id}
           entities/find-by
           :identity/user
-          entities/find))
+          entities/find
+          (assoc :user/profile-photo profile_photo)
+          entities/put))
 
 (defn- find-by-email
-  [[provider {:keys [email id]}]]
+  [[provider {:keys [email id profile_photo]}]]
   (when-let [user (entities/find-by {:user/email email})]
     (entities/put #:identity{:provider provider
-                           :provider-id id
-                           :user user})
-    user))
+                             :provider-id id
+                             :user user})
+    (entities/put (assoc user :user/profile-photo profile_photo))))
 
 (defn- create-from-profile
-  [[provider {:keys [email id given_name family_name]}]]
+  [[provider {:keys [email id given_name family_name profile_photo]}]]
   (let [user (entities/put #:user{:email email
                                   :first-name given_name
                                   :last-name family_name
                                   :password "please001!"
+                                  :profile-photo profile_photo
                                   :roles #{:user}})
         ident (entities/put #:identity{:provider provider
                                        :provider-id id

@@ -30,14 +30,15 @@
     (assoc profile :email email)))
 
 (defn- normalize-profile
-  [{:keys [id name email login]}]
+  [{:keys [id name email login avatar_url]}]
   (let [[given-name family-name] (if (seq name)
                                    (str/split name #"\s+" 2)
                                    [login nil])]
-    {:id (str id)
-     :email email
-     :given_name given-name
-     :family_name family-name}))
+    {:id            (str id)
+     :email         email
+     :given_name    given-name
+     :family_name   family-name
+     :profile_photo avatar_url}))
 
 (defn redirect-handler
   [request]

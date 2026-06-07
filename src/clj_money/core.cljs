@@ -45,6 +45,11 @@
    [:a.btn.btn-secondary {:href "/"} "Return home"]])
 
 
+(defn- do-logout []
+  (state/logout)
+  (cookies/remove! :auth-token)
+  (accountant/navigate! "/login"))
+
 (def authenticated-nav-items
   [{:id :commodities}
    {:id :accounts}
@@ -61,10 +66,7 @@
    {:id :logout
     :tool-tip "Click here to sign out of the system"
     :path "#"
-    :nav-fn (fn []
-              (state/logout)
-              (cookies/remove! :auth-token)
-              (accountant/navigate! "/login"))}])
+    :nav-fn do-logout}])
 
 (def unauthenticated-nav-items
   [{:id :login
@@ -89,11 +91,15 @@
 (defn- nav-items
   [active-nav current-user current-entity]
   (if current-user
-    (let [entity-filter (if current-entity
-                          (constantly true)
-                          (some-fn :path :nav-fn))]
+    (let [entity-filter  (if current-entity
+                           (constantly true)
+                           (some-fn :path :nav-fn))
+          profile-filter (if (:user/profile-photo current-user)
+                           #(not= :logout (:id %))
+                           (constantly true))]
       (->> authenticated-nav-items
            (filter (every-pred entity-filter
+                               profile-filter
                                (authorized? current-user)))
            (map #(merge (default-nav-item % active-nav) %))))
     (->> unauthenticated-nav-items
@@ -107,7 +113,7 @@
      (if dark? "☀" "🌙")]))
 
 (defn navbar
-  [items entity-name {:keys [profile-photo-url]}]
+  [items entity-name {:keys [profile-photo-url logout-fn]}]
   [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
    [:div.container
     [:a.navbar-brand {:href "/"}
@@ -135,12 +141,26 @@
              (map bs/nav-item)
              doall)]])
     [:div.d-flex.align-items-center
-     [theme-toggle]
-     (when profile-photo-url ; TODO: Fetch this when authenticating via google
-       [:img.rounded-circle.d-none.d-lg-block.ms-2
-        {:src profile-photo-url
-         :style {:max-width "32px"}
-         :alt "Profile Photo"}])]]])
+     (if profile-photo-url
+       [:div.dropdown.ms-2
+        [:button.btn.btn-link.p-0
+         {:data-bs-toggle "dropdown"
+          :aria-expanded false}
+         [:img.rounded-circle
+          {:src profile-photo-url
+           :style {:max-width "32px"}
+           :alt "Profile Photo"}]]
+        [:ul.dropdown-menu.dropdown-menu-end
+         [:li.px-3.py-2
+          [theme-toggle]]
+         [:li [:hr.dropdown-divider]]
+         [:li [:a.dropdown-item
+               {:href "#"
+                :on-click (fn [e]
+                            (.preventDefault e)
+                            (logout-fn))}
+               "Logout"]]]]
+       [theme-toggle])]]])
 
 (defmulti ^:private decorate-nav-item
   (fn [{:keys [id]} _opts]
@@ -168,8 +188,8 @@
       (navbar
         @items
         (:entity/name @current-entity)
-        {:brand "clj-money"
-         :brand-path "/"}))))
+        {:profile-photo-url (:user/profile-photo @current-user)
+         :logout-fn do-logout}))))
 
 (defn- alerts []
   (fn []
