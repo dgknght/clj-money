@@ -697,32 +697,34 @@
               :caption "Back"
               :icon :arrow-left-short}]]))
 
-(defn- refresh-accounts
+(defn- upsert-account
   [page-state]
-  (fetch-accounts
-    :post-xf (map (fn [accounts]
-                    (let [account (get-in @page-state [:view-account])
-                          updated (->> accounts
-                                       (filter (id= account))
-                                       first)]
-                      (swap! page-state assoc :view-account updated)
-                      (if (system-tagged? updated :tradable)
-                        (load-tradable-account page-state)
-                        (trns/reset-item-loading page-state)))
-                    accounts))))
+  (swap! accounts
+         #(util/upsert-into (:view-account @page-state)
+                            {:sort-key :account/path}
+                            %)))
+
+(defn- extract-trx-date
+  [save-result]
+  (if-let [date (:transaction/transaction-date save-result)]
+    date
+    (->> (:trade/transactions save-result)
+         (map :transaction/transaction-date)
+         first)))
 
 (defn- post-transaction-save
   [page-state]
-  (fn [saved]
-    (let [trx-date (:transaction/transaction-date saved)]
-      (swap! page-state
-             (fn [state]
-               (cond-> (dissoc state :transaction :trade)
-                 trx-date (update-in [:view-account]
-                                     push-entity-boundary
-                                     :account/transaction-date-range
-                                     trx-date)))))
-    (refresh-accounts page-state)))
+  (fn [result]
+    (swap! page-state
+           (fn [state]
+             (-> state
+                 (dissoc :transaction :trade)
+                 (update-in [:view-account]
+                            push-entity-boundary
+                            :account/transaction-date-range
+                            (extract-trx-date result)))))
+    (upsert-account page-state)
+    (trns/reset-item-loading page-state)))
 
 (defn- expand-trx []
   (fn [trx]
