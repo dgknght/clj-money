@@ -35,7 +35,6 @@
             [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]))
 
-
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
 (swap! api/defaults assoc :extract-body :before)
 
@@ -138,15 +137,17 @@
              (map bs/nav-item)
              doall)]])
     [:div.d-flex.align-items-center
-     (if profile-photo-url
+     (if logout-fn
        [:div.dropdown.ms-2
         [:button.btn.btn-link.p-0
          {:data-bs-toggle "dropdown"
           :aria-expanded false}
-         [:img.rounded-circle
-          {:src profile-photo-url
-           :style {:max-width "32px"}
-           :alt "Profile Photo"}]]
+         (if profile-photo-url
+           [:img.rounded-circle
+            {:src profile-photo-url
+             :style {:max-width "32px"}
+             :alt "Profile Photo"}]
+           [:i.bi.bi-person-circle {:style {:font-size "32px"}}])]
         [:ul.dropdown-menu.dropdown-menu-end
          [:li.px-3.py-2
           [theme-toggle]]
@@ -176,16 +177,15 @@
   (let [active-nav (r/cursor app-state [:active-nav])
         items (make-reaction
                 (fn []
-                  (let [photo? (boolean @state/profile-photo-url)]
-                    (->> (nav-items @active-nav @current-user @current-entity)
-                         (remove #(and photo? (= :logout (:id %))))
-                         (map #(decorate-nav-item % {:pending-scheduled-count @state/pending-scheduled-count}))))))]
+                  (->> (nav-items @active-nav @current-user @current-entity)
+                       (remove #(= :logout (:id %)))
+                       (map #(decorate-nav-item % {:pending-scheduled-count @state/pending-scheduled-count})))))]
     (fn []
       (navbar
         @items
         (:entity/name @current-entity)
         {:profile-photo-url @state/profile-photo-url
-         :logout-fn do-logout}))))
+         :logout-fn (when @current-user do-logout)}))))
 
 (defn- alerts []
   (fn []
