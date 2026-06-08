@@ -25,7 +25,7 @@
                  [org.clojure/data.xml "0.2.0-alpha11"]
                  [clj-http "3.13.1" :exclusions [org.clojure/tools.reader
                                                 commons-io]]
-                 [cheshire "5.13.0" :exclusions [org.clojure/tools.reader]]
+                 [cheshire "6.2.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.5.34" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
@@ -66,7 +66,7 @@
                                                   org.clojure/tools.namespace]]
                  [selmer "1.13.4" :exclusions [com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
-                 [reagent "1.3.0" :exclusions [com.google.code.findbugs/jsr305
+                 [reagent "2.0.1" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
@@ -75,7 +75,7 @@
                                                  org.clojure/tools.reader]]
                  [reagent-utils "0.3.8"]
                  [org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]
-                 [com.google.guava/guava "31.1-jre" :exclusions [com.google.code.findbugs/jsr305
+                 [com.google.guava/guava "33.6.0-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
@@ -112,7 +112,7 @@
                                                         cheshire
                                                         commons-codec
                                                         com.fasterxml.jackson.core/jackson-core]]
-                 [buddy/buddy-hashers "1.8.158" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                 [buddy/buddy-hashers "2.0.167" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                            com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
                                                            cheshire
                                                            commons-codec
