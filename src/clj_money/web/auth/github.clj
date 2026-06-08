@@ -48,9 +48,8 @@
       (if (:email user-info)
         (let [user       (idents/find-or-create-from-profile [:github user-info])
               auth-token (make-token user)]
-          (-> "/"
-              res/redirect
-              (res/set-cookie :auth-token auth-token {:path "/"})))
+          (cond-> (-> "/" res/redirect (res/set-cookie :auth-token auth-token {:path "/"}))
+            (:profile_photo user-info) (res/set-cookie :profile-photo (:profile_photo user-info) {:path "/"})))
         (res/redirect "/?error=github_email_required")))
     (res/redirect "/?error=oauth_failed")))
 

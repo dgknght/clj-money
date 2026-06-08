@@ -15,12 +15,10 @@
   [request]
   (if-let [token (get-in request [:oauth2/access-tokens :google :token])]
     (let [raw-info   (request-user-info token)
-          user-info  (assoc raw-info :profile_photo (:picture raw-info))
-          user       (idents/find-or-create-from-profile [:google user-info])
+          user       (idents/find-or-create-from-profile [:google raw-info])
           auth-token (make-token user)]
-      (-> "/"
-          res/redirect
-          (res/set-cookie :auth-token auth-token {:path "/"})))
+      (cond-> (-> "/" res/redirect (res/set-cookie :auth-token auth-token {:path "/"}))
+        (:picture raw-info) (res/set-cookie :profile-photo (:picture raw-info) {:path "/"})))
     (res/redirect "/?error=oauth_failed")))
 
 (defn oauth2-profile

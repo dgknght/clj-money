@@ -35,6 +35,7 @@
             [clj-money.app :refer [fetch-entities]]
             [clj-money.api.users :as users]))
 
+
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
 (swap! api/defaults assoc :extract-body :before)
 
@@ -91,15 +92,11 @@
 (defn- nav-items
   [active-nav current-user current-entity]
   (if current-user
-    (let [entity-filter  (if current-entity
-                           (constantly true)
-                           (some-fn :path :nav-fn))
-          profile-filter (if (:user/profile-photo current-user)
-                           #(not= :logout (:id %))
-                           (constantly true))]
+    (let [entity-filter (if current-entity
+                          (constantly true)
+                          (some-fn :path :nav-fn))]
       (->> authenticated-nav-items
            (filter (every-pred entity-filter
-                               profile-filter
                                (authorized? current-user)))
            (map #(merge (default-nav-item % active-nav) %))))
     (->> unauthenticated-nav-items
@@ -179,16 +176,15 @@
   (let [active-nav (r/cursor app-state [:active-nav])
         items (make-reaction
                 (fn []
-                  (map #(decorate-nav-item %
-                         {:pending-scheduled-count @state/pending-scheduled-count})
-                       (nav-items @active-nav
-                                  @current-user
-                                  @current-entity))))]
+                  (let [photo? (boolean @state/profile-photo-url)]
+                    (->> (nav-items @active-nav @current-user @current-entity)
+                         (remove #(and photo? (= :logout (:id %))))
+                         (map #(decorate-nav-item % {:pending-scheduled-count @state/pending-scheduled-count}))))))]
     (fn []
       (navbar
         @items
         (:entity/name @current-entity)
-        {:profile-photo-url (:user/profile-photo @current-user)
+        {:profile-photo-url @state/profile-photo-url
          :logout-fn do-logout}))))
 
 (defn- alerts []
@@ -263,7 +259,13 @@
   (users/me :callback -busy
             :on-success #(swap! app-state assoc :current-user %)))
 
+(defn- consume-profile-photo-cookie []
+  (when-let [photo (cookies/get :profile-photo)]
+    (swap! app-state assoc :profile-photo-url photo)
+    (cookies/remove! :profile-photo)))
+
 (defn- sign-in-from-cookie []
+  (consume-profile-photo-cookie)
   (if @current-user
     (do
       (if (util/entity-ref? @current-user)
