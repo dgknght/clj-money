@@ -150,9 +150,16 @@
              :alt "Profile Photo"}]
            (icon :person-circle))]
         [:ul.dropdown-menu.dropdown-menu-end
-         [:li.px-3.py-2
-          [theme-toggle]]
-         [:li [:hr.dropdown-divider]]
+         [:li [:a.dropdown-item
+               {:href "#"
+                :on-click (fn [e]
+                            (.preventDefault e)
+                            (swap! state/theme #(if (= "dark" %) "light" "dark")))}
+               [:span.d-flex.align-items-center.gap-1
+                "Theme"
+                (if (= "dark" @state/theme)
+                  (icon :sun :size :small)
+                  (icon :moon :size :small))]]]
          [:li [:a.dropdown-item
                {:href "#"
                 :on-click (fn [e]
