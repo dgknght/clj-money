@@ -18,7 +18,7 @@
                                                current-user
                                                current-entity]]
             [clj-money.util :as util]
-            [clj-money.icons :refer [icon]]
+            [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -103,11 +103,10 @@
     [:button.btn.btn-sm.btn-outline-secondary.ms-2
      {:on-click (fn [_] (swap! state/theme #(if (= "dark" %) "light" "dark")))
       :title (if dark? "Switch to light mode" "Switch to dark mode")}
-     [:span.d-flex.align-items-center.gap-1
-      "Theme"
-      (if dark?
-        (icon :sun :size :small)
-        (icon :moon :size :small))]]))
+     (icon-with-text
+       (if dark? :sun :moon)
+       "Theme"
+       :size :small)]))
 
 (defn navbar
   [items entity-name {:keys [profile-photo-url authenticated?]}]
@@ -155,17 +154,17 @@
                 :on-click (fn [e]
                             (.preventDefault e)
                             (swap! state/theme #(if (= "dark" %) "light" "dark")))}
-               [:span.d-flex.align-items-center.gap-1
-                "Theme"
-                (if (= "dark" @state/theme)
-                  (icon :sun :size :small)
-                  (icon :moon :size :small))]]]
+               (icon-with-text
+                 (if (= "dark" @state/theme) :sun :moon)
+                 "Theme"
+                 :size :small)]]
          [:li [:a.dropdown-item
                {:href "#"
                 :on-click (fn [e]
                             (.preventDefault e)
                             (logout))}
-               "Logout"]]]]
+               (icon-with-text :box-arrow-left "Logout"
+                               :size :small)]]]]
        [theme-toggle])]]])
 
 (defmulti ^:private decorate-nav-item
