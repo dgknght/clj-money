@@ -105,7 +105,7 @@
      (if dark? "☀" "🌙")]))
 
 (defn navbar
-  [items entity-name {:keys [profile-photo-url logout-fn]}]
+  [items entity-name {:keys [profile-photo-url authenticated?]}]
   [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
    [:div.container
     [:a.navbar-brand {:href "/"}
@@ -133,7 +133,7 @@
              (map bs/nav-item)
              doall)]])
     [:div.d-flex.align-items-center
-     (if logout-fn
+     (if authenticated?
        [:div.dropdown.ms-2
         [:button.btn.btn-link.p-0
          {:data-bs-toggle "dropdown"
@@ -152,7 +152,7 @@
                {:href "#"
                 :on-click (fn [e]
                             (.preventDefault e)
-                            (logout-fn))}
+                            (do-logout))}
                "Logout"]]]]
        [theme-toggle])]]])
 
@@ -173,14 +173,18 @@
   (let [active-nav (r/cursor app-state [:active-nav])
         items (make-reaction
                 (fn []
-                  (->> (nav-items @active-nav @current-user @current-entity)
-                       (map #(decorate-nav-item % {:pending-scheduled-count @state/pending-scheduled-count})))))]
+                  (map #(decorate-nav-item
+                          %
+                          {:pending-scheduled-count @state/pending-scheduled-count})
+                       (nav-items @active-nav
+                                  @current-user
+                                  @current-entity))))]
     (fn []
       (navbar
         @items
         (:entity/name @current-entity)
         {:profile-photo-url @state/profile-photo-url
-         :logout-fn (when @current-user do-logout)}))))
+         :authenticated? (boolean @current-user)}))))
 
 (defn- alerts []
   (fn []
