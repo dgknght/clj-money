@@ -103,7 +103,11 @@
     [:button.btn.btn-sm.btn-outline-secondary.ms-2
      {:on-click (fn [_] (swap! state/theme #(if (= "dark" %) "light" "dark")))
       :title (if dark? "Switch to light mode" "Switch to dark mode")}
-     (if dark? "☀" "🌙")]))
+     [:span.d-flex.align-items-center.gap-1
+      "Theme"
+      (if dark?
+        (icon :sun :size :small)
+        (icon :moon :size :small))]]))
 
 (defn navbar
   [items entity-name {:keys [profile-photo-url authenticated?]}]
