@@ -268,7 +268,7 @@
 
 (defn- consume-profile-photo-cookie []
   (when-let [photo (cookies/get :profile-photo)]
-    (swap! app-state assoc :profile-photo-url photo)
+    (swap! app-state assoc :profile-photo-url (js/decodeURIComponent photo))
     (cookies/remove! :profile-photo)))
 
 (defn- sign-in-from-cookie []
