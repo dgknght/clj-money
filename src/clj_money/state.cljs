@@ -16,7 +16,8 @@
       (lib/update-in-if [:current-entity] util/->entity-ref)
       (select-keys [:auth-token
                     :current-user
-                    :current-entity])))
+                    :current-entity
+                    :profile-photo-url])))
 
 (defonce app-state (r/atom (merge {:mounted? false
                                    :bg-proc-count 0}
@@ -30,6 +31,7 @@
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
 (def auth-token (r/cursor app-state [:auth-token]))
+(def profile-photo-url (r/cursor app-state [:profile-photo-url]))
 (def accounts (r/cursor app-state [:accounts]))
 (def accounts-by-id (make-reaction #(when @accounts (lib/index-by :id @accounts))))
 (def bg-proc-count (r/cursor app-state [:bg-proc-count]))
@@ -102,4 +104,5 @@
          :auth-token
          :current-user
          :entities
-         :current-entity))
+         :current-entity
+         :profile-photo-url))

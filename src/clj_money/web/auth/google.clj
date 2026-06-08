@@ -12,14 +12,18 @@
                      {:headers {"Authorization" (str "Bearer " access-token)}}))
 
 (defn redirect-handler
-  [request]
-  (if-let [token (get-in request [:oauth2/access-tokens :google :token])]
-    (let [user-info  (request-user-info token)
-          user       (idents/find-or-create-from-profile [:google user-info])
+  [{:oauth2/keys [access-tokens]}]
+  (if-let [token (get-in access-tokens [:google :token])]
+    (let [raw-info   (request-user-info token)
+          user       (idents/find-or-create-from-profile [:google raw-info])
           auth-token (make-token user)]
-      (-> "/"
-          res/redirect
-          (res/set-cookie :auth-token auth-token {:path "/"})))
+      (-> (res/redirect "/")
+          (res/set-cookie :auth-token
+                          auth-token
+                          {:path "/"})
+          (res/set-cookie :profile-photo
+                          (:picture raw-info)
+                          {:path "/"})))
     (res/redirect "/?error=oauth_failed")))
 
 (defn oauth2-profile

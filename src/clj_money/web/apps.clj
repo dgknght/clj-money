@@ -44,7 +44,8 @@
    (include-js "https://unpkg.com/@popperjs/core@2")
    (include-js "js/bootstrap.min.js")
 
-   [:link {:rel "stylesheet" :href "/css/site.css"}]])
+   [:link {:rel "stylesheet" :href "/css/site.css"}]
+   [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/bootstrap-icons@1/font/bootstrap-icons.min.css"}]])
 
 (defn index
   [_req]

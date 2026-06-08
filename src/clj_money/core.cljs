@@ -18,6 +18,7 @@
                                                current-user
                                                current-entity]]
             [clj-money.util :as util]
+            [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -45,6 +46,11 @@
    [:a.btn.btn-secondary {:href "/"} "Return home"]])
 
 
+(defn- logout []
+  (state/logout)
+  (cookies/remove! :auth-token)
+  (accountant/navigate! "/login"))
+
 (def authenticated-nav-items
   [{:id :commodities}
    {:id :accounts}
@@ -57,14 +63,7 @@
     :tool-tip "Click here to manage schedule transactions"}
    {:id :users
     :tool-tip "Click here to manage users"
-    :required-role :admin}
-   {:id :logout
-    :tool-tip "Click here to sign out of the system"
-    :path "#"
-    :nav-fn (fn []
-              (state/logout)
-              (cookies/remove! :auth-token)
-              (accountant/navigate! "/login"))}])
+    :required-role :admin}])
 
 (def unauthenticated-nav-items
   [{:id :login
@@ -104,10 +103,10 @@
     [:button.btn.btn-sm.btn-outline-secondary.ms-2
      {:on-click (fn [_] (swap! state/theme #(if (= "dark" %) "light" "dark")))
       :title (if dark? "Switch to light mode" "Switch to dark mode")}
-     (if dark? "☀" "🌙")]))
+     (icon (if dark? :sun :moon) :size :small)]))
 
 (defn navbar
-  [items entity-name {:keys [profile-photo-url]}]
+  [items entity-name {:keys [profile-photo-url authenticated?]}]
   [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
    [:div.container
     [:a.navbar-brand {:href "/"}
@@ -135,12 +134,35 @@
              (map bs/nav-item)
              doall)]])
     [:div.d-flex.align-items-center
-     [theme-toggle]
-     (when profile-photo-url ; TODO: Fetch this when authenticating via google
-       [:img.rounded-circle.d-none.d-lg-block.ms-2
-        {:src profile-photo-url
-         :style {:max-width "32px"}
-         :alt "Profile Photo"}])]]])
+     (if authenticated?
+       [:div.dropdown.ms-2
+        [:button.btn.btn-link.p-0
+         {:data-bs-toggle "dropdown"
+          :aria-expanded false}
+         (if profile-photo-url
+           [:img.rounded-circle
+            {:src profile-photo-url
+             :style {:max-width "32px"}
+             :alt "Profile Photo"}]
+           (icon :person-circle))]
+        [:ul.dropdown-menu.dropdown-menu-end
+         [:li [:a.dropdown-item
+               {:href "#"
+                :on-click (fn [e]
+                            (.preventDefault e)
+                            (swap! state/theme #(if (= "dark" %) "light" "dark")))}
+               (icon-with-text
+                 (if (= "dark" @state/theme) :sun :moon)
+                 "Theme"
+                 :size :small)]]
+         [:li [:a.dropdown-item
+               {:href "#"
+                :on-click (fn [e]
+                            (.preventDefault e)
+                            (logout))}
+               (icon-with-text :box-arrow-left "Logout"
+                               :size :small)]]]]
+       [theme-toggle])]]])
 
 (defmulti ^:private decorate-nav-item
   (fn [{:keys [id]} _opts]
@@ -159,8 +181,9 @@
   (let [active-nav (r/cursor app-state [:active-nav])
         items (make-reaction
                 (fn []
-                  (map #(decorate-nav-item %
-                         {:pending-scheduled-count @state/pending-scheduled-count})
+                  (map #(decorate-nav-item
+                          %
+                          {:pending-scheduled-count @state/pending-scheduled-count})
                        (nav-items @active-nav
                                   @current-user
                                   @current-entity))))]
@@ -168,8 +191,8 @@
       (navbar
         @items
         (:entity/name @current-entity)
-        {:brand "clj-money"
-         :brand-path "/"}))))
+        {:profile-photo-url @state/profile-photo-url
+         :authenticated? (boolean @current-user)}))))
 
 (defn- alerts []
   (fn []
@@ -237,13 +260,19 @@
       (swap! app-state assoc :mounted? true :page #'dashboard/index)
       (render [current-page] (.getElementById js/document "app")))))
 
-
 (defn- fetch-current-user []
   (+busy)
   (users/me :callback -busy
             :on-success #(swap! app-state assoc :current-user %)))
 
+(defn- consume-profile-photo-cookie []
+  (when-let [photo (cookies/get :profile-photo)]
+    (swap! app-state assoc
+           :profile-photo-url (js/decodeURIComponent photo))
+    (cookies/remove! :profile-photo)))
+
 (defn- sign-in-from-cookie []
+  (consume-profile-photo-cookie)
   (if @current-user
     (do
       (if (util/entity-ref? @current-user)
