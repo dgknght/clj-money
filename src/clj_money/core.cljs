@@ -260,7 +260,6 @@
       (swap! app-state assoc :mounted? true :page #'dashboard/index)
       (render [current-page] (.getElementById js/document "app")))))
 
-
 (defn- fetch-current-user []
   (+busy)
   (users/me :callback -busy
@@ -268,7 +267,8 @@
 
 (defn- consume-profile-photo-cookie []
   (when-let [photo (cookies/get :profile-photo)]
-    (swap! app-state assoc :profile-photo-url (js/decodeURIComponent photo))
+    (swap! app-state assoc
+           :profile-photo-url (js/decodeURIComponent photo))
     (cookies/remove! :profile-photo)))
 
 (defn- sign-in-from-cookie []
