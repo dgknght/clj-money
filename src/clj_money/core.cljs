@@ -18,6 +18,7 @@
                                                current-user
                                                current-entity]]
             [clj-money.util :as util]
+            [clj-money.icons :refer [icon]]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -45,7 +46,7 @@
    [:a.btn.btn-secondary {:href "/"} "Return home"]])
 
 
-(defn- do-logout []
+(defn- logout []
   (state/logout)
   (cookies/remove! :auth-token)
   (accountant/navigate! "/login"))
@@ -143,7 +144,7 @@
             {:src profile-photo-url
              :style {:max-width "32px"}
              :alt "Profile Photo"}]
-           [:i.bi.bi-person-circle {:style {:font-size "32px"}}])]
+           (icon :person-circle))]
         [:ul.dropdown-menu.dropdown-menu-end
          [:li.px-3.py-2
           [theme-toggle]]
@@ -152,7 +153,7 @@
                {:href "#"
                 :on-click (fn [e]
                             (.preventDefault e)
-                            (do-logout))}
+                            (logout))}
                "Logout"]]]]
        [theme-toggle])]]])
 
