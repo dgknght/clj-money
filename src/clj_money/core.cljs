@@ -62,11 +62,7 @@
     :tool-tip "Click here to manage schedule transactions"}
    {:id :users
     :tool-tip "Click here to manage users"
-    :required-role :admin}
-   {:id :logout
-    :tool-tip "Click here to sign out of the system"
-    :path "#"
-    :nav-fn do-logout}])
+    :required-role :admin}])
 
 (def unauthenticated-nav-items
   [{:id :login
@@ -178,7 +174,6 @@
         items (make-reaction
                 (fn []
                   (->> (nav-items @active-nav @current-user @current-entity)
-                       (remove #(= :logout (:id %)))
                        (map #(decorate-nav-item % {:pending-scheduled-count @state/pending-scheduled-count})))))]
     (fn []
       (navbar
