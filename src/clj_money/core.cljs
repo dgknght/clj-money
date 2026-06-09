@@ -34,7 +34,9 @@
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
             [clj-money.app :refer [fetch-entities]]
-            [clj-money.api.users :as users]))
+            [clj-money.api.users :as users]
+            [clj-money.config :refer [env]]
+            [clj-money.service-worker :as sw]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
 (swap! api/defaults assoc :extract-body :before)
@@ -318,7 +320,9 @@
   (mount-root)
   (sign-in-from-cookie)
   (check-url-error)
-  (accountant/dispatch-current!))
+  (accountant/dispatch-current!)
+  (when-not (:dev? env)
+    (sw/register!)))
 
 (init!)
 
