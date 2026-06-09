@@ -37,6 +37,9 @@
    [:meta  {:name "description" :content "Double-entry accounting system"}]
    [:meta  {:name "author" :content "Doug Knight"}]
    [:link  {:rel "icon" :href "images/logo.svg"}]
+   [:link  {:rel "manifest" :href "/manifest.json"}]
+   [:meta  {:name "theme-color" :content "#6f42c1"}]
+   [:link  {:rel "apple-touch-icon" :href "/images/apple-touch-icon.png"}]
    [:title (env :application-name "clj-money?")]
    [:script {:type "application/edn" :id "app-config"}
     (pr-str extra-config)]
@@ -53,7 +56,8 @@
    :body (html5
            [:html.h-100 {:lang "en"}
             (head (merge {:needs-setup? (needs-setup?)
-                          :oauth-providers (oauth-providers)}))
+                          :oauth-providers (oauth-providers)
+                          :dev? (boolean (env :dev?))}))
             [:body.h-100
              [:div#app.h-100
               [:nav.navbar.navbar-expand-lg.bg-body-tertiary

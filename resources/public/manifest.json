@@ -1,0 +1,23 @@
+{
+  "name": "clj-money",
+  "short_name": "Money",
+  "description": "Double-entry accounting system",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#6f42c1",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
