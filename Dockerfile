@@ -11,9 +11,9 @@ FROM util AS build
 RUN apt-get install --yes nodejs npm imagemagick && \
     npm install --global sass@1.83.4
 
-RUN magick -background none -resize 192x192 resources/public/images/logo.svg resources/public/images/icon-192.png && \
-    magick -background none -resize 512x512 resources/public/images/logo.svg resources/public/images/icon-512.png && \
-    magick -background none -resize 180x180 resources/public/images/logo.svg resources/public/images/apple-touch-icon.png
+RUN convert -background none -resize 192x192 resources/public/images/logo.svg resources/public/images/icon-192.png && \
+    convert -background none -resize 512x512 resources/public/images/logo.svg resources/public/images/icon-512.png && \
+    convert -background none -resize 180x180 resources/public/images/logo.svg resources/public/images/apple-touch-icon.png
 
 RUN mkdir resources/public/css && \
     sass src/scss/site.scss resources/public/css/site.css && \
