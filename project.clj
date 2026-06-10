@@ -34,7 +34,7 @@
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.7.1368" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.7.1388" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
@@ -168,7 +168,7 @@
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.824"]
-                 [com.cognitect.aws/endpoints "871.2.46.0"]
+                 [com.cognitect.aws/endpoints "871.2.46.6"]
                  [com.cognitect.aws/s3 "871.2.43.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
