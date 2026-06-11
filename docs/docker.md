@@ -115,3 +115,64 @@ podman-compose --profile datomic-peer up
 ```
 
 Then run the app as described in [Development mode](development.md).
+
+## Upgrading PostgreSQL (major version)
+
+These steps preserve existing development data across a major PostgreSQL version
+upgrade. The example below upgrades from 17 to 18, but the same procedure
+applies to any major version bump.
+
+### 1. Update `docker-compose.yaml`
+
+- Change the `sql` service image (e.g. `postgres:17` → `postgres:18`)
+- Rename the volume to match the new version (e.g. `sql-data-17` → `sql-data-18`)
+  in both the top-level `volumes:` block and the `sql` service's `volumes:` list
+- Update the mount point to `/var/lib/postgresql` (PostgreSQL 18+ stores data
+  in a version-specific subdirectory inside this path; prior versions used
+  `/var/lib/postgresql/data`)
+
+### 2. Export data from the running container
+
+Load credentials from `.env`, then dump all databases and roles:
+
+```bash
+export $(grep -v '^#' .env | xargs)
+pg_dumpall -h localhost -p 5432 -U $SQL_ADM_USER > /tmp/pg_dump.sql
+```
+
+### 3. Replace the sql container (leave other services running)
+
+Stop and remove the sql container and its direct dependents (pgadmin), leaving
+datomic and other services untouched:
+
+```bash
+podman stop clj-money_pgadmin_1 clj-money_sql_1
+podman rm clj-money_pgadmin_1 clj-money_sql_1
+```
+
+Start the new sql container (picks up the updated image and volume from step 1):
+
+```bash
+podman-compose up -d sql
+```
+
+### 4. Restore the data
+
+*This will need the same env vars sourced earlier.*
+
+```bash
+psql -h localhost -p 5432 -U $SQL_ADM_USER -d postgres < /tmp/pg_dump.sql
+```
+
+### 5. Restart dependent services
+
+```bash
+podman-compose up -d pgadmin
+```
+
+The old volume (e.g. `sql-data-17`) is left on disk. Once you are satisfied
+with the upgrade you can remove it:
+
+```bash
+podman volume rm clj-money_sql-data-17
+```
