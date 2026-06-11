@@ -1,5 +1,5 @@
 {
-  "name": "clj-money",
+  "name": "Money",
   "short_name": "Money",
   "description": "Double-entry accounting system",
   "start_url": "/",
