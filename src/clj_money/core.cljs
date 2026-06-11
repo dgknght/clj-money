@@ -1,6 +1,5 @@
 (ns ^:figwheel-hooks clj-money.core
-  (:require [clojure.string :as string]
-            [cljs.pprint :refer [pprint]]
+  (:require [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
@@ -16,8 +15,10 @@
                                                +busy
                                                -busy
                                                current-user
-                                               current-entity]]
+                                               current-entity
+                                               auth-token]]
             [clj-money.util :as util]
+            [clj-money.routes :refer [server-path? public-path?]]
             [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.views.entities]
             [clj-money.views.imports]
@@ -303,20 +304,24 @@
       (notify/danger (get error-messages error "An unexpected error occurred."))
       (.replaceState js/window.history nil "" js/window.location.pathname))))
 
-(def ^:private server-path-prefixes
-  ["/api/" "/oapi/" "/auth/" "/app/"])
-
 (defn- dispatch-or-not-found
   [path]
-  (if (secretary/locate-route path)
+  (cond
+    (not (secretary/locate-route path))
+    (swap! app-state assoc :page #'not-found)
+
+    (or @current-user
+        @auth-token
+        (public-path? path))
     (secretary/dispatch! path)
-    (swap! app-state assoc :page #'not-found)))
+
+    :else
+    (accountant/navigate! "/login")))
 
 (defn init! []
   (accountant/configure-navigation!
    {:nav-handler dispatch-or-not-found
-    :path-exists? (fn [path]
-                    (not-any? #(string/starts-with? path %) server-path-prefixes))})
+    :path-exists? (comp not server-path?)})
   (mount-root)
   (sign-in-from-cookie)
   (check-url-error)
