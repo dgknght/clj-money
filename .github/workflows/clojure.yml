@@ -103,7 +103,6 @@ jobs:
             image: dgknght/clj-money-util
     env:
       DOCKER_METADATA_PR_HEAD_SHA: true
-      SHARED_TIMESTAMP: ${{ needs.prep.outputs.timestamp }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v6.0.3
@@ -121,7 +120,7 @@ jobs:
           images: ${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value={{ env.SHARED_TIMESTAMP }},enable={{is_default_branch}}
+            type=raw,value=${{ needs.prep.outputs.timestamp }},enable={{is_default_branch}}
             type=sha,prefix=
           flavor: |
             latest=false
