@@ -80,8 +80,18 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  publish:
+  publish-prep:
     needs: tag
+    runs-on: ubuntu-latest
+    outputs:
+      timestamp: ${{ steps.set-time.outputs.timestamp }}
+    steps:
+      - name: Generate timestamp
+        id: set-time
+        run: echo "timestamp=$(date + '%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+
+  publish:
+    needs: [tag, prep]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -93,6 +103,7 @@ jobs:
             image: dgknght/clj-money-util
     env:
       DOCKER_METADATA_PR_HEAD_SHA: true
+      SHARED_TIMESTAMP: ${{ needs.prep.outputs.timestamp }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v6.0.3
@@ -110,7 +121,7 @@ jobs:
           images: ${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value={{date 'YYYYMMDD-HHmm'}},enable={{is_default_branch}}
+            type=raw,value={{ env.SHARED_TIMESTAMP }},enable={{is_default_branch}}
             type=sha,prefix=
           flavor: |
             latest=false
