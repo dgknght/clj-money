@@ -1,7 +1,7 @@
 ---
 name: clj-money
 volumes:
-  sql-data-17:
+  sql-data-18:
   maven-data:
   redis-data-8:
   init-markers:
@@ -27,7 +27,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - sql-data-17:/var/lib/postgresql/data
+      - sql-data-18:/var/lib/postgresql
     environment:
       POSTGRES_PASSWORD: ${SQL_ADM_PASSWORD}
       POSTGRES_USER: ${SQL_ADM_USER}
