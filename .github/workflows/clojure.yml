@@ -120,7 +120,7 @@ jobs:
           images: ${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ needs.prep.outputs.timestamp }},enable={{is_default_branch}}
+            type=raw,value=${{ needs.publish-prep.outputs.timestamp }},enable={{is_default_branch}}
             type=sha,prefix=
           flavor: |
             latest=false
