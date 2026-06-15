@@ -91,7 +91,7 @@ jobs:
         run: echo "timestamp=$(date + '%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
 
   publish:
-    needs: [tag, prep]
+    needs: [tag, publish-prep]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
