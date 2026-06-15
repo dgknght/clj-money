@@ -88,7 +88,7 @@ jobs:
     steps:
       - name: Generate timestamp
         id: set-time
-        run: echo "timestamp=$(date + '%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+        run: echo "timestamp=$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
 
   publish:
     needs: [tag, publish-prep]
