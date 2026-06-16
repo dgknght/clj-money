@@ -80,9 +80,10 @@
 
 (defn attachments-card
   [page-state]
-  (let [item (r/cursor page-state [:attachments-item])]
+  (let [item (r/cursor page-state [:attachments-item])
+        selected (r/cursor page-state [:selected-attachment])]
     (fn []
-      (when @item
+      (when (and @item (not @selected))
         [:div.card
          [:div.card-header
           [:strong "Attachments"]
