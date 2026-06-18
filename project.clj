@@ -38,7 +38,7 @@
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
-                 [org.threeten/threeten-extra "1.9.0"]
+                 [org.threeten/threeten-extra "1.10.0"]
                  [clojure.java-time "1.4.3"]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
                  [ring "1.15.4" :exclusions [commons-codec
@@ -168,7 +168,7 @@
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.824"]
-                 [com.cognitect.aws/endpoints "871.2.46.6"]
+                 [com.cognitect.aws/endpoints "871.2.46.11"]
                  [com.cognitect.aws/s3 "871.2.43.0"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
