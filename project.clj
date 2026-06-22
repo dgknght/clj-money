@@ -29,12 +29,12 @@
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.5.34" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
-                 [com.github.seancorfield/next.jdbc "1.3.1108"]
+                 [com.github.seancorfield/next.jdbc "1.3.1118"]
                  [org.postgresql/postgresql "42.7.11" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.7.1388" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.7.1390" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
@@ -252,7 +252,7 @@
                                     com.google.guava/guava
                                     commons-codec
                                     org.slf4j/slf4j-api]]
-                                  [com.bhauman/rebel-readline-cljs "0.1.5"]
+                                  [com.bhauman/rebel-readline-cljs "0.1.11"]
                                   [ring/ring-mock "0.6.2" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                                        com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
                                                                        ring/ring-codec
