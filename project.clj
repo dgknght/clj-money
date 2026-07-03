@@ -13,7 +13,7 @@
             "sonatype-snapshots" {:name "sonatype-snapshots"
                                   :url "https://oss.sonatype.org/content/repositories/snapshots"}}
   :managed-dependencies [[clj-time "0.15.2"]
-                         [ring/ring-core "1.15.4"]
+                         [ring/ring-core "1.15.5"]
                          [commons-io "2.22.0"]
                          [joda-time "2.14.2"]]
   :dependencies [[org.clojure/clojure "1.12.5" :exclusions [org.clojure/tools.reader]]
@@ -27,23 +27,23 @@
                                                 commons-io]]
                  [cheshire "6.2.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
-                 [ch.qos.logback/logback-classic "1.5.34" :exclusions [org.clojure/tools.reader]]
+                 [ch.qos.logback/logback-classic "1.5.37" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
                  [com.github.seancorfield/next.jdbc "1.3.1118"]
                  [org.postgresql/postgresql "42.7.11" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.7.1390" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.7.1392" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.10.0"]
                  [clojure.java-time "1.4.3"]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
-                 [ring "1.15.4" :exclusions [commons-codec
+                 [ring "1.15.5" :exclusions [commons-codec
                                             commons-io]]
-                 [ring/ring-defaults "0.7.0" :exclusions [commons-fileupload
+                 [ring/ring-defaults "0.7.1" :exclusions [commons-fileupload
                                                           ring/ring-core]]
                  [metosin/reitit "0.10.1" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
@@ -168,8 +168,8 @@
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.824"]
-                 [com.cognitect.aws/endpoints "871.2.46.11"]
-                 [com.cognitect.aws/s3 "871.2.43.0"]]
+                 [com.cognitect.aws/endpoints "871.2.46.17"]
+                 [com.cognitect.aws/s3 "871.2.46.17"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
