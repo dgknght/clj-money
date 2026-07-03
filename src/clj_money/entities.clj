@@ -234,8 +234,11 @@
     (when ctrl-chan
       (a/offer! ctrl-chan :start))
     (a/go
+      ; Use the parking <! here, not <!!, since we're inside a go block;
+      ; a blocking call here can starve the core.async dispatch pool
+      ; under load, delaying :finish and racing with-propagation's timeout.
       (when-let [changes (seq (calc-changes to-save saved))]
-        (a/<!! (a/onto-chan! out-chan changes close-chan?)))
+        (a/<! (a/onto-chan! out-chan changes close-chan?)))
       (when ctrl-chan
         (a/>! ctrl-chan :finish)))))
 
@@ -295,9 +298,10 @@
        (when ctrl-chan
          (a/offer! ctrl-chan :start))
        (a/go
-         (->> entities
-              (map #(vector % nil))
-              (a/onto-chan!! out-chan))
+         ; Parking <!, not blocking onto-chan!!/<!!, to avoid starving
+         ; the core.async dispatch pool (see emit-changes above).
+         (a/<! (a/onto-chan! out-chan
+                             (map #(vector % nil) entities)))
          (when ctrl-chan
            (a/>! ctrl-chan :finish))))
      result)))
