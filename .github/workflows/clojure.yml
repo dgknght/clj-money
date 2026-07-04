@@ -115,7 +115,7 @@ jobs:
 
       - name: Extract tags and labels
         id: meta
-        uses: docker/metadata-action@v6.1.0
+        uses: docker/metadata-action@v6.2.0
         with:
           images: ${{ matrix.image }}
           tags: |
