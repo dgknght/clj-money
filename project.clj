@@ -30,11 +30,11 @@
                  [ch.qos.logback/logback-classic "1.5.37" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
                  [com.github.seancorfield/next.jdbc "1.3.1118"]
-                 [org.postgresql/postgresql "42.7.11" :exclusions [org.clojure/tools.reader]]
+                 [org.postgresql/postgresql "42.7.12" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.7.1392" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.7.1399" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
@@ -122,7 +122,7 @@
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.46"
+                  "0.3.47"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
