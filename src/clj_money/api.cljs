@@ -1,6 +1,7 @@
 (ns clj-money.api
   (:refer-clojure :exclude [get])
-  (:require [cljs.pprint :refer [pprint]]
+  (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [cljs.reader :as reader :include-macros true]
             [lambdaisland.uri :as uri]
             [dgknght.app-lib.notifications :as notify]
@@ -24,6 +25,20 @@
        (map #(if (map? %) (:id %) %))
        (apply api/path)))
 
+(defn- validation-error-detail
+  "Given the exception thrown for a non-2xx API response, if the ex-data
+  is a map of validation errors (attribute path -> vector of message
+  strings), join the messages into a single string. Returns nil for any
+  other ex-data shape (e.g. {:message \"forbidden\"})."
+  [e]
+  (let [data (ex-data e)]
+    (when (and (map? data)
+               (seq data)
+               (every? #(and (sequential? %) (every? string? %)) (vals data)))
+      (->> (vals data)
+           (mapcat identity)
+           (string/join "; ")))))
+
 (defn handle-ex
   "Given a message format string and optional args, adds a notification
   in the event of an API error, passing the error message as the first
@@ -32,7 +47,7 @@
   (fn [e]
     (pprint {::error e
              ::ex-data (ex-data e)})
-    (apply notify/dangerf msg (.-message e) args)
+    (apply notify/dangerf msg (or (validation-error-detail e) (.-message e)) args)
     e))
 
 (defn add-error-handler
