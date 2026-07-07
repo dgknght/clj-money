@@ -96,10 +96,12 @@
 
 (defmethod handle-exception :validation
   [e]
-  (-> e
-      ex-data
-      ::v/errors
-      (api/response 400)))
+  (let [msg (->> e
+                 ex-data
+                 (v/flat-error-messages)
+                 (string/join "; "))]
+    (api/response {:message msg}
+                  400)))
 
 (defmethod handle-exception :default
   [e]
