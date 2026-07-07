@@ -24,6 +24,10 @@
        (map #(if (map? %) (:id %) %))
        (apply api/path)))
 
+(def ^:private error-msg
+  (some-fn (comp :message ex-data)
+           ex-message))
+
 (defn handle-ex
   "Given a message format string and optional args, adds a notification
   in the event of an API error, passing the error message as the first
@@ -32,7 +36,7 @@
   (fn [e]
     (pprint {::error e
              ::ex-data (ex-data e)})
-    (apply notify/dangerf msg (.-message e) args)
+    (apply notify/dangerf msg (error-msg e) args)
     e))
 
 (defn add-error-handler
