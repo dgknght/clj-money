@@ -5,7 +5,6 @@
             [lambdaisland.uri :as uri]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api-3 :as api]
-            [clj-money.validation :as v]
             [clj-money.dates :as dates]
             [clj-money.decimal :as decimal]
             [clj-money.state :refer [auth-token]]))
@@ -26,8 +25,8 @@
        (apply api/path)))
 
 (def ^:private error-msg
-  (some-fn v/readable
-           #(.-message %)))
+  (some-fn (comp :message ex-data)
+           ex-message))
 
 (defn handle-ex
   "Given a message format string and optional args, adds a notification

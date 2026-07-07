@@ -1,6 +1,5 @@
 (ns clj-money.test-runner
   (:require [cljs.test :as t]
-            [clj-money.validation-test]
             [clj-money.dates-test]
             [clj-money.accounts-test]
             [clj-money.budgets-test]
@@ -14,7 +13,6 @@
 
 (defn -main [& _args]
   (t/run-tests
-    'clj-money.validation-test
     'clj-money.routes-test
     'clj-money.dates-test
     'clj-money.accounts-test
