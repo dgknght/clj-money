@@ -232,8 +232,8 @@
                        app
                        parse-body)]
       (is (http-bad-request? response))
-      (is (= ["Exchange must be amex, nasdaq, nyse, or otc"]
-             (get-in response [:parsed-body :commodity/exchange])))
+      (is (= "Exchange must be amex, nasdaq, nyse, or otc"
+             (get-in response [:parsed-body :message])))
       (is (empty? (entities/select {:commodity/entity entity
                                   :commodity/symbol "AAPL"}))
           "The record is not created"))))
