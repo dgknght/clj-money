@@ -197,11 +197,44 @@
 (defn- handle-item-row-drop
   [{:as item :transaction-item/keys [transaction]} e page-state]
   (.preventDefault e)
-  (+busy)
-  (atts/create #:attachment{:transaction transaction
-                            :file (first (dnd/data-files e))}
-               :callback -busy
-               :on-success (post-item-row-drop page-state item)))
+  (swap! page-state
+         assoc
+         :pending-attachment
+         {:item item
+          :attachment #:attachment{:transaction transaction
+                                   :file (first (dnd/data-files e))
+                                   :caption ""}})
+  (set-focus "attachment-caption"))
+
+(defn- cancel-pending-attachment
+  [page-state]
+  (swap! page-state dissoc :pending-attachment))
+
+(defn- save-pending-attachment
+  [page-state]
+  (let [{:keys [item attachment]} (:pending-attachment @page-state)]
+    (+busy)
+    (atts/create attachment
+                 :callback -busy
+                 :on-success (post-item-row-drop page-state item)))
+  (cancel-pending-attachment page-state))
+
+(defn pending-attachment-form
+  [page-state]
+  (let [pending (r/cursor page-state [:pending-attachment])]
+    (fn []
+      (when @pending
+        [:div.card.mb-2
+         [:div.card-header [:strong "Attachment Caption"]]
+         [:div.card-body
+          [forms/text-field pending [:attachment :attachment/caption] {}]]
+         [:div.card-footer
+          [:button.btn.btn-primary {:on-click #(save-pending-attachment page-state)
+                                    :title "Click here to save this attachment"}
+           "Save"]
+          [:button.btn.btn-secondary.ms-2 {:on-click #(cancel-pending-attachment page-state)
+                                           :title "Click here to cancel and discard this attachment."}
+           "Cancel"]]]))))
 
 (defn- item-row-buttons
   [{:as item :transaction/keys [attachment-count]} page-state]
