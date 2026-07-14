@@ -27,10 +27,10 @@
                                                 commons-io]]
                  [cheshire "6.2.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
-                 [ch.qos.logback/logback-classic "1.5.37" :exclusions [org.clojure/tools.reader]]
+                 [ch.qos.logback/logback-classic "1.5.38" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
                  [com.github.seancorfield/next.jdbc "1.3.1118"]
-                 [org.postgresql/postgresql "42.7.12" :exclusions [org.clojure/tools.reader]]
+                 [org.postgresql/postgresql "42.7.13" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
@@ -94,12 +94,12 @@
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
                  [com.draines/postal "2.0.5" :exclusions [org.clojure/tools.reader]]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [com.datomic/peer "1.0.7622" :exclusions [com.google.errorprone/error_prone_annotations
+                 [com.datomic/peer "1.0.7705" :exclusions [com.google.errorprone/error_prone_annotations
                                                            commons-codec
                                                            org.apache.httpcomponents/httpclient
                                                            org.clojure/tools.cli
                                                            org.slf4j/slf4j-api]]
-                 [com.datomic/client-pro "1.0.82" :exclusions [com.cognitect/transit-java
+                 [com.datomic/client-pro "1.0.91" :exclusions [com.cognitect/transit-java
                                                                commons-codec
                                                                com.cognitect/transit-clj
                                                                org.eclipse.jetty/jetty-http
@@ -122,7 +122,7 @@
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.47"
+                  "0.3.48"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
@@ -164,11 +164,11 @@
                  [lambdaisland/uri "1.19.155"]
                  [com.taoensso/carmine "3.5.0" :exclusions [org.clojure/tools.reader commons-codec]]
                  [stowaway "0.2.13" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
-                 [io.opentelemetry/opentelemetry-api "1.63.0"]
+                 [io.opentelemetry/opentelemetry-api "1.64.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
-                 [com.cognitect.aws/api "0.8.824"]
-                 [com.cognitect.aws/endpoints "871.2.46.17"]
+                 [com.cognitect.aws/api "0.8.838"]
+                 [com.cognitect.aws/endpoints "871.2.47.0"]
                  [com.cognitect.aws/s3 "871.2.46.17"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
