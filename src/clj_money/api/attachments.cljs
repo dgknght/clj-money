@@ -15,19 +15,22 @@
            callback identity}}]
   {:pre [(:attachment/transaction attachment)]}
 
-  (let [ch (http/post (api/path :transactions
+  (let [{:keys [on-error]} (add-error-handler opts "Unable to create the attachment: %s")
+        ch (http/post (api/path :transactions
                                 transaction
                                 :attachments)
-                      (-> (lib-api/request opts)
+                      (-> (lib-api/request (assoc opts
+                                                  :handle-ex (fn [e]
+                                                              (callback)
+                                                              (on-error e)
+                                                              nil)))
                           (lib-api/multipart-params
                             (dissoc attachment :attachment/transaction))
-                          (add-error-handler "Unable to create the attachment: %s")
                           (assoc :oauth-token (:auth-token @app-state))))]
     (a/go
-      (let [{:as res :attachment/keys [image]} (a/<! ch)]
+      (when-let [res (a/<! ch)]
         (callback)
-        (when image
-          (on-success res))))))
+        (on-success res)))))
 
 (defn select
   [{:as criteria :attachment/keys [transaction]} & {:as opts}]

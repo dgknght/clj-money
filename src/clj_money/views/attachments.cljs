@@ -7,6 +7,7 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.dom :as dom]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [cljs-http.client :as http]
             [clj-money.object-url :as obj-url]
             [clj-money.util :as util]
@@ -116,19 +117,68 @@
                :callback -busy
                :on-success (post-save page-state)))
 
+(defn caption-form
+  "Presentational card for capturing an attachment caption. save-fn and
+  cancel-fn are no-arg callbacks; cursor and field-path locate the caption
+  within the caller's page-state."
+  [{:keys [cursor field-path title save-fn cancel-fn cancel-title]}]
+  [:div.card.mb-2
+   [:div.card-header [:strong title]]
+   [:div.card-body
+    [forms/text-field cursor field-path]]
+   [:div.card-footer
+    [:button.btn.btn-primary {:on-click save-fn
+                              :title "Click here to save this attachment"}
+     "Save"]
+    [:button.btn.btn-secondary.ms-2 {:on-click cancel-fn
+                                     :title cancel-title}
+     "Cancel"]]])
+
 (defn attachment-form
   [page-state]
   (let [attachment (r/cursor page-state [:selected-attachment])]
     (fn []
       (when @attachment
-        [:div.card.mb-2
-         [:div.card-header [:strong "Edit Attachment"]]
-         [:div.card-body
-          [forms/text-field attachment [:attachment/caption]]]
-         [:div.card-footer
-          [:button.btn.btn-primary {:on-click #(save-attachment page-state)
-                                    :title "Click here to save this attachment"}
-           "Save"]
-          [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :selected-attachment)
-                                           :title "Click here to cancel this edit operation."}
-           "Cancel"]]]))))
+        [caption-form {:cursor attachment
+                       :field-path [:attachment/caption]
+                       :title "Edit Attachment"
+                       :save-fn #(save-attachment page-state)
+                       :cancel-fn #(swap! page-state dissoc :selected-attachment)
+                       :cancel-title "Click here to cancel this edit operation."}]))))
+
+(defn caption-modal
+  "Bootstrap modal for capturing an attachment caption. save-fn and cancel-fn
+  are no-arg callbacks; cursor and field-path locate the caption within the
+  caller's page-state. While saving? is true, the modal stays open, shows a
+  spinner in place of the Save button, and disables both buttons so a
+  response can't be interrupted. A truthy error is rendered in the modal
+  body and the modal remains open so the user can retry or cancel."
+  [{:keys [cursor field-path title save-fn cancel-fn cancel-title saving? error]}]
+  [:<>
+   [:div.modal.show.d-block {:tab-index -1
+                             :role :dialog}
+    [:div.modal-dialog
+     [:div.modal-content
+      [:div.modal-header
+       [:h5.modal-title title]
+       [:button.btn-close {:type :button
+                           :aria-label "Close"
+                           :title cancel-title
+                           :disabled saving?
+                           :on-click cancel-fn}]]
+      [:div.modal-body
+       (when error
+         [:div.alert.alert-danger error])
+       [forms/text-field cursor field-path]]
+      [:div.modal-footer
+       [:button.btn.btn-secondary {:on-click cancel-fn
+                                   :title cancel-title
+                                   :disabled saving?}
+        "Cancel"]
+       [:button.btn.btn-primary {:on-click save-fn
+                                 :title "Click here to save this attachment"
+                                 :disabled saving?}
+        (if saving?
+          [bs/spinner {:size :small}]
+          "Save")]]]]]
+   [:div.modal-backdrop.show {:on-click (when-not saving? cancel-fn)}]])
