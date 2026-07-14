@@ -122,18 +122,21 @@
 (defn- save-budget
   [page-state]
   (+busy)
-  (-> (:selected @page-state)
-      (dissoc :budget/items)
-      (update-in [:budget/period 1] keyword)
-      (api/save :callback -busy
-                :on-success (fn []
-                              (load-budgets page-state)
-                              (swap! page-state dissoc :selected)))))
+  (let [budget (:selected @page-state)]
+    (-> budget
+        (dissoc :budget/items)
+        (cond-> (not (:budget/auto-create-items budget))
+                (dissoc :budget/auto-create-items :budget/auto-create-start-date))
+        (update-in [:budget/period 1] keyword)
+        (api/save :callback -busy
+                  :on-success (fn []
+                                (load-budgets page-state)
+                                (swap! page-state dissoc :selected))))))
 
 (defn- budget-form
   [page-state]
   (let [selected (r/cursor page-state [:selected])
-        auto-create (r/cursor selected [:auto-create-items])]
+        auto-create (r/cursor selected [:budget/auto-create-items])]
     (fn []
       (when @selected
         [:form {:on-submit (fn [e]
@@ -150,8 +153,8 @@
           {:caption "Period"}]
          [forms/integer-field selected [:budget/period 0] {:validations #{::v/required}
                                                            :caption "Period Count"}]
-         [forms/checkbox-field selected [:auto-create-items]]
-         [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]
+         [forms/checkbox-field selected [:budget/auto-create-items]]
+         [forms/date-field selected [:budget/auto-create-start-date] {:disabled-fn #(not @auto-create)}]
          [:div.mt-3
           [button {:html {:class "btn-primary"
                           :type :submit
