@@ -1240,6 +1240,7 @@
        [trade-form page-state]
        [atts/attachments-card page-state]
        [atts/attachment-form page-state]
+       [trns/pending-attachment-form page-state]
        (when @allocation-account
          [asset-allocation page-state])])))
 

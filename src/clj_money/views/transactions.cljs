@@ -45,6 +45,7 @@
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
+            [clj-money.views.attachments :refer [caption-modal]]
             [clj-money.api.trading :as trading]
             [clj-money.api.audit :as audit]))
 
@@ -197,11 +198,48 @@
 (defn- handle-item-row-drop
   [{:as item :transaction-item/keys [transaction]} e page-state]
   (.preventDefault e)
-  (+busy)
-  (atts/create #:attachment{:transaction transaction
-                            :file (first (dnd/data-files e))}
-               :callback -busy
-               :on-success (post-item-row-drop page-state item)))
+  (swap! page-state
+         assoc
+         :pending-attachment
+         {:item item
+          :attachment #:attachment{:transaction transaction
+                                   :file (first (dnd/data-files e))
+                                   :caption ""}})
+  (set-focus "attachment-caption"))
+
+(defn- cancel-pending-attachment
+  [page-state]
+  (swap! page-state dissoc :pending-attachment))
+
+(defn- save-pending-attachment
+  [page-state]
+  (let [{:keys [item attachment]} (:pending-attachment @page-state)]
+    (+busy)
+    (swap! page-state update :pending-attachment assoc :saving? true :error nil)
+    (atts/create attachment
+                 :callback (fn []
+                             (-busy)
+                             (swap! page-state update :pending-attachment assoc :saving? false))
+                 :on-success (fn [created]
+                               (cancel-pending-attachment page-state)
+                               ((post-item-row-drop page-state item) created))
+                 :on-error (fn [e]
+                             (swap! page-state update :pending-attachment assoc :error (ex-message e))))))
+
+(defn pending-attachment-form
+  [page-state]
+  (let [pending (r/cursor page-state [:pending-attachment])]
+    (fn []
+      (when @pending
+        (let [{:keys [saving? error]} @pending]
+          [caption-modal {:cursor pending
+                          :field-path [:attachment :attachment/caption]
+                          :title "Attachment Caption"
+                          :save-fn #(save-pending-attachment page-state)
+                          :cancel-fn #(cancel-pending-attachment page-state)
+                          :cancel-title "Click here to cancel and discard this attachment."
+                          :saving? saving?
+                          :error error}])))))
 
 (defn- item-row-buttons
   [{:as item :transaction/keys [attachment-count]} page-state]
