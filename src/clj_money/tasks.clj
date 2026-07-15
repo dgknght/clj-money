@@ -9,6 +9,7 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.entities :as entities]
+            [clj-money.entities.purge :as purge]
             [clj-money.accounts :refer [nest
                                         unnest
                                         polarize-quantity]]
@@ -246,6 +247,40 @@
                                                    :transaction/description]})))
         :separator sep)
       (flush)
+      (shutdown-agents)
+      (System/exit 0))))
+
+(def ^:private purge-entity-cli-options
+  {:usage "lein purge-entity -- <options>"
+   :description "Completely and permanently remove an entity and everything that depends on it. This is irreversible."
+   :options (conj default-options
+                  ["-u" "--user USER_EMAIL" "The email address of the user that owns the entity to be removed"
+                   :id :user-email
+                   :missing "The user email must be specified"]
+                  ["-e" "--entity ENTITY_NAME" "The name of the entity to be removed"
+                   :id :entity-name
+                   :missing "The entity name must be specified"]
+                  ["-y" "--yes" "Confirm that the entity should be permanently and irreversibly removed"
+                   :id :confirmed?
+                   :missing "Pass -y/--yes to confirm this irreversible operation."])})
+
+(defn purge-entity
+  [& args]
+  (with-options [parsed (assoc purge-entity-cli-options
+                               :args args)]
+    (let [{{:keys [user-email
+                   entity-name]} :options} parsed
+          user (entities/find-by {:user/email user-email})
+          _ (assert user
+                    (format "Unable to find user with email address \"%s\"."
+                            user-email))
+          entity (entities/find-by {:entity/user user
+                                    :entity/name entity-name})]
+      (assert entity
+              (format "Unable to find an entity named \"%s\"."
+                      entity-name))
+      (purge/purge-entity! entity)
+      (println "Purged entity" entity-name)
       (shutdown-agents)
       (System/exit 0))))
 

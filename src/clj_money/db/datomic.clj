@@ -58,6 +58,37 @@
     :user                  '[?x :user/email ?user-email]
     :invitation            '[?x :invitation/recipient ?invitation-recipient]))
 
+(def dependent-attrs
+  "For a given entity type, the [owner-type attr] pairs of every real,
+  independently-queryable Datomic ref attribute that leads back to it. Used
+  to walk out from an entity to everything that transitively depends on it
+  (see clj-money.entities.purge). This intentionally excludes reverse
+  references into :db/isComponent vector attributes (e.g. :transaction/items,
+  :budget/items, :scheduled-transaction/items) since Datomic has no queryable
+  attribute in that direction - those dependents (transaction-item,
+  budget-item, scheduled-transaction-item) are still fully reachable here via
+  their :account ref instead. Reflects resources/datomic/schema/*.edn."
+  {:entity                [[:account :account/entity]
+                           [:commodity :commodity/entity]
+                           [:transaction :transaction/entity]
+                           [:budget :budget/entity]
+                           [:scheduled-transaction :scheduled-transaction/entity]
+                           [:grant :grant/entity]]
+   :account               [[:account :account/parent]
+                           [:transaction-item :transaction-item/account]
+                           [:lot :lot/account]
+                           [:budget-item :budget-item/account]
+                           [:scheduled-transaction-item :scheduled-transaction-item/account]
+                           [:reconciliation :reconciliation/account]]
+   :commodity             [[:account :account/commodity]
+                           [:price :price/commodity]
+                           [:lot :lot/commodity]]
+   :transaction           [[:attachment :attachment/transaction]]
+   :scheduled-transaction [[:transaction :transaction/scheduled-transaction]]
+   :reconciliation        [[:transaction-item :transaction-item/reconciliation]]
+   :lot                   [[:lot-note :lot-note/lots]
+                           [:lot-item :lot-item/lot]]})
+
 (defn- unbounded?
   [{:keys [where]}]
   (->> where
@@ -469,6 +500,21 @@
                                    :strategies
                                    :datomic-peer]))]
     (query api {:query qry :args args})))
+
+(defn excise!
+  "Permanently purges the given entity ids (and all of their attributes and
+  history) via :db/excise. This does not cascade to dependents - the caller
+  is responsible for including every id that should be purged. Each id is
+  also retracted in the same transaction: :db/excise only marks data for
+  removal from history and does not, by itself, retract the current value,
+  so without the retraction the data would still be returned by ordinary
+  queries until the (asynchronous, background) excision completes."
+  [ids]
+  (let [api (init-api (db/active-config))]
+    (transact api
+              (concat (map #(vector :db/retractEntity %) ids)
+                      (map #(hash-map :db/excise %) ids))
+              {})))
 
 (defn- history*
   [entity-id attr {:keys [api]}]

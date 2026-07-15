@@ -9,6 +9,7 @@
 (s/def ::operation #{::insert ::update ::delete})
 
 (def ^:dynamic *storage* nil)
+(def ^:dynamic *config* nil)
 
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
@@ -34,13 +35,28 @@
             (get-in [:db :strategies active-key])
             reify-storage))))
 
+(defn active-config
+  "Returns the config map of the currently active storage - the dynamic
+  with-storage override when present, otherwise whatever the env config
+  designates as active."
+  []
+  (or *config*
+      (get-in env [:db :strategies (get-in env [:db :active])])))
+
+(defn active-strategy
+  "Returns the ::strategy of the currently active storage (see active-config)."
+  []
+  (::strategy (active-config)))
+
 (defmacro with-storage
   [bindings & body]
-  `(let [storage# (if (satisfies? Storage ~(first bindings))
-                    ~(first bindings)
-                    (reify-storage ~(first bindings)))]
+  `(let [cfg# ~(first bindings)
+         storage# (if (satisfies? Storage cfg#)
+                    cfg#
+                    (reify-storage cfg#))]
      (try
-       (binding [*storage* storage#]
+       (binding [*storage* storage#
+                 *config* (when-not (satisfies? Storage cfg#) cfg#)]
          ~@body)
        (finally
          (close storage#)))))
