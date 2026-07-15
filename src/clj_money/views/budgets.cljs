@@ -119,12 +119,18 @@
                  :disabled busy?
                  :caption "Add"}]]])))
 
+(defn- prepare-to-save
+  [{:budget/keys [auto-create-items] :as budget}]
+  (cond-> (dissoc budget :budget/items)
+    (not auto-create-items)
+    (dissoc :budget/auto-create-items
+            :budget/auto-create-start-date)))
+
 (defn- save-budget
   [page-state]
   (+busy)
   (-> (:selected @page-state)
-      (dissoc :budget/items)
-      (update-in [:budget/period 1] keyword)
+      prepare-to-save
       (api/save :callback -busy
                 :on-success (fn []
                               (load-budgets page-state)
@@ -133,7 +139,7 @@
 (defn- budget-form
   [page-state]
   (let [selected (r/cursor page-state [:selected])
-        auto-create (r/cursor selected [:auto-create-items])]
+        auto-create (r/cursor selected [:budget/auto-create-items])]
     (fn []
       (when @selected
         [:form {:on-submit (fn [e]
@@ -145,13 +151,14 @@
          [forms/text-field selected [:budget/name] {:validations #{::v/required}}]
          [forms/date-field selected [:budget/start-date] {:validations #{::v/required}}]
          [forms/select-field selected [:budget/period 1] (->> budgets/periods
-                                                            (map name)
-                                                            sort)
-          {:caption "Period"}]
+                                                              (map name)
+                                                              sort)
+          {:caption "Period"
+           :transform-fn keyword}]
          [forms/integer-field selected [:budget/period 0] {:validations #{::v/required}
                                                            :caption "Period Count"}]
-         [forms/checkbox-field selected [:auto-create-items]]
-         [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]
+         [forms/checkbox-field selected [:budget/auto-create-items]]
+         [forms/date-field selected [:budget/auto-create-start-date] {:disabled-fn #(not @auto-create)}]
          [:div.mt-3
           [button {:html {:class "btn-primary"
                           :type :submit
