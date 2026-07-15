@@ -119,19 +119,22 @@
                  :disabled busy?
                  :caption "Add"}]]])))
 
+(defn- prepare-to-save
+  [{:budget/keys [auto-create-items] :as budget}]
+  (cond-> (dissoc budget :budget/items)
+    (not auto-create-items)
+    (dissoc :budget/auto-create-items
+            :budget/auto-create-start-date)))
+
 (defn- save-budget
   [page-state]
   (+busy)
-  (let [budget (:selected @page-state)]
-    (-> budget
-        (dissoc :budget/items)
-        (cond-> (not (:budget/auto-create-items budget))
-                (dissoc :budget/auto-create-items :budget/auto-create-start-date))
-        (update-in [:budget/period 1] keyword)
-        (api/save :callback -busy
-                  :on-success (fn []
-                                (load-budgets page-state)
-                                (swap! page-state dissoc :selected))))))
+  (-> (:selected @page-state)
+      prepare-to-save
+      (api/save :callback -busy
+                :on-success (fn []
+                              (load-budgets page-state)
+                              (swap! page-state dissoc :selected)))))
 
 (defn- budget-form
   [page-state]
@@ -148,9 +151,10 @@
          [forms/text-field selected [:budget/name] {:validations #{::v/required}}]
          [forms/date-field selected [:budget/start-date] {:validations #{::v/required}}]
          [forms/select-field selected [:budget/period 1] (->> budgets/periods
-                                                            (map name)
-                                                            sort)
-          {:caption "Period"}]
+                                                              (map name)
+                                                              sort)
+          {:caption "Period"
+           :transform-fn keyword}]
          [forms/integer-field selected [:budget/period 0] {:validations #{::v/required}
                                                            :caption "Period Count"}]
          [forms/checkbox-field selected [:budget/auto-create-items]]
