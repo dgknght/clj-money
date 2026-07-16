@@ -2,7 +2,9 @@
   (:require [clojure.walk :refer [postwalk]]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
-            [clojure.set :refer [rename-keys]]
+            [clojure.set :refer [rename-keys
+                                 union
+                                 difference]]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
             [stowaway.datalog :as dtl]
@@ -419,6 +421,43 @@
                  (mapv #(vector :db/retractEntity (:id %))))
             {}))
 
+(defn- gather-ids
+  "Breadth-first collection of every id that transitively depends on the
+  given entity id, keyed by entity type, using clj-money.db.datomic/dependent-attrs.
+  Sets make this safe against cycles (e.g. an account's self-referential
+  :parent ref)."
+  [entity-id]
+  (loop [frontier {:entity #{entity-id}}
+         acc      {:entity #{entity-id}}]
+    (let [found (reduce-kv
+                  (fn [m type ids]
+                    (reduce (fn [m2 [owner-type attr]]
+                              (update m2
+                                      owner-type
+                                      (fnil union #{})
+                                      (set (map :id (entities/select {attr [:in ids]})))))
+                            m
+                            (dependent-attrs type)))
+                  {}
+                  frontier)
+          new-frontier (reduce-kv
+                         (fn [m type ids]
+                           (let [unseen (difference ids (get acc type #{}))]
+                             (cond-> m (seq unseen) (assoc type unseen))))
+                         {}
+                         found)]
+      (if (empty? new-frontier)
+        acc
+        (recur new-frontier (merge-with union acc new-frontier))))))
+
+(defn- purge*
+  [{:keys [id]} {:keys [api]}]
+  (let [ids (mapcat val (gather-ids id))]
+    (transact api
+              (concat (map #(vector :db/retractEntity %) ids)
+                      (map #(hash-map :db/excise %) ids))
+              {})))
+
 (defmulti init-api ::db/strategy)
 
 (def ^:private history-query
@@ -501,21 +540,6 @@
                                    :datomic-peer]))]
     (query api {:query qry :args args})))
 
-(defn excise!
-  "Permanently purges the given entity ids (and all of their attributes and
-  history) via :db/excise. This does not cascade to dependents - the caller
-  is responsible for including every id that should be purged. Each id is
-  also retracted in the same transaction: :db/excise only marks data for
-  removal from history and does not, by itself, retract the current value,
-  so without the retraction the data would still be returned by ordinary
-  queries until the (asynchronous, background) excision completes."
-  [ids]
-  (let [api (init-api (db/active-config))]
-    (transact api
-              (concat (map #(vector :db/retractEntity %) ids)
-                      (map #(hash-map :db/excise %) ids))
-              {})))
-
 (defn- history*
   [entity-id attr {:keys [api]}]
   (->> (history api entity-id attr)
@@ -534,6 +558,7 @@
       (find-many [_ ids]      (find-many* ids {:api api}))
       (select [_ crit opts]   (select* crit opts {:api api}))
       (delete [_ entities]    (delete* entities {:api api}))
+      (purge! [_ entity]      (purge* entity {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
       (history [_ entity-id attr] (history* entity-id attr {:api api}))
       (close [_])

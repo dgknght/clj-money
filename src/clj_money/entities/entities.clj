@@ -34,8 +34,8 @@
                                         :settings/default-commodity])))
 
 (s/def ::entities/entity (s/and (s/keys :req [:entity/name
-                                            :entity/user]
-                                      :opt [:entity/settings
-                                            :entity/price-date-range
-                                            :entity/transaction-date-range])
-                              name-is-unique?))
+                                              :entity/user]
+                                        :opt [:entity/settings
+                                              :entity/price-date-range
+                                              :entity/transaction-date-range])
+                                name-is-unique?))

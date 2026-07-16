@@ -157,6 +157,8 @@
                :transient? true}
               {:id :items
                :type :vector}}
+    :datomic/refs #{{:id :transaction-items
+                     :type [:transaction-item]}}
     :refs #{:entity
             :scheduled-transaction}}
    {:id :transaction-item
@@ -172,9 +174,9 @@
                :type :keyword}
               {:id :memo
                :type :string}}
+    :sql/refs #{:transaction}
     :refs #{:account
-            :reconciliation
-            :transaction}}
+            :reconciliation}}
    {:id :lot
     :fields #{{:id :shares-purchased
                :type :decimal}

@@ -9,8 +9,7 @@
             [clj-money.entities.attachments :as atts]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
-            [clj-money.entities.prices :as prices]
-            [clj-money.entities.purge :as purge]))
+            [clj-money.entities.prices :as prices]))
 
 (defn print-routes []
   (doseq [[method path handler]
@@ -89,8 +88,14 @@
 (defn purge-entity
   "Completely and permanently removes the named entity and everything that
   depends on it. This is irreversible."
-  [entity-name]
-  (purge/purge-entity! (entities/find-by {:entity/name entity-name})))
+  [{:keys [entity-name user-email]}]
+  (if-let [e (entities/find-by {:entity/name entity-name
+                       :user/email user-email}
+                      {:type :entity})]
+    (entities/purge! e)
+    (println (format "Unable to find an entity named \"%s\" for user \"%s\""
+                     entity-name
+                     user-email))))
 
 (defn parse-performance-logs
   [path]

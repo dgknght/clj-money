@@ -9,7 +9,6 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.entities :as entities]
-            [clj-money.entities.purge :as purge]
             [clj-money.accounts :refer [nest
                                         unnest
                                         polarize-quantity]]
@@ -279,7 +278,7 @@
       (assert entity
               (format "Unable to find an entity named \"%s\"."
                       entity-name))
-      (purge/purge-entity! entity)
+      (entities/purge! entity)
       (println "Purged entity" entity-name)
       (shutdown-agents)
       (System/exit 0))))
