@@ -67,9 +67,7 @@
           v))
 
 (def entity-types
-  (->> schema/entities
-       (map :id)
-       set))
+  (->> schema/entities keys set))
 
 (def valid-entity-type? entity-types)
 

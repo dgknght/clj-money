@@ -25,6 +25,8 @@
                                           wrap-format]]
             [clj-money.entities :as entities]
             [clj-money.db.ref]
+            [clj-money.db.sql.ref]
+            [clj-money.db.datomic.ref]
             [clj-money.entities.ref]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]

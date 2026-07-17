@@ -216,7 +216,7 @@
       (f x))))
 
 (def ^:private ref-keys
-  schema/entity-ref-keys)
+  (disj schema/entity-ref-keys :transaction/items))
 
 (defn- put*
   [entities {:keys [api]} {:keys [tx-meta]}]

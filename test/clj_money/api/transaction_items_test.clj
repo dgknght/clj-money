@@ -168,39 +168,50 @@
 (deftest a-user-can-get-a-list-of-transaction-items-in-his-entity
   (with-context context
     (testing "default format (edn)"
-      (assert-successful-list (get-a-list "john@doe.com"))
-      (is (= (util/->entity-ref
-               (find-transaction
-                 [(t/local-date 2017 01 29)
-                  "Kroger"]))
-             (-> (get-a-list "john@doe.com")
-                 :parsed-body
-                 first
-                 :transaction-item/transaction))
-          "The transaction is included"))
+      (let [{:as res :keys [parsed-body]} (get-a-list "john@doe.com")]
+        (assert-successful-list res)
+        (is (= (util/->entity-ref
+                 (find-transaction
+                   [(t/local-date 2017 01 29)
+                    "Kroger"]))
+               (-> parsed-body
+                   first
+                   :transaction-item/transaction))
+            "The transaction is included")))
     (testing "json format"
-      (assert-successful-list
-        (get-a-list "john@doe.com" :content-type "application/json")
-        :expected [{:description "Kroger"
-                    :quantity "100.00"
-                    :action "credit"
-                    :_type "transaction-item"}
-                   {:description "Kroger"
-                    :quantity "100.00"
-                    :action "credit"
-                    :_type "transaction-item"}
-                   {:description "Paycheck"
-                    :quantity "1,000.00"
-                    :action "debit"
-                    :_type "transaction-item"}
-                   {:description "Kroger"
-                    :quantity "100.00"
-                    :action "credit"
-                    :_type "transaction-item"}
-                   {:description "Kroger"
-                    :quantity "100.00"
-                    :action "credit"
-                    :_type "transaction-item"}]))))
+      (let [{:as res :keys [parsed-body]} (get-a-list "john@doe.com"
+                                                      :content-type
+                                                      "application/json")]
+        (assert-successful-list
+          res
+          :expected [{:description "Kroger"
+                      :quantity "100.00"
+                      :action "credit"
+                      :_type "transaction-item"}
+                     {:description "Kroger"
+                      :quantity "100.00"
+                      :action "credit"
+                      :_type "transaction-item"}
+                     {:description "Paycheck"
+                      :quantity "1,000.00"
+                      :action "debit"
+                      :_type "transaction-item"}
+                     {:description "Kroger"
+                      :quantity "100.00"
+                      :action "credit"
+                      :_type "transaction-item"}
+                     {:description "Kroger"
+                      :quantity "100.00"
+                      :action "credit"
+                      :_type "transaction-item"}])
+        (is (= (util/->entity-ref
+                 (find-transaction
+                   [(t/local-date 2017 01 29)
+                    "Kroger"]))
+               (-> parsed-body
+                   first
+                   :transaction))
+            "The transaction is included")))))
 
 (deftest a-user-cannot-get-a-list-of-transaction-items-in-anothers-entity
   (with-context context

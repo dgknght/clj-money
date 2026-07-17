@@ -56,10 +56,10 @@
                                        (name k)))))))
 
 (def ^:private primary-keys
-  (->> schema/entities
-       (filter :primary-key)
+  (->> (schema/build :sql)
+       (filter (comp :primary-key second))
        (map (comp append-qualifiers
-                  (juxt :id :primary-key)))
+                  (juxt first (comp :primary-key second))))
        (into {})))
 
 (def ^:private reconstruction-rules
@@ -207,7 +207,7 @@
         [(str (name (:id ref)) "-id")]))))
 
 (defn- build-attributes
-  [[t fields refs]]
+  [[t {:keys [fields refs]}]]
   (let [attrs (->> refs
                    (mapcat ref-to-attrs)
                    (map #(keyword (name t) (name %)))
@@ -217,11 +217,11 @@
                    set)]
     [t (conj attrs :id)]))
 
+; TODO: These customizations should be moved into the overrides in the schema ns
 (def attributes
   "A map of entity types to attributes for the type"
-  (-> (->> schema/entities
-           (map (comp build-attributes
-                      (juxt :id :fields :refs)))
+  (-> (->> (schema/build :sql)
+           (map build-attributes)
            (into {}))
       (update-in [:account-item]
                  conj
@@ -293,8 +293,8 @@
 
 (def ^:private sqlize
   (types/sqlize
-    {:ref-keys (->> schema/entities
-                    (mapcat (fn [{:keys [refs id]}]
+    {:ref-keys (->> (schema/build :sql)
+                    (mapcat (fn [[id {:keys [refs]}]]
                               (map (fn [ref]
                                      [(keyword (name id)
                                                (name (schema/ref-id ref)))
@@ -305,6 +305,24 @@
                                    refs)))
                     (into {}))}))
 
+(defn- remove-redundant-select-also
+  "If any attributes in the :select-also value belongs to the
+  primary target of the query, they can be removed because they
+  are covered by the * used to get the entire row anyway."
+  [{:keys [select-also entity-type] :as opts}]
+  (if select-also
+    (let [t (name entity-type)]
+      (update-in opts
+                 [:select-also]
+                 (comp (fn [ks]
+                         (remove #(= t (namespace %))
+                                 ks))
+                       (fn [ks]
+                         (if (sequential? ks)
+                           ks
+                           [ks])))))
+    opts))
+
 (defn- make-query
   [criteria {:as options
              :keys [include-children?
@@ -314,11 +332,12 @@
   (-> criteria
       (crt/apply-to sqlize)
       (criteria->query
-        (cond-> (assoc options
-                       :quoted? true
-                       :column-fn ->snake_case
-                       :table-fn ->snake_case
-                       :target entity-type)
+        (cond-> (-> options
+                    remove-redundant-select-also
+                    (assoc :quoted? true
+                           :column-fn ->snake_case
+                           :table-fn ->snake_case
+                           :target entity-type))
           nil-replacements (assoc :nil-replacements
                                   (update-keys nil-replacements
                                                ->snake-case))
@@ -347,8 +366,8 @@
        attr-type)]))
 
 (def ^:private sql-ref-keys
-  (->> schema/entities
-       (mapcat (fn [{:keys [refs id]}]
+  (->> (schema/build :sql)
+       (mapcat (fn [[id {:keys [refs]}]]
                  (map #(vector id %) refs)))
        (map ref-spec->sql-key)
        (into {})))
