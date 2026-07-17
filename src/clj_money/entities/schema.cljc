@@ -286,6 +286,9 @@
                                     :account
                                     :reconciliation}}
 
+         :lot-item {:refs #{:lot
+                            :transaction}}
+
          :scheduled-transaction {:refs #{:entity}}
          :scheduled-transaction-item {:refs #{:scheduled-transaction
                                               :account}}
