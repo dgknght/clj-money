@@ -151,7 +151,11 @@
                  :refs #{:entity
                          :scheduled-transaction
                          {:id :items
-                          :type [:transaction-item]}}}
+                          :type [:transaction-item]
+                          :component true}
+                         {:id :lot-items
+                          :type [:lot-item]
+                          :component true}}}
    :transaction-item {:fields #{{:id :quantity
                                  :type :decimal}
                                 {:id :value
@@ -188,8 +192,7 @@
                          :type :decimal}
                         {:id :price
                          :type :decimal}}
-              :refs #{:lot
-                      :transaction}}
+              :refs #{:lot}}
    :budget {:fields #{{:id :name
                        :type :string}
                       {:id :start-date
@@ -199,13 +202,15 @@
                       {:id :end-date
                        :type :date
                        :transient? true}}
-            :refs #{:entity}}
+            :refs #{:entity
+                    {:id :items
+                     :type [:budget-item]
+                     :component true}}}
    :budget-item {:fields #{{:id :periods
                             :type :vector}
                            {:id :spec
                             :type :map}}
-                 :refs #{:budget
-                         :account}}
+                 :refs #{:account}}
    :scheduled-transaction {:fields #{{:id :description
                                       :type :string}
                                      {:id :start-date
@@ -227,7 +232,8 @@
                                       :type :vector}}
                            :refs #{:entity
                                    {:id :items
-                                    :type [:scheduled-transaction-item]}}}
+                                    :type [:scheduled-transaction-item]
+                                    :component true}}}
    :scheduled-transaction-item {:fields #{{:id :action
                                            :type :keyword}
                                           {:id :quantity
@@ -279,9 +285,14 @@
          :transaction-item {:refs #{:transaction
                                     :account
                                     :reconciliation}}
+
          :scheduled-transaction {:refs #{:entity}}
          :scheduled-transaction-item {:refs #{:scheduled-transaction
-                                              :account}}}})
+                                              :account}}
+
+         :budget {:refs #{:entity}}
+         :budget-item {:refs #{:budget
+                               :account}}}})
 
 (defn- resolve-merge-conflict
   [v1 v2]
@@ -297,29 +308,34 @@
 
 (def ref-id (some-fn :id identity))
 
-(def entity-ref-keys
-  (->> entities
-       (mapcat (fn [[id {:keys [refs]}]]
-                 (map (fn [ref]
-                        (keyword (name id)
-                                 (name (ref-id ref))))
-                      refs)))
-       set))
-
 (defn relationship-ref-type
-  "Returns the entity type for a relationship.
-  For plural refs like {:id :lots :type [:lot]}, returns :lot.
-  For simple refs like :lot, returns :lot."
+  "Returns the entity type for a relationship."
   [ref]
   (if (and (map? ref) (vector? (:type ref)))
     (first (:type ref))
     (ref-id ref)))
 
+(defn relationship-tuple
+  "Returns a function that takes an entity reference and
+  returns a type with the referenced type in the 1st position,
+  the referencing type in the 2nd position, and an optional
+  attribute override in the 3rd position (if the type of the
+  referenced entity is not also the attribute)"
+  [id]
+  (fn [ref]
+    (if (keyword? ref)
+      [ref id]
+      (if-let [t (:type ref)]
+        [(if (vector? t) (first t) t) id (:id ref)]
+        [(:id ref) id]))))
+
+(defn- relationship-tuples
+  [[id {:keys [refs]}]]
+  (map (relationship-tuple id) refs))
+
 (def relationships
   (->> entities
-       (mapcat (fn [[id {:keys [refs]}]]
-                 (map #(vector (relationship-ref-type %) id)
-                      refs)))
+       (mapcat relationship-tuples)
        set))
 
 (defn- extract-attributes

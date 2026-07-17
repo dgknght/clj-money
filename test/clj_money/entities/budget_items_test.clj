@@ -88,8 +88,8 @@
     (assert-updated
       (find-budget "2016")
       {:budget/items [(assoc (attributes)
-                           :budget-item/spec {:start-date (t/local-date 2016 1 1)
-                                              :round-to 2})]})))
+                             :budget-item/spec {:start-date (t/local-date 2016 1 1)
+                                                :round-to 2})]})))
 
 (def ^:private existing-context
   (conj basic-context
