@@ -38,12 +38,12 @@
 (s/def :budget/period ::dates/period)
 (s/def :budget/entity ::entities/entity-ref)
 (s/def ::entities/budget (s/and (s/keys :req [:budget/name
-                                            :budget/start-date
-                                            :budget/period
-                                            :budget/entity]
-                                      :opt [:budget/items])
-                              accounts-belong-to-budget-entity?
-                              period-counts-match?))
+                                              :budget/start-date
+                                              :budget/period
+                                              :budget/entity]
+                                        :opt [:budget/items])
+                                accounts-belong-to-budget-entity?
+                                period-counts-match?))
 
 (defmethod entities/before-save :budget
   [budget]
@@ -57,9 +57,9 @@
          date
          (t/local-date? date)]}
   (entities/find-by #:budget{:start-date [:<= date]
-                           :end-date [:>= date]
-                           :entity entity}
-                  {:include #{:budget/items}}))
+                             :end-date [:>= date]
+                             :entity entity}
+                    {:include #{:budget/items}}))
 
 (defn find-items-by-account
   "Finds items in the specified budget belonging to the specified account or its children."
