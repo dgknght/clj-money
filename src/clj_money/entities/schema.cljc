@@ -201,6 +201,9 @@
                        :type :tuple}
                       {:id :end-date
                        :type :date
+                       :transient? true}
+                      {:id :auto-create-start-date
+                       :type :date
                        :transient? true}}
             :refs #{:entity
                     {:id :items
