@@ -59,25 +59,6 @@
     :user                  '[?x :user/email ?user-email]
     :invitation            '[?x :invitation/recipient ?invitation-recipient]))
 
-(def dependent-attrs
-  "A map of entity types to attributes of other types that reference the given type"
-  (->> (schema/build :datomic)
-       (filter (comp :refs second))
-       (mapcat (fn [[id {:keys [refs]}]]
-                 (->> refs
-                      (remove :component)
-                      (map (fn [r] [id r])))))
-       (reduce (fn [res [id r]]
-                 (let [t (schema/relationship-ref-type r)]
-                   (update-in res
-                              [t]
-                              (fnil conj [])
-                              [id (keyword (name id)
-                                           (if (vector? (:type r))
-                                             (name (plural t))
-                                             (name t)))])))
-               {})))
-
 (defn- unbounded?
   [{:keys [where]}]
   (->> where
@@ -417,20 +398,26 @@
             {}))
 
 (defn- dependent-ids
-  [id api & [attr]]
-  (mapcat identity
-          (query api {:query {:find '[?x]
-                              :in '[$ ?e]
-                              :where [['?x attr '?e]]}
-                      :args [id]})))
+  [id api & [a & as]]
+  (let [ids (mapcat identity
+                    (query api {:query {:find '[?x]
+                                        :in '[$ ?e]
+                                        :where [['?x a '?e]]}
+                                :args [id]}))]
+    (if (seq as)
+      (mapcat (fn [id]
+                (cons id
+                      (apply dependent-ids id api as)))
+              ids)
+      ids)))
 
 (defn- purge*
   [{:keys [id] :as entity} {:keys [api]}]
   {:pre [(= :entity (util/entity-type entity))]}
 
-  (let [ids (concat (dependent-ids id api :transaction/entity)
-                    (dependent-ids id api :account/entity)
-                    (dependent-ids id api :commodity/entity)
+  (let [ids (concat (dependent-ids id api :transaction/entity :attachment/transaction)
+                    (dependent-ids id api :account/entity :reconciliation/account)
+                    (dependent-ids id api :commodity/entity :price/commodity)
                     (dependent-ids id api :budget/entity)
                     [id])
         tx-data (mapcat (juxt #(vector :db/retractEntity %)
