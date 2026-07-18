@@ -169,7 +169,7 @@
                          :status :new
                          :items [[(t/local-date 2017 1 1) 1000M]]}))
 
-(dbtest purge-completely-removes-an-entity-and-its-dependents
+(dbtest purge-an-entity
   (with-context purge-context
     (let [entity (find-entity "Personal")
           image (find-image "receipt.jpg")

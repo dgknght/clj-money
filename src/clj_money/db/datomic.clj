@@ -2,11 +2,10 @@
   (:require [clojure.walk :refer [postwalk]]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
-            [clojure.set :refer [rename-keys
-                                 union
-                                 difference]]
+            [clojure.set :refer [rename-keys]]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
+            [dgknght.app-lib.inflection :refer [plural]]
             [stowaway.datalog :as dtl]
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
@@ -61,35 +60,23 @@
     :invitation            '[?x :invitation/recipient ?invitation-recipient]))
 
 (def dependent-attrs
-  "For a given entity type, the [owner-type attr] pairs of every real,
-  independently-queryable Datomic ref attribute that leads back to it. Used
-  to walk out from an entity to everything that transitively depends on it
-  (see clj-money.entities.purge). This intentionally excludes reverse
-  references into :db/isComponent vector attributes (e.g. :transaction/items,
-  :budget/items, :scheduled-transaction/items) since Datomic has no queryable
-  attribute in that direction - those dependents (transaction-item,
-  budget-item, scheduled-transaction-item) are still fully reachable here via
-  their :account ref instead. Reflects resources/datomic/schema/*.edn."
-  {:entity                [[:account :account/entity]
-                           [:commodity :commodity/entity]
-                           [:transaction :transaction/entity]
-                           [:budget :budget/entity]
-                           [:scheduled-transaction :scheduled-transaction/entity]
-                           [:grant :grant/entity]]
-   :account               [[:account :account/parent]
-                           [:transaction-item :transaction-item/account]
-                           [:lot :lot/account]
-                           [:budget-item :budget-item/account]
-                           [:scheduled-transaction-item :scheduled-transaction-item/account]
-                           [:reconciliation :reconciliation/account]]
-   :commodity             [[:account :account/commodity]
-                           [:price :price/commodity]
-                           [:lot :lot/commodity]]
-   :transaction           [[:attachment :attachment/transaction]]
-   :scheduled-transaction [[:transaction :transaction/scheduled-transaction]]
-   :reconciliation        [[:transaction-item :transaction-item/reconciliation]]
-   :lot                   [[:lot-note :lot-note/lots]
-                           [:lot-item :lot-item/lot]]})
+  "A map of entity types to attributes of other types that reference the given type"
+  (->> (schema/build :datomic)
+       (filter (comp :refs second))
+       (mapcat (fn [[id {:keys [refs]}]]
+                 (->> refs
+                      (remove :component)
+                      (map (fn [r] [id r])))))
+       (reduce (fn [res [id r]]
+                 (let [t (schema/relationship-ref-type r)]
+                   (update-in res
+                              [t]
+                              (fnil conj [])
+                              [id (keyword (name id)
+                                           (if (vector? (:type r))
+                                             (name (plural t))
+                                             (name t)))])))
+               {})))
 
 (defn- unbounded?
   [{:keys [where]}]
@@ -429,42 +416,27 @@
                  (mapv #(vector :db/retractEntity (:id %))))
             {}))
 
-(defn- gather-ids
-  "Breadth-first collection of every id that transitively depends on the
-  given entity id, keyed by entity type, using clj-money.db.datomic/dependent-attrs.
-  Sets make this safe against cycles (e.g. an account's self-referential
-  :parent ref)."
-  [entity-id]
-  (loop [frontier {:entity #{entity-id}}
-         acc      {:entity #{entity-id}}]
-    (let [found (reduce-kv
-                  (fn [m type ids]
-                    (reduce (fn [m2 [owner-type attr]]
-                              (update m2
-                                      owner-type
-                                      (fnil union #{})
-                                      (set (map :id (entities/select {attr [:in ids]})))))
-                            m
-                            (dependent-attrs type)))
-                  {}
-                  frontier)
-          new-frontier (reduce-kv
-                         (fn [m type ids]
-                           (let [unseen (difference ids (get acc type #{}))]
-                             (cond-> m (seq unseen) (assoc type unseen))))
-                         {}
-                         found)]
-      (if (empty? new-frontier)
-        acc
-        (recur new-frontier (merge-with union acc new-frontier))))))
+(defn- dependent-ids
+  [id api & [attr]]
+  (mapcat identity
+          (query api {:query {:find '[?x]
+                              :in '[$ ?e]
+                              :where [['?x attr '?e]]}
+                      :args [id]})))
 
 (defn- purge*
-  [{:keys [id]} {:keys [api]}]
-  (let [ids (mapcat val (gather-ids id))]
-    (transact api
-              (concat (map #(vector :db/retractEntity %) ids)
-                      (map #(hash-map :db/excise %) ids))
-              {})))
+  [{:keys [id] :as entity} {:keys [api]}]
+  {:pre [(= :entity (util/entity-type entity))]}
+
+  (let [ids (concat (dependent-ids id api :transaction/entity)
+                    (dependent-ids id api :account/entity)
+                    (dependent-ids id api :commodity/entity)
+                    (dependent-ids id api :budget/entity)
+                    [id])
+        tx-data (mapcat (juxt #(vector :db/retractEntity %)
+                              #(hash-map :db/excise %))
+                        ids)]
+    (transact api tx-data {})))
 
 (defmulti init-api ::db/strategy)
 
