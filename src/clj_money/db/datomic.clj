@@ -5,7 +5,6 @@
             [clojure.set :refer [rename-keys]]
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
-            [dgknght.app-lib.inflection :refer [plural]]
             [stowaway.datalog :as dtl]
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
