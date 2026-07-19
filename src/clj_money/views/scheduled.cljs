@@ -19,6 +19,7 @@
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
+            [clj-money.app :refer [load-pending-count]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -77,6 +78,7 @@
                       (swap! page-state #(-> %
                                              (update-sched-trans result)
                                              (update-in [:created] (fnil concat []) result)))
+                      (load-pending-count)
                       (notify/toast "Success" (if (empty? result)
                                                 "No transactions are ready to be created."
                                                 "The scheduled transactions where created")))]
@@ -245,6 +247,7 @@
       (sched-trans/save :callback -busy
                         :on-success (fn [_]
                                       (load-sched-trans page-state)
+                                      (load-pending-count)
                                       (swap! page-state dissoc :selected)))))
 
 (defn- adj-items
