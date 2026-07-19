@@ -396,40 +396,50 @@
                  (mapv #(vector :db/retractEntity (:id %))))
             {}))
 
+(def ^:private dependency-attrs
+  {:entity [:commodity/entity
+            :account/entity
+            :transaction/entity
+            :scheduled-transaction/entity
+            :grant/entity
+            :budget/entity]
+   :commodity [:price/commodity
+               :lot/commodity
+               :lot-item/lot
+               :lot-note/lots]
+   :account [:reconciliation/account
+             :lot/account] ; probably redundant
+   :transaction [:attachment/transaction]})
+
+(defn- referring-ids
+  "Given an id and an attribute, return all ids that point
+  to the given id via the given attribute"
+  [id attr api]
+  (mapcat identity
+          (query api {:query {:find '[?x]
+                              :in '[$ ?e]
+                              :where [['?x attr '?e]]}
+                      :args [id]})))
+
 (defn- dependent-ids
-  [id api & [a & as]]
-  (let [ids (mapcat identity
-                    (query api {:query {:find '[?x]
-                                        :in '[$ ?e]
-                                        :where [['?x a '?e]]}
-                                :args [id]}))]
-    (if (seq as)
-      (mapcat (fn [id]
-                (cons id
-                      (apply dependent-ids id api as)))
-              ids)
-      ids)))
+  "Given an id and its entity type, return all of the items
+  that reference the given id throughout the dependency graph."
+  [entity-type id api]
+  (mapcat (fn [a]
+            (let [ids (referring-ids id a api)
+                  t (keyword (namespace a))]
+              (->> ids
+                   (mapcat #(dependent-ids t % api))
+                   (concat ids))))
+          (dependency-attrs entity-type)))
 
 (defn- purge*
   [{:keys [id] :as entity} {:keys [api]}]
   {:pre [(= :entity (util/entity-type entity))]}
 
-  (let [lot-ids (concat (dependent-ids id api :commodity/entity :lot/commodity)
-                        (dependent-ids id api :account/entity :lot/account))
-        ids (distinct
-              (concat (dependent-ids id api :transaction/entity :attachment/transaction)
-                      (dependent-ids id api :account/entity :reconciliation/account)
-                      (dependent-ids id api :commodity/entity :price/commodity)
-                      (dependent-ids id api :budget/entity)
-                      (dependent-ids id api :scheduled-transaction/entity)
-                      (dependent-ids id api :grant/entity)
-                      lot-ids
-                      (mapcat #(dependent-ids % api :lot-item/lot) lot-ids)
-                      (mapcat #(dependent-ids % api :lot-note/lots) lot-ids)
-                      [id]))
-        tx-data (mapcat (juxt #(vector :db/retractEntity %)
+  (let [tx-data (mapcat (juxt #(vector :db/retractEntity %)
                               #(hash-map :db/excise %))
-                        ids)]
+                        (cons id (dependent-ids :entity id api)))]
     (transact api tx-data {})))
 
 (defmulti init-api ::db/strategy)
