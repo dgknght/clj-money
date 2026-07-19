@@ -4,7 +4,7 @@
             [clj-money.api.entities :as entities]
             [clj-money.api.scheduled-transactions :as sched-trxs]))
 
-(defn- load-pending-count []
+(defn load-pending-count []
   (try
     (sched-trxs/count
       {:pending true}
