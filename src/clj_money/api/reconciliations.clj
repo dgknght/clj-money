@@ -102,6 +102,7 @@
   (or (some-> req
               (find-and-auth ::auth/update)
               (merge (extract-recon req))
+              (update-in-if [:reconciliation/items] itms/resolve-refs)
               entities/put
               api/update-response)
       api/not-found))

@@ -271,6 +271,26 @@
   (with-context update-context
     (assert-blocked-update (update-reconciliation "jane@doe.com"))))
 
+(deftest a-user-can-add-a-new-item-when-updating-a-reconciliation
+  (with-context recon-context
+    (let [[_ created] (create-reconciliation "john@doe.com"
+                                             :body (build-recon :new))
+          new-item (first (select-recon-items))
+          body (-> created
+                   (dissoc :id)
+                   (assoc :reconciliation/items [(select-keys new-item [:id])]))
+          response (-> (request :patch (path :api
+                                             :reconciliations
+                                             (:id created))
+                                :content-type "application/edn"
+                                :body body
+                                :user (find-user "john@doe.com"))
+                       app
+                       parse-body)]
+      (is (http-success? response)
+          (str "adding a new (abbreviated) item on update should succeed: "
+               (:parsed-body response))))))
+
 (defn- get-reconciliations-by-status
   [email status]
   (let [account (find-account "Checking")]
