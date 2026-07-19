@@ -10,6 +10,7 @@
                                             basic-context
                                             find-user
                                             find-account
+                                            find-commodity
                                             find-entity
                                             find-image
                                             find-price
@@ -18,6 +19,7 @@
                                             find-scheduled-transaction
                                             find-grant
                                             find-lot
+                                            find-lot-note
                                             find-reconciliation]]
             [clj-factory.core :refer [factory]]
             [clj-money.entity-helpers :as helpers :refer [assert-invalid
@@ -179,7 +181,17 @@
               :purchase-price 12.34M
               :shares-purchased 10M
               :shares-owned 10M
-              :purchase-date (t/local-date 2017 3 2)}))
+              :purchase-date (t/local-date 2017 3 2)}
+        #:lot-note{:lots [["Checking" "AAPL" (t/local-date 2017 3 2)]]
+                   :transaction-date (t/local-date 2017 3 2)
+                   :memo "Note"}
+        #:trade{:entity "Personal"
+                :date (t/local-date 2017 4 1)
+                :type :purchase
+                :account "Checking" ; We wouldn't really by a stock from checking
+                :commodity "AAPL"
+                :shares 5M
+                :value 500M}))
 
 (dbtest purge-an-entity
   (with-context purge-context
@@ -188,7 +200,12 @@
           business (find-entity "Business")
           scheduled-transaction (find-scheduled-transaction "Scheduled Paycheck")
           grant (find-grant ["Personal" "jane@doe.com"])
-          lot (find-lot ["Checking" "AAPL" (t/local-date 2017 3 2)])]
+          lot (find-lot ["Checking" "AAPL" (t/local-date 2017 3 2)])
+          lot-note (find-lot-note [(t/local-date 2017 3 2) "Note"])
+          trade-lot (entities/find-by
+                      #:lot{:account (util/->entity-ref (find-account "Checking"))
+                            :commodity (util/->entity-ref (find-commodity "AAPL"))
+                            :purchase-date (t/local-date 2017 4 1)})]
       (entities/purge! entity)
 
       (is (nil? (entities/find entity))
@@ -215,6 +232,10 @@
           "The entity's grants are removed")
       (is (nil? (entities/find lot))
           "The entity's lots are removed")
+      (is (nil? (entities/find lot-note))
+          "The entity's lot notes are removed")
+      (is (nil? (entities/find trade-lot))
+          "The lot created by a trade is removed")
 
       (is (some? (entities/find image))
           "A shared, user-owned image is not removed along with an attachment")

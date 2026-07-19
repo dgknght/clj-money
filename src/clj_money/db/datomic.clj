@@ -404,11 +404,11 @@
             :grant/entity
             :budget/entity]
    :commodity [:price/commodity
-               :lot/commodity
-               :lot-item/lot
-               :lot-note/lots]
+               :lot/commodity]
    :account [:reconciliation/account
              :lot/account] ; probably redundant
+   :lot [:lot-item/lot
+         :lot-note/lots]
    :transaction [:attachment/transaction]})
 
 (defn- referring-ids
@@ -439,7 +439,7 @@
 
   (let [tx-data (mapcat (juxt #(vector :db/retractEntity %)
                               #(hash-map :db/excise %))
-                        (cons id (dependent-ids :entity id api)))]
+                        (distinct (cons id (dependent-ids :entity id api))))]
     (transact api tx-data {})))
 
 (defmulti init-api ::db/strategy)
