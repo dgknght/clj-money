@@ -133,6 +133,9 @@
                                                :account/type :expense}
                                :quantity (d -10)}]
       (is (= expected (trx/unaccountify simple)))
+      (testing "no quantity entered yet"
+        (is (some? (trx/unaccountify (dissoc simple :transaction/quantity)))
+            "It does not raise an exception when the quantity has not yet been entered"))
       (testing "two asset accounts"
         (is (= (assoc-in expected
                          [:transaction/items
