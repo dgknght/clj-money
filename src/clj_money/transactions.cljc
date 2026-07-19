@@ -700,12 +700,12 @@
 (defn unaccountify
   "Accepts an accountified transaction (with one quantity, one account, and
                                          one 'other' account) and returns a bilateral transaction"
-  [{:transaction/keys [quantity
-                       account]
-    :as trx}]
+  [trx]
   {:pre [(:transaction/account trx)]}
   ; accountified -> simple -> bilateral
-  (let [renames (if (if (left-side? account)
+  (let [trx (update trx :transaction/quantity #(or % d/zero))
+        {:transaction/keys [quantity account]} trx
+        renames (if (if (left-side? account)
                       (d/< d/zero quantity)
                       (d/< quantity d/zero))
                   {:transaction/account :transaction/debit-account

@@ -102,7 +102,7 @@
             (.setScale n places BigDecimal/ROUND_HALF_UP))))
 
 #?(:cljs (def abs decimal/abs)
-   :clj  (def abs core/abs))
+   :clj  (defn abs [n] (when n (core/abs n))))
 
 (defn parse
    [s]
