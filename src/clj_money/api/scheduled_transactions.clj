@@ -156,6 +156,8 @@
               realize-accounts
               sched-trans/realize
               put-many
+              (->> (filter (util/entity-type? :transaction))
+                   (sort-by :transaction/transaction-date t/before?))
               api/creation-response)
       api/not-found))
 
