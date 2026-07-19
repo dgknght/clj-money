@@ -319,6 +319,15 @@
 (deftest a-user-cannot-delete-a-scheduled-transaction-in-anothers-entity
   (assert-blocked-delete (delete-sched-tran "jane@doe.com")))
 
+(def ^:private realize-context
+  (conj update-context
+        #:transaction{:entity "Personal"
+                      :description "Existing Payment"
+                      :transaction-date (t/local-date 2016 1 15)
+                      :quantity 50M
+                      :debit-account "Rent"
+                      :credit-account "Checking"}))
+
 (defn- realize-trans
   [user-email]
   (let [sched-tran (find-scheduled-transaction "Paycheck")]
@@ -332,8 +341,17 @@
           parse-body))))
 
 (defn- assert-successful-realization
-  [response]
+  [{:as response :keys [parsed-body]}]
   (is (http-created? response))
+  (is (seq-of-maps-like?
+        [#:transaction{:description "Paycheck"
+                       :transaction-date (t/local-date 2016 2 1)
+                       :items [#:transaction-item{:quantity 1000M
+                                                  :action :debit}
+                               #:transaction-item{:quantity 1000M
+                                                  :action :credit}]}]
+        parsed-body)
+      "Only the newly created transaction is returned, not pre-existing ones")
   (is (seq-of-maps-like?
         [#:transaction{:description "Paycheck"
                        :transaction-date (t/local-date 2016 2 1)
@@ -357,7 +375,7 @@
       "The scheduled trx record is not updated with the last occurrence"))
 
 (deftest a-user-can-realize-a-scheduled-transaction-in-his-entity
-  (with-context update-context
+  (with-context realize-context
     (assert-successful-realization (realize-trans "john@doe.com"))))
 
 (deftest a-user-cannot-realize-a-scheduled-transaction-in-anothers-entity
