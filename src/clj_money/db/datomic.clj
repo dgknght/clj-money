@@ -414,11 +414,19 @@
   [{:keys [id] :as entity} {:keys [api]}]
   {:pre [(= :entity (util/entity-type entity))]}
 
-  (let [ids (concat (dependent-ids id api :transaction/entity :attachment/transaction)
-                    (dependent-ids id api :account/entity :reconciliation/account)
-                    (dependent-ids id api :commodity/entity :price/commodity)
-                    (dependent-ids id api :budget/entity)
-                    [id])
+  (let [lot-ids (concat (dependent-ids id api :commodity/entity :lot/commodity)
+                        (dependent-ids id api :account/entity :lot/account))
+        ids (distinct
+              (concat (dependent-ids id api :transaction/entity :attachment/transaction)
+                      (dependent-ids id api :account/entity :reconciliation/account)
+                      (dependent-ids id api :commodity/entity :price/commodity)
+                      (dependent-ids id api :budget/entity)
+                      (dependent-ids id api :scheduled-transaction/entity)
+                      (dependent-ids id api :grant/entity)
+                      lot-ids
+                      (mapcat #(dependent-ids % api :lot-item/lot) lot-ids)
+                      (mapcat #(dependent-ids % api :lot-note/lots) lot-ids)
+                      [id]))
         tx-data (mapcat (juxt #(vector :db/retractEntity %)
                               #(hash-map :db/excise %))
                         ids)]

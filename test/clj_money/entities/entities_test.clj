@@ -15,6 +15,9 @@
                                             find-price
                                             find-attachment
                                             find-budget-item
+                                            find-scheduled-transaction
+                                            find-grant
+                                            find-lot
                                             find-reconciliation]]
             [clj-factory.core :refer [factory]]
             [clj-money.entity-helpers :as helpers :refer [assert-invalid
@@ -167,13 +170,25 @@
                          :end-of-period (t/local-date 2017 1 31)
                          :balance 1000M
                          :status :new
-                         :items [[(t/local-date 2017 1 1) 1000M]]}))
+                         :items [[(t/local-date 2017 1 1) 1000M]]}
+        #:grant{:entity "Personal"
+                :user "jane@doe.com"
+                :permissions {:account #{:index :show}}}
+        #:lot{:account "Checking"
+              :commodity "AAPL"
+              :purchase-price 12.34M
+              :shares-purchased 10M
+              :shares-owned 10M
+              :purchase-date (t/local-date 2017 3 2)}))
 
 (dbtest purge-an-entity
   (with-context purge-context
     (let [entity (find-entity "Personal")
           image (find-image "receipt.jpg")
-          business (find-entity "Business")]
+          business (find-entity "Business")
+          scheduled-transaction (find-scheduled-transaction "Scheduled Paycheck")
+          grant (find-grant ["Personal" "jane@doe.com"])
+          lot (find-lot ["Checking" "AAPL" (t/local-date 2017 3 2)])]
       (entities/purge! entity)
 
       (is (nil? (entities/find entity))
@@ -192,10 +207,14 @@
           "The entity's budgets are removed")
       (is (nil? (entities/find (find-budget-item ["2017" "Groceries"])))
           "The entity's budget items are removed")
-      (is (empty? (entities/select {:scheduled-transaction/entity entity}))
+      (is (nil? (entities/find scheduled-transaction))
           "The entity's scheduled transactions are removed")
       (is (nil? (entities/find (find-reconciliation ["Checking" (t/local-date 2017 1 31)])))
           "The entity's reconciliations are removed")
+      (is (nil? (entities/find grant))
+          "The entity's grants are removed")
+      (is (nil? (entities/find lot))
+          "The entity's lots are removed")
 
       (is (some? (entities/find image))
           "A shared, user-owned image is not removed along with an attachment")
