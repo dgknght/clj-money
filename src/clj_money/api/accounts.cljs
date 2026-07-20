@@ -42,3 +42,11 @@
               (add-error-handler
                 opts
                 "Unable to delete the account: %s")))
+
+(defn recalculate
+  [account & {:as opts}]
+  (api/post (api/path :accounts account :recalculate)
+            {}
+            (add-error-handler
+              opts
+              "Unable to recalculate the account: %s")))

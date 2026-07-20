@@ -305,3 +305,33 @@
 
 (deftest a-user-cannot-delete-an-account-in-anothers-entity
   (assert-blocked-delete (delete-an-account "jane@doe.com")))
+
+(defn- recalculate-an-account
+  [email]
+  (with-context
+    (let [account (find-account "Checking")
+          response (-> (request :post (path :api
+                                            :accounts
+                                            (:id account)
+                                            :recalculate)
+                                :user (find-user email))
+                       app
+                       parse-body)]
+      [response account])))
+
+(defn- assert-successful-recalculate
+  [[response account]]
+  (is (http-success? response))
+  (is (comparable? {:account/name (:account/name account)}
+                   (:parsed-body response))
+      "The recalculated account is returned in the response"))
+
+(defn- assert-blocked-recalculate
+  [[response _account]]
+  (is (http-not-found? response)))
+
+(deftest a-user-can-recalculate-an-account-in-his-entity
+  (assert-successful-recalculate (recalculate-an-account "john@doe.com")))
+
+(deftest a-user-cannot-recalculate-an-account-in-anothers-entity
+  (assert-blocked-recalculate (recalculate-an-account "jane@doe.com")))

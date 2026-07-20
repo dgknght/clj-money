@@ -6,6 +6,7 @@
 (derive ::show ::manage)
 (derive ::update ::manage)
 (derive ::destroy ::manage)
+(derive ::recalculate ::manage)
 
 (defmulti allowed?
   "Returns a truthy or falsey value indicating whether or not the
