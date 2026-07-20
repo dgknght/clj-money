@@ -69,11 +69,22 @@
                      :on-success fetch-accounts)))
 
 (defn- recalculate
-  [account]
+  [account page-state]
   (+busy)
+  (swap! page-state update-in [:recalculating] conj (:id account))
   (accounts/recalculate account
-                        :callback -busy
-                        :on-success fetch-accounts))
+                        :callback (comp -busy
+                                        #(swap! page-state
+                                                update-in
+                                                [:recalculating]
+                                                disj
+                                                (:id account)))
+                        :on-success (fn [& _]
+                                      (notify/toast "Reindexing Finished"
+                                                    (str "The account \""
+                                                         (:account/name account)
+                                                         "\" has finished."))
+                                      (fetch-accounts))))
 
 (defn- toggle-account
   [id page-state]
@@ -185,38 +196,41 @@
 (defn- account-row-buttons
   [account page-state]
   (fn []
-    [:div.btn-group
-     [:button.btn.btn-secondary.btn-sm
-      {:on-click (select-account account page-state)
-       :title "Click here to view transactions for this account."}
-      (icon :collection :size :small)]
-     [:button.btn.btn-secondary.btn-sm
-      {:on-click (fn []
-                   (swap! page-state assoc :selected account)
-                   (set-focus "parent-id"))
-       :title "Click here to edit this account."}
-      (icon :pencil :size :small)]
-     [:button.btn.btn-secondary
-      {:on-click #(swap! page-state
-                         assoc
-                         :allocation
-                         {:account (prepare-for-allocation account)
-                          :cash (:account/value account)
-                          :withdrawal 0M})
-       :disabled (not (system-tagged? account :trading))
-       :title "Click here to manage asset allocation for this account."}
-      (icon (if (system-tagged? account :trading)
-              :pie-chart-fill
-              :pie-chart)
-            :size :small)]
-     [:button.btn.btn-secondary.btn-sm
-      {:on-click #(recalculate account)
-       :title "Click here to recalculate the balance and transaction indexes for this account."}
-      (icon :arrow-clockwise :size :small)]
-     [:button.btn.btn-danger.btn-sm
-      {:on-click #(delete account)
-       :title "Click here to remove this account."}
-      (icon :x-circle :size :small)]]))
+    (let [recalculating (r/cursor page-state [:recalculating])]
+      [:div.btn-group
+       [:button.btn.btn-secondary.btn-sm
+        {:on-click (select-account account page-state)
+         :title "Click here to view transactions for this account."}
+        (icon :collection :size :small)]
+       [:button.btn.btn-secondary.btn-sm
+        {:on-click (fn []
+                     (swap! page-state assoc :selected account)
+                     (set-focus "parent-id"))
+         :title "Click here to edit this account."}
+        (icon :pencil :size :small)]
+       [:button.btn.btn-secondary
+        {:on-click #(swap! page-state
+                           assoc
+                           :allocation
+                           {:account (prepare-for-allocation account)
+                            :cash (:account/value account)
+                            :withdrawal 0M})
+         :disabled (not (system-tagged? account :trading))
+         :title "Click here to manage asset allocation for this account."}
+        (icon (if (system-tagged? account :trading)
+                :pie-chart-fill
+                :pie-chart)
+              :size :small)]
+       [:button.btn.btn-secondary.btn-sm
+        {:on-click #(recalculate account page-state)
+         :title "Click here to recalculate the balance and transaction indexes for this account."}
+        (if (@recalculating (:id account))
+          [:div.spinner-border.spinner-border-sm {:role :state}]
+          (icon :arrow-clockwise :size :small))]
+       [:button.btn.btn-danger.btn-sm
+        {:on-click #(delete account)
+         :title "Click here to remove this account."}
+        (icon :x-circle :size :small)]])))
 
 (defn- account-row
   [{:keys [id] :account/keys [parent-ids] :as account} expanded page-state]
@@ -1171,6 +1185,7 @@
   (let [page-state (r/atom {:expanded #{}
                             :hide-zero-balances? (any-non-zero-balances?)
                             :filter-tags #{}
+                            :recalculating #{}
                             :ctl-chan (chan)})
         default-commodity (make-reaction
                             #(get-in @current-entity
