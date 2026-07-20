@@ -7,6 +7,7 @@
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
+            [clj-money.entities.transactions :as transactions]
             [clj-money.authorization :as auth :refer [authorize
                                                       +scope]]
             [clj-money.authorization.accounts]))
@@ -107,9 +108,18 @@
       (api/response))
     api/not-found))
 
+(defn- recalculate
+  [req]
+  (if-let [account (find-and-auth req ::auth/recalculate)]
+    (let [entity (entities/find (:account/entity account))]
+      (transactions/propagate-account-from-start entity account)
+      (api/response (entities/find account)))
+    api/not-found))
+
 (def routes
   [["entities/:entity-id/accounts" {:get {:handler index}
                                     :post {:handler create}}]
    ["accounts/:id" {:get {:handler show}
                     :patch {:handler update}
-                    :delete {:handler delete}}]])
+                    :delete {:handler delete}}]
+   ["accounts/:id/recalculate" {:post {:handler recalculate}}]])

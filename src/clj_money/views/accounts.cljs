@@ -68,6 +68,13 @@
                      :callback -busy
                      :on-success fetch-accounts)))
 
+(defn- recalculate
+  [account]
+  (+busy)
+  (accounts/recalculate account
+                        :callback -busy
+                        :on-success fetch-accounts))
+
 (defn- toggle-account
   [id page-state]
   (swap! page-state update-in [:expanded] (fn [expanded]
@@ -202,6 +209,10 @@
               :pie-chart-fill
               :pie-chart)
             :size :small)]
+     [:button.btn.btn-secondary.btn-sm
+      {:on-click #(recalculate account)
+       :title "Click here to recalculate the balance and transaction indexes for this account."}
+      (icon :arrow-clockwise :size :small)]
      [:button.btn.btn-danger.btn-sm
       {:on-click #(delete account)
        :title "Click here to remove this account."}
