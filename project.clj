@@ -222,7 +222,13 @@
                                  (and (not (:multi-threaded m))
                                       (= :sql (:strategy m))))
                    :multi-threaded :multi-threaded
-                   :single-threaded (complement :multi-threaded)}
+                   :single-threaded (complement :multi-threaded)
+                   :entities [(fn [n & _]
+                                (re-find #"^clj-money\.entities\." (name n)))
+                              (constantly true)]
+                   :api [(fn [n & _]
+                           (re-find #"^clj-money\.api\." (name n)))
+                         (constantly true)]}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93

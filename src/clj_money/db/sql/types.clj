@@ -5,6 +5,7 @@
                                   postwalk]]
             [clojure.spec.alpha :as s]
             [jsonista.core :as json]
+            [cheshire.generate :refer [add-encoder]]
             [java-time.api :as t]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
@@ -50,6 +51,14 @@
      id
      (->QualifiedID id entity-type))))
 
+; budddy.sign still uses Cheshire, so we still need to be able to
+; serialize the ID with that library
+(add-encoder QualifiedID
+             (fn [id gen]
+               (.writeString gen (str "#clj-money/qid \""
+                                      id
+                                      "\""))))
+
 (defmethod print-method QualifiedID
   [this ^java.io.Writer w]
   (doto w
@@ -57,10 +66,15 @@
     (.write (str this))
     (.write "\"")))
 
+(def ^:private qid-patterns
+  [#"\A#clj-money\/qid \"(\d+):([a-z\-]+)?\"\z"
+   #"\A(\d+)(:[a-z\-z]+)?\z"])
+
 (defn unserialize-qid
   [s]
   (when-let [match (when (string? s)
-                     (re-find #"\A(\d+):([a-z\-]+)?\z" s))]
+                     (some #(re-find % s)
+                           qid-patterns))]
     (->QualifiedID (parse-long (nth match 1))
                    (keyword (nth match 2)))))
 
@@ -403,8 +417,8 @@
     (into-array (map name coll))))
 
 (def read-coercions
-  (->> schema/entities
-       (mapcat (fn [{:keys [id fields]}]
+  (->> (schema/build :sql)
+       (mapcat (fn [[id {:keys [fields]}]]
                  (->> fields
                       (keep (fn [{field-id :id type :type}]
                               (let [k (keyword (name id) (name field-id))]
@@ -416,8 +430,8 @@
        (into {})))
 
 (def save-coercions
-  (->> schema/entities
-       (mapcat (fn [{:keys [id fields]}]
+  (->> (schema/build :sql)
+       (mapcat (fn [[id {:keys [fields]}]]
                  (->> fields
                       (keep (fn [{field-id :id type :type}]
                               (let [k (keyword (name id) (name field-id))]

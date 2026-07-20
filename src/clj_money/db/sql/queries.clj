@@ -7,9 +7,10 @@
 
 (def ^:private joins
   (merge
-    (->> schema/entities
-         (filter #(some map? (:refs %)))
-         (mapcat (fn [{:keys [refs id]}]
+    (->> (schema/build :sql)
+         (filter (fn [[_ e]]
+                   (some map? (:refs e))))
+         (mapcat (fn [[id {:keys [refs]}]]
                    (->> refs
                         (filter (every-pred map?
                                             :columns))
@@ -20,8 +21,15 @@
     ; Explicit JOIN for array-based relationships
     {[:lot :lot-note] [[:id [:any :lot-note/lot-ids]]]}))
 
+(def ^:private relationships
+  (->> (schema/build :sql)
+       (mapcat (fn [[id {:keys [refs]}]]
+                 (map #(vector (schema/relationship-ref-type %) id)
+                      refs)))
+       set))
+
 (def ^:private default-options
-  {:relationships schema/relationships
+  {:relationships relationships
    :joins joins})
 
 (def ^:private bisect

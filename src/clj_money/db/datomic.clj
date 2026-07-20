@@ -182,15 +182,23 @@
         x)
       (f x))))
 
-(def ^:private ref-keys
-  schema/entity-ref-keys)
+(def ref-id (some-fn :id identity))
+
+(def entity-ref-keys
+  (->> schema/entities
+       (mapcat (fn [[id {:keys [refs]}]]
+                 (->> refs
+                      (remove :component)
+                      (map #(keyword (name id)
+                                     (name (ref-id %)))))))
+       set))
 
 (defn- put*
   [entities {:keys [api]} {:keys [tx-meta]}]
   (let [prepped (->> entities
                      (map (pass-through #(util/+id % (comp str random-uuid))))
                      (mapcat (pass-through deconstruct :plural true))
-                     (map (pass-through (datomize {:ref-keys ref-keys})))
+                     (map (pass-through (datomize {:ref-keys entity-ref-keys})))
                      (mapcat #(prep-for-put % api))
                      vec)
         tx-data (cond-> prepped
