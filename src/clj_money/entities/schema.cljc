@@ -362,10 +362,11 @@
 
 (defn- extract-reference-attributes
   [[entity-id {:keys [refs]}]]
-  (map (fn [ref]
-         (keyword (name entity-id)
-                  (name (or (:id ref) ref))))
-       refs))
+  (->> refs
+       (remove :component)
+       (map (fn [ref]
+              (keyword (name entity-id)
+                       (name (or (:id ref) ref)))))))
 
 (def reference-attributes
   (->> entities
