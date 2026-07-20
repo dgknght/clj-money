@@ -1,28 +1,10 @@
 (ns clj-money.db.datomic.queries
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.set :as set]
             [stowaway.datalog :as dtl]
             [clj-money.entities.schema :as schema]))
 
-; TODO: reconcile this with the schema namespace
-(def relationships
-  ; Some relationships work differently in datomic compare to
-  ; a relational database. Here we reverse the ones that work
-  ; differently
-  (set/union
-    (set/difference
-      schema/relationships
-      #{[:budget :budget-item]
-        [:lot :lot-note]
-        [:transaction :lot-item]
-        [:transaction :transaction-item]})
-    #{[:budget-item :budget :items]
-      [:lot :lot-note :lots]
-      [:lot-item :transaction :lot-items]
-      [:transaction-item :transaction :items]}))
-
 (def ^:private default-opts
-  {:relationships relationships
+  {:relationships schema/relationships
    :query-prefix [:query]})
 
 (defn apply-criteria

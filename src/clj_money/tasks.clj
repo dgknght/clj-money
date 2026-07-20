@@ -250,7 +250,7 @@
       (System/exit 0))))
 
 (defn- er-entity
-  [{:keys [id fields]}]
+  [[id {:keys [fields]}]]
   (concat
     [(str "  " (name id) " \u007B")]
     (map (fn [{:keys [id type]}]
@@ -259,7 +259,7 @@
     ["  \u007D"]))
 
 (defn- er-relationships
-  [{:keys [refs id]}]
+  [[id {:keys [refs]}]]
   (map (fn [ref]
          (let [ref-name (if (keyword? ref)
                           (name ref)

@@ -163,7 +163,7 @@
                    lein-doo]]
                  [lambdaisland/uri "1.19.155"]
                  [com.taoensso/carmine "3.5.0" :exclusions [org.clojure/tools.reader commons-codec]]
-                 [stowaway "0.2.13" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
+                 [stowaway "0.2.14" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
                  [io.opentelemetry/opentelemetry-api "1.64.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
@@ -222,7 +222,13 @@
                                  (and (not (:multi-threaded m))
                                       (= :sql (:strategy m))))
                    :multi-threaded :multi-threaded
-                   :single-threaded (complement :multi-threaded)}
+                   :single-threaded (complement :multi-threaded)
+                   :entities [(fn [n & _]
+                                (re-find #"^clj-money\.entities\." (name n)))
+                              (constantly true)]
+                   :api [(fn [n & _]
+                           (re-find #"^clj-money\.api\." (name n)))
+                         (constantly true)]}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93
