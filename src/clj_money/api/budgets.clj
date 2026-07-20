@@ -33,7 +33,8 @@
   (-> params
       (select-keys [:budget/name
                     :budget/start-date
-                    :budget/period])
+                    :budget/period
+                    :budget/items])
       (update-in-if [:budget/period 1] util/ensure-keyword)
       (update-in-if [:budget/start-date] dates/ensure-local-date)))
 

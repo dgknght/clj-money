@@ -345,33 +345,32 @@
        set))
 
 (defn- extract-attributes
-  [{:keys [fields refs] :as entity}]
+  [[entity-id {:keys [fields refs]}]]
   (concat (map (fn [{:keys [id]}]
-                 (keyword (name (:id entity))
+                 (keyword (name entity-id)
                           (name id)))
                fields)
           (map (fn [ref]
-                 (keyword (name (:id entity))
+                 (keyword (name entity-id)
                           (name (or (:id ref) ref))))
                refs)))
 
 (def attributes
   (->> entities
-       (map (juxt first (comp extract-attributes
-                              second)))
+       (map (juxt first extract-attributes))
        (into {})))
 
 (defn- extract-reference-attributes
-  [{:keys [refs] :as entity}]
-  (map (fn [ref]
-         (keyword (name (:id entity))
-                  (name (or (:id ref) ref))))
-       refs))
+  [[entity-id {:keys [refs]}]]
+  (->> refs
+       (remove :component)
+       (map (fn [ref]
+              (keyword (name entity-id)
+                       (name (or (:id ref) ref)))))))
 
 (def reference-attributes
   (->> entities
-       (map (juxt first (comp extract-reference-attributes
-                              second)))
+       (map (juxt first extract-reference-attributes))
        (into {})))
 
 (defn- simplify-references
@@ -384,7 +383,8 @@
 (defn prune
   "Given a entity, remove keys that don't belong to the entity
   and reduce references to a simple entity ref"
-  [entity entity-type]
+  [entity entity-type & {:keys [allow]}]
   (-> entity
-      (select-keys (cons :id (attributes entity-type)))
+      (select-keys (cons :id (concat (attributes entity-type)
+                                     allow)))
       (simplify-references entity-type)))

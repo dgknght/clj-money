@@ -173,16 +173,16 @@
                    :caption "Cancel"}]]]))))
 
 (defn- delete-budget-item
-  [{:keys [account-id]} page-state]
-  (when (js/confirm (str "Are you sure you want to remove the account "
-                         (get-in @accounts-by-id [account-id :name])
-                         " from the budget?"))
+  [{:budget-item/keys [account]} page-state]
+  (when (js/confirm (str "Are you sure you want to remove the account \""
+                         (:account/name account)
+                         "\" from the budget?"))
     (+busy)
     (api/save (update-in (:detailed-budget @page-state)
-                         [:items]
+                         [:budget/items]
                          (fn [items]
-                           (remove #(= (:account-id %)
-                                       account-id)
+                           (remove #(util/id= (:budget-item/account %)
+                                              account)
                                    items)))
               :callback -busy
               :on-success #(swap! page-state assoc :detailed-budget %))))
@@ -353,7 +353,10 @@
   [page-state]
   (+busy)
   (let [{item :selected-item
-         periods :calculated-periods} @page-state]
+         calculated-periods :calculated-periods} @page-state
+        periods (if (= :per-period (:entry-mode item))
+                  (:budget-item/periods item)
+                  calculated-periods)]
     (-> item
         (select-keys [:id
                       :budget-item/budget
