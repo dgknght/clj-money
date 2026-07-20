@@ -913,6 +913,44 @@
                        (entities/find entity))
           "The entity transaction date boundaries are updated"))))
 
+(def ^:private delayed-propagation-with-history-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 12 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 500M}))
+
+(dbtest create-multiple-transactions-then-recalculate-balances-with-existing-history
+  (with-context delayed-propagation-with-history-context
+    (let [entity (find-entity "Personal")
+          [checking
+           salary] (find-accounts "Checking" "Salary")]
+      (transactions/with-delayed-propagation [out-chan ctrl-chan]
+        (mapv (comp #(entities/put %
+                                   :out-chan out-chan
+                                   :close-chan? false
+                                   :ctrl-chan ctrl-chan)
+                    #(assoc % :transaction/entity entity))
+              [#:transaction{:transaction-date (t/local-date 2017 1 1)
+                             :description "Paycheck"
+                             :debit-account checking
+                             :credit-account salary
+                             :quantity 1000M}
+               #:transaction{:transaction-date (t/local-date 2017 2 1)
+                             :description "Paycheck"
+                             :debit-account checking
+                             :credit-account salary
+                             :quantity 1000M}]))
+      (is (= [#:transaction-item{:index 0 :quantity 500M :balance 500M}
+              #:transaction-item{:index 1 :quantity 1000M :balance 1500M}
+              #:transaction-item{:index 2 :quantity 1000M :balance 2500M}]
+             (items-by-account "Checking"))
+          "The pre-existing item keeps its index and balance and the new items are appended sequentially, without reprocessing existing history")
+      (is (= 2500M (:account/quantity (reload-account "Checking")))
+          "The account balance reflects the pre-existing item plus the new items exactly once"))))
+
 (def ^:private existing-reconciliation-context
   (conj (mapv (fn [entity]
                 (cond-> entity

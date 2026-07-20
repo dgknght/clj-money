@@ -363,7 +363,15 @@
       "The transaction is created with the next projected transaction date")
   (is (comparable? #:scheduled-transaction{:last-occurrence (t/local-date 2016 2 1)}
                    (entities/find (find-scheduled-transaction "Paycheck")))
-      "The scheduled trx record is updated with the last occurrence"))
+      "The scheduled trx record is updated with the last occurrence")
+  (is (= [#:transaction-item{:index 0 :quantity 50M :balance -50M}
+          #:transaction-item{:index 1 :quantity 1000M :balance 950M}]
+         (->> (entities/select {:transaction-item/account (find-account "Checking")}
+                               {:sort [:transaction-item/index]})
+              (map #(select-keys % [:transaction-item/index
+                                    :transaction-item/quantity
+                                    :transaction-item/balance]))))
+      "The pre-existing item keeps its index/balance and the new item is appended without reprocessing account history"))
 
 (defn- assert-blocked-realization
   [response]

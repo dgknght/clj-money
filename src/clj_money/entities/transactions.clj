@@ -367,7 +367,8 @@
                      {:transaction-item/account account
                       :transaction/transaction-date [:>= as-of]}
                      :transaction-item)
-                   {:sort [[:transaction-item/index :asc]]
+                   {:sort [:transaction/transaction-date
+                           :transaction-item/index]
                     :select-also [:transaction/transaction-date]}))
 
 (defn- propagate-transaction-items
@@ -694,8 +695,7 @@
                            :basis (or (last-transaction-item-before account date)
                                       initial-basis)
                            :items (map #(assoc % :transaction-item/account account)
-                                       (entities/select {:transaction-item/account account}
-                                                        {:select-also [:transaction/transaction-date]}))})
+                                       (transaction-items-on-or-after account date))})
                         #(assoc-in % [0 :account/entity] entity)
                         #(update-in % [0 :account/commodity] (comp commodities :id))
                         #(update-in % [0] accounts)))
