@@ -383,7 +383,8 @@
 (defn prune
   "Given a entity, remove keys that don't belong to the entity
   and reduce references to a simple entity ref"
-  [entity entity-type]
+  [entity entity-type & {:keys [allow]}]
   (-> entity
-      (select-keys (cons :id (attributes entity-type)))
+      (select-keys (cons :id (concat (attributes entity-type)
+                                     allow)))
       (simplify-references entity-type)))

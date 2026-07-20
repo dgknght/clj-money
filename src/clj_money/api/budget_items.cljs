@@ -30,5 +30,5 @@
             update
             create)]
     (-> item
-        (schema/prune :budget-item)
+        (schema/prune :budget-item :allow [:budget-item/budget])
         (f opts))))
