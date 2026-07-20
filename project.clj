@@ -122,7 +122,7 @@
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.48"
+                  "0.3.49"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java

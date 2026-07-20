@@ -539,14 +539,16 @@
    [:td [forms/decimal-input
          item
          [:transaction-item/credit-quantity]
-         {:on-accept #(ensure-entry-state page-state)
+         {:fraction-digits 2
+          :on-accept #(ensure-entry-state page-state)
           :html {:on-key-up #(item-navigate % item-count)
                  :on-key-down #(when (arrow-key? %) (.preventDefault %))
                  :id (str "credit-quantity-" index)}}]]
    [:td [forms/decimal-input
          item
          [:transaction-item/debit-quantity]
-         {:on-accept #(ensure-entry-state page-state)
+         {:fraction-digits 2
+          :on-accept #(ensure-entry-state page-state)
           :html {:id (str "debit-quantity-" index)
                  :on-key-up #(item-navigate % item-count)
                  :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]])
@@ -622,7 +624,8 @@
         [:transaction/transaction-date]
         {:validations #{::v/required}}]
        [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
-       [forms/decimal-field transaction [:transaction/quantity] {:validations #{::v/required}}]
+       [forms/decimal-field transaction [:transaction/quantity] {:fraction-digits 2
+                                                                 :validations #{::v/required}}]
        [forms/typeahead-field
         transaction
         [:transaction/other-account]
