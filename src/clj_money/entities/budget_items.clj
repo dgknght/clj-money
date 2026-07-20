@@ -7,5 +7,5 @@
 (s/def :budget-item/account ::entities/entity-ref)
 (s/def :budget-item/spec (s/nilable ::budgets/item-spec))
 (s/def ::entities/budget-item (s/keys :req [:budget-item/account
-                                          :budget-item/periods]
-                                    :opt [:budget-item/spec]))
+                                            :budget-item/periods]
+                                      :opt [:budget-item/spec]))

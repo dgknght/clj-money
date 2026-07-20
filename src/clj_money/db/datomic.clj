@@ -396,6 +396,52 @@
                  (mapv #(vector :db/retractEntity (:id %))))
             {}))
 
+(def ^:private dependency-attrs
+  {:entity [:commodity/entity
+            :account/entity
+            :transaction/entity
+            :scheduled-transaction/entity
+            :grant/entity
+            :budget/entity]
+   :commodity [:price/commodity
+               :lot/commodity]
+   :account [:reconciliation/account
+             :lot/account] ; probably redundant
+   :lot [:lot-item/lot
+         :lot-note/lots]
+   :transaction [:attachment/transaction]})
+
+(defn- referring-ids
+  "Given an id and an attribute, return all ids that point
+  to the given id via the given attribute"
+  [id attr api]
+  (mapcat identity
+          (query api {:query {:find '[?x]
+                              :in '[$ ?e]
+                              :where [['?x attr '?e]]}
+                      :args [id]})))
+
+(defn- dependent-ids
+  "Given an id and its entity type, return all of the items
+  that reference the given id throughout the dependency graph."
+  [entity-type id api]
+  (mapcat (fn [a]
+            (let [ids (referring-ids id a api)
+                  t (keyword (namespace a))]
+              (->> ids
+                   (mapcat #(dependent-ids t % api))
+                   (concat ids))))
+          (dependency-attrs entity-type)))
+
+(defn- purge*
+  [{:keys [id] :as entity} {:keys [api]}]
+  {:pre [(= :entity (util/entity-type entity))]}
+
+  (let [tx-data (mapcat (juxt #(vector :db/retractEntity %)
+                              #(hash-map :db/excise %))
+                        (distinct (cons id (dependent-ids :entity id api))))]
+    (transact api tx-data {})))
+
 (defmulti init-api ::db/strategy)
 
 (def ^:private history-query
@@ -496,6 +542,7 @@
       (find-many [_ ids]      (find-many* ids {:api api}))
       (select [_ crit opts]   (select* crit opts {:api api}))
       (delete [_ entities]    (delete* entities {:api api}))
+      (purge! [_ entity]      (purge* entity {:api api}))
       (update [_ changes criteria] (update* changes criteria {:api api}))
       (history [_ entity-id attr] (history* entity-id attr {:api api}))
       (close [_])

@@ -198,6 +198,7 @@
             "account-report"        ["run" "-m" "clj-money.tasks/account-report"]
             "export-user-tags"      ["run" "-m" "clj-money.tasks/export-user-tags"]
             "import-user-tags"      ["run" "-m" "clj-money.tasks/import-user-tags"]
+            "purge-entity"          ["run" "-m" "clj-money.tasks/purge-entity"]
             "er-diagram"            ["run" "-m" "clj-money.tasks/er-diagram"]
             "re-index"              ["run" "-m" "clj-money.tasks/re-index"]
             "routes"                ["run" "-m" "clj-money.repl/print-routes"]

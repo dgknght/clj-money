@@ -18,6 +18,7 @@
   (select [this criteria options] "Retrieves entities from the data store")
   (update [this changes criteria] "Performs a batch data update")
   (delete [this entities] "Removes entities from the data store")
+  (purge! [this entity] "Remove the entity entirely from the data store")
   (history [this entity-id attr]
     "Returns the history of values for the attribute of the given entity")
   (close [this] "Releases an resources held by the instance")
@@ -36,9 +37,10 @@
 
 (defmacro with-storage
   [bindings & body]
-  `(let [storage# (if (satisfies? Storage ~(first bindings))
-                    ~(first bindings)
-                    (reify-storage ~(first bindings)))]
+  `(let [cfg# ~(first bindings)
+         storage# (if (satisfies? Storage cfg#)
+                    cfg#
+                    (reify-storage cfg#))]
      (try
        (binding [*storage* storage#]
          ~@body)
@@ -75,6 +77,12 @@
                                   prefix
                                   (-> entities first util/entity-type))]
         (delete storage entities)))
+
+    (purge! [_ entity]
+      (with-tracing [span (format "%s/purge! %s"
+                                  prefix
+                                  (util/entity-type entity))]
+        (purge! storage entity)))
 
     (history [_ entity-id attr]
       (with-tracing [span (format "%s/history %s" prefix attr)]

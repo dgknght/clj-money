@@ -503,6 +503,7 @@
       (find-many [this ids] (find-many* ds ids {:storage this}))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ entities] (delete* ds entities))
+      (purge! [_ entity] (delete* ds [entity]))
       (update [_ changes criteria] (update* ds changes criteria))
       (history [_ _entity-id _attr] [])
       (close [_] #_noop)

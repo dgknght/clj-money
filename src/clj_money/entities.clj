@@ -311,6 +311,11 @@
   {:pre [entity]}
   (delete-many opts [entity]))
 
+(defn purge!
+  [entity]
+  {:pre [entity]}
+  (db/purge! (db/storage) entity))
+
 (defn resolve-ref
   [entity-or-ref]
   {:pre [(map? entity-or-ref)]}
