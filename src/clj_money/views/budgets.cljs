@@ -353,7 +353,10 @@
   [page-state]
   (+busy)
   (let [{item :selected-item
-         periods :calculated-periods} @page-state]
+         calculated-periods :calculated-periods} @page-state
+        periods (if (= :per-period (:entry-mode item))
+                  (:budget-item/periods item)
+                  calculated-periods)]
     (-> item
         (select-keys [:id
                       :budget-item/budget
