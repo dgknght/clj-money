@@ -345,33 +345,31 @@
        set))
 
 (defn- extract-attributes
-  [{:keys [fields refs] :as entity}]
+  [[entity-id {:keys [fields refs]}]]
   (concat (map (fn [{:keys [id]}]
-                 (keyword (name (:id entity))
+                 (keyword (name entity-id)
                           (name id)))
                fields)
           (map (fn [ref]
-                 (keyword (name (:id entity))
+                 (keyword (name entity-id)
                           (name (or (:id ref) ref))))
                refs)))
 
 (def attributes
   (->> entities
-       (map (juxt first (comp extract-attributes
-                              second)))
+       (map (juxt first extract-attributes))
        (into {})))
 
 (defn- extract-reference-attributes
-  [{:keys [refs] :as entity}]
+  [[entity-id {:keys [refs]}]]
   (map (fn [ref]
-         (keyword (name (:id entity))
+         (keyword (name entity-id)
                   (name (or (:id ref) ref))))
        refs))
 
 (def reference-attributes
   (->> entities
-       (map (juxt first (comp extract-reference-attributes
-                              second)))
+       (map (juxt first extract-reference-attributes))
        (into {})))
 
 (defn- simplify-references
