@@ -147,7 +147,7 @@
                      (if items
                        (do
                          (swap! page-state update-in [:items] (fnil concat []) items)
-                         (recur (<! items-ch)))
+                         (recur (<! out-ch)))
                        (swap! page-state assoc :all-items-fetched? true)))
 
             (swap! page-state assoc :ctl-chan ctl-ch)

@@ -291,18 +291,18 @@
                    {:account-item/action :debit
                     :account-item/account debit-account
                     :account-item/quantity (polarize-quantity
-                                             {:quantity quantity
-                                              :account debit-account
-                                              :action :debit})})
+                                             quantity
+                                             :debit
+                                             debit-account)})
                  :transaction-item/credit-item
                  (merge
                    credit-item
                    {:account-item/action :credit
                     :account-item/account credit-account
                     :account-item/quantity (polarize-quantity
-                                             {:quantity quantity
-                                              :account credit-account
-                                              :action :credit})})})])))
+                                             quantity
+                                             :credit
+                                             credit-account)})})])))
 
 (defn- simple->unilateral
   [{:transaction/keys [debit-account credit-account quantity] :as trx}]
@@ -353,10 +353,7 @@
   (-> item
       (rename-keys transaction->account-item-mappings)
       (select-keys (vals transaction->account-item-mappings))
-      (update-in [:account-item/quantity] #(polarize-quantity
-                                             {:account account
-                                              :quantity %
-                                              :action action}))))
+      (update-in [:account-item/quantity] #(polarize-quantity % action account))))
 
 (defn- d+c
   "Combine two unilateral items of the same value into one bilateral item"
@@ -587,10 +584,7 @@
   [action account value]
   #:account-item{:action action
                  :account account
-                 :quantity (polarize-quantity
-                             {:account account
-                              :quantity value
-                              :action action})})
+                 :quantity (polarize-quantity value action account)})
 
 (defn expand-account-item
   [{:transaction-item/keys [value
