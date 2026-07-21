@@ -388,22 +388,29 @@
            callback))))
 
 (defn- apply-tag
-  [bulk-edit tag]
-  (swap! bulk-edit #(-> %
-                        (update-in [:user-tags] (fnil conj #{}) (keyword tag))
-                        (dissoc :working-tag))))
+  [target tags-field tag]
+  (swap! target #(-> %
+                     (update-in tags-field (fnil conj #{}) (keyword tag))
+                     (dissoc :working-tag))))
+
+(defn- commit-pending-tag!
+  [target tags-field]
+  (let [tag (:working-tag @target)]
+    (when (seq tag)
+      (apply-tag target tags-field tag))))
 
 (defn- bulk-edit-form
   [page-state]
   (let [bulk-edit (r/cursor page-state [:bulk-edit])
         user-tags (r/cursor bulk-edit [:user-tags])
         all-user-tags (make-reaction #(->> @accounts
-                                           (mapcat :user-tags)
+                                           (mapcat :account/user-tags)
                                            set))]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
                            (.preventDefault e)
+                           (commit-pending-tag! bulk-edit [:user-tags])
                            (bulk-save page-state))}
        [:fieldset
         [:legend "Tags"]
@@ -412,13 +419,14 @@
          [:working-tag]
          {:search-fn (tag-search-fn bulk-edit all-user-tags)
           :mode :direct
-          :html {:on-blur #(when-let [tag (get-in @bulk-edit [:working-tag])]
-                             (apply-tag bulk-edit tag))}
           :caption-fn name
           :value-fn name
           :find-fn keyword
+          :on-blur (fn [tag]
+                     (when (seq tag)
+                       (apply-tag bulk-edit [:user-tags] tag)))
           :on-change (fn [tag]
-                       (apply-tag bulk-edit tag))}]
+                       (apply-tag bulk-edit [:user-tags] tag))}]
         (tag-elems @user-tags {:remove-fn #(swap! user-tags disj %)})]
        [forms/checkbox-field bulk-edit [:merge-user-tags?] {:caption "Keep existing tags"}]
        [button {:html {:title "Click here to apply these changes to the selected accounts."
@@ -502,6 +510,7 @@
         [:form {:no-validate true
                 :on-submit (fn [e]
                              (.preventDefault e)
+                             (commit-pending-tag! account [:account/user-tags])
                              (v/validate account)
                              (when (v/valid? account)
                                (save-account page-state)))}
@@ -563,11 +572,11 @@
             :caption-fn name
             :value-fn name
             :find-fn keyword
-            :create-fn keyword
+            :on-blur (fn [tag]
+                       (when (seq tag)
+                         (apply-tag account [:account/user-tags] tag)))
             :on-change (fn [tag]
-                         (swap! account #(-> %
-                                             (update-in [:account/user-tags] (fnil conj #{}) (keyword tag))
-                                             (dissoc :working-tag))))}]
+                         (apply-tag account [:account/user-tags] tag))}]
           (tag-elems @user-tags {:remove-fn #(swap! account
                                                     update-in
                                                     [:account/user-tags]
