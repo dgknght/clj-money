@@ -165,8 +165,8 @@
   [page-state]
   (let [selected (r/cursor page-state [:selected])
         hide? (make-reaction #(not= :income-statement @selected))
-        start-date (r/cursor page-state [:income-statement :start-date])
-        end-date (r/cursor page-state [:income-statement :end-date])]
+        start-date (r/cursor page-state [:income-statement :options :start-date])
+        end-date (r/cursor page-state [:income-statement :options :end-date])]
     (fn []
       [:span {:class (when @hide? "d-none")}
        (format-date @start-date)
@@ -273,7 +273,7 @@
   [page-state]
   (let [selected (r/cursor page-state [:selected])
         hide? (make-reaction #(not= :balance-sheet @selected))
-        as-of (r/cursor page-state [:balance-sheet :as-of])]
+        as-of (r/cursor page-state [:balance-sheet :options :as-of])]
     (fn []
       [:span {:class (when @hide? "d-none")}
        (format-date @as-of)])))
@@ -670,6 +670,15 @@
                                           [:by-account :by-commodity]))
        [forms/date-field options [:filter :as-of]]])))
 
+(defn- portfolio-header
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :portfolio @selected))
+        as-of (r/cursor page-state [:portfolio :options :filter :as-of])]
+    (fn []
+      [:span {:class (when @hide? "d-none")}
+       (format-date @as-of)])))
+
 (defn- portfolio
   [page-state]
   (let [selected (r/cursor page-state [:selected])
@@ -792,7 +801,8 @@
         [:h2
          [income-statement-header page-state]
          [balance-sheet-header page-state]
-         [budget-header page-state]]]
+         [budget-header page-state]
+         [portfolio-header page-state]]]
        [:div.d-print-none
         [filter-elem page-state]
         [small-nav page-state]
