@@ -38,7 +38,8 @@
             [clj-money.api.lot-notes :as lot-notes]
             [clj-money.api.prices :as prices]
             [clj-money.api.audit :as audit]
-            [clj-money.cached-accounts :refer [fetch-accounts]]
+            [clj-money.cached-accounts :refer [fetch-accounts
+                                               latest]]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :as acts :refer [account-types
                                                  allocate
@@ -206,17 +207,19 @@
         (icon :collection :size :small)]
        [:button.btn.btn-secondary.btn-sm
         {:on-click (fn []
-                     (swap! page-state assoc :selected account)
+                     (swap! page-state assoc :selected (latest account))
                      (set-focus "parent-id"))
          :title "Click here to edit this account."}
         (icon :pencil :size :small)]
        [:button.btn.btn-secondary
-        {:on-click #(swap! page-state
-                           assoc
-                           :allocation
-                           {:account (prepare-for-allocation account)
-                            :cash (:account/value account)
-                            :withdrawal 0M})
+        {:on-click (fn []
+                     (let [a (latest account)]
+                       (swap! page-state
+                              assoc
+                              :allocation
+                              {:account (prepare-for-allocation a)
+                               :cash (:account/value a)
+                               :withdrawal 0M})))
          :disabled (not (system-tagged? account :trading))
          :title "Click here to manage asset allocation for this account."}
         (icon (if (system-tagged? account :trading)
@@ -224,7 +227,7 @@
                 :pie-chart)
               :size :small)]
        [:button.btn.btn-secondary.btn-sm
-        {:on-click #(recalculate account page-state)
+        {:on-click #(recalculate (latest account) page-state)
          :title "Click here to recalculate the balance and transaction indexes for this account."}
         (if (@recalculating (:id account))
           [:div.spinner-border.spinner-border-sm {:role :state}]
@@ -345,9 +348,16 @@
                                           :on-success (put+close ch)
                                           :on-error (put+close ch)))}))]
     (a/go
-      (let [{:keys [succeeded errors]} (a/<! ch)]
+      (let [{:keys [succeeded errors results]} (a/<! ch)]
         (-busy)
         (swap! page-state dissoc :bulk-edit)
+        (let [by-id (index-by :id results)]
+          (swap! accounts (fn [as]
+                            (mapv (fn [a]
+                                    (if-let [updated (by-id (:id a))]
+                                      (assoc a :account/user-tags (:account/user-tags updated))
+                                      a))
+                                  as))))
         (notify/toast "Update Finished"
                       (str "Updated "
                            succeeded
