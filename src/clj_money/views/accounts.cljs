@@ -23,7 +23,7 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.dates :refer [serialize-local-date
-                                      push-entity-boundary]]
+                                     push-entity-boundary]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -125,7 +125,7 @@
                                 (decimal/* 100M
                                            (if (< 0M children-value)
                                              (decimal// (:account/total-value act)
-                                                      children-value)
+                                                        children-value)
                                              (decimal// 1 (count children))))))
                        {}
                        children))
@@ -262,9 +262,9 @@
     [:span.toggle-ctl {:aria-hidden true
                        :on-click #(toggle-account account-type page-state)}
      (icon (if (expanded account-type)
-                :chevron-down
-                :chevron-right)
-              :size :small)]
+             :chevron-down
+             :chevron-right)
+           :size :small)]
     (name account-type)]
    [:td.text-end.d-none.d-sm-table-cell
     (currency-format (->> group
@@ -789,14 +789,14 @@
           (cond
             (accountified? @transaction)
             [:button.btn.btn-secondary {:title "Click here to show full transaction details."
-                                   :on-click (fn [_]
-                                               (swap! transaction (expand-trx)))}
+                                        :on-click (fn [_]
+                                                    (swap! transaction (expand-trx)))}
              (icon :arrows-expand)]
 
             (can-accountify? @transaction)
             [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
-                                   :on-click (fn [_]
-                                               (swap! transaction (collapse-trx page-state)))}
+                                        :on-click (fn [_]
+                                                    (swap! transaction (collapse-trx page-state)))}
              (icon :arrows-collapse)])]
          [:div.mt-3
           (let [f (if (accountified? @transaction)
@@ -838,14 +838,14 @@
 (defn- check-all-items
   ([page-state]  (check-all-items page-state true))
   ([page-state checked?]
-  (swap! page-state
-         update-in
-         [:reconciliation :clj-money.views.reconciliations/item-selection]
-         merge
-         (->> (:items @page-state)
-              (map (comp #(vector % checked?)
-                         :id))
-              (into {})))))
+   (swap! page-state
+          update-in
+          [:reconciliation :clj-money.views.reconciliations/item-selection]
+          merge
+          (->> (:items @page-state)
+               (map (comp #(vector % checked?)
+                          :id))
+               (into {})))))
 
 (defn- uncheck-all-items
   [page-state]
