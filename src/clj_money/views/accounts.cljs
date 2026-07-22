@@ -320,8 +320,8 @@
   [page-state]
   (+busy)
   (let [{{:keys [account-ids
-                 merge-user-tags?
-                 user-tags]} :bulk-edit} @page-state
+                 merge-user-tags?]
+          :account/keys [user-tags]} :bulk-edit} @page-state
         account-ids (if (set? account-ids)
                       account-ids
                       #{account-ids})
@@ -357,22 +357,23 @@
                      :on-error error-fn))))
 
 (defn- tag-elem
-  [tag {:keys [remove-fn]}]
-  (let [tag-name (name tag)]
-    ^{:key (str "tag-" tag-name)}
-    [:div.tag.account-tag.d-flex
-     [:span.me-2 tag-name]
-     [:a.ms-auto {:href "#"
-                  :title "Click here to remove this tag"
-                  :on-click (fn [] (remove-fn tag))}
-      (icon :x :size :small)]]))
+  [{:keys [remove-fn]}]
+  (fn [tag]
+    (let [tag-name (name tag)]
+      ^{:key (str "tag-" tag-name)}
+      [:div.tag.account-tag.d-flex
+       [:span.me-2 tag-name]
+       [:a.ms-auto {:href "#"
+                    :title "Click here to remove this tag"
+                    :on-click (fn [] (remove-fn tag))}
+        (icon :x :size :small)]])))
 
 (defn- tag-elems
   [tags opts]
   [:div.d-flex.mb-3.mt-3
    (if (seq tags)
      (->> tags
-          (map #(tag-elem % opts))
+          (map (tag-elem opts))
           doall)
      [:span.text-muted "None"])])
 
@@ -387,22 +388,21 @@
            (filter #(string/includes? % term))
            callback))))
 
-(defn- apply-tag
-  [target tags-field tag]
-  (swap! target #(-> %
-                     (update-in tags-field (fnil conj #{}) (keyword tag))
-                     (dissoc :working-tag))))
-
-(defn- commit-pending-tag!
-  [target tags-field]
-  (let [tag (:working-tag @target)]
-    (when (seq tag)
-      (apply-tag target tags-field tag))))
+(defn- apply-tag!
+  ([target] (partial apply-tag! target))
+  ([target tag]
+   (when (seq tag)
+     (swap! target
+            #(-> %
+                 (update-in [:account/user-tags]
+                            (fnil conj #{})
+                            (keyword tag))
+                 (dissoc ::working-tag))))))
 
 (defn- bulk-edit-form
   [page-state]
   (let [bulk-edit (r/cursor page-state [:bulk-edit])
-        user-tags (r/cursor bulk-edit [:user-tags])
+        user-tags (r/cursor bulk-edit [:account/user-tags])
         all-user-tags (make-reaction #(->> @accounts
                                            (mapcat :account/user-tags)
                                            set))]
@@ -410,23 +410,20 @@
       [:form {:no-validate true
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (commit-pending-tag! bulk-edit [:user-tags])
                            (bulk-save page-state))}
        [:fieldset
         [:legend "Tags"]
         [forms/typeahead-input
          bulk-edit
-         [:working-tag]
+         [::working-tag]
          {:search-fn (tag-search-fn bulk-edit all-user-tags)
           :mode :direct
           :caption-fn name
           :value-fn name
           :find-fn keyword
-          :on-blur (fn [tag]
-                     (when (seq tag)
-                       (apply-tag bulk-edit [:user-tags] tag)))
-          :on-change (fn [tag]
-                       (apply-tag bulk-edit [:user-tags] tag))}]
+          :transform-fn keyword
+          :on-blur (apply-tag! bulk-edit)
+          :on-change (apply-tag! bulk-edit)}]
         (tag-elems @user-tags {:remove-fn #(swap! user-tags disj %)})]
        [forms/checkbox-field bulk-edit [:merge-user-tags?] {:caption "Keep existing tags"}]
        [button {:html {:title "Click here to apply these changes to the selected accounts."
@@ -510,7 +507,6 @@
         [:form {:no-validate true
                 :on-submit (fn [e]
                              (.preventDefault e)
-                             (commit-pending-tag! account [:account/user-tags])
                              (v/validate account)
                              (when (v/valid? account)
                                (save-account page-state)))}
@@ -560,7 +556,7 @@
           [:legend "Tags"]
           [forms/typeahead-input
            account
-           [:working-tag]
+           [::working-tag]
            {:mode :direct
             :search-fn (fn [term callback]
                          (let [existing (or @user-tags #{})]
@@ -572,11 +568,8 @@
             :caption-fn name
             :value-fn name
             :find-fn keyword
-            :on-blur (fn [tag]
-                       (when (seq tag)
-                         (apply-tag account [:account/user-tags] tag)))
-            :on-change (fn [tag]
-                         (apply-tag account [:account/user-tags] tag))}]
+            :on-blur (apply-tag! account)
+            :on-change (apply-tag! account)}]
           (tag-elems @user-tags {:remove-fn #(swap! account
                                                     update-in
                                                     [:account/user-tags]
