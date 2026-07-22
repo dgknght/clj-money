@@ -5,7 +5,7 @@
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [clojure.core.async :as a]
+            #?(:cljs [clojure.core.async :as a])
             [dgknght.app-lib.test-assertions]
             [clj-money.decimal :refer [d] :as dec]
             [clj-money.accounts :as accounts]))
