@@ -361,16 +361,17 @@
   (fn [tag]
     (let [tag-name (name tag)]
       ^{:key (str "tag-" tag-name)}
-      [:div.tag.account-tag.d-flex
-       [:span.me-2 tag-name]
-       [:a.ms-auto {:href "#"
-                    :title "Click here to remove this tag"
-                    :on-click (fn [] (remove-fn tag))}
+      [:div.d-flex.rounded.bg-secondary.px-2.me-2.mb-2
+       [:span tag-name]
+       [:a.ms-1.text-decoration-none
+        {:href "#"
+         :title "Click here to remove this tag"
+         :on-click (fn [] (remove-fn tag))}
         (icon :x :size :small)]])))
 
 (defn- tag-elems
   [tags opts]
-  [:div.d-flex.mb-3.mt-3
+  [:div.d-flex.flex-wrap.mt-3
    (if (seq tags)
      (->> tags
           (map (tag-elem opts))
@@ -575,7 +576,7 @@
                                                     [:account/user-tags]
                                                     disj
                                                     %)})]
-         [:div
+         [:div.mt-2
           [button {:html {:type :submit
                           :class "btn-primary"
                           :title "Click here to save the account."}
