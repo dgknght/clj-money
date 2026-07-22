@@ -322,22 +322,28 @@
   [page-state]
   (+busy)
   (let [{{:keys [account-ids
-                 merge-user-tags?
-                 user-tags]} :bulk-edit} @page-state
-        ch (->> (if (sequential? account-ids)
+                 merge-user-tags?]
+          :account/keys [user-tags]} :bulk-edit} @page-state
+        find-account @accounts-by-id
+        ch (->> (if (coll? account-ids)
                   account-ids
                   [account-ids])
-                (map accounts-by-id)
+                (map find-account)
                 (multi-save {:process (fn [a ch]
                                         (accounts/save
                                           (if merge-user-tags?
                                             (update-in a [:account/user-tags] union user-tags)
                                             (assoc a :account/user-tags user-tags))
-                                          :on-success #(a/put! ch %)
-                                          :on-error #(a/put! ch %)))}))]
+                                          :on-success (fn [a]
+                                                        (a/put! ch a)
+                                                        (a/close! ch))
+                                          :on-error (fn [a]
+                                                      (a/put! ch a)
+                                                      (a/close! ch))))}))]
     (a/go
       (let [{:keys [succeeded errors]} (a/<! ch)]
         (-busy)
+        (swap! page-state dissoc :bulk-edit)
         (notify/toast "Update Finished"
                       (str "Updated "
                            succeeded
