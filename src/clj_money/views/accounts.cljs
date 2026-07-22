@@ -296,7 +296,8 @@
 
 (defn- account-and-type-rows
   [page-state]
-  (let [filter-tags (r/cursor page-state [:filter-tags])
+  (let [raw-tags (r/cursor page-state [:filter-tags])
+        filter-tags (make-reaction #(->> @raw-tags (map keyword) set))
         filter-fn (make-reaction #(cond
                                     (@filter-tags :_untagged) (fn [{:account/keys [user-tags]}]
                                                                 (empty? user-tags))
