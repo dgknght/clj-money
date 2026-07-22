@@ -23,7 +23,7 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.dates :refer [serialize-local-date
-                                      push-entity-boundary]]
+                                     push-entity-boundary]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -125,7 +125,7 @@
                                 (decimal/* 100M
                                            (if (< 0M children-value)
                                              (decimal// (:account/total-value act)
-                                                      children-value)
+                                                        children-value)
                                              (decimal// 1 (count children))))))
                        {}
                        children))
@@ -262,9 +262,9 @@
     [:span.toggle-ctl {:aria-hidden true
                        :on-click #(toggle-account account-type page-state)}
      (icon (if (expanded account-type)
-                :chevron-down
-                :chevron-right)
-              :size :small)]
+             :chevron-down
+             :chevron-right)
+           :size :small)]
     (name account-type)]
    [:td.text-end.d-none.d-sm-table-cell
     (currency-format (->> group
@@ -320,8 +320,8 @@
   [page-state]
   (+busy)
   (let [{{:keys [account-ids
-                 merge-user-tags?
-                 user-tags]} :bulk-edit} @page-state
+                 merge-user-tags?]
+          :account/keys [user-tags]} :bulk-edit} @page-state
         account-ids (if (set? account-ids)
                       account-ids
                       #{account-ids})
@@ -357,22 +357,24 @@
                      :on-error error-fn))))
 
 (defn- tag-elem
-  [tag {:keys [remove-fn]}]
-  (let [tag-name (name tag)]
-    ^{:key (str "tag-" tag-name)}
-    [:div.tag.account-tag.d-flex
-     [:span.me-2 tag-name]
-     [:a.ms-auto {:href "#"
-                  :title "Click here to remove this tag"
-                  :on-click (fn [] (remove-fn tag))}
-      (icon :x :size :small)]]))
+  [{:keys [remove-fn]}]
+  (fn [tag]
+    (let [tag-name (name tag)]
+      ^{:key (str "tag-" tag-name)}
+      [:div.d-flex.rounded.bg-secondary.px-2.me-2.mb-2
+       [:span tag-name]
+       [:a.ms-1.text-decoration-none
+        {:href "#"
+         :title "Click here to remove this tag"
+         :on-click (fn [] (remove-fn tag))}
+        (icon :x :size :small)]])))
 
 (defn- tag-elems
   [tags opts]
-  [:div.d-flex.mb-3.mt-3
+  [:div.d-flex.flex-wrap.mt-3
    (if (seq tags)
      (->> tags
-          (map #(tag-elem % opts))
+          (map (tag-elem opts))
           doall)
      [:span.text-muted "None"])])
 
@@ -387,18 +389,23 @@
            (filter #(string/includes? % term))
            callback))))
 
-(defn- apply-tag
-  [bulk-edit tag]
-  (swap! bulk-edit #(-> %
-                        (update-in [:user-tags] (fnil conj #{}) (keyword tag))
-                        (dissoc :working-tag))))
+(defn- apply-tag!
+  ([target] (partial apply-tag! target))
+  ([target tag]
+   (when (seq tag)
+     (swap! target
+            #(-> %
+                 (update-in [:account/user-tags]
+                            (fnil conj #{})
+                            (keyword tag))
+                 (dissoc ::working-tag))))))
 
 (defn- bulk-edit-form
   [page-state]
   (let [bulk-edit (r/cursor page-state [:bulk-edit])
-        user-tags (r/cursor bulk-edit [:user-tags])
+        user-tags (r/cursor bulk-edit [:account/user-tags])
         all-user-tags (make-reaction #(->> @accounts
-                                           (mapcat :user-tags)
+                                           (mapcat :account/user-tags)
                                            set))]
     (fn []
       [:form {:no-validate true
@@ -409,16 +416,15 @@
         [:legend "Tags"]
         [forms/typeahead-input
          bulk-edit
-         [:working-tag]
+         [::working-tag]
          {:search-fn (tag-search-fn bulk-edit all-user-tags)
           :mode :direct
-          :html {:on-blur #(when-let [tag (get-in @bulk-edit [:working-tag])]
-                             (apply-tag bulk-edit tag))}
           :caption-fn name
           :value-fn name
           :find-fn keyword
-          :on-change (fn [tag]
-                       (apply-tag bulk-edit tag))}]
+          :transform-fn keyword
+          :on-blur (apply-tag! bulk-edit)
+          :on-change (apply-tag! bulk-edit)}]
         (tag-elems @user-tags {:remove-fn #(swap! user-tags disj %)})]
        [forms/checkbox-field bulk-edit [:merge-user-tags?] {:caption "Keep existing tags"}]
        [button {:html {:title "Click here to apply these changes to the selected accounts."
@@ -551,7 +557,7 @@
           [:legend "Tags"]
           [forms/typeahead-input
            account
-           [:working-tag]
+           [::working-tag]
            {:mode :direct
             :search-fn (fn [term callback]
                          (let [existing (or @user-tags #{})]
@@ -563,17 +569,14 @@
             :caption-fn name
             :value-fn name
             :find-fn keyword
-            :create-fn keyword
-            :on-change (fn [tag]
-                         (swap! account #(-> %
-                                             (update-in [:account/user-tags] (fnil conj #{}) (keyword tag))
-                                             (dissoc :working-tag))))}]
+            :on-blur (apply-tag! account)
+            :on-change (apply-tag! account)}]
           (tag-elems @user-tags {:remove-fn #(swap! account
                                                     update-in
                                                     [:account/user-tags]
                                                     disj
                                                     %)})]
-         [:div
+         [:div.mt-2
           [button {:html {:type :submit
                           :class "btn-primary"
                           :title "Click here to save the account."}
@@ -780,14 +783,14 @@
           (cond
             (accountified? @transaction)
             [:button.btn.btn-secondary {:title "Click here to show full transaction details."
-                                   :on-click (fn [_]
-                                               (swap! transaction (expand-trx)))}
+                                        :on-click (fn [_]
+                                                    (swap! transaction (expand-trx)))}
              (icon :arrows-expand)]
 
             (can-accountify? @transaction)
             [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
-                                   :on-click (fn [_]
-                                               (swap! transaction (collapse-trx page-state)))}
+                                        :on-click (fn [_]
+                                                    (swap! transaction (collapse-trx page-state)))}
              (icon :arrows-collapse)])]
          [:div.mt-3
           (let [f (if (accountified? @transaction)
@@ -829,14 +832,14 @@
 (defn- check-all-items
   ([page-state]  (check-all-items page-state true))
   ([page-state checked?]
-  (swap! page-state
-         update-in
-         [:reconciliation :clj-money.views.reconciliations/item-selection]
-         merge
-         (->> (:items @page-state)
-              (map (comp #(vector % checked?)
-                         :id))
-              (into {})))))
+   (swap! page-state
+          update-in
+          [:reconciliation :clj-money.views.reconciliations/item-selection]
+          merge
+          (->> (:items @page-state)
+               (map (comp #(vector % checked?)
+                          :id))
+               (into {})))))
 
 (defn- uncheck-all-items
   [page-state]
