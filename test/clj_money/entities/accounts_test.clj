@@ -311,6 +311,11 @@
                                 :allocations {(:id stocks) 50M
                                               (:id bonds) 50M}}))))
 
+(dbtest replace-user-tags
+  (with-context tag-context
+    (assert-updated (find-account "Rent")
+                    {:account/user-tags #{:housing}})))
+
 (def same-parent-context
   (conj select-context 
         #:account{:name "Current assets"
