@@ -2,6 +2,7 @@
   (:require [clojure.string :as string]
             [clojure.set :refer [union
                                  intersection]]
+            [clojure.core.async :as a]
             [cljs.pprint :refer [pprint]]
             [goog.string :as gstr]
             [reagent.core :as r]
@@ -42,7 +43,8 @@
             [clj-money.accounts :as acts :refer [account-types
                                                  allocate
                                                  find-by-path
-                                                 system-tagged?]]
+                                                 system-tagged?
+                                                 multi-save]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -320,41 +322,29 @@
   [page-state]
   (+busy)
   (let [{{:keys [account-ids
-                 merge-user-tags?]
-          :account/keys [user-tags]} :bulk-edit} @page-state
-        account-ids (if (set? account-ids)
-                      account-ids
-                      #{account-ids})
-        results (atom {:succeeded 0
-                       :errors []
-                       :completed 0})
-        receive-fn (fn [update-fn]
-                     (swap! results (fn [state]
-                                      (-> state
-                                          update-fn
-                                          (update-in [:completed] inc))))
-                     (when (>= (:completed @results)
-                               (count account-ids))
-                       (-busy)
-                       (swap! page-state #(dissoc % :bulk-edit))
-                       (fetch-accounts)
-                       (notify/toast "Updated Finished"
-                                     (str "Updated "
-                                          (:succeeded @results)
-                                          " account(s)."))))
-        success-fn #(receive-fn (fn [state] (update-in state [:succeeded] inc)))
-        error-fn #(receive-fn (fn [state] (update-in state [:errors] conj %)))
-        apply-fn (if merge-user-tags?
-                   #(update-in % [:account/user-tags] union user-tags)
-                   #(assoc % :account/user-tags user-tags))
-        to-update (->> account-ids
-                       (map @accounts-by-id)
-                       (map apply-fn))]
-    (doseq [account to-update]
-      (accounts/save account
-                     :callback -busy
-                     :on-success success-fn
-                     :on-error error-fn))))
+                 merge-user-tags?
+                 user-tags]} :bulk-edit} @page-state
+        ch (->> (if (sequential? account-ids)
+                  account-ids
+                  [account-ids])
+                (map accounts-by-id)
+                (multi-save {:process (fn [a ch]
+                                        (accounts/save
+                                          (if merge-user-tags?
+                                            (update-in a [:account/user-tags] union user-tags)
+                                            (assoc a :account/user-tags user-tags))
+                                          :on-success #(a/put! ch %)
+                                          :on-error #(a/put! ch %)))}))]
+    (a/go
+      (let [{:keys [succeeded errors]} (a/<! ch)]
+        (-busy)
+        (notify/toast "Update Finished"
+                      (str "Updated "
+                           succeeded
+                           " account(s)."))
+        (when (seq? errors)
+          (notify/warnf "Some errors were encountered: %s"
+                        (string/join "; " errors)))))))
 
 (defn- tag-elem
   [{:keys [remove-fn]}]
