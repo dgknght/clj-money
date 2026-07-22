@@ -294,10 +294,17 @@
                   :type :asset
                   :commodity "USD"}
         #:account{:name "Stocks"
+                  :parent "IRA"
                   :entity "Personal"
                   :type :asset
                   :commodity "USD"}
         #:account{:name "Bonds"
+                  :parent "IRA"
+                  :entity "Personal"
+                  :type :asset
+                  :commodity "USD"}
+        #:account{:name "Gold"
+                  :parent "IRA"
                   :entity "Personal"
                   :type :asset
                   :commodity "USD"}))
@@ -315,6 +322,24 @@
   (with-context tag-context
     (assert-updated (find-account "Rent")
                     {:account/user-tags #{:housing}})))
+
+(dbtest replace-allocations
+  (with-context update-context
+    (let [stocks (find-account "Stocks")
+          bonds (find-account "Bonds")
+          gold (find-account "Gold")
+          ira (-> (find-account "IRA")
+                  (assoc :account/allocations {(:id stocks) 0.4M
+                                               (:id bonds) 0.3M
+                                               (:id gold) 0.3M})
+                  entities/put)]
+      (assert-updated ira
+                      {:account/allocations {(:id stocks) 0.6M
+                                             (:id bonds) 0.4M}})
+      (is (= {(:id stocks) 0.6M
+              (:id bonds) 0.4M}
+             (:account/allocations (entities/find ira)))
+          "The retrieved allocation match the ones specified in the update"))))
 
 (def same-parent-context
   (conj select-context 

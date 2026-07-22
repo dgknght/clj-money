@@ -10,7 +10,10 @@
   [{:account/keys [allocations] :as account}]
   ; TODO: Refine this to handle removing allocations that have been changed or removed
   (let [removed-user-tags (difference (:account/user-tags (ents/before account))
-                                      (:account/user-tags account))]
+                                      (:account/user-tags account))
+        removed-allocations (difference
+                              (-> account ents/before :account/allocations set)
+                              (-> account :account/allocations set))]
     (concat [(dissoc account :account/allocations)]
             (map (fn [[k v]]
                    [:db/add
@@ -18,8 +21,11 @@
                     :account/allocations
                     [k v]])
                  allocations)
+            (map (fn [a]
+                   [:db/retract (:id account) :account/allocations a])
+                 removed-allocations)
             (map (fn [t]
-                   (vector :db/retract (:id account) :account/user-tags t))
+                   [:db/retract (:id account) :account/user-tags t])
                  removed-user-tags))))
 
 (defmethod datomic/after-read :account
