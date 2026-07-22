@@ -318,6 +318,12 @@
                                           page-state))))
             doall)])))
 
+(defn- put+close
+  [ch]
+  (fn [x]
+    (a/put! ch x)
+    (a/close! ch)))
+
 (defn- bulk-save
   [page-state]
   (+busy)
@@ -325,21 +331,19 @@
                  merge-user-tags?]
           :account/keys [user-tags]} :bulk-edit} @page-state
         find-account @accounts-by-id
+        apply-tags (if merge-user-tags?
+                     #(update-in % [:account/user-tags] union user-tags)
+                     #(assoc % :account/user-tags user-tags))
         ch (->> (if (coll? account-ids)
                   account-ids
                   [account-ids])
-                (map find-account)
+                (map (comp apply-tags
+                           find-account))
                 (multi-save {:process (fn [a ch]
                                         (accounts/save
-                                          (if merge-user-tags?
-                                            (update-in a [:account/user-tags] union user-tags)
-                                            (assoc a :account/user-tags user-tags))
-                                          :on-success (fn [a]
-                                                        (a/put! ch a)
-                                                        (a/close! ch))
-                                          :on-error (fn [a]
-                                                      (a/put! ch a)
-                                                      (a/close! ch))))}))]
+                                          a
+                                          :on-success (put+close ch)
+                                          :on-error (put+close ch)))}))]
     (a/go
       (let [{:keys [succeeded errors]} (a/<! ch)]
         (-busy)
