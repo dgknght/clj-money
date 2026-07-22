@@ -1,10 +1,11 @@
 (ns clj-money.accounts-test
   (:require #?(:clj [clojure.test :refer [deftest is are testing]]
-               :cljs [cljs.test :refer [deftest is are testing]])
+               :cljs [cljs.test :refer [deftest is are testing async]])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clojure.core.async :as a]
             [dgknght.app-lib.test-assertions]
             [clj-money.decimal :refer [d] :as dec]
             [clj-money.accounts :as accounts]))
@@ -590,20 +591,43 @@
   (is (not (accounts/parent-only? {}))
       "An account without systems tags is not parent-only"))
 
-(deftest save-multiple-accounts
-  (testing "flawless victory"
-    (let [result (accounts/multi-save {:process #(assoc % ::saved true)} 
-                                      [{:id 1
-                                        :account/name "Checking"}
-                                       {:id 2
-                                        :account/name "Savings"}])]
-      (is (comparable? {:succeeded 2
-                        :errors []
-                        :results [{:id 1
-                                   :account/name "Checking"
-                                   ::saved true}
-                                  {:id 2
-                                   :account/name "Savings"
-                                   ::saved true}]}
-                       result)
-          "The results are returned with success count and no errors."))))
+#?(:cljs (deftest save-multiple-accounts
+          (let [accounts [{:id 1
+                           :account/name "Checking"}
+                          {:id 2
+                           :account/name "Savings"}]]
+            (testing "flawless victory"
+              (async
+                done
+                (a/go
+                  (let [result (a/<! (accounts/multi-save
+                                       {:process (fn [a ch]
+                                                   (a/put! ch (assoc a ::saved true))
+                                                   (a/close! ch))}
+                                       accounts))]
+                    (is (comparable? {:succeeded 2
+                                      :errors []
+                                      :results [{:id 1
+                                                 :account/name "Checking"
+                                                 ::saved true}
+                                                {:id 2
+                                                 :account/name "Savings"
+                                                 ::saved true}]}
+                                     result)
+                        "The results are returned with success count and no errors.")
+                    (done)))))
+            (testing "an error"
+              (a/go
+                (let [result (a/<! (accounts/multi-save
+                                     {:process (fn [act ch]
+                                                 (if (= 1 (:id act))
+                                                   (a/put! ch (assoc act ::saved true))
+                                                   (a/put! ch (ex-info "Unable to save" {:account act}))))}
+                                     accounts))]
+                  (is (comparable? {:succeeded 1
+                                    :errors ["Unable to save"]
+                                    :results [{:id 1
+                                               :account/name "Checking"
+                                               ::saved true}]}
+                                   result)
+                      "The results are returned with success count and any thrown errors.")))))))

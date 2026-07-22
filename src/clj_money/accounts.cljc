@@ -3,6 +3,7 @@
             [clojure.set :as set]
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
+            [clojure.core.async :as a]
             [dgknght.app-lib.models :as models]
             [dgknght.app-lib.web :refer [format-decimal]]
             [clj-money.decimal :as d]
@@ -376,13 +377,23 @@
 
 (defn multi-save
   [{:keys [process]} accounts]
-  (transduce (map process)
-             (completing
-               (fn [res account]
-                 (-> res
-                     (update-in [:results] conj account)
-                     (update-in [:succeeded] inc))))
-             {:succeeded 0
-              :errors []
-              :results []}
-             accounts))
+
+  (let [input (a/chan)
+        output (a/chan)]
+    (a/pipeline-async 1
+                      output
+                      process
+                      input)
+    (let [res (a/reduce
+                (fn [acc result]
+                  (if-let [err (ex-message result)]
+                    (update-in acc [:errors] conj err)
+                    (-> acc
+                        (update-in [:results] conj result)
+                        (update-in [:succeeded] inc))))
+                {:succeeded 0
+                 :errors []
+                 :results []}
+                output)]
+      (a/go (a/onto-chan! input accounts))
+      res)))
