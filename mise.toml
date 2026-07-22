@@ -62,5 +62,5 @@ depends = ["docker-up"]
 run = """
 until bash -c '</dev/tcp/localhost/5432' 2>/dev/null; do sleep 1; done
 lein do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2030-12-31
-lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
+SQL_DB_NAME=money_test lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
 """
