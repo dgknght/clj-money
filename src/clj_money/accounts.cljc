@@ -373,3 +373,16 @@
                    (valuate-commodity-accounts data commodity)))
          (nest {:sort-key-fn :account/name})
          unnest)))
+
+(defn multi-save
+  [{:keys [process]} accounts]
+  (transduce (map process)
+             (completing
+               (fn [res account]
+                 (-> res
+                     (update-in [:results] conj account)
+                     (update-in [:succeeded] inc))))
+             {:succeeded 0
+              :errors []
+              :results []}
+             accounts))

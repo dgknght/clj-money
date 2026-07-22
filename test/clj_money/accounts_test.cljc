@@ -589,3 +589,21 @@
       "An account with empty systems tags is not parent-only")
   (is (not (accounts/parent-only? {}))
       "An account without systems tags is not parent-only"))
+
+(deftest save-multiple-accounts
+  (testing "flawless victory"
+    (let [result (accounts/multi-save {:process #(assoc % ::saved true)} 
+                                      [{:id 1
+                                        :account/name "Checking"}
+                                       {:id 2
+                                        :account/name "Savings"}])]
+      (is (comparable? {:succeeded 2
+                        :errors []
+                        :results [{:id 1
+                                   :account/name "Checking"
+                                   ::saved true}
+                                  {:id 2
+                                   :account/name "Savings"
+                                   ::saved true}]}
+                       result)
+          "The results are returned with success count and no errors."))))
