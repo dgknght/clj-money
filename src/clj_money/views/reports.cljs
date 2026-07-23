@@ -81,6 +81,10 @@
          inc)
     9))
 
+(defn- budget-max-depth
+  [report]
+  (report-max-depth (mapcat :report/items (:items report))))
+
 (defmulti load-report #(:selected (deref %)))
 
 (defmethod load-report :income-statement
@@ -306,10 +310,12 @@
 (defn- receive-budget-report
   [page-state]
   (fn [report]
-    (swap! page-state
-           #(-> %
-                (assoc-in [:budget :report] report)
-                (update-in [:budget] dissoc :apply-info)))))
+    (let [max-d (budget-max-depth report)]
+      (swap! page-state
+             #(-> %
+                  (assoc-in [:budget :report] report)
+                  (assoc-in [:budget :options :depth] (dec max-d))
+                  (update-in [:budget] dissoc :apply-info))))))
 
 (defmethod load-report :budget
   [page-state]
@@ -329,15 +335,33 @@
         budgets (r/cursor page-state [:budgets])
         budget-items (make-reaction #(->> (vals @budgets)
                                           (sort-by :budget/start-date t/after?)
-                                          (map (juxt :id :budget/name))))]
+                                          (map (juxt :id :budget/name))))
+        report (r/cursor page-state [:budget :report])
+        depth (r/cursor options [:depth])
+        max-depth (make-reaction #(budget-max-depth @report))]
     (fn []
       (when (and (= :budget @selected)
                  (seq @budget-items))
         [:<>
          [forms/select-field options [:budget-id] budget-items]
-         [forms/integer-field options [:depth] {:class "ms-sm-2"
-                                                :placeholder "Depth"
-                                                :style {:width "5em"}}]]))))
+         [:label.form-label.mt-2
+          {:for "budget-depth"}
+          "Depth"]
+         [:input#budget-depth.form-range
+          {:type :range
+           :min 1
+           :max @max-depth
+           :step 1
+           :value (or (some-> @depth inc) @max-depth)
+           :list "budget-depth-markers"
+           :on-change (fn [e]
+                        (let [v (dom/value (dom/target e))]
+                          (swap! options assoc :depth (dec (parse-long v)))))}]
+         [:div.d-flex.justify-content-between.px-1
+          {:style {:margin-top "-10px"}}
+          (for [x (range @max-depth)]
+            ^{:key (str "budget-depth-" x)}
+            [:span.border-start {:style {:height "10px"}}])]]))))
 
 (defn- receive-budget
   [{account-id :id
@@ -415,7 +439,9 @@
 (defn- refine-items
   [depth items]
   (->> items
-       (remove #(< depth (:report/depth %)))
+       (remove #(> (:report/depth %) depth))
+       (remove #(and (< (:report/depth %) depth)
+                     (:report/roll-up %)))
        (map #(if (= depth (:report/depth %))
                (merge % (:report/roll-up %))
                %))
@@ -749,7 +775,7 @@
            :balance-sheet {:options {:as-of (t/today)
                                      :hide-zeros? true
                                      :depth nil}}
-           :budget {:options {:depth 1
+           :budget {:options {:depth 0
                               :tags [:tax :mandatory :discretionary]}} ; TODO: make this user editable
            :portfolio {:options {:filter {:aggregate :by-account
                                           :as-of (t/today)}
