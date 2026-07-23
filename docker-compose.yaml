@@ -129,7 +129,7 @@ services:
     command: sh -c "if [ -e /init-markers/datomic-sql-init-complete ]; then rm -rvf /init-markers/*; fi && lein with-profile util create-sql && ./scripts/datomic/init.sh && touch /init-markers/datomic-sql-init-complete"
     environment:
       PGPASSWORD: ${SQL_ADM_PASSWORD}
-      PGHOST: ${SQL_HOST}
+      PGHOST: sql
       PGDATABASE: ${SQL_ADM_USER}
       PGUSER: ${SQL_ADM_USER}
       SQL_ADM_USER: ${SQL_ADM_USER}
@@ -139,7 +139,7 @@ services:
       SQL_APP_USER: ${SQL_APP_USER}
       SQL_APP_PASSWORD: ${SQL_APP_PASSWORD}
       SQL_DB_NAME: ${SQL_DB_NAME}
-      SQL_HOST: ${SQL_HOST}
+      SQL_HOST: sql
     depends_on:
       sql:
         condition: service_healthy
@@ -256,7 +256,7 @@ services:
       - -a
       - "${DATOMIC_ACCESS_KEY},${DATOMIC_SECRET}"
       - -d
-      - "${DATOMIC_DB_NAME},datomic:sql://${DATOMIC_DB_NAME}?jdbc:postgresql://${SQL_HOST}:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}"
+      - "${DATOMIC_DB_NAME},datomic:sql://${DATOMIC_DB_NAME}?jdbc:postgresql://sql:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}"
     healthcheck:
       test: ["CMD", "curl", "-k", "https://localhost:8998/health"]
       interval: 30s

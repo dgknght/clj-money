@@ -2,6 +2,7 @@
   (:require [clojure.string :as string]
             [clojure.set :refer [union
                                  intersection]]
+            [clojure.core.async :as a]
             [cljs.pprint :refer [pprint]]
             [goog.string :as gstr]
             [reagent.core :as r]
@@ -37,12 +38,14 @@
             [clj-money.api.lot-notes :as lot-notes]
             [clj-money.api.prices :as prices]
             [clj-money.api.audit :as audit]
-            [clj-money.cached-accounts :refer [fetch-accounts]]
+            [clj-money.cached-accounts :refer [fetch-accounts
+                                               latest]]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :as acts :refer [account-types
                                                  allocate
                                                  find-by-path
-                                                 system-tagged?]]
+                                                 system-tagged?
+                                                 multi-save]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -204,17 +207,19 @@
         (icon :collection :size :small)]
        [:button.btn.btn-secondary.btn-sm
         {:on-click (fn []
-                     (swap! page-state assoc :selected account)
+                     (swap! page-state assoc :selected (latest account))
                      (set-focus "parent-id"))
          :title "Click here to edit this account."}
         (icon :pencil :size :small)]
        [:button.btn.btn-secondary
-        {:on-click #(swap! page-state
-                           assoc
-                           :allocation
-                           {:account (prepare-for-allocation account)
-                            :cash (:account/value account)
-                            :withdrawal 0M})
+        {:on-click (fn []
+                     (let [a (latest account)]
+                       (swap! page-state
+                              assoc
+                              :allocation
+                              {:account (prepare-for-allocation a)
+                               :cash (:account/value a)
+                               :withdrawal 0M})))
          :disabled (not (system-tagged? account :trading))
          :title "Click here to manage asset allocation for this account."}
         (icon (if (system-tagged? account :trading)
@@ -222,7 +227,7 @@
                 :pie-chart)
               :size :small)]
        [:button.btn.btn-secondary.btn-sm
-        {:on-click #(recalculate account page-state)
+        {:on-click #(recalculate (latest account) page-state)
          :title "Click here to recalculate the balance and transaction indexes for this account."}
         (if (@recalculating (:id account))
           [:div.spinner-border.spinner-border-sm {:role :state}]
@@ -291,7 +296,8 @@
 
 (defn- account-and-type-rows
   [page-state]
-  (let [filter-tags (r/cursor page-state [:filter-tags])
+  (let [raw-tags (r/cursor page-state [:filter-tags])
+        filter-tags (make-reaction #(->> @raw-tags (map keyword) set))
         filter-fn (make-reaction #(cond
                                     (@filter-tags :_untagged) (fn [{:account/keys [user-tags]}]
                                                                 (empty? user-tags))
@@ -316,45 +322,50 @@
                                           page-state))))
             doall)])))
 
+(defn- put+close
+  [ch]
+  (fn [x]
+    (a/put! ch x)
+    (a/close! ch)))
+
 (defn- bulk-save
   [page-state]
   (+busy)
   (let [{{:keys [account-ids
                  merge-user-tags?]
           :account/keys [user-tags]} :bulk-edit} @page-state
-        account-ids (if (set? account-ids)
-                      account-ids
-                      #{account-ids})
-        results (atom {:succeeded 0
-                       :errors []
-                       :completed 0})
-        receive-fn (fn [update-fn]
-                     (swap! results (fn [state]
-                                      (-> state
-                                          update-fn
-                                          (update-in [:completed] inc))))
-                     (when (>= (:completed @results)
-                               (count account-ids))
-                       (-busy)
-                       (swap! page-state #(dissoc % :bulk-edit))
-                       (fetch-accounts)
-                       (notify/toast "Updated Finished"
-                                     (str "Updated "
-                                          (:succeeded @results)
-                                          " account(s)."))))
-        success-fn #(receive-fn (fn [state] (update-in state [:succeeded] inc)))
-        error-fn #(receive-fn (fn [state] (update-in state [:errors] conj %)))
-        apply-fn (if merge-user-tags?
-                   #(update-in % [:account/user-tags] union user-tags)
-                   #(assoc % :account/user-tags user-tags))
-        to-update (->> account-ids
-                       (map @accounts-by-id)
-                       (map apply-fn))]
-    (doseq [account to-update]
-      (accounts/save account
-                     :callback -busy
-                     :on-success success-fn
-                     :on-error error-fn))))
+        find-account @accounts-by-id
+        apply-tags (if merge-user-tags?
+                     #(update-in % [:account/user-tags] union user-tags)
+                     #(assoc % :account/user-tags user-tags))
+        ch (->> (if (coll? account-ids)
+                  account-ids
+                  [account-ids])
+                (map (comp apply-tags
+                           find-account))
+                (multi-save {:process (fn [a ch]
+                                        (accounts/save
+                                          a
+                                          :on-success (put+close ch)
+                                          :on-error (put+close ch)))}))]
+    (a/go
+      (let [{:keys [succeeded errors results]} (a/<! ch)]
+        (-busy)
+        (swap! page-state dissoc :bulk-edit)
+        (let [by-id (index-by :id results)]
+          (swap! accounts (fn [as]
+                            (mapv (fn [a]
+                                    (if-let [updated (by-id (:id a))]
+                                      (assoc a :account/user-tags (:account/user-tags updated))
+                                      a))
+                                  as))))
+        (notify/toast "Update Finished"
+                      (str "Updated "
+                           succeeded
+                           " account(s)."))
+        (when (seq? errors)
+          (notify/warnf "Some errors were encountered: %s"
+                        (string/join "; " errors)))))))
 
 (defn- tag-elem
   [{:keys [remove-fn]}]
