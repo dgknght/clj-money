@@ -645,8 +645,12 @@
 (defn- index []
   (let [page-state (r/atom {})
         selected (r/cursor page-state [:selected])
-        detailed-budget (r/cursor page-state [:detailed-budget])]
+        detailed-budget (r/cursor page-state [:detailed-budget])
+        edit-budget-id (:edit-budget-id @app-state)]
     (load-budgets page-state)
+    (when edit-budget-id
+      (swap! app-state dissoc :edit-budget-id)
+      (load-budget-details {:id edit-budget-id} page-state))
     (add-watch current-entity ::index (fn [& _] (load-budgets page-state)))
     (fn []
       [:div.mt-3

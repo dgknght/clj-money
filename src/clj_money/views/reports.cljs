@@ -335,7 +335,14 @@
          [forms/select-field options [:budget-id] budget-items]
          [forms/integer-field options [:depth] {:class "ms-sm-2"
                                                 :placeholder "Depth"
-                                                :style {:width "5em"}}]]))))
+                                                :style {:width "5em"}}]
+         [:div.mt-3
+          [:a.btn.btn-outline-secondary
+           {:href "/budgets"
+            :data-bs-dismiss :offcanvas
+            :on-click #(swap! app-state assoc :edit-budget-id (:budget-id @options))
+            :title "Click here to edit the amounts for this budget."}
+           (icon-with-text :pencil "Edit Amounts")]]]))))
 
 (defn- receive-budget
   [budget
