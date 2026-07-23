@@ -1,10 +1,11 @@
 (ns clj-money.views.reports
   (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
-            [dgknght.app-lib.models :refer [map-index]]
+            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.web :refer [format-decimal
                                          format-percent
                                          format-date]]
@@ -15,6 +16,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.dom :as dom]
+            [clj-money.util :refer [id=]]
             [clj-money.decimal :as d]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -338,33 +340,32 @@
                                                 :style {:width "5em"}}]]))))
 
 (defn- receive-budget
-  [budget
-   {account-id :id
-    :keys [actual-per-period]
+  [{account-id :id
+    :report/keys [actual-per-period]
     :as report-item}
    page-state]
-  (-busy)
-  (let [budget (update-in budget
-                          [:items]
-                          #(map-index :account-id %))
-        budget-item (or (get-in budget [:items account-id])
-                        {:account-id account-id
-                         :periods []})
-        periods (vec
-                  (repeat (:period-count budget)
-                          actual-per-period))]
-    (swap! page-state
-           assoc-in [:budget :apply-info] {:budget budget
-                                           :budget-item (assoc budget-item :periods periods)
-                                           :report-item report-item})))
+  (fn [budget]
+    (let [budget (update-in budget
+                            [:budget/items]
+                            (partial index-by (comp :id :budget-item/account)))
+          budget-item (or (get-in budget [:budget/items account-id])
+                          #:budget-item{:account-id account-id
+                                        :periods []})
+          periods (vec
+                    (repeat (get-in budget [:budget/period 0])
+                            actual-per-period))]
+      (swap! page-state
+             assoc-in [:budget :apply-info] {:budget budget
+                                             :budget-item (assoc budget-item :budget-item/periods periods)
+                                             :report-item report-item}))))
 
 (defn- apply-to-budget
   [report-item page-state]
   (+busy)
-  (let [{{:keys [budget-id]} :budget} @page-state]
+  (let [{{{:keys [budget-id]} :options} :budget} @page-state]
     (bdt/find budget-id
               :callback -busy
-              :on-success #(receive-budget % report-item page-state))))
+              :on-success (receive-budget report-item page-state))))
 
 (defn- budget-report-row
   [{:report/keys [id
@@ -431,14 +432,14 @@
   [page-state]
   (let [{:keys [budget budget-item]} (get-in @page-state [:budget :apply-info])]
     (+busy)
-    (bdt/save (update-in budget [:items] (fn [items]
-                                           (-> items
-                                               (assoc (:account-id budget-item)
-                                                      (update-in budget-item
-                                                                 [:periods]
-                                                                 #(mapv (fnil identity (decimal/zero))
-                                                                        %)))
-                                               vals)))
+    (bdt/save (update-in budget
+                         [:budget/items]
+                         (fn [items]
+                           (map (fn [item]
+                                  (if (id= budget-item item)
+                                    budget-item
+                                    item))
+                                (vals items))))
               :callback -busy
               :on-success #(load-report page-state))))
 
@@ -448,16 +449,17 @@
         report-item (r/cursor apply-info [:report-item])
         account (r/cursor report-item [:account])
         budget (r/cursor apply-info [:budget])
-        original-budget-item (make-reaction #(get-in @budget [:items (:id @account)]))
+        period-count (r/cursor budget [:budget/period 0])
+        original-budget-item (make-reaction #(get-in @budget [:budget/items (:id @account)]))
         budget-item (r/cursor apply-info [:budget-item])
         original-total (make-reaction
-                         #(decimal/sum (:periods @original-budget-item)))
+                         #(decimal/sum (:budget-item/periods @original-budget-item)))
         item-total (make-reaction
-                     #(decimal/sum (:periods @budget-item)))]
+                     #(decimal/sum (:budget-item/periods @budget-item)))]
     (fn []
       [:div.background.fixed-top {:class (when-not @apply-info "d-none")}
        [:div.card
-        [:div.card-header (str "Apply Budget Item: " (string/join "/" (:path @account)))]
+        [:div.card-header (str "Apply Budget Item: " (string/join "/" (:account/path @account)))]
         [:div.card-body
          [:form {:on-submit #(.preventDefault %)
                  :no-validate true}
@@ -468,25 +470,25 @@
              [:th.text-end "Current"]
              [:th "New"]]]
            [:tbody
-            (->> (range (:period-count @budget))
+            (->> (range @period-count)
                  (map-indexed (fn [index _]
                                 ^{:key (str "budget-item-period-" index)}
                                 [:tr
                                  [:td (period-description index @budget)]
                                  [:td.text-end (format-decimal
                                                  (get-in @original-budget-item
-                                                         [:periods index]))]
-                                 [:td [forms/decimal-input budget-item [:periods index]]]]))
+                                                         [:budget-item/periods index]))]
+                                 [:td [forms/decimal-input budget-item [:budget-item/periods index]]]]))
                  doall)]
            [:tfoot
             [:tr
              [:td.text-end {:col-span 2} (format-decimal @original-total)]
              [:td.text-end (format-decimal @item-total)]]]]]]
         [:div.card-footer
-         [:button.btn-primary {:title "Click here to save this budget item."
-                               :on-click #(save-budget page-state)}
+         [:button.btn.btn-primary {:title "Click here to save this budget item."
+                                   :on-click #(save-budget page-state)}
           (icon-with-text :check "Save")]
-         [:button.btn-secondary.ms-2
+         [:button.btn.btn-secondary.ms-2
           {:title "Click here to cancel this edit."
            :on-click #(swap! page-state update-in [:budget] dissoc :apply-info)}
           (icon-with-text :x "Cancel")]]]])))
