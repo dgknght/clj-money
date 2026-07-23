@@ -6,7 +6,6 @@
              :as auth
              :refer [+scope
                      authorize]]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
