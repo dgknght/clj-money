@@ -5,6 +5,7 @@
 
 (def ^:private default-opts
   {:relationships schema/relationships
+   :metadata-anchors {:transaction :transaction/transaction-date}
    :query-prefix [:query]})
 
 (defn apply-criteria
