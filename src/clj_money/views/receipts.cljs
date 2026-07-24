@@ -14,6 +14,7 @@
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.state :refer [app-state
@@ -56,7 +57,7 @@
         :on-success (fn [trx]
                       (swap! page-state
                              update-in
-                             [:receipts] ; TODO: rename this to :transactions?
+                             [:transactions]
                              #(util/upsert-into trx
                                                 {:sort-key :transaction/transaction-date}
                                                 %))
@@ -198,53 +199,54 @@
 
 (defn- results-table
   [page-state]
-  (let [transactions (r/cursor page-state [:receipts])]
+  (let [transactions (r/cursor page-state [:transactions])]
     (fn []
-      [:table.table.table-hover
-       [:thead
-        [:tr
-         [:th "Date"]
-         [:th "Description"]
-         [:th.text-end "Amount"]
-         [:th (html/space)]]]
-       [:tbody
-        (cond
-          (seq @transactions)
-          (->> @transactions
-               (map #(result-row % page-state))
-               doall)
+      [:<>
+       [:div.mb-2
+        [forms/date-field
+         page-state
+         [:filter-date]
+         {:caption "Entered Since"}]]
+       [:table.table.table-hover
+        [:thead
+         [:tr
+          [:th "Date"]
+          [:th "Description"]
+          [:th.text-end "Amount"]
+          [:th (html/space)]]]
+        [:tbody
+         (cond
+           (seq @transactions)
+           (->> @transactions
+                (map #(result-row % page-state))
+                doall)
 
-          @transactions
-          [:tr
-           [:td {:col-span 4} "No recent transactions"]]
+           @transactions
+           [:tr
+            [:td {:col-span 4} "No transactions entered on this date"]]
 
-          :else
-          [:tr
-           [:td {:col-span 4} (bs/spinner)]])]])))
-
-(defn- recent? []
-  (let [cutoff (-> 24 t/hours t/ago)]
-    (fn [{:transaction/keys [created-at]}]
-      (when created-at
-        (t/before? cutoff created-at)))))
+           :else
+           [:tr
+            [:td {:col-span 4} (bs/spinner)]])]]])))
 
 (defn- load-transactions
   [page-state]
   (+busy)
-  (let [end (t/plus (t/today) (t/days 1))
-        start (t/minus end (t/days 7))]
-    (trn/select {:include-items true
-                 :transaction/transaction-date [:between> start end]}
-                :callback -busy
-                :on-success #(swap! page-state
-                                    assoc
-                                    :transactions %
-                                    :receipts (filter (recent?) %)))))
+  (trn/select {:include-items true
+               :transaction/created-at [:>= (:filter-date @page-state)]}
+              :callback -busy
+              :on-success #(swap! page-state
+                                  assoc
+                                  :transactions %)))
 
 (defn- index []
-  (let [page-state (r/atom {})]
+  (let [page-state (r/atom {:filter-date (t/today)})]
     (new-receipt page-state)
     (load-transactions page-state)
+    (add-watch page-state ::filter-date
+               (fn [_ _ old new]
+                 (when (not= (:filter-date old) (:filter-date new))
+                   (load-transactions page-state))))
     (fn []
       [:<>
        [:h1.mt-3 "Receipt Entry"]
