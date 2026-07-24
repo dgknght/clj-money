@@ -26,10 +26,11 @@
   (if (keyword? k)
     (when-let [parsed (parse-nominal-key (name k))]
       (assoc parsed :namespace (namespace k)))
-    (when-let [match (re-find #"^(.+?)(-on-or)?-(before|after)$" k)]
+    (when-let [match (re-find #"^(.+?)(-(on|at)-or)?-(before|after)$" k)]
       {:base (nth match 1)
        :inclusive? (not (not (nth match 2)))
-       :comparison (nth match 3)})))
+       :preposition (nth match 3)
+       :comparison (nth match 4)})))
 
 (defn- parse-symbolic-key
   [k]
@@ -41,12 +42,14 @@
        :suffix (nth match 2)})))
 
 (defn- symbolic-key-value
-  [{:keys [base inclusive? comparison namespace]} v]
+  [{:keys [base preposition inclusive? comparison namespace]} v]
   (let [final-key (keyword
                     namespace
                     (str base
                          (when-not (string/ends-with? base "-date")
-                           (if (includes-time? v) "-at" "-on"))))
+                           (cond
+                             preposition (str "-" preposition)
+                             :else       (if (includes-time? v) "-at" "-on")))))
         oper (if inclusive?
                (if (= "before" comparison)
                  :<=
@@ -82,9 +85,9 @@
     v]])
 
 (defmethod nominal-key-values :>=
-  [{:keys [base namespace]} [_ v]]
+  [{:keys [base namespace suffix]} [_ v]]
   [[(keyword namespace
-             (str base "-on-or-after"))
+             (str base (or suffix "-on") "-or-after"))
     v]])
 
 (defmethod nominal-key-values :<
@@ -94,36 +97,36 @@
     v]])
 
 (defmethod nominal-key-values :<=
-  [{:keys [base namespace]} [_ v]]
+  [{:keys [base namespace suffix]} [_ v]]
   [[(keyword namespace
-             (str base "-on-or-before"))
+             (str base (or suffix "-on") "-or-before"))
     v]])
 
 (defmethod nominal-key-values :between
-  [{:keys [base namespace]} [_ start end]]
+  [{:keys [base namespace suffix]} [_ start end]]
   [[(keyword namespace
-             (str base "-on-or-before"))
+             (str base (or suffix "-on") "-or-before"))
     end]
    [(keyword namespace
-             (str base "-on-or-after"))
+             (str base (or suffix "-on") "-or-after"))
     start]])
 
 (defmethod nominal-key-values :<between
-  [{:keys [base namespace]} [_ start end]]
+  [{:keys [base namespace suffix]} [_ start end]]
   [[(keyword namespace
-             (str base "-on-or-before"))
+             (str base (or suffix "-on") "-or-before"))
     end]
    [(keyword namespace
              (str base "-after"))
     start]])
 
 (defmethod nominal-key-values :between>
-  [{:keys [base namespace]} [_ start end]]
+  [{:keys [base namespace suffix]} [_ start end]]
   [[(keyword namespace
              (str base "-before"))
     end]
    [(keyword namespace
-             (str base "-on-or-after"))
+             (str base (or suffix "-on") "-or-after"))
     start]])
 
 (defmethod nominal-key-values :<between>
