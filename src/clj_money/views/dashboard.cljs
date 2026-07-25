@@ -12,6 +12,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
+            [dgknght.app-lib.decimal :as decimal]
             [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
             [clj-money.config :refer [env]]
@@ -210,11 +211,43 @@
                   :caption "Add"
                   :icon :plus}])])))
 
+(defn- type-total
+  [type accts]
+  (->> accts
+       (filter #(= type (:account/type %)))
+       (map :account/value)
+       (reduce decimal/+ 0M)))
+
+(defn- balance-sheet-summary []
+  (let [totals (make-reaction #(when @accounts
+                                 {:asset (type-total :asset @accounts)
+                                  :liability (type-total :liability @accounts)
+                                  :equity (type-total :equity @accounts)}))]
+    (fn []
+      (if-let [{:keys [asset liability equity]} @totals]
+        [:table.table
+         [:tbody
+          [:tr
+           [:th "Assets"]
+           [:td.text-end (currency-format asset)]]
+          [:tr
+           [:th "Liabilities"]
+           [:td.text-end (currency-format liability)]]
+          [:tr
+           [:th "Equity"]
+           [:td.text-end (currency-format equity)]]
+          [:tr.border-top
+           [:th "Liabilities + Equity"]
+           [:td.text-end (currency-format (decimal/+ liability equity))]]]]
+        [:div.my-3
+         [:div.spinner-border {:role :status}
+          [:div.visually-hidden "loading..."]]]))))
+
 (defn- dashboard []
   [:div.row.mt-3
    [:div.col-md-9
     (if @current-entity
-      "probably put a simplified balance sheet here"
+      [balance-sheet-summary]
       [:a {:href "/entities"} "Create an entity"])]
    [:div.col-md-3
     [monitors]]])
