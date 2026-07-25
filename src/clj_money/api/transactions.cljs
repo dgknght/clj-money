@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [cljs.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.comparatives :as comparatives]
             [clj-money.state :refer [current-entity]]
             [clj-money.dates :refer [serialize-local-date local-date?]]
@@ -17,14 +18,16 @@
 
 (defn select
   [criteria & {:as opts}]
-  {:pre [(:transaction/transaction-date criteria)]}
+  {:pre [((some-fn :transaction/transaction-date
+                   :transaction/created-at)
+          criteria)]}
   (api/get
     (api/path :entities
               @current-entity
               :transactions)
     (-> criteria
-        (update-in [:transaction/transaction-date]
-                   serialize-date)
+        (update-in-if [:transaction/transaction-date] serialize-date)
+        (update-in-if [:transaction/created-at] serialize-date)
         (rename-keys {:transaction/transaction-date :transaction-date})
         comparatives/nominalize)
     (add-error-handler opts "Unable to retrieve the transactions: %s")))

@@ -80,7 +80,7 @@
 
 (defn load-in-chunks
   ([input-seq] (load-in-chunks {} input-seq))
-  ([{:keys [chunk-size fetch-xf] :or {chunk-size 50}} input-seq]
+  ([{:keys [chunk-size fetch-xf] :or {chunk-size 50 fetch-xf identity}} input-seq]
    (let [count-sought (atom chunk-size)
          ctl-ch (chan)    ; accepts commands that let criteria past the gate (or shuts everything down)
          fetch-ch (chan 2 ; accepts incoming ranges from the sequence that have passed the gate

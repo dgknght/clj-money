@@ -27,17 +27,31 @@
          (re-find #"^\d{4}-\d{2}-\d{2}$" x)) (unserialize-local-date x)
     :else x))
 
+(defn- throw-on-missing-constraint
+  [criteria]
+  (when-not ((some-fn :transaction/transaction-date
+                      :transaction/created-at)
+             criteria)
+    (throw (ex-info "Invalid criteria" {:criteria criteria})))
+  criteria)
+
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
       comparatives/symbolize
       (update-in-if [:transaction-date] unserialize-date)
+      (update-in-if [:created-at] unserialize-date)
       (rename-keys {:transaction-date :transaction/transaction-date
-                    :transaction-item-id :transaction-item/_self})
+                    :transaction-item-id :transaction-item/_self
+                    :created-at :transaction/created-at
+                    :entity-id :transaction/entity})
+      (update-in [:transaction/entity] #(hash-map :id %))
       (update-in-if [:transaction-item/_self] #(hash-map :id %))
       (select-keys [:transaction/entity
                     :transaction/transaction-date
+                    :transaction/created-at
                     :transaction-item/_self])
+      throw-on-missing-constraint
       (+scope :transaction authenticated)))
 
 (defn- extract-options

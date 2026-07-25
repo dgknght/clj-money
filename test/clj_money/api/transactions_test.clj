@@ -3,11 +3,12 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
-            [lambdaisland.uri :refer [uri map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.formats :as fmt]
             [clj-money.util :as util]
+            [clj-money.api.util :refer [+query]]
             [clj-money.entities :as entities]
             [clj-money.entities.ref]
             [clj-money.db.ref]
@@ -54,18 +55,16 @@
                       :credit-account "Salary"}))
 
 (defn- get-a-list
-  [email & {:keys [content-type]
-            :or {content-type "application/edn"}}]
-  (-> (request :get (-> (path :api
-                              :entities
-                              (:id (find-entity "Personal"))
-                              :transactions)
-                        uri
-                        (assoc :query
-                               (map->query-string
-                                 {:transaction-date-on-or-after "2016-02-01"
-                                  :transaction-date-before "2016-03-01"}))
-                        str)
+  [email & {:keys [content-type
+                   query]
+            :or {content-type "application/edn"
+                 query {:transaction-date-on-or-after "2016-02-01"
+                        :transaction-date-before "2016-03-01"}}}]
+  (-> (request :get (+query (path :api
+                                  :entities
+                                  (:id (find-entity "Personal"))
+                                  :transactions)
+                            query)
                :content-type content-type
                :user (find-user email))
       app
@@ -100,6 +99,20 @@
                     :memo "Pre-existing transaction"
                     :value "1,000.00"
                     :_type "transaction"}]))))
+
+(deftest a-user-can-filter-transactions-by-creation-timestamp
+  (with-context existing-context
+    (testing "query with results"
+      (let [{:keys [parsed-body]} (get-a-list
+                                    "john@doe.com"
+                                    :query {:created-at-or-after "2020-01-01"})]
+        (is (seq-of-maps-like? [{:transaction/description "Paycheck"}]
+                               parsed-body))))
+    (testing "query with no results"
+      (let [{:keys [parsed-body]} (get-a-list
+                                    "john@doe.com"
+                                    :query {:created-at-or-after (serialize-local-date (t/plus (t/local-date) (t/days 1)))})]
+        (is (empty? parsed-body))))))
 
 (deftest a-user-cannot-get-transactions-in-anothers-entity
   (with-context existing-context

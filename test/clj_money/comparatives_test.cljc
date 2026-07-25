@@ -14,7 +14,11 @@
     (is (= {:start-on [:between "2015-01-01" "2015-02-01"]}
            (comparatives/symbolize {:start-on-or-after "2015-01-01"
                                     :start-on-or-before "2015-02-01"}))
-        "-on-or-after and -on-or-before with the same prefix translate to :between"))
+        "-on-or-after and -on-or-before with the same prefix translate to :between")
+    (is (= {:created-at [:between "2015-01-01T00:00:00" "2015-02-01T00:00:00"]}
+           (comparatives/symbolize {:created-at-or-after "2015-01-01T00:00:00"
+                                    :created-at-or-before "2015-02-01T00:00:00"}))
+        "-at-or-after and -at-or-before with the same prefix translate to :between"))
   (testing "namespaced keys"
     (is (= {:scheduled-transaction/start-on [:> "2015-01-01"]}
            (comparatives/symbolize
@@ -114,6 +118,10 @@
     (is (= {:transaction/transaction-date-on-or-after "2015-01-01"}
            (comparatives/nominalize
              {:transaction/transaction-date [:>= "2015-01-01"]}))
+        "A greater-than-or-equal-to operator translates to the key base with the suffix -on-or-after when the base ends with -date")
+    (is (= {:transaction/created-at-or-after "2015-01-01"}
+           (comparatives/nominalize
+             {:transaction/created-at [:>= "2015-01-01"]}))
         "A greater-than-or-equal-to operator translates to the key base with the suffix -on-or-after when the base ends with -date")
     (is (= {:scheduled-transaction/start-before "2015-01-01"}
            (comparatives/nominalize
