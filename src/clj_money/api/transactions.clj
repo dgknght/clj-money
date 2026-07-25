@@ -30,7 +30,8 @@
 (defn- throw-on-missing-constraint
   [criteria]
   (when-not ((some-fn :transaction/transaction-date
-                      :transaction/created-at)
+                      :transaction/created-at
+                      :transaction-item/_self)
              criteria)
     (throw (ex-info "Invalid criteria" {:criteria criteria})))
   criteria)
@@ -45,7 +46,7 @@
                     :transaction-item-id :transaction-item/_self
                     :created-at :transaction/created-at
                     :entity-id :transaction/entity})
-      (update-in [:transaction/entity] #(hash-map :id %))
+      (update-in-if [:transaction/entity] #(hash-map :id %))
       (update-in-if [:transaction-item/_self] #(hash-map :id %))
       (select-keys [:transaction/entity
                     :transaction/transaction-date

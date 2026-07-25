@@ -20,7 +20,8 @@
                                             find-user
                                             find-entity
                                             find-account
-                                            find-transaction]]
+                                            find-transaction
+                                            find-transaction-item]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
 
@@ -117,6 +118,23 @@
 (deftest a-user-cannot-get-transactions-in-anothers-entity
   (with-context existing-context
     (assert-blocked-list (get-a-list "jane@doe.com"))))
+
+(defn- get-a-list-by-item
+  [email]
+  (let [item (find-transaction-item [(t/local-date 2016 2 1) 1000M "Checking"])]
+    (-> (request :get (+query (path :api :transactions)
+                              {:transaction-item-id (:id item)})
+                 :user (find-user email))
+        app
+        parse-body)))
+
+(deftest a-user-can-get-a-transaction-by-item-id
+  (with-context existing-context
+    (assert-successful-list (get-a-list-by-item "john@doe.com"))))
+
+(deftest a-user-cannot-get-a-transaction-by-item-id-in-anothers-entity
+  (with-context existing-context
+    (assert-blocked-list (get-a-list-by-item "jane@doe.com"))))
 
 (defn- get-a-transaction
   [email & {:keys [content-type]
