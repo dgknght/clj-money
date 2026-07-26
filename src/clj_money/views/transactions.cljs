@@ -90,16 +90,30 @@
                #(assoc % :transaction-item/account account))
          items)))
 
+(defn- descendant-accounts
+  [{:keys [id]}]
+  (filter #(contains? (set (:account/parent-ids %)) id) @accounts))
+
+(defn- effective-transaction-date-range
+  [account include-children?]
+  (->> (cons account (when include-children? (descendant-accounts account)))
+       (map :account/transaction-date-range)
+       (filter identity)
+       (reduce (fn [r [start end]]
+                 (dates/push-boundary r start end))
+               [])))
+
 (defn load-unreconciled-items
   [page-state]
   (+busy)
   (let [account (:view-account @page-state)
+        include-children? (:include-children? @page-state)
         criteria {:transaction-item/account account
                   :transaction/transaction-date (apply vector
                                                        :between
-                                                       (:account/transaction-date-range account))
+                                                       (effective-transaction-date-range account include-children?))
                   :unreconciled true
-                  :include-children (:include-children? @page-state)}]
+                  :include-children include-children?}]
     (trx-items/select
       criteria
       :callback -busy
