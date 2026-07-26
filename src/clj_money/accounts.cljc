@@ -37,6 +37,12 @@
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
+(defn type?
+  ([type]
+   #(type? % type))
+  ([account type]
+   (= type (:account/type account))))
+
 (defn action?
   [value]
   (-> value #{:credit :debit} boolean))
