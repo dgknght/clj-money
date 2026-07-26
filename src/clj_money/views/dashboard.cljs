@@ -17,7 +17,8 @@
             [clj-money.components :refer [button]]
             [clj-money.config :refer [env]]
             [clj-money.html :refer [logo]]
-            [clj-money.icons :refer [icon]]
+            [clj-money.icons :refer [icon
+                                     icon-with-text]]
             [clj-money.state :refer [current-user
                                      current-entity
                                      accounts
@@ -72,14 +73,16 @@
           :value-fn :id
           :find-fn (fn [id callback]
                      (callback (@accounts-by-id id)))}]
-        [:button.btn.btn-primary {:type :submit
-                                  :title "Click here to add this new monitor"
-                                  :disabled (not (get-in @new-monitor [:account :id]))}
-         "Save"]
+        [:button.btn.btn-primary
+         {:type :submit
+          :title "Click here to add this new monitor"
+          :disabled (not (get-in @new-monitor [:account :id]))}
+         (icon-with-text :check "Save")]
         (html/space)
-        [:button.btn.btn-secondary {:on-click #(swap! state dissoc :new-monitor)
-                                    :title "Click here to close this form without creating a new monitor"}
-         "Cancel"]]])))
+        [:button.btn.btn-secondary.ms-2
+         {:on-click #(swap! state dissoc :new-monitor)
+          :title "Click here to close this form without creating a new monitor"}
+         (icon-with-text :x "Cancel")]]])))
 
 (defn- monitor-svg
   [{:report/keys [percentage actual-percent actual prorated-budget]} opts]
