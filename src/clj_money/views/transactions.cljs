@@ -317,6 +317,45 @@
        [:td.d-flex.justify-content-end
         [item-row-buttons item page-state]])]))
 
+(defn- date-compare
+  [d1 d2]
+  (t/before? (or d1 (t/epoch))
+             (or d2 (t/epoch))))
+
+(defn- description-compare
+  [d1 d2]
+  (compare (or d1 "") (or d2 "")))
+
+(defn- amount-compare
+  [a1 a2]
+  (decimal/< (or a1 (decimal/zero)) (or a2 (decimal/zero))))
+
+(def ^:private sort-fns
+  {:transaction/transaction-date date-compare
+   :transaction/description description-compare
+   :transaction-item/polarized-quantity amount-compare})
+
+(defn- apply-sort-direction
+  [cmp dir]
+  (if (= dir :desc)
+    #(cmp %2 %1)
+    cmp))
+
+(defn- sort-link
+  [k label sort-on sort-dir page-state]
+  [:span label
+   [:a.ms-3 {:href "#"
+             :class (if (= k @sort-on) "text-dark" "text-muted")
+             :on-click (fn [_]
+                         (if (= k @sort-on)
+                           (swap! page-state update :items-sort-dir #(if (= % :desc) :asc :desc))
+                           (swap! page-state assoc
+                                  :items-sort-on k
+                                  :items-sort-dir :asc)))}
+    (icon (if (= k @sort-on)
+            (if (= @sort-dir :desc) :sort-down :sort-up)
+            :sort-down-alt))]])
+
 (defn items-table
   [page-state]
   (let [raw-items (r/cursor page-state [:items])
@@ -336,6 +375,11 @@
         include-children? (r/cursor page-state [:include-children?])
         account (r/cursor page-state [:view-account])
         recon (r/cursor page-state [:reconciliation])
+        sort-on (r/cursor page-state [:items-sort-on])
+        sort-dir (r/cursor page-state [:items-sort-dir])
+        sort-fn (make-reaction (fn []
+                                 (when @sort-on
+                                   (apply-sort-direction (sort-fns @sort-on) @sort-dir))))
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
@@ -345,9 +389,9 @@
       [:table.table.table-striped.table-hover
        [:thead
         [:tr
-         [:th.text-end "Date"]
-         [:th "Description"]
-         [:th.text-end "Amount"]
+         [:th.text-end (sort-link :transaction/transaction-date "Date" sort-on sort-dir page-state)]
+         [:th (sort-link :transaction/description "Description" sort-on sort-dir page-state)]
+         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" sort-on sort-dir page-state)]
          [:th.text-center.d-none.d-md-table-cell "Rec."]
          (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
@@ -358,6 +402,7 @@
           (seq @items)
           (->> @items
                (filter @filter-fn)
+               (#(if @sort-on (sort-by @sort-on @sort-fn %) %))
                (map (item-row {:account @account
                                :reconciliation recon
                                :styles styles}
