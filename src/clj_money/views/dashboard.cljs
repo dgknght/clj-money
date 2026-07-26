@@ -26,7 +26,8 @@
                                      app-state
                                      +busy
                                      -busy]]
-            [clj-money.accounts :refer [find-by-path]]
+            [clj-money.accounts :refer [find-by-path
+                                        type?]]
             [clj-money.api.entities :as entities]
             [clj-money.api.reports :as reports]))
 
@@ -217,7 +218,7 @@
 (defn- type-total
   [type accts]
   (->> accts
-       (filter #(= type (:account/type %)))
+       (filter (type? type))
        (map :account/value)
        (reduce decimal/+ 0M)))
 
