@@ -29,7 +29,8 @@
                     :reconciliation/account (or account
                                                 (:view-account @page-state))
                     :reconciliation/end-of-period (or end-of-period
-                                                      (t/today)))))))
+                                                      (t/today)))
+             :items-sort [:transaction/transaction-date :asc]))))
 
 (defn load-working-reconciliation
   [page-state]
@@ -61,7 +62,7 @@
         (apply-selections items)
         (recs/save :callback -busy
                    :on-success (fn [_created]
-                                 (swap! page-state dissoc :reconciliation)
+                                 (swap! page-state dissoc :reconciliation :items-sort)
                                  (trns/reset-item-loading page-state))))))
 
 (defn- save-reconciliation
@@ -155,6 +156,6 @@
                          :title "Click here to discard this reconciliation."
                          :type :button
                          :on-click (fn []
-                                     (swap! page-state dissoc :reconciliation)
+                                     (swap! page-state dissoc :reconciliation :items-sort)
                                      (trns/reset-item-loading page-state))}
                   :icon :x}]]]])))

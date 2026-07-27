@@ -152,7 +152,7 @@
 
             (swap! page-state assoc :ctl-chan ctl-ch)
             (go (>! ctl-ch :fetch))))
-      (swap! page-state assoc :items []))))
+      (swap! page-state assoc :items [] :items-sort nil))))
 
 (defn stop-item-loading
   [page-state]
@@ -317,6 +317,52 @@
        [:td.d-flex.justify-content-end
         [item-row-buttons item page-state]])]))
 
+(defn- date-compare
+  [d1 d2]
+  (t/before? (or d1 (t/epoch))
+             (or d2 (t/epoch))))
+
+(defn- description-compare
+  [d1 d2]
+  (compare (or d1 "") (or d2 "")))
+
+(defn- amount-compare
+  [a1 a2]
+  (decimal/< (or a1 (decimal/zero)) (or a2 (decimal/zero))))
+
+(def ^:private sort-fns
+  {:transaction/transaction-date date-compare
+   :transaction/description description-compare
+   :transaction-item/polarized-quantity amount-compare})
+
+(defn- apply-sort-direction
+  [cmp dir]
+  (if (= dir :desc)
+    #(cmp %2 %1)
+    cmp))
+
+(defn- sort-link
+  [attr label data-type [sort-on sort-dir] page-state]
+  [:span.d-flex
+   [:a.me-2.text-muted.text-decoration-none
+    {:href "#"
+     :on-click (fn [_]
+                 (if (= attr sort-on)
+                   (swap! page-state
+                          update-in
+                          [:items-sort 1]
+                          #(if (= % :desc) :asc :desc))
+                   (swap! page-state assoc
+                          :items-sort [attr :asc])))}
+    label]
+   [:span.text-muted
+    {:class (when-not (= attr sort-on) "invisible")}
+    (icon (keyword (str "sort-"
+                        (name data-type)
+                        (if (= :asc sort-dir)
+                          "-up"
+                          "-down-alt"))))]])
+
 (defn items-table
   [page-state]
   (let [raw-items (r/cursor page-state [:items])
@@ -336,6 +382,12 @@
         include-children? (r/cursor page-state [:include-children?])
         account (r/cursor page-state [:view-account])
         recon (r/cursor page-state [:reconciliation])
+        items-sort (r/cursor page-state [:items-sort])
+        sort-on (r/cursor items-sort [0])
+        sort-dir (r/cursor items-sort [1])
+        sort-fn (make-reaction (fn []
+                                 (when @sort-on
+                                   (apply-sort-direction (sort-fns @sort-on) @sort-dir))))
         filter-fn (make-reaction (fn []
                                    (if @include-children?
                                      identity
@@ -345,9 +397,9 @@
       [:table.table.table-striped.table-hover
        [:thead
         [:tr
-         [:th.text-end "Date"]
-         [:th "Description"]
-         [:th.text-end "Amount"]
+         [:th.text-end (sort-link :transaction/transaction-date "Date" :numeric @items-sort page-state)]
+         [:th (sort-link :transaction/description "Description" :alpha @items-sort page-state)]
+         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" :numeric @items-sort page-state)]
          [:th.text-center.d-none.d-md-table-cell "Rec."]
          (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
@@ -358,6 +410,7 @@
           (seq @items)
           (->> @items
                (filter @filter-fn)
+               (#(if @sort-on (sort-by @sort-on @sort-fn %) %))
                (map (item-row {:account @account
                                :reconciliation recon
                                :styles styles}
