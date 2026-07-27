@@ -343,18 +343,21 @@
 
 (defn- sort-link
   [k label sort-on sort-dir page-state]
-  [:span label
-   [:a.ms-3 {:href "#"
-             :class (if (= k @sort-on) "text-dark" "text-muted")
-             :on-click (fn [_]
-                         (if (= k @sort-on)
-                           (swap! page-state update :items-sort-dir #(if (= % :desc) :asc :desc))
-                           (swap! page-state assoc
-                                  :items-sort-on k
-                                  :items-sort-dir :asc)))}
-    (icon (if (= k @sort-on)
-            (if (= @sort-dir :desc) :sort-down :sort-up)
-            :sort-down-alt))]])
+  [:span.d-flex
+   [:a.me-2.text-muted.text-decoration-none
+    {:href "#"
+     :on-click (fn [_]
+                 (if (= k sort-on)
+                   (swap! page-state update :items-sort-dir #(if (= % :desc) :asc :desc))
+                   (swap! page-state assoc
+                          :items-sort-on k
+                          :items-sort-dir :asc)))}
+    label]
+   [:span.text-muted
+    {:class (when-not (= k sort-on) "invisible")}
+    (icon (if (= :asc sort-dir)
+            :sort-up
+            :sort-down))]])
 
 (defn items-table
   [page-state]
@@ -389,9 +392,9 @@
       [:table.table.table-striped.table-hover
        [:thead
         [:tr
-         [:th.text-end (sort-link :transaction/transaction-date "Date" sort-on sort-dir page-state)]
-         [:th (sort-link :transaction/description "Description" sort-on sort-dir page-state)]
-         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" sort-on sort-dir page-state)]
+         [:th.text-end (sort-link :transaction/transaction-date "Date" @sort-on @sort-dir page-state)]
+         [:th (sort-link :transaction/description "Description" @sort-on @sort-dir page-state)]
+         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" @sort-on @sort-dir page-state)]
          [:th.text-center.d-none.d-md-table-cell "Rec."]
          (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
