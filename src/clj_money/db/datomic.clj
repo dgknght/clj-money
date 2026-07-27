@@ -485,6 +485,7 @@
         entity-id
         attr))
     (reset [_]
+      (db/assert-test-db! uri)
       (d-peer/delete-database uri)
       (apply-schema config {:suppress-output? true}))))
 
@@ -515,7 +516,7 @@
                   attr]}))
       (reset [_]
         ; probably should not ever get here, as this is for unit tests only
-        ))))
+        (db/assert-test-db! db-name)))))
 
 (defn q
   [qry & args]
