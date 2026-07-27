@@ -20,6 +20,8 @@ This application is a web UI over a double-entry accounting system.
 - `lein fig:build` - Build the client app and start a repl
 - `lein fig:test` - Run the client tests (don't execuite if a client repl is active)
 
+NEVER RUN THE TEST SUITE AGAINST THE DEVELOPMENT DATABASE.
+
 ## Libraries
 
 We own two of the libraries used throughout this projects.

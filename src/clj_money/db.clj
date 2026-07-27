@@ -24,9 +24,20 @@
   (close [this] "Releases an resources held by the instance")
   (reset [this] "Deletes all data in the data store")) ; This is only ever needed for testing. Maybe there's a better way than putting it here?
 
-(defmulti reify-storage 
+(defmulti reify-storage
   (fn [config & _]
     (::strategy config)))
+
+(defn assert-test-db!
+  "Guards against destructive, testing-only operations (e.g. reset) being
+  run against a database that isn't clearly a test database. Throws if
+  the given identifier (a :dbname or :uri) doesn't look like a test
+  database, to prevent test runs from wiping development data."
+  [identifier]
+  (when-not (re-find #"(?i)test" (str identifier))
+    (throw (ex-info (format "Refusing to reset a database that does not appear to be a test database: %s"
+                            identifier)
+                    {:identifier identifier}))))
 
 (defn storage []
   (or *storage*

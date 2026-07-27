@@ -4,12 +4,14 @@
             [java-time.api :as t]
             [eftest.runner :refer [find-tests run-tests]]
             [clj-money.config :refer [env]]
+            [clj-money.db :as db]
             [clj-money.test-helpers :refer [*parallel*]]
             [clj-money.db.sql.tasks :as sql]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
 (defn- init-sql-db
   [config {:keys [force]}]
+  (db/assert-test-db! (:dbname config))
   (when force (sql/drop config))
   (sql/create config :silent true)
   (sql/migrate config)

@@ -507,7 +507,10 @@
       (update [_ changes criteria] (update* ds changes criteria))
       (history [_ _entity-id _attr] [])
       (close [_] #_noop)
-      (reset [this] (reset* ds) this))))
+      (reset [this]
+        (db/assert-test-db! (:dbname config))
+        (reset* ds)
+        this))))
 
 (defmethod db/reify-storage ::db/sql
   [config]
