@@ -152,7 +152,7 @@
 
             (swap! page-state assoc :ctl-chan ctl-ch)
             (go (>! ctl-ch :fetch))))
-      (swap! page-state assoc :items []))))
+      (swap! page-state assoc :items [] :items-sort nil))))
 
 (defn stop-item-loading
   [page-state]
@@ -342,24 +342,26 @@
     cmp))
 
 (defn- sort-link
-  [k label [sort-on sort-dir] page-state]
+  [attr label data-type [sort-on sort-dir] page-state]
   [:span.d-flex
    [:a.me-2.text-muted.text-decoration-none
     {:href "#"
      :on-click (fn [_]
-                 (if (= k sort-on)
+                 (if (= attr sort-on)
                    (swap! page-state
                           update-in
                           [:items-sort 1]
                           #(if (= % :desc) :asc :desc))
                    (swap! page-state assoc
-                          :items-sort [k :asc])))}
+                          :items-sort [attr :asc])))}
     label]
    [:span.text-muted
-    {:class (when-not (= k sort-on) "invisible")}
-    (icon (if (= :asc sort-dir)
-            :sort-up
-            :sort-down))]])
+    {:class (when-not (= attr sort-on) "invisible")}
+    (icon (keyword (str "sort-"
+                        (name data-type)
+                        (if (= :asc sort-dir)
+                          "-up"
+                          "-down-alt"))))]])
 
 (defn items-table
   [page-state]
@@ -395,9 +397,9 @@
       [:table.table.table-striped.table-hover
        [:thead
         [:tr
-         [:th.text-end (sort-link :transaction/transaction-date "Date" @items-sort page-state)]
-         [:th (sort-link :transaction/description "Description" @items-sort page-state)]
-         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" @items-sort page-state)]
+         [:th.text-end (sort-link :transaction/transaction-date "Date" :numeric @items-sort page-state)]
+         [:th (sort-link :transaction/description "Description" :alpha @items-sort page-state)]
+         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" :numeric @items-sort page-state)]
          [:th.text-center.d-none.d-md-table-cell "Rec."]
          (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
