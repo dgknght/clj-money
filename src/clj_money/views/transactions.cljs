@@ -342,16 +342,18 @@
     cmp))
 
 (defn- sort-link
-  [k label sort-on sort-dir page-state]
+  [k label [sort-on sort-dir] page-state]
   [:span.d-flex
    [:a.me-2.text-muted.text-decoration-none
     {:href "#"
      :on-click (fn [_]
                  (if (= k sort-on)
-                   (swap! page-state update :items-sort-dir #(if (= % :desc) :asc :desc))
+                   (swap! page-state
+                          update-in
+                          [:items-sort 1]
+                          #(if (= % :desc) :asc :desc))
                    (swap! page-state assoc
-                          :items-sort-on k
-                          :items-sort-dir :asc)))}
+                          :items-sort [k :asc])))}
     label]
    [:span.text-muted
     {:class (when-not (= k sort-on) "invisible")}
@@ -378,8 +380,9 @@
         include-children? (r/cursor page-state [:include-children?])
         account (r/cursor page-state [:view-account])
         recon (r/cursor page-state [:reconciliation])
-        sort-on (r/cursor page-state [:items-sort-on])
-        sort-dir (r/cursor page-state [:items-sort-dir])
+        items-sort (r/cursor page-state [:items-sort])
+        sort-on (r/cursor items-sort [0])
+        sort-dir (r/cursor items-sort [1])
         sort-fn (make-reaction (fn []
                                  (when @sort-on
                                    (apply-sort-direction (sort-fns @sort-on) @sort-dir))))
@@ -392,9 +395,9 @@
       [:table.table.table-striped.table-hover
        [:thead
         [:tr
-         [:th.text-end (sort-link :transaction/transaction-date "Date" @sort-on @sort-dir page-state)]
-         [:th (sort-link :transaction/description "Description" @sort-on @sort-dir page-state)]
-         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" @sort-on @sort-dir page-state)]
+         [:th.text-end (sort-link :transaction/transaction-date "Date" @items-sort page-state)]
+         [:th (sort-link :transaction/description "Description" @items-sort page-state)]
+         [:th.text-end (sort-link :transaction-item/polarized-quantity "Amount" @items-sort page-state)]
          [:th.text-center.d-none.d-md-table-cell "Rec."]
          (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
