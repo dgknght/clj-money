@@ -215,6 +215,67 @@
                   set))
           "The items are updated with a reference to the reconciliation"))))
 
+(def ^:private child-reconciliation-context
+  (conj parent-account-context
+        #:reconciliation{:account "Car"
+                         :end-of-period (t/local-date 2015 1 31)
+                         :balance 100M
+                         :status :completed
+                         :items [[(t/local-date 2015 1 1) 100M]]}))
+
+(dbtest starting-balance-sums-each-childs-own-last-reconciliation-when-the-parent-has-none
+  (with-context child-reconciliation-context
+    (let [savings (find-account "Savings")]
+      ; Savings itself has never been reconciled. Car has its own completed
+      ; reconciliation (100M), but Reserve has never been reconciled, so it
+      ; contributes nothing to the starting balance -- not its live ledger
+      ; balance of 200M. Only amounts already confirmed via a reconciliation
+      ; count.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 2 28)
+                         :status :completed
+                         :balance 100M}))))
+
+(def ^:private absorbable-child-context
+  (conj child-reconciliation-context
+        #:reconciliation{:account "Reserve"
+                         :end-of-period (t/local-date 2015 1 31)
+                         :balance 200M
+                         :status :completed
+                         :items [[(t/local-date 2015 1 1) 200M]]}
+        #:transaction{:transaction-date (t/local-date 2015 2 15)
+                      :entity "Personal"
+                      :description "More Car Funds"
+                      :debit-account "Car"
+                      :credit-account "Salary"
+                      :quantity 30M}))
+
+(dbtest starting-balance-excludes-a-descendant-once-its-items-are-absorbed-by-an-ancestor
+  (with-context absorbable-child-context
+    (let [savings (find-account "Savings")
+          car (find-account "Car")
+          new-car-item (find-transaction-item [(t/local-date 2015 2 15) 30M car])]
+      ; Savings has no reconciliation of its own yet, so its first
+      ; reconciliation sums Car's own (100M) and Reserve's own (200M): 300M,
+      ; plus Car's new, not-yet-reconciled item (30M) = 330M.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 2 28)
+                         :status :completed
+                         :balance 330M
+                         :items [new-car-item]})
+      ; That reconciliation swept in one of Car's items, so Car's original
+      ; 100M reconciliation is now considered absorbed and must not be added
+      ; again. Reserve was never swept into any ancestor reconciliation, so
+      ; its 200M still counts: 330 (Savings' own) + 200 (Reserve,
+      ; un-absorbed) = 530M. Car contributes nothing further.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 3 31)
+                         :status :completed
+                         :balance 530M}))))
+
 (dbtest transaction-item-can-only-belong-to-one-reconciliation
   (with-context existing-reconciliation-context
     (assert-invalid

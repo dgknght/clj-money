@@ -318,6 +318,64 @@
                                parsed-body)
             "Only the :completed reconciliation is returned")))))
 
+(def ^:private child-recon-context
+  (conj basic-context
+        #:account{:name "Savings"
+                  :type :asset
+                  :entity "Personal"}
+        #:account{:name "Car"
+                  :type :asset
+                  :entity "Personal"
+                  :parent "Savings"}
+        #:account{:name "Reserve"
+                  :type :asset
+                  :entity "Personal"
+                  :parent "Savings"}
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :items [#:transaction-item{:quantity 1000M
+                                                 :action :credit
+                                                 :account "Salary"}
+                              #:transaction-item{:quantity 100M
+                                                 :action :debit
+                                                 :account "Car"}
+                              #:transaction-item{:quantity 200M
+                                                 :action :debit
+                                                 :account "Reserve"}
+                              #:transaction-item{:quantity 700M
+                                                 :action :debit
+                                                 :account "Checking"}]}
+        #:reconciliation{:account "Car"
+                         :end-of-period (t/local-date 2015 1 31)
+                         :balance 100M
+                         :status :completed
+                         :items [[(t/local-date 2015 1 1) 100M]]}))
+
+(defn- get-previous-balance
+  [email]
+  (-> (request :get (path :api
+                          :accounts
+                          (:id (find-account "Savings"))
+                          :reconciliations
+                          :previous-balance)
+               :user (find-user email))
+      app
+      parse-body))
+
+(deftest a-user-can-get-the-previous-balance-for-a-parent-account
+  (with-context child-recon-context
+    (let [{:as response :keys [parsed-body]} (get-previous-balance "john@doe.com")]
+      (is (http-success? response))
+      (is (comparable? {:reconciliation/balance 100M}
+                       (jsonize-decimals parsed-body))
+          "The balance reflects the reconciled child account's own balance; the unreconciled sibling contributes nothing"))))
+
+(deftest a-user-cannot-get-the-previous-balance-for-anothers-account
+  (with-context child-recon-context
+    (let [{:as response} (get-previous-balance "jane@doe.com")]
+      (is (http-not-found? response)))))
+
 (deftest ^:multi-threaded a-database-error-produces-a-parseable-500-response
   (with-context recon-context
     (with-redefs [entities/select (fn [& _]
