@@ -202,9 +202,9 @@
   (when account
     (let [ids (map :id (account+children account))]
       (entities/find-by (cond-> {:reconciliation/account [:in ids]
-                               :reconciliation/status :completed}
-                        (:id recon) (assoc :id [:!= (:id recon)]))
-                      {:sort [[:reconciliation/end-of-period :desc]]}))))
+                                 :reconciliation/status :completed}
+                          (:id recon) (assoc :id [:!= (:id recon)]))
+                        {:sort [[:reconciliation/end-of-period :desc]]}))))
 
 (defn previous-balance
   "Returns the balance to use as the starting point when reconciling the
