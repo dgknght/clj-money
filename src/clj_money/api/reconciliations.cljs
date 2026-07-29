@@ -34,6 +34,15 @@
            (prepare-criteria criteria)
            (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
 
+(defn previous-balance
+  [account & {:as opts}]
+  (api/get (api/path :accounts
+                     account
+                     :reconciliations
+                     :previous-balance)
+           {}
+           (add-error-handler opts "Unable to retrieve the previous balance: %s")))
+
 (defn- simplify-items
   [recon]
   (update-in-if recon

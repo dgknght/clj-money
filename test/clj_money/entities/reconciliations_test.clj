@@ -23,7 +23,7 @@
                                             find-accounts
                                             find-transaction-item
                                             find-reconciliation]]
-            [clj-money.entities.reconciliations]))
+            [clj-money.entities.reconciliations :as recs]))
 
 (def ^:private reconciliation-context
   (conj basic-context
@@ -214,6 +214,242 @@
                   (map simplify)
                   set))
           "The items are updated with a reference to the reconciliation"))))
+
+(def ^:private child-reconciliation-context
+  (conj parent-account-context
+        #:reconciliation{:account "Car"
+                         :end-of-period (t/local-date 2015 1 31)
+                         :balance 100M
+                         :status :completed
+                         :items [[(t/local-date 2015 1 1) 100M]]}))
+
+(dbtest starting-balance-sums-each-childs-own-last-reconciliation-when-the-parent-has-none
+  (with-context child-reconciliation-context
+    (let [savings (find-account "Savings")]
+      ; Savings itself has never been reconciled. Car has its own completed
+      ; reconciliation (100M), but Reserve has never been reconciled, so it
+      ; contributes nothing to the starting balance -- not its live ledger
+      ; balance of 200M. Only amounts already confirmed via a reconciliation
+      ; count.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 2 28)
+                         :status :completed
+                         :balance 100M}))))
+
+(def ^:private absorbable-child-context
+  (conj child-reconciliation-context
+        #:reconciliation{:account "Reserve"
+                         :end-of-period (t/local-date 2015 1 31)
+                         :balance 200M
+                         :status :completed
+                         :items [[(t/local-date 2015 1 1) 200M]]}
+        #:transaction{:transaction-date (t/local-date 2015 2 15)
+                      :entity "Personal"
+                      :description "More Car Funds"
+                      :debit-account "Car"
+                      :credit-account "Salary"
+                      :quantity 30M}))
+
+(dbtest starting-balance-excludes-a-descendant-once-its-items-are-absorbed-by-an-ancestor
+  (with-context absorbable-child-context
+    (let [savings (find-account "Savings")
+          car (find-account "Car")
+          new-car-item (find-transaction-item [(t/local-date 2015 2 15) 30M car])]
+      ; Savings has no reconciliation of its own yet, so its first
+      ; reconciliation sums Car's own (100M) and Reserve's own (200M): 300M,
+      ; plus Car's new, not-yet-reconciled item (30M) = 330M.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 2 28)
+                         :status :completed
+                         :balance 330M
+                         :items [new-car-item]})
+      ; That reconciliation swept in one of Car's items, so Car's original
+      ; 100M reconciliation is now considered absorbed and must not be added
+      ; again. Reserve was never swept into any ancestor reconciliation, so
+      ; its 200M still counts: 330 (Savings' own) + 200 (Reserve,
+      ; un-absorbed) = 530M. Car contributes nothing further.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 3 31)
+                         :status :completed
+                         :balance 530M}))))
+
+(def ^:private previous-balance-ctx
+  (conj basic-context
+        #:account{:type :liability
+                  :entity "Personal"
+                  :name "Credit Card"}
+        #:account{:type :asset
+                  :entity "Personal"
+                  :name "Savings"}
+        #:account{:type :asset
+                  :entity "Personal"
+                  :parent "Savings"
+                  :name "Car"}
+        #:account{:type :asset
+                  :entity "Personal"
+                  :parent "Savings"
+                  :name "Reserve"}
+        #:transaction{:transaction-date (t/local-date 2019 12 15)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :credit-account "Salary"
+                      :debit-account "Checking"
+                      :quantity 5000M}
+        #:transaction{:transaction-date (t/local-date 2019 12 16)
+                      :entity "Personal"
+                      :description "Save for car"
+                      :credit-account "Checking"
+                      :debit-account "Car"
+                      :quantity 300M}
+        #:transaction{:transaction-date (t/local-date 2019 12 17)
+                      :entity "Personal"
+                      :description "Save for rainy day"
+                      :credit-account "Checking"
+                      :debit-account "Reserve"
+                      :quantity 500M}
+        #:transaction{:transaction-date (t/local-date 2020 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :credit-account "Salary"
+                      :debit-account "Checking"
+                      :quantity 5000M}
+        #:transaction{:transaction-date (t/local-date 2020 1 2)
+                      :entity "Personal"
+                      :description "Landlord"
+                      :credit-account "Checking"
+                      :debit-account "Rent"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2020 1 3)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :credit-account "Credit Card"
+                      :debit-account "Groceries"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2020 1 4)
+                      :entity "Personal"
+                      :description "Save for car"
+                      :credit-account "Checking"
+                      :debit-account "Car"
+                      :quantity 300M}
+        #:transaction{:transaction-date (t/local-date 2020 1 4)
+                      :entity "Personal"
+                      :description "Save for rainy day"
+                      :credit-account "Checking"
+                      :debit-account "Reserve"
+                      :quantity 500M}
+        #:reconciliation{:account "Checking"
+                         :end-of-period (t/local-date 2020 12 31)
+                         :balance 5000M
+                         :status :completed
+                         :items [[(t/local-date 2019 12 15)
+                                  5000M]]}
+        #:reconciliation{:account "Car"
+                         :end-of-period (t/local-date 2020 12 31)
+                         :balance 300M
+                         :status :completed
+                         :items [[(t/local-date 2019 12 16)
+                                  300M]]}
+        #:reconciliation{:account "Reserve"
+                         :end-of-period (t/local-date 2020 12 31)
+                         :balance 500M
+                         :status :completed
+                         :items [[(t/local-date 2019 12 17)
+                                  500M]]}))
+
+(dbtest get-the-previous-reconciliation-balance
+  (with-context previous-balance-ctx
+    (testing "An account with no children"
+      (testing "and no previous reconciliation"
+        (is (= 0M (recs/previous-balance (find-account "Credit Card")))
+            "The previous balance is zero"))
+      (testing "and a previous reconciliation"
+        (testing "that is completed"
+          (is (= 5000M (recs/previous-balance (find-account "Checking")))
+            "The previous balance comes from the most recent reconciliation"))
+        (testing "that is not completed"
+          ; A working (:new) reconciliation dated after the completed one
+          ; must not contribute its own balance -- only the last *completed*
+          ; reconciliation counts as history.
+          (entities/put #:reconciliation{:account (find-account "Checking")
+                                         :end-of-period (t/local-date 2021 1 31)
+                                         :balance 4000M
+                                         :status :new})
+          (is (= 5000M (recs/previous-balance (find-account "Checking")))
+              "The working reconciliation's balance is ignored; the last completed reconciliation still provides the previous balance"))))
+    (testing "An account with children"
+      (testing "and previous reconciliations at the child level"
+        (is (= 800M (recs/previous-balance (find-account "Savings")))
+            "The previous balance comes from the most recent reconciliation")
+        (testing "and a reconciliation at the parent level that \"absorbs\" items from the child accounts."
+          (let [savings (find-account "Savings")
+                car-item (find-transaction-item [(t/local-date 2020 1 4) 300M (find-account "Car")])
+                reserve-item (find-transaction-item [(t/local-date 2020 1 4) 500M (find-account "Reserve")])]
+            ; Sweeping Car's and Reserve's newest, not-yet-reconciled items
+            ; into a Savings-level reconciliation absorbs both children: their
+            ; own 300M and 500M reconciliations must no longer be added on
+            ; top of Savings' own balance (300 + 500 + 300 + 500 = 1600).
+            (assert-created
+              #:reconciliation{:account savings
+                               :end-of-period (t/local-date 2021 2 28)
+                               :status :completed
+                               :balance 1600M
+                               :items [car-item reserve-item]})
+            (is (= 1600M (recs/previous-balance savings))
+                "The parent's own reconciliation balance is used once the child accounts' items are absorbed into it")))))))
+
+(def ^:private grandchild-context
+  (conj parent-account-context
+        #:account{:name "Reserve Sub"
+                  :type :asset
+                  :entity "Personal"
+                  :parent "Reserve"}
+        #:transaction{:transaction-date (t/local-date 2015 1 15)
+                      :entity "Personal"
+                      :description "Sub transfer"
+                      :debit-account "Reserve Sub"
+                      :credit-account "Reserve"
+                      :quantity 50M}
+        #:reconciliation{:account "Reserve Sub"
+                         :end-of-period (t/local-date 2015 1 31)
+                         :balance 50M
+                         :status :completed
+                         :items [[(t/local-date 2015 1 15) 50M]]}
+        #:transaction{:transaction-date (t/local-date 2015 2 15)
+                      :entity "Personal"
+                      :description "More sub funds"
+                      :debit-account "Reserve Sub"
+                      :credit-account "Salary"
+                      :quantity 10M}))
+
+(dbtest previous-balance-includes-a-grandchilds-completed-balance
+  (with-context grandchild-context
+    ; Reserve Sub (a grandchild of Savings, child of Reserve) has its own
+    ; completed reconciliation; neither Savings nor Reserve has one. The
+    ; grandchild's balance must still be picked up.
+    (is (= 50M (recs/previous-balance (find-account "Savings"))))))
+
+(dbtest previous-balance-excludes-a-grandchild-once-absorbed-by-a-higher-ancestor
+  (with-context grandchild-context
+    (let [savings (find-account "Savings")
+          reserve-sub (find-account "Reserve Sub")
+          new-sub-item (find-transaction-item [(t/local-date 2015 2 15) 10M reserve-sub])]
+      ; Savings' first reconciliation sums Reserve Sub's own completed
+      ; balance (50M, not yet absorbed) plus its new, not-yet-reconciled item
+      ; (10M): 60M.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 2 28)
+                         :status :completed
+                         :balance 60M
+                         :items [new-sub-item]})
+      ; Reserve Sub's own 50M reconciliation is now absorbed into Savings'
+      ; reconciliation two levels up (skipping Reserve, which has no
+      ; reconciliation of its own); it must not be counted again -- only
+      ; Savings' own new balance (60M) counts going forward.
+      (is (= 60M (recs/previous-balance savings))))))
 
 (dbtest transaction-item-can-only-belong-to-one-reconciliation
   (with-context existing-reconciliation-context

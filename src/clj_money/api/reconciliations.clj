@@ -12,6 +12,7 @@
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.transaction-items :as itms]
+            [clj-money.entities.reconciliations :as recs]
             [clj-money.authorization.reconciliations]))
 
 (defn- symbolic-comparatives
@@ -89,6 +90,12 @@
       entities/put
       api/creation-response))
 
+(defn- previous-balance
+  [{:keys [params authenticated]}]
+  (let [account {:id (:account-id params)}]
+    (authorize {:reconciliation/account account} ::auth/show authenticated)
+    (api/response {:reconciliation/balance (or (recs/previous-balance account) 0M)})))
+
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
   (some-> params
@@ -110,4 +117,5 @@
 (def routes
   [["accounts/:account-id/reconciliations" {:get {:handler index}
                                             :post {:handler create}}]
+   ["accounts/:account-id/reconciliations/previous-balance" {:get {:handler previous-balance}}]
    ["reconciliations/:id" {:patch {:handler update}}]])

@@ -73,16 +73,13 @@
 (defn load-previous-balance
   [page-state]
   (+busy)
-  (recs/select {:reconciliation/account (:view-account @page-state)
-                :reconciliation/status :completed
-                :limit 1
-                :desc :reconciliation/end-of-period}
-               :callback -busy
-               :on-success (fn [[r]]
-                             (swap! page-state assoc
-                                    :previous-reconciliation
-                                    (or r
-                                        {:reconciliation/balance 0M})))))
+  (recs/previous-balance (:view-account @page-state)
+                         :callback -busy
+                         :on-success (fn [r]
+                                       (swap! page-state assoc
+                                              :previous-reconciliation
+                                              (or r
+                                                  {:reconciliation/balance 0M})))))
 
 (defn- finish-reconciliation
   [page-state]

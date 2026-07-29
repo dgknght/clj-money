@@ -13,12 +13,61 @@
   [recon & ks]
   (get-in (meta recon) ks))
 
+(defn- own-last-completed
+  "Returns the last completed reconciliation for exactly the given account,
+  ignoring any descendants. exclude-id, when given, omits that reconciliation
+  from consideration (so that validating an update to a completed
+  reconciliation doesn't treat itself as its own prior balance)."
+  [account exclude-id]
+  (when account
+    (entities/find-by (cond-> {:reconciliation/account account
+                             :reconciliation/status :completed}
+                      exclude-id (assoc :id [:!= exclude-id]))
+                    {:sort [[:reconciliation/end-of-period :desc]]})))
+
+(defn- absorbed-by-ancestor?
+  "True if descendant's items have already been swept into a reconciliation
+  belonging to one of its ancestors, at or below account (e.g. a prior
+  'include children' reconciliation on a parent or grandparent already
+  covered this descendant's items). When that's the case, descendant's own
+  reconciliation balance is already reflected in that ancestor's balance and
+  must not be added again."
+  [account descendant by-id exclude-id]
+  (loop [current-id (-> descendant :account/parent :id)]
+    (when current-id
+      (let [ancestor (by-id current-id)
+            ancestor-recon (own-last-completed ancestor exclude-id)
+            hit? (some #(= (:id descendant) (-> % :transaction-item/account :id))
+                       (:reconciliation/items ancestor-recon))]
+        (cond
+          hit? true
+          (= current-id (:id account)) false
+          :else (recur (-> ancestor :account/parent :id)))))))
+
+(defn- compute-starting-balance
+  "The starting point for a reconciliation of account is its own last
+  completed reconciliation's balance (if it has one), plus each descendant's
+  own last completed reconciliation balance -- except a descendant whose
+  items have already been absorbed into an ancestor's reconciliation, which
+  would otherwise be double-counted. A descendant with no reconciliation of
+  its own contributes nothing: a starting balance must only reflect amounts
+  already confirmed via a reconciliation, never an unverified ledger
+  balance."
+  [account family exclude-id]
+  (let [by-id (index-by :id family)
+        own (own-last-completed account exclude-id)]
+    (+ (or (:reconciliation/balance own) 0M)
+       (->> family
+            (remove #(= (:id %) (:id account)))
+            (keep (fn [descendant]
+                    (when-let [d-own (own-last-completed descendant exclude-id)]
+                      (when-not (absorbed-by-ancestor? account descendant by-id exclude-id)
+                        (:reconciliation/balance d-own)))))
+            (reduce + 0M)))))
+
 (defn- starting-balance
-  [recon]
-  (or (get-meta recon
-                ::last-completed
-                :reconciliation/balance)
-      0M))
+  [{:reconciliation/keys [account] :keys [id] :as recon}]
+  (compute-starting-balance account (vals (get-meta recon ::accounts)) id))
 
 (defn- in-balance?
   [{:reconciliation/keys [balance] :as recon}]
@@ -138,22 +187,6 @@
                                              :transaction-item/account]})))
     []))
 
-(defn- find-last-completed
-  "Returns the last completed reconciliation for an account"
-  [{:reconciliation/keys [account] :as recon}]
-  (when account
-    (entities/find-by (cond-> {:reconciliation/account account
-                             :reconciliation/status :completed}
-                      (:id recon) (assoc :id [:!= (:id recon)]))
-                    {:sort [[:reconciliation/end-of-period :desc]]})))
-
-(defn- polarize-item
-  "Assoc :transaction-item/polarized-quantity to the item"
-  [item]
-  (assoc item
-         :transaction-item/polarized-quantity
-         (acts/polarize-quantity item)))
-
 (defn- account+children
   "Fetch and return the account children along with the given account"
   [account]
@@ -161,6 +194,32 @@
                      (util/->entity-ref account)
                      :account)
                    {:include-children? true}))
+
+(defn- find-last-completed
+  "Returns the last completed reconciliation for an account or any of its
+  descendants (e.g. one created against a child account during import)"
+  [{:reconciliation/keys [account] :as recon}]
+  (when account
+    (let [ids (map :id (account+children account))]
+      (entities/find-by (cond-> {:reconciliation/account [:in ids]
+                                 :reconciliation/status :completed}
+                          (:id recon) (assoc :id [:!= (:id recon)]))
+                        {:sort [[:reconciliation/end-of-period :desc]]}))))
+
+(defn previous-balance
+  "Returns the balance to use as the starting point when reconciling the
+  given account: its own last completed reconciliation's balance, plus each
+  not-yet-absorbed descendant's own last completed reconciliation balance.
+  See compute-starting-balance for the full rule."
+  [account]
+  (compute-starting-balance account (account+children account) nil))
+
+(defn- polarize-item
+  "Assoc :transaction-item/polarized-quantity to the item"
+  [item]
+  (assoc item
+         :transaction-item/polarized-quantity
+         (acts/polarize-quantity item)))
 
 (defn- fetch-transaction-items
   ([recon]
