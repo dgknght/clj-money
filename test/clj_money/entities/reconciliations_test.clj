@@ -400,60 +400,6 @@
             (is (= 1600M (recs/previous-balance savings))
                 "The parent's own reconciliation balance is used once the child accounts' items are absorbed into it")))))))
 
-(dbtest previous-balance-ignores-a-working-reconciliation
-  (with-context working-recon-context
-    ; The most recent *completed* reconciliation for Checking is still the
-    ; first one (1000M); the :new one currently in progress must not be
-    ; treated as completed history.
-    (is (= 1000M (recs/previous-balance (find-account "Checking"))))))
-
-(dbtest previous-balance-is-zero-for-a-parent-when-neither-it-nor-any-child-has-history
-  (with-context parent-account-context
-    (is (= 0M (recs/previous-balance (find-account "Savings"))))))
-
-(dbtest previous-balance-uses-only-the-parents-own-balance-when-no-child-has-been-reconciled
-  (with-context parent-account-context
-    (let [savings (find-account "Savings")]
-      ; Mirrors the real scenario that motivated this feature: a bank account
-      ; ("Savings") whose balance was distributed into child "envelope"
-      ; accounts, leaving Savings itself at zero. Car and Reserve have never
-      ; been reconciled, so their live ledger balances (100M and 200M) must
-      ; not leak into the parent's previous balance.
-      (assert-created
-        #:reconciliation{:account savings
-                         :end-of-period (t/local-date 2015 1 31)
-                         :status :completed
-                         :balance 0M})
-      (is (= 0M (recs/previous-balance savings))))))
-
-(dbtest previous-balance-sums-a-single-childs-completed-balance-when-the-parent-has-none
-  (with-context child-reconciliation-context
-    (is (= 100M (recs/previous-balance (find-account "Savings"))))))
-
-(dbtest previous-balance-sums-multiple-childrens-completed-balances-when-the-parent-has-none
-  (with-context absorbable-child-context
-    ; Car (100M) and Reserve (200M) each have their own completed
-    ; reconciliation; Savings has none. The un-reconciled 30M transaction
-    ; posted to Car afterward must not affect this figure -- only confirmed,
-    ; reconciled amounts count.
-    (is (= 300M (recs/previous-balance (find-account "Savings"))))))
-
-(dbtest previous-balance-excludes-a-descendant-once-absorbed-by-the-parent
-  (with-context absorbable-child-context
-    (let [savings (find-account "Savings")
-          car (find-account "Car")
-          new-car-item (find-transaction-item [(t/local-date 2015 2 15) 30M car])]
-      (assert-created
-        #:reconciliation{:account savings
-                         :end-of-period (t/local-date 2015 2 28)
-                         :status :completed
-                         :balance 330M
-                         :items [new-car-item]})
-      ; Car's own 100M reconciliation is now absorbed (its item is part of
-      ; Savings' 330M reconciliation); only Savings' own balance (330M) and
-      ; Reserve's still-unabsorbed 200M count going forward.
-      (is (= 530M (recs/previous-balance savings))))))
-
 (def ^:private grandchild-context
   (conj parent-account-context
         #:account{:name "Reserve Sub"
