@@ -370,13 +370,35 @@
           (is (= 5000M (recs/previous-balance (find-account "Checking")))
             "The previous balance comes from the most recent reconciliation"))
         (testing "that is not completed"
-          (is false "need to write the test. The WIP reconciliation balance should be ignored."))))
+          ; A working (:new) reconciliation dated after the completed one
+          ; must not contribute its own balance -- only the last *completed*
+          ; reconciliation counts as history.
+          (entities/put #:reconciliation{:account (find-account "Checking")
+                                         :end-of-period (t/local-date 2021 1 31)
+                                         :balance 4000M
+                                         :status :new})
+          (is (= 5000M (recs/previous-balance (find-account "Checking")))
+              "The working reconciliation's balance is ignored; the last completed reconciliation still provides the previous balance"))))
     (testing "An account with children"
       (testing "and previous reconciliations at the child level"
         (is (= 800M (recs/previous-balance (find-account "Savings")))
             "The previous balance comes from the most recent reconciliation")
         (testing "and a reconciliation at the parent level that \"absorbs\" items from the child accounts."
-          (is false "need to write the test. The parent-level reconciliation should provide the balance."))))))
+          (let [savings (find-account "Savings")
+                car-item (find-transaction-item [(t/local-date 2020 1 4) 300M (find-account "Car")])
+                reserve-item (find-transaction-item [(t/local-date 2020 1 4) 500M (find-account "Reserve")])]
+            ; Sweeping Car's and Reserve's newest, not-yet-reconciled items
+            ; into a Savings-level reconciliation absorbs both children: their
+            ; own 300M and 500M reconciliations must no longer be added on
+            ; top of Savings' own balance (300 + 500 + 300 + 500 = 1600).
+            (assert-created
+              #:reconciliation{:account savings
+                               :end-of-period (t/local-date 2021 2 28)
+                               :status :completed
+                               :balance 1600M
+                               :items [car-item reserve-item]})
+            (is (= 1600M (recs/previous-balance savings))
+                "The parent's own reconciliation balance is used once the child accounts' items are absorbed into it")))))))
 
 (dbtest previous-balance-ignores-a-working-reconciliation
   (with-context working-recon-context
