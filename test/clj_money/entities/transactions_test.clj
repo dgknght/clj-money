@@ -951,6 +951,74 @@
       (is (= 2500M (:account/quantity (reload-account "Checking")))
           "The account balance reflects the pre-existing item plus the new items exactly once"))))
 
+(def ^:private recalculate-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2017 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2017 2 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}))
+
+(dbtest recalculate-an-account-expands-the-date-range-to-include-later-transactions
+  (with-context recalculate-context
+    (let [entity (find-entity "Personal")
+          stale (-> (reload-account "Checking")
+                    (assoc :account/transaction-date-range
+                           [(t/local-date 2017 1 1) (t/local-date 2017 1 1)]))]
+      (entities/put stale)
+      (is (comparable? {:account/transaction-date-range [(t/local-date 2017 1 1)
+                                                         (t/local-date 2017 1 1)]}
+                       (reload-account "Checking"))
+          "sanity check: the stale, narrowed date range was persisted")
+      (transactions/propagate-account-from-start entity (entities/find stale))
+      (is (comparable? {:account/transaction-date-range [(t/local-date 2017 1 1)
+                                                          (t/local-date 2017 2 1)]}
+                       (reload-account "Checking"))
+          "The account transaction date range is expanded to include the later transaction")
+      (is (comparable? {:entity/transaction-date-range [(t/local-date 2017 1 1)
+                                                         (t/local-date 2017 2 1)]}
+                       (entities/find entity))
+          "The entity transaction date range is expanded to include the later transaction"))))
+
+(def ^:private no-price-context
+  (conj base-context
+        #:commodity{:name "Acme Fund"
+                    :entity "Personal"
+                    :symbol "ACME"
+                    :type :fund}
+        #:account{:name "Investment"
+                  :type :asset
+                  :entity "Personal"
+                  :commodity "ACME"}
+        #:transaction{:transaction-date (t/local-date 2017 1 1)
+                      :entity "Personal"
+                      :description "Buy shares"
+                      :debit-account "Investment"
+                      :credit-account "Checking"
+                      :quantity 10M}))
+
+(dbtest recalculate-throws-when-a-commoditys-price-cannot-be-determined
+  (with-context no-price-context
+    (let [entity (find-entity "Personal")
+          investment (reload-account "Investment")]
+      (is (thrown-with-msg? ExceptionInfo
+                            #"No price found for commodity"
+                            (transactions/propagate-account-from-start entity investment))
+          "The failure surfaces instead of being silently swallowed"))))
+
+(dbtest full-propagation-continues-past-an-account-with-no-price-data
+  (with-context no-price-context
+    (is (= [(t/local-date 2017 1 1) (t/local-date 2017 1 1)]
+           (:account/transaction-date-range (reload-account "Checking")))
+        "The Checking account is propagated normally even though the Investment account cannot be")))
+
 (def ^:private existing-reconciliation-context
   (conj (mapv (fn [entity]
                 (cond-> entity

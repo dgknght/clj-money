@@ -607,27 +607,20 @@
 
 (defn propagate-account-from-start
   [entity account]
-  (try
-    (let [items (fetch-transaction-items account)
-          [{:account/keys [transaction-date-range]}
-           :as updates] (process-transaction-items account entity items)
-          updated (-> entity
-                      (update-in [:entity/transaction-date-range]
-                                 #(apply dates/push-boundary
-                                         %
-                                         transaction-date-range))
-                      entities/put)]
-      (->> updates
-           (partition-all 10)
-           (mapcat entities/put-many)
-           doall)
-      updated)
-    (catch Exception e
-      (log/errorf e
-                  "[propagation] Unable to propagate account %s (%s) "
-                  (:account/name account)
-                  (:id account))
-      entity)))
+  (let [items (fetch-transaction-items account)
+        [{:account/keys [transaction-date-range]}
+         :as updates] (process-transaction-items account entity items)
+        updated (-> entity
+                    (update-in [:entity/transaction-date-range]
+                               #(apply dates/push-boundary
+                                       %
+                                       transaction-date-range))
+                    entities/put)]
+    (->> updates
+         (partition-all 10)
+         (mapcat entities/put-many)
+         doall)
+    updated))
 
 (defn propagate-all
   [entity {:keys [progress-chan]}]
@@ -660,8 +653,16 @@
                             index
                             total)
                 account))
-         (reduce (comp notify-progress
-                       propagate-account-from-start)
+         (reduce (fn [entity account]
+                   (notify-progress
+                     (try
+                       (propagate-account-from-start entity account)
+                       (catch Exception e
+                         (log/errorf e
+                                     "[propagation] Unable to propagate account %s (%s) "
+                                     (:account/name account)
+                                     (:id account))
+                         entity))))
                  entity))))
 
 (prop/add-full-propagation propagate-all :priority 5)
