@@ -30,6 +30,17 @@
 
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
+
+(def ^:private one-year-in-seconds (* 60 60 24 365))
+
+(add-watch current-entity
+           ::persist-last-entity
+           (fn [_ _ _ entity]
+             (when entity
+               (cookies/set! :last-entity-id
+                              (:id entity)
+                              {:max-age one-year-in-seconds}))))
+
 (def auth-token (r/cursor app-state [:auth-token]))
 (def profile-photo-url (r/cursor app-state [:profile-photo-url]))
 (def accounts (r/cursor app-state [:accounts]))
@@ -74,13 +85,20 @@
       (dissoc state :current-entity))
     state))
 
+(defn- find-entity-by-id
+  [id entities]
+  (->> entities
+       (filter #(= id (:id %)))
+       first))
+
 (defn set-entities
   [[entity :as entities]]
   (let [current (if-let [c @current-entity]
                   (->> entities
                        (filter #(util/entity= c %))
                        first)
-                  entity)]
+                  (or (find-entity-by-id (cookies/get :last-entity-id) entities)
+                      entity))]
     (swap! app-state assoc
            :entities entities
            :current-entity current)))
