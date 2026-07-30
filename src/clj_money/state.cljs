@@ -97,7 +97,8 @@
                   (->> entities
                        (filter #(util/entity= c %))
                        first)
-                  (or (find-entity-by-id (cookies/get :last-entity-id) entities)
+                  (or (find-entity-by-id (cookies/get :last-entity-id)
+                                         entities)
                       entity))]
     (swap! app-state assoc
            :entities entities
