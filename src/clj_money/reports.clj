@@ -598,13 +598,13 @@
 
 (defn- monitor-item
   [budget actual percentage]
-  {:pre [(not (zero? budget))]}
-
   #:report{:total-budget budget
            :actual actual
            :percentage percentage
            :prorated-budget (* percentage budget)
-           :actual-percent (/ actual budget)})
+           :actual-percent (if (zero? budget)
+                             (if (zero? actual) 0M 1M)
+                             (/ actual budget))})
 
 (defn- aggregate-account-actuals
   [accounts entity since as-of]

@@ -109,6 +109,32 @@
                                           (t/local-date 2016 1 1)))
             "Data reflecting the actual vs prorated budget is returned")))))
 
+(def ^:private zero-period-budget-context
+  (conj fixtures/base-context
+        #:account{:name "Home Maintenance"
+                  :entity "Personal"
+                  :type :expense}
+        #:budget{:name "2016"
+                 :entity "Personal"
+                 :start-date (t/local-date 2016 01 01)
+                 :period [12 :month]
+                 :items [#:budget-item{:account "Home Maintenance"
+                                       :periods (into [0M] (repeat 11 300M))}]}))
+
+(deftest create-a-budget-monitor-for-a-period-with-no-budgeted-amount
+  (with-context zero-period-budget-context
+    (let [account (entities/find-by {:account/name "Home Maintenance"})]
+      (is (comparable? #:report{:caption "Home Maintenance"
+                                :period #:report{:total-budget 0M
+                                                 :actual 0M
+                                                 :actual-percent 0M}
+                                :budget #:report{:total-budget 3300M
+                                                 :actual 0M
+                                                 :actual-percent 0M}}
+                       (reports/monitor account
+                                        (t/local-date 2016 1 15)))
+          "A zero-dollar period budget does not cause an error and yields a zero actual-percent"))))
+
 (deftest get-a-lot-report
   (with-context fixtures/lot-report-context
     (is (seq-of-maps-like? fixtures/expected-lot-report
