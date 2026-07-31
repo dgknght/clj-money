@@ -241,7 +241,7 @@
       :transaction-item)
     {:sort [[:transaction-item/index :desc]]}))
 
-(defn- last-transaction-item-on-or-before
+(defn last-transaction-item-on-or-before
   [{:as account :account/keys [transaction-date-range]} date]
   {:pre [(:account/transaction-date-range account)]}
   (entities/find-by (util/entity-type
