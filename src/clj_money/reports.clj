@@ -7,7 +7,6 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.inflection :refer [humanize]]
-            [clj-money.find-in-chunks :as ch]
             [clj-money.entities :as entities]
             [clj-money.util :as util :refer [id= entity=]]
             [clj-money.dates :as dates :refer [earliest]]
@@ -43,67 +42,19 @@
 (def ^:private equity-header?
   (every-pred header? equity?))
 
-(defn- max-by-item-index
-  [items]
-  (when (seq items)
-    (apply max-key :transaction-item/index items)))
-
-(defn- last-item
-  [inclusion date items]
-  {:pre [(every? :transaction-item/index items)]}
-  (let [pred (case inclusion
-               :on-or-before (fn [{:transaction/keys [transaction-date]}]
-                               (or (= transaction-date date)
-                                   (t/before? transaction-date date)))
-               :before #(t/before? (:transaction/transaction-date %) date)
-               inclusion)]
-    (->> items
-         (filter pred)
-         max-by-item-index)))
-
-(defn- fetch-transaction-items
-  [account-ids as-of & {:as opts}]
-  (if (seq account-ids)
-    (ch/find account-ids
-             (merge
-               {:start-date as-of
-                :time-step (t/years 1)
-                :fetch-fn (fn [ids date]
-                            (entities/select
-                              (util/entity-type
-                                {:transaction-item/account [:in ids]
-                                 :transaction/transaction-date [:<between
-                                                                (t/minus date (t/years 1))
-                                                                date]}
-                                :transaction-item)
-                              {:select-also [:transaction/transaction-date]
-                               :datalog/hints [:transaction-item/account]}))
-                :id-fn (comp :id :transaction-item/account)
-                :find-one-fn (partial last-item :on-or-before as-of)}
-               opts))
-    {}))
+(defn- fetch-account-value
+  [since as-of]
+  (if since
+    (fn [a]
+      (transactions/balance-delta a since as-of))
+    (fn [a]
+      (transactions/balance-as-of a as-of))))
 
 (defn- balance-data
-  [{:keys [accounts since as-of entity]}]
-  (let [earliest-date (get-in entity [:entity/transaction-date-range 0])
-        account-ids (->> accounts
-                         (map :id)
-                         set)
-        start-balances (when since
-                         (fetch-transaction-items
-                           account-ids
-                           since
-                           :find-one-fn (partial last-item :before since)
-                           :earliest-date earliest-date))
-        end-balances (fetch-transaction-items
-                       account-ids
-                       as-of
-                       :earliest-date earliest-date)]
-    (->> account-ids
-         (map (fn [id]
-                [id (- (get-in end-balances [id :transaction-item/balance] 0M)
-                       (get-in start-balances [id :transaction-item/balance] 0M))]))
-         (into {}))))
+  [{:keys [accounts since as-of]}]
+  (->> accounts
+       (map (juxt :id (fetch-account-value since as-of)))
+       (into {})))
 
 (defn- valuation-data
   [{:keys [entity accounts as-of] :as options}]
