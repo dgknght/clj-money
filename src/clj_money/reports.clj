@@ -42,19 +42,13 @@
 (def ^:private equity-header?
   (every-pred header? equity?))
 
-(defn- value-as-of
-  [a d]
-  (or (:transaction-item/balance (transactions/last-transaction-item-on-or-before a d))
-      0M))
-
 (defn- fetch-account-value
   [since as-of]
   (if since
     (fn [a]
-      (- (value-as-of a as-of)
-         (value-as-of a since)))
+      (transactions/balance-delta a since as-of))
     (fn [a]
-      (value-as-of a as-of))))
+      (transactions/balance-as-of a as-of))))
 
 (defn- balance-data
   [{:keys [accounts since as-of]}]
