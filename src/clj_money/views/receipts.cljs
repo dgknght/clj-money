@@ -91,8 +91,8 @@
          receipt
          [:receipt/items index :receipt-item/account]
          {:search-fn (search-accounts)
-          :find-fn (fn [id callback]
-                     (callback (@accounts-by-id id)))
+          :find-fn (fn [account callback]
+                     (callback (@accounts-by-id (:id account))))
           :on-change #(ensure-blank-item page-state)
           :caption-fn #(string/join "/" (:account/path %))}]]
    [:td [forms/decimal-input
@@ -153,8 +153,8 @@
         {:validations #{::v/required}
          :caption "Payment Method"
          :search-fn (search-accounts)
-         :find-fn (fn [id callback]
-                    (callback (@accounts-by-id id)))
+         :find-fn (fn [account callback]
+                    (callback (@accounts-by-id (:id account))))
          :caption-fn #(string/join "/" (:account/path %))}]
        [:table.table.table-borderless
         [:thead
