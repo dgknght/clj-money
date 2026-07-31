@@ -551,6 +551,29 @@
                    (valuation-data commodity-supplemental-data)
                    commodity-accounts)]
       #?(:clj (is (seq-of-maps-like? expected actual))
+         :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual)))))
+  (testing "A subset of accounts whose root's own parent is not included (as when valuating a single budget item and its children)"
+    (let [expected [{:account/name "Reserve"
+                     :account/value (d 10000)
+                     :account/total-value (d 12000)}
+                    {:account/name "Reserve Sub"
+                     :account/value (d 2000)
+                     :account/total-value (d 2000)}]
+          actual (accounts/valuate
+                   (valuation-data (update-in standard-supplemental-data
+                                              [:balances]
+                                              assoc :reserve-sub (d 2000)))
+                   [{:id :reserve
+                     :account/parent {:id :savings} ; :savings is NOT included in this subset
+                     :account/name "Reserve"
+                     :account/commodity {:id :usd}
+                     :account/type :asset}
+                    {:id :reserve-sub
+                     :account/parent {:id :reserve}
+                     :account/name "Reserve Sub"
+                     :account/commodity {:id :usd}
+                     :account/type :asset}])]
+      #?(:clj (is (seq-of-maps-like? expected actual))
          :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual))))))
 
 (deftest identity-an-action

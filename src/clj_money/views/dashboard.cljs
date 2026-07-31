@@ -34,9 +34,8 @@
 (defn- load-monitors
   [state]
   (if @current-entity
-    (do (+busy)
-        (reports/budget-monitors :callback -busy
-                                 :on-success #(swap! state assoc :monitors %)))
+    (reports/budget-monitors :on-success #(swap! state assoc :monitors %)
+                             :on-failure #(swap! state assoc :monitors []))
     (swap! state dissoc :monitors)))
 
 (defn- save-monitor
@@ -177,16 +176,16 @@
         monitors (r/cursor state [:monitors])
         new-monitor (r/cursor state [:new-monitor])
         monitors-with-detail (make-reaction
-                              (fn []
-                                (when (and @monitors @accounts-by-id)
-                                  (->> @monitors
-                                       (map (fn [m]
-                                              (-> m
-                                                  (update-in [:report/account] (comp @accounts-by-id
-                                                                                     :id))
-                                                  (assoc :report/scope @scope))))
-                                       (sort-by #(get-in % [:report/account :account/path]))
-                                       (into [])))))]
+                               (fn []
+                                 (when (and @monitors @accounts-by-id)
+                                   (->> @monitors
+                                        (map (fn [m]
+                                               (-> m
+                                                   (update-in [:report/account] (comp @accounts-by-id
+                                                                                      :id))
+                                                   (assoc :report/scope @scope))))
+                                        (sort-by #(get-in % [:report/account :account/path]))
+                                        (into [])))))]
     (load-monitors state)
     (add-watch current-entity ::monitors (fn [_ _ prev current]
                                            (if current
@@ -207,13 +206,16 @@
            [:div.visually-hidden "loading..."]]])
        (if @new-monitor
          [monitor-form state]
-         [button {:html {:on-click (fn []
-                                     (swap! state assoc :new-monitor {})
-                                     (set-focus "account-id"))
-                         :class "btn-secondary"
-                         :title "Click here to add a new budget monitor"}
-                  :caption "Add"
-                  :icon :plus}])])))
+         [:div.btn-group
+          [button {:html {:on-click (fn []
+                                      (swap! state assoc :new-monitor {})
+                                      (set-focus "account-id"))
+                          :class "btn-primary"
+                          :title "Click here to add a new budget monitor"}
+                   :icon :plus}]
+          [button {:html {:on-click #(load-monitors state)
+                          :class "btn-secondary"}
+                   :icon :arrow-clockwise}]])])))
 
 (defn- type-total
   [type accts]
