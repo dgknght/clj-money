@@ -617,8 +617,7 @@
   [out-chan]
   (if out-chan
     (fn [recon]
-      (a/go
-        (a/>! out-chan recon))
+      (a/put! out-chan recon)
       recon)
     identity))
 
@@ -649,7 +648,7 @@
       (if c
         (fn
           [acc v]
-          (a/go (a/>! c v))
+          (a/put! c v)
           (xf acc v))
         (fn [acc v]
           (xf acc v))))))
