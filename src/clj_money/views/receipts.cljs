@@ -188,9 +188,9 @@
   [{:keys [id] :transaction/keys [transaction-date description value] :as trx} page-state]
   ^{:key (str "result-row-" id)}
   [:tr.align-middle
-   (atts-view/row-drop-handlers page-state :result-row-styles id
-                                 {:attachment #:attachment{:transaction trx
-                                                           :caption ""}})
+   (atts-view/drop-handlers page-state :result-row-styles id
+                            {:attachment #:attachment{:transaction trx
+                                                      :caption ""}})
    [:td (format-date transaction-date)]
    [:td description]
    [:td.text-end (format-decimal value)]

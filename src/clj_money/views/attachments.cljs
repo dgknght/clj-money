@@ -189,11 +189,11 @@
   [page-state]
   (swap! page-state dissoc :pending-attachment))
 
-(defn handle-row-drop
-  "Starts the pending-attachment flow for a row that accepts a dropped file.
-  pending is the attachment payload (plus any caller-specific bookkeeping,
-  e.g. :item), built by the caller and missing only the file, which is
-  pulled from the drop event and merged in here."
+(defn handle-drop
+  "Starts the pending-attachment flow for a drop target that accepts a
+  dropped file. pending is the attachment payload (plus any caller-specific
+  bookkeeping, e.g. :item), built by the caller and missing only the file,
+  which is pulled from the drop event and merged in here."
   [pending e page-state]
   (.preventDefault e)
   (swap! page-state assoc :pending-attachment
@@ -231,20 +231,20 @@
                           :saving? saving?
                           :error error}])))))
 
-(defn row-drop-handlers
-  "Drag/drop event handlers and hover style for a row that accepts a dropped
-  file to start a pending attachment. styles-key is the page-state key
-  holding a map of row-id -> style, row-id identifies this row within that
-  map, and pending is the attachment payload passed to handle-row-drop on
-  drop."
-  [page-state styles-key row-id pending]
-  {:on-drag-enter #(swap! page-state assoc-in [styles-key row-id]
+(defn drop-handlers
+  "Drag/drop event handlers and hover style for an element that accepts a
+  dropped file to start a pending attachment. styles-key is the page-state
+  key holding a map of target-id -> style, target-id identifies this
+  element within that map, and pending is the attachment payload passed to
+  handle-drop on drop."
+  [page-state styles-key target-id pending]
+  {:on-drag-enter #(swap! page-state assoc-in [styles-key target-id]
                           {:background-color "var(--primary)"
                            :color "var(--white)"
                            :cursor :copy})
    :on-drag-leave (dom/debounce
-                    #(swap! page-state update-in [styles-key] dissoc row-id)
+                    #(swap! page-state update-in [styles-key] dissoc target-id)
                     100)
    :on-drag-over #(.preventDefault %)
-   :on-drop #(handle-row-drop pending % page-state)
-   :style (get-in @page-state [styles-key row-id])})
+   :on-drop #(handle-drop pending % page-state)
+   :style (get-in @page-state [styles-key target-id])})

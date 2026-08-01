@@ -247,10 +247,10 @@
         :as item}]
     ^{:key (str "item-row-" (:id item))}
     [:tr.align-middle
-     (atts-view/row-drop-handlers page-state :item-row-styles (:id item)
-                                   {:item item
-                                    :attachment #:attachment{:transaction (:transaction-item/transaction item)
-                                                             :caption ""}})
+     (atts-view/drop-handlers page-state :item-row-styles (:id item)
+                              {:item item
+                               :attachment #:attachment{:transaction (:transaction-item/transaction item)
+                                                        :caption ""}})
      [:td.text-end
       [:span.d-md-none (format-date transaction-date "M/d")]
       [:span.d-none.d-md-inline (format-date transaction-date)]]
