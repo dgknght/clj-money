@@ -8,13 +8,11 @@
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal]]
-            [dgknght.app-lib.dom :refer [debounce
-                                         set-focus]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
-            [dgknght.app-lib.notifications :as notify]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -23,12 +21,10 @@
                                      accounts-by-id
                                      +busy
                                      -busy]]
-            [clj-money.dnd :as dnd]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.receipts :as receipts]
             [clj-money.api.transactions :as trn]
-            [clj-money.api.attachments :as atts]
-            [clj-money.views.attachments :refer [caption-modal]]))
+            [clj-money.views.attachments :as atts-view]))
 
 (defn- new-receipt
   [page-state]
@@ -188,69 +184,13 @@
                       (set-focus "transaction-date"))}
          (icon-with-text :x "Cancel")]]])))
 
-(defn- handle-result-row-drop
-  [trx e page-state]
-  (.preventDefault e)
-  (swap! page-state assoc :pending-attachment
-         {:attachment #:attachment{:transaction trx
-                                   :file (first (dnd/data-files e))
-                                   :caption ""}})
-  (set-focus "attachment-caption"))
-
-(defn- cancel-pending-attachment
-  [page-state]
-  (swap! page-state dissoc :pending-attachment))
-
-(defn- save-pending-attachment
-  [page-state]
-  (let [{:keys [attachment]} (:pending-attachment @page-state)]
-    (+busy)
-    (swap! page-state update :pending-attachment assoc :saving? true :error nil)
-    (atts/create attachment
-                 :callback (fn []
-                             (-busy)
-                             (swap! page-state update :pending-attachment assoc :saving? false))
-                 :on-success (fn [_]
-                               (cancel-pending-attachment page-state)
-                               (notify/toast "Success" "The attachment was saved successfully."))
-                 :on-error (fn [e]
-                             (swap! page-state update :pending-attachment assoc :error (ex-message e))))))
-
-(defn pending-attachment-form
-  [page-state]
-  (let [pending (r/cursor page-state [:pending-attachment])]
-    (fn []
-      (when @pending
-        (let [{:keys [saving? error]} @pending]
-          [caption-modal {:cursor pending
-                          :field-path [:attachment :attachment/caption]
-                          :title "Attachment Caption"
-                          :save-fn #(save-pending-attachment page-state)
-                          :cancel-fn #(cancel-pending-attachment page-state)
-                          :cancel-title "Click here to cancel and discard this attachment."
-                          :saving? saving?
-                          :error error}])))))
-
 (defn- result-row
   [{:keys [id] :transaction/keys [transaction-date description value] :as trx} page-state]
   ^{:key (str "result-row-" id)}
   [:tr.align-middle
-   {:on-drag-enter #(swap! page-state
-                           assoc-in
-                           [:result-row-styles id]
-                           {:background-color "var(--primary)"
-                            :color "var(--white)"
-                            :cursor :copy})
-    :on-drag-leave (debounce
-                     #(swap! page-state
-                             update-in
-                             [:result-row-styles]
-                             dissoc
-                             id)
-                     100)
-    :on-drag-over #(.preventDefault %)
-    :on-drop #(handle-result-row-drop trx % page-state)
-    :style (get-in @page-state [:result-row-styles id])}
+   (atts-view/row-drop-handlers page-state :result-row-styles id
+                                 {:attachment #:attachment{:transaction trx
+                                                           :caption ""}})
    [:td (format-date transaction-date)]
    [:td description]
    [:td.text-end (format-decimal value)]
@@ -265,7 +205,7 @@
   (let [transactions (r/cursor page-state [:transactions])]
     (fn []
       [:<>
-       [pending-attachment-form page-state]
+       [atts-view/pending-attachment-form page-state]
        [:div.mb-2
         [forms/date-field
          page-state

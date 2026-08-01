@@ -9,12 +9,14 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [cljs-http.client :as http]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.object-url :as obj-url]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [+busy
                                      -busy
                                      auth-token]]
+            [clj-money.dnd :as dnd]
             [clj-money.api.attachments :as atts]))
 
 (defn- post-delete
@@ -182,3 +184,67 @@
           [bs/spinner {:size :small}]
           "Save")]]]]]
    [:div.modal-backdrop.show {:on-click (when-not saving? cancel-fn)}]])
+
+(defn cancel-pending-attachment
+  [page-state]
+  (swap! page-state dissoc :pending-attachment))
+
+(defn handle-row-drop
+  "Starts the pending-attachment flow for a row that accepts a dropped file.
+  pending is the attachment payload (plus any caller-specific bookkeeping,
+  e.g. :item), built by the caller and missing only the file, which is
+  pulled from the drop event and merged in here."
+  [pending e page-state]
+  (.preventDefault e)
+  (swap! page-state assoc :pending-attachment
+         (assoc-in pending [:attachment :attachment/file] (first (dnd/data-files e))))
+  (dom/set-focus "attachment-caption"))
+
+(defn save-pending-attachment
+  [page-state & {:keys [on-success]}]
+  (let [{:keys [attachment] :as pending} (:pending-attachment @page-state)]
+    (+busy)
+    (swap! page-state update :pending-attachment assoc :saving? true :error nil)
+    (atts/create attachment
+                 :callback (fn []
+                             (-busy)
+                             (swap! page-state update :pending-attachment assoc :saving? false))
+                 :on-success (fn [created]
+                               (cancel-pending-attachment page-state)
+                               (notify/toast "Success" "The attachment was saved successfully.")
+                               (when on-success (on-success pending created)))
+                 :on-error (fn [e]
+                             (swap! page-state update :pending-attachment assoc :error (ex-message e))))))
+
+(defn pending-attachment-form
+  [page-state & {:keys [on-save-success]}]
+  (let [pending (r/cursor page-state [:pending-attachment])]
+    (fn []
+      (when @pending
+        (let [{:keys [saving? error]} @pending]
+          [caption-modal {:cursor pending
+                          :field-path [:attachment :attachment/caption]
+                          :title "Attachment Caption"
+                          :save-fn #(save-pending-attachment page-state :on-success on-save-success)
+                          :cancel-fn #(cancel-pending-attachment page-state)
+                          :cancel-title "Click here to cancel and discard this attachment."
+                          :saving? saving?
+                          :error error}])))))
+
+(defn row-drop-handlers
+  "Drag/drop event handlers and hover style for a row that accepts a dropped
+  file to start a pending attachment. styles-key is the page-state key
+  holding a map of row-id -> style, row-id identifies this row within that
+  map, and pending is the attachment payload passed to handle-row-drop on
+  drop."
+  [page-state styles-key row-id pending]
+  {:on-drag-enter #(swap! page-state assoc-in [styles-key row-id]
+                          {:background-color "var(--primary)"
+                           :color "var(--white)"
+                           :cursor :copy})
+   :on-drag-leave (dom/debounce
+                    #(swap! page-state update-in [styles-key] dissoc row-id)
+                    100)
+   :on-drag-over #(.preventDefault %)
+   :on-drop #(handle-row-drop pending % page-state)
+   :style (get-in @page-state [styles-key row-id])})
