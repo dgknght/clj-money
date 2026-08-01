@@ -80,7 +80,8 @@
          (icon-with-text :check "Save")]
         (html/space)
         [:button.btn.btn-secondary.ms-2
-         {:on-click #(swap! state dissoc :new-monitor)
+         {:type :button
+          :on-click #(swap! state dissoc :new-monitor)
           :title "Click here to close this form without creating a new monitor"}
          (icon-with-text :x "Cancel")]]])))
 
