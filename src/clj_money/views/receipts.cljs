@@ -98,7 +98,8 @@
    [:td [forms/decimal-input
          receipt
          [:receipt/items index :receipt-item/quantity]
-         {:on-accept #(ensure-blank-item page-state)}]]
+         {:fraction-digits 2
+          :on-accept #(ensure-blank-item page-state)}]]
    [:td [forms/text-input
          receipt
          [:receipt/items index :receipt-item/memo]
