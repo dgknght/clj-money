@@ -23,7 +23,8 @@
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.receipts :as receipts]
-            [clj-money.api.transactions :as trn]))
+            [clj-money.api.transactions :as trn]
+            [clj-money.views.attachments :as atts-view]))
 
 (defn- new-receipt
   [page-state]
@@ -185,9 +186,12 @@
          (icon-with-text :x "Cancel")]]])))
 
 (defn- result-row
-  [{:transaction/keys [transaction-date description value] :as trx} page-state]
-  ^{:key (str "result-row-" (:id trx))}
-  [:tr
+  [{:keys [id] :transaction/keys [transaction-date description value] :as trx} page-state]
+  ^{:key (str "result-row-" id)}
+  [:tr.align-middle
+   (atts-view/drop-handlers page-state :result-row-styles id
+                            {:attachment #:attachment{:transaction trx
+                                                      :caption ""}})
    [:td (format-date transaction-date)]
    [:td description]
    [:td.text-end (format-decimal value)]
@@ -202,6 +206,7 @@
   (let [transactions (r/cursor page-state [:transactions])]
     (fn []
       [:<>
+       [atts-view/pending-attachment-form page-state]
        [:div.mb-2
         [forms/date-field
          page-state

@@ -10,15 +10,13 @@
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal ]]
             [dgknght.app-lib.inflection :refer [humanize]]
-            [dgknght.app-lib.dom :refer [debounce
-                                         set-focus
+            [dgknght.app-lib.dom :refer [set-focus
                                          key-code
                                          shift-key?]]
             [dgknght.app-lib.html :refer [space
                                           special-char]]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon]]
@@ -26,7 +24,6 @@
                                      accounts-by-id
                                      +busy
                                      -busy]]
-            [clj-money.dnd :as dnd]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
@@ -45,7 +42,7 @@
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
-            [clj-money.views.attachments :refer [caption-modal]]
+            [clj-money.views.attachments :as atts-view]
             [clj-money.api.trading :as trading]
             [clj-money.api.audit :as audit]))
 
@@ -206,54 +203,13 @@
                                               (:transaction-item/transaction item))
                                        (update-in item [:transaction/attachment-count] (fnil inc 0))
                                        item))
-                                   items))))))
-    (notify/toast "Success" "The attachment was saved successfully.")))
-
-(defn- handle-item-row-drop
-  [{:as item :transaction-item/keys [transaction]} e page-state]
-  (.preventDefault e)
-  (swap! page-state
-         assoc
-         :pending-attachment
-         {:item item
-          :attachment #:attachment{:transaction transaction
-                                   :file (first (dnd/data-files e))
-                                   :caption ""}})
-  (set-focus "attachment-caption"))
-
-(defn- cancel-pending-attachment
-  [page-state]
-  (swap! page-state dissoc :pending-attachment))
-
-(defn- save-pending-attachment
-  [page-state]
-  (let [{:keys [item attachment]} (:pending-attachment @page-state)]
-    (+busy)
-    (swap! page-state update :pending-attachment assoc :saving? true :error nil)
-    (atts/create attachment
-                 :callback (fn []
-                             (-busy)
-                             (swap! page-state update :pending-attachment assoc :saving? false))
-                 :on-success (fn [created]
-                               (cancel-pending-attachment page-state)
-                               ((post-item-row-drop page-state item) created))
-                 :on-error (fn [e]
-                             (swap! page-state update :pending-attachment assoc :error (ex-message e))))))
+                                   items))))))))
 
 (defn pending-attachment-form
   [page-state]
-  (let [pending (r/cursor page-state [:pending-attachment])]
-    (fn []
-      (when @pending
-        (let [{:keys [saving? error]} @pending]
-          [caption-modal {:cursor pending
-                          :field-path [:attachment :attachment/caption]
-                          :title "Attachment Caption"
-                          :save-fn #(save-pending-attachment page-state)
-                          :cancel-fn #(cancel-pending-attachment page-state)
-                          :cancel-title "Click here to cancel and discard this attachment."
-                          :saving? saving?
-                          :error error}])))))
+  [atts-view/pending-attachment-form page-state
+   :on-save-success (fn [{:keys [item]} created]
+                       ((post-item-row-drop page-state item) created))])
 
 (defn- item-row-buttons
   [{:as item :transaction/keys [attachment-count]} page-state]
@@ -291,22 +247,10 @@
         :as item}]
     ^{:key (str "item-row-" (:id item))}
     [:tr.align-middle
-     {:on-drag-enter #(swap! page-state
-                             assoc-in
-                             [:item-row-styles (:id item)]
-                             {:background-color "var(--primary)"
-                              :color "var(--white)"
-                              :cursor :copy})
-      :on-drag-leave (debounce
-                       #(swap! page-state
-                               update-in
-                               [:item-row-styles]
-                               dissoc
-                               (:id item))
-                       100)
-      :on-drag-over #(.preventDefault %)
-      :on-drop #(handle-item-row-drop item % page-state)
-      :style (get-in styles [(:id item)])}
+     (atts-view/drop-handlers page-state :item-row-styles (:id item)
+                              {:item item
+                               :attachment #:attachment{:transaction (:transaction-item/transaction item)
+                                                        :caption ""}})
      [:td.text-end
       [:span.d-md-none (format-date transaction-date "M/d")]
       [:span.d-none.d-md-inline (format-date transaction-date)]]
