@@ -29,7 +29,7 @@
   [page-state]
   (let [defaults (-> (get-in @page-state [:receipt])
                      (select-keys [:receipt/transaction-date
-                                   :receipt/account])
+                                   :receipt/payment-account])
                      (update-in [:receipt/transaction-date] (fnil identity (t/today)))
                      (assoc :receipt/items [{}]))]
     (swap! page-state assoc :receipt defaults)
