@@ -7,6 +7,7 @@
             clj-money.db.datomic.lot-notes
             clj-money.db.datomic.budgets
             clj-money.db.datomic.budget-items
+            clj-money.db.datomic.entities
             clj-money.db.datomic.imports
             clj-money.db.datomic.reconciliations
             clj-money.db.datomic.scheduled-transactions
