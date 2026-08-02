@@ -110,6 +110,32 @@
                                                                             (map util/->entity-ref)
                                                                             set)}}))))
 
+(dbtest remove-a-monitored-account
+  (with-context list-context
+    (let [dining (find-account "Dining")
+          groceries (find-account "Groceries")
+          entity (entities/put
+                   (assoc (find-entity "Personal")
+                          :entity/settings
+                          {:settings/monitored-accounts
+                           (->> [dining groceries]
+                                (map util/->entity-ref)
+                                set)}))
+          updated (entities/put
+                    (assoc-in entity
+                              [:entity/settings :settings/monitored-accounts]
+                              #{(util/->entity-ref dining)}))]
+      (is (= #{(:id dining)}
+             (->> updated :entity/settings :settings/monitored-accounts (map :id) set))
+          "The result no longer includes the removed account")
+      (is (= #{(:id dining)}
+             (->> (entities/find-by {:entity/name "Personal"})
+                  :entity/settings
+                  :settings/monitored-accounts
+                  (map :id)
+                  set))
+          "The removal persists when the entity is re-fetched"))))
+
 (dbtest delete-an-entity
   (with-context list-context
     (assert-deleted (find-entity "Personal"))))
