@@ -180,6 +180,37 @@
                                              :account {:id {:id 1}
                                                        :account/type :asset}})))))
 
+(deftest expand-and-collapse-a-simplified-transaction
+  (testing "Expanding a simplified transaction into the full item entry form, then
+           collapsing it back without adding or removing any items, reconstructs
+           a transaction that can be re-simplified"
+    (let [trx #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                            :description "ACME Store"
+                            :memo "transaction memo"
+                            :items [{:id 1
+                                     :transaction-item/credit-item {:id 201
+                                                                    :account-item/account (accounts :checking)
+                                                                    :account-item/memo "checking memo"
+                                                                    :account-item/quantity (d/- d/zero (d 10))}
+                                     :transaction-item/debit-item {:id 202
+                                                                   :account-item/account (accounts :groceries)
+                                                                   :account-item/memo "groceries memo"
+                                                                   :account-item/quantity (d 10)}
+                                     :transaction-item/value (d 10)}]}
+          simple (trx/accountify trx (accounts :checking))
+          ; the same steps performed by expand-trx/collapse-trx in the accounts view
+          expanded (-> simple trx/unaccountify trx/->unilateral trx/entryfy)
+          collapsed (-> expanded trx/unentryfy trx/->bilateral)]
+      (is (trx/can-accountify? collapsed)
+          "The transaction can be re-simplified when no items were added or removed")
+      (let [recollapsed (trx/accountify collapsed (accounts :checking))]
+        (is (= (:transaction/quantity simple) (:transaction/quantity recollapsed))
+            "The quantity survives the round trip")
+        (is (= "checking memo" (get-in recollapsed [:transaction/item :account-item/memo]))
+            "This item's memo survives the round trip")
+        (is (= "groceries memo" (get-in recollapsed [:transaction/other-item :account-item/memo]))
+            "The other item's memo survives the round trip")))))
+
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"
                                   :description "ACME Store"
