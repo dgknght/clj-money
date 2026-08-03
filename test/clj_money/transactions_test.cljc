@@ -93,12 +93,13 @@
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :item {:id 201}
+                               :item {:id 201 :account-item/memo "checking memo"}
                                :account (accounts :checking)
-                               :other-item {:id 202}
+                               :other-item {:id 202 :account-item/memo "groceries memo"}
                                :other-account (accounts :groceries)
                                :quantity (d -10)}]
-    (is (= expected (trx/accountify trx (accounts :checking))))))
+    (is (= expected (trx/accountify trx (accounts :checking)))
+        "The account-item memo is preserved for both items")))
 
 (deftest unaccountify-a-transaction
   (testing "A whole transaction"
@@ -160,7 +161,15 @@
                (trx/unaccountify (assoc simple
                                         :transaction/other-account
                                         {:id {:id 4}
-                                         :account/type :liability})))))))
+                                         :account/type :liability})))))
+      (testing "with memo on the items"
+        (is (= (-> expected
+                   (assoc-in [:transaction/items 0 :transaction-item/credit-item :account-item/memo] "credit memo")
+                   (assoc-in [:transaction/items 0 :transaction-item/debit-item :account-item/memo] "debit memo"))
+               (trx/unaccountify (assoc simple
+                                        :transaction/item {:id 1 :account-item/memo "credit memo"}
+                                        :transaction/other-item {:id 2 :account-item/memo "debit memo"})))
+            "The account-item memo entered in the simplified form is preserved through to the saved item"))))
   ; TODO: Is this still a valid use case?
   #_(testing "A partial transaction (for editing)"
       (is (= #:transaction{:transaction-date "2020-01-01"

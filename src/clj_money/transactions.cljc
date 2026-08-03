@@ -691,9 +691,9 @@
          [this-item other-item] (f item)]
      (-> trx
          (assoc :transaction/other-account (:account-item/account other-item)
-                :transaction/other-item (util/->entity-ref other-item)
+                :transaction/other-item (select-keys other-item [:id :account-item/memo])
                 :transaction/account (:account-item/account this-item)
-                :transaction/item (util/->entity-ref this-item)
+                :transaction/item (select-keys this-item [:id :account-item/memo])
                 :transaction/quantity (:account-item/quantity this-item))
          (dissoc :transaction/items)))))
 
