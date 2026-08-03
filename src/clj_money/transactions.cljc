@@ -352,7 +352,7 @@
   [{:as item :transaction-item/keys [account action]}]
   (-> item
       (rename-keys transaction->account-item-mappings)
-      (select-keys (vals transaction->account-item-mappings))
+      (select-keys (conj (vals transaction->account-item-mappings) :id))
       (update-in [:account-item/quantity] #(polarize-quantity
                                              {:account account
                                               :quantity %
@@ -489,7 +489,8 @@
                     :account-item/account :transaction-item/account
                     :account-item/action :transaction-item/action
                     :account-item/quantity :transaction-item/quantity})
-      (select-keys [:transaction-item/memo
+      (select-keys [:id
+                    :transaction-item/memo
                     :transaction-item/action
                     :transaction-item/quantity
                     :transaction-item/account])

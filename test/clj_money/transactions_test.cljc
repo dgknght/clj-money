@@ -209,7 +209,11 @@
         (is (= "checking memo" (get-in recollapsed [:transaction/item :account-item/memo]))
             "This item's memo survives the round trip")
         (is (= "groceries memo" (get-in recollapsed [:transaction/other-item :account-item/memo]))
-            "The other item's memo survives the round trip")))))
+            "The other item's memo survives the round trip")
+        (is (= 201 (get-in recollapsed [:transaction/item :id]))
+            "This item's persisted id survives the round trip, so a subsequent save updates the existing item instead of creating a duplicate")
+        (is (= 202 (get-in recollapsed [:transaction/other-item :id]))
+            "The other item's persisted id survives the round trip")))))
 
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"
