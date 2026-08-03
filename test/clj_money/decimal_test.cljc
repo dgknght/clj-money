@@ -13,4 +13,6 @@
   (is (= (d/d 1000.0) (d/parse "1,000.0"))
       "A decimal formatted with commas is parsed into a decimal")
   (is (= (d/d 2) (d/parse "1+1"))
-      "A basic mathematical expression is calculated"))
+      "A basic mathematical expression is calculated")
+  (is (= (d/d 6) (d/parse "10-4"))
+      "Unspaced subtraction is calculated"))
