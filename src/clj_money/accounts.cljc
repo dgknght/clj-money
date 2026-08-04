@@ -218,8 +218,9 @@
   ([accounts]
    #(find-by-path % accounts))
   ([term accounts]
-   (filter #(match-path? (map string/lower-case (:account/path %))
-                         (map string/lower-case (string/split term #"/|:")))
+   (filter #(and (not (:account/hidden %))
+                 (match-path? (map string/lower-case (:account/path %))
+                              (map string/lower-case (string/split term #"/|:"))))
            accounts)))
 
 (defn- tagged?

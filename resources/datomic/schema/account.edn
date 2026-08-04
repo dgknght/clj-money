@@ -56,4 +56,8 @@
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one
   :db/noHistory true
-  :db/doc "The date of the price used to calculate the current value"}]
+  :db/doc "The date of the price used to calculate the current value"}
+ {:db/ident :account/hidden
+  :db/valueType :db.type/boolean
+  :db/cardinality :db.cardinality/one
+  :db/doc "Indicates the account should be hidden from default views and type-aheads"}]

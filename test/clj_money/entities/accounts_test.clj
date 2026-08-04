@@ -195,6 +195,16 @@
   (with-context account-context
     (assert-created (attributes))))
 
+(dbtest create-a-hidden-account
+  (with-context account-context
+    (assert-created (assoc (attributes) :account/hidden true))))
+
+(dbtest hidden-defaults-to-false
+  (with-context account-context
+    (let [account (entities/put (attributes))]
+      (is (false? (:account/hidden (entities/find account)))
+          "The hidden flag defaults to false when not specified"))))
+
 (def ^:private duplicate-name-context
   (conj select-context
         #:entity{:name "Business"
@@ -322,6 +332,11 @@
   (with-context tag-context
     (assert-updated (find-account "Rent")
                     {:account/user-tags #{:housing}})))
+
+(dbtest hide-an-account
+  (with-context update-context
+    (assert-updated (find-account "IRA")
+                    {:account/hidden true})))
 
 (dbtest replace-allocations
   (with-context update-context

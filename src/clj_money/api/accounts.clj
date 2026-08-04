@@ -75,7 +75,8 @@
    :account/system-tags
    :account/user-tags
    :account/parent
-   :account/allocations])
+   :account/allocations
+   :account/hidden])
 
 (defn- extract-account
   [{:keys [params]}]
