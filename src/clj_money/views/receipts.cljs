@@ -13,7 +13,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
-            [clj-money.dates :refer [push-entity-boundary]]
+            [clj-money.cached-accounts :as cached-accts]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -65,12 +65,7 @@
   [receipt trx-date]
   (doseq [id (touched-account-ids receipt)]
     (when-let [account (@accounts-by-id id)]
-      (swap! accounts
-             #(util/upsert-into (push-entity-boundary account
-                                                       :account/transaction-date-range
-                                                       trx-date)
-                                {:sort-key :account/path}
-                                %)))))
+      (cached-accts/push-transaction-date! account trx-date))))
 
 (defn- save-transaction
   [page-state]

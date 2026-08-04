@@ -23,8 +23,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.dates :refer [serialize-local-date
-                                     push-entity-boundary]]
+            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -39,7 +38,8 @@
             [clj-money.api.prices :as prices]
             [clj-money.api.audit :as audit]
             [clj-money.cached-accounts :refer [fetch-accounts
-                                               latest]]
+                                               latest
+                                               push-transaction-date!]]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :as acts :refer [account-types
                                                  allocate
@@ -738,13 +738,6 @@
               :caption "Back"
               :icon :arrow-left-short}]]))
 
-(defn- upsert-account
-  [page-state]
-  (swap! accounts
-         #(util/upsert-into (:view-account @page-state)
-                            {:sort-key :account/path}
-                            %)))
-
 (defn- extract-trx-date
   [save-result]
   (if-let [date (:transaction/transaction-date save-result)]
@@ -756,15 +749,13 @@
 (defn- post-transaction-save
   [page-state]
   (fn [result]
-    (swap! page-state
-           (fn [state]
-             (-> state
-                 (dissoc :transaction :trade)
-                 (update-in [:view-account]
-                            push-entity-boundary
-                            :account/transaction-date-range
-                            (extract-trx-date result)))))
-    (upsert-account page-state)
+    (let [updated-account (push-transaction-date! (:view-account @page-state)
+                                                   (extract-trx-date result))]
+      (swap! page-state
+             (fn [state]
+               (-> state
+                   (dissoc :transaction :trade)
+                   (assoc :view-account updated-account)))))
     (trns/reset-item-loading page-state)))
 
 (defn- expand-trx []
