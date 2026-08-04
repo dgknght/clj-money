@@ -13,6 +13,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.dates :refer [push-entity-boundary]]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -48,20 +49,45 @@
              :items (mapv #(select-keys % [:account-id :quantity :memo])
                           debit)}))))
 
+(defn- touched-account-ids
+  [{:receipt/keys [payment-account items]}]
+  (->> items
+       (map :receipt-item/account)
+       (cons payment-account)
+       (filter identity)
+       (map :id)
+       distinct))
+
+(defn- update-account-caches
+  "Advances the transaction-date-range of every account touched by the
+  receipt in the client-side accounts cache, so the Accounts view doesn't
+  need a full refresh to see the new transaction."
+  [receipt trx-date]
+  (doseq [id (touched-account-ids receipt)]
+    (when-let [account (@accounts-by-id id)]
+      (swap! accounts
+             #(util/upsert-into (push-entity-boundary account
+                                                       :account/transaction-date-range
+                                                       trx-date)
+                                {:sort-key :account/path}
+                                %)))))
+
 (defn- save-transaction
   [page-state]
-  (-> (:receipt @page-state)
-      receipts/->transaction
-      (trn/save
-        :callback -busy
-        :on-success (fn [trx]
-                      (swap! page-state
-                             update-in
-                             [:transactions]
-                             #(util/upsert-into trx
-                                                {:sort-key :transaction/transaction-date}
-                                                %))
-                      (new-receipt page-state)))))
+  (let [receipt (:receipt @page-state)]
+    (-> receipt
+        receipts/->transaction
+        (trn/save
+          :callback -busy
+          :on-success (fn [trx]
+                        (swap! page-state
+                               update-in
+                               [:transactions]
+                               #(util/upsert-into trx
+                                                  {:sort-key :transaction/transaction-date}
+                                                  %))
+                        (update-account-caches receipt (:receipt/transaction-date receipt))
+                        (new-receipt page-state))))))
 
 (defn- search-accounts []
   (fn [input callback]
