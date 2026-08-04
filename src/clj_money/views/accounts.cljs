@@ -574,7 +574,7 @@
          [forms/checkbox-field
           account
           [:account/hidden]
-          {:caption "Hide this account from type-aheads and the account list by default"}]
+          {:caption "Hidden"}]
          [:fieldset
           [:legend "Tags"]
           [forms/typeahead-input
