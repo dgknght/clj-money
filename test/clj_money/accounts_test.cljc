@@ -332,6 +332,14 @@
     (is (= [["Receivable" "Eli"]]
            (map :account/path (accounts/find-by-path "Rec:Eli" accounts))))))
 
+(deftest find-account-by-path-excludes-hidden-accounts
+  (let [accounts [{:account/path ["Investments" "Fidelity"]}
+                  {:account/path ["Investments" "Hidden Fidelity"]
+                   :account/hidden true}]]
+    (is (= [["Investments" "Fidelity"]]
+           (map :account/path (accounts/find-by-path "Fidelity" accounts)))
+        "Hidden accounts are excluded from path search results")))
+
 (defn- test-polarization
   [account-type action quantity expected message]
   (let [account {:account/type account-type}]

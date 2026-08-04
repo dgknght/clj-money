@@ -300,12 +300,17 @@
   [page-state]
   (let [raw-tags (r/cursor page-state [:filter-tags])
         filter-tags (make-reaction #(->> @raw-tags (map keyword) set))
-        filter-fn (make-reaction #(cond
-                                    (@filter-tags :_untagged) (fn [{:account/keys [user-tags]}]
-                                                                (empty? user-tags))
-                                    (seq @filter-tags) (fn [{:account/keys [user-tags]}]
-                                                         (seq (intersection @filter-tags user-tags)))
-                                    :else identity))
+        show-hidden? (r/cursor page-state [:show-hidden?])
+        tag-filter-fn (make-reaction #(cond
+                                        (@filter-tags :_untagged) (fn [{:account/keys [user-tags]}]
+                                                                    (empty? user-tags))
+                                        (seq @filter-tags) (fn [{:account/keys [user-tags]}]
+                                                             (seq (intersection @filter-tags user-tags)))
+                                        :else identity))
+        filter-fn (make-reaction #(every-pred @tag-filter-fn
+                                              (fn [account]
+                                                (or @show-hidden?
+                                                    (not (:account/hidden account))))))
         expanded (r/cursor page-state [:expanded])
         hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])
         grouped (make-reaction #(group-by :account/type @accounts))]
@@ -566,6 +571,10 @@
           [:parent-only]
           {:caption "Prevent this account from receiving transaction items directly"
            :form-group-attr {:class (when-not (-> @account :account/parent :id) "d-none")}}]
+         [forms/checkbox-field
+          account
+          [:account/hidden]
+          {:caption "Hide this account from type-aheads and the account list by default"}]
          [:fieldset
           [:legend "Tags"]
           [forms/typeahead-input
@@ -1177,6 +1186,13 @@
          {:caption "Hide Zero-Balance Accounts"}]
         [:label.form-check-label {:for "hide-zero-balances"}
          "Hide zero balances"]]
+       [:div.form-check.mb-1
+        [forms/checkbox-input
+         page-state
+         [:show-hidden?]
+         {:caption "Show Hidden Accounts"}]
+        [:label.form-check-label {:for "show-hidden"}
+         "Show hidden accounts"]]
        [forms/checkbox-inputs
         page-state
         [:filter-tags]
@@ -1202,6 +1218,7 @@
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
                             :hide-zero-balances? (any-non-zero-balances?)
+                            :show-hidden? false
                             :filter-tags #{}
                             :recalculating #{}
                             :ctl-chan (chan)})
@@ -1234,6 +1251,7 @@
                              (assoc
                                :expanded #{}
                                :filter-tags #{}
+                               :show-hidden? false
                                :hide-zero-balances? (any-non-zero-balances? accts))))
                  (load-commodities page-state)))
     (fn []

@@ -46,6 +46,7 @@
 (s/def :account/allocations (s/nilable (s/map-of ::entities/id decimal?)))
 (s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
                                                            dates/local-date?)))
+(s/def :account/hidden boolean?)
 
 (s/def ::entities/account (s/and (s/keys :req [:account/entity
                                              :account/type
@@ -55,7 +56,8 @@
                                                :account/system-tags
                                                :account/user-tags
                                                :account/allocations
-                                               :account/transaction-date-range])
+                                               :account/transaction-date-range
+                                               :account/hidden])
                                  name-is-unique?
                                  parent-has-same-type?))
 ; :value and :children-value are not specified because they are always
@@ -87,7 +89,8 @@
   [account]
   (-> account
       (update-in [:account/quantity] (fnil identity 0M))
-      (update-in [:account/value] (fnil identity 0M))))
+      (update-in [:account/value] (fnil identity 0M))
+      (update-in [:account/hidden] (fnil identity false))))
 
 (defn- before-save
   "Adjusts account data for saving in the database"

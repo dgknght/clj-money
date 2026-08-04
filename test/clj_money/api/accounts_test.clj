@@ -276,6 +276,17 @@
   (with-context
     (assert-blocked-update (update-an-account "jane@doe.com"))))
 
+(deftest a-user-can-hide-an-account-in-his-entity
+  (with-context
+    (assert-successful-update
+      (update-an-account "john@doe.com"
+                         :body #:account{:name "Checking"
+                                         :type :asset
+                                         :commodity {:id 1}
+                                         :hidden true})
+      :expected {:account/hidden true}
+      :expected-response {:account/hidden true})))
+
 (defn- delete-an-account
   [email]
   (with-context
