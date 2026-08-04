@@ -802,7 +802,7 @@
                                                     (swap! transaction (expand-trx)))}
              (icon :arrows-expand)]
 
-            (can-accountify? @transaction)
+            (can-accountify? (->bilateral (unentryfy @transaction)))
             [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
                                         :on-click (fn [_]
                                                     (swap! transaction (collapse-trx page-state)))}
