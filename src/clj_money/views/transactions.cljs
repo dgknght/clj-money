@@ -635,6 +635,7 @@
         [:transaction/transaction-date]
         {:validations #{::v/required}}]
        [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
+       [forms/text-field transaction [:transaction/item :account-item/memo]]
        [forms/decimal-field transaction [:transaction/quantity] {:fraction-digits 2
                                                                  :validations #{::v/required}}]
        [forms/typeahead-field

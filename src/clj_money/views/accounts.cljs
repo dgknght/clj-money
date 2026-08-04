@@ -58,7 +58,9 @@
                                             accountified?
                                             can-accountify?
                                             entryfy
-                                            unentryfy]]
+                                            unentryfy
+                                            ->unilateral
+                                            ->bilateral]]
             [clj-money.views.transactions :as trns]
             [clj-money.views.reconciliations :as recs]
             [clj-money.views.attachments :as atts]))
@@ -770,6 +772,7 @@
     (-> trx
         v/reset
         unaccountify
+        ->unilateral
         entryfy)))
 
 (defn- collapse-trx
@@ -779,6 +782,7 @@
       (-> trx
           v/reset
           unentryfy
+          ->bilateral
           (accountify account)))))
 
 (defn- transaction-form
@@ -798,7 +802,7 @@
                                                     (swap! transaction (expand-trx)))}
              (icon :arrows-expand)]
 
-            (can-accountify? @transaction)
+            (can-accountify? (->bilateral (unentryfy @transaction)))
             [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
                                         :on-click (fn [_]
                                                     (swap! transaction (collapse-trx page-state)))}

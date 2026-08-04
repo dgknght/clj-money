@@ -93,12 +93,13 @@
         expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :item {:id 201}
+                               :item {:id 201 :account-item/memo "checking memo"}
                                :account (accounts :checking)
-                               :other-item {:id 202}
+                               :other-item {:id 202 :account-item/memo "groceries memo"}
                                :other-account (accounts :groceries)
                                :quantity (d -10)}]
-    (is (= expected (trx/accountify trx (accounts :checking))))))
+    (is (= expected (trx/accountify trx (accounts :checking)))
+        "The account-item memo is preserved for both items")))
 
 (deftest unaccountify-a-transaction
   (testing "A whole transaction"
@@ -160,7 +161,15 @@
                (trx/unaccountify (assoc simple
                                         :transaction/other-account
                                         {:id {:id 4}
-                                         :account/type :liability})))))))
+                                         :account/type :liability})))))
+      (testing "with memo on the items"
+        (is (= (-> expected
+                   (assoc-in [:transaction/items 0 :transaction-item/credit-item :account-item/memo] "credit memo")
+                   (assoc-in [:transaction/items 0 :transaction-item/debit-item :account-item/memo] "debit memo"))
+               (trx/unaccountify (assoc simple
+                                        :transaction/item {:id 1 :account-item/memo "credit memo"}
+                                        :transaction/other-item {:id 2 :account-item/memo "debit memo"})))
+            "The account-item memo entered in the simplified form is preserved through to the saved item"))))
   ; TODO: Is this still a valid use case?
   #_(testing "A partial transaction (for editing)"
       (is (= #:transaction{:transaction-date "2020-01-01"
@@ -170,6 +179,41 @@
              (trx/unaccountify #:transaction{:transaction-date "2020-01-01"
                                              :account {:id {:id 1}
                                                        :account/type :asset}})))))
+
+(deftest expand-and-collapse-a-simplified-transaction
+  (testing "Expanding a simplified transaction into the full item entry form, then
+           collapsing it back without adding or removing any items, reconstructs
+           a transaction that can be re-simplified"
+    (let [trx #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                            :description "ACME Store"
+                            :memo "transaction memo"
+                            :items [{:id 1
+                                     :transaction-item/credit-item {:id 201
+                                                                    :account-item/account (accounts :checking)
+                                                                    :account-item/memo "checking memo"
+                                                                    :account-item/quantity (d/- d/zero (d 10))}
+                                     :transaction-item/debit-item {:id 202
+                                                                   :account-item/account (accounts :groceries)
+                                                                   :account-item/memo "groceries memo"
+                                                                   :account-item/quantity (d 10)}
+                                     :transaction-item/value (d 10)}]}
+          simple (trx/accountify trx (accounts :checking))
+          ; the same steps performed by expand-trx/collapse-trx in the accounts view
+          expanded (-> simple trx/unaccountify trx/->unilateral trx/entryfy)
+          collapsed (-> expanded trx/unentryfy trx/->bilateral)]
+      (is (trx/can-accountify? collapsed)
+          "The transaction can be re-simplified when no items were added or removed")
+      (let [recollapsed (trx/accountify collapsed (accounts :checking))]
+        (is (= (:transaction/quantity simple) (:transaction/quantity recollapsed))
+            "The quantity survives the round trip")
+        (is (= "checking memo" (get-in recollapsed [:transaction/item :account-item/memo]))
+            "This item's memo survives the round trip")
+        (is (= "groceries memo" (get-in recollapsed [:transaction/other-item :account-item/memo]))
+            "The other item's memo survives the round trip")
+        (is (= 201 (get-in recollapsed [:transaction/item :id]))
+            "This item's persisted id survives the round trip, so a subsequent save updates the existing item instead of creating a duplicate")
+        (is (= 202 (get-in recollapsed [:transaction/other-item :id]))
+            "The other item's persisted id survives the round trip")))))
 
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"
