@@ -29,6 +29,7 @@
                                      -busy
                                      busy?]]
             [clj-money.accounts :refer [find-by-path]]
+            [clj-money.cached-accounts :as cached-accts]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
             [clj-money.api.scheduled-transactions :as sched-trans]))
@@ -71,11 +72,29 @@
                           sched-tran))
                       sched-trans)))))
 
+(defn- touched-account-ids
+  [{:transaction/keys [items]}]
+  (->> items
+       (map :transaction-item/account)
+       (filter identity)
+       (map :id)
+       distinct))
+
+(defn- update-account-caches
+  "Advances the transaction-date-range of every account touched by a
+  realized transaction in the client-side accounts cache, so the Accounts
+  view doesn't need a full refresh to see the new transaction."
+  [trx]
+  (doseq [id (touched-account-ids trx)]
+    (when-let [account (@accounts-by-id id)]
+      (cached-accts/push-transaction-date! account (:transaction/transaction-date trx)))))
+
 (defn- realize
   ([page-state] (realize nil page-state))
   ([sched-tran page-state]
    (+busy)
    (let [on-success (fn [result]
+                      (run! update-account-caches result)
                       (swap! page-state #(-> %
                                              (update-sched-trans result)
                                              (update-in [:created] (fnil concat []) result)))
