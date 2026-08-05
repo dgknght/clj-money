@@ -25,6 +25,7 @@
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.receipts :as receipts]
             [clj-money.api.transactions :as trn]
+            [clj-money.api.attachments :as atts]
             [clj-money.views.attachments :as atts-view]))
 
 (defn- new-receipt
@@ -206,28 +207,67 @@
                       (set-focus "transaction-date"))}
          (icon-with-text :x "Cancel")]]])))
 
+(defn- load-attachments
+  [page-state]
+  (let [{:keys [attachments-item]} @page-state]
+    (+busy)
+    (atts/select {:attachment/transaction attachments-item}
+                 :callback -busy
+                 :on-success #(swap! page-state assoc :attachments %))))
+
+(defn- post-result-row-drop
+  [page-state trx]
+  (fn [_created]
+    (swap! page-state
+           (fn [state]
+             (-> state
+                 (update-in [:result-row-styles] dissoc (:id trx))
+                 (update-in [:transactions]
+                            (fn [transactions]
+                              (map (fn [t]
+                                     (if (util/id= trx t)
+                                       (update-in t [:transaction/attachment-count] (fnil inc 0))
+                                       t))
+                                   transactions))))))))
+
+(defn- pending-attachment-form
+  [page-state]
+  [atts-view/pending-attachment-form page-state
+   :on-save-success (fn [{:keys [trx]} created]
+                       ((post-result-row-drop page-state trx) created))])
+
 (defn- result-row
-  [{:keys [id] :transaction/keys [transaction-date description value] :as trx} page-state]
+  [{:keys [id] :transaction/keys [transaction-date description value attachment-count] :as trx} page-state]
   ^{:key (str "result-row-" id)}
   [:tr.align-middle
    (atts-view/drop-handlers page-state :result-row-styles id
-                            {:attachment #:attachment{:transaction trx
+                            {:trx trx
+                             :attachment #:attachment{:transaction trx
                                                       :caption ""}})
    [:td (format-date transaction-date)]
    [:td description]
    [:td.text-end (format-decimal value)]
    [:td
-    [:button.btn.btn-sm.btn-secondary
-     {:title "Click here to edit this transaction."
-      :on-click #(swap! page-state assoc :receipt (receipts/<-transaction trx))}
-     (icon :pencil :size :small)]]])
+    [:div.btn-group
+     [:button.btn.btn-sm.btn-secondary
+      {:title "Click here to edit this transaction."
+       :on-click #(swap! page-state assoc :receipt (receipts/<-transaction trx))}
+      (icon :pencil :size :small)]
+     [:button.btn.btn-sm.btn-secondary
+      {:title "Click here to view attachments for this transaction"
+       :on-click (fn []
+                   (swap! page-state assoc :attachments-item trx)
+                   (load-attachments page-state))}
+      (if ((some-fn nil? zero?) attachment-count)
+        (icon :paperclip :size :small)
+        [:span.badge.bg-info.text-dark attachment-count])]]]])
 
 (defn- results-table
   [page-state]
   (let [transactions (r/cursor page-state [:transactions])]
     (fn []
       [:<>
-       [atts-view/pending-attachment-form page-state]
+       [pending-attachment-form page-state]
        [:div.mb-2
         [forms/date-field
          page-state
@@ -266,7 +306,8 @@
                                   :transactions %)))
 
 (defn- index []
-  (let [page-state (r/atom {:filter-date (t/today)})]
+  (let [page-state (r/atom {:filter-date (t/today)})
+        attachments-item (r/cursor page-state [:attachments-item])]
     (new-receipt page-state)
     (load-transactions page-state)
     (add-watch page-state ::filter-date
@@ -280,7 +321,11 @@
         [:div.col-md-6
          [receipt-form page-state]]
         [:div.col-md-6
-         [results-table page-state]]]])))
+         (if @attachments-item
+           [:<>
+            [atts-view/attachments-card page-state]
+            [atts-view/attachment-form page-state]]
+           [results-table page-state])]]])))
 
 (secretary/defroute "/receipts" []
   (swap! app-state assoc :page #'index :active-nav :receipts))
