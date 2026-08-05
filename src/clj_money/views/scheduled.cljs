@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [cljs-time.core :as t]
             [secretary.core :as secretary :include-macros true]
+            [accountant.core :as accountant]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [camel-snake-kebab.core :as csk]
@@ -388,10 +389,20 @@
                                         :on-click #(swap! page-state dissoc :selected)}
         (icon-with-text :x-circle "Cancel")]])))
 
+(defn- open-transaction
+  [trx]
+  (let [item (first (:transaction/items trx))
+        account (get-in @accounts-by-id [(get-in item [:transaction-item/account :id])])]
+    (swap! app-state assoc :pending-transaction-item {:item item
+                                                       :account account})
+    (accountant/navigate! "/accounts")))
+
 (defn- created-row
   [{:transaction/keys [transaction-date description value] :as trx}]
   ^{:key (str "created-transaction-row-" (:id trx))}
-  [:tr
+  [:tr {:style {:cursor "pointer"}
+        :title "Click here to view this transaction."
+        :on-click #(open-transaction trx)}
    [:td (format-date transaction-date)]
    [:td description]
    [:td (format-decimal value)]])
