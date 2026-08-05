@@ -1228,6 +1228,10 @@
                                         @allocation-account
                                         @transaction))
         hide-funnel? (make-reaction #(or @selected @view-account))]
+    (when-let [{:keys [item account]} (:pending-transaction-item @app-state)]
+      (swap! app-state dissoc :pending-transaction-item)
+      (swap! page-state assoc :view-account account)
+      (trns/edit-transaction item page-state))
     (load-commodities page-state)
     (add-watch current-entity
                ::index

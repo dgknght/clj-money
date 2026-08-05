@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [cljs-time.core :as t]
             [secretary.core :as secretary :include-macros true]
+            [accountant.core :as accountant]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [camel-snake-kebab.core :as csk]
@@ -28,6 +29,7 @@
                                      -busy
                                      busy?]]
             [clj-money.accounts :refer [find-by-path]]
+            [clj-money.cached-accounts :as cached-accts]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
             [clj-money.api.scheduled-transactions :as sched-trans]))
@@ -70,11 +72,29 @@
                           sched-tran))
                       sched-trans)))))
 
+(defn- touched-account-ids
+  [{:transaction/keys [items]}]
+  (->> items
+       (map :transaction-item/account)
+       (filter identity)
+       (map :id)
+       distinct))
+
+(defn- update-account-caches
+  "Advances the transaction-date-range of every account touched by a
+  realized transaction in the client-side accounts cache, so the Accounts
+  view doesn't need a full refresh to see the new transaction."
+  [trx]
+  (doseq [id (touched-account-ids trx)]
+    (when-let [account (@accounts-by-id id)]
+      (cached-accts/push-transaction-date! account (:transaction/transaction-date trx)))))
+
 (defn- realize
   ([page-state] (realize nil page-state))
   ([sched-tran page-state]
    (+busy)
    (let [on-success (fn [result]
+                      (run! update-account-caches result)
                       (swap! page-state #(-> %
                                              (update-sched-trans result)
                                              (update-in [:created] (fnil concat []) result)))
@@ -388,10 +408,20 @@
                                         :on-click #(swap! page-state dissoc :selected)}
         (icon-with-text :x-circle "Cancel")]])))
 
+(defn- open-transaction
+  [trx]
+  (let [item (first (:transaction/items trx))
+        account (get-in @accounts-by-id [(get-in item [:transaction-item/account :id])])]
+    (swap! app-state assoc :pending-transaction-item {:item item
+                                                       :account account})
+    (accountant/navigate! "/accounts")))
+
 (defn- created-row
   [{:transaction/keys [transaction-date description value] :as trx}]
   ^{:key (str "created-transaction-row-" (:id trx))}
-  [:tr
+  [:tr {:style {:cursor "pointer"}
+        :title "Click here to view this transaction."
+        :on-click #(open-transaction trx)}
    [:td (format-date transaction-date)]
    [:td description]
    [:td (format-decimal value)]])

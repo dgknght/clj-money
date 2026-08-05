@@ -65,7 +65,7 @@
          (update-in [:transaction/items] supply-accounts)
          prepare))))
 
-(defn- edit-transaction
+(defn edit-transaction
   [transaction-item page-state]
   (+busy)
   (transactions/get-by-transaction-item
