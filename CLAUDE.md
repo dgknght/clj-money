@@ -35,3 +35,4 @@ We own two of the libraries used throughout this projects.
   - Review the documentation and ensure that it is up-to-date.
   - Run unit tests with code coverage to ensure all tests pass
     and coverage has not slipped below the configured minimum.
+- Use [Conventional Commit](https://www.conventionalcommits.org/) messages
