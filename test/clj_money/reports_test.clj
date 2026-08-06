@@ -180,3 +180,39 @@
                                      :as-of (t/local-date 2015 4 30)})]
       (is (seq (remove #(= :summary (:report/style %)) result))
           "A cash-only trading account nested under a parent appears in the portfolio report"))))
+
+(def ^:private tagged-income-account-context
+  (conj fixtures/budget-context
+        #:account{:name "Investment Expenses"
+                  :entity "Personal"
+                  :user-tags #{:investment}
+                  :type :expense}
+        #:account{:name "Investment Income"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "Long Term Gains"
+                  :entity "Personal"
+                  :user-tags #{:investment}
+                  :type :income
+                  :parent "Investment Income"}
+        #:account{:name "Short Term Gains"
+                  :entity "Personal"
+                  :user-tags #{:investment}
+                  :type :income
+                  :parent "Investment Income"}))
+
+(deftest create-a-budget-report-when-an-income-account-has-a-group-tag
+  (with-context tagged-income-account-context
+    (let [report (reports/budget (entities/find-by {:budget/name "2016"}
+                                                    {:include #{:budget/items}})
+                                 {:as-of (t/local-date 2016 2 29)
+                                  :tags [:tax :investment :mandatory :discretionary]})]
+      (is (comparable? #:report{:caption "Income"
+                                :style :header
+                                :budget 4000M
+                                :actual 4010M}
+                       (first (:items report)))
+          "Income is not split by tag, even when an income account carries a group tag")
+      (is (= "Salary"
+             (-> report :items first :report/items first :report/caption))
+          "Untagged income accounts still appear in the Income section"))))

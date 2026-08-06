@@ -428,7 +428,8 @@
 
 (defn- process-budget-group
   [[account-type accounts] {:keys [period-count tags budget] :as options}]
-  (if (any-account-has-any-tag? (set tags) accounts)
+  (if (and (= :expense account-type)
+           (any-account-has-any-tag? (set tags) accounts))
     (let [accounts-by-tag (group-by-tags tags accounts)]
       (->> (conj tags :untagged)
            (map (comp #(with-meta % {:account-type account-type})
