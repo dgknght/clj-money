@@ -169,6 +169,25 @@
                  :settings/budget-tags))
           "The order persists when the entity is re-fetched"))))
 
+(dbtest a-budget-tag-can-be-removed
+  (with-context entity-context
+    (let [entity (entities/put
+                   (assoc (attributes)
+                          :entity/settings
+                          {:settings/budget-tags [:discretionary :tax :mandatory]}))
+          updated (entities/put
+                    (assoc-in entity
+                              [:entity/settings :settings/budget-tags]
+                              [:tax]))]
+      (is (= [:tax]
+             (-> updated :entity/settings :settings/budget-tags))
+          "The result no longer includes the removed tag")
+      (is (= [:tax]
+             (-> (entities/find-by {:entity/name "Personal"})
+                 :entity/settings
+                 :settings/budget-tags))
+          "The removal persists when the entity is re-fetched"))))
+
 (def ^:private purge-context
   (conj basic-context
         #:commodity{:entity "Personal"
