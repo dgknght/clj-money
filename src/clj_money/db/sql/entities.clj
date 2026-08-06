@@ -25,6 +25,7 @@
                            (map #(update-in % [:id] (types/qid :account)))
                            set)))
       (update-in-if [:entity/settings :settings/inventory-method] keyword)
+      (update-in-if [:entity/settings :settings/budget-tags] #(mapv keyword %))
       (update-in-if [:entity/transaction-date-range 0] t/local-date)
       (update-in-if [:entity/transaction-date-range 1] t/local-date)
       (update-in-if [:entity/price-date-range 0] t/local-date)

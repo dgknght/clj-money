@@ -310,7 +310,8 @@
                             (when @accounts-by-id
                               (budgets/render @budget
                                               {:find-account @accounts-by-id
-                                               :tags [:tax :mandatory :discretionary]})))) ; TODO: make this user editable
+                                               :tags (or (get-in @current-entity [:entity/settings :settings/budget-tags])
+                                                         budgets/default-budget-tags)}))))
         selected-item (r/cursor page-state [:selected-item])
         detail-flag? (r/cursor page-state [:show-period-detail?])
         detail? (make-reaction #(and @detail-flag?

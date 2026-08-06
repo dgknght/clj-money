@@ -65,6 +65,7 @@
    :price/trade-date dates/->local-date
    :reconciliation/end-of-period dates/->local-date
    :settings/monitored-accounts set
+   :settings/budget-tags read-string
    :transaction/transaction-date dates/->local-date
    :scheduled-transaction/start-date dates/->local-date
    :scheduled-transaction/end-date dates/->local-date

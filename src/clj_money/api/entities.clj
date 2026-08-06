@@ -27,6 +27,9 @@
       (update-in-if [:entity/settings
                      :settings/monitored-accounts]
                     set)
+      (update-in-if [:entity/settings
+                     :settings/budget-tags]
+                    #(mapv util/ensure-keyword %))
       (update-in [:entity/user] (fnil identity authenticated))))
 
 (defn- create

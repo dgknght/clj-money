@@ -19,6 +19,11 @@
 
 (def periods #{:week :month :quarter})
 
+(def default-budget-tags
+  "The account tags used to group budget report sections when the entity has
+  not specified its own list via :settings/budget-tags"
+  [:tax :mandatory :discretionary])
+
 (s/def ::total d/decimal?)
 (s/def ::average d/decimal?)
 (s/def ::amount d/decimal?)

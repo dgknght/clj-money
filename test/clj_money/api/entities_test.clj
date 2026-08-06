@@ -154,6 +154,32 @@
                          retrieved)
             "The updated entity can be retrieved")))))
 
+(deftest budget-tags-can-be-edited-via-the-api
+  (with-context list-context
+    (testing "default format (edn)"
+      (let [[res retrieved] (edit-an-entity
+                              "john@doe.com"
+                              :changes {:entity/settings
+                                        {:settings/budget-tags [:discretionary :tax :mandatory]}})]
+        (is (http-success? res))
+        (is (comparable? {:entity/settings {:settings/budget-tags [:discretionary :tax :mandatory]}}
+                         retrieved)
+            "The tags are persisted in the order given")))
+    (testing "json format"
+      (let [[res retrieved] (edit-an-entity
+                              "john@doe.com"
+                              :content-type "application/json"
+                              :changes {:settings {:budgetTags ["discretionary" "tax" "mandatory"]
+                                                   :_type :settings}
+                                        :_type :entity})]
+        (is (http-success? res))
+        (is (= ["discretionary" "tax" "mandatory"]
+               (get-in res [:parsed-body :settings :budgetTags]))
+            "The response contains the tags in the order given")
+        (is (comparable? {:entity/settings {:settings/budget-tags [:discretionary :tax :mandatory]}}
+                         retrieved)
+            "The tags are persisted in the order given")))))
+
 (deftest a-user-cannot-edit-anothers-entity
   (with-context list-context
     (assert-blocked-edit (edit-an-entity "jane@doe.com"))))
