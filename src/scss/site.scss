@@ -142,20 +142,6 @@ $secondary: #6c6680;
   color: #fff;
 }
 
-/* This should be moved to a place where it can be packaged with budget-monitor.js */
-.paced-progress-bar {
-  display: inline-block;
-  box-sizing: border-box;
-  width: 100%;
-  height: 32px;
-}
-
-.paced-progress-bar-canvas {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-}
-
 a.small-add {
   font-weight: bold;
   text-decoration: none;
