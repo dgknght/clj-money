@@ -180,3 +180,51 @@
                                      :as-of (t/local-date 2015 4 30)})]
       (is (seq (remove #(= :summary (:report/style %)) result))
           "A cash-only trading account nested under a parent appears in the portfolio report"))))
+
+(def ^:private tagged-income-account-context
+  (conj fixtures/budget-context
+        #:account{:name "Investment Expenses"
+                  :entity "Personal"
+                  :user-tags #{:investment}
+                  :type :expense}
+        #:account{:name "Investment Income"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "Long Term Gains"
+                  :entity "Personal"
+                  :user-tags #{:investment}
+                  :type :income
+                  :parent "Investment Income"}
+        #:account{:name "Short Term Gains"
+                  :entity "Personal"
+                  :user-tags #{:investment}
+                  :type :income
+                  :parent "Investment Income"}
+        #:transaction{:transaction-date (t/local-date 2016 01 10)
+                      :entity "Personal"
+                      :description "Gain"
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 500M}
+                              #:transaction-item{:action :credit
+                                                 :account "Long Term Gains"
+                                                 :quantity 500M}]}))
+
+(deftest create-a-budget-report-when-an-income-account-has-a-group-tag
+  (with-context tagged-income-account-context
+    (let [report (reports/budget (entities/find-by {:budget/name "2016"}
+                                                    {:include #{:budget/items}})
+                                 {:as-of (t/local-date 2016 2 29)
+                                  :tags [:tax :investment :mandatory :discretionary]})
+          by-caption (->> (:items report)
+                          (map (juxt :report/caption identity))
+                          (into {}))]
+      (is (comparable? #:report{:budget 0M :actual 500M}
+                       (get by-caption "Investment"))
+          "Income accounts are grouped by tag alongside expense accounts")
+      (is (= "Investment Income/Long Term Gains"
+             (-> by-caption (get "Investment") :report/items first :report/caption))
+          "A tagged income account still appears even when its parent account is untagged")
+      (is (comparable? #:report{:budget 4000M :actual 4010M}
+                       (get by-caption "Untagged"))
+          "Untagged income accounts are grouped separately from tagged ones"))))

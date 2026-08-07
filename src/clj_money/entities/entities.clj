@@ -28,10 +28,12 @@
 (s/def :settings/st-capital-gains-account ::entities/entity-ref)
 (s/def :settings/lt-capital-loss-account ::entities/entity-ref)
 (s/def :settings/st-capital-loss-account ::entities/entity-ref)
+(s/def :settings/budget-tags (s/coll-of keyword? :kind vector?))
 (s/def :entity/settings (s/nilable
                           (s/keys :opt [:settings/inventory-method
                                         :settings/monitored-accounts
-                                        :settings/default-commodity])))
+                                        :settings/default-commodity
+                                        :settings/budget-tags])))
 
 (s/def ::entities/entity (s/and (s/keys :req [:entity/name
                                               :entity/user]

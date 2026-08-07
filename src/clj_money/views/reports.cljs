@@ -26,7 +26,7 @@
                                      busy?
                                      +busy
                                      -busy]]
-            [clj-money.budgets :refer [period-description]]
+            [clj-money.budgets :as budgets :refer [period-description]]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
 
@@ -321,7 +321,8 @@
   [page-state]
   (+busy)
   (swap! page-state update-in [:budget] dissoc :report)
-  (let [opts (get-in @page-state [:budget :options])]
+  (let [opts (-> (get-in @page-state [:budget :options])
+                 (assoc :tags (budgets/tags @current-entity)))]
     (if (:budget-id opts)
       (rpt/budget (dissoc opts :depth)
                   :callback -busy
@@ -775,8 +776,7 @@
            :balance-sheet {:options {:as-of (t/today)
                                      :hide-zeros? true
                                      :depth nil}}
-           :budget {:options {:depth 0
-                              :tags [:tax :mandatory :discretionary]}} ; TODO: make this user editable
+           :budget {:options {:depth 0}}
            :portfolio {:options {:filter {:aggregate :by-account
                                           :as-of (t/today)}
                                  :by-account {:visible-ids #{}}

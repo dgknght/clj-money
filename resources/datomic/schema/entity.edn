@@ -50,4 +50,8 @@
  {:db/ident :settings/default-commodity
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
-  :db/doc "The commodity recorded by accounts in the entity by default"}]
+  :db/doc "The commodity recorded by accounts in the entity by default"}
+ {:db/ident :settings/budget-tags
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The (serialized) ordered list of account tags used to group budget report sections"}]

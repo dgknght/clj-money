@@ -378,12 +378,13 @@
 
 (defn- roll-up
   [period-count records]
-  (let [records-map (reduce (fn [m r]
+  (let [ids (set (map :id records))
+        records-map (reduce (fn [m r]
                               (update-in m [(:id (:account/parent r))] (fnil conj []) r))
                             {}
                             records)]
     (->> records
-         (remove :account/parent)
+         (remove #(contains? ids (:id (:account/parent %))))
          (mapcat #(roll-up* % 0 records-map period-count)))))
 
 (defn- zero-budget-report-item?
@@ -415,7 +416,6 @@
         tag-set (set tags)]
     (assoc tagged
            :untagged (->> accounts
-                          (filter #(= :expense (:account/type %))) ; TODO: consider expanding this to include any account on the budget, as one day I want to include savings, loan payments, etc.
                           (remove #(seq (intersection (:account/user-tags %) tag-set)))))))
 
 (defn- any-account-has-any-tag?
