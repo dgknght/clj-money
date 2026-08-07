@@ -16,7 +16,6 @@
             [clj-money.icons :refer  [icon]]
             [clj-money.api.entities :as entities]
             [clj-money.api.commodities :as commodities]
-            [clj-money.api.accounts :as accounts]
             [clj-money.state :as state :refer [app-state
                                                +busy
                                                -busy]]))
@@ -130,13 +129,12 @@
   [page-state]
   (let [entity (r/cursor page-state [:selected])
         commodities (r/cursor page-state [:commodities])
-        accounts (r/cursor page-state [:accounts])
         comm-opts (make-reaction
                     (fn []
                       (->> @commodities
                            (filter #(= :currency (:commodity/type %)))
                            (mapv (juxt :id :commodity/name)))))
-        all-account-tags (make-reaction #(->> @accounts
+        all-account-tags (make-reaction #(->> @state/accounts
                                               (mapcat :account/user-tags)
                                               set))
         budget-tags (r/cursor entity [:entity/settings :settings/budget-tags])]
@@ -207,17 +205,6 @@
                                (sort-by :commodity/name c)))))
     (swap! page-state dissoc :commodities)))
 
-(defn- load-accounts
-  [page-state]
-  (if (:selected @page-state)
-    (do (+busy)
-        (accounts/select
-          {}
-          :callback -busy
-          :on-success (fn [as]
-                        (swap! page-state assoc :accounts as))))
-    (swap! page-state dissoc :accounts)))
-
 (defn- entity-row
   [entity page-state busy?]
   ^{:key (str "entity-row-" (:id entity))}
@@ -229,7 +216,6 @@
       {:on-click (fn []
                    (swap! page-state assoc :selected entity)
                    (load-commodities page-state)
-                   (load-accounts page-state)
                    (set-focus "name"))
        :disabled busy?
        :title "Click here to edit this entity."}
