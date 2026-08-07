@@ -26,8 +26,7 @@
                                      busy?
                                      +busy
                                      -busy]]
-            [clj-money.budgets :refer [period-description
-                                       default-budget-tags]]
+            [clj-money.budgets :as budgets :refer [period-description]]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
 
@@ -323,8 +322,7 @@
   (+busy)
   (swap! page-state update-in [:budget] dissoc :report)
   (let [opts (-> (get-in @page-state [:budget :options])
-                 (assoc :tags (or (get-in @current-entity [:entity/settings :settings/budget-tags])
-                                  default-budget-tags)))]
+                 (assoc :tags (budgets/tags @current-entity)))]
     (if (:budget-id opts)
       (rpt/budget (dissoc opts :depth)
                   :callback -busy

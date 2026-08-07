@@ -310,8 +310,7 @@
                             (when @accounts-by-id
                               (budgets/render @budget
                                               {:find-account @accounts-by-id
-                                               :tags (or (get-in @current-entity [:entity/settings :settings/budget-tags])
-                                                         budgets/default-budget-tags)}))))
+                                               :tags (budgets/tags @current-entity)}))))
         selected-item (r/cursor page-state [:selected-item])
         detail-flag? (r/cursor page-state [:show-period-detail?])
         detail? (make-reaction #(and @detail-flag?

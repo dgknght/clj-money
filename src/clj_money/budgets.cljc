@@ -24,6 +24,14 @@
   not specified its own list via :settings/budget-tags"
   [:tax :mandatory :discretionary])
 
+(defn tags
+  "Returns the account tags used to group budget report sections for the
+  given entity, falling back to default-budget-tags when the entity has not
+  specified its own list via :settings/budget-tags"
+  [entity]
+  (or (get-in entity [:entity/settings :settings/budget-tags])
+      default-budget-tags))
+
 (s/def ::total d/decimal?)
 (s/def ::average d/decimal?)
 (s/def ::amount d/decimal?)
