@@ -127,7 +127,12 @@
            ")")]]))
 
 (defn- remove-monitor
-  [{:report/keys [account]} state]
+  [{:report/keys [account] :as mon} state]
+
+  (pprint {::remove mon
+           ::current (get-in @current-entity [:entity/settings
+                                              :settings/monitored-accounts])})
+
   (swap! current-entity
          update-in
          [:entity/settings :settings/monitored-accounts]
@@ -145,48 +150,45 @@
                  :callback -busy))
 
 (defn- monitor
-  [{:report/keys [scope account message] :as monitor} state]
+  [{:report/keys [account message] :as monitor} scope]
 
-  ^{:key (str "budget-monitor-" (:id account))}
+  ^{:key (str "budget-monitor-" (:id account) "-" (name scope))}
   [:div.d-flex.align-items-start
-   [:div.budget-monitor.my-2
+   [:div.budget-monitor
     [:figure
      (if message
        [:div.alert.alert-warning message]
-       (monitor-svg (get-in monitor [(keyword "report" (name scope))]) {:style {:width "100%"
-                                                                                :height "2em"}}))
-     [:figcaption (string/join "/" (:account/path account))]]]
-   [:div
-    {:on-click #(remove-monitor monitor state)
-     :style {:margin-left "0.5em"
-             :margin-top "0.6em"
-             :cursor "pointer"}
-     :title "Click here to remove this budget monitor."}
-    (icon :x-circle :size :small)]])
+       (monitor-svg (get-in monitor [(keyword "report" (name scope))])
+                    {:style {:width "100%"
+                             :height "2em"}}))
+     [:figcaption (title-case (name scope))]]]])
 
-(defn- monitor-nav-tab
-  [scope current state]
-  {:id scope
-   :label (title-case (name scope))
-   :active? (= scope current)
-   :nav-fn #(swap! state assoc :monitor-scope scope)})
+(defn- monitor-pair
+  [state]
+  (fn [{:as mon :report/keys [account]}]
+    ^{:key (str "budget-monitor-" (:id account))}
+    [:div
+     [:h4
+      (string/join "/" (:account/path account))
+      [:button.btn.btn-dark
+       {:on-click #(remove-monitor mon state)
+        :title "Click here to remove this budget monitor."}
+       (icon :x-circle :size :small)]]
+     [:div.row
+      [:div.col-sm (monitor mon :period)]
+      [:div.col-sm (monitor mon :budget)]]]))
 
 (defn- monitors []
-  (let [state (r/atom {:monitor-scope :period})
-        scope (r/cursor state [:monitor-scope])
+  (let [state (r/atom {})
         monitors (r/cursor state [:monitors])
         new-monitor (r/cursor state [:new-monitor])
-        monitors-with-detail (make-reaction
-                               (fn []
-                                 (when (and @monitors @accounts-by-id)
-                                   (->> @monitors
-                                        (map (fn [m]
-                                               (-> m
-                                                   (update-in [:report/account] (comp @accounts-by-id
-                                                                                      :id))
-                                                   (assoc :report/scope @scope))))
-                                        (sort-by #(get-in % [:report/account :account/path]))
-                                        (into [])))))]
+        monitors-with-accounts (make-reaction
+                                 (fn []
+                                   (when (and @monitors @accounts-by-id)
+                                     (->> @monitors
+                                          (map #(update-in % [:report/account] (comp @accounts-by-id :id)))
+                                          (sort-by #(get-in % [:report/account :account/path]))
+                                          (into [])))))]
     (load-monitors state)
     (add-watch current-entity ::monitors (fn [_ _ prev current]
                                            (if current
@@ -195,16 +197,15 @@
                                              (swap! state dissoc :monitors))))
     (fn []
       [:div
-       [:h3 "Monitors"]
-       (when (seq @monitors)
-         [bs/nav-tabs (map #(monitor-nav-tab % @scope state) [:period :budget])])
-       (if @monitors-with-detail
-         (->> @monitors-with-detail
-              (map #(monitor % state))
+       [:h3.mt-3 "Budget Highlights"]
+       (if @monitors-with-accounts
+         (->> @monitors-with-accounts
+              (map (monitor-pair state))
               doall)
-         [:div.my-3
-          [:div.spinner-border {:role :status}
-           [:div.visually-hidden "loading..."]]])
+         [:div.my-3.placeholder-glow
+          [:h4 [:span.placeholder.col-7]]
+          [:span.placeholder.col-4.me-2]
+          [:span.placeholder.col-4]])
        (if @new-monitor
          [monitor-form state]
          [:div.btn-group
@@ -218,46 +219,8 @@
                           :class "btn-secondary"}
                    :icon :arrow-clockwise}]])])))
 
-(defn- type-total
-  [type accts]
-  (->> accts
-       (filter (type? type))
-       (map :account/value)
-       (reduce decimal/+ 0M)))
-
-(defn- balance-sheet-summary []
-  (let [totals (make-reaction #(when @accounts
-                                 {:asset (type-total :asset @accounts)
-                                  :liability (type-total :liability @accounts)
-                                  :equity (type-total :equity @accounts)}))]
-    (fn []
-      (if-let [{:keys [asset liability equity]} @totals]
-        [:table.table
-         [:tbody
-          [:tr
-           [:th "Assets"]
-           [:td.text-end (currency-format asset)]]
-          [:tr
-           [:th "Liabilities"]
-           [:td.text-end (currency-format liability)]]
-          [:tr
-           [:th "Equity"]
-           [:td.text-end (currency-format equity)]]
-          [:tr.border-top
-           [:th "Liabilities + Equity"]
-           [:td.text-end (currency-format (decimal/+ liability equity))]]]]
-        [:div.my-3
-         [:div.spinner-border {:role :status}
-          [:div.visually-hidden "loading..."]]]))))
-
 (defn- dashboard []
-  [:div.row.mt-3
-   [:div.col-md-9
-    (if @current-entity
-      [balance-sheet-summary]
-      [:a {:href "/entities"} "Create an entity"])]
-   [:div.col-md-3
-    [monitors]]])
+  [monitors])
 
 (defn- oauth-button
   [provider]
