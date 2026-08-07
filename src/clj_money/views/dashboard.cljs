@@ -10,9 +10,7 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
-            [dgknght.app-lib.decimal :as decimal]
             [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
             [clj-money.config :refer [env]]
@@ -26,8 +24,7 @@
                                      app-state
                                      +busy
                                      -busy]]
-            [clj-money.accounts :refer [find-by-path
-                                        type?]]
+            [clj-money.accounts :refer [find-by-path]]
             [clj-money.api.entities :as entities]
             [clj-money.api.reports :as reports]))
 
