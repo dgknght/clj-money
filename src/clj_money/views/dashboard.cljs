@@ -151,7 +151,7 @@
 
   ^{:key (str "budget-monitor-" (:id account) "-" (name scope))}
   [:div.d-flex.align-items-start
-   [:div.budget-monitor
+   [:div.budget-monitor.flex-fill
     [:figure
      (if message
        [:div.alert.alert-warning message]
