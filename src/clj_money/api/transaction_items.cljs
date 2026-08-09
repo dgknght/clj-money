@@ -57,6 +57,7 @@
            (add-error-handler opts "Unable to retrieve the transaction item summary: %s")))
 
 (defn delete
-  "Deletes the transaction containing the specified account item"
-  [& _]
-  (throw (js/Error. "Not implemented")))
+  "Deletes the transaction containing the specified transaction item"
+  [transaction-item & {:as opts}]
+  (api/delete (api/path :transactions (:transaction-item/transaction transaction-item))
+              (add-error-handler opts "Unable to delete the transaction: %s")))
