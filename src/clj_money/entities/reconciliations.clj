@@ -237,18 +237,25 @@
         existing-items (if (:id recon)
                          (fetch-transaction-items recon)
                          [])
-        ignore? (comp (->> existing-items
-                           (map :id)
-                           set)
-                      :id)
-        new-items (remove ignore? items)
+        existing? (comp (->> existing-items
+                             (map :id)
+                             set)
+                        :id)
+        new-items (remove existing? items)
+        submitted? (comp (->> items
+                              (map :id)
+                              set)
+                         :id)
+        kept-items (filter submitted? existing-items)
+        removed-items (remove submitted? existing-items)
         all-items (->> new-items
-                       (concat existing-items)
+                       (concat kept-items)
                        (map (comp polarize-item
                                   #(update-in %
                                               [:transaction-item/account]
                                               (comp accounts :id)))))]
     (-> recon
+        (assoc :reconciliation/removed-items removed-items)
         (update-in [:reconciliation/status] (fnil identity :new))
         (vary-meta
           #(assoc %

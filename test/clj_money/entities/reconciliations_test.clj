@@ -540,6 +540,36 @@
                      item)
           (assert-invalid {:reconciliation/balance ["Balance must match the calculated balance"]})))))
 
+(dbtest an-item-can-be-removed-from-a-working-reconciliation
+  (with-context working-recon-context
+    (let [checking (find-account "Checking")
+          item (find-transaction-item [(t/local-date 2017 1 2)
+                                   500M
+                                   checking])
+          result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
+                     entities/find ; get a fresh copy of the account items
+                     (assoc :reconciliation/items []
+                            :reconciliation/balance 1000M)
+                     entities/put)]
+      (is (comparable? #:reconciliation{:balance 1000M
+                                        :status :new}
+                       result)
+          "The result reflects the updated balance")
+      (is (comparable? {:transaction-item/reconciliation nil}
+                       (update-in (entities/find item)
+                                  [:transaction-item/reconciliation]
+                                  identity))
+          "The previously reconciled item is no longer linked to the reconciliation"))))
+
+(dbtest an-unadjusted-balance-fails-after-removing-an-item
+  (with-context working-recon-context
+    (let [checking (find-account "Checking")]
+      (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
+          entities/find ; get a fresh copy of the account items
+          (assoc :reconciliation/items []
+                 :reconciliation/status :completed)
+          (assert-invalid {:reconciliation/balance ["Balance must match the calculated balance"]})))))
+
 (dbtest a-completed-reconciliation-cannot-be-updated
   (with-context existing-reconciliation-context
     (-> (find-reconciliation ["Checking" (t/local-date 2017 1 1)])

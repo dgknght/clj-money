@@ -3,10 +3,12 @@
             [clj-money.db.datomic :as datomic]))
 
 (defmethod datomic/deconstruct :reconciliation
-  [{:as recon :reconciliation/keys [items]}]
+  [{:as recon :reconciliation/keys [items removed-items]}]
   (let [r (-> recon
               util/+id
-              (dissoc :reconciliation/items))]
-    (cons r
-          (map #(assoc % :transaction-item/reconciliation r)
-               items))))
+              (dissoc :reconciliation/items :reconciliation/removed-items))]
+    (concat [r]
+            (map #(assoc % :transaction-item/reconciliation r)
+                 items)
+            (map #(assoc % :transaction-item/reconciliation nil)
+                 removed-items))))
