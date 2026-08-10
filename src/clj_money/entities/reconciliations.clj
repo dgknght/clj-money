@@ -255,12 +255,12 @@
                                               [:transaction-item/account]
                                               (comp accounts :id)))))]
     (-> recon
-        (assoc :reconciliation/removed-items removed-items)
         (update-in [:reconciliation/status] (fnil identity :new))
         (vary-meta
           #(assoc %
                   ::accounts accounts
                   ::new-items new-items
+                  ::removed-items removed-items
                   ::all-items all-items
                   ::existing-items existing-items
                   ::last-completed (find-last-completed recon))))))

@@ -1,5 +1,6 @@
 (ns clj-money.db.sql.reconciliations
   (:require [clj-money.db :as db]
+            [clj-money.entities.reconciliations :as recs]
             [clj-money.db.sql :as sql]))
 
 (defmethod sql/post-select :reconciliation
@@ -12,9 +13,9 @@
        reconciliations))
 
 (defmethod sql/deconstruct :reconciliation
-  [{:as recon :keys [id] :reconciliation/keys [items removed-items]}]
+  [{:as recon :keys [id] :reconciliation/keys [items]}]
   (concat [(dissoc recon :reconciliation/items :reconciliation/removed-items)]
           (mapv #(assoc % :transaction-item/reconciliation {:id id})
                 items)
           (mapv #(assoc % :transaction-item/reconciliation nil)
-                removed-items)))
+                (::recs/removed-items (meta recon)))))
