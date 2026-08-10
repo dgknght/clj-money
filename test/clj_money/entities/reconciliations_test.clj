@@ -559,7 +559,9 @@
                        (update-in (entities/find item)
                                   [:transaction-item/reconciliation]
                                   identity))
-          "The previously reconciled item is no longer linked to the reconciliation"))))
+          "The previously reconciled item is no longer linked to the reconciliation")
+      (is (empty? (:reconciliation/items (entities/find result)))
+          "The retrieved reconciliation no longer includes the removed item"))))
 
 (dbtest an-unadjusted-balance-fails-after-removing-an-item
   (with-context working-recon-context
