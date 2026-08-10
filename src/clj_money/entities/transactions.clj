@@ -55,9 +55,18 @@
             {:message "A parent-only account cannot receive transaction items"
              :path [:transaction/items]})
 
+(defn- unbox-item
+  [item]
+  (if (vector? item) (second item) item))
+
 (defn- qty-comparable
   [item]
-  (select-keys item [:id :transaction-item/quantity]))
+  (-> (unbox-item item)
+      (select-keys [:id
+                    :transaction-item/quantity
+                    :transaction-item/action
+                    :transaction-item/account])
+      (update :transaction-item/account :id)))
 
 (declare reconciled-items-for-trx)
 
@@ -67,7 +76,7 @@
     (if (nil? items)
       true
       (let [after (->> items
-                       (map (juxt :id qty-comparable))
+                       (map (juxt (comp :id unbox-item) qty-comparable))
                        (into {}))]
         (->> (reconciled-items-for-trx trx)
              (map qty-comparable)
