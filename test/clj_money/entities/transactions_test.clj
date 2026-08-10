@@ -1096,6 +1096,36 @@
       (is (entities/find transaction)
           "The transaction can be retrieved after failed delete attempt"))))
 
+(dbtest the-memo-of-a-reconciled-item-can-be-changed
+  (with-context existing-reconciliation-context
+    (let [transaction (find-transaction [(t/local-date 2017 1 1) "Paycheck"])]
+      (-> transaction
+          (assoc-in [:transaction/items 0 :transaction-item/memo] "Updated memo")
+          entities/put)
+      (is (= "Updated memo"
+             (->> (entities/find transaction)
+                  :transaction/items
+                  (some :transaction-item/memo)))
+          "The memo change is persisted"))))
+
+(dbtest the-description-of-a-transaction-with-a-reconciled-item-can-be-changed
+  (with-context existing-reconciliation-context
+    (let [transaction (find-transaction [(t/local-date 2017 1 1) "Paycheck"])]
+      (-> transaction
+          (assoc :transaction/description "Paycheck (updated)")
+          entities/put)
+      (is (= "Paycheck (updated)"
+             (:transaction/description (entities/find transaction)))
+          "The description change is persisted"))))
+
+(dbtest the-account-of-a-reconciled-item-cannot-be-changed
+  (with-context existing-reconciliation-context
+    (let [rent (find-account "Rent")]
+      (-> (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
+          (assoc-in [:transaction/items 0 :transaction-item/account] rent)
+          (assert-invalid
+            {:transaction/items ["A reconciled quantity cannot be updated"]})))))
+
 (def ^:private migrate-context
   (conj base-context
         #:account{:name "Savings"
