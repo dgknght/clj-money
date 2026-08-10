@@ -34,7 +34,7 @@
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.7.1425" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.7.1437" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
@@ -64,7 +64,7 @@
                  [hiccup "2.0.0" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.49" :exclusions [org.clojure/tools.reader
                                                   org.clojure/tools.namespace]]
-                 [selmer "1.13.4" :exclusions [com.google.javascript/closure-compiler
+                 [selmer "1.13.5" :exclusions [com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
                  [reagent "2.0.1" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
@@ -164,11 +164,11 @@
                  [lambdaisland/uri "1.19.155"]
                  [com.taoensso/carmine "3.5.0" :exclusions [org.clojure/tools.reader commons-codec]]
                  [stowaway "0.2.15" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
-                 [io.opentelemetry/opentelemetry-api "1.64.0"]
+                 [io.opentelemetry/opentelemetry-api "1.65.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.838"]
-                 [com.cognitect.aws/endpoints "871.2.49.4"]
+                 [com.cognitect.aws/endpoints "871.2.50.3"]
                  [com.cognitect.aws/s3 "871.2.49.4"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
