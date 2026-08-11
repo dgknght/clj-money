@@ -532,6 +532,17 @@
                                                                 :description "kroger"}))
           "A case-insensitive, partial match on description is applied, most recent first"))))
 
+(dbtest search-transactions-by-description-does-not-miss-matches-past-the-item-scan-limit
+  (with-context search-fn-context
+    (let [entity (find-entity "Personal")]
+      (binding [transactions/*item-scan-limit* 1]
+        (is (seq-of-maps-like? [{:transaction/description "Kroger returned item"}
+                                {:transaction/description "Kroger"}]
+                               (transactions/search #:transaction{:entity (util/->entity-ref entity)
+                                                                  :description "kroger"}))
+            "A description-only search is not bounded by the item scan limit, since it
+            queries transactions directly instead of joining through items")))))
+
 (dbtest search-transactions-by-date
   (with-context search-fn-context
     (let [entity (find-entity "Personal")]
