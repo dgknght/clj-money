@@ -217,47 +217,64 @@
   [account page-state]
   (fn []
     (let [recalculating (r/cursor page-state [:recalculating])]
-      [:div.btn-group
-       [:button.btn.btn-secondary.btn-sm
-        {:on-click (select-account account page-state)
-         :title "Click here to view transactions for this account."}
-        (icon :collection :size :small)]
-       [:button.btn.btn-secondary.btn-sm
-        {:on-click (reconcile-account account page-state)
-         :disabled (system-tagged? account :tradable)
-         :title "Click here to reconcile this account."}
-        (icon :list-check :size :small)]
-       [:button.btn.btn-secondary.btn-sm
-        {:on-click (fn []
-                     (swap! page-state assoc :selected (latest account))
-                     (set-focus "parent-id"))
-         :title "Click here to edit this account."}
-        (icon :pencil :size :small)]
-       [:button.btn.btn-secondary
-        {:on-click (fn []
-                     (let [a (latest account)]
-                       (swap! page-state
-                              assoc
-                              :allocation
-                              {:account (prepare-for-allocation a)
-                               :cash (:account/value a)
-                               :withdrawal 0M})))
-         :disabled (not (system-tagged? account :trading))
-         :title "Click here to manage asset allocation for this account."}
-        (icon (if (system-tagged? account :trading)
-                :pie-chart-fill
-                :pie-chart)
-              :size :small)]
-       [:button.btn.btn-secondary.btn-sm
-        {:on-click #(recalculate (latest account) page-state)
-         :title "Click here to recalculate the balance and transaction indexes for this account."}
-        (if (@recalculating (:id account))
-          [:div.spinner-border.spinner-border-sm {:role :state}]
-          (icon :arrow-clockwise :size :small))]
-       [:button.btn.btn-danger.btn-sm
-        {:on-click #(delete account)
-         :title "Click here to remove this account."}
-        (icon :x-circle :size :small)]])))
+      [:div.d-flex
+       [:div.btn-group
+        [:button.btn.btn-info.btn-sm
+         {:on-click (select-account account page-state)
+          :title "Click here to view transactions for this account."}
+         (icon :collection :size :small)]
+        [:button.btn.btn-secondary.btn-sm
+         {:on-click (fn []
+                      (swap! page-state assoc :selected (latest account))
+                      (set-focus "parent-id"))
+          :title "Click here to edit this account."}
+         (icon :pencil :size :small)]]
+       [:div.dropdown.ms-2
+        [:button.btn.btn-dark
+         {:type :button
+          :data-bs-toggle :dropdown
+          :aria-expanded "false"}
+         (icon :three-dots-vertical :size :small)]
+        [:ul.dropdown-menu
+         (when (not (system-tagged? account :tradable))
+           [:li
+            [:a.dropdown-item
+             {:title "Click here to reconcile this account"
+              :href "#"
+              :on-click (reconcile-account account page-state)}
+             (icon :list-check :size :small)
+             [:span.ms-2 "Reconcile"]]])
+         (when (system-tagged? account :trading)
+           [:li
+            [:a.dropdown-item
+             {:title "Click here to manage asset allocation for this account."
+              :href "#"
+              :on-click (fn []
+                          (let [a (latest account)]
+                            (swap! page-state
+                                   assoc
+                                   :allocation
+                                   {:account (prepare-for-allocation a)
+                                    :cash (:account/value a)
+                                    :withdrawal 0M})))}
+             (icon :pie-chart :size :small)
+             [:span.ms-2 "Allocate"]]])
+         [:li
+          [:a.dropdown-item
+           {:title "Click here to recalculate the balance and transaction indexes for this account."
+            :href "#"
+            :on-click #(recalculate (latest account) page-state)}
+           (if (@recalculating (:id account))
+             [:div.spinner-border.spinner-border-sm {:role :state}]
+             (icon :arrow-clockwise :size :small))
+           [:span.ms-2 "Reindex"]]]
+         [:li
+          [:a.dropdown-item
+           {:title "Click here to remove this account."
+            :href "#"
+            :on-click #(delete account)}
+           (icon :x-circle :size :small)
+           [:span.ms-2 "Delete"]]]]]])))
 
 (defn- account-row
   [{:keys [id] :account/keys [parent-ids] :as account} expanded page-state]
