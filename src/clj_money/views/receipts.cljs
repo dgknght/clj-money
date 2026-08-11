@@ -180,6 +180,7 @@
          :find-fn (fn [account callback]
                     (callback (@accounts-by-id (:id account))))
          :caption-fn #(string/join "/" (:account/path %))}]
+       [forms/text-field receipt [:receipt/payment-memo] {:caption "Payment Memo"}]
        [:table.table.table-borderless
         [:thead
          [:tr
