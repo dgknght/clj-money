@@ -95,11 +95,10 @@
     (rpt/income-statement report-spec
                           :callback -busy
                           :on-success (fn [report]
-                                        (let [max-d (report-max-depth report)]
-                                          (swap! page-state
-                                                 #(-> %
-                                                      (assoc-in [:income-statement :report] report)
-                                                      (assoc-in [:income-statement :options :depth] (dec max-d)))))))))
+                                        (swap! page-state
+                                               #(-> %
+                                                    (assoc-in [:income-statement :report] report)
+                                                    (assoc-in [:income-statement :options :depth] 0)))))))
 
 (defn- income-statement-option-fields
   [page-state]
@@ -209,11 +208,10 @@
   (rpt/balance-sheet (get-in @page-state [:balance-sheet :options])
                      :callback -busy
                      :on-success (fn [report]
-                                   (let [max-d (report-max-depth report)]
-                                     (swap! page-state
-                                            #(-> %
-                                                 (assoc-in [:balance-sheet :report] report)
-                                                 (assoc-in [:balance-sheet :options :depth] (dec max-d))))))))
+                                   (swap! page-state
+                                          #(-> %
+                                               (assoc-in [:balance-sheet :report] report)
+                                               (assoc-in [:balance-sheet :options :depth] 0))))))
 
 (defn- balance-sheet-option-fields
   [page-state]
@@ -310,12 +308,11 @@
 (defn- receive-budget-report
   [page-state]
   (fn [report]
-    (let [max-d (budget-max-depth report)]
-      (swap! page-state
-             #(-> %
-                  (assoc-in [:budget :report] report)
-                  (assoc-in [:budget :options :depth] (dec max-d))
-                  (update-in [:budget] dissoc :apply-info))))))
+    (swap! page-state
+           #(-> %
+                (assoc-in [:budget :report] report)
+                (assoc-in [:budget :options :depth] 0)
+                (update-in [:budget] dissoc :apply-info)))))
 
 (defmethod load-report :budget
   [page-state]
@@ -772,10 +769,10 @@
                               {:start-date (start-of-year)
                                :end-date (t/today)
                                :hide-zeros? true
-                               :depth nil}}
+                               :depth 0}}
            :balance-sheet {:options {:as-of (t/today)
                                      :hide-zeros? true
-                                     :depth nil}}
+                                     :depth 0}}
            :budget {:options {:depth 0}}
            :portfolio {:options {:filter {:aggregate :by-account
                                           :as-of (t/today)}

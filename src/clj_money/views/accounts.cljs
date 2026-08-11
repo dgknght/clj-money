@@ -316,7 +316,10 @@
         grouped (make-reaction #(group-by :account/type @accounts))]
     (fn []
       [:tbody
-       (->> @grouped
+       (->> account-types
+            (keep (fn [account-type]
+                    (when-let [group (get @grouped account-type)]
+                      [account-type group])))
             (mapcat (fn [[account-type group]]
                       (cons (account-type-row account-type
                                               group

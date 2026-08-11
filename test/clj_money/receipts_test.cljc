@@ -10,7 +10,8 @@
                        :description "Kroger"
                        :items [#:transaction-item{:action :credit
                                                   :account {:id :checking}
-                                                  :quantity 100M}
+                                                  :quantity 100M
+                                                  :memo nil}
                                #:transaction-item{:action :debit
                                                   :account {:id :groceries}
                                                   :quantity 100M
@@ -27,7 +28,8 @@
           :transaction/description "Kroger"
           :transaction/items [#:transaction-item{:action :credit
                                                  :account {:id :checking}
-                                                 :quantity 100M}
+                                                 :quantity 100M
+                                                 :memo "cash back"}
                               #:transaction-item{:action :debit
                                                  :account {:id :groceries}
                                                  :quantity 100M
@@ -36,15 +38,17 @@
                                            :transaction-id "abc123"
                                            :description "Kroger"
                                            :payment-account {:id :checking}
+                                           :payment-memo "cash back"
                                            :items [#:receipt-item{:account {:id :groceries}
                                                                   :quantity 100M
                                                                   :memo "weekly stuff"}]}))
-      "A transaction id is preserved during the conversion")
+      "A transaction id and payment memo are preserved during the conversion")
   (is (= #:transaction{:transaction-date (dates/local-date "2020-01-01")
                        :description "Kroger"
                        :items [#:transaction-item{:action :debit
                                                   :account {:id :checking}
-                                                  :quantity 10M}
+                                                  :quantity 10M
+                                                  :memo nil}
                                #:transaction-item{:action :credit
                                                   :account {:id :groceries}
                                                   :quantity 10M
@@ -60,7 +64,8 @@
                        :description "Kroger"
                        :items [#:transaction-item{:action :credit
                                                   :account {:id :checking}
-                                                  :quantity 100M}
+                                                  :quantity 100M
+                                                  :memo nil}
                                #:transaction-item{:action :debit
                                                   :account {:id :groceries}
                                                   :quantity 100M
@@ -100,6 +105,7 @@
                    :transaction-id "abc123"
                    :description "Kroger"
                    :payment-account {:id :checking}
+                   :payment-memo "cash back"
                    :items [#:receipt-item{:account {:id :groceries}
                                           :quantity 100M
                                           :memo "weekly stuff"}]}
@@ -109,7 +115,8 @@
             :transaction/description "Kroger"
             :transaction/items [#:transaction-item{:action :credit
                                                    :account {:id :checking}
-                                                   :quantity 100M}
+                                                   :quantity 100M
+                                                   :memo "cash back"}
                                 #:transaction-item{:action :debit
                                                    :account {:id :groceries}
                                                    :quantity 100M

@@ -32,13 +32,15 @@
 (s/def :receipt/transaction-date dates/local-date?)
 (s/def :receipt/description string?)
 (s/def :receipt/payment-account ::entity-ref)
+(s/def :receipt/payment-memo (s/nilable string?))
 (s/def :receipt/items (s/coll-of ::receipt-item))
 (s/def :receipt/transaction-id ::id)
 (s/def ::receipt (s/and (s/keys :req [:receipt/transaction-date
                                       :receipt/description
                                       :receipt/payment-account
                                       :receipt/items]
-                                :opt [:receipt/transaction-id])
+                                :opt [:receipt/transaction-id
+                                      :receipt/payment-memo])
                         item-polarity-aligns?))
 
 (defn- ->transaction-item
@@ -59,6 +61,7 @@
                    transaction-id
                    description
                    payment-account
+                   payment-memo
                    items]
     :as receipt}]
   {:pre [(s/valid? ::receipt receipt)]}
@@ -70,6 +73,7 @@
                           :transaction-date transaction-date
                           :items (cons #:transaction-item{:account payment-account
                                                           :action payment-action
+                                                          :memo payment-memo
                                                           :quantity (d/abs total)}
                                        (->> items
                                             (remove empty-item?)
@@ -93,4 +97,5 @@
               :transaction-id (:id trx)
               :description description
               :payment-account (:transaction-item/account payment)
+              :payment-memo (:transaction-item/memo payment)
               :items (mapv <-transaction-item expenses)}))
