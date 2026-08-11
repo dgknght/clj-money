@@ -35,7 +35,6 @@
       (update-in-if [:created-at] unserialize-date)
       (update-in-if [:quantity] bigdec)
       (update-in-if [:account-id] #(hash-map :id (unserialize-id %)))
-      (update-in-if [:description] #(vector :contains %))
       (rename-keys {:transaction-date :transaction/transaction-date
                     :transaction-item-id :transaction-item/_self
                     :created-at :transaction/created-at

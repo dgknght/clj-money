@@ -529,7 +529,7 @@
       (is (seq-of-maps-like? [{:transaction/description "Kroger returned item"}
                               {:transaction/description "Kroger"}]
                              (transactions/search #:transaction{:entity (util/->entity-ref entity)
-                                                                :description [:contains "kroger"]}))
+                                                                :description "kroger"}))
           "A case-insensitive, partial match on description is applied, most recent first"))))
 
 (dbtest search-transactions-by-date
