@@ -198,6 +198,13 @@
       (load-tradable-account page-state)
       (load-regular-account page-state))))
 
+(defn- start-reconciliation
+  [page-state]
+  (recs/load-working-reconciliation page-state)
+  (recs/load-previous-balance page-state)
+  (trns/load-unreconciled-items page-state)
+  (set-focus "end-of-period"))
+
 (defn- reconcile-account
   [account page-state]
   (fn []
@@ -208,10 +215,7 @@
                       [:account/commodity]
                       (comp (:commodities @page-state)
                             :id)))
-    (recs/load-working-reconciliation page-state)
-    (recs/load-previous-balance page-state)
-    (trns/load-unreconciled-items page-state)
-    (set-focus "end-of-period")))
+    (start-reconciliation page-state)))
 
 (defn- account-row-buttons
   [account page-state]
@@ -774,10 +778,7 @@
      [button {:html {:class "btn-primary btn-secondary ms-2 d-none d-md-block"
                      :on-click (fn []
                                  (trns/stop-item-loading page-state)
-                                 (recs/load-working-reconciliation page-state)
-                                 (recs/load-previous-balance page-state)
-                                 (trns/load-unreconciled-items page-state)
-                                 (set-focus "end-of-period"))
+                                 (start-reconciliation page-state))
                      :disabled @busy?}
               :caption "Reconcile"
               :icon :list-check}]
