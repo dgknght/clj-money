@@ -25,6 +25,7 @@
             [clj-money.views.commodities]
             [clj-money.views.accounts]
             [clj-money.views.transactions]
+            [clj-money.views.transaction-search]
             [clj-money.views.users]
             [clj-money.views.invitations]
             [clj-money.views.budgets]
@@ -62,6 +63,8 @@
     :tool-tip "Click here to enter receipts"}
    {:id :reports
     :tool-tip "Click here to view reports"}
+   {:id :search
+    :tool-tip "Click here to search transactions"}
    {:id :scheduled
     :tool-tip "Click here to manage schedule transactions"}
    {:id :users

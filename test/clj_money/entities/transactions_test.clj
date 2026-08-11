@@ -502,6 +502,71 @@
                (:transaction/transaction-date (entities/find result)))
             "The updated transaction can be retrieved")))))
 
+(def search-fn-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2020 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2020 1 2)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 200M}
+        #:transaction{:transaction-date (t/local-date 2020 1 3)
+                      :entity "Personal"
+                      :description "Kroger returned item"
+                      :debit-account "Checking"
+                      :credit-account "Groceries"
+                      :quantity 50M}))
+
+(dbtest search-transactions-by-description
+  (with-context search-fn-context
+    (let [entity (find-entity "Personal")]
+      (is (seq-of-maps-like? [{:transaction/description "Kroger returned item"}
+                              {:transaction/description "Kroger"}]
+                             (transactions/search #:transaction{:entity (util/->entity-ref entity)
+                                                                :description [:contains "kroger"]}))
+          "A case-insensitive, partial match on description is applied, most recent first"))))
+
+(dbtest search-transactions-by-date
+  (with-context search-fn-context
+    (let [entity (find-entity "Personal")]
+      (is (seq-of-maps-like? [{:transaction/description "Paycheck"}]
+                             (transactions/search #:transaction{:entity (util/->entity-ref entity)
+                                                                :transaction-date [:= (t/local-date 2020 1 1)]}))
+          "Only the transaction on the specified date is returned"))))
+
+(dbtest search-transactions-by-amount
+  (with-context search-fn-context
+    (let [entity (find-entity "Personal")]
+      (is (seq-of-maps-like? [{:transaction/description "Kroger returned item"}]
+                             (transactions/search {:transaction/entity (util/->entity-ref entity)
+                                                   :transaction-item/quantity [:= 50M]}))
+          "Only the transaction with an item matching the specified quantity is returned"))))
+
+(dbtest search-transactions-by-account
+  (with-context search-fn-context
+    (let [entity (find-entity "Personal")
+          salary (find-account "Salary")]
+      (is (seq-of-maps-like? [{:transaction/description "Paycheck"}]
+                             (transactions/search {:transaction/entity (util/->entity-ref entity)
+                                                   :transaction-item/account (util/->entity-ref salary)}))
+          "Only the transaction with an item referencing the specified account is returned"))))
+
+(dbtest search-transactions-by-a-combination-of-filters
+  (with-context search-fn-context
+    (let [entity (find-entity "Personal")
+          checking (find-account "Checking")]
+      (is (seq-of-maps-like? [{:transaction/description "Kroger"}]
+                             (transactions/search {:transaction/entity (util/->entity-ref entity)
+                                                   :transaction-item/account (util/->entity-ref checking)
+                                                   :transaction-item/quantity [:= 200M]}))
+          "Only transactions matching all of the specified filters are returned"))))
+
 (def short-circuit-context
   (conj base-context
         #:transaction{:transaction-date (t/local-date 2016 3 2)

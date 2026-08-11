@@ -3,6 +3,7 @@
             [clojure.zip :as zip]
             [cljs.core.async :as a :refer [<! >! go go-loop]]
             [cljs-time.core :as t]
+            [accountant.core :as accountant]
             [reagent.core :as r]
             [reagent.format :refer [currency-format]]
             [reagent.ratom :refer [make-reaction]]
@@ -22,6 +23,7 @@
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [accounts
                                      accounts-by-id
+                                     app-state
                                      +busy
                                      -busy]]
             [clj-money.util :as util :refer [id=]]
@@ -77,6 +79,21 @@
     :on-success (fn [trx]
                   (swap! page-state assoc :transaction trx)
                   (set-focus "transaction-date"))))
+
+(defn navigate-to-transaction
+  "Navigates to the Accounts view and opens the given transaction for
+  editing. When preferred-account-id is given and one of the transaction's
+  items references it, that item is used; otherwise the first item is used."
+  ([trx] (navigate-to-transaction trx nil))
+  ([trx preferred-account-id]
+   (let [item (or (->> (:transaction/items trx)
+                       (filter #(= preferred-account-id (get-in % [:transaction-item/account :id])))
+                       first)
+                  (first (:transaction/items trx)))
+         account (get-in @accounts-by-id [(get-in item [:transaction-item/account :id])])]
+     (swap! app-state assoc :pending-transaction-item {:item item
+                                                        :account account})
+     (accountant/navigate! "/accounts"))))
 
 (defn- polarize-quantities
   [account]

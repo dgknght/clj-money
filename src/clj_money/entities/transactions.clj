@@ -232,6 +232,23 @@
                            [:transaction-item/index :desc]]
                     :select-also [:transaction/transaction-date]}))
 
+(defn search
+  "Returns transactions matching the given criteria, which may combine
+  :transaction/* attributes (entity, transaction-date, description, etc.)
+  with :transaction-item/* attributes (quantity, account) that must match
+  on the same item. Callers are responsible for shaping criteria values
+  (e.g. wrapping a partial description match in [:contains ...])."
+  [criteria]
+  (let [trx-ids (->> (entities/select (util/entity-type criteria :transaction-item)
+                                      {:limit 500
+                                       :select-also [:transaction-item/transaction]})
+                     (map (comp :id :transaction-item/transaction))
+                     set)]
+    (when (seq trx-ids)
+      (entities/select (util/entity-type {:id [:in trx-ids]} :transaction)
+                       {:sort [[:transaction/transaction-date :desc]]
+                        :limit 100}))))
+
 (defn- last-transaction-item-before
   [account date]
   (entities/find-by
