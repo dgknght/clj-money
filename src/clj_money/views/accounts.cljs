@@ -198,6 +198,21 @@
       (load-tradable-account page-state)
       (load-regular-account page-state))))
 
+(defn- reconcile-account
+  [account page-state]
+  (fn []
+    (swap! page-state
+           assoc
+           :view-account
+           (update-in account
+                      [:account/commodity]
+                      (comp (:commodities @page-state)
+                            :id)))
+    (recs/load-working-reconciliation page-state)
+    (recs/load-previous-balance page-state)
+    (trns/load-unreconciled-items page-state)
+    (set-focus "end-of-period")))
+
 (defn- account-row-buttons
   [account page-state]
   (fn []
@@ -207,6 +222,11 @@
         {:on-click (select-account account page-state)
          :title "Click here to view transactions for this account."}
         (icon :collection :size :small)]
+       [:button.btn.btn-secondary.btn-sm
+        {:on-click (reconcile-account account page-state)
+         :disabled (system-tagged? account :tradable)
+         :title "Click here to reconcile this account."}
+        (icon :list-check :size :small)]
        [:button.btn.btn-secondary.btn-sm
         {:on-click (fn []
                      (swap! page-state assoc :selected (latest account))
