@@ -404,7 +404,8 @@
                        description]
     :transaction-item/keys [polarized-quantity
                             balance
-                            value]}
+                            value]
+    :reconciliation/keys [status]}
    page-state]
   (let [id (:id item)
         audit-history (get-in @page-state [:trx-item-audit-histories id])
@@ -421,14 +422,21 @@
         #(toggle-trx-item-audit! page-state item)]
        [:div.ms-auto (format-decimal polarized-quantity 4)]]]
      [:td.text-end (format-decimal balance 4)]
-     [:td.text-end (currency-format (or value polarized-quantity))]]))
+     [:td.text-end (currency-format (or value polarized-quantity))]
+     [:td.text-center.d-none.d-md-table-cell
+      (icon
+        (case status
+          :completed :check-square
+          :new       :dash-sqaure
+          :square)
+        :size :small)]]))
 
 (defn- lot-note-row
   [{:lot-note/keys [transaction-date memo] :as note}]
   ^{:key (str "note-" (:id note))}
   [:tr
    [:td.text-end (format-date transaction-date)]
-   [:td.text-muted.fst-italic {:col-span 4} memo]])
+   [:td.text-muted.fst-italic {:col-span 5} memo]])
 
 (defn fund-transactions-table
   [page-state]
@@ -449,7 +457,17 @@
     (trx-items/select (accounts/->criteria @account)
                       :post-xf (map (polarize-quantities @account))
                       :on-success (fn [items]
-                                    (swap! page-state assoc :items items)
+                                    (swap! page-state assoc :items
+                                           (map (fn [{:transaction-item/keys [reconciliation]
+                                                      :keys [id]
+                                                      :as item}]
+                                                  (assoc item
+                                                         :reconciliation/status
+                                                         (cond
+                                                           (nil? id) :new
+                                                           reconciliation :completed
+                                                           :else :unreconciled)))
+                                                items))
                                     (doseq [item items]
                                       (load-trx-item-audit! page-state item))))
     (fn []
@@ -460,12 +478,13 @@
          [:th "Description"]
          [:th.text-end "Qty."]
          [:th.text-end "Bal."]
-         [:th.text-end "Value"]]]
+         [:th.text-end "Value"]
+         [:th.text-center.d-none.d-md-table-cell "Rec."]]]
        [:tbody
         (cond
           (nil? @items)
           [:tr
-           [:td.text-center.fw-lighter {:col-span 5}
+           [:td.text-center.fw-lighter {:col-span 6}
             [:div.d-flex.justify-content-center.m2
              [:div.spinner-border {:role :status}
               [:span.visually-hidden "Loading"]]]]]
@@ -479,7 +498,7 @@
 
           :else
           [:tr [:td.text-center.fw-lighter
-                {:col-span 5}
+                {:col-span 6}
                 "No transaction for this commodity."]])]])))
 
 (defn- ensure-entry-state

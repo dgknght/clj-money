@@ -240,14 +240,13 @@
           :aria-expanded "false"}
          (icon :three-dots-vertical :size :small)]
         [:ul.dropdown-menu
-         (when (not (system-tagged? account :tradable))
-           [:li
-            [:a.dropdown-item
-             {:title "Click here to reconcile this account"
-              :href "#"
-              :on-click (reconcile-account account page-state)}
-             (icon :list-check :size :small)
-             [:span.ms-2 "Reconcile"]]])
+         [:li
+          [:a.dropdown-item
+           {:title "Click here to reconcile this account"
+            :href "#"
+            :on-click (reconcile-account account page-state)}
+           (icon :list-check :size :small)
+           [:span.ms-2 "Reconcile"]]]
          (when (system-tagged? account :trading)
            [:li
             [:a.dropdown-item
@@ -907,14 +906,15 @@
         transaction (r/cursor page-state [:transaction])
         trade (r/cursor page-state [:trade])
         attachments-item (r/cursor page-state [:attachments-item])
+        reconciliation (r/cursor page-state [:reconciliation])
         show? (make-reaction #(and @account
                                    (not @attachments-item)
-                                   (not (system-tagged? @account :tradable))
+                                   (or @reconciliation
+                                       (not (system-tagged? @account :tradable)))
                                    (not @transaction)
                                    (not @trade)))
         ctl-chan (r/cursor page-state [:ctl-chan])
         all-items-fetched? (r/cursor page-state [:all-items-fetched?])
-        reconciliation (r/cursor page-state [:reconciliation])
         hide (make-reaction #(or @trade
                                  (not @reconciliation)))]
     (fn []
@@ -1062,8 +1062,10 @@
   [page-state]
   (let [account (r/cursor page-state [:view-account])
         trade (r/cursor page-state [:trade])
+        reconciliation (r/cursor page-state [:reconciliation])
         show? (make-reaction #(and (system-tagged? @account :tradable)
-                                   (not @trade)))
+                                   (not @trade)
+                                   (not @reconciliation)))
         current-nav (r/atom :lots)]
     (fn []
       (when @show?
@@ -1087,6 +1089,12 @@
             {:title "Click here to buy or sell this commodity."
              :on-click #(new-trade page-state)}
             (icon-with-text :plus "Buy/Sell")]
+           [:button.btn.btn-secondary.ms-2
+            {:title "Click here to reconcile this account."
+             :on-click (fn []
+                         (trns/stop-item-loading page-state)
+                         (start-reconciliation page-state))}
+            (icon-with-text :list-check "Reconcile")]
            [:button.btn.btn-secondary.ms-2
             {:title "Click here to return the the account list."
              :on-click (unselect-account page-state)}
