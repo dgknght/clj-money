@@ -240,14 +240,13 @@
           :aria-expanded "false"}
          (icon :three-dots-vertical :size :small)]
         [:ul.dropdown-menu
-         (when (not (system-tagged? account :tradable))
-           [:li
-            [:a.dropdown-item
-             {:title "Click here to reconcile this account"
-              :href "#"
-              :on-click (reconcile-account account page-state)}
-             (icon :list-check :size :small)
-             [:span.ms-2 "Reconcile"]]])
+         [:li
+          [:a.dropdown-item
+           {:title "Click here to reconcile this account"
+            :href "#"
+            :on-click (reconcile-account account page-state)}
+           (icon :list-check :size :small)
+           [:span.ms-2 "Reconcile"]]]
          (when (system-tagged? account :trading)
            [:li
             [:a.dropdown-item
