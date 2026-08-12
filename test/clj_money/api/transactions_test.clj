@@ -392,3 +392,89 @@
 
 (deftest a-user-cannot-delete-a-transaction-in-anothers-entity
   (assert-blocked-delete (delete-a-transaction "jane@doe.com")))
+
+(def ^:private purchase-context
+  (conj context
+        #:commodity{:name "Apple, Inc."
+                    :entity "Personal"
+                    :symbol "AAPL"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:account{:name "IRA"
+                  :entity "Personal"
+                  :type :asset}
+        #:transaction{:transaction-date (t/local-date 2016 1 1)
+                      :entity "Personal"
+                      :description "Opening balance"
+                      :debit-account "IRA"
+                      :credit-account "Salary"
+                      :quantity 2000M}
+        #:trade{:type :purchase
+                :entity "Personal"
+                :account "IRA"
+                :commodity "AAPL"
+                :date (t/local-date 2016 1 2)
+                :shares 100M
+                :value 1000M}))
+
+(def ^:private sale-context
+  (conj purchase-context
+        #:trade{:type :sale
+                :entity "Personal"
+                :account "IRA"
+                :commodity "AAPL"
+                :inventory-method :fifo
+                :date (t/local-date 2016 3 2)
+                :shares 25M
+                :value 375M}))
+
+(defn- delete-a-trade-transaction
+  [ctx date-and-desc]
+  (with-context ctx
+    (let [transaction (find-transaction date-and-desc)
+          ira (find-account "IRA")
+          response (-> (request :delete (path :api
+                                             :transactions
+                                             (:id transaction))
+                                :user (find-user "john@doe.com"))
+                       app)]
+      {:response response
+       :transaction (entities/find transaction)
+       :ira (entities/find ira)
+       :lot (entities/find-by {:lot/account ira})})))
+
+(deftest a-user-can-delete-a-purchase-transaction-and-undo-the-trade
+  (let [{:keys [response transaction ira lot]}
+        (delete-a-trade-transaction purchase-context
+                                    [(t/local-date 2016 1 2)
+                                     #"^Purchase 100\.000 shares of AAPL"])]
+    (is (http-success? response))
+    (is (nil? transaction)
+        "The transaction cannot be retrieved after delete")
+    (is (comparable? {:account/quantity 2000M} ira)
+        "The account balance is restored to before the purchase")
+    (is (nil? lot)
+        "The lot is removed")))
+
+(deftest a-user-can-delete-a-sale-transaction-and-undo-the-trade
+  (let [{:keys [response transaction ira lot]}
+        (delete-a-trade-transaction sale-context
+                                    [(t/local-date 2016 3 2)
+                                     #"^Sell 25\.000 shares of AAPL"])]
+    (is (http-success? response))
+    (is (nil? transaction)
+        "The transaction cannot be retrieved after delete")
+    (is (comparable? {:account/quantity 1000M} ira)
+        "The account balance is restored to before the sale")
+    (is (comparable? {:lot/shares-owned 100M} lot)
+        "The shares are restored to the lot")))
+
+(deftest a-user-cannot-delete-a-purchase-transaction-after-shares-are-sold
+  (let [{:keys [response transaction]}
+        (delete-a-trade-transaction sale-context
+                                    [(t/local-date 2016 1 2)
+                                     #"^Purchase 100\.000 shares of AAPL"])]
+    (is (not (<= 200 (:status response) 299))
+        "The delete is blocked because shares have already been sold from the lot")
+    (is transaction
+        "The transaction can still be retrieved after a blocked delete")))
