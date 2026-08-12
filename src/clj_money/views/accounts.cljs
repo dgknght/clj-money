@@ -1270,6 +1270,8 @@
         reconciliation (r/cursor page-state [:reconciliation])
         selected (r/cursor page-state [:selected])
         transaction (r/cursor page-state [:transaction])
+        trade (r/cursor page-state [:trade])
+        dividend? (make-reaction #(:trade/dividend? @trade))
         allocation-account (r/cursor page-state [:allocation :account])
         bulk-select (r/cursor page-state [:bulk-edit :account-ids])
         hide-table? (make-reaction #(or @selected
@@ -1343,7 +1345,12 @@
            [recs/reconciliation-form page-state]])]
        [tradable-account-items page-state]
        [transaction-form page-state]
-       [trade-form page-state]
+       [:div.row
+        [:div {:class (if @dividend? "col-md-6" "col")}
+         [trade-form page-state]]
+        (when @dividend?
+          [:div.col-md-6
+           [trns/recent-transactions-table page-state]])]
        [atts/attachments-card page-state]
        [atts/attachment-form page-state]
        [trns/pending-attachment-form page-state]
