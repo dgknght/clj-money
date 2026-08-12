@@ -684,14 +684,18 @@
   (set-focus "transaction-date"))
 
 (defn- new-dividend
-  [page-state]
-  (swap! page-state assoc
-         :trade #:trade{:entity @current-entity
-                        :dividend? true
-                        :action :buy
-                        :date (t/today)
-                        :account (:view-account @page-state)})
-  (set-focus "transaction-date"))
+  ([page-state]
+   (swap! page-state dissoc :dividend-repeat?)
+   (new-dividend page-state {}))
+  ([page-state {:keys [date dividend-account]}]
+   (swap! page-state assoc
+          :trade (cond-> #:trade{:entity @current-entity
+                                 :dividend? true
+                                 :action :buy
+                                 :date (or date (t/today))
+                                 :account (:view-account @page-state)}
+                   dividend-account (assoc :trade/dividend-account dividend-account)))
+   (set-focus "transaction-date")))
 
 (defn- create-trx-button
   [page-state]
@@ -800,12 +804,16 @@
   [page-state]
   (fn [result]
     (let [updated-account (push-transaction-date! (:view-account @page-state)
-                                                   (extract-trx-date result))]
+                                                   (extract-trx-date result))
+          {:trade/keys [dividend? date dividend-account]} (:trade @page-state)
+          repeat-dividend? (and dividend? (:dividend-repeat? @page-state))]
       (swap! page-state
              (fn [state]
                (-> state
                    (dissoc :transaction :trade)
-                   (assoc :view-account updated-account)))))
+                   (assoc :view-account updated-account))))
+      (when repeat-dividend?
+        (new-dividend page-state {:date date :dividend-account dividend-account})))
     (trns/reset-item-loading page-state)))
 
 (defn- expand-trx []

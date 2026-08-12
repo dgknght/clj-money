@@ -716,14 +716,19 @@
                     (callback (@commodities id)))
          :validations #{::v/required}}]
        (when @dividend?
-         [forms/typeahead-field
-          trade
-          [:trade/dividend-account]
-          {:search-fn (fn [input callback]
-                        (->> @accounts
-                             (find-by-path input)
-                             callback))
-           :caption-fn (comp (partial string/join "/") :account/path)
-           :find-fn (fn [{:keys [id]} callback]
-                      (callback (@accounts-by-id id)))
-           :validations #{::v/required}}])])))
+         [:<>
+          [forms/typeahead-field
+           trade
+           [:trade/dividend-account]
+           {:search-fn (fn [input callback]
+                         (->> @accounts
+                              (find-by-path input)
+                              callback))
+            :caption-fn (comp (partial string/join "/") :account/path)
+            :find-fn (fn [{:keys [id]} callback]
+                       (callback (@accounts-by-id id)))
+            :validations #{::v/required}}]
+          [forms/checkbox-field
+           page-state
+           [:dividend-repeat?]
+           {:caption "Save and add another"}]])])))
