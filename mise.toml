@@ -6,6 +6,7 @@ java = "temurin-25.0.4+7.0.LTS"
 node = "24"
 lein = "2.11.2"
 clj-kondo = "2026.01.19"
+caddy = "2.11.4"
 
 [tasks.lint]
 description = "Lint Clojure source"
@@ -55,6 +56,14 @@ sass src/scss/site.scss resources/public/css/site.css
 [tasks.download-otel]
 description = "Download OpenTelemetry Java agent"
 run = "./scripts/download-otel"
+
+[tasks.caddy]
+description = "Run the Caddy reverse proxy (serves https://money.localhost)"
+run = "caddy run"
+
+[tasks.caddy-setcap]
+description = "Grant caddy permission to bind to port 443 without root (requires sudo once; re-run after the pinned caddy version changes)"
+run = "sudo setcap cap_net_bind_service=+ep $(mise which caddy)"
 
 [tasks.sql-setup]
 description = "Create SQL databases and run migrations (SQL strategy)"
