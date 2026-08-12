@@ -98,6 +98,37 @@ Stop the client:
 :cljs/quit
 ```
 
+### Local HTTPS with Caddy (optional)
+
+A `Caddyfile` in the project root fronts the app with
+[Caddy](https://caddyserver.com/) as a local reverse proxy, so it's available
+at `https://money.localhost` with an automatically trusted certificate
+instead of the raw `http://lvh.me:3000` address. This is optional — it's a
+convenience for testing things that behave differently over HTTPS, not
+required for day-to-day development. `caddy` is pinned in `mise.toml`, so
+`mise install` picks it up along with the other project tools — no separate
+install step needed.
+
+Caddy binds to port 443, which on Linux requires elevated privileges. Rather
+than running Caddy itself as root, grant just that capability to the binary
+once:
+
+```bash
+mise run caddy-setcap
+```
+
+(This needs to be re-run any time the pinned `caddy` version in
+`mise.toml` changes, since the capability is tied to that specific binary.)
+
+With the app server running (`(start-server)`, above), start Caddy from the
+project root:
+
+```bash
+mise run caddy
+```
+
+Then browse to [https://money.localhost](https://money.localhost).
+
 ## Dependency Updates
 
 Dependencies are kept current via [Renovate](https://github.com/apps/renovate). It is configured in `renovate.json` to open weekly PRs (Monday mornings, America/Chicago) covering:
