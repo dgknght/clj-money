@@ -388,13 +388,18 @@
   [entities {:keys [api] :as opts}]
   {:pre [(and (sequential? entities)
               (not-any? nil? entities))]}
+  ; Discard the raw transact result (:db-before, :db-after, :tx-data, etc.)
+  ; instead of returning it: it carries live Datomic index/database objects
+  ; that aren't safe to walk (e.g. via wrap-decimals) or serialize, and the
+  ; SQL backend's delete likewise returns nothing meaningful here.
   (transact api
             (->> entities
                  ; TODO: move this into the put* so that the propagations are
                  ; returned instead of executed
                  (mapcat #(propagate-delete % opts))
                  (mapv #(vector :db/retractEntity (:id %))))
-            {}))
+            {})
+  [])
 
 (def ^:private dependency-attrs
   {:entity [:commodity/entity
