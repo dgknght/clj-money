@@ -282,10 +282,15 @@
                                                              account)])
      [:td.d-flex.justify-content-end
       (if @reconciliation
-        [:button.btn.btn-danger.btn-sm
-         {:on-click #(delete-transaction item page-state)
-          :title "Click here to remove this transaction."}
-         (icon :x-circle :size :small)]
+        [:div.btn-group
+         [:button.btn.btn-secondary.btn-sm
+          {:on-click #(edit-transaction item page-state)
+           :title "Click here to edit this transaction."}
+          (icon :pencil :size :small)]
+         [:button.btn.btn-danger.btn-sm
+          {:on-click #(delete-transaction item page-state)
+           :title "Click here to remove this transaction."}
+          (icon :x-circle :size :small)]]
         [item-row-buttons item page-state])]]))
 
 (defn- date-compare

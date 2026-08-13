@@ -813,7 +813,9 @@
                    (assoc :view-account updated-account))))
       (when repeat-dividend?
         (new-dividend page-state {:date date :dividend-account dividend-account})))
-    (trns/reset-item-loading page-state)))
+    (if (:reconciliation @page-state)
+      (trns/load-unreconciled-items page-state)
+      (trns/reset-item-loading page-state))))
 
 (defn- expand-trx []
   (fn [trx]
@@ -836,40 +838,55 @@
 (defn- transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])]
+    [:<>
+     [:div.d-flex.justify-content-between
+      [:h3 (if (:id @transaction)
+             "Edit Transaction"
+             "New Transaction")]
+      (cond
+        (accountified? @transaction)
+        [:button.btn.btn-secondary {:title "Click here to show full transaction details."
+                                    :on-click (fn [_]
+                                                (swap! transaction (expand-trx)))}
+         (icon :arrows-expand)]
+
+        (can-accountify? (->bilateral (unentryfy @transaction)))
+        [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
+                                    :on-click (fn [_]
+                                                (swap! transaction (collapse-trx page-state)))}
+         (icon :arrows-collapse)])]
+     [:div.mt-3
+      (let [f (if (accountified? @transaction)
+                trns/simple-transaction-form
+                trns/full-transaction-form)]
+        [f page-state :on-save (post-transaction-save page-state)])]
+     [:div
+      [:button.btn.btn-primary
+       {:type :submit
+        :form "transaction-form"
+        :title "Click here to save the transaction"}
+       (icon-with-text :check "Save")]
+      [:button.btn.btn-secondary.ms-2
+       {:on-click #(swap! page-state dissoc :transaction)
+        :title "Click here to cancel this transaction"}
+       (icon-with-text :x "Cancel")]]]))
+
+(defn- transaction-form-container
+  [page-state]
+  (let [transaction (r/cursor page-state [:transaction])
+        reconciliation (r/cursor page-state [:reconciliation])]
     (fn []
       (when @transaction
-        [:<>
-         [:div.d-flex.justify-content-between
-          [:h3 (if (:id @transaction)
-                 "Edit Transaction"
-                 "New Transaction")]
-          (cond
-            (accountified? @transaction)
-            [:button.btn.btn-secondary {:title "Click here to show full transaction details."
-                                        :on-click (fn [_]
-                                                    (swap! transaction (expand-trx)))}
-             (icon :arrows-expand)]
-
-            (can-accountify? (->bilateral (unentryfy @transaction)))
-            [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
-                                        :on-click (fn [_]
-                                                    (swap! transaction (collapse-trx page-state)))}
-             (icon :arrows-collapse)])]
-         [:div.mt-3
-          (let [f (if (accountified? @transaction)
-                    trns/simple-transaction-form
-                    trns/full-transaction-form)]
-            [f page-state :on-save (post-transaction-save page-state)])]
-         [:div
-          [:button.btn.btn-primary
-           {:type :submit
-            :form "transaction-form"
-            :title "Click here to save the transaction"}
-           (icon-with-text :check "Save")]
-          [:button.btn.btn-secondary.ms-2
-           {:on-click #(swap! page-state dissoc :transaction)
-            :title "Click here to cancel this transaction"}
-           (icon-with-text :x "Cancel")]]]))))
+        (if @reconciliation
+          [:<>
+           [:div.modal.show.d-block {:tab-index -1
+                                     :role :dialog}
+            [:div.modal-dialog.modal-lg
+             [:div.modal-content
+              [:div.modal-body
+               [transaction-form page-state]]]]]
+           [:div.modal-backdrop.show {:on-click #(swap! page-state dissoc :transaction)}]]
+          [transaction-form page-state])))))
 
 (defn- trade-form
   [page-state]
@@ -919,7 +936,7 @@
                                    (not @attachments-item)
                                    (or @reconciliation
                                        (not (system-tagged? @account :tradable)))
-                                   (not @transaction)
+                                   (or @reconciliation (not @transaction))
                                    (not @trade)))
         ctl-chan (r/cursor page-state [:ctl-chan])
         all-items-fetched? (r/cursor page-state [:all-items-fetched?])
@@ -1352,7 +1369,7 @@
           [:div.col-lg-4
            [recs/reconciliation-form page-state]])]
        [tradable-account-items page-state]
-       [transaction-form page-state]
+       [transaction-form-container page-state]
        [:div.row
         [:div {:class (if @dividend? "col-md-6" "col")}
          [trade-form page-state]]
