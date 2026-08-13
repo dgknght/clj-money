@@ -400,6 +400,23 @@
             (is (= 1600M (recs/previous-balance savings))
                 "The parent's own reconciliation balance is used once the child accounts' items are absorbed into it")))))))
 
+(dbtest get-the-previous-reconciliation-balance-excluding-children
+  (with-context previous-balance-ctx
+    (is (= 0M (recs/previous-balance (find-account "Savings") false))
+        "With include-children? false, the children's reconciliation balances are ignored, even though Savings itself has no reconciliation of its own")
+    (testing "and a reconciliation at the parent level"
+      (let [savings (find-account "Savings")
+            car-item (find-transaction-item [(t/local-date 2020 1 4) 300M (find-account "Car")])
+            reserve-item (find-transaction-item [(t/local-date 2020 1 4) 500M (find-account "Reserve")])]
+        (assert-created
+          #:reconciliation{:account savings
+                           :end-of-period (t/local-date 2021 2 28)
+                           :status :completed
+                           :balance 1600M
+                           :items [car-item reserve-item]})
+        (is (= 1600M (recs/previous-balance savings false))
+            "Savings' own reconciliation balance is still used when it exists")))))
+
 (def ^:private grandchild-context
   (conj parent-account-context
         #:account{:name "Reserve Sub"

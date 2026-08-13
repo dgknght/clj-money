@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [java-time.api :as t]
+            [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]
@@ -353,12 +354,17 @@
                          :items [[(t/local-date 2015 1 1) 100M]]}))
 
 (defn- get-previous-balance
-  [email]
-  (-> (request :get (path :api
-                          :accounts
-                          (:id (find-account "Savings"))
-                          :reconciliations
-                          :previous-balance)
+  [email & {:keys [include-children?]}]
+  (-> (request :get (cond-> (path :api
+                                  :accounts
+                                  (:id (find-account "Savings"))
+                                  :reconciliations
+                                  :previous-balance)
+                      (some? include-children?) (-> uri
+                                                     (assoc :query
+                                                            (map->query-string
+                                                              {:include-children include-children?}))
+                                                     str))
                :user (find-user email))
       app
       parse-body))
@@ -370,6 +376,14 @@
       (is (comparable? {:reconciliation/balance 100M}
                        (jsonize-decimals parsed-body))
           "The balance reflects the reconciled child account's own balance; the unreconciled sibling contributes nothing"))))
+
+(deftest a-user-can-get-the-previous-balance-for-a-parent-account-excluding-children
+  (with-context child-recon-context
+    (let [{:as response :keys [parsed-body]} (get-previous-balance "john@doe.com" :include-children? false)]
+      (is (http-success? response))
+      (is (comparable? {:reconciliation/balance 0M}
+                       (jsonize-decimals parsed-body))
+          "With include-children=false, the child account's reconciliation balance is ignored, even though Savings itself has no reconciliation of its own"))))
 
 (deftest a-user-cannot-get-the-previous-balance-for-anothers-account
   (with-context child-recon-context

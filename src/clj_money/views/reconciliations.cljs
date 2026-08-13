@@ -74,6 +74,7 @@
   [page-state]
   (+busy)
   (recs/previous-balance (:view-account @page-state)
+                         (:include-children? @page-state)
                          :callback -busy
                          :on-success (fn [r]
                                        (swap! page-state assoc
@@ -118,7 +119,9 @@
          [forms/checkbox-field
           page-state
           [:include-children?]
-          {:on-change #(trns/load-unreconciled-items page-state)}]]
+          {:on-change (fn []
+                        (trns/load-unreconciled-items page-state)
+                        (load-previous-balance page-state))}]]
         [:table.table
          [:tbody
           [:tr

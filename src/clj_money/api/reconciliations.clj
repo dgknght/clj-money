@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
-            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          parse-bool]]
             [clj-money.authorization
              :as auth
              :refer [+scope
@@ -92,9 +93,12 @@
 
 (defn- previous-balance
   [{:keys [params authenticated]}]
-  (let [account {:id (:account-id params)}]
+  (let [account {:id (:account-id params)}
+        include-children? (if (contains? params :include-children)
+                            (parse-bool (:include-children params))
+                            true)]
     (authorize {:reconciliation/account account} ::auth/show authenticated)
-    (api/response {:reconciliation/balance (or (recs/previous-balance account) 0M)})))
+    (api/response {:reconciliation/balance (or (recs/previous-balance account include-children?) 0M)})))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]

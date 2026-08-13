@@ -35,12 +35,12 @@
            (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
 
 (defn previous-balance
-  [account & {:as opts}]
+  [account include-children? & {:as opts}]
   (api/get (api/path :accounts
                      account
                      :reconciliations
                      :previous-balance)
-           {}
+           {:include-children include-children?}
            (add-error-handler opts "Unable to retrieve the previous balance: %s")))
 
 (defn- simplify-items
