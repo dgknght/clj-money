@@ -381,6 +381,61 @@
           :else
           [:tr [:td.text-center {:col-span 6} (bs/spinner {:size :small})]])]])))
 
+(defn- recent-transaction-row
+  [account page-state]
+  (fn [{:transaction/keys [transaction-date description]
+        :transaction-item/keys [polarized-quantity]
+        :as item}]
+    ^{:key (str "recent-trx-" (:id item))}
+    [:tr
+     [:td.text-end (format-date transaction-date)]
+     [:td description]
+     [:td.text-end (format-quantity polarized-quantity account)]
+     [:td.text-end
+      [:button.btn.btn-sm.btn-secondary
+       {:on-click #(edit-transaction item page-state)
+        :title "Click here to edit this transaction."}
+       (icon :pencil :size :small)]]]))
+
+(defn- recent-transaction-compare
+  "Sorts newest-first by transaction date, breaking ties on :id (which
+  increases monotonically with insertion) since many transactions can
+  share the same transaction date."
+  [{d1 :transaction/transaction-date id1 :id}
+   {d2 :transaction/transaction-date id2 :id}]
+  (cond
+    (date-compare d1 d2) 1
+    (date-compare d2 d1) -1
+    :else (compare id2 id1)))
+
+(defn recent-transactions-table
+  [page-state]
+  (let [items (r/cursor page-state [:items])
+        account (r/cursor page-state [:view-account])
+        recent (make-reaction #(->> @items
+                                    (sort recent-transaction-compare)
+                                    (take 5)))]
+    (fn []
+      [:<>
+       [:h3 "Recent Transactions"]
+       [:table.table.table-hover.table-striped
+        [:thead
+         [:tr
+          [:th.text-end "Date"]
+          [:th "Description"]
+          [:th.text-end "Amount"]
+          [:th (space)]]]
+        [:tbody
+         (cond
+           (seq @recent)
+           (doall (map (recent-transaction-row @account page-state) @recent))
+
+           @items
+           [:tr [:td.text-center.fw-lighter {:col-span 4} "No recent transactions"]]
+
+           :else
+           [:tr [:td.text-center {:col-span 4} (bs/spinner {:size :small})]])]]])))
+
 (defn- load-trx-item-audit!
   [page-state item]
   (audit/select item :transaction-item/quantity
@@ -744,14 +799,19 @@
                     (callback (@commodities id)))
          :validations #{::v/required}}]
        (when @dividend?
-         [forms/typeahead-field
-          trade
-          [:trade/dividend-account]
-          {:search-fn (fn [input callback]
-                        (->> @accounts
-                             (find-by-path input)
-                             callback))
-           :caption-fn (comp (partial string/join "/") :account/path)
-           :find-fn (fn [{:keys [id]} callback]
-                      (callback (@accounts-by-id id)))
-           :validations #{::v/required}}])])))
+         [:<>
+          [forms/typeahead-field
+           trade
+           [:trade/dividend-account]
+           {:search-fn (fn [input callback]
+                         (->> @accounts
+                              (find-by-path input)
+                              callback))
+            :caption-fn (comp (partial string/join "/") :account/path)
+            :find-fn (fn [{:keys [id]} callback]
+                       (callback (@accounts-by-id id)))
+            :validations #{::v/required}}]
+          [forms/checkbox-field
+           page-state
+           [:dividend-repeat?]
+           {:caption "Save and add another"}]])])))
