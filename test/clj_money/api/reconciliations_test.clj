@@ -9,6 +9,7 @@
             [dgknght.app-lib.web :refer [path]]
             [clj-money.entities.ref]
             [clj-money.util :as util]
+            [clj-money.api.util :refer [+query]]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [parse-body
@@ -355,23 +356,21 @@
 
 (defn- get-previous-balance
   [email & {:keys [include-children?]}]
-  (-> (request :get (cond-> (path :api
+  (-> (request :get (+query (path :api
                                   :accounts
                                   (:id (find-account "Savings"))
                                   :reconciliations
                                   :previous-balance)
-                      (some? include-children?) (-> uri
-                                                     (assoc :query
-                                                            (map->query-string
-                                                              {:include-children include-children?}))
-                                                     str))
+                            :include-children include-children?)
                :user (find-user email))
       app
       parse-body))
 
 (deftest a-user-can-get-the-previous-balance-for-a-parent-account
   (with-context child-recon-context
-    (let [{:as response :keys [parsed-body]} (get-previous-balance "john@doe.com")]
+    (let [{:as response :keys [parsed-body]} (get-previous-balance
+                                               "john@doe.com"
+                                               :include-children? true)]
       (is (http-success? response))
       (is (comparable? {:reconciliation/balance 100M}
                        (jsonize-decimals parsed-body))
@@ -379,7 +378,8 @@
 
 (deftest a-user-can-get-the-previous-balance-for-a-parent-account-excluding-children
   (with-context child-recon-context
-    (let [{:as response :keys [parsed-body]} (get-previous-balance "john@doe.com" :include-children? false)]
+    (let [{:as response :keys [parsed-body]} (get-previous-balance
+                                               "john@doe.com")]
       (is (http-success? response))
       (is (comparable? {:reconciliation/balance 0M}
                        (jsonize-decimals parsed-body))
