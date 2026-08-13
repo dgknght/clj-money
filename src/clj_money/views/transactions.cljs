@@ -185,7 +185,16 @@
     (trx-items/delete
       transaction-item
       :callback -busy
-      :on-success #(reset-item-loading page-state))))
+      :on-success (fn []
+                    (if (:reconciliation @page-state)
+                      (do
+                        (swap! page-state
+                               update-in
+                               [:reconciliation :clj-money.views.reconciliations/item-selection]
+                               dissoc
+                               (:id transaction-item))
+                        (load-unreconciled-items page-state))
+                      (reset-item-loading page-state))))))
 
 (defn- post-item-row-drop
   [page-state item]
@@ -271,9 +280,13 @@
      (when-not @reconciliation
        [:td.text-end.d-none.d-md-table-cell (format-quantity balance
                                                              account)])
-     (when-not @reconciliation
-       [:td.d-flex.justify-content-end
-        [item-row-buttons item page-state]])]))
+     [:td.d-flex.justify-content-end
+      (if @reconciliation
+        [:button.btn.btn-danger.btn-sm
+         {:on-click #(delete-transaction item page-state)
+          :title "Click here to remove this transaction."}
+         (icon :x-circle :size :small)]
+        [item-row-buttons item page-state])]]))
 
 (defn- date-compare
   [d1 d2]
@@ -361,8 +374,7 @@
          [:th.text-center.d-none.d-md-table-cell "Rec."]
          (when-not @recon
            [:th.text-end.d-none.d-md-table-cell "Balance"])
-         (when-not @recon
-           [:th (space)])]]
+         [:th (space)]]]
        [:tbody
         (cond
           (seq @items)
