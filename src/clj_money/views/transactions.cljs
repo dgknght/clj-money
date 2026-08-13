@@ -547,41 +547,49 @@
 
 (defn- item-input-row
   [item index item-count page-state]
-  ^{:key (str "item-form-" index)}
-  [:tr
-   [:td [forms/typeahead-input
-         item
-         [:transaction-item/account]
-         {:search-fn (fn [input callback]
-                       (callback (find-by-path input @accounts)))
-          :on-change #(ensure-entry-state page-state)
-          :caption-fn #(string/join "/" (:account/path %))
-          :find-fn (fn [{:keys [id]} callback]
-                     (callback (@accounts-by-id id)))
-          :html {:id (str "account-id-" index)
-                 :on-key-up #(item-navigate % item-count)}}]]
-   [:td [forms/text-input
-         item
-         [:transaction-item/memo]
-         {:on-change #(ensure-entry-state page-state)
-          :html {:on-key-up #(item-navigate % item-count)
-                 :id (str "memo-" index)}}]]
-   [:td [forms/decimal-input
-         item
-         [:transaction-item/credit-quantity]
-         {:fraction-digits 2
-          :on-accept #(ensure-entry-state page-state)
-          :html {:on-key-up #(item-navigate % item-count)
-                 :on-key-down #(when (arrow-key? %) (.preventDefault %))
-                 :id (str "credit-quantity-" index)}}]]
-   [:td [forms/decimal-input
-         item
-         [:transaction-item/debit-quantity]
-         {:fraction-digits 2
-          :on-accept #(ensure-entry-state page-state)
-          :html {:id (str "debit-quantity-" index)
-                 :on-key-up #(item-navigate % item-count)
-                 :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]])
+  (let [reconciled? (boolean (:transaction-item/reconciliation @item))]
+    ^{:key (str "item-form-" index)}
+    [:tr
+     [:td.text-center
+      (when reconciled?
+        [:span {:title "This item has been reconciled and cannot be changed."}
+         (icon :lock-fill :size :small)])]
+     [:td [forms/typeahead-input
+           item
+           [:transaction-item/account]
+           {:search-fn (fn [input callback]
+                         (callback (find-by-path input @accounts)))
+            :on-change #(ensure-entry-state page-state)
+            :caption-fn #(string/join "/" (:account/path %))
+            :find-fn (fn [{:keys [id]} callback]
+                       (callback (@accounts-by-id id)))
+            :html {:id (str "account-id-" index)
+                   :on-key-up #(item-navigate % item-count)
+                   :disabled reconciled?}}]]
+     [:td [forms/text-input
+           item
+           [:transaction-item/memo]
+           {:on-change #(ensure-entry-state page-state)
+            :html {:on-key-up #(item-navigate % item-count)
+                   :id (str "memo-" index)}}]]
+     [:td [forms/decimal-input
+           item
+           [:transaction-item/credit-quantity]
+           {:fraction-digits 2
+            :on-accept #(ensure-entry-state page-state)
+            :disabled-fn (constantly reconciled?)
+            :html {:on-key-up #(item-navigate % item-count)
+                   :on-key-down #(when (arrow-key? %) (.preventDefault %))
+                   :id (str "credit-quantity-" index)}}]]
+     [:td [forms/decimal-input
+           item
+           [:transaction-item/debit-quantity]
+           {:fraction-digits 2
+            :on-accept #(ensure-entry-state page-state)
+            :disabled-fn (constantly reconciled?)
+            :html {:id (str "debit-quantity-" index)
+                   :on-key-up #(item-navigate % item-count)
+                   :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]]))
 
 (defn full-transaction-form
   [page-state & {:keys [on-save]}]
@@ -612,6 +620,7 @@
         [:table.table
          [:thead
           [:tr
+           [:td (space)]
            [:td "Account"]
            [:td "Memo"]
            [:td "Credit Amount"]
@@ -624,7 +633,7 @@
                                    page-state)))]
          [:tfoot
           [:tr
-           [:td {:col-span 2} (special-char :nbsp)]
+           [:td {:col-span 3} (special-char :nbsp)]
            [:td.text-end (format-decimal @total-credits)]
            [:td.text-end.d-flex.flex-row-reverse.justify-content-between
             (format-decimal @total-debits)
