@@ -94,9 +94,8 @@
 (defn- previous-balance
   [{:keys [params authenticated]}]
   (let [account {:id (:account-id params)}
-        include-children? (if (contains? params :include-children)
-                            (parse-bool (:include-children params))
-                            true)]
+        include-children? (when-let [i (:include-children params)]
+                            (parse-bool i))]
     (authorize {:reconciliation/account account} ::auth/show authenticated)
     (api/response {:reconciliation/balance (or (recs/previous-balance account include-children?) 0M)})))
 

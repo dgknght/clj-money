@@ -371,7 +371,9 @@
 
 (deftest a-user-can-get-the-previous-balance-for-a-parent-account
   (with-context child-recon-context
-    (let [{:as response :keys [parsed-body]} (get-previous-balance "john@doe.com")]
+    (let [{:as response :keys [parsed-body]} (get-previous-balance
+                                               "john@doe.com"
+                                               :include-children? true)]
       (is (http-success? response))
       (is (comparable? {:reconciliation/balance 100M}
                        (jsonize-decimals parsed-body))
@@ -379,7 +381,8 @@
 
 (deftest a-user-can-get-the-previous-balance-for-a-parent-account-excluding-children
   (with-context child-recon-context
-    (let [{:as response :keys [parsed-body]} (get-previous-balance "john@doe.com" :include-children? false)]
+    (let [{:as response :keys [parsed-body]} (get-previous-balance
+                                               "john@doe.com")]
       (is (http-success? response))
       (is (comparable? {:reconciliation/balance 0M}
                        (jsonize-decimals parsed-body))
