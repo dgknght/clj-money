@@ -835,7 +835,7 @@
           ->bilateral
           (accountify account)))))
 
-(defn- transaction-form-controls
+(defn- transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])]
     [:<>
@@ -871,7 +871,7 @@
         :title "Click here to cancel this transaction"}
        (icon-with-text :x "Cancel")]]]))
 
-(defn- transaction-form
+(defn- transaction-form-container
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
         reconciliation (r/cursor page-state [:reconciliation])]
@@ -884,9 +884,9 @@
             [:div.modal-dialog.modal-lg
              [:div.modal-content
               [:div.modal-body
-               [transaction-form-controls page-state]]]]]
+               [transaction-form page-state]]]]]
            [:div.modal-backdrop.show {:on-click #(swap! page-state dissoc :transaction)}]]
-          [transaction-form-controls page-state])))))
+          [transaction-form page-state])))))
 
 (defn- trade-form
   [page-state]
@@ -1369,7 +1369,7 @@
           [:div.col-lg-4
            [recs/reconciliation-form page-state]])]
        [tradable-account-items page-state]
-       [transaction-form page-state]
+       [transaction-form-container page-state]
        [:div.row
         [:div {:class (if @dividend? "col-md-6" "col")}
          [trade-form page-state]]
