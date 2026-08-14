@@ -151,6 +151,7 @@
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
+(s/def :reconciliation/include-children? boolean?)
 
 (s/def :reconciliation/item
   (s/or :abbreviated (s/keys :req-un [::entities/id])
@@ -163,7 +164,8 @@
                        :reconciliation/end-of-period
                        :reconciliation/status
                        :reconciliation/balance]
-                 :opt [:reconciliation/items])
+                 :opt [:reconciliation/items
+                       :reconciliation/include-children?])
          not-unbalanced?
          no-working-conflict?
          items-belong-to-account?
@@ -188,12 +190,16 @@
     []))
 
 (defn- account+children
-  "Fetch and return the account children along with the given account"
-  [account]
-  (entities/select (util/entity-type
-                     (util/->entity-ref account)
-                     :account)
-                   {:include-children? true}))
+  "Fetch and return the given account as a full entity, along with its
+  children when include-children? is true (the default)"
+  ([account] (account+children account true))
+  ([account include-children?]
+   (entities/select (util/entity-type
+                      (util/->entity-ref account)
+                      :account)
+                    (if include-children?
+                      {:include-children? true}
+                      {}))))
 
 (defn- find-last-completed
   "Returns the last completed reconciliation for an account or any of its
@@ -214,9 +220,7 @@
   rule."
   [account & {:keys [include-children?]}]
   (compute-starting-balance account
-                            (if include-children?
-                              (account+children account)
-                              [])
+                            (account+children account include-children?)
                             nil))
 
 (defn- polarize-item
@@ -234,11 +238,11 @@
                                      :transaction-item/transaction-item]})))
 
 (defmethod entities/before-validation :reconciliation
-  [{:reconciliation/keys [account items] :as recon}]
+  [{:reconciliation/keys [account items include-children?] :as recon}]
   {:pre [(s/valid? (s/nilable :reconciliation/items)
                    (:reconciliation/items recon))]}
   (let [accounts (when account
-                   (index-by :id (account+children account)))
+                   (index-by :id (account+children account include-children?)))
         existing-items (if (:id recon)
                          (fetch-transaction-items recon)
                          [])
@@ -260,6 +264,7 @@
                                               [:transaction-item/account]
                                               (comp accounts :id)))))]
     (-> recon
+        (dissoc :reconciliation/include-children?)
         (update-in [:reconciliation/status] (fnil identity :new))
         (vary-meta
           #(assoc %

@@ -57,8 +57,9 @@
 (defn- save-reconciliation*
   [page-state]
   (+busy)
-  (let [{:keys [reconciliation items]} @page-state]
+  (let [{:keys [reconciliation items include-children?]} @page-state]
     (-> reconciliation
+        (assoc :reconciliation/include-children? include-children?)
         (apply-selections items)
         (recs/save :callback -busy
                    :on-success (fn [_created]

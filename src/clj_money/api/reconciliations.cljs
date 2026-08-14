@@ -78,5 +78,5 @@
             update
             create)]
     (-> recon
-        (schema/prune :reconciliation)
+        (schema/prune :reconciliation :allow [:reconciliation/include-children?])
         (f opts))))
