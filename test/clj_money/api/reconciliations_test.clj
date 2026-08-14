@@ -8,6 +8,7 @@
             [dgknght.app-lib.web :refer [path]]
             [clj-money.entities.ref]
             [clj-money.util :as util]
+            [clj-money.api.util :refer [+query]]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [parse-body
@@ -353,23 +354,35 @@
                          :items [[(t/local-date 2015 1 1) 100M]]}))
 
 (defn- get-previous-balance
-  [email]
-  (-> (request :get (path :api
-                          :accounts
-                          (:id (find-account "Savings"))
-                          :reconciliations
-                          :previous-balance)
+  [email & {:keys [include-children?]}]
+  (-> (request :get (+query (path :api
+                                  :accounts
+                                  (:id (find-account "Savings"))
+                                  :reconciliations
+                                  :previous-balance)
+                            :include-children include-children?)
                :user (find-user email))
       app
       parse-body))
 
 (deftest a-user-can-get-the-previous-balance-for-a-parent-account
   (with-context child-recon-context
-    (let [{:as response :keys [parsed-body]} (get-previous-balance "john@doe.com")]
+    (let [{:as response :keys [parsed-body]} (get-previous-balance
+                                               "john@doe.com"
+                                               :include-children? true)]
       (is (http-success? response))
       (is (comparable? {:reconciliation/balance 100M}
                        (jsonize-decimals parsed-body))
           "The balance reflects the reconciled child account's own balance; the unreconciled sibling contributes nothing"))))
+
+(deftest a-user-can-get-the-previous-balance-for-a-parent-account-excluding-children
+  (with-context child-recon-context
+    (let [{:as response :keys [parsed-body]} (get-previous-balance
+                                               "john@doe.com")]
+      (is (http-success? response))
+      (is (comparable? {:reconciliation/balance 0M}
+                       (jsonize-decimals parsed-body))
+          "With include-children=false, the child account's reconciliation balance is ignored, even though Savings itself has no reconciliation of its own"))))
 
 (deftest a-user-cannot-get-the-previous-balance-for-anothers-account
   (with-context child-recon-context
