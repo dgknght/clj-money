@@ -204,7 +204,9 @@
   against a child account during import)"
   [{:reconciliation/keys [account include-children?] :as recon}]
   (when account
-    (let [ids (map :id (account+children account include-children?))]
+    (let [ids (map :id (if include-children?
+                          (account+children account)
+                          [account]))]
       (entities/find-by (cond-> {:reconciliation/account [:in ids]
                                  :reconciliation/status :completed}
                           (:id recon) (assoc :id [:!= (:id recon)]))
