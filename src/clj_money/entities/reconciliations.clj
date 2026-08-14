@@ -144,7 +144,7 @@
                    (:reconciliation/end-of-period reconciliation)))))
 
 (v/reg-spec after-last-reconciliation?
-            {:message "%s must be after that latest reconciliation"
+            {:message "%s must be after the latest reconciliation"
              :path [:reconciliation/end-of-period]})
 
 (s/def :reconciliation/account ::entities/entity-ref)
@@ -199,11 +199,14 @@
                    {:include-children? true}))
 
 (defn- find-last-completed
-  "Returns the last completed reconciliation for an account or any of its
-  descendants (e.g. one created against a child account during import)"
-  [{:reconciliation/keys [account] :as recon}]
+  "Returns the last completed reconciliation for an account or, when
+  include-children? is true, any of its descendants (e.g. one created
+  against a child account during import)"
+  [{:reconciliation/keys [account include-children?] :as recon}]
   (when account
-    (let [ids (map :id (account+children account))]
+    (let [ids (map :id (if include-children?
+                          (account+children account)
+                          [account]))]
       (entities/find-by (cond-> {:reconciliation/account [:in ids]
                                  :reconciliation/status :completed}
                           (:id recon) (assoc :id [:!= (:id recon)]))
