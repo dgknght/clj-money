@@ -3,7 +3,6 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [java-time.api :as t]
-            [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]

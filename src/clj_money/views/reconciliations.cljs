@@ -74,7 +74,7 @@
   [page-state]
   (+busy)
   (recs/previous-balance (:view-account @page-state)
-                         (:include-children? @page-state)
+                         :include-children? (:include-children? @page-state)
                          :callback -busy
                          :on-success (fn [r]
                                        (swap! page-state assoc

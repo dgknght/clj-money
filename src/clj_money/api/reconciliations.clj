@@ -97,7 +97,7 @@
         include-children? (when-let [i (:include-children params)]
                             (parse-bool i))]
     (authorize {:reconciliation/account account} ::auth/show authenticated)
-    (api/response {:reconciliation/balance (or (recs/previous-balance account include-children?) 0M)})))
+    (api/response {:reconciliation/balance (or (recs/previous-balance account :include-children? include-children?) 0M)})))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]

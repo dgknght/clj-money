@@ -35,7 +35,7 @@
            (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
 
 (defn previous-balance
-  [account include-children? & {:as opts}]
+  [account & {:as opts :keys [include-children?]}]
   (api/get (api/path :accounts
                      account
                      :reconciliations

@@ -359,15 +359,17 @@
                          :items [[(t/local-date 2019 12 17)
                                   500M]]}))
 
-(dbtest get-the-previous-reconciliation-balance
+(dbtest get-the-previous-reconciliation-balance-including-children
   (with-context previous-balance-ctx
     (testing "An account with no children"
       (testing "and no previous reconciliation"
-        (is (= 0M (recs/previous-balance (find-account "Credit Card")))
+        (is (= 0M (recs/previous-balance (find-account "Credit Card")
+                                         :include-children? true))
             "The previous balance is zero"))
       (testing "and a previous reconciliation"
         (testing "that is completed"
-          (is (= 5000M (recs/previous-balance (find-account "Checking")))
+          (is (= 5000M (recs/previous-balance (find-account "Checking")
+                                              :include-children? true))
             "The previous balance comes from the most recent reconciliation"))
         (testing "that is not completed"
           ; A working (:new) reconciliation dated after the completed one
@@ -377,11 +379,13 @@
                                          :end-of-period (t/local-date 2021 1 31)
                                          :balance 4000M
                                          :status :new})
-          (is (= 5000M (recs/previous-balance (find-account "Checking")))
+          (is (= 5000M (recs/previous-balance (find-account "Checking")
+                                              :include-children? true))
               "The working reconciliation's balance is ignored; the last completed reconciliation still provides the previous balance"))))
     (testing "An account with children"
       (testing "and previous reconciliations at the child level"
-        (is (= 800M (recs/previous-balance (find-account "Savings")))
+        (is (= 800M (recs/previous-balance (find-account "Savings")
+                                           :include-children? true))
             "The previous balance comes from the most recent reconciliation")
         (testing "and a reconciliation at the parent level that \"absorbs\" items from the child accounts."
           (let [savings (find-account "Savings")
@@ -397,12 +401,13 @@
                                :status :completed
                                :balance 1600M
                                :items [car-item reserve-item]})
-            (is (= 1600M (recs/previous-balance savings))
+            (is (= 1600M (recs/previous-balance savings
+                                                :include-children? true))
                 "The parent's own reconciliation balance is used once the child accounts' items are absorbed into it")))))))
 
-(dbtest get-the-previous-reconciliation-balance-excluding-children
+(dbtest get-the-previous-reconciliation-balance
   (with-context previous-balance-ctx
-    (is (= 0M (recs/previous-balance (find-account "Savings") false))
+    (is (= 0M (recs/previous-balance (find-account "Savings")))
         "With include-children? false, the children's reconciliation balances are ignored, even though Savings itself has no reconciliation of its own")
     (testing "and a reconciliation at the parent level"
       (let [savings (find-account "Savings")
@@ -414,7 +419,7 @@
                            :status :completed
                            :balance 1600M
                            :items [car-item reserve-item]})
-        (is (= 1600M (recs/previous-balance savings false))
+        (is (= 1600M (recs/previous-balance savings))
             "Savings' own reconciliation balance is still used when it exists")))))
 
 (def ^:private grandchild-context
@@ -446,7 +451,8 @@
     ; Reserve Sub (a grandchild of Savings, child of Reserve) has its own
     ; completed reconciliation; neither Savings nor Reserve has one. The
     ; grandchild's balance must still be picked up.
-    (is (= 50M (recs/previous-balance (find-account "Savings"))))))
+    (is (= 50M (recs/previous-balance (find-account "Savings")
+                                      :include-children? true)))))
 
 (dbtest previous-balance-excludes-a-grandchild-once-absorbed-by-a-higher-ancestor
   (with-context grandchild-context
@@ -466,7 +472,7 @@
       ; reconciliation two levels up (skipping Reserve, which has no
       ; reconciliation of its own); it must not be counted again -- only
       ; Savings' own new balance (60M) counts going forward.
-      (is (= 60M (recs/previous-balance savings))))))
+      (is (= 60M (recs/previous-balance savings :include-children? true))))))
 
 (dbtest transaction-item-can-only-belong-to-one-reconciliation
   (with-context existing-reconciliation-context

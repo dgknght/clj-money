@@ -212,13 +212,12 @@
   include-children? is true, each not-yet-absorbed descendant's own last
   completed reconciliation balance. See compute-starting-balance for the full
   rule."
-  ([account] (previous-balance account true))
-  ([account include-children?]
-   (compute-starting-balance account
-                             (if include-children?
-                               (account+children account)
-                               [])
-                             nil)))
+  [account & {:keys [include-children?]}]
+  (compute-starting-balance account
+                            (if include-children?
+                              (account+children account)
+                              [])
+                            nil))
 
 (defn- polarize-item
   "Assoc :transaction-item/polarized-quantity to the item"
