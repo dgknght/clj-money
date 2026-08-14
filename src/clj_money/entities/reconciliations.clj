@@ -191,15 +191,12 @@
 
 (defn- account+children
   "Fetch and return the given account as a full entity, along with its
-  children when include-children? is true (the default)"
-  ([account] (account+children account true))
-  ([account include-children?]
-   (entities/select (util/entity-type
-                      (util/->entity-ref account)
-                      :account)
-                    (if include-children?
-                      {:include-children? true}
-                      {}))))
+  children"
+  [account]
+  (entities/select (util/entity-type
+                     (util/->entity-ref account)
+                     :account)
+                   {:include-children? true}))
 
 (defn- find-last-completed
   "Returns the last completed reconciliation for an account or any of its
@@ -220,7 +217,9 @@
   rule."
   [account & {:keys [include-children?]}]
   (compute-starting-balance account
-                            (account+children account include-children?)
+                            (if include-children?
+                              (account+children account)
+                              [])
                             nil))
 
 (defn- polarize-item
@@ -242,7 +241,9 @@
   {:pre [(s/valid? (s/nilable :reconciliation/items)
                    (:reconciliation/items recon))]}
   (let [accounts (when account
-                   (index-by :id (account+children account include-children?)))
+                   (index-by :id (if include-children?
+                                   (account+children account)
+                                   [(entities/find (:id account))])))
         existing-items (if (:id recon)
                          (fetch-transaction-items recon)
                          [])
