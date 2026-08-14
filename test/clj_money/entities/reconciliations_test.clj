@@ -138,7 +138,7 @@
     (assert-invalid
       (assoc (attributes)
              :reconciliation/end-of-period (t/local-date 2016 12 31))
-      {:reconciliation/end-of-period ["End of period must be after that latest reconciliation"]})))
+      {:reconciliation/end-of-period ["End of period must be after the latest reconciliation"]})))
 
 (dbtest status-must-be-new-or-completed
   (with-context existing-reconciliation-context
@@ -224,6 +224,20 @@
                          :balance 100M
                          :status :completed
                          :items [[(t/local-date 2015 1 1) 100M]]}))
+
+(dbtest end-of-period-need-not-be-after-a-childs-reconciliation-when-children-are-excluded
+  (with-context child-reconciliation-context
+    (let [savings (find-account "Savings")]
+      ; Car has a completed reconciliation dated 2015-01-31, but Savings does
+      ; not have one of its own. With include-children? false (or
+      ; unspecified), Car's reconciliation must not count as Savings' "last
+      ; reconciliation", so an earlier end-of-period is still valid.
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 1 15)
+                         :status :completed
+                         :balance 0M
+                         :include-children? false}))))
 
 (dbtest starting-balance-sums-each-childs-own-last-reconciliation-when-the-parent-has-none
   (with-context child-reconciliation-context
