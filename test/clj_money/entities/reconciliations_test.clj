@@ -74,7 +74,8 @@
   [attr]
   (helpers/assert-created attr
                           :refs [:reconciliation/account]
-                          :ignore-attributes [:reconciliation/items]
+                          :ignore-attributes [:reconciliation/items
+                                              :reconciliation/include-children?]
                           :compare-result? false))
 
 (defn- attributes []
@@ -202,6 +203,7 @@
                                      :end-of-period (t/local-date 2015 1 31)
                                      :status :completed
                                      :balance 300M
+                                     :include-children? true
                                      :items items})
           simplify #(select-keys % [:transaction-item/action
                                     :transaction-item/account
@@ -235,7 +237,8 @@
         #:reconciliation{:account savings
                          :end-of-period (t/local-date 2015 2 28)
                          :status :completed
-                         :balance 100M}))))
+                         :balance 100M
+                         :include-children? true}))))
 
 (def ^:private absorbable-child-context
   (conj child-reconciliation-context
@@ -264,6 +267,7 @@
                          :end-of-period (t/local-date 2015 2 28)
                          :status :completed
                          :balance 330M
+                         :include-children? true
                          :items [new-car-item]})
       ; That reconciliation swept in one of Car's items, so Car's original
       ; 100M reconciliation is now considered absorbed and must not be added
@@ -274,7 +278,8 @@
         #:reconciliation{:account savings
                          :end-of-period (t/local-date 2015 3 31)
                          :status :completed
-                         :balance 530M}))))
+                         :balance 530M
+                         :include-children? true}))))
 
 (def ^:private previous-balance-ctx
   (conj basic-context
@@ -400,6 +405,7 @@
                                :end-of-period (t/local-date 2021 2 28)
                                :status :completed
                                :balance 1600M
+                               :include-children? true
                                :items [car-item reserve-item]})
             (is (= 1600M (recs/previous-balance savings
                                                 :include-children? true))
@@ -418,9 +424,28 @@
                            :end-of-period (t/local-date 2021 2 28)
                            :status :completed
                            :balance 1600M
+                           :include-children? true
                            :items [car-item reserve-item]})
         (is (= 1600M (recs/previous-balance savings))
             "Savings' own reconciliation balance is still used when it exists")))))
+
+(dbtest completing-a-reconciliation-validates-the-balance-against-the-requested-account-family
+  (with-context previous-balance-ctx
+    (let [savings (find-account "Savings")]
+      (testing "excluding children, the calculated balance ignores their reconciliations"
+        (assert-created
+          #:reconciliation{:account savings
+                           :end-of-period (t/local-date 2021 3 31)
+                           :status :completed
+                           :balance 0M
+                           :include-children? false}))
+      (testing "including children, the calculated balance sums their reconciliations"
+        (assert-created
+          #:reconciliation{:account savings
+                           :end-of-period (t/local-date 2021 4 30)
+                           :status :completed
+                           :balance 800M
+                           :include-children? true})))))
 
 (def ^:private grandchild-context
   (conj parent-account-context
@@ -467,6 +492,7 @@
                          :end-of-period (t/local-date 2015 2 28)
                          :status :completed
                          :balance 60M
+                         :include-children? true
                          :items [new-sub-item]})
       ; Reserve Sub's own 50M reconciliation is now absorbed into Savings'
       ; reconciliation two levels up (skipping Reserve, which has no

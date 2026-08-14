@@ -76,10 +76,12 @@
       (update-in-if [:reconciliation/status] util/ensure-keyword)
       (update-in-if [:reconciliation/balance] bigdec)
       (update-in-if [:reconciliation/items] refine-items)
+      (update-in-if [:reconciliation/include-children?] parse-bool)
       (select-keys [:reconciliation/end-of-period
                     :reconciliation/balance
                     :reconciliation/status
-                    :reconciliation/items])))
+                    :reconciliation/items
+                    :reconciliation/include-children?])))
 
 (defn- create
   [{:keys [authenticated params] :as req}]
