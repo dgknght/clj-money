@@ -1,0 +1,67 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: please03
+          POSTGRES_USER: adm_user
+          POSTGRES_DB: adm_user
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:8
+        options: >-
+          --health-cmd "redis-cli -a please04 ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v7.0.1
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@13.6.1
+        with:
+          lein: 2.12.0
+          clj-kondo: 2026.01.19
+      - name: Install dependencies
+        run: lein deps
+      - name: Lint with clj-kondo
+        uses: DeLaGuardo/clojure-lint-action@master
+        with:
+          clj-kondo-args: --lint src:test
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run ClojureScript tests
+        run: lein fig:test
+        env:
+          SESSION_SECRET: ci-secret-16byte
+      - name: Set up the database
+        run: lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
+      - name: Run tests
+        run: lein cloverage
+        env:
+          REDIS_PASSWORD: ""
+          SESSION_SECRET: ci-secret-16byte
