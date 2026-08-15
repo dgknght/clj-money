@@ -26,7 +26,8 @@
             [clj-money.receipts :as receipts]
             [clj-money.api.transactions :as trn]
             [clj-money.api.attachments :as atts]
-            [clj-money.views.attachments :as atts-view]))
+            [clj-money.views.attachments :as atts-view]
+            [clj-money.views.recent-transactions :as recent-trx]))
 
 (defn- new-receipt
   [page-state]
@@ -265,7 +266,10 @@
 
 (defn- results-table
   [page-state]
-  (let [transactions (r/cursor page-state [:transactions])]
+  (let [transactions (r/cursor page-state [:transactions])
+        settings (r/cursor page-state [:recent-settings])
+        visible (make-reaction #(when @transactions
+                                  (recent-trx/sort-and-limit @transactions @settings)))]
     (fn []
       [:<>
        [pending-attachment-form page-state]
@@ -274,6 +278,7 @@
          page-state
          [:filter-date]
          {:caption "Entered Since"}]]
+       [recent-trx/controls page-state [:recent-settings]]
        [:table.table.table-hover
         [:thead
          [:tr
@@ -283,8 +288,8 @@
           [:th (html/space)]]]
         [:tbody
          (cond
-           (seq @transactions)
-           (->> @transactions
+           (seq @visible)
+           (->> @visible
                 (map #(result-row % page-state))
                 doall)
 
@@ -307,7 +312,8 @@
                                   :transactions %)))
 
 (defn- index []
-  (let [page-state (r/atom {:filter-date (t/today)})
+  (let [page-state (r/atom {:filter-date (t/today)
+                            :recent-settings recent-trx/default-settings})
         attachments-item (r/cursor page-state [:attachments-item])]
     (new-receipt page-state)
     (load-transactions page-state)
