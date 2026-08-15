@@ -90,12 +90,15 @@
   "Renders an off-canvas drawer, docked to the right side of the screen,
   containing the sort-by, sort-direction, and result-count controls.
   settings-path identifies, within page-state, a map containing :sort-on,
-  :dir, and :limit."
-  [id page-state settings-path]
-  [:div.offcanvas.offcanvas-end {:id id :tab-index -1}
-   [:div.offcanvas-header
-    [:h3 "Options"]
-    [:button.btn-close.text-reset {:data-bs-dismiss "offcanvas"
-                                   :aria-label "Close"}]]
-   [:div.offcanvas-body
-    [controls page-state settings-path]]])
+  :dir, and :limit. extra, if given, is additional hiccup rendered above
+  the shared controls, for page-specific options like a date filter."
+  ([id page-state settings-path] (drawer id page-state settings-path nil))
+  ([id page-state settings-path extra]
+   [:div.offcanvas.offcanvas-end {:id id :tab-index -1}
+    [:div.offcanvas-header
+     [:h3 "Options"]
+     [:button.btn-close.text-reset {:data-bs-dismiss "offcanvas"
+                                    :aria-label "Close"}]]
+    [:div.offcanvas-body
+     extra
+     [controls page-state settings-path]]]))

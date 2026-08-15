@@ -275,13 +275,13 @@
     (fn []
       [:<>
        [pending-attachment-form page-state]
-       [:div.mb-2.d-flex.justify-content-between.align-items-end
+       [:div.mb-2.d-flex.justify-content-end
+        [recent-trx/toggle recent-options-id]]
+       [recent-trx/drawer recent-options-id page-state [:recent-settings]
         [forms/date-field
          page-state
          [:filter-date]
-         {:caption "Entered Since"}]
-        [recent-trx/toggle recent-options-id]]
-       [recent-trx/drawer recent-options-id page-state [:recent-settings]]
+         {:caption "Entered Since"}]]
        [:table.table.table-hover
         [:thead
          [:tr
