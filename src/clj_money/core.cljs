@@ -56,15 +56,16 @@
   (accountant/navigate! "/login"))
 
 (def authenticated-nav-items
-  [{:id :commodities}
+  [{:id :search
+    :icon :search
+    :tool-tip "Click here to search transactions"}
+   {:id :commodities}
    {:id :accounts}
    {:id :budgets}
    {:id :receipts
     :tool-tip "Click here to enter receipts"}
    {:id :reports
     :tool-tip "Click here to view reports"}
-   {:id :search
-    :tool-tip "Click here to search transactions"}
    {:id :scheduled
     :tool-tip "Click here to manage schedule transactions"}
    {:id :users
@@ -78,7 +79,7 @@
 
 (defn- default-nav-item
   [{:keys [id]} active-nav]
-  {:label (humanize id)
+  {:infered-label (humanize id)
    :path (str "/" (name id))
    :active? (= id active-nav)
    :tool-tip (str "Click here to manage "
