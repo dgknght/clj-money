@@ -264,6 +264,8 @@
         (icon :paperclip :size :small)
         [:span.badge.bg-info.text-dark attachment-count])]]]])
 
+(def ^:private recent-options-id "receipts-recent-transactions-options")
+
 (defn- results-table
   [page-state]
   (let [transactions (r/cursor page-state [:transactions])
@@ -273,12 +275,13 @@
     (fn []
       [:<>
        [pending-attachment-form page-state]
-       [:div.mb-2
+       [:div.mb-2.d-flex.justify-content-between.align-items-end
         [forms/date-field
          page-state
          [:filter-date]
-         {:caption "Entered Since"}]]
-       [recent-trx/controls page-state [:recent-settings]]
+         {:caption "Entered Since"}]
+        [recent-trx/toggle recent-options-id]]
+       [recent-trx/drawer recent-options-id page-state [:recent-settings]]
        [:table.table.table-hover
         [:thead
          [:tr

@@ -6,7 +6,7 @@
             [cljs-time.core :as t]
             [dgknght.app-lib.core :refer [parse-int]]
             [dgknght.app-lib.forms :as forms]
-            [clj-money.icons :refer [icon]]))
+            [clj-money.icons :refer [icon icon-with-text]]))
 
 (def default-settings
   {:sort-on :transaction/created-at
@@ -47,28 +47,55 @@
        (sort (partial compare-transactions settings))
        (take (:limit settings))))
 
-(defn controls
+(defn- controls
   "Renders sort-by, sort-direction, and result-count controls. settings-path
   identifies, within page-state, a map containing :sort-on, :dir, and
   :limit."
   [page-state settings-path]
   (let [settings (r/cursor page-state settings-path)]
     (fn []
-      [:div.d-flex.gap-2.align-items-end.mb-2
+      [:div
        [forms/select-field
         settings
         [:sort-on]
         sort-fields
         {:caption "Sort By"
          :transform-fn #(keyword "transaction" %)}]
-       [:button.btn.btn-secondary
+       [:button.btn.btn-secondary.mb-3
         {:type :button
-         :title "Click here to reverse the sort direction."
          :on-click #(swap! settings update :dir (fn [dir] (if (= dir :desc) :asc :desc)))}
-        (icon (if (= :desc (:dir @settings)) :sort-down :sort-up))]
+        (if (= :desc (:dir @settings))
+          (icon-with-text :sort-down "Newest First")
+          (icon-with-text :sort-up "Oldest First"))]
        [forms/select-field
         settings
         [:limit]
         limit-options
         {:caption "Show"
          :transform-fn parse-int}]])))
+
+(defn toggle
+  "Renders a button that opens the recent-transactions options drawer with
+  the given DOM id."
+  [id]
+  [:button.btn.btn-outline-secondary
+   {:type :button
+    :data-bs-toggle "offcanvas"
+    :data-bs-target (str "#" id)
+    :aria-controls id
+    :title "Click here to change how recent transactions are sorted and how many are shown."}
+   (icon :sliders :size :small)])
+
+(defn drawer
+  "Renders an off-canvas drawer, docked to the right side of the screen,
+  containing the sort-by, sort-direction, and result-count controls.
+  settings-path identifies, within page-state, a map containing :sort-on,
+  :dir, and :limit."
+  [id page-state settings-path]
+  [:div.offcanvas.offcanvas-end {:id id :tab-index -1}
+   [:div.offcanvas-header
+    [:h3 "Options"]
+    [:button.btn-close.text-reset {:data-bs-dismiss "offcanvas"
+                                   :aria-label "Close"}]]
+   [:div.offcanvas-body
+    [controls page-state settings-path]]])
