@@ -4,6 +4,7 @@
             [dgknght.app-lib.core :refer [assoc-if
                                           present?]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]))
 
@@ -15,6 +16,15 @@
                (assoc-if :id (when id [:!= id]))))))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:entity/name]})
+
+(defn- default-commodity-belongs-to-entity?
+  [{:as entity {:settings/keys [default-commodity]} :entity/settings}]
+  (or (nil? default-commodity)
+      (id= entity
+           (:commodity/entity (entities/resolve-ref default-commodity)))))
+(v/reg-spec default-commodity-belongs-to-entity?
+            {:message "Default commodity must belong to the entity"
+             :path [:entity/settings :settings/default-commodity]})
 
 (s/def :entity/name (s/and string?
                      present?))
@@ -40,4 +50,5 @@
                                         :opt [:entity/settings
                                               :entity/price-date-range
                                               :entity/transaction-date-range])
-                                name-is-unique?))
+                                name-is-unique?
+                                default-commodity-belongs-to-entity?))
