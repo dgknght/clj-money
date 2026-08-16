@@ -63,7 +63,9 @@
 ; :value and :children-value are not specified because they are always
 ; calculated and not passed in
 
-(defn- default-commodity
+(defn default-commodity
+  "Returns the entity's configured default commodity, falling back to its
+  currency-type commodity when no default has been explicitly set."
   [entity]
   (if-let [ref (get-in entity [:entity/settings :settings/default-commodity])]
     (entities/find ref)

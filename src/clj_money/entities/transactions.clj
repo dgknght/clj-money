@@ -14,6 +14,7 @@
             [clj-money.dates :as dates]
             [clj-money.transactions :as trxs]
             [clj-money.entities :as entities]
+            [clj-money.entities.accounts :as accts]
             [clj-money.entities.propagation :as prop]
             [clj-money.accounts :as acts]))
 
@@ -297,8 +298,14 @@
       initial-basis))
 
 (defn- default-commodity?
-  [{:account/keys [commodity] {{:settings/keys [default-commodity]} :entity/settings} :account/entity}]
-  (id= commodity default-commodity))
+  "True when the account's commodity is the entity's reporting/base commodity,
+  which never needs a price lookup. Prefers the entity's explicitly configured
+  default commodity, but falls back to its currency-type commodity, since most
+  entities never have :settings/default-commodity set explicitly."
+  [{:account/keys [commodity]
+    {{:settings/keys [default-commodity]} :entity/settings :as entity} :account/entity}]
+  (id= commodity (or default-commodity
+                     (accts/default-commodity entity))))
 
 (defn- fetch-latest-price
   [{:commodity/keys [price-date-range] :as commodity}]
