@@ -7,6 +7,16 @@
         "TRELLO_API_KEY": "${TRELLO_API_KEY}",
         "TRELLO_API_TOKEN": "${TRELLO_API_TOKEN}"
       }
+    },
+    "honeybadger": {
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "sh",
+        "-c",
+        "HONEYBADGER_PERSONAL_AUTH_TOKEN=$HONEYBADGER_ACCESS_TOKEN podman run -i --rm -e HONEYBADGER_PERSONAL_AUTH_TOKEN ghcr.io/honeybadger-io/honeybadger-mcp-server"
+      ]
     }
   }
 }

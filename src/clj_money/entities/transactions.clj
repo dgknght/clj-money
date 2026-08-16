@@ -592,7 +592,11 @@
   [account entity items]
   (if items
     (->> items
-         (re-index (assoc account :account/entity entity)
+         (re-index (-> account
+                       (assoc :account/entity entity)
+                       vector
+                       realize-commodities
+                       first)
                    initial-basis
                    {:force? true})
          (map (comp #(dissoc % :transaction/transaction-date)

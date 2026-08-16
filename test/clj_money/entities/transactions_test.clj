@@ -1019,6 +1019,20 @@
            (:account/transaction-date-range (reload-account "Checking")))
         "The Checking account is propagated normally even though the Investment account cannot be")))
 
+(def ^:private with-price-context
+  (conj no-price-context
+        #:price{:commodity "ACME"
+                :trade-date (t/local-date 2017 1 1)
+                :value 12M}))
+
+(dbtest recalculate-succeeds-when-a-commoditys-price-is-available
+  (with-context with-price-context
+    (let [entity (find-entity "Personal")
+          investment (reload-account "Investment")]
+      (transactions/propagate-account-from-start entity investment)
+      (is (= 120M (:account/value (reload-account "Investment")))
+          "The account value is calculated using the commodity's price"))))
+
 (def ^:private existing-reconciliation-context
   (conj (mapv (fn [entity]
                 (cond-> entity
