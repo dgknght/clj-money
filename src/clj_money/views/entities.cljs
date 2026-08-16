@@ -192,18 +192,26 @@
                   :icon :x}]]]])))
 
 (defn- load-commodities
+  "Loads the commodities for the selected entity into page-state.
+
+  Clears any previously loaded commodities immediately, and ignores a
+  response that arrives after a different entity has since been selected, so
+  a commodity belonging to another entity can never be offered (and
+  potentially saved) as this entity's default commodity."
   [page-state]
-  (if-let [selected (:selected @page-state)]
-    (do (+busy)
-        (commodities/select
-          {:commodity/entity selected}
-          :callback -busy
-          :on-success (fn [c]
+  (swap! page-state dissoc :commodities)
+  (when-let [selected (:selected @page-state)]
+    (when (:id selected)
+      (+busy)
+      (commodities/select
+        {:commodity/entity selected}
+        :callback -busy
+        :on-success (fn [c]
+                      (when (id= selected (:selected @page-state))
                         (swap! page-state
                                assoc
                                :commodities
-                               (sort-by :commodity/name c)))))
-    (swap! page-state dissoc :commodities)))
+                               (sort-by :commodity/name c))))))))
 
 (defn- entity-row
   [entity page-state busy?]
@@ -256,6 +264,7 @@
                                      assoc
                                      :selected
                                      {})
+                              (load-commodities page-state)
                               (set-focus "name"))}
            :caption "Add"
            :icon :plus}]
