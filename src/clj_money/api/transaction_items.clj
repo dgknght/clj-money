@@ -110,6 +110,7 @@
                                         [:transaction-item/index :desc]]
                                  :select-also [:transaction/description
                                                :transaction/transaction-date
+                                               :transaction/created-at
                                                :transaction/attachment-count
                                                :transaction-item/transaction]
                                  :nil-replacements {:transaction/attachment-count 0})))
