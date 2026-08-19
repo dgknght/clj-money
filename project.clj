@@ -27,7 +27,7 @@
                                                 commons-io]]
                  [cheshire "6.2.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
-                 [ch.qos.logback/logback-classic "1.6.1" :exclusions [org.clojure/tools.reader]]
+                 [ch.qos.logback/logback-classic "1.6.3" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
                  [com.github.seancorfield/next.jdbc "1.3.1118"]
                  [org.postgresql/postgresql "42.7.13" :exclusions [org.clojure/tools.reader]]
@@ -75,7 +75,7 @@
                                                  org.clojure/tools.reader]]
                  [reagent-utils "0.3.8"]
                  [org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]
-                 [com.google.guava/guava "33.6.0-jre" :exclusions [com.google.code.findbugs/jsr305
+                 [com.google.guava/guava "33.7.0-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
@@ -122,7 +122,7 @@
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.51"
+                  "0.3.52"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
@@ -168,8 +168,8 @@
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.838"]
-                 [com.cognitect.aws/endpoints "871.2.50.3"]
-                 [com.cognitect.aws/s3 "871.2.49.4"]]
+                 [com.cognitect.aws/endpoints "871.2.51.4"]
+                 [com.cognitect.aws/s3 "871.2.51.4"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"

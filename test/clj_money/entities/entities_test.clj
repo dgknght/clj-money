@@ -140,6 +140,27 @@
   (with-context list-context
     (assert-deleted (find-entity "Personal"))))
 
+(dbtest default-commodity-can-be-set-to-one-of-the-entitys-own-commodities
+  (with-context list-context
+    (let [usd (find-commodity "USD")
+          updated (entities/put (assoc (find-entity "Personal")
+                                       :entity/settings
+                                       {:settings/default-commodity (util/->entity-ref usd)}))]
+      (is (= (:id usd)
+             (get-in updated [:entity/settings :settings/default-commodity :id]))
+          "The entity is saved with the default commodity"))))
+
+(dbtest default-commodity-cannot-belong-to-another-entity
+  (with-context list-context
+    (let [business (find-entity "Business")
+          usd (find-commodity "USD")]
+      (assert-invalid (assoc business
+                             :entity/settings
+                             {:settings/default-commodity (util/->entity-ref usd)})
+                      {:entity/settings
+                       {:settings/default-commodity
+                        ["Default commodity must belong to the entity"]}}))))
+
 (dbtest inventory-method-can-be-lifo
   (with-context entity-context
     (is (comparable? {:entity/settings {:settings/inventory-method :lifo}}
