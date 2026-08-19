@@ -18,9 +18,6 @@
 
 (defn select
   [criteria & {:as opts}]
-  {:pre [((some-fn :transaction/transaction-date
-                   :transaction/created-at)
-          criteria)]}
   (api/get
     (api/path :entities
               @current-entity
@@ -28,7 +25,12 @@
     (-> criteria
         (update-in-if [:transaction/transaction-date] serialize-date)
         (update-in-if [:transaction/created-at] serialize-date)
-        (rename-keys {:transaction/transaction-date :transaction-date})
+        (update-in-if [:transaction-item/account] :id)
+        (rename-keys {:transaction/transaction-date :transaction-date
+                      :transaction/created-at :created-at
+                      :transaction/description :description
+                      :transaction-item/quantity :quantity
+                      :transaction-item/account :account-id})
         comparatives/nominalize)
     (add-error-handler opts "Unable to retrieve the transactions: %s")))
 

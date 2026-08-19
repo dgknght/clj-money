@@ -1,6 +1,7 @@
 (ns clj-money.entities.transactions
   (:require [clojure.spec.alpha :as s]
             [clojure.core.async :as a]
+            [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
@@ -231,6 +232,87 @@
                    {:sort [[:transaction/transaction-date :desc]
                            [:transaction-item/index :desc]]
                     :select-also [:transaction/transaction-date]}))
+
+(def ^:dynamic *search-result-limit* 100)
+(def ^:dynamic *item-scan-limit* 500)
+
+(defn- matches-description?
+  [description]
+  (let [needle (string/lower-case description)]
+    (fn [trx]
+      (string/includes? (string/lower-case (:transaction/description trx))
+                        needle))))
+
+(defn- find-description
+  "Locates a :transaction/description value in criteria that may be a plain
+  map or a stowaway conjunction, e.g. [:and {...} {...}]."
+  [criteria]
+  (cond
+    (map? criteria) (:transaction/description criteria)
+    (vector? criteria) (some find-description (rest criteria))))
+
+(defn- strip-description
+  "Removes :transaction/description from criteria that may be a plain map or
+  a stowaway conjunction, preserving the overall shape."
+  [criteria]
+  (cond
+    (map? criteria) (dissoc criteria :transaction/description)
+    (vector? criteria) (into [(first criteria)] (map strip-description (rest criteria)))
+    :else criteria))
+
+(defn- has-item-criteria?
+  "True if criteria (a plain map or a stowaway conjunction) constrains
+  :transaction-item/* attributes, meaning the search must be scoped through
+  transaction items rather than queried directly against transactions."
+  [criteria]
+  (cond
+    (map? criteria) (boolean (some criteria [:transaction-item/quantity
+                                             :transaction-item/account]))
+    (vector? criteria) (boolean (some has-item-criteria? (rest criteria)))))
+
+(defn- search-by-item
+  "Finds transactions by joining through transaction items, so that
+  :transaction-item/* criteria (quantity, account) can be combined with
+  :transaction/* criteria. The item scan is sorted by transaction date, most
+  recent first, so that if *item-scan-limit* is reached, the items dropped
+  are the oldest, not an arbitrary subset."
+  [criteria]
+  (let [trx-ids (->> (entities/select (util/entity-type criteria :transaction-item)
+                                      {:sort [[:transaction/transaction-date :desc]]
+                                       :select-also [:transaction/transaction-date
+                                                     :transaction-item/transaction]
+                                       :limit *item-scan-limit*})
+                     (map (comp :id :transaction-item/transaction))
+                     set)]
+    (when (seq trx-ids)
+      (entities/select (util/entity-type {:id [:in trx-ids]} :transaction)
+                       {:sort [[:transaction/transaction-date :desc]]
+                        :limit *search-result-limit*}))))
+
+(defn- search-by-transaction
+  "Finds transactions directly, for criteria with no :transaction-item/*
+  constraints, avoiding an unnecessary (and lossy, once *item-scan-limit* is
+  reached) join through transaction items."
+  [criteria]
+  (entities/select (util/entity-type criteria :transaction)
+                   {:sort [[:transaction/transaction-date :desc]]
+                    :limit *search-result-limit*}))
+
+(defn search
+  "Returns transactions matching the given criteria, which may combine
+  :transaction/* attributes (entity, transaction-date, etc.) with
+  :transaction-item/* attributes (quantity, account) that must match on the
+  same item. :transaction/description, if present, is matched as a
+  case-insensitive partial match, applied after the underlying query since
+  partial-text matching isn't uniformly supported by the storage backends."
+  [criteria]
+  (let [description (find-description criteria)
+        db-criteria (strip-description criteria)
+        trxs (if (has-item-criteria? db-criteria)
+               (search-by-item db-criteria)
+               (search-by-transaction db-criteria))]
+    (cond->> trxs
+      description (filter (matches-description? description)))))
 
 (defn- last-transaction-item-before
   [account date]
