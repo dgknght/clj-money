@@ -38,6 +38,35 @@ errors out (e.g. it changed on a Forgejo upgrade), fall back to opening the
 run in a browser, or ask the user to download the log from the Actions run
 page and provide the file.
 
+Forgejo Projects (kanban boards, e.g. the "Development" board at
+`/dgknght/clj-money/projects/2`) has no REST API or `fj` support at all on
+this instance (v15.0.6+gitea-1.22.0) -- confirmed by grepping the full
+`swagger.v1.json` for `project`/`board`/`kanban` and finding nothing beyond
+the repo's `has_projects` unit-toggle field. Two things are still possible
+via undocumented web routes accepting the same `Authorization: token`
+header:
+- **Reading column membership**: the project board page
+  (`GET /{owner}/{repo}/projects/{project}`) is server-rendered HTML with
+  each column as a `<div class="project-column" ... data-id="N">` block
+  containing a `project-column-title-label` and one `issue-card` per card,
+  in actual board (drag) order, each linking to `/{owner}/{repo}/issues/{n}`.
+  `.claude/scripts/forgejo_project_column.py` scrapes this to list a named
+  column's issues in order.
+- **Adding issues to a column in bulk**: there's no way to place an issue
+  into a specific column directly, but each column has a "Set default"
+  toggle (governs where *newly added* project issues land — it does not
+  retroactively move issues already in the project) and the issue-list page
+  (`/issues?labels=<id>`) has row checkboxes plus a bulk "Projects" action.
+  So: set the target column default, filter issues by label, select-all,
+  bulk-add — they land directly in that column. List pages cap at ~20 rows
+  and "select all" only grabs the current page, so paginate and repeat.
+
+**Moving a card between columns is not scriptable**: only drag-and-drop
+does that, and a synthetic drag (single press-move-release) does not
+trigger Forgejo's sortable.js drag lifecycle at all -- no network request
+fires. Don't attempt to automate this; tell the user to drag it themselves
+if the board needs to visually reflect a state change.
+
 Note: requests made with Python's default `urllib` User-Agent get blocked by
 Cloudflare (`403`, `error code: 1010`) in front of `git.dgknght.com`. Send a
 spoofed `User-Agent` (e.g. `curl/8.0`) on any request made outside of `fj`
