@@ -49,6 +49,8 @@
       "mcp__trello__add-comment",
       "Bash(podman compose:*)",
       "Bash(python3 .claude/scripts/parse_trello_cards.py)",
+      "Bash(fj:*)",
+      "Bash(python3 .claude/scripts/forgejo_ci_failures.py:*)",
       "WebFetch(domain:funcool.github.io)",
       "WebFetch(domain:github.com)"
     ],

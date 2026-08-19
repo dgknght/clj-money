@@ -2,7 +2,7 @@
 
 Clojure cloud accounting application
 
-![build status](https://github.com/dgknght/clj-money/actions/workflows/clojure.yml/badge.svg)
+![build status](https://git.dgknght.com/dgknght/clj-money/badges/workflows/build.yml/badge.svg)
 
 ## ERD
 

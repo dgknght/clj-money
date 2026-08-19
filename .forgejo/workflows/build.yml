@@ -1,0 +1,127 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SQL_HOST: postgres
+      REDIS_HOST: redis
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: please03
+          POSTGRES_USER: adm_user
+          POSTGRES_DB: adm_user
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:8
+        options: >-
+          --health-cmd "redis-cli -a please04 ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout source code
+        uses: https://data.forgejo.org/actions/checkout@v6
+      - name: Cache dependencies
+        uses: https://code.forgejo.org/actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.lein
+          key: ${{ runner.os }}-lein-${{ hashFiles('project.clj') }}
+          restore-keys: |
+            ${{ runner.os }}-lein-
+      - name: Install clojure tools
+        uses: https://git.dgknght.com/dgknght/setup-clojure@v1
+        with:
+          java-version: 21
+          lein-version: 2.12.0
+          clj-kondo-version: '2026.01.19'
+      - name: Install dependencies
+        run: lein deps
+      - name: Lint with clj-kondo
+        run: clj-kondo --lint src:test
+      - name: Run ClojureScript tests
+        run: lein fig:test
+        env:
+          SESSION_SECRET: ci-secret-16byte
+      - name: Set up the database
+        run: lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
+      - name: Run tests
+        run: lein cloverage
+        env:
+          REDIS_PASSWORD: ""
+          SESSION_SECRET: ci-secret-16byte
+
+  tag:
+    needs: test
+    if: success() && forgejo.ref == 'refs/heads/main' && (forgejo.event_name == 'push' || forgejo.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions: write-all
+    concurrency:
+      group: tag-creation
+      cancel-in-progress: false
+    outputs:
+      timestamp: ${{ steps.set-time.outputs.timestamp }}
+    steps:
+      - name: Check out the repo
+        uses: https://data.forgejo.org/actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Generate timestamp and tag
+        id: set-time
+        run: |
+          timestamp=$(date +'%Y%m%d-%H%M')
+          echo "timestamp=$timestamp" >> "$FORGEJO_OUTPUT"
+          git tag "v${timestamp}"
+          git push origin "v${timestamp}"
+
+  publish:
+    needs: [ test, tag ]
+    if: needs.tag.result == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: web
+            image: dgknght/clj-money-web
+          - target: util
+            image: dgknght/clj-money-util
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Check out the repo
+        uses: https://data.forgejo.org/actions/checkout@v6
+        with:
+          ref: v${{ needs.tag.outputs.timestamp }}
+      - name: Log into docker hub
+        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      - name: Build and push the docker image
+        run: |
+          docker build \
+            --target ${{ matrix.target }} \
+            -f ./Dockerfile \
+            -t ${{ matrix.image }}:latest \
+            -t ${{ matrix.image }}:${{ needs.tag.outputs.timestamp }} \
+            -t ${{ matrix.image }}:${{ forgejo.sha }} \
+            --push \
+            .

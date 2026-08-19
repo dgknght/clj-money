@@ -50,7 +50,7 @@
 
 (def ^:private mock-config
   {::prog/strategy ::prog/redis
-   :redis-config {}})
+   :redis-config (get-in env [:progress :strategies :redis :redis-config])})
 
 (deftest ^:multi-threaded notify-a-count-of-a-category
   (testing "keyword root key"

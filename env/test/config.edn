@@ -16,8 +16,8 @@
  :detailed-import-logging "false"
  :invitation-expiration-days 10
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
-                 :host "localhost"
-                 :post 5432
+                 :host :config/sql-host
+                 :port 5432
                  :user :config/sql-app-user
                  :password :config/sql-app-password
                  :dbtype "postgresql"
