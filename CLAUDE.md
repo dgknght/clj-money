@@ -29,6 +29,10 @@ We own two of the libraries used throughout this projects.
 - `dgknght.app-lib` - Source at `../app-lib`
 - `stowaway` - Source at `../stowaway`
 
+When a feature or a bug fix requires a changes to one of these libraries,
+create an issue in their forgejo repository rather than making the change
+directly.
+
 ## Guidelines
 
 - After making changes:
