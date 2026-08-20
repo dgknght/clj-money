@@ -13,7 +13,7 @@ the `forgejo-cli` skill for general `fj`/API notes.
 
 Steps:
 
-1. Run `python3 .claude/scripts/forgejo_project_column.py "Backlog"` to get
+1. Run `python3 ~/.claude/scripts/forgejo_project_column.py "Backlog"` to get
    the issue numbers currently in the Backlog column, top to bottom, in
    actual board order. There's no REST API or `fj` support for Forgejo
    Projects, so this scrapes the project board's HTML directly — see the

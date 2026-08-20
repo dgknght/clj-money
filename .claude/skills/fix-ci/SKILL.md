@@ -18,7 +18,7 @@ Steps:
    which check is failing for the current branch's PR. If you don't know the
    PR number, find it with
    `fj pr search -H git.dgknght.com --repo dgknght/clj-money`.
-2. Run `python3 .claude/scripts/forgejo_ci_failures.py` to get the failure
+2. Run `python3 ~/.claude/scripts/forgejo_ci_failures.py` to get the failure
    log for the most recent run of the current branch's PR (pass `--branch`
    or `--pr` to target a different one). This prints the log for every
    failed job, with noisy dependency-download lines filtered out.

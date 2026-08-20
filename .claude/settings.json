@@ -50,8 +50,8 @@
       "Bash(podman compose:*)",
       "Bash(python3 .claude/scripts/parse_trello_cards.py)",
       "Bash(fj:*)",
-      "Bash(python3 .claude/scripts/forgejo_ci_failures.py:*)",
-      "Bash(python3 .claude/scripts/forgejo_project_column.py:*)",
+      "Bash(python3 ~/.claude/scripts/forgejo_ci_failures.py:*)",
+      "Bash(python3 ~/.claude/scripts/forgejo_project_column.py:*)",
       "WebFetch(domain:funcool.github.io)",
       "WebFetch(domain:github.com)"
     ],
