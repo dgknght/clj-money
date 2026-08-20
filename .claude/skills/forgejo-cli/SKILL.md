@@ -61,11 +61,38 @@ header:
   bulk-add — they land directly in that column. List pages cap at ~20 rows
   and "select all" only grabs the current page, so paginate and repeat.
 
-**Moving a card between columns is not scriptable**: only drag-and-drop
-does that, and a synthetic drag (single press-move-release) does not
-trigger Forgejo's sortable.js drag lifecycle at all -- no network request
-fires. Don't attempt to automate this; tell the user to drag it themselves
-if the board needs to visually reflect a state change.
+**Moving/reordering cards IS scriptable, via the same endpoint SortableJS
+uses** -- a synthetic browser drag (single press-move-release) does NOT
+trigger Forgejo's sortable.js drag lifecycle (no network request fires,
+confirmed via `read_network_requests`), but you don't need a drag at all:
+each column's `.ui.cards` container has `data-url="/{owner}/{repo}/projects/{project}/{boardID}"`,
+and dragging POSTs to `{that data-url}/move` with a JSON body
+`{"issues": [{"issueID": <id>, "sorting": <index>}, ...]}` listing, in
+target order, every card that should be considered for that column. This
+call can be replayed directly -- e.g. via `javascript_tool`'s `fetch()`
+inside an authenticated browser tab (reuses the session cookie, no CSRF
+token needed) -- to reorder a column or move a card into it, no drag
+required. The response is `{"ok":true}` on success.
+
+The request only ever *adds/reorders* the listed issues into the target
+board; it does not purge that board down to exactly the given list, so an
+issue already sitting in the column but omitted from the payload is left
+alone (harmless when reordering a column you're sending in full).
+
+**Critical gotcha**: the card's `data-issue` attribute (and the `issueID`
+field the endpoint expects) is the issue's **global database ID**, *not*
+the repo-scoped number shown in the URL/title (`#6` etc). Sending the
+visible issue number as `issueID` silently reassigns whatever *unrelated*
+issue happens to own that ID elsewhere on the instance into your column --
+this actually happened during a reorder and dragged 16 wrong issues into
+the wrong column. Get the real ID either by reading the live DOM
+(`data-issue="N"` on `.issue-card`) or from the REST API's `id` field
+(`GET /api/v1/repos/{owner}/{repo}/issues` -- distinct from `number`).
+There's a fixed but *repo-specific and not-to-be-assumed* offset between
+the two (e.g. `id = number + 25` was observed for clj-money at migration
+time, because that many issues/PRs existed instance-wide beforehand) --
+always verify per-repo via the API rather than reusing a remembered
+offset.
 
 Note: requests made with Python's default `urllib` User-Agent get blocked by
 Cloudflare (`403`, `error code: 1010`) in front of `git.dgknght.com`. Send a
