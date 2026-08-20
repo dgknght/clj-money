@@ -39,4 +39,4 @@ Steps:
 6. Do the work described by the issue.
 7. Once the work is complete, push the branch and create a pull request:
    `fj pr create -H git.dgknght.com --repo dgknght/clj-money --autofill
-   --base main`. This repository uses `main` as the default branch.
+   --base main`. Include "fixes #<ISSUE>" in the commit message.
