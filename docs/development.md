@@ -148,3 +148,10 @@ lein with-profile +otel repl
 ```
 
 Then start the server as usual with `(start-server)`.
+
+## Claude
+
+Claude needs some access tokens to work
+
+- `CLAUDE_FORGEJO_ACCESS_TOKEN` to create PRs, fix build errors, etc.
+- `HONEYBADGER_ACCESS_TOKEN` to resolve production and staging errors.
