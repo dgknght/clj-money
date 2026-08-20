@@ -42,24 +42,15 @@ Forgejo Projects (kanban boards, e.g. the "Development" board at
 `/dgknght/clj-money/projects/2`) has no REST API or `fj` support at all on
 this instance (v15.0.6+gitea-1.22.0) -- confirmed by grepping the full
 `swagger.v1.json` for `project`/`board`/`kanban` and finding nothing beyond
-the repo's `has_projects` unit-toggle field. Two things are still possible
-via undocumented web routes accepting the same `Authorization: token`
-header:
-- **Reading column membership**: the project board page
-  (`GET /{owner}/{repo}/projects/{project}`) is server-rendered HTML with
-  each column as a `<div class="project-column" ... data-id="N">` block
-  containing a `project-column-title-label` and one `issue-card` per card,
-  in actual board (drag) order, each linking to `/{owner}/{repo}/issues/{n}`.
-  `.claude/scripts/forgejo_project_column.py` scrapes this to list a named
-  column's issues in order.
-- **Adding issues to a column in bulk**: there's no way to place an issue
-  into a specific column directly, but each column has a "Set default"
-  toggle (governs where *newly added* project issues land — it does not
-  retroactively move issues already in the project) and the issue-list page
-  (`/issues?labels=<id>`) has row checkboxes plus a bulk "Projects" action.
-  So: set the target column default, filter issues by label, select-all,
-  bulk-add — they land directly in that column. List pages cap at ~20 rows
-  and "select all" only grabs the current page, so paginate and repeat.
+the repo's `has_projects` unit-toggle field. Reading column membership is
+still possible via an undocumented web route (accepting the same
+`Authorization: token` header): the project board page
+(`GET /{owner}/{repo}/projects/{project}`) is server-rendered HTML with
+each column as a `<div class="project-column" ... data-id="N">` block
+containing a `project-column-title-label` and one `issue-card` per card,
+in actual board (drag) order, each linking to `/{owner}/{repo}/issues/{n}`.
+`.claude/scripts/forgejo_project_column.py` scrapes this to list a named
+column's issues in order.
 
 **Moving/reordering cards IS scriptable, via the same endpoint SortableJS
 uses** -- a synthetic browser drag (single press-move-release) does NOT
@@ -89,10 +80,9 @@ the wrong column. Get the real ID either by reading the live DOM
 (`data-issue="N"` on `.issue-card`) or from the REST API's `id` field
 (`GET /api/v1/repos/{owner}/{repo}/issues` -- distinct from `number`).
 There's a fixed but *repo-specific and not-to-be-assumed* offset between
-the two (e.g. `id = number + 25` was observed for clj-money at migration
-time, because that many issues/PRs existed instance-wide beforehand) --
-always verify per-repo via the API rather than reusing a remembered
-offset.
+the two (it depends on how many issues/PRs existed instance-wide before
+this repo's issues were created) -- always verify per-repo via the API
+rather than reusing a remembered offset.
 
 Note: requests made with Python's default `urllib` User-Agent get blocked by
 Cloudflare (`403`, `error code: 1010`) in front of `git.dgknght.com`. Send a
