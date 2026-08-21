@@ -6,7 +6,8 @@
             [clj-money.util-test]
             [clj-money.transactions-test]
             [clj-money.scheduled-transactions-test]
-            [clj-money.routes-test]))
+            [clj-money.routes-test]
+            [clj-money.views.recent-transactions-test]))
 
 (defmethod t/report [:cljs.test/default :end-run-tests] [m]
   (set! (.-exitCode js/process) (if (t/successful? m) 0 1)))
@@ -19,4 +20,5 @@
     'clj-money.budgets-test
     'clj-money.util-test
     'clj-money.transactions-test
-    'clj-money.scheduled-transactions-test))
+    'clj-money.scheduled-transactions-test
+    'clj-money.views.recent-transactions-test))

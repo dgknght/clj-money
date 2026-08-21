@@ -26,7 +26,8 @@
             [clj-money.receipts :as receipts]
             [clj-money.api.transactions :as trn]
             [clj-money.api.attachments :as atts]
-            [clj-money.views.attachments :as atts-view]))
+            [clj-money.views.attachments :as atts-view]
+            [clj-money.views.recent-transactions :as recent-trx]))
 
 (defn- new-receipt
   [page-state]
@@ -263,13 +264,20 @@
         (icon :paperclip :size :small)
         [:span.badge.bg-info.text-dark attachment-count])]]]])
 
+(def ^:private recent-options-id "receipts-recent-transactions-options")
+
 (defn- results-table
   [page-state]
-  (let [transactions (r/cursor page-state [:transactions])]
+  (let [transactions (r/cursor page-state [:transactions])
+        settings (r/cursor page-state [:recent-settings])
+        visible (make-reaction #(when @transactions
+                                  (recent-trx/sort-and-limit @transactions @settings)))]
     (fn []
       [:<>
        [pending-attachment-form page-state]
-       [:div.mb-2
+       [:div.mb-2.d-flex.justify-content-end
+        [recent-trx/toggle recent-options-id]]
+       [recent-trx/drawer recent-options-id page-state [:recent-settings]
         [forms/date-field
          page-state
          [:filter-date]
@@ -283,8 +291,8 @@
           [:th (html/space)]]]
         [:tbody
          (cond
-           (seq @transactions)
-           (->> @transactions
+           (seq @visible)
+           (->> @visible
                 (map #(result-row % page-state))
                 doall)
 
@@ -307,7 +315,8 @@
                                   :transactions %)))
 
 (defn- index []
-  (let [page-state (r/atom {:filter-date (t/today)})
+  (let [page-state (r/atom {:filter-date (t/today)
+                            :recent-settings recent-trx/default-settings})
         attachments-item (r/cursor page-state [:attachments-item])]
     (new-receipt page-state)
     (load-transactions page-state)

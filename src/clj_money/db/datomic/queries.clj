@@ -5,7 +5,7 @@
 
 (def ^:private default-opts
   {:relationships schema/relationships
-   :metadata-anchors {:transaction :transaction/transaction-date}
+   :remap {:transaction/created-at [:db/txInstant :transaction/entity]}
    :query-prefix [:query]})
 
 (defn apply-criteria
