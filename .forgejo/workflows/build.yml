@@ -96,7 +96,7 @@ jobs:
   publish:
     needs: [ test, tag ]
     if: needs.tag.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: podman
     strategy:
       fail-fast: false
       matrix:
@@ -114,10 +114,10 @@ jobs:
         with:
           ref: v${{ needs.tag.outputs.timestamp }}
       - name: Log into docker hub
-        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+        run: echo "$DOCKER_PASSWORD" | podman login -u "$DOCKER_USERNAME" --password-stdin docker.io
       - name: Build and push the docker image
         run: |
-          docker build \
+          podman build \
             --target ${{ matrix.target }} \
             -f ./Dockerfile \
             -t ${{ matrix.image }}:latest \
