@@ -3,9 +3,13 @@
   'Recent Transactions' tables on the receipt entry and dividend entry
   pages."
   (:require [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
+            [cljs-time.coerce :as tc]
             [dgknght.app-lib.core :refer [parse-int]]
+            [dgknght.app-lib.html :refer [space]]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon icon-with-text]]))
 
 (def default-settings
@@ -46,6 +50,11 @@
   (->> transactions
        (sort (partial compare-transactions settings))
        (take (:limit settings))))
+
+(defn- entered-since?
+  [filter-date {:transaction/keys [created-at]}]
+  (and created-at
+       (>= (tc/to-long created-at) (tc/to-long filter-date))))
 
 (defn- controls
   "Renders sort-by, sort-direction, and result-count controls. settings-path
@@ -102,3 +111,59 @@
     [:div.offcanvas-body
      extra
      [controls page-state settings-path]]]))
+
+(defn table
+  "Shared 'Recent Transactions' section for the receipt and dividend entry
+  pages: a toggle button, an options drawer (sort-by, direction, result
+  count, and an 'Entered Since' date filter), and a table of the visible
+  transactions.
+
+  :id           - the DOM id for this table's options drawer (must be unique
+                  on the page)
+  :page-state   - the page's reagent atom
+  :items-path   - path, within page-state, to the candidate collection of
+                  transactions or transaction-items to show. The page is
+                  responsible for loading this collection (and, if it can be
+                  done efficiently, scoping and date-filtering it server
+                  side); this component filters it down to those on or
+                  after the 'Entered Since' date, then sorts and limits it
+                  per :recent-settings.
+  :row-fn       - renders one visible transaction to a <tr>
+  :empty-message - shown when there are items loaded but none are visible"
+  [{:keys [id page-state items-path row-fn empty-message]
+    :or {empty-message "No recent transactions"}}]
+  (when-not (:recent-settings @page-state)
+    (swap! page-state assoc :recent-settings default-settings))
+  (when-not (:filter-date @page-state)
+    (swap! page-state assoc :filter-date (t/today)))
+  (let [items (r/cursor page-state items-path)
+        settings (r/cursor page-state [:recent-settings])
+        filter-date (r/cursor page-state [:filter-date])
+        visible (make-reaction #(when @items
+                                  (sort-and-limit
+                                    (filter (partial entered-since? @filter-date) @items)
+                                    @settings)))]
+    (fn []
+      [:<>
+       [:div.d-flex.justify-content-between.align-items-center
+        [:h3 "Recent Transactions"]
+        [toggle id]]
+       [drawer id page-state [:recent-settings]
+        [forms/date-field page-state [:filter-date] {:caption "Entered Since"}]]
+       [:table.table.table-hover.table-striped
+        [:thead
+         [:tr
+          [:th.text-end "Date"]
+          [:th "Description"]
+          [:th.text-end "Amount"]
+          [:th (space)]]]
+        [:tbody
+         (cond
+           (seq @visible)
+           (doall (map row-fn @visible))
+
+           @items
+           [:tr [:td.text-center.fw-lighter {:col-span 4} empty-message]]
+
+           :else
+           [:tr [:td.text-center {:col-span 4} (bs/spinner {:size :small})]])]]])))

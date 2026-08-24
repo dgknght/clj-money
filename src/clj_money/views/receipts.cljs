@@ -9,9 +9,7 @@
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal]]
             [dgknght.app-lib.dom :refer [set-focus]]
-            [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.cached-accounts :as cached-accts]
             [clj-money.util :as util]
@@ -268,46 +266,20 @@
 
 (defn- results-table
   [page-state]
-  (let [transactions (r/cursor page-state [:transactions])
-        settings (r/cursor page-state [:recent-settings])
-        visible (make-reaction #(when @transactions
-                                  (recent-trx/sort-and-limit @transactions @settings)))]
-    (fn []
-      [:<>
-       [pending-attachment-form page-state]
-       [:div.mb-2.d-flex.justify-content-end
-        [recent-trx/toggle recent-options-id]]
-       [recent-trx/drawer recent-options-id page-state [:recent-settings]
-        [forms/date-field
-         page-state
-         [:filter-date]
-         {:caption "Entered Since"}]]
-       [:table.table.table-hover
-        [:thead
-         [:tr
-          [:th "Date"]
-          [:th "Description"]
-          [:th.text-end "Amount"]
-          [:th (html/space)]]]
-        [:tbody
-         (cond
-           (seq @visible)
-           (->> @visible
-                (map #(result-row % page-state))
-                doall)
-
-           @transactions
-           [:tr
-            [:td {:col-span 4} "No transactions entered on this date"]]
-
-           :else
-           [:tr
-            [:td {:col-span 4} (bs/spinner)]])]]])))
+  [:<>
+   [pending-attachment-form page-state]
+   [recent-trx/table
+    {:id recent-options-id
+     :page-state page-state
+     :items-path [:transactions]
+     :row-fn #(result-row % page-state)
+     :empty-message "No transactions entered on this date"}]])
 
 (defn- load-transactions
   [page-state]
   (+busy)
   (trn/select {:include-items true
+               :select-also ["created-at"]
                :transaction/created-at [:>= (:filter-date @page-state)]}
               :callback -busy
               :on-success #(swap! page-state
@@ -326,9 +298,10 @@
                    (load-transactions page-state))))
     (fn []
       [:<>
-       [:h1.mt-3 "Receipt Entry"]
+       [:h1.mt-3 "Receipts"]
        [:div.row
         [:div.col-md-6
+         [:h3 "New Transaction"]
          [receipt-form page-state]]
         [:div.col-md-6
          (if @attachments-item

@@ -43,6 +43,7 @@
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as atts]
             [clj-money.views.attachments :as atts-view]
+            [clj-money.views.recent-transactions :as recent-trx]
             [clj-money.api.trading :as trading]
             [clj-money.api.audit :as audit]))
 
@@ -414,44 +415,17 @@
         :title "Click here to edit this transaction."}
        (icon :pencil :size :small)]]]))
 
-(defn- recent-transaction-compare
-  "Sorts newest-first by transaction date, breaking ties on :id (which
-  increases monotonically with insertion) since many transactions can
-  share the same transaction date."
-  [{d1 :transaction/transaction-date id1 :id}
-   {d2 :transaction/transaction-date id2 :id}]
-  (cond
-    (date-compare d1 d2) 1
-    (date-compare d2 d1) -1
-    :else (compare id2 id1)))
+(def ^:private recent-options-id "dividend-recent-transactions-options")
 
 (defn recent-transactions-table
   [page-state]
-  (let [items (r/cursor page-state [:items])
-        account (r/cursor page-state [:view-account])
-        recent (make-reaction #(->> @items
-                                    (sort recent-transaction-compare)
-                                    (take 5)))]
+  (let [account (r/cursor page-state [:view-account])]
     (fn []
-      [:<>
-       [:h3 "Recent Transactions"]
-       [:table.table.table-hover.table-striped
-        [:thead
-         [:tr
-          [:th.text-end "Date"]
-          [:th "Description"]
-          [:th.text-end "Amount"]
-          [:th (space)]]]
-        [:tbody
-         (cond
-           (seq @recent)
-           (doall (map (recent-transaction-row @account page-state) @recent))
-
-           @items
-           [:tr [:td.text-center.fw-lighter {:col-span 4} "No recent transactions"]]
-
-           :else
-           [:tr [:td.text-center {:col-span 4} (bs/spinner {:size :small})]])]]])))
+      [recent-trx/table
+       {:id recent-options-id
+        :page-state page-state
+        :items-path [:items]
+        :row-fn (recent-transaction-row @account page-state)}])))
 
 (defn- load-trx-item-audit!
   [page-state item]

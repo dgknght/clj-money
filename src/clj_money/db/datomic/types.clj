@@ -66,6 +66,7 @@
    :reconciliation/end-of-period dates/->local-date
    :settings/monitored-accounts set
    :settings/budget-tags read-string
+   :transaction/created-at #(.toInstant ^java.util.Date %)
    :transaction/transaction-date dates/->local-date
    :scheduled-transaction/start-date dates/->local-date
    :scheduled-transaction/end-date dates/->local-date

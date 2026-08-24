@@ -56,11 +56,17 @@
       throw-on-missing-constraint
       (+scope :transaction authenticated)))
 
+(defn- ->select-also
+  [x]
+  (->> (if (sequential? x) x [x])
+       (mapv #(keyword "transaction" %))))
+
 (defn- extract-options
   [{:keys [params]}]
   (-> params
-      (select-keys [:include-items])
-      (rename-keys {:include-items :include-items?})))
+      (select-keys [:include-items :select-also])
+      (rename-keys {:include-items :include-items?})
+      (update-in-if [:select-also] ->select-also)))
 
 (defn- index
   [req]
