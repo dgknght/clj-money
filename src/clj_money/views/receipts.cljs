@@ -16,6 +16,7 @@
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.state :refer [app-state
+                                     current-entity
                                      accounts
                                      accounts-by-id
                                      +busy
@@ -296,6 +297,15 @@
                (fn [_ _ old new]
                  (when (not= (:filter-date old) (:filter-date new))
                    (load-transactions page-state))))
+    (add-watch current-entity
+               ::index
+               (fn [_ _ _ _]
+                 (swap! page-state
+                        #(-> %
+                             (dissoc :attachments-item :attachments)
+                             (assoc :transactions [])))
+                 (new-receipt page-state)
+                 (load-transactions page-state)))
     (fn []
       [:<>
        [:h1.mt-3 "Receipts"]
