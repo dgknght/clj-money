@@ -99,7 +99,7 @@
            first
            (re-find #"ring-session=[^;]+")))
 
-(deftest handle-a-successful-oauth-callback-for-a-new-user
+(deftest ^:multi-threaded handle-a-successful-oauth-callback-for-a-new-user
   (with-web-mocks [_calls] mocks
     (with-redefs [jwt/sign (constantly "abc123")]
       ;; Step 1: Start the OAuth flow to capture the state and session cookie
@@ -129,7 +129,7 @@
                                   :last-name "Doe"}
                            (usrs/find-by-email "john@doe.com"))))))))
 
-(deftest handle-a-successful-github-oauth-callback-for-a-new-user
+(deftest ^:multi-threaded handle-a-successful-github-oauth-callback-for-a-new-user
   (with-web-mocks [_calls] github-mocks
     (with-redefs [jwt/sign (constantly "ghtoken123")]
       (let [start-res    (app (req/request :get "/auth/github/start"))
@@ -156,7 +156,7 @@
                                   :last-name "Doe"}
                            (usrs/find-by-email "jane@doe.com"))))))))
 
-(deftest handle-github-oauth-for-user-with-private-email
+(deftest ^:multi-threaded handle-github-oauth-for-user-with-private-email
   (with-web-mocks [_calls] github-private-email-mocks
     (with-redefs [jwt/sign (constantly "ghtoken123")]
       (let [start-res    (app (req/request :get "/auth/github/start"))
