@@ -1,0 +1,44 @@
+name: Move issue on close
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  swap-label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Swap status/in-progress for status/pending-delivery
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ forgejo.server_url }}/api/v1/repos/${{ forgejo.repository }}
+          ISSUE_NUMBER: ${{ forgejo.event.issue.number }}
+        run: |
+          set -euo pipefail
+          which jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
+
+          auth=(-H "Authorization: token $FORGEJO_TOKEN" -H "Content-Type: application/json")
+
+          labels=$(curl -sf "${auth[@]}" "$API/labels?limit=50")
+          in_progress_id=$(echo "$labels" | jq -r '.[] | select(.name=="status/in-progress") | .id')
+          pending_id=$(echo "$labels" | jq -r '.[] | select(.name=="status/pending-delivery") | .id')
+
+          if [ -z "$in_progress_id" ] || [ -z "$pending_id" ]; then
+            echo "Could not find status/in-progress and/or status/pending-delivery labels; skipping." >&2
+            exit 0
+          fi
+
+          issue_labels=$(curl -sf "${auth[@]}" "$API/issues/$ISSUE_NUMBER/labels")
+          has_in_progress=$(echo "$issue_labels" | jq --argjson id "$in_progress_id" '[.[] | select(.id == $id)] | length')
+
+          if [ "$has_in_progress" -eq 0 ]; then
+            echo "Issue #$ISSUE_NUMBER isn't labeled status/in-progress; leaving labels as is."
+            exit 0
+          fi
+
+          curl -sf -X DELETE "${auth[@]}" "$API/issues/$ISSUE_NUMBER/labels/$in_progress_id"
+          curl -sf -X POST "${auth[@]}" -d "{\"labels\":[$pending_id]}" "$API/issues/$ISSUE_NUMBER/labels"
+
+          echo "Moved issue #$ISSUE_NUMBER from status/in-progress to status/pending-delivery"

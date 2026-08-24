@@ -31,11 +31,12 @@ Steps:
 4. Create a new feature branch for the chosen issue (see the `new-branch`
    skill).
 5. Swap its state label to reflect the move: `fj issue edit
-   "dgknght/clj-money#<ISSUE>" labels -H git.dgknght.com -a from:in-progress
-   -r from:backlog`. This does not move the card on the project board — only
-   dragging does that, and drag-and-drop isn't scriptable headlessly. If you
-   want the board's In Progress column to reflect the claim, drag the card
-   there yourself; the label swap is the only automated part of this step.
+   "dgknght/clj-money#<ISSUE>" labels -H git.dgknght.com -a status/in-progress
+   -r status/backlog`. This does not move the card on the project board —
+   only dragging does that, and drag-and-drop isn't scriptable headlessly
+   (see the `forgejo-cli` skill for why). If you want the board's In Progress
+   column to reflect the claim, drag the card there yourself; the label swap
+   is the only automated part of this step.
 6. Do the work described by the issue.
 7. Once the work is complete, push the branch and create a pull request:
    `fj pr create -H git.dgknght.com --repo dgknght/clj-money --autofill
