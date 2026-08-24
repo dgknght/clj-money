@@ -5,6 +5,7 @@
             [eftest.runner :refer [find-tests run-tests]]
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
+            [clj-money.threading :refer [available-processors]]
             [clj-money.test-helpers :refer [*parallel*]]
             [clj-money.db.sql.tasks :as sql]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
@@ -23,7 +24,7 @@
 (defn- init-sql-dbs
   [options]
   (let [config (get-in env [:db :strategies :sql])
-        db-count (.availableProcessors (Runtime/getRuntime))
+        db-count (available-processors)
         configs (map (comp #(assoc %
                                    :user (env :sql-adm-user)
                                    :password (env :sql-adm-password))
@@ -117,11 +118,11 @@
   (init-crypto)
   (binding [*parallel* true]
     ((bound-fn []
-      (->> (or (seq arguments) ["test"])
-           symbolize-namespaces
-           (mapcat find-tests)
-           (filter (run? options))
-           run-tests options)))))
+       (run-tests (->> (or (seq arguments) ["test"])
+                        symbolize-namespaces
+                        (mapcat find-tests)
+                        (filter (run? options)))
+                  (assoc options :thread-count (available-processors)))))))
 
 (defn eftest
   [& args]
