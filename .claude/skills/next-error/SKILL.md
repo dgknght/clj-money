@@ -19,5 +19,7 @@ Steps:
    abandon the operation here.
 3. Create a new git branch for this work.
 4. Implement a fix for the error.
-5. When the work is complete, push the branch and create a pull request using
-   `gh pr create`.
+5. When the work is complete, push the branch and create a pull request:
+   `fj pr create -H git.dgknght.com --repo dgknght/clj-money --autofill
+   --base main`. Include "fixes #<ISSUE>" in the commit message if the error
+   is tracked as an issue.
