@@ -7,7 +7,7 @@
 (def ^:private test-error
   (Exception. "something went wrong"))
 
-(deftest notify-sends-to-honeybadger-when-key-is-configured
+(deftest ^:multi-threaded notify-sends-to-honeybadger-when-key-is-configured
   (testing "when the api key is configured"
     (let [calls (atom [])]
       (with-redefs [http/post (fn [url opts] (swap! calls conj {:url url :opts opts}))
@@ -23,7 +23,7 @@
           (is (= "test-api-key" (get-in opts [:headers "X-API-Key"]))
               "Sends the API key header"))))))
 
-(deftest notify-is-noop-without-api-key
+(deftest ^:multi-threaded notify-is-noop-without-api-key
   (testing "when the api key is not configured"
     (let [calls (atom [])]
       (with-redefs [http/post (fn [url opts] (swap! calls conj {:url url :opts opts}))
