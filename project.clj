@@ -75,7 +75,7 @@
                                                  org.clojure/tools.reader]]
                  [reagent-utils "0.3.8"]
                  [org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]
-                 [com.google.guava/guava "33.7.0-jre" :exclusions [com.google.code.findbugs/jsr305
+                 [com.google.guava/guava "33.7.1-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
@@ -122,7 +122,7 @@
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.52"
+                  "0.3.56"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
@@ -168,7 +168,7 @@
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.838"]
-                 [com.cognitect.aws/endpoints "871.2.51.4"]
+                 [com.cognitect.aws/endpoints "871.2.53.2"]
                  [com.cognitect.aws/s3 "871.2.51.4"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
