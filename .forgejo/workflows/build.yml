@@ -38,7 +38,7 @@ jobs:
           - 6379:6379
     steps:
       - name: Checkout source code
-        uses: https://data.forgejo.org/actions/checkout@v6
+        uses: https://data.forgejo.org/actions/checkout@v7
       - name: Cache dependencies
         uses: https://code.forgejo.org/actions/cache@v4
         with:
@@ -82,7 +82,7 @@ jobs:
       timestamp: ${{ steps.set-time.outputs.timestamp }}
     steps:
       - name: Check out the repo
-        uses: https://data.forgejo.org/actions/checkout@v6
+        uses: https://data.forgejo.org/actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Generate timestamp and tag
@@ -110,7 +110,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Check out the repo
-        uses: https://data.forgejo.org/actions/checkout@v6
+        uses: https://data.forgejo.org/actions/checkout@v7
         with:
           ref: v${{ needs.tag.outputs.timestamp }}
       - name: Log into docker hub
