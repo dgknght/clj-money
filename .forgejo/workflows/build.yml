@@ -114,7 +114,7 @@ jobs:
           ref: v${{ needs.tag.outputs.timestamp }}
       - name: Log into docker hub
         run: echo "$DOCKER_PASSWORD" | podman login -u "$DOCKER_USERNAME" --password-stdin docker.io
-      - name: Build and push the docker image
+      - name: Build the docker image
         run: |
           podman build \
             --target ${{ matrix.target }} \
@@ -122,5 +122,9 @@ jobs:
             -t ${{ matrix.image }}:latest \
             -t ${{ matrix.image }}:${{ needs.tag.outputs.timestamp }} \
             -t ${{ matrix.image }}:${{ forgejo.sha }} \
-            --push \
             .
+      - name: Push the docker image
+        run: |
+          podman push ${{ matrix.image }}:latest
+          podman push ${{ matrix.image }}:${{ needs.tag.outputs.timestamp }}
+          podman push ${{ matrix.image }}:${{ forgejo.sha }}
