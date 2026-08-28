@@ -3,8 +3,7 @@ session=clj-money
 tmux new-session -d -s $session
 
 GREEN="#227b36"
-tmux set status-style "bg=$GREEN fg=#CCCCCC"
-tmux set pane-active-border-style "fg=$GREEN"
+tmux set -t $session status-style "bg=$GREEN fg=#CCCCCC"
 
 # REPL window
 tmux rename-window -t 0 'repl'
@@ -23,9 +22,14 @@ tmux send-keys 'nvim' C-m
 tmux split-window -h
 sleep 0.5
 tmux send-keys 'git status' C-m
+tmux split-window -v
+sleep 0.5
+tmux send-keys 'claude' C-m
 
 # Database window
-tmux new-window -t $session:2 -n 'database' 'psql'
+tmux new-window -t $session:2 -n 'database'
+tmux send-keys 'psql' C-m
+
 
 # Log window
 tmux new-window -t $session:3 -n 'logs'
@@ -34,5 +38,11 @@ tmux send-keys 'tail -f log/development.log | grep -e ERROR -e WARN -e dbk' C-m
 tmux split-window -v
 sleep 0.5
 tmux send-keys 'tail -f log/development.log' C-m
+
+# pane-active-border-style is a window option, not a session option, so it
+# must be (re)applied to every window rather than set once at session start.
+for w in $(tmux list-windows -t $session -F '#{window_index}'); do
+  tmux set -t $session:$w pane-active-border-style "fg=$GREEN"
+done
 
 tmux attach -t $session:1
