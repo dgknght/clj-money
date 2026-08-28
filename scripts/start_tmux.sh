@@ -2,8 +2,8 @@ session=clj-money
 
 tmux new-session -d -s $session
 
-GREEN="#227b36"
-tmux set -t $session status-style "bg=$GREEN fg=#CCCCCC"
+ACCENT_COLOR="#2b7a2d"
+tmux set -t $session status-style "bg=$ACCENT_COLOR fg=#CCCCCC"
 
 # REPL window
 tmux rename-window -t 0 'repl'
@@ -42,7 +42,7 @@ tmux send-keys 'tail -f log/development.log' C-m
 # pane-active-border-style is a window option, not a session option, so it
 # must be (re)applied to every window rather than set once at session start.
 for w in $(tmux list-windows -t $session -F '#{window_index}'); do
-  tmux set -t $session:$w pane-active-border-style "fg=$GREEN"
+  tmux set -t $session:$w pane-active-border-style "fg=$ACCENT_COLOR"
 done
 
 tmux attach -t $session:1
