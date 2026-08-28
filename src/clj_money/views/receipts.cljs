@@ -38,17 +38,19 @@
     (swap! page-state assoc :receipt defaults)
     (set-focus "transaction-date")))
 
-(defn- ->receipt
-  ([transaction]
-   (->receipt transaction {}))
-  ([{:transaction/keys [items] :as transaction} {:keys [for-reuse?]}]
-   (let [{:keys [debit] [credit] :credit} (group-by :transaction-item/action items)
-         retain (cond-> [:transaction/description]
-                  (not for-reuse?) (concat [:id :transaction/transaction-date]))]
-     (merge (select-keys transaction retain)
-            {:account (:transaction-item/account credit)
-             :items (mapv #(select-keys % [:account-id :quantity :memo])
-                          debit)}))))
+(defn ->reused-fields
+  "Extracts the payment account and line items from an existing transaction
+  so a receipt can be pre-populated with them. The description and
+  transaction date are left alone."
+  [{:transaction/keys [items]}]
+  (let [{:keys [debit] [credit] :credit} (group-by :transaction-item/action items)]
+    {:receipt/payment-account (:transaction-item/account credit)
+     :receipt/payment-memo (:transaction-item/memo credit)
+     :receipt/items (mapv (fn [{:transaction-item/keys [account quantity memo]}]
+                            #:receipt-item{:account account
+                                           :quantity quantity
+                                           :memo memo})
+                          debit)}))
 
 (defn- touched-account-ids
   [{:receipt/keys [payment-account items]}]
@@ -89,16 +91,19 @@
   (fn [input callback]
     (callback (find-by-path input @accounts))))
 
+(def ^:private description-search-months
+  "How far back to look for transactions to offer in the description typeahead."
+  3)
+
 (defn- search-transactions
-  [transactions]
-  (fn [input callback]
-    (let [term (string/lower-case input)]
-      (->> transactions
-           (filter #(-> %
-                        (get-in [:transaction/description])
-                        string/lower-case
-                        (string/includes? term)))
-           callback))))
+  [input callback transactions]
+  (let [term (string/lower-case input)]
+    (->> transactions
+         (filter #(-> %
+                      (get-in [:transaction/description])
+                      string/lower-case
+                      (string/includes? term)))
+         callback)))
 
 (defn- ensure-blank-item
   [page-state]
@@ -135,7 +140,12 @@
   (if (map? transaction)
     (-> state
         (dissoc :transaction-search)
-        (update-in [:receipt] merge (->receipt transaction {:for-reuse? true})))
+        (update-in [:receipt] merge (->reused-fields transaction))
+        (update-in [:receipt :receipt/items]
+                   (fn [items]
+                     (if (some empty? items)
+                       items
+                       (conj (vec items) {})))))
     state))
 
 (defn- format-existing-trx
@@ -149,7 +159,7 @@
   [page-state]
   (let [receipt (r/cursor page-state [:receipt])
         item-count (make-reaction #(count (:receipt/items @receipt)))
-        transactions (r/cursor page-state [:transactions])
+        history (r/cursor page-state [:historical-transactions])
         total (make-reaction #(receipts/total @receipt))]
     (fn []
       [:form {:no-validate true
@@ -165,12 +175,13 @@
         {:mode :direct
          :validations #{::v/required}
          :caption "Description"
-         :search-fn (search-transactions @transactions)
+         :search-fn (fn [input callback]
+                      (search-transactions input callback @history))
          :find-fn (constantly nil)
-         :caption-fn :description
+         :caption-fn :transaction/description
          :list-caption-fn format-existing-trx
          :on-change #(swap! page-state reuse-trans %)
-         :value-fn :description}]
+         :value-fn :transaction/description}]
        [forms/typeahead-field
         receipt
         [:receipt/payment-account]
@@ -287,12 +298,27 @@
                                   assoc
                                   :transactions %)))
 
+(defn- load-historical-transactions
+  "Loads the pool of transactions offered by the description typeahead,
+  independent of the Recent Transactions table's 'Entered Since' filter."
+  [page-state]
+  (+busy)
+  (trn/select {:include-items true
+               :transaction/transaction-date [:>= (t/minus (t/today)
+                                                           (t/months description-search-months))]}
+              :callback -busy
+              :on-success #(swap! page-state
+                                  assoc
+                                  :historical-transactions
+                                  %)))
+
 (defn- index []
   (let [page-state (r/atom {:filter-date (t/today)
                             :recent-settings recent-trx/default-settings})
         attachments-item (r/cursor page-state [:attachments-item])]
     (new-receipt page-state)
     (load-transactions page-state)
+    (load-historical-transactions page-state)
     (add-watch page-state ::filter-date
                (fn [_ _ old new]
                  (when (not= (:filter-date old) (:filter-date new))
@@ -305,7 +331,8 @@
                              (dissoc :attachments-item :attachments)
                              (assoc :transactions [])))
                  (new-receipt page-state)
-                 (load-transactions page-state)))
+                 (load-transactions page-state)
+                 (load-historical-transactions page-state)))
     (fn []
       [:<>
        [:h1.mt-3 "Receipts"]

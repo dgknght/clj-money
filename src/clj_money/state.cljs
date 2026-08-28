@@ -49,21 +49,29 @@
 (def busy? (make-reaction #(not (zero? @bg-proc-count))))
 (defonce pending-scheduled-count (r/atom 0))
 
+(defn- browser?
+  []
+  (exists? js/document))
+
 (defn- init-theme []
-  (or (.getItem js/localStorage "theme")
-      (if (.-matches (.matchMedia js/window "(prefers-color-scheme: dark)"))
-        "dark"
-        "light")))
+  (if (browser?)
+    (or (.getItem js/localStorage "theme")
+        (if (.-matches (.matchMedia js/window "(prefers-color-scheme: dark)"))
+          "dark"
+          "light"))
+    "light"))
 
 (defonce theme (r/atom (init-theme)))
 
 (add-watch theme
            ::apply-theme
            (fn [_ _ _ t]
-             (.setAttribute (.-documentElement js/document) "data-bs-theme" t)
-             (.setItem js/localStorage "theme" t)))
+             (when (browser?)
+               (.setAttribute (.-documentElement js/document) "data-bs-theme" t)
+               (.setItem js/localStorage "theme" t))))
 
-(.setAttribute (.-documentElement js/document) "data-bs-theme" @theme)
+(when (browser?)
+  (.setAttribute (.-documentElement js/document) "data-bs-theme" @theme))
 
 (defn +busy []
   (swap! bg-proc-count inc))
