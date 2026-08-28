@@ -74,7 +74,6 @@ jobs:
     needs: test
     if: success() && forgejo.ref == 'refs/heads/main' && (forgejo.event_name == 'push' || forgejo.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    permissions: write-all
     concurrency:
       group: tag-creation
       cancel-in-progress: false

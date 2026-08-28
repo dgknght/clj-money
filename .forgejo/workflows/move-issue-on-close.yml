@@ -7,8 +7,6 @@ on:
 jobs:
   swap-label:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
     steps:
       - name: Swap status/in-progress for status/pending-delivery
         env:
