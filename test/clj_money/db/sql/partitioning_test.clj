@@ -7,7 +7,8 @@
 (defmacro ^:private with-cmd-intercept
   [& body]
   `(let [cmds# (atom #{})]
-     (with-redefs [jdbc/execute! (fn [_conn# cmd#]
+     (with-redefs [jdbc/get-datasource (constantly ::fake-ds)
+                   jdbc/execute! (fn [_conn# cmd#]
                                    (swap! cmds# conj cmd#))]
        ~@body)
      @cmds#))
