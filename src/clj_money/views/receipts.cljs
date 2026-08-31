@@ -81,7 +81,7 @@
                         (swap! page-state
                                update-in
                                [:transactions]
-                               #(util/upsert-into trx
+                               #(util/upsert-into (assoc trx :transaction/created-at (t/now))
                                                   {:sort-key :transaction/transaction-date}
                                                   %))
                         (update-account-caches receipt (:receipt/transaction-date receipt))
