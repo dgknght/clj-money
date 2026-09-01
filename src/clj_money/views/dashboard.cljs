@@ -84,7 +84,7 @@
 
 (defn- monitor-svg
   [{:report/keys [percentage actual-percent actual prorated-budget]} opts]
-  (let [bar-width (str (* 96 actual-percent) "%")
+  (let [bar-width (str (* 99 actual-percent) "%")
         [bar-fill
          line-stroke] (if (< percentage actual-percent)
                         ["var(--bs-danger)" "var(--bs-white)"]
