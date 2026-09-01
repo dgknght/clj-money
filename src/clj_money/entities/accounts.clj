@@ -41,6 +41,7 @@
 (s/def :account/type #{:asset :liability :equity :income :expense})
 (s/def :account/commodity ::entities/entity-ref)
 (s/def :account/parent (s/nilable ::entities/entity-ref))
+(s/def :account/payment-account (s/nilable ::entities/entity-ref))
 (s/def :account/system-tags (s/nilable (s/coll-of keyword? :kind set?)))
 (s/def :account/user-tags (s/nilable (s/coll-of keyword? :kind set?)))
 (s/def :account/allocations (s/nilable (s/map-of ::entities/id decimal?)))
@@ -53,6 +54,7 @@
                                              :account/name
                                              :account/commodity]
                                          :opt [:account/parent
+                                               :account/payment-account
                                                :account/system-tags
                                                :account/user-tags
                                                :account/allocations

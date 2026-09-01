@@ -618,6 +618,19 @@
           account
           [:account/hidden]
           {:caption "Hidden"}]
+         [forms/typeahead-field
+          account
+          [:account/payment-account :id]
+          {:search-fn (fn [input callback]
+                        (->> @accounts
+                             (remove #(id= % @account))
+                             (find-by-path input)
+                             callback))
+           :caption "Payment Account"
+           :caption-fn (comp (partial string/join "/") :account/path)
+           :value-fn #(:id %)
+           :find-fn (fn [id callback]
+                      (callback (@accounts-by-id id)))}]
          [:fieldset
           [:legend "Tags"]
           [forms/typeahead-input
@@ -1368,6 +1381,7 @@
         (when @reconciliation
           [:div.col-lg-4
            [recs/reconciliation-form page-state]])]
+       [recs/payment-form page-state]
        [tradable-account-items page-state]
        [transaction-form-container page-state]
        [:div.row

@@ -75,6 +75,7 @@
    :account/system-tags
    :account/user-tags
    :account/parent
+   :account/payment-account
    :account/allocations
    :account/hidden])
 

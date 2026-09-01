@@ -14,6 +14,10 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one
   :db/doc "The parent of this account"}
+ {:db/ident :account/payment-account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account used to make payments against this account (e.g. the checking account used to pay off a credit card)"}
  {:db/ident :account/commodity
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one

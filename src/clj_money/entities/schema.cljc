@@ -133,6 +133,8 @@
              :refs #{:entity
                      :commodity
                      {:id :parent
+                      :type :account}
+                     {:id :payment-account
                       :type :account}}}
    :transaction {:fields #{{:id :transaction-date
                             :type :date}
