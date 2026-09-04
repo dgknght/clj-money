@@ -119,6 +119,23 @@
   (with-context existing-context
     (assert-blocked-list (get-a-list "jane@doe.com"))))
 
+(deftest a-user-can-search-transactions-by-description-with-no-date-specified
+  (with-context existing-context
+    (assert-successful-list (get-a-list "john@doe.com" :query {:description "pay"}))))
+
+(deftest a-user-can-search-transactions-by-quantity
+  (with-context existing-context
+    (assert-successful-list (get-a-list "john@doe.com" :query {:quantity "1000"}))))
+
+(deftest a-user-can-search-transactions-by-account
+  (with-context existing-context
+    (assert-successful-list
+      (get-a-list "john@doe.com" :query {:account-id (:id (find-account "Checking"))}))))
+
+(deftest a-user-cannot-search-transactions-in-anothers-entity
+  (with-context existing-context
+    (assert-blocked-list (get-a-list "jane@doe.com" :query {:description "pay"}))))
+
 (defn- get-a-list-by-item
   [email]
   (let [item (find-transaction-item [(t/local-date 2016 2 1) 1000M "Checking"])]

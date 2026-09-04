@@ -204,6 +204,33 @@
   (is (dates/last-day-of-the-month? (t/local-date 2000 3 31)))
   (is (not (dates/last-day-of-the-month? (t/local-date 2000 3 30)))))
 
+(deftest get-the-first-day-of-a-week
+  (are [date expected] (dates/equal? expected (dates/first-day-of-the-week date))
+    (t/local-date 2024 6 3) (t/local-date 2024 6 3)   ; Monday
+    (t/local-date 2024 6 4) (t/local-date 2024 6 3)   ; Tuesday
+    (t/local-date 2024 6 9) (t/local-date 2024 6 3))) ; Sunday
+
+(deftest get-the-last-day-of-a-week
+  (are [date expected] (dates/equal? expected (dates/last-day-of-the-week date))
+    (t/local-date 2024 6 3) (t/local-date 2024 6 9)   ; Monday
+    (t/local-date 2024 6 4) (t/local-date 2024 6 9)   ; Tuesday
+    (t/local-date 2024 6 9) (t/local-date 2024 6 9))) ; Sunday
+
+;; A Wednesday, so "this week" and "last week" span a month boundary too.
+(def ^:private ref-date (dates/local-date "2024-06-05"))
+
+(deftest resolve-each-preset-date-range
+  (are [range-key start end] (= [(dates/local-date start) (dates/local-date end)]
+                                 (dates/resolve-date-range range-key ref-date))
+    "today"      "2024-06-05" "2024-06-05"
+    "yesterday"  "2024-06-04" "2024-06-04"
+    "this-week"  "2024-06-03" "2024-06-09"
+    "last-week"  "2024-05-27" "2024-06-02"
+    "this-month" "2024-06-01" "2024-06-30"
+    "last-month" "2024-05-01" "2024-05-31"
+    "this-year"  "2024-01-01" "2024-12-31"
+    "last-year"  "2023-01-01" "2023-12-31"))
+
 (deftest see-if-a-date-is-in-a-range
   (are [date range expected] (= expected (dates/within? date range))
 

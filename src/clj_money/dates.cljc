@@ -382,6 +382,52 @@
   #?(:clj (.getValue (t/day-of-week local-date))
      :cljs (t/day-of-week local-date)))
 
+(defn first-day-of-the-week
+  "Returns the Monday on or before the given date (or today)."
+  ([] (first-day-of-the-week (today)))
+  ([local-date]
+   (t/minus local-date (t/days (dec (day-of-week local-date))))))
+
+(defn last-day-of-the-week
+  "Returns the Sunday on or after the given date (or today)."
+  ([] (last-day-of-the-week (today)))
+  ([local-date]
+   (t/plus (first-day-of-the-week local-date) (t/days 6))))
+
+(defn resolve-date-range
+  "Returns a [start end] tuple of local dates for the given preset
+  date-range key (a string, as stored by a select field), relative
+  to today (or the given reference date)."
+  ([range-key] (resolve-date-range range-key (today)))
+  ([range-key ref-date]
+   (case range-key
+     "today"     [ref-date ref-date]
+     "yesterday" (let [d (t/minus ref-date (t/days 1))] [d d])
+     "this-week" [(first-day-of-the-week ref-date)
+                  (last-day-of-the-week ref-date)]
+     "last-week" (let [d (t/minus ref-date (t/weeks 1))]
+                   [(first-day-of-the-week d)
+                    (last-day-of-the-week d)])
+     "this-month" [(first-day-of-the-month ref-date)
+                   (last-day-of-the-month ref-date)]
+     "last-month" (let [d (t/minus (first-day-of-the-month ref-date) (t/days 1))]
+                    [(first-day-of-the-month d)
+                     (last-day-of-the-month d)])
+     "this-year" [(first-day-of-the-year ref-date)
+                  (last-day-of-the-year ref-date)]
+     "last-year" [(first-day-of-the-year (t/minus ref-date (t/years 1)))
+                  (last-day-of-the-year (t/minus ref-date (t/years 1)))])))
+
+(def date-range-options
+  [["today" "Today"]
+   ["yesterday" "Yesterday"]
+   ["this-week" "This Week"]
+   ["last-week" "Last Week"]
+   ["this-month" "This Month"]
+   ["last-month" "Last Month"]
+   ["this-year" "This Year"]
+   ["last-year" "Last Year"]])
+
 (defn serialize-local-date
   [local-date]
   {:pre [local-date]}

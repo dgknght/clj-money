@@ -18,7 +18,7 @@
             [clj-money.entities.propagation :as prop]
             [clj-money.trading :as trading]
             [clj-money.authorization.transactions]
-            [clj-money.entities.transactions]))
+            [clj-money.entities.transactions :as trns]))
 
 (defn- unserialize-date
   [x]
@@ -28,33 +28,30 @@
          (re-find #"^\d{4}-\d{2}-\d{2}$" x)) (unserialize-local-date x)
     :else x))
 
-(defn- throw-on-missing-constraint
-  [criteria]
-  (when-not ((some-fn :transaction/transaction-date
-                      :transaction/created-at
-                      :transaction-item/_self)
-             criteria)
-    (throw (ex-info "Invalid criteria" {:criteria criteria})))
-  criteria)
-
 (defn- extract-criteria
-  [{:keys [params authenticated]}]
+  [{:keys [params]}]
   (-> params
       comparatives/symbolize
       (update-in-if [:transaction-date] unserialize-date)
       (update-in-if [:created-at] unserialize-date)
+      (update-in-if [:quantity] bigdec)
+      (update-in-if [:account-id] #(hash-map :id (unserialize-id %)))
       (rename-keys {:transaction-date :transaction/transaction-date
                     :transaction-item-id :transaction-item/_self
                     :created-at :transaction/created-at
-                    :entity-id :transaction/entity})
+                    :entity-id :transaction/entity
+                    :description :transaction/description
+                    :quantity :transaction-item/quantity
+                    :account-id :transaction-item/account})
       (update-in-if [:transaction/entity] #(hash-map :id %))
       (update-in-if [:transaction-item/_self] #(hash-map :id %))
       (select-keys [:transaction/entity
                     :transaction/transaction-date
                     :transaction/created-at
-                    :transaction-item/_self])
-      throw-on-missing-constraint
-      (+scope :transaction authenticated)))
+                    :transaction/description
+                    :transaction-item/_self
+                    :transaction-item/quantity
+                    :transaction-item/account])))
 
 (defn- ->select-also
   [x]
@@ -64,14 +61,18 @@
 (defn- extract-options
   [{:keys [params]}]
   (-> params
-      (select-keys [:include-items :select-also])
+      (select-keys [:include-items :select-also :limit])
       (rename-keys {:include-items :include-items?})
-      (update-in-if [:select-also] ->select-also)))
+      (update-in-if [:select-also] ->select-also)
+      (update-in-if [:limit] parse-long)))
 
 (defn- index
-  [req]
-  (api/response
-   (entities/select (extract-criteria req) (extract-options req))))
+  [{:keys [authenticated] :as req}]
+  (-> req
+      extract-criteria
+      (+scope :transaction authenticated)
+      (trns/search (extract-options req))
+      api/response))
 
 (defn- find-and-auth
   [{:keys [path-params authenticated]} action]

@@ -1,6 +1,7 @@
 (ns clj-money.entities.transactions
   (:require [clojure.spec.alpha :as s]
             [clojure.core.async :as a]
+            [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [postwalk]]
@@ -231,6 +232,143 @@
                    {:sort [[:transaction/transaction-date :desc]
                            [:transaction-item/index :desc]]
                     :select-also [:transaction/transaction-date]}))
+
+(def ^:dynamic *search-result-limit* 100)
+(def ^:dynamic *item-scan-limit* 500)
+
+(defn- matches-description?
+  [description]
+  (let [needle (string/lower-case description)]
+    (fn [trx]
+      (string/includes? (string/lower-case (:transaction/description trx))
+                        needle))))
+
+(defn- find-description
+  "Locates a :transaction/description value in criteria that may be a plain
+  map or a stowaway conjunction, e.g. [:and {...} {...}]."
+  [criteria]
+  (cond
+    (map? criteria) (:transaction/description criteria)
+    (vector? criteria) (some find-description (rest criteria))))
+
+(defn- strip-description
+  "Removes :transaction/description from criteria that may be a plain map or
+  a stowaway conjunction, preserving the overall shape."
+  [criteria]
+  (cond
+    (map? criteria) (dissoc criteria :transaction/description)
+    (vector? criteria) (into [(first criteria)] (map strip-description (rest criteria)))
+    :else criteria))
+
+(defn- has-item-criteria?
+  "True if criteria (a plain map or a stowaway conjunction) constrains
+  :transaction-item/* attributes, meaning the search must be scoped through
+  transaction items rather than queried directly against transactions."
+  [criteria]
+  (cond
+    (map? criteria) (boolean (some criteria [:transaction-item/quantity
+                                             :transaction-item/account]))
+    (vector? criteria) (boolean (some has-item-criteria? (rest criteria)))))
+
+(def ^:private item-attrs
+  [:transaction-item/quantity :transaction-item/account])
+
+(defn- item-criteria
+  "Extracts just the :transaction-item/* portion of criteria (a plain map or
+  a stowaway conjunction), for querying transaction items independently of
+  the :transaction/* (entity, transaction-date) scope."
+  [criteria]
+  (cond
+    (map? criteria) (select-keys criteria item-attrs)
+    (vector? criteria) (apply merge (map item-criteria (rest criteria)))))
+
+(defn- strip-item-criteria
+  "Removes the :transaction-item/* portion of criteria (a plain map or a
+  stowaway conjunction), preserving the overall shape, so that the
+  remaining :transaction/* (and :entity/* scope) criteria can be queried
+  without joining through transaction items."
+  [criteria]
+  (cond
+    (map? criteria) (apply dissoc criteria item-attrs)
+    (vector? criteria) (into [(first criteria)] (map strip-item-criteria (rest criteria)))
+    :else criteria))
+
+(defn- date-scoped-transactions
+  "Finds transactions matching only the :transaction/* (and :entity/*
+  scope) portion of criteria. Sorts by transaction date, most recent
+  first, and caps at default-limit, unless overridden via options
+  (:sort, :limit -- an explicit :limit nil means no limit at all);
+  other entities/select options (:include-items?, :select-also, etc.)
+  are passed through as-is."
+  [criteria default-limit options]
+  (entities/select (util/entity-type (strip-item-criteria criteria) :transaction)
+                   (merge {:sort [[:transaction/transaction-date :desc]]
+                           :limit default-limit}
+                          options)))
+
+(defn- search-by-item
+  "Finds transactions matching both :transaction/* criteria (entity,
+  transaction-date, etc.) and :transaction-item/* criteria (quantity,
+  account). The date-bounded candidate transactions and the item-matching
+  transactions are resolved with two independent, narrowly-scoped queries
+  and intersected in memory, rather than joining :transaction-item through
+  :transaction to :entity in a single query: across an entity with a large
+  transaction history, that join has been observed to exhaust heap
+  evaluating the item-side match before the date/entity criteria ever get a
+  chance to narrow things down.
+
+  The item-matching query is intentionally unbounded: transaction items
+  don't carry their own transaction-date, so there's no way to sort them
+  by date to keep only the most recent *item-scan-limit* -- an arbitrary
+  (e.g. insertion-order) subset would rarely overlap with the date-bounded
+  candidates, and *item-scan-limit* is only meant to bound the join, not
+  the (cheap, unjoined) attribute scan itself. *item-scan-limit* still
+  bounds the date-scoped side, so it's the oldest date-bounded candidates
+  that get dropped, not an arbitrary subset.
+
+  options may include :include-items?/:select-also (passed through to the
+  date-scoped query) and :limit, which overrides the number of results
+  returned (an explicit :limit nil returns every item-matching result
+  among the date-bounded candidates, with no further truncation)."
+  [criteria options]
+  (let [trxs (date-scoped-transactions criteria *item-scan-limit* (dissoc options :limit))
+        matching-trx-ids (->> (entities/select (util/entity-type (item-criteria criteria) :transaction-item)
+                                               {:select-also [:transaction-item/transaction]})
+                              (map (comp :id :transaction-item/transaction))
+                              set)
+        limit (get options :limit *search-result-limit*)]
+    (cond->> (filter (comp matching-trx-ids :id) trxs)
+      limit (take limit))))
+
+(defn- search-by-transaction
+  "Finds transactions directly, for criteria with no :transaction-item/*
+  constraints, avoiding an unnecessary (and lossy, once *item-scan-limit* is
+  reached) join through transaction items. See date-scoped-transactions for
+  what options may contain."
+  [criteria options]
+  (date-scoped-transactions criteria *search-result-limit* options))
+
+(defn search
+  "Returns transactions matching the given criteria, which may combine
+  :transaction/* attributes (entity, transaction-date, etc.) with
+  :transaction-item/* attributes (quantity, account) that must match on the
+  same item. :transaction/description, if present, is matched as a
+  case-insensitive partial match, applied after the underlying query since
+  partial-text matching isn't uniformly supported by the storage backends.
+
+  options are the same ones entities/select accepts (:include-items?,
+  :select-also, etc.), plus :limit, which (unlike elsewhere) may be
+  explicitly nil to mean no limit at all rather than the search defaults
+  (*item-scan-limit* / *search-result-limit*)."
+  ([criteria] (search criteria {}))
+  ([criteria options]
+   (let [description (find-description criteria)
+         db-criteria (strip-description criteria)
+         trxs (if (has-item-criteria? db-criteria)
+                (search-by-item db-criteria options)
+                (search-by-transaction db-criteria options))]
+     (cond->> trxs
+       description (filter (matches-description? description))))))
 
 (defn- last-transaction-item-before
   [account date]

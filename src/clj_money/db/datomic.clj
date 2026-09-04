@@ -112,7 +112,7 @@
                                 :nil-replacements (->java-dates nil-replacements)
                                 :datalog/hints (:datalog/hints opts))
         (dtl/apply-options (dissoc opts :order-by :sort))
-        (queries/apply-select opts)
+        (queries/apply-select (assoc opts :target m-type))
         (ensure-bounding-where-clause m-type)
         rearrange-query)))
 

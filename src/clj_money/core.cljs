@@ -25,6 +25,7 @@
             [clj-money.views.commodities]
             [clj-money.views.accounts]
             [clj-money.views.transactions]
+            [clj-money.views.transaction-search]
             [clj-money.views.users]
             [clj-money.views.invitations]
             [clj-money.views.budgets]
@@ -55,7 +56,10 @@
   (accountant/navigate! "/login"))
 
 (def authenticated-nav-items
-  [{:id :commodities}
+  [{:id :search
+    :icon :search
+    :tool-tip "Click here to search transactions"}
+   {:id :commodities}
    {:id :accounts}
    {:id :budgets}
    {:id :receipts
@@ -75,7 +79,7 @@
 
 (defn- default-nav-item
   [{:keys [id]} active-nav]
-  {:label (humanize id)
+  {:infered-label (humanize id)
    :path (str "/" (name id))
    :active? (= id active-nav)
    :tool-tip (str "Click here to manage "

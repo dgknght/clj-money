@@ -95,6 +95,15 @@
   "How far back to look for transactions to offer in the description typeahead."
   3)
 
+(def ^:private max-transactions-to-consider
+  "The transactions API defaults to returning the *search-result-limit*
+  most recent matches; the Recent Transactions table and the description
+  typeahead both re-sort/limit whatever comes back on the client, so they
+  need a much larger ceiling than that default -- generous enough to never
+  affect normal usage, but still a real backstop rather than an unbounded
+  fetch."
+  1000)
+
 (defn- search-transactions
   [input callback transactions]
   (let [term (string/lower-case input)]
@@ -292,6 +301,7 @@
   (+busy)
   (trn/select {:include-items true
                :select-also ["created-at"]
+               :limit max-transactions-to-consider
                :transaction/created-at [:>= (:filter-date @page-state)]}
               :callback -busy
               :on-success #(swap! page-state
@@ -304,6 +314,7 @@
   [page-state]
   (+busy)
   (trn/select {:include-items true
+               :limit max-transactions-to-consider
                :transaction/transaction-date [:>= (t/minus (t/today)
                                                            (t/months description-search-months))]}
               :callback -busy
