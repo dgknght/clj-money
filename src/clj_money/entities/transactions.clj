@@ -235,6 +235,7 @@
 
 (def ^:dynamic *search-result-limit* 100)
 (def ^:dynamic *item-scan-limit* 500)
+(def ^:dynamic *description-scan-limit* 500)
 
 (defn- matches-description?
   [description]
@@ -327,26 +328,27 @@
   that get dropped, not an arbitrary subset.
 
   options may include :include-items?/:select-also (passed through to the
-  date-scoped query) and :limit, which overrides the number of results
-  returned (an explicit :limit nil returns every item-matching result
-  among the date-bounded candidates, with no further truncation)."
+  date-scoped query); :limit is intentionally NOT honored here -- search
+  applies the final result limit itself, after any description filtering,
+  since truncating before that filter runs risks dropping matches (see
+  search's docstring)."
   [criteria options]
   (let [trxs (date-scoped-transactions criteria *item-scan-limit* (dissoc options :limit))
         matching-trx-ids (->> (entities/select (util/entity-type (item-criteria criteria) :transaction-item)
                                                {:select-also [:transaction-item/transaction]})
                               (map (comp :id :transaction-item/transaction))
-                              set)
-        limit (get options :limit *search-result-limit*)]
-    (cond->> (filter (comp matching-trx-ids :id) trxs)
-      limit (take limit))))
+                              set)]
+    (filter (comp matching-trx-ids :id) trxs)))
 
 (defn- search-by-transaction
   "Finds transactions directly, for criteria with no :transaction-item/*
   constraints, avoiding an unnecessary (and lossy, once *item-scan-limit* is
-  reached) join through transaction items. See date-scoped-transactions for
-  what options may contain."
-  [criteria options]
-  (date-scoped-transactions criteria *search-result-limit* options))
+  reached) join through transaction items. scan-limit bounds how many
+  date-sorted candidates come back; see search's docstring for why this is
+  a separate concern from options' :limit. Other options (:include-items?,
+  :select-also, etc.) are passed through as-is."
+  [criteria scan-limit options]
+  (date-scoped-transactions criteria scan-limit (dissoc options :limit)))
 
 (defn search
   "Returns transactions matching the given criteria, which may combine
@@ -356,19 +358,31 @@
   case-insensitive partial match, applied after the underlying query since
   partial-text matching isn't uniformly supported by the storage backends.
 
+  Because that description match happens in Clojure, the underlying scan
+  can't be capped at the final result count first -- a match beyond that
+  cap would be silently dropped before the description filter ever saw
+  it. So when a description filter is present, the scan is instead capped
+  at the more generous *description-scan-limit*, filtered, and only then
+  is the real limit applied; without a description filter, the real limit
+  can be (and is) pushed straight down to the underlying query as before.
+
   options are the same ones entities/select accepts (:include-items?,
   :select-also, etc.), plus :limit, which (unlike elsewhere) may be
-  explicitly nil to mean no limit at all rather than the search defaults
-  (*item-scan-limit* / *search-result-limit*)."
+  explicitly nil to mean no limit at all rather than the search default
+  (*search-result-limit*)."
   ([criteria] (search criteria {}))
   ([criteria options]
    (let [description (find-description criteria)
          db-criteria (strip-description criteria)
+         final-limit (get options :limit *search-result-limit*)
          trxs (if (has-item-criteria? db-criteria)
                 (search-by-item db-criteria options)
-                (search-by-transaction db-criteria options))]
+                (search-by-transaction db-criteria
+                                       (if description *description-scan-limit* final-limit)
+                                       options))]
      (cond->> trxs
-       description (filter (matches-description? description))))))
+       description (filter (matches-description? description))
+       final-limit (take final-limit)))))
 
 (defn- last-transaction-item-before
   [account date]

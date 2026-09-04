@@ -543,6 +543,38 @@
             "A description-only search is not bounded by the item scan limit, since it
             queries transactions directly instead of joining through items")))))
 
+(def limit-vs-description-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2020 1 1)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 50M}
+        #:transaction{:transaction-date (t/local-date 2020 1 2)
+                      :entity "Personal"
+                      :description "Gas Station"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 40M}
+        #:transaction{:transaction-date (t/local-date 2020 1 3)
+                      :entity "Personal"
+                      :description "Pharmacy"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 30M}))
+
+(dbtest search-transactions-by-description-does-not-miss-matches-past-the-search-result-limit
+  (with-context limit-vs-description-context
+    (let [entity (find-entity "Personal")]
+      (binding [transactions/*search-result-limit* 1]
+        (is (seq-of-maps-like? [{:transaction/description "Kroger"}]
+                               (transactions/search #:transaction{:entity (util/->entity-ref entity)
+                                                                  :description "kroger"}))
+            "The final result limit is applied after the description filter, not
+            before, so a match older than *search-result-limit* more recent,
+            non-matching transactions is still found")))))
+
 (dbtest search-transactions-by-date
   (with-context search-fn-context
     (let [entity (find-entity "Personal")]
