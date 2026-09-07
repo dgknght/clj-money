@@ -1019,6 +1019,42 @@
              (transactions/balance-as-of checking 2016 2 29))
           "The February value is the balance for the last item in the period"))))
 
+; Regression test for #56: last-transaction-item-on-or-before must resolve
+; ties between same-day items to the truly latest one. It's sorted by
+; :transaction-item/index alone (assigned per-account in strict
+; transaction-date order, so it already reflects date order); a previous
+; version instead sorted by [:transaction/transaction-date :desc] -- an
+; attribute reachable from a :transaction-item only via a join -- and, for
+; that sort to work at all, needed :select-also to fetch the joined value.
+; A missing or stray value there could make an older item outrank a truly
+; more recent one, causing balance-as-of to report a stale balance.
+(dbtest same-day-items-are-ordered-by-index-for-balance-as-of
+  (with-context base-context
+    (let [date (t/local-date 2016 3 2)]
+      (prop/put-and-propagate
+        #:transaction{:transaction-date date
+                      :description "Paycheck"
+                      :entity (find-entity "Personal")
+                      :items [#:transaction-item{:action :debit
+                                                 :account (find-account "Checking")
+                                                 :quantity 500M}
+                              #:transaction-item{:action :credit
+                                                 :account (find-account "Salary")
+                                                 :quantity 500M}]})
+      (prop/put-and-propagate
+        #:transaction{:transaction-date date
+                      :description "Reversal"
+                      :entity (find-entity "Personal")
+                      :items [#:transaction-item{:action :credit
+                                                 :account (find-account "Checking")
+                                                 :quantity 500M}
+                              #:transaction-item{:action :debit
+                                                 :account (find-account "Salary")
+                                                 :quantity 500M}]})
+      (let [checking (reload-account "Checking")]
+        (is (= 0M (transactions/balance-as-of checking date))
+            "The balance reflects both same-day items, most recent last")))))
+
 (dbtest create-multiple-transactions-then-recalculate-balances
   (with-context base-context
     (let [entity (find-entity "Personal")

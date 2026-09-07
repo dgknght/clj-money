@@ -228,9 +228,11 @@
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [account & {:as options}]
+  ; :transaction-item/index is assigned per-account in strict transaction-date
+  ; order, so it's sufficient on its own to sort items most-recent-first --
+  ; :select-also is still needed, though, since callers use the date itself.
   (entities/select (acts/->criteria account options)
-                   {:sort [[:transaction/transaction-date :desc]
-                           [:transaction-item/index :desc]]
+                   {:sort [[:transaction-item/index :desc]]
                     :select-also [:transaction/transaction-date]}))
 
 (def ^:dynamic *search-result-limit* 100)
@@ -402,8 +404,14 @@
                                                         (first transaction-date-range)
                                                         date]}
                         :transaction-item)
-                      {:sort [[:transaction/transaction-date :desc]
-                              [:transaction-item/index :desc]]})))
+                      ; :transaction-item/index is assigned per-account by
+                      ; re-index in strict transaction-date order, so it
+                      ; already reflects date order on its own -- no need to
+                      ; sort by (and therefore join to) :transaction/transaction-date
+                      ; as well. See #56: doing so previously required
+                      ; :select-also, and a missing/stray value there could
+                      ; make an older item outrank a truly more recent one.
+                      {:sort [[:transaction-item/index :desc]]})))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
