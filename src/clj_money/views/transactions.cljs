@@ -29,9 +29,9 @@
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
-            [clj-money.accounts :as accounts :refer [find-by-path
-                                                     format-quantity
-                                                     polarize-quantity]]
+            [clj-money.accounts :refer [find-by-path
+                                        format-quantity
+                                        polarize-quantity]]
             [clj-money.transactions :refer [accountify
                                             unaccountify
                                             can-accountify?
@@ -154,39 +154,41 @@
         (xf ch [])))))
 
 (defn init-item-loading
-  [page-state]
-  (let [account (get-in @page-state [:view-account])
-        [first-date last-date :as range] (:account/transaction-date-range account)]
-    (if range
-      (do (swap! page-state dissoc :items :all-items-fetched?)
-          (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges first-date last-date (t/months 6))
-                                               (load-in-chunks
-                                                 {:fetch-xf (comp
-                                                              (map (fn [[start end :as range]]
-                                                                     (when (seq range)
-                                                                       {:transaction-item/account (util/->entity-ref account)
-                                                                        :transaction/transaction-date [:between> start end]})))
-                                                              fetch-items)
-                                                  :chunk-size 100}))
-                out-ch (a/chan
-                         1
-                         (map (polarize-quantities account)))]
-            (a/pipe items-ch out-ch)
-            (go-loop [items (<! out-ch)]
-                     (if items
-                       (do
-                         (swap! page-state update-in [:items] (fnil concat []) items)
-                         (recur (<! out-ch)))
-                       (swap! page-state assoc :all-items-fetched? true)))
+  ([page-state] (init-item-loading page-state nil))
+  ([page-state {:keys [on-chunk]}]
+   (let [account (get-in @page-state [:view-account])
+         [first-date last-date :as range] (:account/transaction-date-range account)]
+     (if range
+       (do (swap! page-state dissoc :items :all-items-fetched?)
+           (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges first-date last-date (t/months 6))
+                                                (load-in-chunks
+                                                  {:fetch-xf (comp
+                                                               (map (fn [[start end :as range]]
+                                                                      (when (seq range)
+                                                                        {:transaction-item/account (util/->entity-ref account)
+                                                                         :transaction/transaction-date [:between> start end]})))
+                                                               fetch-items)
+                                                   :chunk-size 100}))
+                 out-ch (a/chan
+                          1
+                          (map (polarize-quantities account)))]
+             (a/pipe items-ch out-ch)
+             (go-loop [items (<! out-ch)]
+                      (if items
+                        (do
+                          (swap! page-state update-in [:items] (fnil concat []) items)
+                          (when on-chunk (on-chunk items))
+                          (recur (<! out-ch)))
+                        (swap! page-state assoc :all-items-fetched? true)))
 
-            (swap! page-state assoc :ctl-chan ctl-ch)
-            (go (>! ctl-ch :fetch))))
-      (swap! page-state assoc :items [] :items-sort nil))))
+             (swap! page-state assoc :ctl-chan ctl-ch)
+             (go (>! ctl-ch :fetch))))
+       (swap! page-state assoc :items [] :items-sort nil)))))
 
 (defn stop-item-loading
   [page-state]
   (let [{:keys [all-items-fetched? ctl-chan]} @page-state]
-    (when-not all-items-fetched?
+    (when (and ctl-chan (not all-items-fetched?))
       (go (>! ctl-chan :quit)))))
 
 (defn reset-item-loading
@@ -453,6 +455,13 @@
                         [:trx-item-audit-histories (:id item)]
                         %)))
 
+(defn init-fund-item-loading
+  [page-state]
+  (init-item-loading page-state
+                      {:on-chunk (fn [items]
+                                   (doseq [item items]
+                                     (load-trx-item-audit! page-state item)))}))
+
 (defn- toggle-trx-item-audit!
   [page-state item]
   (let [id (:id item)]
@@ -503,9 +512,21 @@
 
 (defn fund-transactions-table
   [page-state]
-  (let [items (r/cursor page-state [:items])
-        account (r/cursor page-state [:view-account])
+  (let [raw-items (r/cursor page-state [:items])
         lot-notes (r/cursor page-state [:lot-notes])
+        items (make-reaction
+                (fn []
+                  (when @raw-items
+                    (map (fn [{:transaction-item/keys [reconciliation]
+                               :keys [id]
+                               :as item}]
+                           (assoc item
+                                  :reconciliation/status
+                                  (cond
+                                    (nil? id) :new
+                                    reconciliation :completed
+                                    :else :unreconciled)))
+                         @raw-items))))
         all-rows (make-reaction
                    #(sort-by
                       (fn [row]
@@ -516,23 +537,7 @@
                             ""))
                       (fn [a b] (compare b a))
                       (concat @items @lot-notes)))]
-    ; I don't think we need to chunk this, but maybe we do
-    (trx-items/select (accounts/->criteria @account)
-                      :post-xf (map (polarize-quantities @account))
-                      :on-success (fn [items]
-                                    (swap! page-state assoc :items
-                                           (map (fn [{:transaction-item/keys [reconciliation]
-                                                      :keys [id]
-                                                      :as item}]
-                                                  (assoc item
-                                                         :reconciliation/status
-                                                         (cond
-                                                           (nil? id) :new
-                                                           reconciliation :completed
-                                                           :else :unreconciled)))
-                                                items))
-                                    (doseq [item items]
-                                      (load-trx-item-audit! page-state item))))
+    (init-fund-item-loading page-state)
     (fn []
       [:table.table.table-hover.table-borderless
        [:thead
@@ -545,7 +550,7 @@
          [:th.text-center.d-none.d-md-table-cell "Rec."]]]
        [:tbody
         (cond
-          (nil? @items)
+          (nil? @raw-items)
           [:tr
            [:td.text-center.fw-lighter {:col-span 6}
             [:div.d-flex.justify-content-center.m2

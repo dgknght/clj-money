@@ -1104,7 +1104,9 @@
         show? (make-reaction #(and (system-tagged? @account :tradable)
                                    (not @trade)
                                    (not @reconciliation)))
-        current-nav (r/atom :lots)]
+        current-nav (r/atom :lots)
+        ctl-chan (r/cursor page-state [:ctl-chan])
+        all-items-fetched? (r/cursor page-state [:all-items-fetched?])]
     (fn []
       (when @show?
         [:section
@@ -1112,31 +1114,41 @@
                         :label "Lots"
                         :elem-key :lots
                         :active? (= :lots @current-nav)
-                        :nav-fn #(reset! current-nav :lots)}
+                        :nav-fn #(do
+                                   (trns/stop-item-loading page-state)
+                                   (reset! current-nav :lots))}
                        {:id :transactions-nav
                         :label "Transactions"
                         :elem-key :transactions
                         :active? (= :transactions @current-nav)
                         :nav-fn #(reset! current-nav :transactions)}])
-         (case @current-nav
-           :lots         [lots-table page-state]
-           :transactions [trns/fund-transactions-table page-state])
-         [:div.row
-          [:div.col-md-6
-           [:button.btn.btn-primary
-            {:title "Click here to buy or sell this commodity."
-             :on-click #(new-trade page-state)}
-            (icon-with-text :plus "Buy/Sell")]
-           [:button.btn.btn-secondary.ms-2
-            {:title "Click here to reconcile this account."
-             :on-click (fn []
-                         (trns/stop-item-loading page-state)
-                         (start-reconciliation page-state))}
-            (icon-with-text :list-check "Reconcile")]
-           [:button.btn.btn-secondary.ms-2
-            {:title "Click here to return the the account list."
-             :on-click (unselect-account page-state)}
-            (icon-with-text :arrow-left-short "Back")]]]]))))
+         [fill-remaining-height {:class "d-flex flex-column"
+                                 :vertical-padding 32}
+          [:div#tradable-items-container.flex-grow-1.overflow-auto
+           (case @current-nav
+             :lots         [lots-table page-state]
+             :transactions [trns/fund-transactions-table page-state])]
+          [:div.row.mt-2 {:style {:flex :none}}
+           [:div.col-md-6
+            [:button.btn.btn-primary
+             {:title "Click here to buy or sell this commodity."
+              :on-click #(new-trade page-state)}
+             (icon-with-text :plus "Buy/Sell")]
+            [:button.btn.btn-secondary.ms-2
+             {:title "Click here to reconcile this account."
+              :on-click (fn []
+                          (trns/stop-item-loading page-state)
+                          (start-reconciliation page-state))}
+             (icon-with-text :list-check "Reconcile")]
+            [:button.btn.btn-secondary.ms-2
+             {:title "Click here to return the the account list."
+              :on-click (unselect-account page-state)}
+             (icon-with-text :arrow-left-short "Back")]]
+           (when (= :transactions @current-nav)
+             [:div.col-md-6.text-end
+              [load-on-scroll {:target "tradable-items-container"
+                               :all-items-fetched? @all-items-fetched?
+                               :load-fn #(go (>! @ctl-chan :fetch))}]])]]]))))
 
 (defn- asset-allocation-row
   [{:keys [account
