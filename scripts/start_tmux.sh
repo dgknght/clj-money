@@ -16,7 +16,7 @@ sleep 0.5
 tmux send-keys 'lein fig:build' C-m
 
 # Split the top (repl) pane to run Caddy, unless it's already running
-tmux split-window -v -t $session:0.0
+tmux split-window -h -t $session:0.0
 sleep 0.5
 tmux send-keys 'pgrep -x caddy >/dev/null || mise run caddy' C-m
 
