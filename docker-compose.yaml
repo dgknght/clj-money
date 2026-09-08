@@ -115,7 +115,10 @@ services:
       - 11211:11211
     restart: on-failure
     healthcheck:
-      test: echo stats | nc 127.0.0.1 11211
+      # No `nc` in this image, so probe the port with bash's /dev/tcp
+      # instead - the previous `nc`-based test always failed, leaving the
+      # container permanently reported unhealthy.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/11211'"]
       interval: 10s
       retries: 60
 
@@ -162,6 +165,8 @@ services:
       - datomic-peer
       - datomic-client
     depends_on:
+      sql:
+        condition: service_healthy
       memcached:
         condition: service_started
     image: docker.io/dgknght/datomic-pro:1.0.7075
@@ -179,7 +184,10 @@ services:
       - 4334:4334
       - 9999:9999
     healthcheck:
-      test: wget localhost:9999/health
+      # The ping endpoint alone can report healthy before the HornetQ
+      # messaging port is actually accepting connections, letting
+      # dependents (datomic-schema) start racing a half-up transactor.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9999/health && bash -c '</dev/tcp/localhost/4334'"]
       interval: 10s
       timeout: 5s
       retries: 30
