@@ -17,7 +17,8 @@
                                      accounts-by-id]]
             [clj-money.util :refer [id=]]
             [clj-money.accounts :as accounts-logic :refer [find-by-path]]
-            [clj-money.cached-accounts :refer [fetch-accounts]]
+            [clj-money.cached-accounts :refer [fetch-accounts
+                                               push-transaction-date!]]
             [clj-money.reconciliations :as reconciliations]
             [clj-money.transactions :refer [unaccountify ->unilateral]]
             [clj-money.views.transactions :as trns]
@@ -137,8 +138,15 @@
         ->unilateral
         (transactions-api/save
           :callback -busy
-          :on-success (fn [_saved]
-                        (swap! page-state dissoc :payment)
+          :on-success (fn [saved]
+                        (let [date (:transaction/transaction-date saved)
+                              updated-account (push-transaction-date! other-account date)]
+                          (push-transaction-date! account date)
+                          (swap! page-state
+                                 (fn [state]
+                                   (-> state
+                                       (dissoc :payment)
+                                       (assoc :view-account updated-account)))))
                         (trns/reset-item-loading page-state)
                         (notify/toast "Success" "The payment was recorded successfully."))))))
 
