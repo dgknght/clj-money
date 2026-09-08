@@ -274,44 +274,50 @@
         :transaction/keys [description
                            transaction-date]
         :as item}]
-    ^{:key (str "item-row-" (:id item))}
-    [:tr.align-middle
-     (atts-view/drop-handlers page-state :item-row-styles (:id item)
-                              {:item item
-                               :attachment #:attachment{:transaction (:transaction-item/transaction item)
-                                                        :caption ""}})
-     [:td.text-end
-      [:span.d-md-none (format-date transaction-date "M/d")]
-      [:span.d-none.d-md-inline (format-date transaction-date)]]
-     [:td {:style (get-in styles [(:id item)])} description]
-     [:td.text-end (format-quantity polarized-quantity account)]
-     [:td.text-center.d-none.d-md-table-cell
-      (if @reconciliation
-        [forms/checkbox-input
-         reconciliation
-         [:clj-money.views.reconciliations/item-selection (:id item)]
-         {::forms/decoration ::forms/none}]
-        (icon
-          (case status
-            :completed :check-square
-            :new       :dash-sqaure
-            :square)
-          :size :small))]
-     (when-not @reconciliation
-       [:td.text-end.d-none.d-md-table-cell (format-quantity balance
-                                                             account)])
-     [:td.d-flex.justify-content-end
-      (if @reconciliation
-        [:div.btn-group
-         [:button.btn.btn-secondary.btn-sm
-          {:on-click #(edit-transaction item page-state)
-           :title "Click here to edit this transaction."}
-          (icon :pencil :size :small)]
-         [:button.btn.btn-danger.btn-sm
-          {:on-click #(delete-transaction item page-state)
-           :title "Click here to remove this transaction."}
-          (icon :x-circle :size :small)]]
-        [item-row-buttons item page-state])]]))
+    (let [checked? (get-in @reconciliation [:clj-money.views.reconciliations/item-selection (:id item)])
+          muted-class (when checked? "text-body-secondary")]
+      ^{:key (str "item-row-" (:id item))}
+      [:tr.align-middle
+       (atts-view/drop-handlers page-state :item-row-styles (:id item)
+                                {:item item
+                                 :attachment #:attachment{:transaction (:transaction-item/transaction item)
+                                                          :caption ""}})
+       [:td.text-end
+        {:class muted-class}
+        [:span.d-md-none (format-date transaction-date "M/d")]
+        [:span.d-none.d-md-inline (format-date transaction-date)]]
+       [:td {:class muted-class
+             :style (get-in styles [(:id item)])} description]
+       [:td.text-end {:class muted-class} (format-quantity polarized-quantity account)]
+       [:td.text-center.d-none.d-md-table-cell
+        {:class muted-class}
+        (if @reconciliation
+          [forms/checkbox-input
+           reconciliation
+           [:clj-money.views.reconciliations/item-selection (:id item)]
+           {::forms/decoration ::forms/none}]
+          (icon
+            (case status
+              :completed :check-square
+              :new       :dash-sqaure
+              :square)
+            :size :small))]
+       (when-not @reconciliation
+         [:td.text-end.d-none.d-md-table-cell (format-quantity balance
+                                                               account)])
+       [:td.d-flex.justify-content-end
+        {:class muted-class}
+        (if @reconciliation
+          [:div.btn-group
+           [:button.btn.btn-secondary.btn-sm
+            {:on-click #(edit-transaction item page-state)
+             :title "Click here to edit this transaction."}
+            (icon :pencil :size :small)]
+           [:button.btn.btn-danger.btn-sm
+            {:on-click #(delete-transaction item page-state)
+             :title "Click here to remove this transaction."}
+            (icon :x-circle :size :small)]]
+          [item-row-buttons item page-state])]])))
 
 (defn- date-compare
   [d1 d2]
