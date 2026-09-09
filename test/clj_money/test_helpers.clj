@@ -60,8 +60,8 @@
 (defn include-strategy?
   [{:keys [only except]}]
   (cond
-    only   (->set only)
-    except (complement (->set except))
+    only   (comp (->set only) first)
+    except (complement (comp (->set except) first))
     :else  (constantly true)))
 
 (defmacro dbtest
