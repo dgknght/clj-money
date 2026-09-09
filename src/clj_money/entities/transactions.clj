@@ -507,7 +507,8 @@
                                             (reduced output)
                                             (conj output updated))))
                                       [basis])
-                              (drop 1))
+                              (drop 1)
+                              (map #(dissoc % :transaction/transaction-date)))
            final-qty (or (:transaction-item/balance (last updated-items))
                          (:transaction-item/balance basis))
            price (or (when (default-commodity? account) 1M)
@@ -766,10 +767,9 @@
                        first)
                    initial-basis
                    {:force? true})
-         (map (comp #(dissoc % :transaction/transaction-date)
-                    #(update-in-if %
-                                   [:transaction-item/account]
-                                   util/->entity-ref))))
+         (map #(update-in-if %
+                             [:transaction-item/account]
+                             util/->entity-ref)))
     [(assoc account
             :account/transaction-date-range nil
             :account/quantity 0M
