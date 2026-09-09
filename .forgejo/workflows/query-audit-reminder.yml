@@ -1,0 +1,34 @@
+name: Query audit reminder
+
+on:
+  schedule:
+    - cron: '0 9 1 * *'
+  workflow_dispatch: {}
+
+jobs:
+  open-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open a housekeeping issue for the monthly query review
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ forgejo.server_url }}/api/v1/repos/${{ forgejo.repository }}
+        run: |
+          set -euo pipefail
+          which jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
+
+          auth=(-H "Authorization: token $FORGEJO_TOKEN" -H "Content-Type: application/json")
+
+          labels=$(curl -sf "${auth[@]}" "$API/labels?limit=50")
+          housekeeping_id=$(echo "$labels" | jq -r '.[] | select(.name=="housekeeping") | .id')
+
+          month=$(date +'%B %Y')
+          title="Query performance review — $month"
+          body=$'Monthly reminder to review query performance. See the "Query\nPerformance Review" wiki page for background and tooling.\n\n- [ ] Open Jaeger (or wherever traces are viewed for the current\n      environment) and filter spans emitted by the `clj-money` storage\n      layer (`clj-money.otel/with-tracing`, service `clj-money`) over the\n      past month, sorted by duration.\n- [ ] Note any operations that stand out as slow or that got noticeably\n      slower since the last review, for both the SQL and Datomic\n      strategies if both are in use.\n- [ ] For each outlier, decide: index/schema change, query rewrite, N+1\n      fix, or accept as-is.\n- [ ] File a follow-up issue for anything that needs code changes, then\n      close this one.'
+
+          payload=$(jq -n --arg title "$title" --arg body "$body" --argjson labels "[$housekeeping_id]" \
+            '{title: $title, body: $body, labels: $labels}')
+
+          curl -sf -X POST "${auth[@]}" -d "$payload" "$API/issues" > /dev/null
+
+          echo "Opened housekeeping issue: $title"
