@@ -94,6 +94,9 @@ $secondary: #6c6680;
   border-top: 1px solid $gray-300;
   font-weight: bold;
   font-size: 105%;
+  td {
+    padding-bottom: 2em;
+  }
 }
 
 .portfolio tbody .report-header td {

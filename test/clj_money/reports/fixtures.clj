@@ -575,6 +575,13 @@
                                      :difference 10M
                                      :percent-difference 0.0025M
                                      :actual-per-period 2005M}]}
+           #:report{:caption "Total Income"
+                    :style :summary
+                    :budget 4000M
+                    :actual 4010M
+                    :difference 10M
+                    :percent-difference 0.0025M
+                    :actual-per-period 2005M}
            #:report{:caption "Expense"
                     :style :header
                     :budget 3828M
@@ -651,6 +658,13 @@
                                      :difference 400M
                                      :percent-difference 1M
                                      :actual-per-period 0M}]}
+           #:report{:caption "Total Expense"
+                    :style :summary
+                    :budget 3828M
+                    :actual 3456M
+                    :difference 372M
+                    :percent-difference 0.09717868339M
+                    :actual-per-period 1728M}
            #:report{:caption "Net"
                     :style :summary
                     :budget 172M
@@ -676,6 +690,13 @@
                                      :difference 10M
                                      :percent-difference 0.0025M
                                      :actual-per-period 2005M}]}
+           #:report{:caption "Total Income"
+                    :style :summary
+                    :budget 4000M
+                    :actual 4010M
+                    :difference 10M
+                    :percent-difference 0.0025M
+                    :actual-per-period 2005M}
            #:report{:caption "Tax"
                     :style :header
                     :budget 1128M
@@ -766,6 +787,13 @@
                                      :difference 400M
                                      :percent-difference 1M
                                      :actual-per-period 0M}]}
+           #:report{:caption "Total Expense"
+                    :style :summary
+                    :budget 3828M
+                    :actual 3456M
+                    :difference 372M
+                    :percent-difference 0.09717868339M
+                    :actual-per-period 1728M}
            #:report{:caption "Net"
                     :style :summary
                     :budget 172M

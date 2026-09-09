@@ -446,49 +446,46 @@
                                (remove zero-budget-report-item?)))
        {:account-type account-type})]))
 
-(defn- summarize
-  [ks records]
-  (reduce (fn [result record]
-            (reduce (fn [acc k]
-                      (update-in acc
-                                 [k]
-                                 (fnil + 0M)
-                                 (get-in record [k] 0M)))
-                    result
-                    ks))
-          {}
-          records))
+(defn- section-summary
+  [caption period-count records]
+  (let [[budget actual difference] (map #(sum % records)
+                                        [:report/budget
+                                         :report/actual
+                                         :report/difference])]
+    (with-precision 10
+      #:report{:caption caption
+               :style :summary
+               :budget budget
+               :actual actual
+               :difference difference
+               :percent-difference (when-not (zero? budget)
+                                     (/ difference budget))
+               :actual-per-period (/ actual period-count)})))
 
 (defn- append-budget-summary
   [{:keys [period-count]} records]
-  (let [income (->> records
-                    (filter #(= :income (-> % meta :account-type)))
-                    (summarize [:report/budget
-                                :report/actual]))
-        expense (->> records
-                     (filter #(= :expense (-> % meta :account-type)))
-                     (summarize [:report/budget
-                                 :report/actual]))
-        budget (if (and income expense)
-                 (->> [income expense]
-                      (map #(:report/budget %))
-                      (apply -))
-                 0M)
-        actual (if (and income expense)
-                 (->> [income expense]
-                      (map #(:report/actual %))
-                      (apply -))
-                 0M)
+  (let [income (filter #(= :income (-> % meta :account-type)) records)
+        expense (filter #(= :expense (-> % meta :account-type)) records)
+        income-budget (sum :report/budget income)
+        income-actual (sum :report/actual income)
+        expense-budget (sum :report/budget expense)
+        expense-actual (sum :report/actual expense)
+        budget (- income-budget expense-budget)
+        actual (- income-actual expense-actual)
         difference (- actual budget)]
     (with-precision 10
-      (concat records [#:report{:caption "Net"
-                                :style :summary
-                                :budget budget
-                                :actual actual
-                                :difference difference
-                                :percent-difference (when-not (zero? budget)
-                                                      (/ difference budget))
-                                :actual-per-period (/ actual period-count)}]))))
+      (concat income
+              [(section-summary "Total Income" period-count income)]
+              expense
+              [(section-summary "Total Expense" period-count expense)]
+              [#:report{:caption "Net"
+                       :style :summary
+                       :budget budget
+                       :actual actual
+                       :difference difference
+                       :percent-difference (when-not (zero? budget)
+                                             (/ difference budget))
+                       :actual-per-period (/ actual period-count)}]))))
 
 (defn- end-of-last-month []
   (-> (t/local-date)

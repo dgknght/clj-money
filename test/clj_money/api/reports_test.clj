@@ -168,7 +168,7 @@
   (is (= "2016: January to December"
          (title parsed-body))
       "The response contains the report tital")
-  (is (= ["Income" "Expense" "Net"]
+  (is (= ["Income" "Total Income" "Expense" "Total Expense" "Net"]
          (headers (items parsed-body)))
       "The reponse contains the budget report at the :items key"))
 
