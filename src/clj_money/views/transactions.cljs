@@ -38,7 +38,8 @@
                                             entryfy
                                             unentryfy
                                             ensure-empty-item
-                                            ->unilateral]]
+                                            ->unilateral
+                                            ->trade-price]]
             [clj-money.components :refer [load-in-chunks
                                           audit-history-popover]]
             [clj-money.api.transaction-items :as trx-items]
@@ -753,15 +754,7 @@
   [page-state & {:keys [on-save]}]
   (let [trade (r/cursor page-state [:trade])
         dividend? (r/cursor trade [:trade/dividend?])
-        price (make-reaction #(let [{:trade/keys [shares value fee value-includes-fee? action]} @trade
-                                    fee (or fee 0M)
-                                    adj-value (cond
-                                                (not (and shares value)) nil
-                                                (not value-includes-fee?) value
-                                                (= :sell action)          (+ value fee)
-                                                :else                     (- value fee))]
-                                (when adj-value
-                                  (decimal// adj-value shares))))
+        price (make-reaction #(->trade-price @trade))
         commodities (r/cursor page-state [:commodities])]
     (fn []
       [:form#trade-form

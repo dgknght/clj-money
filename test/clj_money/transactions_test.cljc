@@ -421,6 +421,60 @@
                           (mapv #(update-in % [:transaction-item/account] util/->entity-ref)
                                 items))))))))
 
+(deftest calculate-trade-price-for-a-buy-when-the-value-does-not-include-the-fee
+  (is (= (d "18.1031")
+         (trx/->trade-price #:trade{:shares (d 1000)
+                                    :value (d "18103.10")
+                                    :fee (d "37")
+                                    :value-includes-fee? false
+                                    :action :buy}))))
+
+(deftest calculate-trade-price-for-a-buy-when-the-value-includes-the-fee
+  (is (= (d "18.0661")
+         (trx/->trade-price #:trade{:shares (d 1000)
+                                    :value (d "18103.10")
+                                    :fee (d "37")
+                                    :value-includes-fee? true
+                                    :action :buy}))))
+
+(deftest calculate-trade-price-for-a-sell-when-the-value-does-not-include-the-fee
+  (is (= (d "18.1031")
+         (trx/->trade-price #:trade{:shares (d 1000)
+                                    :value (d "18103.10")
+                                    :fee (d "37")
+                                    :value-includes-fee? false
+                                    :action :sell}))))
+
+(deftest calculate-trade-price-for-a-sell-when-the-value-includes-the-fee
+  (is (= (d "18.1401")
+         (trx/->trade-price #:trade{:shares (d 1000)
+                                    :value (d "18103.10")
+                                    :fee (d "37")
+                                    :value-includes-fee? true
+                                    :action :sell}))))
+
+(deftest calculate-trade-price-defaults-a-missing-fee-to-zero
+  (is (= (d "18.1031")
+         (trx/->trade-price #:trade{:shares (d 1000)
+                                    :value (d "18103.10")
+                                    :fee nil
+                                    :value-includes-fee? true
+                                    :action :buy}))))
+
+(deftest calculate-trade-price-yields-nil-when-shares-or-value-is-missing
+  (testing "shares is missing"
+    (is (nil? (trx/->trade-price #:trade{:shares nil
+                                         :value (d "18103.10")
+                                         :fee (d "37")
+                                         :value-includes-fee? false
+                                         :action :buy}))))
+  (testing "value is missing"
+    (is (nil? (trx/->trade-price #:trade{:shares (d 1000)
+                                         :value nil
+                                         :fee (d "37")
+                                         :value-includes-fee? false
+                                         :action :buy})))))
+
 (deftest summarize-some-items
   (let [items [{:transaction-item/polarized-quantity (d 100)
                 :transaction/transaction-date (t/local-date 2016 1 2)}

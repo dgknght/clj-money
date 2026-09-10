@@ -230,6 +230,17 @@
         (assoc :transaction/items items)
         (dissoc :trade/account :trade/shares :trade/action :trade/commodity))))
 
+(defn ->trade-price
+  [{:trade/keys [shares value fee value-includes-fee? action]}]
+  (let [fee (or fee d/zero)
+        adj-value (cond
+                    (not (and shares value)) nil
+                    (not value-includes-fee?) value
+                    (= :sell action)          (d/+ value fee)
+                    :else                     (d/- value fee))]
+    (when adj-value
+      (d// adj-value shares))))
+
 (defn- summarize-period
   [[start-date end-date] items]
   {:pre [(every? :transaction-item/polarized-quantity items)]}
