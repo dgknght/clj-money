@@ -1,6 +1,7 @@
 (ns clj-money.api.trading
   (:require [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util]
+            [clj-money.decimal :as d]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- adjust-value-for-fee
@@ -9,8 +10,8 @@
   [{:trade/keys [action fee value-includes-fee? value] :or {fee 0} :as trade}]
   (if (and value-includes-fee? (pos? fee))
     (assoc trade :trade/value (if (= :sell action)
-                                (+ value fee)
-                                (- value fee)))
+                                (d/+ value fee)
+                                (d/- value fee)))
     trade))
 
 (defn create

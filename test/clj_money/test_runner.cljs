@@ -9,7 +9,8 @@
             [clj-money.routes-test]
             [clj-money.views.recent-transactions-test]
             [clj-money.views.receipts-test]
-            [clj-money.reconciliations-test]))
+            [clj-money.reconciliations-test]
+            [clj-money.api.trading-test]))
 
 (defmethod t/report [:cljs.test/default :end-run-tests] [m]
   (set! (.-exitCode js/process) (if (t/successful? m) 0 1)))
@@ -25,4 +26,5 @@
     'clj-money.scheduled-transactions-test
     'clj-money.views.recent-transactions-test
     'clj-money.views.receipts-test
-    'clj-money.reconciliations-test))
+    'clj-money.reconciliations-test
+    'clj-money.api.trading-test))
