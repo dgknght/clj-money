@@ -405,14 +405,15 @@
    [:td caption]
    [:td.text-end.d-none.d-md-table-cell (format-decimal budget)]
    [:td.text-end.d-none.d-md-table-cell (format-decimal actual)]
-   [:td.d-flex.justify-content-between {:class (when (> 0 difference) "text-light bg-danger")}
-    (when (= :data style)
-      [:span.d-print-none.d-none.d-md-inline
-       {:on-click #(apply-to-budget item page-state)
-        :title "Click here to update the budget with recorded actual values."
-        :style {:cursor :pointer}}
-       (icon :gear :size :small)])
-    [:span.flex-fill.text-end (format-decimal difference)]]
+   [:td {:class (when (> 0 difference) "text-light bg-danger")}
+    [:div.d-flex.justify-content-between
+     (when (= :data style)
+       [:span.d-print-none.d-none.d-md-inline
+        {:on-click #(apply-to-budget item page-state)
+         :title "Click here to update the budget with recorded actual values."
+         :style {:cursor :pointer}}
+        (icon :gear :size :small)])
+     [:span.flex-fill.text-end (format-decimal difference)]]]
    [:td.text-end.d-none.d-md-table-cell (format-percent percent-difference)]
    [:td.text-end.d-none.d-md-table-cell (format-decimal actual-per-period)]])
 
