@@ -11,13 +11,15 @@
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.schema :as schema]
+            [clj-money.otel :as otel]
             [clj-money.db.datomic.tasks :refer [apply-schema]]
             [clj-money.db.datomic.types :refer [coerce-id
                                                 apply-coercions
                                                 ->java-dates
                                                 datomize]]
             [clj-money.db.datomic.queries :as queries]
-            [clj-money.db.datomic.util :refer [->datoms]]))
+            [clj-money.db.datomic.util :refer [->datoms]])
+  (:import [io.opentelemetry.api.trace Span]))
 
 (derive ::db/datomic-peer   ::service)
 (derive ::db/datomic-client ::service)
@@ -352,7 +354,7 @@
 
     (log/debugf "select %s -> %s"
                 (entities/scrub-sensitive-data criteria)
-                qry) ; TODO scrub the datalog query too
+                (entities/scrub-sensitive-data qry))
 
     (cond
       count
@@ -523,11 +525,43 @@
         ; probably should not ever get here, as this is for unit tests only
         (db/assert-test-db! db-name)))))
 
+(defn- observable-api
+  [api]
+  (reify DatomicAPI
+    (transact [_ tx-data options]
+      (otel/set-attribute (Span/current)
+                          "datomic" "transact"
+                          (pr-str (entities/scrub-sensitive-data tx-data)))
+      (transact api tx-data options))
+    (pull [_ id]
+      (otel/set-attribute (Span/current)
+                          "datomic" "pull"
+                          (pr-str id))
+      (pull api id))
+    (pull-many [_ ids]
+      (otel/set-attribute (Span/current)
+                          "datomic" "pull-many"
+                          (pr-str ids))
+      (pull-many api ids))
+    (query [_ qry]
+      (otel/set-attribute (Span/current)
+                          "datomic" "query"
+                          (pr-str (entities/scrub-sensitive-data qry)))
+      (query api qry))
+    (history [_ entity-id attr]
+      (otel/set-attribute (Span/current)
+                          "datomic" "history"
+                          (pr-str {:entity-id entity-id :attr attr}))
+      (history api entity-id attr))
+    (reset [_]
+      (reset api))))
+
 (defn q
   [qry & args]
-  (let [api (init-api (get-in env [:db
-                                   :strategies
-                                   :datomic-peer]))]
+  (let [api (observable-api
+              (init-api (get-in env [:db
+                                     :strategies
+                                     :datomic-peer])))]
     (query api {:query qry :args args})))
 
 (defn- history*
@@ -541,7 +575,7 @@
 
 (defn- datomic-storage
   [config]
-  (let [api (init-api config)]
+  (let [api (observable-api (init-api config))]
     (reify db/Storage
       (put [_ opts entities]  (put* entities {:api api} opts))
       (find [_ id]            (find* id {:api api}))

@@ -36,6 +36,7 @@
   (let [span-name (second bindings)]
     `(let [tracer# ^Tracer (GlobalOpenTelemetry/getTracer ~scope-name ~scope-version)
            span# ^Span (.startSpan (.spanBuilder tracer# ~span-name))
+           scope# (.makeCurrent span#)
            f# (fn* [~(first bindings)]
                    ~@body)]
        (try
@@ -48,4 +49,5 @@
                            "Unknown error"))
            (throw e#))
          (finally
+           (.close scope#)
            (.end span#))))))
