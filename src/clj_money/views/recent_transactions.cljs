@@ -1,7 +1,7 @@
 (ns clj-money.views.recent-transactions
   "Shared sort-by / direction / result-count controls and logic for the
-  'Recent Transactions' tables on the receipt entry and dividend entry
-  pages."
+  'Recent Transactions' tables on the receipt entry and trade (buy/sell
+  and dividend) entry pages."
   (:require [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
@@ -113,7 +113,7 @@
      [controls page-state settings-path]]]))
 
 (defn table
-  "Shared 'Recent Transactions' section for the receipt and dividend entry
+  "Shared 'Recent Transactions' section for the receipt and trade entry
   pages: a toggle button, an options drawer (sort-by, direction, result
   count, and an 'Entered Since' date filter), and a table of the visible
   transactions.

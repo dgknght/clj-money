@@ -12,8 +12,10 @@
            commodities)))
 
 (defn description
-  [{:commodity/keys [name symbol]}]
-  (str name " (" symbol ")"))
+  [{:commodity/keys [name symbol] :as c}]
+  (if c
+    (str name " (" symbol ")")
+    ""))
 
 (defn matches-search?
   [term]

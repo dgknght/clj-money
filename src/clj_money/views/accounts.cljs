@@ -676,37 +676,45 @@
   (set-focus "transaction-date"))
 
 (defn- new-trade
-  [page-state]
-  (let [{:keys [commodities] account :view-account} @page-state
-        commodity-account? (system-tagged? account :tradable)
-        trade #:trade{:entity @current-entity
-                      :action :buy
-                      :date (t/today)
-                      :commodity-account (when commodity-account?
-                                           account)
-                      :commodity (when commodity-account?
-                                   (-> account
-                                       :account/commodity
-                                       :id
-                                       commodities))
-                      :account (if commodity-account?
-                                 (:account/parent account)
-                                 account)}]
-    (swap! page-state assoc :trade trade))
-  (set-focus "transaction-date"))
+  ([page-state]
+   (swap! page-state dissoc :trade-repeat?)
+   (new-trade page-state {}))
+  ([page-state {:keys [date commodity commodity-account account action fee-account]}]
+   (let [{:keys [commodities] view-account :view-account} @page-state
+         commodity-account? (system-tagged? view-account :tradable)
+         trade (cond-> #:trade{:entity @current-entity
+                               :action (or action :buy)
+                               :date (or date (t/today))
+                               :commodity-account (or commodity-account
+                                                      (when commodity-account?
+                                                        view-account))
+                               :commodity (or commodity
+                                              (when commodity-account?
+                                                (-> view-account
+                                                    :account/commodity
+                                                    :id
+                                                    commodities)))
+                               :account (or account
+                                            (if commodity-account?
+                                              (:account/parent view-account)
+                                              view-account))}
+                   fee-account (assoc :trade/fee-account fee-account))]
+     (swap! page-state assoc :trade trade))
+   (set-focus "transaction-date")))
 
 (defn- new-dividend
   ([page-state]
-   (swap! page-state dissoc :dividend-repeat?)
+   (swap! page-state dissoc :trade-repeat?)
    (new-dividend page-state {}))
-  ([page-state {:keys [date dividend-account]}]
+  ([page-state {:keys [date dividend-account fee-account]}]
    (swap! page-state assoc
           :trade (cond-> #:trade{:entity @current-entity
                                  :dividend? true
                                  :action :buy
                                  :date (or date (t/today))
                                  :account (:view-account @page-state)}
-                   dividend-account (assoc :trade/dividend-account dividend-account)))
+                   dividend-account (assoc :trade/dividend-account dividend-account)
+                   fee-account (assoc :trade/fee-account fee-account)))
    (set-focus "transaction-date")))
 
 (defn- create-trx-button
@@ -817,15 +825,24 @@
   (fn [result]
     (let [updated-account (push-transaction-date! (:view-account @page-state)
                                                    (extract-trx-date result))
-          {:trade/keys [dividend? date dividend-account]} (:trade @page-state)
-          repeat-dividend? (and dividend? (:dividend-repeat? @page-state))]
+          {:trade/keys [dividend? date dividend-account commodity commodity-account account action fee-account]} (:trade @page-state)
+          repeat? (:trade-repeat? @page-state)]
       (swap! page-state
              (fn [state]
                (-> state
                    (dissoc :transaction :trade)
                    (assoc :view-account updated-account))))
-      (when repeat-dividend?
-        (new-dividend page-state {:date date :dividend-account dividend-account})))
+      (when repeat?
+        (if dividend?
+          (new-dividend page-state {:date date
+                                    :dividend-account dividend-account
+                                    :fee-account fee-account})
+          (new-trade page-state {:date date
+                                  :commodity commodity
+                                  :commodity-account commodity-account
+                                  :account account
+                                  :action action
+                                  :fee-account fee-account}))))
     (if (:reconciliation @page-state)
       (trns/load-unreconciled-items page-state)
       (trns/reset-item-loading page-state))))
@@ -1321,7 +1338,7 @@
         selected (r/cursor page-state [:selected])
         transaction (r/cursor page-state [:transaction])
         trade (r/cursor page-state [:trade])
-        dividend? (make-reaction #(:trade/dividend? @trade))
+        trade-open? (make-reaction #(boolean @trade))
         allocation-account (r/cursor page-state [:allocation :account])
         bulk-select (r/cursor page-state [:bulk-edit :account-ids])
         hide-table? (make-reaction #(or @selected
@@ -1397,9 +1414,9 @@
        [tradable-account-items page-state]
        [transaction-form-container page-state]
        [:div.row
-        [:div {:class (if @dividend? "col-md-6" "col")}
+        [:div {:class (if @trade-open? "col-md-6" "col")}
          [trade-form page-state]]
-        (when @dividend?
+        (when @trade-open?
           [:div.col-md-6
            [trns/recent-transactions-table page-state]])]
        [atts/attachments-card page-state]

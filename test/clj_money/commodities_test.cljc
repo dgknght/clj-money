@@ -25,6 +25,15 @@
              ((c/search commodities) "dol"))
           "A function that takes a search term and returns matching commodities is returned"))))
 
+(deftest get-a-commodity-description
+  (is (= "Apple, Inc. (AAPL)"
+         (c/description #:commodity{:name "Apple, Inc."
+                                    :symbol "AAPL"}))
+      "The name and symbol are combined")
+  (is (= ""
+         (c/description nil))
+      "A nil commodity yields an empty string"))
+
 (deftest make-a-search-predicate
   (let [commodity {:commodity/symbol "AAPL"
                    :commodity/name "Apple, Inc."}]

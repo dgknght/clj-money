@@ -441,7 +441,7 @@
         :title "Click here to edit this transaction."}
        (icon :pencil :size :small)]]]))
 
-(def ^:private recent-options-id "dividend-recent-transactions-options")
+(def ^:private recent-options-id "trade-recent-transactions-options")
 
 (defn recent-transactions-table
   [page-state]
@@ -807,23 +807,22 @@
                       (callback (cmdts/search input (vals @commodities))))
          :caption-fn cmdts/description
          :value-fn :id
-         :find-fn (fn [{:keys [id]} callback]
+         :find-fn (fn [id callback]
                     (callback (@commodities id)))
          :validations #{::v/required}}]
        (when @dividend?
-         [:<>
-          [forms/typeahead-field
-           trade
-           [:trade/dividend-account]
-           {:search-fn (fn [input callback]
-                         (->> @accounts
-                              (find-by-path input)
-                              callback))
-            :caption-fn (comp (partial string/join "/") :account/path)
-            :find-fn (fn [{:keys [id]} callback]
-                       (callback (@accounts-by-id id)))
-            :validations #{::v/required}}]
-          [forms/checkbox-field
-           page-state
-           [:dividend-repeat?]
-           {:caption "Save and add another"}]])])))
+         [forms/typeahead-field
+          trade
+          [:trade/dividend-account]
+          {:search-fn (fn [input callback]
+                        (->> @accounts
+                             (find-by-path input)
+                             callback))
+           :caption-fn (comp (partial string/join "/") :account/path)
+           :find-fn (fn [{:keys [id]} callback]
+                      (callback (@accounts-by-id id)))
+           :validations #{::v/required}}])
+       [forms/checkbox-field
+        page-state
+        [:trade-repeat?]
+        {:caption "Save and add another"}]])))
