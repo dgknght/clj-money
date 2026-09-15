@@ -76,7 +76,31 @@
                                            :items [#:receipt-item{:account {:id :groceries}
                                                                   :quantity 100M}
                                                    {}]}))
-      "Empty items are removed"))
+      "Empty items are removed")
+  (is (= {:id "abc123"
+          :transaction/transaction-date (dates/local-date "2020-01-01")
+          :transaction/description "Kroger"
+          :transaction/items [{:id "payment-item-id"
+                               :transaction-item/action :credit
+                               :transaction-item/account {:id :checking}
+                               :transaction-item/quantity 100M
+                               :transaction-item/memo "cash back"}
+                              {:id "expense-item-id"
+                               :transaction-item/action :debit
+                               :transaction-item/account {:id :groceries}
+                               :transaction-item/quantity 100M
+                               :transaction-item/memo "weekly stuff"}]}
+         (receipts/->transaction #:receipt{:transaction-date (dates/local-date "2020-01-01")
+                                           :transaction-id "abc123"
+                                           :description "Kroger"
+                                           :payment-account {:id :checking}
+                                           :payment-id "payment-item-id"
+                                           :payment-memo "cash back"
+                                           :items [(assoc #:receipt-item{:account {:id :groceries}
+                                                                         :quantity 100M
+                                                                         :memo "weekly stuff"}
+                                                          :receipt-item/id "expense-item-id")]}))
+      "Item ids are preserved during the conversion so edits merge onto existing items"))
 
 (deftest validation
   (is (s/valid? ::receipts/receipt
@@ -120,7 +144,32 @@
                                 #:transaction-item{:action :debit
                                                    :account {:id :groceries}
                                                    :quantity 100M
-                                                   :memo "weekly stuff"}]}))))
+                                                   :memo "weekly stuff"}]})))
+  (is (= #:receipt{:transaction-date (dates/local-date "2020-01-01")
+                   :transaction-id "abc123"
+                   :description "Kroger"
+                   :payment-account {:id :checking}
+                   :payment-id "payment-item-id"
+                   :payment-memo "cash back"
+                   :items [#:receipt-item{:id "expense-item-id"
+                                          :account {:id :groceries}
+                                          :quantity 100M
+                                          :memo "weekly stuff"}]}
+         (receipts/<-transaction
+           {:id "abc123"
+            :transaction/transaction-date (dates/local-date "2020-01-01")
+            :transaction/description "Kroger"
+            :transaction/items [{:id "payment-item-id"
+                                 :transaction-item/action :credit
+                                 :transaction-item/account {:id :checking}
+                                 :transaction-item/quantity 100M
+                                 :transaction-item/memo "cash back"}
+                                {:id "expense-item-id"
+                                 :transaction-item/action :debit
+                                 :transaction-item/account {:id :groceries}
+                                 :transaction-item/quantity 100M
+                                 :transaction-item/memo "weekly stuff"}]}))
+      "Item ids are preserved so a subsequent edit can be merged onto the existing items"))
 
 (deftest calculate-a-receipt-total
   (is (= 100M
