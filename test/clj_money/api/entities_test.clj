@@ -180,6 +180,33 @@
                          retrieved)
             "The tags are persisted in the order given")))))
 
+(deftest monitor-order-can-be-edited-via-the-api
+  (with-context list-context
+    (let [dining (find-account "Dining")
+          groceries (find-account "Groceries")]
+      (testing "default format (edn)"
+        (let [[res retrieved] (edit-an-entity
+                                "john@doe.com"
+                                :changes {:entity/settings
+                                          {:settings/monitor-order [(:id groceries) (:id dining)]}})]
+          (is (http-success? res))
+          (is (comparable? {:entity/settings {:settings/monitor-order [(:id groceries) (:id dining)]}}
+                           retrieved)
+              "The order is persisted as given")))
+      (testing "json format"
+        (let [[res retrieved] (edit-an-entity
+                                "john@doe.com"
+                                :content-type "application/json"
+                                :changes {:settings {:monitorOrder [(:id groceries) (:id dining)]
+                                                     :_type :settings}
+                                          :_type :entity})]
+          (is (http-success? res))
+          (is (= [(:id groceries) (:id dining)]
+                 (get-in res [:parsed-body :settings :monitorOrder])))
+          (is (comparable? {:entity/settings {:settings/monitor-order [(:id groceries) (:id dining)]}}
+                           retrieved)
+              "The order is persisted as given"))))))
+
 (deftest a-user-cannot-edit-anothers-entity
   (with-context list-context
     (assert-blocked-edit (edit-an-entity "jane@doe.com"))))

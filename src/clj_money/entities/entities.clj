@@ -32,6 +32,7 @@
 (s/def :entity/price-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
 (s/def :entity/transaction-date-range (s/nilable (s/tuple dates/local-date? dates/local-date?)))
 (s/def :settings/monitored-accounts (s/coll-of ::entities/entity-ref :kind set?))
+(s/def :settings/monitor-order (s/coll-of ::entities/id :kind vector?))
 (s/def :settings/inventory-method #{:fifo :lifo})
 (s/def :settings/default-commodity ::entities/entity-ref)
 (s/def :settings/lt-capital-gains-account ::entities/entity-ref)
@@ -42,6 +43,7 @@
 (s/def :entity/settings (s/nilable
                           (s/keys :opt [:settings/inventory-method
                                         :settings/monitored-accounts
+                                        :settings/monitor-order
                                         :settings/default-commodity
                                         :settings/budget-tags])))
 

@@ -65,6 +65,7 @@
    :price/trade-date dates/->local-date
    :reconciliation/end-of-period dates/->local-date
    :settings/monitored-accounts set
+   :settings/monitor-order read-string
    :settings/budget-tags read-string
    :transaction/created-at #(.toInstant ^java.util.Date %)
    :transaction/transaction-date dates/->local-date

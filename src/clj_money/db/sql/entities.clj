@@ -24,6 +24,8 @@
                       (->> refs
                            (map #(update-in % [:id] (types/qid :account)))
                            set)))
+      (update-in-if [:entity/settings :settings/monitor-order]
+                    (partial mapv (types/qid :account)))
       (update-in-if [:entity/settings :settings/inventory-method] keyword)
       (update-in-if [:entity/settings :settings/budget-tags] #(mapv keyword %))
       (update-in-if [:entity/transaction-date-range 0] t/local-date)

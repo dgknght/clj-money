@@ -135,6 +135,10 @@
          [:entity/settings :settings/monitored-accounts]
          disj
          (:id account))
+  (swap! current-entity
+         update-in
+         [:entity/settings :settings/monitor-order]
+         (fn [order] (vec (remove #{(:id account)} order))))
   (swap! state
          update-in
          [:monitors]
@@ -145,6 +149,47 @@
   (+busy)
   (entities/save @current-entity
                  :callback -busy))
+
+(defn- save-monitor-order
+  [order]
+  (swap! current-entity assoc-in [:entity/settings :settings/monitor-order] order)
+  (+busy)
+  (entities/save @current-entity
+                 :callback -busy))
+
+(defn- index-of
+  [coll x]
+  (first (keep-indexed (fn [i v] (when (= v x) i)) coll)))
+
+(defn- move-to-position
+  "Returns order with dragged-id repositioned immediately before target-id,
+  or immediately after it when after? is true."
+  [order dragged-id target-id after?]
+  (let [without (vec (remove #{dragged-id} order))
+        idx (index-of without target-id)]
+    (if idx
+      (let [insert-at (cond-> idx after? inc)]
+        (vec (concat (subvec without 0 insert-at) [dragged-id] (subvec without insert-at))))
+      order)))
+
+(defn- drag-over-half
+  "Given a drag-over event, returns :before or :after depending on whether
+  the pointer is over the top or bottom half of the event's target element."
+  [e]
+  (let [rect (.getBoundingClientRect (.-currentTarget e))
+        midpoint (+ (.-top rect) (/ (.-height rect) 2))]
+    (if (< (.-clientY e) midpoint) :before :after)))
+
+(defn- ordered-monitors
+  "Sorts monitors according to :settings/monitor-order (accounts ids, in
+  display order), placing any monitor not found there (e.g. one added since
+  the order was last saved) at the end, sorted by account path."
+  [monitors order]
+  (let [index-of-id (into {} (map-indexed (fn [i id] [id i]) order))
+        with-index? #(contains? index-of-id (get-in % [:report/account :id]))
+        [ordered unordered] ((juxt filter remove) with-index? monitors)]
+    (into (vec (sort-by #(index-of-id (get-in % [:report/account :id])) ordered))
+          (sort-by #(get-in % [:report/account :account/path]) unordered))))
 
 (defn- monitor
   [{:report/keys [account message] :as monitor} scope]
@@ -160,32 +205,69 @@
                              :height "2em"}}))
      [:figcaption (title-case (name scope))]]]])
 
+(def ^:private drop-line "3px solid var(--bs-primary)")
+(def ^:private no-drop-line "3px solid transparent")
+
 (defn- monitor-pair
-  [state]
+  [state ordered-ids dragging drop-target]
   (fn [{:as mon :report/keys [account]}]
-    ^{:key (str "budget-monitor-" (:id account))}
-    [:div
-     [:h4
-      (string/join "/" (:account/path account))
-      [:button.btn.btn-dark
-       {:on-click #(remove-monitor mon state)
-        :title "Click here to remove this budget monitor."}
-       (icon :x-circle :size :small)]]
-     [:div.row
-      [:div.col-sm (monitor mon :period)]
-      [:div.col-sm (monitor mon :budget)]]]))
+    (let [id (:id account)
+          being-dragged? (= @dragging id)
+          hovered? (and @dragging
+                       (not being-dragged?)
+                       (= (:id @drop-target) id))]
+      ^{:key (str "budget-monitor-" id)}
+      [:div {:draggable true
+             :style {:opacity (if being-dragged? 0.4 1)
+                    :border-top (if (and hovered? (= :before (:half @drop-target)))
+                                  drop-line
+                                  no-drop-line)
+                    :border-bottom (if (and hovered? (= :after (:half @drop-target)))
+                                     drop-line
+                                     no-drop-line)}
+             :on-drag-start (fn [e]
+                              (reset! dragging id)
+                              (.setData (.-dataTransfer e) "text/plain" (str id)))
+             :on-drag-over (fn [e]
+                            (.preventDefault e)
+                            (when (not= @dragging id)
+                              (reset! drop-target {:id id :half (drag-over-half e)})))
+             :on-drop (fn [e]
+                        (.preventDefault e)
+                        (when-let [dragged @dragging]
+                          (when (not= dragged id)
+                            (save-monitor-order
+                              (move-to-position ordered-ids dragged id (= :after (:half @drop-target))))))
+                        (reset! dragging nil)
+                        (reset! drop-target nil))
+             :on-drag-end (fn [_e]
+                           (reset! dragging nil)
+                           (reset! drop-target nil))}
+       [:h4
+        [:span.me-2 {:title "Click and drag here to reorder this budget monitor."
+                     :style {:cursor "grab"}}
+         (icon :grip-vertical :size :small)]
+        (string/join "/" (:account/path account))
+        [:button.btn.btn-dark
+         {:on-click #(remove-monitor mon state)
+          :title "Click here to remove this budget monitor."}
+         (icon :x-circle :size :small)]]
+       [:div.row
+        [:div.col-sm (monitor mon :period)]
+        [:div.col-sm (monitor mon :budget)]]])))
 
 (defn- monitors []
   (let [state (r/atom {})
+        dragging (r/atom nil)
+        drop-target (r/atom nil)
         monitors (r/cursor state [:monitors])
         new-monitor (r/cursor state [:new-monitor])
         monitors-with-accounts (make-reaction
                                  (fn []
                                    (when (and @monitors @accounts-by-id)
-                                     (->> @monitors
-                                          (map #(update-in % [:report/account] (comp @accounts-by-id :id)))
-                                          (sort-by #(get-in % [:report/account :account/path]))
-                                          (into [])))))]
+                                     (ordered-monitors
+                                       (map #(update-in % [:report/account] (comp @accounts-by-id :id)) @monitors)
+                                       (get-in @current-entity [:entity/settings :settings/monitor-order])))))]
     (load-monitors state)
     (add-watch current-entity ::monitors (fn [_ _ prev current]
                                            (if current
@@ -196,9 +278,10 @@
       [:div
        [:h3.mt-3 "Budget Highlights"]
        (if @monitors-with-accounts
-         (->> @monitors-with-accounts
-              (map (monitor-pair state))
-              doall)
+         (let [ordered-ids (mapv #(get-in % [:report/account :id]) @monitors-with-accounts)]
+           (->> @monitors-with-accounts
+                (map (monitor-pair state ordered-ids dragging drop-target))
+                doall))
          [:div.my-3.placeholder-glow
           [:h4 [:span.placeholder.col-7]]
           [:span.placeholder.col-4.me-2]

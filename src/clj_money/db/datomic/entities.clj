@@ -6,9 +6,9 @@
 
 (defmethod datomic/before-save :entity
   [entity]
-  (update-in-if entity
-                [:entity/settings :settings/budget-tags]
-                pr-str))
+  (-> entity
+      (update-in-if [:entity/settings :settings/budget-tags] pr-str)
+      (update-in-if [:entity/settings :settings/monitor-order] pr-str)))
 
 (defmethod datomic/deconstruct :entity
   [entity]

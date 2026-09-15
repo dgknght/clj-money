@@ -31,6 +31,10 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db/doc "Accounts for which budget monitors are enabled"}
+ {:db/ident :settings/monitor-order
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The (serialized) ordered list of account ids determining the display order of budget monitors"}
  {:db/ident :settings/lt-capital-gains-account
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one

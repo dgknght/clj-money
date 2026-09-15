@@ -136,6 +136,28 @@
                   set))
           "The removal persists when the entity is re-fetched"))))
 
+(dbtest persist-monitor-order
+  (with-context list-context
+    (let [dining (find-account "Dining")
+          groceries (find-account "Groceries")
+          entity (entities/put
+                   (assoc (find-entity "Personal")
+                          :entity/settings
+                          {:settings/monitored-accounts
+                           (->> [dining groceries]
+                                (map util/->entity-ref)
+                                set)
+                           :settings/monitor-order
+                           [(:id groceries) (:id dining)]}))]
+      (is (= [(:id groceries) (:id dining)]
+             (get-in entity [:entity/settings :settings/monitor-order]))
+          "The order is returned after the initial save")
+      (is (= [(:id groceries) (:id dining)]
+             (->> (entities/find-by {:entity/name "Personal"})
+                  :entity/settings
+                  :settings/monitor-order))
+          "The order persists when the entity is re-fetched"))))
+
 (dbtest delete-an-entity
   (with-context list-context
     (assert-deleted (find-entity "Personal"))))
