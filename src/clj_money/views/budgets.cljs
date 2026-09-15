@@ -366,24 +366,45 @@
         (items/save :callback -busy
                     :on-success (post-save-budget-item page-state)))))
 
+(defn fill-periods-from
+  [periods index]
+  (let [value (nth periods index)]
+    (vec (map-indexed (fn [i p]
+                        (if (> i index) value p))
+                      periods))))
+
+(defn- fill-remaining-periods
+  [item index]
+  (swap! item update :budget-item/periods fill-periods-from index))
+
 (defn- period-row
   [index item budget]
-  ^{:key (str "period-" index)}
-  [:tr
-   [:td (budgets/period-description index budget)]
-   [:td [forms/decimal-input item [:budget-item/periods index]]]])
+  (let [periods-count (count (:budget-item/periods @item))]
+    ^{:key (str "period-" index)}
+    [:tr
+     [:td (budgets/period-description index budget)]
+     [:td [forms/decimal-input item [:budget-item/periods index]]]
+     [:td
+      (when (< (inc index) periods-count)
+        [:button.btn.btn-sm.btn-outline-secondary
+         {:type :button
+          :on-click #(fill-remaining-periods item index)
+          :title "Click here to apply this amount to all of the remaining periods."}
+         (icon :arrow-bar-down :size :small)])]]))
 
 (defn- period-fields-per-period
   [item budget]
   [:table.table
    [:thead
     [:tr
-     [:th.col-sm-6 "Period"]
-     [:th.col-sm-6 "Amount"]]]
+     [:th.col-sm-5 "Period"]
+     [:th.col-sm-5 "Amount"]
+     [:th.col-sm-2 (html/space)]]]
    [:tfoot
     [:tr
      [:td (html/space)]
-     [:td (format-decimal (reduce decimal/+ (:budget-item/periods @item)))]]]
+     [:td (format-decimal (reduce decimal/+ (:budget-item/periods @item)))]
+     [:td (html/space)]]]
    [:tbody
     (->> (range (get-in budget [:budget/period 0]))
          (map #(period-row % item budget))
