@@ -142,11 +142,14 @@
               (util/deep-rename-keys {:id :db/id}))
           (->> nils
                (filter #(get-in (-> m meta :clj-money.entities/before) %))
-               (map #(vector :db/retract
-                             (get-in m (concat
-                                         (butlast %)
-                                         [:id]))
-                             (last %)))))))
+               ; A nil found inside a nested collection (e.g. :transaction/items)
+               ; may belong to a brand-new component entity rather than one
+               ; carried over from :before, in which case there's no :id to
+               ; resolve and no explicit retraction is needed -- the attribute
+               ; was simply never asserted on the new entity.
+               (keep (fn [path]
+                       (when-let [id (get-in m (concat (butlast path) [:id]))]
+                         [:db/retract id (last path)])))))))
 
 (def ^:private action-map
   {::db/add :db/add

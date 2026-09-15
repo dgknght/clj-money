@@ -469,6 +469,47 @@
           "Grocery account items reflect the changed quantity")
       (assert-account-quantities checking 798.01M groceries 201.99M))))
 
+(def replace-items-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :items [#:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 1000M}
+                              #:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1000M
+                                                 :memo "conf # 123"}]}))
+
+(dbtest ^:multi-threaded update-a-transaction-with-wholesale-item-replacement
+  ; Reproduces #127: the receipts view rebuilds :transaction/items from
+  ; scratch on edit (clj-money.receipts/->transaction), so the items sent
+  ; to an update carry no :id and explicitly set previously-populated
+  ; attributes, like memo, to nil.
+  (with-context replace-items-context
+    (let [trx (find-transaction [(t/local-date 2016 3 2) "Paycheck"])
+          checking (find-account "Checking")
+          salary (find-account "Salary")]
+      (-> trx
+          (assoc :transaction/items
+                 [#:transaction-item{:action :debit
+                                     :account checking
+                                     :quantity 1000M
+                                     :memo nil}
+                  #:transaction-item{:action :credit
+                                     :account salary
+                                     :quantity 1000M
+                                     :memo nil}])
+          prop/put-and-propagate)
+      (is (= [nil nil]
+             (->> (entities/find-by
+                    {:transaction/transaction-date (t/local-date 2016 3 2)
+                     :transaction/description "Paycheck"})
+                  :transaction/items
+                  (map :transaction-item/memo)))
+          "The memo is cleared on the replacement items"))))
+
 (dbtest ^:multi-threaded update-a-transaction-change-date
   (with-context update-context
     (let [checking (find-account "Checking")
