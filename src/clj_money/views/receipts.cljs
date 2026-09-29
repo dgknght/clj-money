@@ -236,6 +236,19 @@
                  :callback -busy
                  :on-success #(swap! page-state assoc :attachments %))))
 
+(defn update-attachment-count
+  "Applies f to the attachment count of the transaction in :transactions
+  identified by trx."
+  [state trx f]
+  (update-in state
+             [:transactions]
+             (fn [transactions]
+               (map (fn [t]
+                      (if (util/id= trx t)
+                        (update-in t [:transaction/attachment-count] (fnil f 0))
+                        t))
+                    transactions))))
+
 (defn- post-result-row-drop
   [page-state trx]
   (fn [_created]
@@ -243,13 +256,7 @@
            (fn [state]
              (-> state
                  (update-in [:result-row-styles] dissoc (:id trx))
-                 (update-in [:transactions]
-                            (fn [transactions]
-                              (map (fn [t]
-                                     (if (util/id= trx t)
-                                       (update-in t [:transaction/attachment-count] (fnil inc 0))
-                                       t))
-                                   transactions))))))))
+                 (update-attachment-count trx inc))))))
 
 (defn- pending-attachment-form
   [page-state]
@@ -354,7 +361,11 @@
         [:div.col-md-6
          (if @attachments-item
            [:<>
-            [atts-view/attachments-card page-state]
+            [atts-view/attachments-card page-state
+             :on-delete #(swap! page-state
+                                update-attachment-count
+                                (:attachment/transaction %)
+                                dec)]
             [atts-view/attachment-form page-state]]
            [results-table page-state])]]])))
 

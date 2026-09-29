@@ -10,6 +10,7 @@
             [clj-money.views.recent-transactions-test]
             [clj-money.views.receipts-test]
             [clj-money.views.budgets-test]
+            [clj-money.views.attachments-test]
             [clj-money.reconciliations-test]
             [clj-money.api.trading-test]))
 
@@ -28,5 +29,6 @@
     'clj-money.views.recent-transactions-test
     'clj-money.views.receipts-test
     'clj-money.views.budgets-test
+    'clj-money.views.attachments-test
     'clj-money.reconciliations-test
     'clj-money.api.trading-test))

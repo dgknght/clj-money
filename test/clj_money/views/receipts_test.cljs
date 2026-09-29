@@ -27,3 +27,13 @@
                                           :quantity 20M
                                           :memo nil}]}
          (receipts/->reused-fields transaction))))
+
+(deftest update-the-attachment-count-for-a-transaction
+  (is (= [{:id 201 :transaction/attachment-count 1}
+          {:id 202}]
+         (:transactions (receipts/update-attachment-count
+                          {:transactions [{:id 201 :transaction/attachment-count 2}
+                                          {:id 202}]}
+                          {:id 201}
+                          dec)))
+      "Only the matching transaction is updated"))

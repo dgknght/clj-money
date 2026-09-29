@@ -217,6 +217,20 @@
                         (load-unreconciled-items page-state))
                       (reset-item-loading page-state))))))
 
+(defn update-attachment-count
+  "Applies f to the attachment count of each item in :items that belongs to
+  the transaction of the given attachment."
+  [state attachment f]
+  (update-in state
+             [:items]
+             (fn [items]
+               (map (fn [item]
+                      (if (id= (:attachment/transaction attachment)
+                               (:transaction-item/transaction item))
+                        (update-in item [:transaction/attachment-count] (fnil f 0))
+                        item))
+                    items))))
+
 (defn- post-item-row-drop
   [page-state item]
   (fn [created]
@@ -226,14 +240,12 @@
                  (update-in [:item-row-styles]
                             dissoc
                             (:id item))
-                 (update-in [:items]
-                            (fn [items]
-                              (map (fn [item]
-                                     (if (id= (:attachment/transaction created)
-                                              (:transaction-item/transaction item))
-                                       (update-in item [:transaction/attachment-count] (fnil inc 0))
-                                       item))
-                                   items))))))))
+                 (update-attachment-count created inc))))))
+
+(defn attachments-card
+  [page-state]
+  [atts-view/attachments-card page-state
+   :on-delete #(swap! page-state update-attachment-count % dec)])
 
 (defn pending-attachment-form
   [page-state]

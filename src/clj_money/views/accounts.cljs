@@ -1419,7 +1419,7 @@
         (when @trade-open?
           [:div.col-md-6
            [trns/recent-transactions-table page-state]])]
-       [atts/attachments-card page-state]
+       [trns/attachments-card page-state]
        [atts/attachment-form page-state]
        [trns/pending-attachment-form page-state]
        (when @allocation-account

@@ -19,21 +19,27 @@
             [clj-money.dnd :as dnd]
             [clj-money.api.attachments :as atts]))
 
-(defn- post-delete
-  [page-state]
-  (fn [{:keys [id] :attachment/keys [transaction]}]
-    (swap! page-state
-           update-in
-           [:attachments (:id transaction)]
-           (fn [a] (remove #(= id (:id %)) a)))))
+(defn remove-attachment
+  "Removes the attachment from the :attachments list in the given page state,
+  closing the attachments card when no attachments remain."
+  [state attachment]
+  (let [updated (update-in state
+                           [:attachments]
+                           (fn [atts] (remove #(util/id= attachment %) atts)))]
+    (if (seq (:attachments updated))
+      updated
+      (dissoc updated :attachments-item))))
 
 (defn- delete-attachment
-  [attachment page-state]
+  [attachment page-state on-delete]
   (when (js/confirm "Are you sure you want to delete the attachment?")
     (+busy)
+    ; The API responds with an empty body, so work from the attachment in hand
     (atts/delete attachment
                  :callback -busy
-                 :on-success (post-delete page-state))))
+                 :on-success (fn [_]
+                               (swap! page-state remove-attachment attachment)
+                               (when on-delete (on-delete attachment))))))
 
 (defn- view-image
   [{:keys [id]}]
@@ -46,7 +52,7 @@
       (.open js/window url "_blank"))))
 
 (defn- attachment-row
-  [{:as attachment :attachment/keys [caption created-at image]} page-state]
+  [{:as attachment :attachment/keys [caption created-at image]} page-state on-delete]
   ^{:key (str "attachment-row-" (:id attachment))}
   [:tr
    [:td (or caption created-at "unnamed")]
@@ -64,11 +70,11 @@
                                                (dom/set-focus "caption"))}
       (icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-danger {:title "Click here to remove this attachment"
-                                     :on-click #(delete-attachment attachment page-state)}
+                                     :on-click #(delete-attachment attachment page-state on-delete)}
       (icon :x-circle {:size :small})]]]])
 
 (defn- attachments-table
-  [page-state]
+  [page-state on-delete]
   (let [attachments (r/cursor page-state [:attachments])]
     (fn []
       [:table.table.table-hover
@@ -78,11 +84,13 @@
          [:th (html/space)]]]
        [:tbody
         (->> @attachments
-             (map #(attachment-row % page-state))
+             (map #(attachment-row % page-state on-delete))
              doall)]])))
 
 (defn attachments-card
-  [page-state]
+  "Lists the attachments for the :attachments-item in page-state. on-delete,
+  when given, is called with an attachment after it has been deleted."
+  [page-state & {:keys [on-delete]}]
   (let [item (r/cursor page-state [:attachments-item])
         selected (r/cursor page-state [:selected-attachment])]
     (fn []
@@ -94,7 +102,7 @@
                (format-date (:transaction/transaction-date @item))
                " "
                (:transaction/description @item))]
-         [attachments-table page-state]
+         [attachments-table page-state on-delete]
          [:div.card-footer
           [:button.btn.btn-secondary {:on-click #(swap! page-state dissoc :attachments-item)
                                       :title "Click here to close this window."}
