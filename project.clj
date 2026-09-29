@@ -169,7 +169,8 @@
                  [org.clj-commons/hickory "0.7.7"]
                  [com.cognitect.aws/api "0.8.838"]
                  [com.cognitect.aws/endpoints "871.2.53.2"]
-                 [com.cognitect.aws/s3 "871.2.51.4"]]
+                 [com.cognitect.aws/s3 "871.2.51.4"]
+                 [integrant "1.0.1"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
@@ -260,6 +261,7 @@
                                     commons-codec
                                     org.slf4j/slf4j-api]]
                                   [com.bhauman/rebel-readline-cljs "0.1.11"]
+                                  [integrant/repl "0.5.1"]
                                   [ring/ring-mock "0.6.2" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                                        com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
                                                                        ring/ring-codec

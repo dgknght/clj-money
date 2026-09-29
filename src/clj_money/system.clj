@@ -1,0 +1,37 @@
+(ns clj-money.system
+  "Defines the Integrant system for the application.
+
+  The system configuration is built from the application configuration
+  (see clj-money.config), so the settings in env/*/config.edn, including
+  :config/* references, are used unchanged."
+  (:require [integrant.core :as ig]
+            [clj-money.config :as config]))
+
+(defmethod ig/init-key ::env
+  [_ env]
+  env)
+
+(defn config
+  "Returns the Integrant configuration map for the system, built from the
+  given application configuration (defaults to clj-money.config/env)."
+  ([] (config config/env))
+  ([env]
+   {::env env}))
+
+(defn init
+  "Loads the namespaces for the keys in the given Integrant configuration
+  (defaults to the full system configuration) and initializes the system.
+  Pass a collection of keys to initialize only those keys and their
+  dependencies."
+  ([] (init (config)))
+  ([cfg]
+   (ig/load-namespaces cfg)
+   (ig/init cfg))
+  ([cfg ks]
+   (ig/load-namespaces cfg ks)
+   (ig/init cfg ks)))
+
+(defn halt
+  "Halts a running system."
+  [system]
+  (ig/halt! system))
