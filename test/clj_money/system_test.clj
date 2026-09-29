@@ -2,12 +2,17 @@
   (:require [clojure.test :refer [deftest is]]
             [integrant.core :as ig]
             [clj-money.config :as config]
+            [clj-money.db :as db]
             [clj-money.system :as system]))
 
 (deftest build-the-system-config-from-the-app-config
-  (is (= {::system/env {:application-name "Test Money"}}
-         (system/config {:application-name "Test Money"}))
-      "The given application config is included in the system config")
+  (let [app-config {:application-name "Test Money"
+                    :db {:strategies {:sql {:dbname "money_test"}}
+                         :active :sql}}]
+    (is (= {::system/env app-config
+            ::db/storage {:dbname "money_test"}}
+           (system/config app-config))
+        "The system config includes the app config and the active storage config"))
   (is (= config/env
          (::system/env (system/config)))
       "The application config is used by default"))
@@ -17,6 +22,8 @@
     (try
       (is (= config/env (::system/env sys))
           "The application config is available in the running system")
+      (is (satisfies? db/Storage (::db/storage sys))
+          "The storage is available in the running system")
       (finally
         (ig/halt! sys)))))
 

@@ -30,6 +30,7 @@
                  [ch.qos.logback/logback-classic "1.6.3" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
                  [com.github.seancorfield/next.jdbc "1.3.1118"]
+                 [com.zaxxer/HikariCP "6.3.0" :exclusions [org.slf4j/slf4j-api]]
                  [org.postgresql/postgresql "42.7.13" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql

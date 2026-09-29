@@ -5,7 +5,11 @@
   (see clj-money.config), so the settings in env/*/config.edn, including
   :config/* references, are used unchanged."
   (:require [integrant.core :as ig]
-            [clj-money.config :as config]))
+            [clj-money.config :as config]
+            [clj-money.db :as db]
+            ; storage strategy implementations
+            [clj-money.db.sql]
+            [clj-money.db.datomic]))
 
 (defmethod ig/init-key ::env
   [_ env]
@@ -16,7 +20,8 @@
   given application configuration (defaults to clj-money.config/env)."
   ([] (config config/env))
   ([env]
-   {::env env}))
+   {::env env
+    ::db/storage (db/active-config env)}))
 
 (defn init
   "Loads the namespaces for the keys in the given Integrant configuration

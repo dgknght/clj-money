@@ -18,6 +18,24 @@ to strong, unique values before deploying to a production environment:
 These can be supplied via `env/docker/config.edn` or overridden with
 environment variables (e.g. `SESSION_SECRET`, `SECRET`, `REDIS_PASSWORD`).
 
+## SQL Connection Pool
+
+The SQL storage strategy (`:clj-money.db/sql`) connects through a
+[HikariCP](https://github.com/brettwooldridge/HikariCP) connection pool,
+which is created when the storage is initialized and closed when it is
+halted. The pool can be tuned with an optional `:pool` map in the strategy
+config, whose keys are HikariCP property names:
+
+```edn
+:db {:strategies {:sql {:clj-money.db/strategy :clj-money.db/sql
+                        ; ...connection settings...
+                        :pool {:maximumPoolSize 10
+                               :minimumIdle 2}}}
+     :active :sql}
+```
+
+When `:pool` is omitted, HikariCP's defaults are used.
+
 ## Image Storage
 
 Set the `:image-storage` key in config to one of the strategies below.

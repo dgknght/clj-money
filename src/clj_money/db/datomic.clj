@@ -6,7 +6,6 @@
             [datomic.api :as d-peer]
             [datomic.client.api :as d-client]
             [stowaway.datalog :as dtl]
-            [clj-money.config :refer [env]]
             [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
@@ -559,14 +558,6 @@
     (reset [_]
       (reset api))))
 
-(defn q
-  [qry & args]
-  (let [api (observable-api
-              (init-api (get-in env [:db
-                                     :strategies
-                                     :datomic-peer])))]
-    (query api {:query qry :args args})))
-
 (defn- history*
   [entity-id attr {:keys [api]}]
   (->> (history api entity-id attr)
@@ -577,22 +568,32 @@
        (sort-by :tx-instant)))
 
 (defn- datomic-storage
-  [config]
-  (let [api (observable-api (init-api config))]
-    (reify db/Storage
-      (put [_ opts entities]  (put* entities {:api api} opts))
-      (find [_ id]            (find* id {:api api}))
-      (find-many [_ ids]      (find-many* ids {:api api}))
-      (select [_ crit opts]   (select* crit opts {:api api}))
-      (delete [_ entities]    (delete* entities {:api api}))
-      (purge! [_ entity]      (purge* entity {:api api}))
-      (update [_ changes criteria] (update* changes criteria {:api api}))
-      (history [_ entity-id attr] (history* entity-id attr {:api api}))
-      (close [_])
-      (reset [this]           (reset api) this))))
+  [api]
+  (reify db/Storage
+    (put [_ opts entities]  (put* entities {:api api} opts))
+    (find [_ id]            (find* id {:api api}))
+    (find-many [_ ids]      (find-many* ids {:api api}))
+    (select [_ crit opts]   (select* crit opts {:api api}))
+    (delete [_ entities]    (delete* entities {:api api}))
+    (purge! [_ entity]      (purge* entity {:api api}))
+    (update [_ changes criteria] (update* changes criteria {:api api}))
+    (history [_ entity-id attr] (history* entity-id attr {:api api}))
+    (close [_])
+    (reset [this]           (reset api) this)))
 
 (defmethod db/reify-storage ::service
   [config]
-  (db/tracing-storage
-    (datomic-storage config)
-    "datomic"))
+  (let [api (observable-api (init-api config))]
+    (with-meta (db/tracing-storage
+                 (datomic-storage api)
+                 "datomic")
+               {::api api})))
+
+(defn q
+  "Executes a query using the API of the current storage, which must be a
+  Datomic storage"
+  [qry & args]
+  (let [api (-> (db/storage) meta ::api)]
+    (when-not api
+      (throw (ex-info "The current storage is not a Datomic storage" {})))
+    (query api {:query qry :args args})))

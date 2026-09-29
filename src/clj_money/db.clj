@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
+            [integrant.core :as ig]
             [clj-money.otel :refer [with-tracing]]
             [clj-money.util :as util]
             [clj-money.config :refer [env]]))
@@ -39,12 +40,28 @@
                             identifier)
                     {:identifier identifier}))))
 
+(defn active-config
+  "Returns the config for the active storage strategy"
+  [env]
+  (get-in env [:db :strategies (get-in env [:db :active])]))
+
+(defmethod ig/init-key ::storage
+  [_ config]
+  (reify-storage config))
+
+(defmethod ig/halt-key! ::storage
+  [_ storage]
+  (close storage))
+
+; Until every entry point binds *storage* from the Integrant system,
+; fall back to a single storage instance shared by the whole process,
+; rather than creating (and leaking) a new one on each call.
+(def ^:private default-storage
+  (delay (reify-storage (active-config env))))
+
 (defn storage []
   (or *storage*
-      (let [active-key (get-in env [:db :active])]
-        (-> env
-            (get-in [:db :strategies active-key])
-            reify-storage))))
+      @default-storage))
 
 (defmacro with-storage
   [bindings & body]

@@ -13,6 +13,7 @@
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
                                            for-delete]]
+            [next.jdbc.connection :as connection]
             [next.jdbc.date-time]
             [next.jdbc.result-set :as result-set]
             [stowaway.criteria :as crt]
@@ -24,7 +25,8 @@
             [clj-money.db.sql.types :as types]
             [clj-money.db.sql.queries :refer [criteria->query
                                               ->update]])
-  (:import clj_money.db.sql.types.QualifiedID))
+  (:import clj_money.db.sql.types.QualifiedID
+           com.zaxxer.hikari.HikariDataSource))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
@@ -494,9 +496,23 @@
     ds
     ["delete from lot_note; delete from cached_price; delete from transaction_item; delete from \"user\" cascade"]))
 
+(defn- ->pool
+  "Creates a connection pool for the given database config. Settings for
+  the pool itself (e.g., :maximumPoolSize) can be given in :pool."
+  [{:keys [user password pool] :as config}]
+  (connection/->pool HikariDataSource
+                     (merge {:jdbcUrl (connection/jdbc-url
+                                        (select-keys config [:dbtype
+                                                             :dbname
+                                                             :host
+                                                             :port]))
+                             :username user
+                             :password password}
+                            pool)))
+
 (defn- sql-storage
   [config]
-  (let [ds (jdbc/get-datasource config)]
+  (let [^HikariDataSource ds (->pool config)]
     (reify db/Storage
       (put [_ _opts entities] (put* ds entities))
       (find [this id] (find* ds id {:storage this}))
@@ -506,7 +522,7 @@
       (purge! [_ entity] (delete* ds [entity]))
       (update [_ changes criteria] (update* ds changes criteria))
       (history [_ _entity-id _attr] [])
-      (close [_] #_noop)
+      (close [_] (.close ds))
       (reset [this]
         (db/assert-test-db! (:dbname config))
         (reset* ds)
