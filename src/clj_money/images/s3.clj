@@ -54,4 +54,6 @@
       (fetch [_ uuid]
         (fetch* uuid client bucket))
       (stash [_ uuid content]
-        (stash* uuid content client bucket)))))
+        (stash* uuid content client bucket))
+      (close [_]
+        (aws/stop client)))))

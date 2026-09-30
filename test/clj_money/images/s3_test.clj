@@ -94,3 +94,25 @@
       (is (thrown? clojure.lang.ExceptionInfo
                    (images/stash storage "my-uuid" (.getBytes "data")))
           "throws ExceptionInfo when S3 returns an anomaly"))))
+
+(deftest close-stops-the-client
+  (let [stopped (atom [])]
+    (with-redefs [aws/stop #(swap! stopped conj %)]
+      (images/close (images/reify-storage test-config))
+      (is (= 1 (count @stopped))
+          "the AWS client is stopped"))))
+
+(deftest create-the-client-once-per-storage
+  (let [clients (atom #{})]
+    (with-redefs [aws/invoke (fn [client {:keys [op]}]
+                               (swap! clients conj client)
+                               (if (= :GetObject op)
+                                 {:cognitect.anomalies/category
+                                  :cognitect.anomalies/not-found}
+                                 {}))]
+      (let [storage (images/reify-storage test-config)]
+        (images/stash storage "uuid-1" (.getBytes "one"))
+        (images/stash storage "uuid-2" (.getBytes "two"))
+        (images/fetch storage "uuid-1")
+        (is (= 1 (count @clients))
+            "the same client is used for every operation")))))

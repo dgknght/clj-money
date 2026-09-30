@@ -38,7 +38,9 @@ When `:pool` is omitted, HikariCP's defaults are used.
 
 ## Image Storage
 
-Set the `:image-storage` key in config to one of the strategies below.
+Set the `:image-storage` key in config to one of the strategies below. The
+image storage (and, for S3, its AWS client) is created once when the system
+is initialized and released when it is halted.
 
 ### SQL
 

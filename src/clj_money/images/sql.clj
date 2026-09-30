@@ -42,4 +42,8 @@
       (fetch [_ uuid]
         (fetch* ds uuid))
       (stash [_ uuid content]
-        (stash* ds uuid content)))))
+        (stash* ds uuid content))
+      (close [_]
+        ; a plain datasource opens a connection per operation
+        ; and holds nothing that needs to be released
+        nil))))

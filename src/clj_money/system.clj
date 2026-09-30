@@ -7,9 +7,12 @@
   (:require [integrant.core :as ig]
             [clj-money.config :as config]
             [clj-money.db :as db]
+            [clj-money.images :as images]
             ; storage strategy implementations
             [clj-money.db.sql]
-            [clj-money.db.datomic]))
+            [clj-money.db.datomic]
+            [clj-money.images.sql]
+            [clj-money.images.s3]))
 
 (defmethod ig/init-key ::env
   [_ env]
@@ -21,7 +24,8 @@
   ([] (config config/env))
   ([env]
    {::env env
-    ::db/storage (db/active-config env)}))
+    ::db/storage (db/active-config env)
+    ::images/storage (:image-storage env)}))
 
 (defn init
   "Loads the namespaces for the keys in the given Integrant configuration

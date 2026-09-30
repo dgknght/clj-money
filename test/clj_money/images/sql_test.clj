@@ -82,6 +82,18 @@
                    (images/stash storage "the-uuid" (.getBytes "data")))
           "rethrows non-duplicate-key PSQLExceptions"))))
 
+(deftest create-the-datasource-once-per-storage
+  (let [created (atom 0)]
+    (with-redefs [jdbc/get-datasource (fn [_] (swap! created inc) ::fake-ds)
+                  jdbc/execute-one! (constantly nil)]
+      (let [storage (images/reify-storage fake-config)]
+        (images/stash storage "the-uuid" (.getBytes "data"))
+        (images/fetch storage "the-uuid")
+        (is (= 1 @created)
+            "the datasource is created when the storage is")
+        (is (nil? (images/close storage))
+            "closing the storage succeeds")))))
+
 ; ---------------------------------------------------------------
 ; Behavioral contract (requires a real PostgreSQL test database)
 ; ---------------------------------------------------------------

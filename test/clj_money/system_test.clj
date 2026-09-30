@@ -3,16 +3,19 @@
             [integrant.core :as ig]
             [clj-money.config :as config]
             [clj-money.db :as db]
+            [clj-money.images :as images]
             [clj-money.system :as system]))
 
 (deftest build-the-system-config-from-the-app-config
   (let [app-config {:application-name "Test Money"
                     :db {:strategies {:sql {:dbname "money_test"}}
-                         :active :sql}}]
+                         :active :sql}
+                    :image-storage {:bucket "test-images"}}]
     (is (= {::system/env app-config
-            ::db/storage {:dbname "money_test"}}
+            ::db/storage {:dbname "money_test"}
+            ::images/storage {:bucket "test-images"}}
            (system/config app-config))
-        "The system config includes the app config and the active storage config"))
+        "The system config includes the app config and the storage configs"))
   (is (= config/env
          (::system/env (system/config)))
       "The application config is used by default"))
@@ -24,6 +27,8 @@
           "The application config is available in the running system")
       (is (satisfies? db/Storage (::db/storage sys))
           "The storage is available in the running system")
+      (is (satisfies? images/Storage (::images/storage sys))
+          "The image storage is available in the running system")
       (finally
         (ig/halt! sys)))))
 
