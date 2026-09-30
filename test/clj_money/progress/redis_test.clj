@@ -204,3 +204,36 @@
             :started-at "2020-01-01T00:00:00Z"
             :completed-at "2020-01-01T00:00:00Z"}
            (prog/get tracker)))))
+
+(deftest create-the-connection-pool-once-per-factory
+  (let [created (atom 0)
+        closed? (atom false)]
+    (with-redefs [car/connection-pool (fn [_opts]
+                                        (swap! created inc)
+                                        (reify java.io.Closeable
+                                          (close [_] (reset! closed? true))))]
+      (let [factory (prog/reify-tracker-factory mock-config)]
+        (prog/create-tracker factory :root-1)
+        (prog/create-tracker factory :root-2)
+        (is (= 1 @created)
+            "One pool is shared by the trackers the factory creates")
+        (prog/close factory)
+        (is @closed?
+            "The pool is closed when the factory is closed")))))
+
+(deftest ^:redis ^:multi-threaded round-trip-with-a-factory
+  (let [factory (prog/reify-tracker-factory (get-in env [:progress :strategies :redis]))]
+    (try
+      (let [tracker (prog/create-tracker factory :factory-root)]
+        (with-fixed-time "2020-01-01T00:00:00.000Z"
+          (prog/expect tracker :accounts 2)
+          (prog/increment tracker :accounts 2)
+          (prog/finish tracker))
+        (is (= {:total 2
+                :completed 2
+                :started-at "2020-01-01T00:00:00Z"
+                :completed-at "2020-01-01T00:00:00Z"}
+               (get-in (prog/get tracker) [:processes :accounts]))
+            "Progress is recorded using the factory's pool"))
+      (finally
+        (prog/close factory)))))

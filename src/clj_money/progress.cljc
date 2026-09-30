@@ -1,6 +1,7 @@
 (ns clj-money.progress
   (:refer-clojure :exclude [get])
-  #?(:clj (:require [clj-money.config :refer [env]])))
+  #?(:clj (:require [integrant.core :as ig]
+                    [clj-money.config :refer [env]])))
 
 (defprotocol Tracker
   "Functions that track progress of a multi-part, long running process"
@@ -25,15 +26,52 @@
   (finish [this]
           "Indicate that the process has finished"))
 
+(defprotocol TrackerFactory
+  "Creates trackers, holding any resources (e.g., connection pools)
+  shared by the trackers it creates"
+  (create-tracker [this root-key] "Returns a new tracker for the given root key")
+  (close [this] "Releases any resources held by the factory"))
+
 (defmulti reify-tracker
   (fn [config & _]
     (::strategy config)))
 
-(defn- config []
-  #?(:clj (let [active-key (get-in env [:progress :active])]
-            (get-in env [:progress :strategies active-key]))
-     :cljs (throw (js/Error. "Not implemented"))))
+(defmulti reify-tracker-factory ::strategy)
+
+(defmethod reify-tracker-factory :default
+  [config]
+  (reify TrackerFactory
+    (create-tracker [_ root-key]
+      (reify-tracker config root-key))
+    (close [_] nil)))
+
+(def ^:dynamic *tracker-factory* nil)
+
+#?(:clj
+   (do
+     (defn active-config
+       "Returns the config for the active progress tracking strategy"
+       [env]
+       (get-in env [:progress :strategies (get-in env [:progress :active])]))
+
+     (defmethod ig/init-key ::tracker-factory
+       [_ config]
+       (reify-tracker-factory config))
+
+     (defmethod ig/halt-key! ::tracker-factory
+       [_ factory]
+       (close factory))
+
+     ; Until every entry point binds *tracker-factory* from the Integrant
+     ; system, fall back to a single factory shared by the whole process.
+     (def ^:private default-tracker-factory
+       (delay (reify-tracker-factory (active-config env))))))
+
+(defn tracker-factory []
+  (or *tracker-factory*
+      #?(:clj @default-tracker-factory
+         :cljs (throw (js/Error. "Not implemented")))))
 
 (defn tracker
-  [& args]
-  (apply reify-tracker (config) args))
+  [root-key]
+  (create-tracker (tracker-factory) root-key))

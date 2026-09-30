@@ -162,12 +162,13 @@
       (log/error e "Unable to mark the process as finished"))))
 
 (defmethod prog/reify-tracker ::prog/redis
-  [{:keys [redis-config] :as opts} root-key]
+  [{:keys [redis-config] ::keys [pool] :as opts} root-key]
   {:pre [(:redis-config opts)]}
   (let [opts* (-> opts
                   (dissoc ::prog/strategy
+                          ::pool
                           :redis-config)
-                  (assoc :redis-opts {:pool {}
+                  (assoc :redis-opts {:pool (or pool {})
                                       :spec redis-config}
                          :root root-key))]
     (reify prog/Tracker
@@ -185,3 +186,13 @@
         (fail* opts* msg ))
       (finish [_]
         (finish* opts*)))))
+
+(defmethod prog/reify-tracker-factory ::prog/redis
+  [config]
+  (let [pool (car/connection-pool {})
+        config* (assoc config ::pool pool)]
+    (reify prog/TrackerFactory
+      (create-tracker [_ root-key]
+        (prog/reify-tracker config* root-key))
+      (close [_]
+        (.close ^java.io.Closeable pool)))))

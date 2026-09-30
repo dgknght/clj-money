@@ -4,16 +4,20 @@
             [clj-money.config :as config]
             [clj-money.db :as db]
             [clj-money.images :as images]
+            [clj-money.progress :as progress]
             [clj-money.system :as system]))
 
 (deftest build-the-system-config-from-the-app-config
   (let [app-config {:application-name "Test Money"
                     :db {:strategies {:sql {:dbname "money_test"}}
                          :active :sql}
-                    :image-storage {:bucket "test-images"}}]
+                    :image-storage {:bucket "test-images"}
+                    :progress {:strategies {:redis {:prefix "test"}}
+                               :active :redis}}]
     (is (= {::system/env app-config
             ::db/storage {:dbname "money_test"}
-            ::images/storage {:bucket "test-images"}}
+            ::images/storage {:bucket "test-images"}
+            ::progress/tracker-factory {:prefix "test"}}
            (system/config app-config))
         "The system config includes the app config and the storage configs"))
   (is (= config/env
@@ -29,6 +33,8 @@
           "The storage is available in the running system")
       (is (satisfies? images/Storage (::images/storage sys))
           "The image storage is available in the running system")
+      (is (satisfies? progress/TrackerFactory (::progress/tracker-factory sys))
+          "The progress tracker factory is available in the running system")
       (finally
         (ig/halt! sys)))))
 

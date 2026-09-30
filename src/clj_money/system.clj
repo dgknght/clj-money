@@ -8,11 +8,13 @@
             [clj-money.config :as config]
             [clj-money.db :as db]
             [clj-money.images :as images]
+            [clj-money.progress :as progress]
             ; storage strategy implementations
             [clj-money.db.sql]
             [clj-money.db.datomic]
             [clj-money.images.sql]
-            [clj-money.images.s3]))
+            [clj-money.images.s3]
+            [clj-money.progress.redis]))
 
 (defmethod ig/init-key ::env
   [_ env]
@@ -25,7 +27,8 @@
   ([env]
    {::env env
     ::db/storage (db/active-config env)
-    ::images/storage (:image-storage env)}))
+    ::images/storage (:image-storage env)
+    ::progress/tracker-factory (progress/active-config env)}))
 
 (defn init
   "Loads the namespaces for the keys in the given Integrant configuration

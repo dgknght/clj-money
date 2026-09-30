@@ -36,6 +36,13 @@ config, whose keys are HikariCP property names:
 
 When `:pool` is omitted, HikariCP's defaults are used.
 
+## Progress Tracking
+
+Import progress is tracked in Redis (`:clj-money.progress/redis`), configured
+under `:progress`. A single Redis connection pool is created when the system
+is initialized, shared by every import's progress tracker, and closed when
+the system is halted.
+
 ## Image Storage
 
 Set the `:image-storage` key in config to one of the strategies below. The
