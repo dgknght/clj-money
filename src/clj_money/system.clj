@@ -9,6 +9,8 @@
             [clj-money.db :as db]
             [clj-money.images :as images]
             [clj-money.progress :as progress]
+            [clj-money.web :as-alias web]
+            [clj-money.web.handler]
             ; storage strategy implementations
             [clj-money.db.sql]
             [clj-money.db.datomic]
@@ -28,7 +30,11 @@
    {::env env
     ::db/storage (db/active-config env)
     ::images/storage (:image-storage env)
-    ::progress/tracker-factory (progress/active-config env)}))
+    ::progress/tracker-factory (progress/active-config env)
+    ::web/handler {:env (ig/ref ::env)
+                   :storage (ig/ref ::db/storage)
+                   :image-storage (ig/ref ::images/storage)
+                   :tracker-factory (ig/ref ::progress/tracker-factory)}}))
 
 (defn init
   "Loads the namespaces for the keys in the given Integrant configuration

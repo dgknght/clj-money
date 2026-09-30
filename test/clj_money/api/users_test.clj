@@ -11,7 +11,7 @@
                                                request]]
             [clj-money.test-context :refer [with-context
                                             find-user]]
-            [clj-money.web.server :refer [app]]))
+            [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
 

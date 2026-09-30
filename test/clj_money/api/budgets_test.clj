@@ -23,7 +23,7 @@
                                             find-budget]]
             [clj-money.util :as util :refer [make-series
                                              entity=]]
-            [clj-money.web.server :refer [app]]))
+            [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
 

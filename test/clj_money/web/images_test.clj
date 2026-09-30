@@ -9,7 +9,7 @@
                                             find-image
                                             find-user]]
             [clj-money.web.auth :as auth]
-            [clj-money.web.server :refer [app]]))
+            [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
 

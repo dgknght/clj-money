@@ -5,7 +5,8 @@
             [clj-money.db :as db]
             [clj-money.images :as images]
             [clj-money.progress :as progress]
-            [clj-money.system :as system]))
+            [clj-money.system :as system]
+            [clj-money.web :as-alias web]))
 
 (deftest build-the-system-config-from-the-app-config
   (let [app-config {:application-name "Test Money"
@@ -17,7 +18,11 @@
     (is (= {::system/env app-config
             ::db/storage {:dbname "money_test"}
             ::images/storage {:bucket "test-images"}
-            ::progress/tracker-factory {:prefix "test"}}
+            ::progress/tracker-factory {:prefix "test"}
+            ::web/handler {:env (ig/ref ::system/env)
+                           :storage (ig/ref ::db/storage)
+                           :image-storage (ig/ref ::images/storage)
+                           :tracker-factory (ig/ref ::progress/tracker-factory)}}
            (system/config app-config))
         "The system config includes the app config and the storage configs"))
   (is (= config/env
@@ -35,6 +40,8 @@
           "The image storage is available in the running system")
       (is (satisfies? progress/TrackerFactory (::progress/tracker-factory sys))
           "The progress tracker factory is available in the running system")
+      (is (fn? (::web/handler sys))
+          "The web handler is available in the running system")
       (finally
         (ig/halt! sys)))))
 

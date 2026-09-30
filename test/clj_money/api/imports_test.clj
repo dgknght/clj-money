@@ -19,7 +19,7 @@
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-import]]
-            [clj-money.web.server :refer [app]]
+            [clj-money.web.test-handler :refer [app]]
             [clj-money.api.imports :as imports-api]))
 
 (use-fixtures :each reset-db)

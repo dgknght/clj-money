@@ -21,7 +21,7 @@
                                             find-scheduled-transaction]]
             [clj-money.test-helpers :refer [reset-db
                                             parse-edn-body]]
-            [clj-money.web.server :refer [app]]))
+            [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
 

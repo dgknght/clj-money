@@ -17,7 +17,7 @@
                                             find-user
                                             find-account
                                             find-commodity]]
-            [clj-money.web.server :refer [app]]))
+            [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
 

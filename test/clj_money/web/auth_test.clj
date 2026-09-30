@@ -8,7 +8,7 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.web.server :refer [app]]
+            [clj-money.web.test-handler :refer [app]]
             [clj-money.entities.users :as usrs])
   (:import java.io.ByteArrayInputStream
            java.net.URLDecoder))

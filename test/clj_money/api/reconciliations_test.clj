@@ -19,7 +19,7 @@
                                             find-user
                                             find-account
                                             find-reconciliation]]
-            [clj-money.web.server :refer [app]]
+            [clj-money.web.test-handler :refer [app]]
             [clj-money.entities :as entities]))
 
 (use-fixtures :each reset-db)

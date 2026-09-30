@@ -18,6 +18,10 @@ to strong, unique values before deploying to a production environment:
 These can be supplied via `env/docker/config.edn` or overridden with
 environment variables (e.g. `SESSION_SECRET`, `SECRET`, `REDIS_PASSWORD`).
 
+The session secret is read when the system starts, not when the code is
+compiled, so building the uberjar does not require `SESSION_SECRET`. If it is
+missing, the web server fails at startup.
+
 ## SQL Connection Pool
 
 The SQL storage strategy (`:clj-money.db/sql`) connects through a

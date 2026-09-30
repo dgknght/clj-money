@@ -9,7 +9,7 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.web.server :refer [app]]))
+            [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
 

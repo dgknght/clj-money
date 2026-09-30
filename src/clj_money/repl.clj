@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [clojure.string :as string]
             [reitit.core :as reitit]
+            [clj-money.web.handler :as h]
             [clj-money.web.server :as s]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
@@ -13,7 +14,7 @@
 
 (defn print-routes []
   (doseq [[method path handler]
-          (->> (reitit/compiled-routes s/router)
+          (->> (reitit/compiled-routes (h/router))
                (mapcat (fn [[path opts]]
                          (->> [:get :post :put :patch :delete]
                               (map (juxt identity opts))

@@ -22,7 +22,7 @@
             [clj-money.prices.alpha-vantage :as alpha]
             [clj-money.entities :as entities]
             [clj-money.entity-helpers :refer [jsonify]]
-            [clj-money.web.server :refer [app]]))
+            [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
 

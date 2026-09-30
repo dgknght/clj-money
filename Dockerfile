@@ -17,7 +17,7 @@ RUN convert -background none -resize 192x192 resources/public/images/logo.svg re
 
 RUN mkdir resources/public/css && \
     sass src/scss/site.scss resources/public/css/site.css && \
-    SESSION_SECRET=clj-money-build! lein do fig:prod, uberjar
+    lein do fig:prod, uberjar
 
 FROM docker.io/clojure:temurin-25-lein-bookworm-slim AS web
 WORKDIR /opt/clj-money
