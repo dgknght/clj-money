@@ -22,7 +22,8 @@ RUN mkdir resources/public/css && \
 FROM docker.io/clojure:temurin-25-lein-bookworm-slim AS web
 WORKDIR /opt/clj-money
 COPY --from=build /usr/src/clj-money/target/clj-money.jar .
-CMD ["java", "clojure.main", "-m", "clj-money.web.server"]
+# See the :jvm-opts comment in project.clj
+CMD ["java", "--enable-native-access=ALL-UNNAMED", "--sun-misc-unsafe-memory-access=allow", "clojure.main", "-m", "clj-money.web.server"]
 
 # Default port for the service
 EXPOSE 3000

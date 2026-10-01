@@ -211,7 +211,12 @@
   :jvm-opts ["-Duser.timezone=UTC"
              "-Xmx2g"
              "-Xms512m"
-             "-server"]
+             "-server"
+             ; Netty (via the Datomic peer's Artemis client) uses
+             ; sun.misc.Unsafe and System::loadLibrary, which JDK 24+
+             ; warns about at startup
+             "--enable-native-access=ALL-UNNAMED"
+             "--sun-misc-unsafe-memory-access=allow"]
   :test-selectors {:datomic-peer (fn [m & _]
                                    (= :datomic-peer (:strategy m)))
                    :sql (fn [m & _]
