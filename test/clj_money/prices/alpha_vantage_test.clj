@@ -21,10 +21,10 @@
                       :price/trade-date (t/local-date 2022 1 6)
                       :commodity/symbol "BTC"
                       :commodity/exchange :currency}
-                     (alpha-vantage/get-quote "BTC")))
+                     (alpha-vantage/get-quote "BTC" "test-alpha-key")))
     (is (called-with-headers?
           :once
           calls
           {"X-Rapidapi-Host" "alpha-vantage.p.rapidapi.com"
-           "X-Rapidapi-Key" "alpha-vantage-api-key"})
+           "X-Rapidapi-Key" "test-alpha-key"})
         "It includes the headers required by the API")))

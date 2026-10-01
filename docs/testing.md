@@ -41,6 +41,17 @@ needed and reused by every later test against the same database. Under
 `lein ptest`, each thread index gets its own database, and therefore its own
 instance. All instances are halted at the end of the run.
 
+The external service functions (mailer, HoneyBadger, auth tokens, OAuth
+profiles and price APIs) take their configuration as an argument, so tests
+pass the values they need instead of redefining `env`:
+
+```clojure
+(honeybadger/notify error {:api-key "test-api-key"})
+```
+
+Requests to the test handler (`clj-money.web.test-handler/app`) get the
+configuration built by `clj-money.services/config` from the test config.
+
 `reset` refuses to run against a database whose name doesn't look like a test
 database (see `clj-money.db/assert-test-db!`).
 

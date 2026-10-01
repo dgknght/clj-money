@@ -25,6 +25,7 @@
             [clj-money.progress :as prog]
             [clj-money.web :as-alias web]
             [clj-money.decimal :as d]
+            [clj-money.web.system :as system]
             [clj-money.web.auth.google :as google-auth]
             [clj-money.web.auth.github :as github-auth]
             [clj-money.web.images :as images]
@@ -105,11 +106,13 @@
         (update-in [:body] d/wrap-decimals))))
 
 (defn- maybe-wrap-oauth2
-  [handler env]
+  [handler env {:keys [oauth]}]
   (let [providers (set (:oauth-providers env))
         profiles  (not-empty
-                    (merge (when (:google providers) (google-auth/oauth2-profile))
-                           (when (:github providers) (github-auth/oauth2-profile))))]
+                    (merge (when (:google providers)
+                             (google-auth/oauth2-profile (:google oauth)))
+                           (when (:github providers)
+                             (github-auth/oauth2-profile (:github oauth)))))]
     (if profiles
       (oauth2/wrap-oauth2 handler profiles)
       handler)))
@@ -192,20 +195,24 @@
 
   Accepts a map with the application config (:env) and, optionally, the
   :storage, :image-storage and :tracker-factory components to bind for each
-  request."
-  [{:keys [env] :as components}]
+  request, and the :services component (the external service configuration
+  from clj-money.services). All of the components are assoc'ed to each
+  request (see clj-money.web.system). The OAuth middleware is configured from the
+  :services component."
+  [{:keys [env services] :as components}]
   (-> (ring/ring-handler
         (router)
         (ring/routes
           (ring/create-resource-handler {:path "/"})
           apps/spa-fallback
           (ring/create-default-handler)))
-      (maybe-wrap-oauth2 env)
+      (maybe-wrap-oauth2 env services)
       (wrap-session {:store (session-store env)
                      :cookie-attrs {:same-site :lax
                                     :http-only true}})
       wrap-params
-      (wrap-components components)))
+      (wrap-components components)
+      (system/wrap-system components)))
 
 (defmethod ig/init-key ::web/handler
   [_ components]

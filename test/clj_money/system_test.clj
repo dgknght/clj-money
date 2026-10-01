@@ -5,6 +5,7 @@
             [clj-money.db :as db]
             [clj-money.images :as images]
             [clj-money.progress :as progress]
+            [clj-money.services :as services]
             [clj-money.system :as system]
             [clj-money.web :as-alias web]
             [clj-money.web.server]))
@@ -24,14 +25,16 @@
             ::db/storage {:dbname "money_test"}
             ::images/storage {:bucket "test-images"}
             ::progress/tracker-factory {:prefix "test"}
+            ::services/config (services/config app-config)
             ::web/handler {:env (ig/ref ::system/env)
                            :storage (ig/ref ::db/storage)
                            :image-storage (ig/ref ::images/storage)
-                           :tracker-factory (ig/ref ::progress/tracker-factory)}
+                           :tracker-factory (ig/ref ::progress/tracker-factory)
+                           :services (ig/ref ::services/config)}
             ::web/server {:handler (ig/ref ::web/handler)
                           :port 3000}}
            (system/config app-config))
-        "The system config includes the app config and the storage configs")
+        "The system config includes the app config, the storage configs and the service config")
     (is (= 8080 (get-in (system/config (assoc app-config :port "8080"))
                         [::web/server :port]))
         "The port is read from the app config"))
@@ -50,6 +53,8 @@
           "The image storage is available in the running system")
       (is (satisfies? progress/TrackerFactory (::progress/tracker-factory sys))
           "The progress tracker factory is available in the running system")
+      (is (= (services/config test-env) (::services/config sys))
+          "The external service config is available in the running system")
       (is (fn? (::web/handler sys))
           "The web handler is available in the running system")
       (is (.isStarted (::web/server sys))

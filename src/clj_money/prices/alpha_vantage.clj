@@ -5,7 +5,6 @@
             [clj-http.client :as http]
             [jsonista.core :as json]
             [java-time.api :as t]
-            [clj-money.config :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [camel-snake-kebab.extras :refer [transform-keys]]
             [lambdaisland.uri :refer [uri
@@ -75,12 +74,12 @@
                     (into {})))))
 
 (defn- raw-quote
-  [sym]
+  [sym api-key]
   (let [url (get-quote-uri sym)
         _ (log/infof "get-quote %s" url)
         res (http/get url {:as :string
                            :headers {:x-rapidapi-host rapidapi-host
-                                     :x-rapidapi-key (env :alpha-vantage-api-key)}})]
+                                     :x-rapidapi-key api-key}})]
     (log/debugf "get-response response %s: %s" url (prn-str res))
     (-> (json/read-value (:body res))
         extract-daily-currency-maps
@@ -95,14 +94,16 @@
      :commodity/symbol (get-in m [:meta-data :digital-currency-code])
      :commodity/exchange :currency}))
 
-(def get-quote
-  (comp transform-quote
-        raw-quote))
+(defn get-quote
+  "Fetches the quote for the given symbol, authenticating with the given
+  RapidAPI key"
+  [sym api-key]
+  (transform-quote (raw-quote sym api-key)))
 
-(deftype AlphaVantageProvider []
+(deftype AlphaVantageProvider [api-key]
   prices/PriceProvider
   (prices/fetch-prices [_ symbols]
     (->> symbols
-         (map get-quote)
+         (map #(get-quote % api-key))
          (filter identity)
          (into []))))

@@ -7,6 +7,8 @@
             [ring.util.response :as res]
             [muuntaja.core :as muuntaja]
             [dgknght.app-lib.web :refer [format-decimal]]
+            [clj-money.config :refer [env]]
+            [clj-money.services :as services]
             [clj-money.web.auth :as auth])
   (:import [java.io File ByteArrayOutputStream]
            [com.fasterxml.jackson.core JsonGenerator]
@@ -17,7 +19,7 @@
 (defn add-auth
   [req user]
   (if user
-    (req/header req "Authorization" (str "Bearer " (auth/make-token user)))
+    (req/header req "Authorization" (str "Bearer " (auth/make-token user (:auth-secret (services/config env)))))
     req))
 
 (defmulti ^:private add-part

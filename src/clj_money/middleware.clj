@@ -18,7 +18,8 @@
             [clj-money.authorization :as authorization]
             [clj-money.entities :as entities]
             [clj-money.api :refer [log-error]]
-            [clj-money.honeybadger :as honeybadger])
+            [clj-money.honeybadger :as honeybadger]
+            [clj-money.web.system :as system])
   (:import com.fasterxml.jackson.core.JsonGenerator))
 
 (defn- param-name
@@ -68,34 +69,34 @@
     (handler (update-in request [:params] parse-id-params))))
 
 (defmulti handle-exception
-  (fn [e]
+  (fn [e _req]
     (when-let [data (ex-data e)]
       (if (::v/errors data)
         :validation
         (:type data)))))
 
 (defmethod handle-exception ::authorization/unauthorized
-  [e]
+  [e _]
   (if (authorization/opaque? (ex-data e))
     api/not-found
     api/forbidden))
 
 (defmethod handle-exception ::authorization/not-found
-  [_]
+  [_ _]
   api/not-found)
 
 (defmethod handle-exception ::authorization/no-rules
-  [_]
+  [_ _]
   (-> {:message "no authorization rules"}
       response
       (status 500)))
 
 (defmethod handle-exception ::entities/not-found
-  [_]
+  [_ _]
   api/not-found)
 
 (defmethod handle-exception :validation
-  [e]
+  [e _]
   (let [msg (->> e
                  ex-data
                  (v/flat-error-messages)
@@ -104,11 +105,11 @@
                   400)))
 
 (defmethod handle-exception :default
-  [e]
+  [e req]
   (if-let [details (ex-data e)]
     (log/errorf e "Unexpected ExceptionInfo was encountered while handling the web request: %s" (pr-str details))
     (log/error e "Unexpected ExceptionInfo was encountered while handling the web request."))
-  (honeybadger/notify e)
+  (honeybadger/notify e (-> req (system/component :services) :honeybadger))
   api/internal-server-error)
 
 ; TODO: Move this to the api namespace
@@ -119,10 +120,10 @@
      (handler request)
      (catch clojure.lang.ExceptionInfo e
        (log-error e "unexpected clojure error")
-       (handle-exception e))
+       (handle-exception e request))
      (catch Exception e
        (log-error e "unexpected error")
-       (honeybadger/notify e)
+       (honeybadger/notify e (-> request (system/component :services) :honeybadger))
        (-> {:message (str "unexpected error: " (ex-message e))}
            response
            (status 500))))))

@@ -17,7 +17,7 @@
 
 (deftest get-price-quotes
   (with-web-mocks [calls] mocks
-    (let [result (yahoo/get-quotes ["AMD" "IBM" "AAPL"])]
+    (let [result (yahoo/get-quotes "test-yahoo-key" ["AMD" "IBM" "AAPL"])]
       (is (seq-of-maps-like? [{:commodity/symbol "AMD"
                                :commodity/exchange :nasdaq
                                :price/value 137.51M
@@ -34,5 +34,5 @@
     (is (called-with-headers? :once
                               calls
                               {"X-Rapidapi-Host" "yh-finance.p.rapidapi.com"
-                               "X-Rapidapi-Key" "yahoo-api-key"})
+                               "X-Rapidapi-Key" "test-yahoo-key"})
         "It includes the headers required by the API")))

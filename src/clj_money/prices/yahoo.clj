@@ -6,7 +6,6 @@
             [clj-http.client :as http]
             [jsonista.core :as json]
             [java-time.api :as t]
-            [clj-money.config :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [lambdaisland.uri :refer [uri
                                       map->query-string]]
@@ -23,12 +22,12 @@
       str))
 
 (defn- raw-quotes
-  [symbols]
+  [api-key symbols]
   (let [url (get-quotes-uri symbols)
         _ (log/infof "get-quotes %s" url)
         res (http/get url {:as :string
                            :headers {:x-rapidapi-host rapidapi-host
-                                     :x-rapidapi-key (env :yahoo-api-key)}})
+                                     :x-rapidapi-key api-key}})
         body (json/read-value (:body res)
                               (json/object-mapper {:decode-key-fn keyword}))]
     (log/debugf "get-quotes %s: %s" url (prn-str res))
@@ -54,9 +53,11 @@
   (t/local-date instant (t/zone-id "America/New_York")))
 
 (defn get-quotes
-  [symbols]
+  "Fetches quotes for the given symbols, authenticating with the given
+  RapidAPI key"
+  [api-key symbols]
   (->> symbols
-       raw-quotes
+       (raw-quotes api-key)
        (map #(-> %
                  (rename-keys {:regularMarketPrice :price/value
                                :regularMarketTime :price/trade-date
@@ -69,7 +70,7 @@
                                :commodity/symbol
                                :commodity/exchange])))))
 
-(deftype YahooProvider []
+(deftype YahooProvider [api-key]
   prices/PriceProvider
   (prices/fetch-prices [_ symbols]
-    (get-quotes symbols)))
+    (get-quotes api-key symbols)))

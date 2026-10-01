@@ -271,7 +271,7 @@
                :or {content-type "application/edn"}}]
   (let [appl (find-commodity "AAPL")
         msft (find-commodity "MSFT")]
-    (with-redefs [alpha/get-quote (fn [symbol]
+    (with-redefs [alpha/get-quote (fn [symbol _api-key]
                                     {:commodity/symbol symbol
                                      :commodity/exchange :nasdaq
                                      :price/trade-date (t/local-date 2015 3 2)
@@ -363,7 +363,7 @@
                                  :user user)
                         app
                         parse-body)]
-      (with-redefs [alpha/get-quote (fn [symbol]
+      (with-redefs [alpha/get-quote (fn [symbol _api-key]
                                       (swap! calls conj symbol)
                                       {:commodity/symbol symbol
                                        :commodity/exchange :nasdaq

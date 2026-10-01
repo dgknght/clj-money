@@ -52,20 +52,24 @@
     :commodity/exchange :nasdaq
     :commodity/type :stock}])
 
+(def ^:private api-keys
+  {:yahoo-api-key "yahoo-key"
+   :alpha-vantage-api-key "alpha-key"})
+
 (deftest ^:eftest/synchronized fetch-prices-from-alpha-vantage
   (let [calls (atom {:alpha []
                      :yahoo []})]
-    (with-redefs [alpha/get-quote (fn [symbol]
+    (with-redefs [alpha/get-quote (fn [symbol _api-key]
                                     (swap! calls update-in [:alpha] conj symbol)
                                     (alpha-data symbol))
-                  yahoo/get-quotes (fn [symbols]
+                  yahoo/get-quotes (fn [_api-key symbols]
                                      (swap! calls update-in [:yahoo] conj symbols)
                                      (->> symbols
                                           (map yahoo-data)
                                           (filter identity)))]
       (is (= expected-prices
              (set (with-fixed-time "2016-01-01T12:00:00Z"
-                      (f/fetch commodities))))
+                      (f/fetch api-keys commodities))))
           "The prices are returned")
       (is (seq-of-maps-like? [{:cached-price/value 10M
                                :cached-price/symbol "AAPL"}
@@ -95,15 +99,15 @@
   (with-context cache-ctx
     (let [calls (atom {:alpha []
                        :yahoo []})]
-      (with-redefs [alpha/get-quote (fn [symbol]
+      (with-redefs [alpha/get-quote (fn [symbol _api-key]
                                       (swap! calls update-in [:alpha] conj symbol)
                                       nil)
-                    yahoo/get-quotes (fn [symbols]
+                    yahoo/get-quotes (fn [_api-key symbols]
                                        (swap! calls update-in [:yahoo] conj symbols)
                                        [])]
         (is (= expected-prices
                (set (with-fixed-time "2016-01-01T12:00:00Z"
-                      (f/fetch commodities))))
+                      (f/fetch api-keys commodities))))
             "The prices are returned")
         (is (zero? (count (:alpha @calls)))
             "The Alpha Vantage API is not called")

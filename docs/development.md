@@ -73,8 +73,8 @@ Start the backend REPL:
 lein repl
 ```
 
-Then manage the system (storage, image storage, progress tracking and the
-web server) from the REPL with [integrant.repl](https://github.com/weavejester/integrant-repl):
+Then manage the system (storage, image storage, progress tracking, external
+service configuration and the web server) from the REPL with [integrant.repl](https://github.com/weavejester/integrant-repl):
 
 ```clojure
 (go)    ; start the system

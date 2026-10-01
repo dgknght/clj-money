@@ -60,22 +60,24 @@
       (remove (comp ids :id) commodities))
     commodities))
 
-(defn- providers []
+(defn- providers
+  [{:keys [yahoo-api-key alpha-vantage-api-key]}]
   [{:provider (cache/->CacheProvider)
     :types #{:fund :stock :currency}}
    {:provider (cache-writing-provider
-                (alpha-vantage/->AlphaVantageProvider))
+                (alpha-vantage/->AlphaVantageProvider alpha-vantage-api-key))
     :types #{:currency :stock :fund}}
    {:provider (cache-writing-provider
-                (yahoo/->YahooProvider))
+                (yahoo/->YahooProvider yahoo-api-key))
     :types #{:fund :stock}}])
 
 (defn fetch
   "Given a sequence of commodity entities, fetches prices from external services
-  and returns the price entities."
-  [commodities]
+  and returns the price entities. The config holds the price API keys from
+  clj-money.services: :yahoo-api-key and :alpha-vantage-api-key."
+  [config commodities]
   (let [mapped-commodities (index-by ->key commodities)]
-    (loop [providers (providers)
+    (loop [providers (providers config)
            comms commodities
            result []]
       (let [provider (first providers)]

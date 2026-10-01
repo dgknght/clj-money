@@ -10,6 +10,7 @@
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.prices.fetch :as fetch]
+            [clj-money.web.system :as system]
             [clj-money.authorization :refer [+scope
                                              authorize]
              :as authorization]
@@ -84,9 +85,9 @@
 
 (defn- fetch
   "Return prices for a specified list of commodities"
-  [{:keys [params]}]
+  [{:keys [params] :as req}]
   (->> (entities/find-many (:commodity-id params))
-       fetch/fetch
+       (fetch/fetch (system/component req :services))
        entities/put-many
        (map #(update-in % [:price/commodity] util/->entity-ref))
        api/response))

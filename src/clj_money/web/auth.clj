@@ -1,11 +1,17 @@
 (ns clj-money.web.auth
   (:require [buddy.sign.jwt :as jwt]
-            [clj-money.config :refer [env]]
             [jsonista.core :as json]))
 
 (defn make-token
-  [user]
-  (jwt/sign {:user-id (:id user)} (env :secret)))
+  "Returns an auth token for the user, signed with the given secret"
+  [user secret]
+  (jwt/sign {:user-id (:id user)} secret))
+
+(defn read-token
+  "Returns the claims of the given auth token, verified with the given
+  secret"
+  [token secret]
+  (jwt/unsign token secret))
 
 (defn make-json-request
   [method uri options]

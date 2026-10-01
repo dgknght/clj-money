@@ -27,7 +27,12 @@
                                                    :last-name "Doe"
                                                    :email "john@doe.com"}}]
     (with-mail-capture [mailbox]
-      (mailers/send-invitation invitation)
+      (mailers/send-invitation invitation
+                               {:enabled? true
+                                :host "testmailer.com"
+                                :from "no-reply@clj-money.com"
+                                :app-name "clj-money"
+                                :site-url "https://www.mymoney.com"})
       (let [[m :as ms] @mailbox]
         (is (= 1 (count ms))
             "One message is delivered")

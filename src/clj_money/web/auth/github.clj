@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [ring.util.response :as res]
             [clj-http.client :as http]
-            [clj-money.config :refer [env]]
+            [clj-money.web.system :as system]
             [clj-money.web.auth :refer [make-token make-json-request]]
             [clj-money.entities.identities :as idents]))
 
@@ -46,21 +46,22 @@
     (let [profile   (request-user-info token)
           user-info (normalize-profile profile)]
       (if (:email user-info)
-        (let [user       (idents/find-or-create-from-profile [:github user-info])
-              auth-token (make-token user)]
+        (let [secret     (-> request (system/component :services) :auth-secret)
+              user       (idents/find-or-create-from-profile [:github user-info])
+              auth-token (make-token user secret)]
           (cond-> (-> "/" res/redirect (res/set-cookie :auth-token auth-token {:path "/"}))
             (:profile_photo user-info) (res/set-cookie :profile-photo (:profile_photo user-info) {:path "/"})))
         (res/redirect "/?error=github_email_required")))
     (res/redirect "/?error=oauth_failed")))
 
 (defn oauth2-profile
-  []
-  (when (env :github-client-id)
+  [{:keys [client-id client-secret]}]
+  (when client-id
     {:github
      {:authorize-uri    "https://github.com/login/oauth/authorize"
       :access-token-uri "https://github.com/login/oauth/access_token"
-      :client-id        (env :github-client-id)
-      :client-secret    (env :github-client-secret)
+      :client-id        client-id
+      :client-secret    client-secret
       :scopes           ["user:email"]
       :launch-uri       "/auth/github/start"
       :redirect-uri     "/auth/github/callback"

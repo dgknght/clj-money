@@ -1,7 +1,7 @@
 (ns clj-money.web.users
   (:require [clojure.pprint :refer [pprint]]
-            [clj-money.config :refer [env]]
-            [buddy.sign.jwt :as jwt]
+            [clj-money.web.system :as system]
+            [clj-money.web.auth :refer [read-token]]
             [clj-money.db :refer [unserialize-id]]
             [clj-money.entities :as entities]))
 
@@ -23,7 +23,7 @@
   [req]
   (some-> req
           extract-auth-token
-          (jwt/unsign (env :secret))
+          (read-token (-> req (system/component :services) :auth-secret))
           :user-id
           unserialize-id
           entities/find))

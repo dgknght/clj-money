@@ -8,6 +8,8 @@
                                             with-context
                                             find-image
                                             find-user]]
+            [clj-money.config :refer [env]]
+            [clj-money.services :as services]
             [clj-money.web.auth :as auth]
             [clj-money.web.test-handler :refer [app]]))
 
@@ -31,7 +33,7 @@
 (defn- add-auth-cookie
   [req user]
   (if user
-    (req/cookie req :auth-token (auth/make-token user))
+    (req/cookie req :auth-token (auth/make-token user (:auth-secret (services/config env))))
     req))
 
 (defn- get-image

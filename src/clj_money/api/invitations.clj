@@ -9,6 +9,7 @@
             [clj-money.authorization.invitations]
             [clj-money.entities.invitations :as invitations]
             [clj-money.mailers :as mailers]
+            [clj-money.web.system :as system]
             [clj-money.web.auth :refer [make-token]]))
 
 (defn- expiration-instant []
@@ -25,8 +26,8 @@
              :invitation/expires-at (expiration-instant))))
 
 (defn- send-invitation
-  [inv]
-  (mailers/send-invitation inv)
+  [inv req]
+  (mailers/send-invitation inv (-> req (system/component :services) :mailer))
   inv)
 
 (defn- create
@@ -38,7 +39,7 @@
     (api/response
       (if (= :sent (:invitation/status params))
         (-> inv
-            send-invitation
+            (send-invitation req)
             (assoc :invitation/status :sent
                    :invitation/expires-at (expiration-instant))
             entities/put)
@@ -93,7 +94,9 @@
   (if-let [inv (find-and-authorize req ::authorization/update)]
     (if (= :unsent (:invitation/status inv))
       (do
-        (mailers/send-invitation (assoc inv :invitation/invited-by authenticated))
+        (-> inv
+            (assoc :invitation/invited-by authenticated)
+            (mailers/send-invitation (-> req (system/component :services) :mailer)))
         (api/response (-> inv
                           (assoc :invitation/status :sent
                                  :invitation/expires-at (expiration-instant))
@@ -118,7 +121,7 @@
     api/not-found))
 
 (defn- accept
-  [{:keys [params]}]
+  [{:keys [params] :as req}]
   (if-let [inv (entities/find-by {:invitation/token (:token params)})]
     (if (expired? inv)
       invitation-expired
@@ -133,8 +136,11 @@
             (assoc :invitation/status :accepted
                    :invitation/user user)
             entities/put)
-        (api/creation-response {:user user
-                                :auth-token (make-token user)})))
+        (api/creation-response
+          {:user user
+           :auth-token (make-token user (-> req
+                                            (system/component :services)
+                                            :auth-secret))})))
     api/not-found))
 
 (defn- decline

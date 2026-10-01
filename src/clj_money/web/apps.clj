@@ -4,6 +4,7 @@
             [clj-money.config :refer [env]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
+            [clj-money.web.system :as system]
             [clj-money.web.auth.google :as google-auth]
             [clj-money.web.auth.github :as github-auth]
             [hiccup.page :refer [html5 include-js]]))
@@ -11,18 +12,21 @@
 (defn- needs-setup? []
   (zero? (entities/count (util/entity-type {} :user))))
 
-(def ^:private all-oauth-providers
-  {:google (google-auth/oauth2-profile)
-   :github (github-auth/oauth2-profile)})
+(defn- all-oauth-providers
+  [oauth]
+  {:google (google-auth/oauth2-profile (:google oauth))
+   :github (github-auth/oauth2-profile (:github oauth))})
 
-(def ^:private allow-listed-oauth-providers
-  (if-let [providers (env :oauth-providerrs)]
-    (select-keys all-oauth-providers
+(defn- allow-listed-oauth-providers
+  [oauth]
+  (if-let [providers (env :oauth-providers)]
+    (select-keys (all-oauth-providers oauth)
                  providers)
-    all-oauth-providers))
+    (all-oauth-providers oauth)))
 
-(defn- oauth-providers []
-  (->> allow-listed-oauth-providers
+(defn- oauth-providers
+  [oauth]
+  (->> (allow-listed-oauth-providers oauth)
        (filter second)
        (map first)
        set))
@@ -51,12 +55,13 @@
    [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/bootstrap-icons@1/font/bootstrap-icons.min.css"}]])
 
 (defn index
-  [_req]
+  [req]
   {:status 200
    :body (html5
            [:html.h-100 {:lang "en"}
             (head (merge {:needs-setup? (needs-setup?)
-                          :oauth-providers (oauth-providers)
+                          :oauth-providers (oauth-providers
+                                             (-> req (system/component :services) :oauth))
                           :dev? (boolean (env :dev?))}))
             [:body.h-100
              [:div#app.h-100
