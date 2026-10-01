@@ -4,7 +4,7 @@
             [clojure.string :as string]
             [reitit.core :as reitit]
             [clj-money.web.handler :as h]
-            [clj-money.web.server :as s]
+            [clj-money.system :as system]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
             [clj-money.entities.attachments :as atts]
@@ -28,12 +28,24 @@
 
 (def server (atom nil))
 
+(defn- server-port
+  [sys]
+  (-> (:clj-money.web/server sys)
+      .getConnectors
+      first
+      .getLocalPort))
+
+; Return a short summary rather than the system map, which is too large
+; to be useful when printed in the REPL
 (defn start-server []
-  (reset! server (s/-main)))
+  (let [sys (reset! server (system/init))]
+    (format "System started, listening at http://localhost:%s"
+            (server-port sys))))
 
 (defn stop-server []
-  (.stop @server)
-  (reset! server nil))
+  (system/halt @server)
+  (reset! server nil)
+  "System stopped")
 
 (defn create-user
   [& {:as params}]

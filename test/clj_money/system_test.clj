@@ -6,7 +6,12 @@
             [clj-money.images :as images]
             [clj-money.progress :as progress]
             [clj-money.system :as system]
-            [clj-money.web :as-alias web]))
+            [clj-money.web :as-alias web]
+            [clj-money.web.server]))
+
+; Port 0 lets Jetty choose any free port
+(def ^:private test-env
+  (assoc config/env :port 0))
 
 (deftest build-the-system-config-from-the-app-config
   (let [app-config {:application-name "Test Money"
@@ -22,17 +27,22 @@
             ::web/handler {:env (ig/ref ::system/env)
                            :storage (ig/ref ::db/storage)
                            :image-storage (ig/ref ::images/storage)
-                           :tracker-factory (ig/ref ::progress/tracker-factory)}}
+                           :tracker-factory (ig/ref ::progress/tracker-factory)}
+            ::web/server {:handler (ig/ref ::web/handler)
+                          :port 3000}}
            (system/config app-config))
-        "The system config includes the app config and the storage configs"))
+        "The system config includes the app config and the storage configs")
+    (is (= 8080 (get-in (system/config (assoc app-config :port "8080"))
+                        [::web/server :port]))
+        "The port is read from the app config"))
   (is (= config/env
          (::system/env (system/config)))
       "The application config is used by default"))
 
 (deftest initialize-the-system
-  (let [sys (ig/init (system/config))]
+  (let [sys (ig/init (system/config test-env))]
     (try
-      (is (= config/env (::system/env sys))
+      (is (= test-env (::system/env sys))
           "The application config is available in the running system")
       (is (satisfies? db/Storage (::db/storage sys))
           "The storage is available in the running system")
@@ -42,14 +52,18 @@
           "The progress tracker factory is available in the running system")
       (is (fn? (::web/handler sys))
           "The web handler is available in the running system")
+      (is (.isStarted (::web/server sys))
+          "The web server is running in the running system")
       (finally
         (ig/halt! sys)))))
 
 (deftest initialize-and-halt-the-system-with-namespace-loading
-  (let [sys (system/init)]
-    (is (= config/env (::system/env sys))
+  (let [sys (system/init (system/config test-env))]
+    (is (= test-env (::system/env sys))
         "The full system is initialized")
-    (system/halt sys))
+    (system/halt sys)
+    (is (.isStopped (::web/server sys))
+        "The web server is stopped when the system is halted"))
   (let [sys (system/init (system/config) [::system/env])]
     (is (= [::system/env] (keys sys))
         "Only the specified keys are initialized")

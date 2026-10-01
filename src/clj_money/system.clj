@@ -11,6 +11,9 @@
             [clj-money.progress :as progress]
             [clj-money.web :as-alias web]
             [clj-money.web.handler]
+            ; The ::web/server component is defined in clj-money.web.server,
+            ; which requires this namespace, so it is loaded by init (via
+            ; ig/load-namespaces) rather than required here.
             ; storage strategy implementations
             [clj-money.db.sql]
             [clj-money.db.datomic]
@@ -21,6 +24,13 @@
 (defmethod ig/init-key ::env
   [_ env]
   env)
+
+(defn- port
+  [env]
+  (let [p (or (:port env) 3000)]
+    (if (string? p)
+      (parse-long p)
+      p)))
 
 (defn config
   "Returns the Integrant configuration map for the system, built from the
@@ -34,7 +44,9 @@
     ::web/handler {:env (ig/ref ::env)
                    :storage (ig/ref ::db/storage)
                    :image-storage (ig/ref ::images/storage)
-                   :tracker-factory (ig/ref ::progress/tracker-factory)}}))
+                   :tracker-factory (ig/ref ::progress/tracker-factory)}
+    ::web/server {:handler (ig/ref ::web/handler)
+                  :port (port env)}}))
 
 (defn init
   "Loads the namespaces for the keys in the given Integrant configuration

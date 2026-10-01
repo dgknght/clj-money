@@ -22,6 +22,15 @@ The session secret is read when the system starts, not when the code is
 compiled, so building the uberjar does not require `SESSION_SECRET`. If it is
 missing, the web server fails at startup.
 
+## Startup and Shutdown
+
+`clj-money.web.server/-main` (the uberjar, Docker and `Procfile` entry point)
+initializes the whole Integrant system, including the Jetty server, which
+listens on the port given as the first argument, the `:port` config value
+(`PORT`), or 3000. A JVM shutdown hook halts the system, so on `SIGTERM` the
+web server is stopped and the database, image storage and Redis connection
+pools are closed.
+
 ## SQL Connection Pool
 
 The SQL storage strategy (`:clj-money.db/sql`) connects through a
