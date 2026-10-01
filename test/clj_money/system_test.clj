@@ -81,3 +81,40 @@
            (system/with-components nil
              [db/*storage* images/*storage* progress/*tracker-factory*])))
       "Existing bindings are kept when there is no system"))
+
+(defmethod ig/init-key ::probe
+  [_ events]
+  (swap! events conj :init)
+  events)
+
+(defmethod ig/halt-key! ::probe
+  [_ events]
+  (swap! events conj :halt))
+
+(deftest run-with-a-partial-system
+  (let [sys-keys (atom nil)
+        storage (atom nil)
+        bound-storage (atom nil)]
+    (system/with-system [sys [::db/storage]]
+      (reset! sys-keys (set (keys sys)))
+      (reset! storage (::db/storage sys))
+      (reset! bound-storage db/*storage*))
+    (is (= #{::db/storage} @sys-keys)
+        "Only the specified keys are initialized")
+    (is (identical? @storage @bound-storage)
+        "The system's storage is bound while the body is evaluated")))
+
+(deftest halt-the-partial-system-afterward
+  (let [events (atom [])]
+    (is (= :result
+           (system/with-system [_ [::probe] {::probe events}]
+             :result))
+        "The value of the body is returned")
+    (is (= [:init :halt] @events)
+        "The system is halted after the body is evaluated")
+    (reset! events [])
+    (is (thrown? RuntimeException
+                 (system/with-system [_ [::probe] {::probe events}]
+                   (throw (RuntimeException. "boom")))))
+    (is (= [:init :halt] @events)
+        "The system is halted when the body throws")))

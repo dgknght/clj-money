@@ -5,6 +5,8 @@
             [java-time.api :as t]
             [clj-money.cli :refer [with-options
                                    default-options]]
+            [clj-money.db :as db]
+            [clj-money.system :as system]
             [clj-money.entities.schema :as schema]
             [clj-money.entities.ref]
             [clj-money.db.ref]
@@ -13,6 +15,17 @@
                                         unnest
                                         polarize-quantity]]
             [clj-money.entities.transactions :as transactions]))
+
+(defmacro ^:private with-storage
+  "Evaluates body with the storage component initialized and bound, and
+  halts it (closing any connection pool) afterward."
+  [& body]
+  `(system/with-system [sys# [::db/storage]]
+     ~@body))
+
+(defn- exit []
+  (shutdown-agents)
+  (System/exit 0))
 
 (def ^:private migrate-account-cli-options
   {:usage "lein migrate-account -- <options>"
@@ -35,32 +48,32 @@
   [& args]
   (with-options [parsed (assoc migrate-account-cli-options
                                :args args)]
-    (let [{{:keys [user-email
-                   entity-name
-                   from-account
-                   to-account]} :options} parsed
-          user (entities/find-by {:user/email user-email})
-          _ (assert user
-                    (format "Unable to find user with email address \"%s\"."
-                            user-email))
-          entity (entities/find-by {:entity/user user
-                                    :entity/name entity-name})
-          _ (assert entity
-                    (format "Unable to find an entity named \"%s\"."
-                            entity-name))
-          from-account (entities/find-by #:account{:entity entity
-                                                   :name from-account})
-          _ (assert from-account
-                    (format "Unable to find an account named \"%s\"."
-                            from-account))
-          to-account (entities/find-by #:account{:entity entity
-                                                 :name to-account})]
-      (assert to-account
-              (format "Unable to find an account named \"%s\"."
-                      to-account))
-      (transactions/migrate-account from-account to-account)
-      (shutdown-agents)
-      (System/exit 0))))
+    (with-storage
+      (let [{{:keys [user-email
+                     entity-name
+                     from-account
+                     to-account]} :options} parsed
+            user (entities/find-by {:user/email user-email})
+            _ (assert user
+                      (format "Unable to find user with email address \"%s\"."
+                              user-email))
+            entity (entities/find-by {:entity/user user
+                                      :entity/name entity-name})
+            _ (assert entity
+                      (format "Unable to find an entity named \"%s\"."
+                              entity-name))
+            from-account (entities/find-by #:account{:entity entity
+                                                     :name from-account})
+            _ (assert from-account
+                      (format "Unable to find an account named \"%s\"."
+                              from-account))
+            to-account (entities/find-by #:account{:entity entity
+                                                   :name to-account})]
+        (assert to-account
+                (format "Unable to find an account named \"%s\"."
+                        to-account))
+        (transactions/migrate-account from-account to-account))))
+  (exit))
 
 (def ^:priviate re-index-cli-options
   {:usage "lein re-index -- <options>"
@@ -79,27 +92,27 @@
   [& args]
   (with-options [parsed (assoc re-index-cli-options
                                :args args)]
-    (let [{:keys [user-email
-                  entity-name
-                  account-name]} (:options parsed)
-          user (entities/find-by {:user/email user-email})
-          _ (assert user
-                    (format "Unable to find user with email address \"%s\"."
-                            user-email))
-          entity (entities/find-by {:entity/user user
-                                    :entity/name entity-name})
-          _ (assert entity
-                    (format "Unable to find an entity named \"%s\"."
-                            entity-name))
-          accounts (entities/select (cond-> {:account/entity entity}
-                                      account-name
-                                      (assoc :account/name account-name)))]
-      (doseq [account accounts]
-        (println "Reindexing" (:account/name account) "...")
-        (transactions/propagate-account-from-start entity account))
-      (println "Done.")))
-  (shutdown-agents)
-  (System/exit 0))
+    (with-storage
+      (let [{:keys [user-email
+                    entity-name
+                    account-name]} (:options parsed)
+            user (entities/find-by {:user/email user-email})
+            _ (assert user
+                      (format "Unable to find user with email address \"%s\"."
+                              user-email))
+            entity (entities/find-by {:entity/user user
+                                      :entity/name entity-name})
+            _ (assert entity
+                      (format "Unable to find an entity named \"%s\"."
+                              entity-name))
+            accounts (entities/select (cond-> {:account/entity entity}
+                                        account-name
+                                        (assoc :account/name account-name)))]
+        (doseq [account accounts]
+          (println "Reindexing" (:account/name account) "...")
+          (transactions/propagate-account-from-start entity account))
+        (println "Done."))))
+  (exit))
 
 (def ^:private export-user-tags-cli-options
   {:usage "lein export-user-tags -- <options>"
@@ -119,25 +132,27 @@
   [& args]
   (with-options [parsed (assoc export-user-tags-cli-options
                                :args args)]
-    (let [{:keys [user-email
-                  entity-name
-                  output-file]} (:options parsed)
-          user (entities/find-by {:user/email user-email})
-          _ (assert user
-                    (format "Unable to find a user with email address \"%s\"."
-                            user-email))
-          entity (entities/find-by #:entity{:user user
-                                            :name entity-name})
-          _ (assert entity
-                    (format "Unable to find an entity named \"%s\"."
-                            entity-name))]
-      (spit output-file
-            (->> (entities/select {:account/entity entity})
-                 nest
-                 unnest
-                 (filter #(seq (:user-tags %)))
-                 (map #(select-keys % [:path :user-tags]))
-                 prn-str)))))
+    (with-storage
+      (let [{:keys [user-email
+                    entity-name
+                    output-file]} (:options parsed)
+            user (entities/find-by {:user/email user-email})
+            _ (assert user
+                      (format "Unable to find a user with email address \"%s\"."
+                              user-email))
+            entity (entities/find-by #:entity{:user user
+                                              :name entity-name})
+            _ (assert entity
+                      (format "Unable to find an entity named \"%s\"."
+                              entity-name))]
+        (spit output-file
+              (->> (entities/select {:account/entity entity})
+                   nest
+                   unnest
+                   (filter #(seq (:user-tags %)))
+                   (map #(select-keys % [:path :user-tags]))
+                   prn-str)))))
+  (exit))
 
 (def ^:private import-user-tags-cli-options
   {:usage "lein import-user-tags -- <options>"
@@ -157,28 +172,30 @@
   [& args]
   (with-options [parsed (assoc import-user-tags-cli-options
                                :args args)]
-    (let [{:keys [entity-name
-                  user-email
-                  input-file]} (:options parsed)
-          user (entities/find-by {:user/email user-email})
-          _ (assert user
-                    (format "Unable to find a user with email address \"%s\"."
-                            user-email))
-          entity (entities/find-by #:entity{:user user
-                                            :name entity-name})
-          _ (assert entity
-                    (format "Unable to find an entity named \"%s\"."
-                            entity-name))
-          accounts (->> (entities/select #:account{:entity entity
-                                                   :type :expense})
-                        nest
-                        unnest
-                        (group-by :path))
-          tags (edn/read-string (slurp input-file))]
+    (with-storage
+      (let [{:keys [entity-name
+                    user-email
+                    input-file]} (:options parsed)
+            user (entities/find-by {:user/email user-email})
+            _ (assert user
+                      (format "Unable to find a user with email address \"%s\"."
+                              user-email))
+            entity (entities/find-by #:entity{:user user
+                                              :name entity-name})
+            _ (assert entity
+                      (format "Unable to find an entity named \"%s\"."
+                              entity-name))
+            accounts (->> (entities/select #:account{:entity entity
+                                                     :type :expense})
+                          nest
+                          unnest
+                          (group-by :path))
+            tags (edn/read-string (slurp input-file))]
 
-      (doseq [{:keys [path user-tags]} tags
-              account (get-in accounts [path])]
-        (entities/put (assoc account :account/user-tags user-tags))))))
+        (doseq [{:keys [path user-tags]} tags
+                account (get-in accounts [path])]
+          (entities/put (assoc account :account/user-tags user-tags))))))
+  (exit))
 
 (def ^:private account-report-cli-opts
   {:description "Create a CSV report of the transactions of an account"
@@ -203,51 +220,51 @@
   [& args]
   (with-options [parsed (assoc account-report-cli-opts
                                :args args)]
-    (let [{:keys [user-email
-                  entity-name
-                  account-name
-                  separator]} (:options parsed)
-          user (entities/find-by {:user/email user-email})
-          _ (assert user
-                    (format "Unable to find a user with email address \"%s\"."
-                            user-email))
-          entity (entities/find-by {:entity/user user
-                                    :entity/name entity-name})
-          _ (assert entity
-                    (format "Unable to find an entity with name \"%s\"."
-                            entity-name))
-          account (entities/find-by {:account/entity entity
-                                     :account/name account-name})
-          format-date (partial
-                        t/format
-                        (t/formatter "MM/dd/yyyy"))
-          sep (case separator
-                :comma \,
-                :tab \tab)]
-      (assert account
-              (format "Unable to find account with name \"%s\"."
-                      account-name))
-      (csv/write-csv
-        *out*
-        (cons ["Date"
-               "Description"
-               "Memo"
-               "Quantity"
-               "Balance"]
-              (map (comp (juxt (comp format-date
-                                     :transaction/transaction-date)
-                               :transaction/description
-                               :transaction-item/memo
-                               polarize-quantity
-                               :transaction-item/balance)
-                         #(assoc % :transaction-item/account account))
-                   (entities/select {:transaction-item/account account}
-                                    {:select-also [:transaction/transaction-date
-                                                   :transaction/description]})))
-        :separator sep)
-      (flush)
-      (shutdown-agents)
-      (System/exit 0))))
+    (with-storage
+      (let [{:keys [user-email
+                    entity-name
+                    account-name
+                    separator]} (:options parsed)
+            user (entities/find-by {:user/email user-email})
+            _ (assert user
+                      (format "Unable to find a user with email address \"%s\"."
+                              user-email))
+            entity (entities/find-by {:entity/user user
+                                      :entity/name entity-name})
+            _ (assert entity
+                      (format "Unable to find an entity with name \"%s\"."
+                              entity-name))
+            account (entities/find-by {:account/entity entity
+                                       :account/name account-name})
+            format-date (partial
+                          t/format
+                          (t/formatter "MM/dd/yyyy"))
+            sep (case separator
+                  :comma \,
+                  :tab \tab)]
+        (assert account
+                (format "Unable to find account with name \"%s\"."
+                        account-name))
+        (csv/write-csv
+          *out*
+          (cons ["Date"
+                 "Description"
+                 "Memo"
+                 "Quantity"
+                 "Balance"]
+                (map (comp (juxt (comp format-date
+                                       :transaction/transaction-date)
+                                 :transaction/description
+                                 :transaction-item/memo
+                                 polarize-quantity
+                                 :transaction-item/balance)
+                           #(assoc % :transaction-item/account account))
+                     (entities/select {:transaction-item/account account}
+                                      {:select-also [:transaction/transaction-date
+                                                     :transaction/description]})))
+          :separator sep)
+        (flush))))
+  (exit))
 
 (def ^:private purge-entity-cli-options
   {:usage "lein purge-entity -- <options>"
@@ -267,21 +284,21 @@
   [& args]
   (with-options [parsed (assoc purge-entity-cli-options
                                :args args)]
-    (let [{{:keys [user-email
-                   entity-name]} :options} parsed
-          user (entities/find-by {:user/email user-email})
-          _ (assert user
-                    (format "Unable to find user with email address \"%s\"."
-                            user-email))
-          entity (entities/find-by {:entity/user user
-                                    :entity/name entity-name})]
-      (assert entity
-              (format "Unable to find an entity named \"%s\"."
-                      entity-name))
-      (entities/purge! entity)
-      (println "Purged entity" entity-name)
-      (shutdown-agents)
-      (System/exit 0))))
+    (with-storage
+      (let [{{:keys [user-email
+                     entity-name]} :options} parsed
+            user (entities/find-by {:user/email user-email})
+            _ (assert user
+                      (format "Unable to find user with email address \"%s\"."
+                              user-email))
+            entity (entities/find-by {:entity/user user
+                                      :entity/name entity-name})]
+        (assert entity
+                (format "Unable to find an entity named \"%s\"."
+                        entity-name))
+        (entities/purge! entity)
+        (println "Purged entity" entity-name))))
+  (exit))
 
 (defn- er-entity
   [[id {:keys [fields]}]]

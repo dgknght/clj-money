@@ -135,6 +135,22 @@ mise run caddy
 
 Then browse to [https://money.localhost](https://money.localhost).
 
+## Lein tasks
+
+The lein aliases in `project.clj` (e.g. `lein re-index`, `lein purge-entity`)
+run functions in `clj-money.tasks` and elsewhere. A task that needs
+application components should start only those parts of the system with
+`clj-money.system/with-system`, which binds them while the body runs and
+halts them (closing connection pools) afterward:
+
+```clojure
+(system/with-system [sys [:clj-money.db/storage]]
+  (entities/select {:entity/name "Personal"}))
+```
+
+The SQL migration, database creation and partitioning tasks, and the Datomic
+schema task, connect with the DDL or admin credentials on their own instead.
+
 ## Dependency Updates
 
 Dependencies are kept current via [Renovate](https://github.com/apps/renovate). It is configured in `renovate.json` to open weekly PRs (Monday mornings, America/Chicago) covering:

@@ -82,3 +82,20 @@
   See with-components*."
   [system & body]
   `(with-components* ~system (fn [] ~@body)))
+
+(defmacro with-system
+  "Initializes only the given keys of the system (and their dependencies),
+  evaluates body with the system bound to sym and its components bound (see
+  with-components), and halts the system afterward.
+
+    (with-system [sys [::db/storage]]
+      (entities/select ...))
+
+  An optional third binding element supplies the Integrant configuration,
+  which defaults to (config)."
+  [[sym ks cfg] & body]
+  `(let [~sym (init ~(or cfg `(config)) ~ks)]
+     (try
+       (with-components ~sym ~@body)
+       (finally
+         (halt ~sym)))))
