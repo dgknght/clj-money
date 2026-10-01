@@ -51,7 +51,7 @@ jobs:
       - name: Install clojure tools
         uses: https://git.dgknght.com/dgknght/setup-clojure@v1
         with:
-          java-version: 21
+          java-version: 25
           lein-version: 2.12.0
           clj-kondo-version: '2026.01.19'
       - name: Install dependencies

@@ -33,7 +33,9 @@ test/clj_money/        # Mirrors src structure, _test suffix
 
 SQL and Datomic are both supported simultaneously. Tests run against both via
 the `dbtest` macro, which iterates over all configured strategies. API tests
-use the `reset-db` fixture and run against the default strategy only.
+use the `reset-db` fixture and run against the active strategy only. Both
+reuse one Integrant-managed storage instance per test database (see
+`docs/testing.md`).
 
 ## Entity Attribute Naming
 

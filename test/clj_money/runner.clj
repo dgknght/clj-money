@@ -6,7 +6,8 @@
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
             [clj-money.threading :refer [available-processors]]
-            [clj-money.test-helpers :refer [*parallel*]]
+            [clj-money.test-helpers :refer [*parallel*
+                                            halt-storage!]]
             [clj-money.db.sql.tasks :as sql]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
@@ -116,13 +117,16 @@
            arguments]}]
   (init-sql-dbs options)
   (init-crypto)
-  (binding [*parallel* true]
-    ((bound-fn []
-       (run-tests (->> (or (seq arguments) ["test"])
-                        symbolize-namespaces
-                        (mapcat find-tests)
-                        (filter (run? options)))
-                  (assoc options :thread-count (available-processors)))))))
+  (try
+    (binding [*parallel* true]
+      ((bound-fn []
+         (run-tests (->> (or (seq arguments) ["test"])
+                          symbolize-namespaces
+                          (mapcat find-tests)
+                          (filter (run? options)))
+                    (assoc options :thread-count (available-processors))))))
+    (finally
+      (halt-storage!))))
 
 (defn eftest
   [& args]
