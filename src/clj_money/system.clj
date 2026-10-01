@@ -65,3 +65,20 @@
   "Halts a running system."
   [system]
   (ig/halt! system))
+
+(defn with-components*
+  "Calls f with the storage, image storage and progress tracker factory of
+  the given system bound. Components missing from the system (or a nil
+  system) are left to their existing bindings."
+  [system f]
+  (binding [db/*storage* (or (::db/storage system) db/*storage*)
+            images/*storage* (or (::images/storage system) images/*storage*)
+            progress/*tracker-factory* (or (::progress/tracker-factory system)
+                                           progress/*tracker-factory*)]
+    (f)))
+
+(defmacro with-components
+  "Evaluates body with the components of the given system bound.
+  See with-components*."
+  [system & body]
+  `(with-components* ~system (fn [] ~@body)))

@@ -68,3 +68,16 @@
     (is (= [::system/env] (keys sys))
         "Only the specified keys are initialized")
     (system/halt sys)))
+
+(deftest bind-the-components-of-a-system
+  (is (= [::storage ::image-storage ::tracker-factory]
+         (system/with-components {::db/storage ::storage
+                                  ::images/storage ::image-storage
+                                  ::progress/tracker-factory ::tracker-factory}
+           [db/*storage* images/*storage* progress/*tracker-factory*]))
+      "The system's components are bound")
+  (is (= [::outer-storage nil nil]
+         (binding [db/*storage* ::outer-storage]
+           (system/with-components nil
+             [db/*storage* images/*storage* progress/*tracker-factory*])))
+      "Existing bindings are kept when there is no system"))

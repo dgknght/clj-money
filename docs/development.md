@@ -73,12 +73,18 @@ Start the backend REPL:
 lein repl
 ```
 
-Then start/stop the server from the REPL:
+Then manage the system (storage, image storage, progress tracking and the
+web server) from the REPL with [integrant.repl](https://github.com/weavejester/integrant-repl):
 
 ```clojure
-(start-server)
-(stop-server)
+(go)    ; start the system
+(reset) ; reload changed namespaces and restart the system
+(halt)  ; stop the system
 ```
+
+The helpers in `clj-money.repl` (`create-user`, `propagate-all`, etc.) use
+the running system's storage, or the configured defaults if the system has
+not been started.
 
 Compile and watch sass:
 
@@ -120,7 +126,7 @@ mise run caddy-setcap
 (This needs to be re-run any time the pinned `caddy` version in
 `mise.toml` changes, since the capability is tied to that specific binary.)
 
-With the app server running (`(start-server)`, above), start Caddy from the
+With the app server running (`(go)`, above), start Caddy from the
 project root:
 
 ```bash
@@ -147,7 +153,7 @@ The OTEL Java agent is downloaded by `mise run setup`. To use it:
 lein with-profile +otel repl
 ```
 
-Then start the server as usual with `(start-server)`.
+Then start the system as usual with `(go)`.
 
 ## Claude
 

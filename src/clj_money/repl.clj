@@ -3,6 +3,11 @@
             [clojure.java.io :as io]
             [clojure.string :as string]
             [reitit.core :as reitit]
+            [integrant.core :as ig]
+            ; referred for use at the REPL
+            #_{:clj-kondo/ignore [:unused-referred-var]}
+            [integrant.repl :refer [go halt reset]]
+            [integrant.repl.state :as state]
             [clj-money.web.handler :as h]
             [clj-money.system :as system]
             [clj-money.entities :as entities]
@@ -26,53 +31,47 @@
              "->"
              (class handler))))
 
-(def server (atom nil))
+; Use (go), (halt) and (reset) from integrant.repl to manage the system
+(integrant.repl/set-prep!
+  (fn []
+    (doto (system/config)
+      ig/load-namespaces)))
 
-(defn- server-port
-  [sys]
-  (-> (:clj-money.web/server sys)
-      .getConnectors
-      first
-      .getLocalPort))
-
-; Return a short summary rather than the system map, which is too large
-; to be useful when printed in the REPL
-(defn start-server []
-  (let [sys (reset! server (system/init))]
-    (format "System started, listening at http://localhost:%s"
-            (server-port sys))))
-
-(defn stop-server []
-  (system/halt @server)
-  (reset! server nil)
-  "System stopped")
+(defmacro ^:private with-system
+  "Evaluates body with the components of the running system bound, if the
+  system has been started with (go)."
+  [& body]
+  `(system/with-components state/system ~@body))
 
 (defn create-user
   [& {:as params}]
-  (try
-    (-> params
-        (select-keys [:first-name
-                      :last-name
-                      :email
-                      :password])
-        (util/qualify-keys :user)
-        entities/validate
-        entities/put)
-    (catch Exception e
-      (println "Unable to save the user: " (ex-message e))
-      (when-let [data (ex-data e)]
-        (pprint data)))))
+  (with-system
+    (try
+      (-> params
+          (select-keys [:first-name
+                        :last-name
+                        :email
+                        :password])
+          (util/qualify-keys :user)
+          entities/validate
+          entities/put)
+      (catch Exception e
+        (println "Unable to save the user: " (ex-message e))
+        (when-let [data (ex-data e)]
+          (pprint data))))))
 
 (defn set-password
   [& {:keys [email password]}]
-  (-> (entities/find-by {:user/email email})
-      (assoc :user/password password)
-      entities/put))
+  (with-system
+    (-> (entities/find-by {:user/email email})
+        (assoc :user/password password)
+        entities/put)))
 
 (defn propagate-all
   [entity-name]
-  (prop/propagate-all (entities/find-by {:entity/name entity-name})
-                      {}))
+  (with-system
+    (prop/propagate-all (entities/find-by {:entity/name entity-name})
+                        {})))
 
 (defn- find-account
   [names entity]
@@ -83,32 +82,36 @@
 
 (defn propagate-account
   [entity-name  & account-names]
-  (let [entity (entities/find-by {:entity/name entity-name})]
-    (trx/propagate-account-from-start
-      entity
-      (find-account account-names entity))))
+  (with-system
+    (let [entity (entities/find-by {:entity/name entity-name})]
+      (trx/propagate-account-from-start
+        entity
+        (find-account account-names entity)))))
 
 (defn propagate-prices
   [entity-name]
-  (prices/propagate-all (entities/find-by {:entity/name entity-name})
-                        {}))
+  (with-system
+    (prices/propagate-all (entities/find-by {:entity/name entity-name})
+                          {})))
 
 (defn propagate-attachments
   [entity-name]
-  (atts/propagate-all (entities/find-by {:entity/name entity-name})
-                      {}))
+  (with-system
+    (atts/propagate-all (entities/find-by {:entity/name entity-name})
+                        {})))
 
 (defn purge-entity
   "Completely and permanently removes the named entity and everything that
   depends on it. This is irreversible."
   [{:keys [entity-name user-email]}]
-  (if-let [e (entities/find-by {:entity/name entity-name
-                       :user/email user-email}
-                      {:type :entity})]
-    (entities/purge! e)
-    (println (format "Unable to find an entity named \"%s\" for user \"%s\""
-                     entity-name
-                     user-email))))
+  (with-system
+    (if-let [e (entities/find-by {:entity/name entity-name
+                                  :user/email user-email}
+                                 {:type :entity})]
+      (entities/purge! e)
+      (println (format "Unable to find an entity named \"%s\" for user \"%s\""
+                       entity-name
+                       user-email)))))
 
 (defn parse-performance-logs
   [path]
