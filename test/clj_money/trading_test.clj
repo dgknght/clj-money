@@ -117,7 +117,7 @@
                          (:trade/price result))
             "The price is returned")))))
 
-(deftest ^:multi-threaded propagate-a-purchase
+(deftest propagate-a-purchase
   (with-context base-context
     (let [personal (find-entity "Personal")
           ira (find-account "IRA")
@@ -137,7 +137,7 @@
                          (entities/find ira))
             "The trading account balance is updated to reflect money paid out")))))
 
-(deftest ^:multi-threaded purchase-a-commodity-with-a-fee
+(deftest purchase-a-commodity-with-a-fee
   (with-context base-context
     (let [ira (find-account "IRA")
           inv-exp (find-account "Investment Expenses")]
@@ -150,7 +150,7 @@
       (is (= 5M (:account/quantity (entities/find inv-exp)))
           "The investment expense account reflects the fee"))))
 
-(deftest ^:multi-threaded reinvest-a-dividend
+(deftest reinvest-a-dividend
   (with-context base-context
     (let [dividends (find-account "Dividends")
           ira (entities/find (find-account "IRA"))
@@ -266,7 +266,7 @@
                 {:transaction-item/account aapl-acc}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
-(deftest ^:multi-threaded propagate-a-sale
+(deftest propagate-a-sale
   (with-context sale-context
     (trading/sell-and-propagate (sale-attributes))
     (testing "The commodity account"
@@ -328,7 +328,7 @@
                                                        :commodity (find-commodity "AAPL")})}))
             "The commodity account is credited the number of shares and purchase value of the shares.")))))
 
-(deftest ^:multi-threaded sell-a-commodity-with-a-fee
+(deftest sell-a-commodity-with-a-fee
   (with-context sale-context
     (trading/sell-and-propagate
       (assoc (sale-attributes)
@@ -458,7 +458,7 @@
             (:trade/transactions result))
           "Gains from multiple lots are aggregated by category in the description"))))
 
-(deftest ^:multi-threaded undo-a-purchase
+(deftest undo-a-purchase
   (with-context sale-context
     (trading/unbuy-and-propagate
       (find-transaction [(t/local-date 2016 3 2)
@@ -499,7 +499,7 @@
 ;                      after purchase: $1,000
 ;                          after sale: $1,375
 ;                        after unsale: $1,000
-(deftest ^:multi-threaded undo-a-sale
+(deftest undo-a-sale
   (with-context existing-sale-context
     (let [trx (find-transaction [(t/local-date 2017 3 2)
                                  #"^Sell 25\.000 shares of AAPL"])
@@ -524,7 +524,7 @@
                   :entity "Personal"
                   :type :asset}))
 
-(deftest ^:multi-threaded transfer-a-commodity
+(deftest transfer-a-commodity
   (with-context transfer-context
     (let [from-account (find-account "IRA")
           to-account (find-account "IRA 2")
@@ -584,7 +584,7 @@
                          (entities/find to-account))
             "The account balance reflects the cash on hand before the transfer")))))
 
-(deftest ^:multi-threaded split-a-commodity
+(deftest split-a-commodity
   (with-context sale-context
     (let [entity (find-entity "Personal")
           ira (find-account "IRA")

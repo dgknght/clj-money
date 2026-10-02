@@ -206,7 +206,7 @@
             "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
             "fig:test"              ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]
-            "ptest"                 ["with-profile" "+test" "run" "-m" "clj-money.runner/eftest"]}
+            "prepare-test-dbs"      ["with-profile" "+test" "run" "-m" "clj-money.db.sql.tasks/prepare-test-dbs"]}
 
   :jvm-opts ["-Duser.timezone=UTC"
              "-Xmx2g"
@@ -221,14 +221,6 @@
                                    (= :datomic-peer (:strategy m)))
                    :sql (fn [m & _]
                           (= :sql (:strategy m)))
-                   :sql-multi (fn [m & _]
-                                (and (:multi-threaded m)
-                                     (= :sql (:strategy m))))
-                   :sql-single (fn [m & _]
-                                 (and (not (:multi-threaded m))
-                                      (= :sql (:strategy m))))
-                   :multi-threaded :multi-threaded
-                   :single-threaded (complement :multi-threaded)
                    :entities [(fn [n & _]
                                 (re-find #"^clj-money\.entities\." (name n)))
                               (constantly true)]
@@ -243,11 +235,11 @@
                                  #"clj-money.db.sql.tasks"
                                  #"clj-money.repl"
                                  #"clj-money.tasks"]}
-  :eftest {:multithread? :namespaces
-           :capture-output? false}
-  :profiles {:test {:dependencies [[peridot "0.5.4"]
-                                  [eftest "0.6.0"]]
-                    :resource-paths ^:replace ["env/test" "resources" "target"]}
+  :profiles {:test {:dependencies [[peridot "0.5.4"]]
+                    :resource-paths ^:replace ["env/test" "resources" "target"]
+                    ; Reports progress to bin/parallel-test (a no-op unless
+                    ; -Dtest.progress is set)
+                    :injections [(require 'clj-money.test-progress)]}
              :dev {:dependencies [[com.bhauman/figwheel-main
                                    "0.2.20"
                                    :exclusions

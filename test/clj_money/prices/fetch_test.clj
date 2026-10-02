@@ -56,7 +56,7 @@
   {:yahoo-api-key "yahoo-key"
    :alpha-vantage-api-key "alpha-key"})
 
-(deftest ^:eftest/synchronized fetch-prices-from-alpha-vantage
+(deftest fetch-prices-from-alpha-vantage
   (let [calls (atom {:alpha []
                      :yahoo []})]
     (with-redefs [alpha/get-quote (fn [symbol _api-key]
@@ -95,7 +95,7 @@
                   :exchange :nasdaq
                   :value 10M}])
 
-(deftest ^:eftest/synchronized get-quotes-cached-locally
+(deftest get-quotes-cached-locally
   (with-context cache-ctx
     (let [calls (atom {:alpha []
                        :yahoo []})]

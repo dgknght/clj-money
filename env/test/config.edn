@@ -27,7 +27,7 @@
  :mailer-host "testmailer.com"
  :partition-period :year
  :progress {:strategies {:redis {:clj-money.progress/strategy :clj-money.progress/redis
-                                 :prefix "test"
+                                 :prefix :config/redis-prefix
                                  :redis-config {:host :config/redis-host
                                                 :port 6379
                                                 :password :config/redis-password}}}
@@ -50,6 +50,7 @@
  :oauth-providers #{:google :github}
  :redis-host "localhost"
  :redis-password "please04"
+ :redis-prefix "test"
  :secret "test-secret-for-testing"
  :session-secret "test-session-key"
  :show-error-messages true

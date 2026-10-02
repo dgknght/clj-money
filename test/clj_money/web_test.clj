@@ -13,7 +13,7 @@
 
 (use-fixtures :each reset-db)
 
-(deftest ^:multi-threaded fetch-the-main-page
+(deftest fetch-the-main-page
   (let [logs (atom [])]
     (with-redefs [log/log* (fn [& args]
                              (swap! logs conj args))]

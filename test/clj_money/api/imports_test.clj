@@ -36,7 +36,7 @@
      :entity #:entity{:name (:import/entity-name imp)
                       :user (:import/user imp)}}))
 
-(deftest ^:multi-threaded a-user-can-create-an-import
+(deftest a-user-can-create-an-import
   (with-context create-context
     (let [source-file (io/file (io/resource "fixtures/sample.gnucash"))
           user (find-user "john@doe.com")
@@ -238,18 +238,18 @@
   (is (= 0 (count @calls))
       "No imports are started"))
 
-(deftest ^:eftest/synchronized a-user-can-start-his-import
+(deftest a-user-can-start-his-import
   (with-context list-context
     (testing "default format"
       (assert-successful-start (start-import "john@doe.com")))))
 
-(deftest ^:eftest/synchronized a-user-can-start-his-import-in-json-format
+(deftest a-user-can-start-his-import-in-json-format
   (with-context list-context
     (assert-successful-start
       (start-import "john@doe.com"
                     :content-type "application/json"))))
 
-(deftest ^:eftest/synchronized a-user-cannot-start-anothers-import
+(deftest a-user-cannot-start-anothers-import
   (with-context list-context
     (assert-blocked-start (start-import "jane@doe.com"))))
 

@@ -15,6 +15,7 @@
             [honey.sql.helpers :refer [select from where limit]]
             [clj-money.core]
             [clj-money.dates :as dates]
+            [clj-money.db :as db]
             [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
 (defn- sql-config []
@@ -148,6 +149,22 @@
   (let [ds (jdbc/get-datasource (assoc config :dbname user))]
     (println (format "Dropping database %s..." dbname))
     (jdbc/execute! ds [(format "DROP DATABASE IF EXISTS %s" dbname)])))
+
+(defn prepare-test-dbs
+  "Creates, migrates and partitions each named test database, so that test
+  shards can run in parallel against databases of their own. Databases that
+  already exist are migrated in place."
+  [& dbnames]
+  (doseq [dbname dbnames]
+    (db/assert-test-db! dbname)
+    (let [ddl-config (assoc (sql-ddl-config) :dbname dbname)]
+      (create (assoc (sql-adm-config) :dbname dbname) :silent true)
+      (migrate ddl-config)
+      (migrate-auxiliary ddl-config)
+      (create-partition-tables ddl-config
+                               (t/local-date 2015 1 1)
+                               (t/local-date 2017 12 31)
+                               {:silent true}))))
 
 (def ^:private check-transaction-balances-options
   [["-e" "--entity" "The entity for which balances are to be checked"

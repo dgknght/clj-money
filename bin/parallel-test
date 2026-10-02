@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Runs the server-side test suite as several `lein test` processes at once.
+# Each process (a shard) gets its own SQL database, money_<n>_test, because
+# every test resets its database, its own redis key prefix, test_<n>, because
+# the progress tests delete every key under the prefix, and its own JVM,
+# because tests with-redefs vars globally.
+#
+# Usage: bin/parallel-test [-n SHARDS]
+#
+# SHARDS defaults to 4. Each shard's output is written to
+# log/parallel-test-<n>.out and its application log to log/test-<n>.log.
+# While the shards run, a dot is printed for each finished test: green when
+# it passed, red when it failed (. and F when the output isn't a terminal).
+#
+# Configuration comes from env/test/config.edn, but environment variables
+# override it, so unset any SQL_* or DATOMIC_* variables that point at the
+# development database before running this.
+set -uo pipefail
+
+shards=4
+while getopts "n:" opt; do
+  case $opt in
+    n) shards=$OPTARG ;;
+    *) echo "Usage: $0 [-n SHARDS]" >&2; exit 2 ;;
+  esac
+done
+
+cd "$(dirname "$0")/.."
+mkdir -p log
+
+dbnames=()
+for ((k = 1; k <= shards; k++)); do
+  dbnames+=("money_${k}_test")
+done
+
+echo "Preparing ${dbnames[*]}..."
+if ! lein prepare-test-dbs "${dbnames[@]}" > log/parallel-test-prepare.out 2>&1; then
+  cat log/parallel-test-prepare.out >&2
+  echo "Unable to prepare the test databases" >&2
+  exit 1
+fi
+
+# Deal the namespaces out round-robin.
+mapfile -t namespaces < <(find test -name '*_test.clj' -o -name '*_test.cljc' \
+  | sed -e 's|^test/||' -e 's|\.cljc\?$||' -e 's|/|.|g' -e 's|_|-|g' \
+  | sort)
+declare -a assigned
+for i in "${!namespaces[@]}"; do
+  k=$((i % shards))
+  assigned[k]="${assigned[k]:-} ${namespaces[i]}"
+done
+
+pids=()
+for ((k = 1; k <= shards; k++)); do
+  progress="log/parallel-test-${k}.progress"
+  : > "$progress"
+  # shellcheck disable=SC2086 # the namespaces are meant to split into words
+  SQL_DB_NAME="money_${k}_test" \
+    REDIS_PREFIX="test_${k}" \
+    JVM_OPTS="-DLOG_FILE=log/test-${k}.log -Dtest.progress=${progress}" \
+    lein test ${assigned[k - 1]} > "log/parallel-test-${k}.out" 2>&1 &
+  pids+=($!)
+done
+
+# Each shard appends . or F to its progress file as each test finishes
+# (see clj-money.test-progress). Print whatever is new in those files.
+if [ -t 1 ]; then
+  colorize=(-e $'s/\\./\e[32m.\e[0m/g' -e $'s/F/\e[31m.\e[0m/g')
+else
+  colorize=(-e '')
+fi
+declare -a printed
+print_progress() {
+  local k size progress
+  for ((k = 1; k <= shards; k++)); do
+    progress="log/parallel-test-${k}.progress"
+    size=$(wc -c < "$progress")
+    if ((size > ${printed[k]:-0})); then
+      tail -c "+$((${printed[k]:-0} + 1))" "$progress" | head -c "$((size - ${printed[k]:-0}))" \
+        | sed "${colorize[@]}"
+      printed[k]=$size
+    fi
+  done
+}
+
+running=1
+while ((running)); do
+  running=0
+  for pid in "${pids[@]}"; do
+    if kill -0 "$pid" 2> /dev/null; then
+      running=1
+    fi
+  done
+  print_progress
+  ((running)) && sleep 0.5
+done
+echo
+
+status=0
+for ((k = 1; k <= shards; k++)); do
+  if ! wait "${pids[k - 1]}"; then
+    status=1
+  fi
+done
+
+for ((k = 1; k <= shards; k++)); do
+  out="log/parallel-test-${k}.out"
+  if [ $status -ne 0 ] && ! tail -2 "$out" | grep -q "0 failures, 0 errors"; then
+    echo "== Shard $k failed ($out) =="
+    grep -E -A20 "^(FAIL|ERROR) in" "$out" || tail -40 "$out"
+  fi
+  echo "Shard $k: $(grep -E '^Ran [0-9]+ tests' "$out") $(grep -E '^[0-9]+ failures' "$out")"
+done
+
+exit $status

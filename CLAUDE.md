@@ -15,8 +15,8 @@ This application is a web UI over a double-entry accounting system.
 - `lein repl` - open a repl, then `(go)`, `(reset)` and `(halt)` to manage
   the Integrant system (see the "Integrant System" wiki page)
 - `lein test` - Run the full test suite in serial mode
-- `lein ptest` - Run the full test suite in parallel mode (faster, but omits
-  some tests)
+- `bin/parallel-test -n 4` - Run the full test suite in parallel processes,
+  each with its own database (faster; see `docs/testing.md`)
 - `clj-kondo --lint src:test` - Run the linter
 - `lein fig:build` - Build the client app and start a repl
 - `lein fig:test` - Run the client tests (don't execuite if a client repl is active)

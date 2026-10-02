@@ -389,7 +389,7 @@
     (let [{:as response} (get-previous-balance "jane@doe.com")]
       (is (http-not-found? response)))))
 
-(deftest ^:multi-threaded a-database-error-produces-a-parseable-500-response
+(deftest a-database-error-produces-a-parseable-500-response
   (with-context recon-context
     (with-redefs [entities/select (fn [& _]
                                     (throw (Exception. "simulated database error")))]

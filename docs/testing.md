@@ -11,8 +11,23 @@ lein test
 Parallel
 
 ```bash
-lein ptest
+bin/parallel-test -n 4
 ```
+
+`bin/parallel-test` deals the test namespaces out round-robin to several
+`lein test` processes (shards, 4 by default). Each shard runs in its own JVM
+against its own SQL database (`money_<n>_test`, created and migrated by
+`lein prepare-test-dbs`) and its own redis key prefix (`test_<n>`), so tests
+that `with-redefs` or reset shared state can't interfere with one another.
+A dot is printed as each test finishes (green for passing, red for failing).
+Each shard's output goes to `log/parallel-test-<n>.out` and its application
+log to `log/test-<n>.log`; failures are summarized at the end.
+
+Cloverage can only measure a single process, so CI runs `bin/parallel-test`
+on every push and checks coverage nightly with `lein cloverage`.
+
+Environment variables override `env/test/config.edn`, so unset any `SQL_*`
+or `DATOMIC_*` variables pointing at the development database first.
 
 Target a data storage strategy
 
@@ -37,9 +52,8 @@ Specify a strategy for a single test
 strategy) bind `clj-money.db/*storage*` to a storage instance created by the
 `:clj-money.db/storage` Integrant component and reset its data before the
 test body runs. Each storage instance is initialized the first time it's
-needed and reused by every later test against the same database. Under
-`lein ptest`, each thread index gets its own database, and therefore its own
-instance. All instances are halted at the end of the run.
+needed and reused by every later test against the same database. All
+instances are halted when the JVM shuts down.
 
 The external service functions (mailer, HoneyBadger, auth tokens, OAuth
 profiles and price APIs) take their configuration as an argument, so tests

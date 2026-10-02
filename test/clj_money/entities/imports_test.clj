@@ -110,7 +110,7 @@
                                         :original-filename "sample_with_commodities.gnucash"}))
             "The image record is preserved")))))
 
-(dbtest ^:multi-threaded propagate-import-deletion
+(dbtest propagate-import-deletion
   (with-context delete-context
     (let [user (find-user "john@doe.com")]
       (testing "deleting an import deletes the associated files"

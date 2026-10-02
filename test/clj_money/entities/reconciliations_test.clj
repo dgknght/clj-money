@@ -650,7 +650,7 @@
   (with-context working-recon-context
     (assert-deleted (find-reconciliation ["Checking" (t/local-date 2017 1 3)]))))
 
-(dbtest ^:multi-threaded propagate-reconciliation-deletion
+(dbtest propagate-reconciliation-deletion
   (with-context working-recon-context
     (let [recon (entities/find
                   (find-reconciliation
@@ -671,7 +671,7 @@
       (is (entities/find recon)
           "The reconciliation can still be retrieved"))))
 
-(dbtest ^:multi-threaded a-failed-attempt-to-delete-does-not-propagate
+(dbtest a-failed-attempt-to-delete-does-not-propagate
   (with-context working-recon-context
     (let [recon (entities/find
                   (find-reconciliation

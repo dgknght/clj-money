@@ -62,10 +62,10 @@ jobs:
         run: lein fig:test
         env:
           SESSION_SECRET: ci-secret-16byte
-      - name: Set up the database
-        run: lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
+      # Coverage is checked nightly by coverage.yml, since cloverage can only
+      # measure a single process.
       - name: Run tests
-        run: lein cloverage
+        run: bin/parallel-test -n 2
         env:
           REDIS_PASSWORD: ""
           SESSION_SECRET: ci-secret-16byte

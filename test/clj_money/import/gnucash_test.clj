@@ -33,14 +33,14 @@
                  :let [actual (get-in result [k])]]
              (is (= expected actual) (str "Incorrect results for " k))))))
 
-(deftest ^:multi-threaded read-gnucash-source-with-budget
+(deftest read-gnucash-source-with-budget
   (execute-test "resources/fixtures/gnucash_test/budget.edn"))
 
-(deftest ^:multi-threaded read-gnucash-source-with-commodities
+(deftest read-gnucash-source-with-commodities
   (execute-test "resources/fixtures/gnucash_test/commodities.edn"))
 
-(deftest ^:multi-threaded read-gnucash-source-with-trading-actions
+(deftest read-gnucash-source-with-trading-actions
   (execute-test "resources/fixtures/gnucash_test/commodities_ext.edn"))
 
-(deftest ^:multi-threaded read-gnucash-source-with-scheduled-transactions
+(deftest read-gnucash-source-with-scheduled-transactions
   (execute-test "resources/fixtures/gnucash_test/scheduled_transactions.edn"))

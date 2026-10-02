@@ -8,16 +8,10 @@
             [clj-money.decimal :as d]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.threading :refer [thread-db-index
-                                         thread-specific-config
-                                         with-db-lock]]
             [clj-money.entities :as entities]))
 
-(def ^:dynamic *parallel* false)
-
 ; Storage systems, keyed by db config, initialized on first use and
-; reused by every subsequent test against the same database. In parallel
-; mode each thread index has its own config, and therefore its own system.
+; reused by every subsequent test against the same database.
 (def ^:private systems (atom {}))
 
 (defn- test-storage
@@ -43,23 +37,14 @@
   (.addShutdownHook (Runtime/getRuntime)
                     (Thread. ^Runnable halt-storage!)))
 
-(defn- call-with-storage
+(defn with-test-storage
+  "Resets the storage for the given db config and invokes f with that
+  storage bound."
   [config f]
   (let [storage (test-storage config)]
     (binding [db/*storage* storage]
       (db/reset storage)
       (f))))
-
-(defn with-test-storage
-  "Resets the storage for the given db config and invokes f with that
-  storage bound. In parallel mode, the config is adjusted for the
-  current thread's database, which is locked for the duration of f."
-  [config f]
-  (if *parallel*
-    (let [idx (thread-db-index)]
-      (with-db-lock idx
-        (call-with-storage (thread-specific-config config idx) f)))
-    (call-with-storage config f)))
 
 (defn reset-db
   "Deletes all records from all tables in the active database prior to

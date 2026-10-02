@@ -182,11 +182,11 @@
                            :lt-capital-loss-account "Investment/Long-Term Losses"
                            :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
-(deftest ^:multi-threaded import-a-simple-gnucash-file
+(deftest import-a-simple-gnucash-file
   (with-context gnucash-context
     (test-import)))
 
-(deftest ^:multi-threaded track-import-progress
+(deftest track-import-progress
   (with-context gnucash-context
     (let [state (atom {})
           tracker (reify prog/Tracker
@@ -222,7 +222,7 @@
         (is (= 1 (increment :finalize-reconciliation))
             "Reconciliation finalization count is incremented 1 time")))))
 
-(deftest ^:multi-threaded halt-on-failure
+(deftest halt-on-failure
   (with-context gnucash-context
     (let [og-put-many entities/put-many]
       (with-redefs [entities/put-many (fn [& args]
@@ -270,7 +270,7 @@
                  :images ["sample_0.edn.gz" "sample_1.edn.gz"]
                  :options {:lt-capital-gains-account "Investment/Long-Term Gains"}}))
 
-(deftest ^:multi-threaded import-a-simple-edn-file
+(deftest import-a-simple-edn-file
   (with-context edn-context
     (test-import)))
 

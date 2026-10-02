@@ -103,7 +103,7 @@
   (with-context base-context
     (assert-created (attributes))))
 
-(dbtest ^:multi-threaded create-and-propagate-a-transaction
+(dbtest create-and-propagate-a-transaction
         (with-context base-context
           (let [date (t/local-date 2016 3 2)]
             (prop/put-and-propagate (attributes))
@@ -208,7 +208,7 @@
                       :credit-account "Checking"
                       :quantity 100M}))
 
-(dbtest ^:multi-threaded insert-transaction-before-the-end
+(dbtest insert-transaction-before-the-end
   (with-context insert-context
     (prop/put-and-propagate
       #:transaction{:transaction-date (t/local-date 2016 3 3)
@@ -240,7 +240,7 @@
                   :entity "Personal"
                   :commodity "USD"}))
 
-(dbtest ^:multi-threaded create-a-transaction-with-multiple-items-for-one-account
+(dbtest create-a-transaction-with-multiple-items-for-one-account
   (with-context multi-context
     (prop/put-and-propagate
       #:transaction{:transaction-date (t/local-date 2016 3 2)
@@ -306,7 +306,7 @@
                                       :transaction-item/action]))))
         "The corresponding account items are removed.")))
 
-(dbtest ^:multi-threaded delete-and-propagate-a-transaction
+(dbtest delete-and-propagate-a-transaction
   (with-context delete-context
     (let [checking-items-before (items-by-account "Checking")
           trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])]
@@ -444,7 +444,7 @@
                          {:sort [[:transaction/transaction-date :asc]]}))
         "The transactions from the specified date range are returned")))
 
-(dbtest ^:multi-threaded update-a-transaction-change-quantity
+(dbtest update-a-transaction-change-quantity
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
@@ -482,7 +482,7 @@
                                                  :quantity 1000M
                                                  :memo "conf # 123"}]}))
 
-(dbtest ^:multi-threaded update-a-transaction-with-wholesale-item-replacement
+(dbtest update-a-transaction-with-wholesale-item-replacement
   ; Reproduces #127: the receipts view rebuilds :transaction/items from
   ; scratch on edit (clj-money.receipts/->transaction), so the items sent
   ; to an update carry no :id and explicitly set previously-populated
@@ -510,7 +510,7 @@
                   (map :transaction-item/memo)))
           "The memo is cleared on the replacement items"))))
 
-(dbtest ^:multi-threaded update-a-transaction-change-date
+(dbtest update-a-transaction-change-date
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
@@ -723,7 +723,7 @@
 ; 2016-03-23     103  Groceries Checking
 ; 2016-03-30     104  Groceries Checking
 
-(deftest ^:multi-threaded update-a-transaction-short-circuit-propagation
+(deftest update-a-transaction-short-circuit-propagation
   (let [storage (-> env
                     (get-in [:db :strategies :datomic-peer])
                     (db/reify-storage)
@@ -804,7 +804,7 @@
                       :credit-account "Checking"
                       :quantity 103M}))
 
-(dbtest ^:multi-threaded update-a-transaction-change-account
+(dbtest update-a-transaction-change-account
   (with-context change-account-context
     (let [[rent
            groceries] (find-accounts "Rent" "Groceries")]
@@ -857,7 +857,7 @@
                       :credit-account "Checking"
                       :quantity 101M}))
 
-(dbtest ^:multi-threaded update-a-transaction-change-action
+(dbtest update-a-transaction-change-action
   (with-context change-action-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
@@ -936,7 +936,7 @@
                       :credit-account "Checking"
                       :quantity 101M}))
 
-(dbtest ^:multi-threaded update-a-transaction-remove-item
+(dbtest update-a-transaction-remove-item
   (with-context add-remove-item-context
     (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
         (assoc-in [:transaction/items
@@ -974,7 +974,7 @@
       (is (empty? (entities/select {:transaction-item/account pets}))
           "The debit account items reflect the removal"))))
 
-(dbtest ^:multi-threaded update-a-transaction-add-item
+(dbtest update-a-transaction-add-item
   (with-context add-remove-item-context
     (let [[pets
            groceries
