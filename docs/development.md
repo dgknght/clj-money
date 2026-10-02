@@ -160,6 +160,7 @@ Dependencies are kept current via [Renovate](https://github.com/apps/renovate). 
 - Clojure dependencies (`project.clj`) — grouped into a single PR
 - Tool versions (`mise.toml`) — grouped into a single PR
 - Docker image versions (`docker-compose.yaml`) — one PR per image
+- Java — `mise.toml`, the `java-version` input in `.forgejo/workflows/*.yml`, and the `temurin-<major>` image tag in the `Dockerfile` are grouped into a single PR so they stay in step (the latter two via custom regex managers)
 
 To activate Renovate on a new fork or installation, install the [Renovate GitHub App](https://github.com/apps/renovate) and grant it access to this repository.
 

@@ -5,6 +5,28 @@
   ],
   "timezone": "America/Chicago",
   "schedule": ["before 9am on Monday"],
+  "customManagers": [
+    {
+      "description": "Update the Java major version passed to setup-clojure in CI workflows",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.forgejo/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["java-version:\\s*['\"]?(?<currentValue>\\d+)['\"]?"],
+      "depNameTemplate": "java",
+      "packageNameTemplate": "java-jdk",
+      "datasourceTemplate": "java-version",
+      "extractVersionTemplate": "^(?<version>\\d+)"
+    },
+    {
+      "description": "Update the Java major version embedded in the clojure image tag in the Dockerfile",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": ["clojure:temurin-(?<currentValue>\\d+)-lein"],
+      "depNameTemplate": "java",
+      "packageNameTemplate": "java-jdk",
+      "datasourceTemplate": "java-version",
+      "extractVersionTemplate": "^(?<version>\\d+)"
+    }
+  ],
   "packageRules": [
     {
       "description": "Group Clojure dependency updates into a single PR",
@@ -16,6 +38,12 @@
       "description": "Group mise tool version updates",
       "matchManagers": ["mise"],
       "groupName": "mise tools"
+    },
+    {
+      "description": "Keep Java in step across mise.toml, CI workflows, and the Dockerfile",
+      "matchManagers": ["mise", "custom.regex"],
+      "matchDepNames": ["java"],
+      "groupName": "Java"
     },
     {
       "description": "Ignore custom internal Docker images",
