@@ -12,7 +12,8 @@ This application is a web UI over a double-entry accounting system.
 
 ## Commands
 
-- `lein repl` - open a repl
+- `lein repl` - open a repl, then `(go)`, `(reset)` and `(halt)` to manage
+  the Integrant system (see the "Integrant System" wiki page)
 - `lein test` - Run the full test suite in serial mode
 - `lein ptest` - Run the full test suite in parallel mode (faster, but omits
   some tests)

@@ -29,6 +29,15 @@ resources/
 test/clj_money/        # Mirrors src structure, _test suffix
 ```
 
+## Integrant System
+
+`clj-money.system` defines the server's components (storage, image storage,
+progress tracker factory, external service config, web handler and web
+server) as an Integrant system. Storage-like components reach the code
+through dynamic vars bound per request, by `system/with-components` and by the
+test harness. The service config is passed explicitly: request handlers get
+it with `clj-money.web.system/component`. See the "Integrant System" wiki page (https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System).
+
 ## Dual-Storage Model
 
 SQL and Datomic are both supported simultaneously. Tests run against both via

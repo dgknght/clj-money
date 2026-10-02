@@ -84,7 +84,8 @@ service configuration and the web server) from the REPL with [integrant.repl](ht
 
 The helpers in `clj-money.repl` (`create-user`, `propagate-all`, etc.) use
 the running system's storage, or the configured defaults if the system has
-not been started.
+not been started. See [The Integrant system](https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System) for the system's
+components and how they depend on each other.
 
 Compile and watch sass:
 
@@ -150,6 +151,7 @@ halts them (closing connection pools) afterward:
 
 The SQL migration, database creation and partitioning tasks, and the Datomic
 schema task, connect with the DDL or admin credentials on their own instead.
+See [The Integrant system](https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System#lein-tasks).
 
 ## Dependency Updates
 

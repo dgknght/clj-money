@@ -13,7 +13,7 @@ to strong, unique values before deploying to a production environment:
 | `:sql-adm-password` | PostgreSQL admin user password |
 | `:sql-app-password` | PostgreSQL application user password |
 | `:sql-ddl-password` | PostgreSQL DDL user password |
-| `:alpha-vantage-key` | Alpha Vantage API key for price data |
+| `:alpha-vantage-api-key` | Alpha Vantage API key for price data |
 
 These can be supplied via `env/docker/config.edn` or overridden with
 environment variables (e.g. `SESSION_SECRET`, `SECRET`, `REDIS_PASSWORD`).
@@ -29,7 +29,8 @@ initializes the whole Integrant system, including the Jetty server, which
 listens on the port given as the first argument, the `:port` config value
 (`PORT`), or 3000. A JVM shutdown hook halts the system, so on `SIGTERM` the
 web server is stopped and the database, image storage and Redis connection
-pools are closed.
+pools are closed. See [The Integrant system](https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System) for the components
+that are started.
 
 ## SQL Connection Pool
 

@@ -50,6 +50,7 @@ See more at [ERD.md](ERD.md)
 - [Development mode](docs/development.md) — tools, setup, running the app locally
 - [Running with Docker (Podman)](docs/docker.md) — container stack configuration
 - [Production configuration](docs/production.md) — required secrets and config keys
+- [The Integrant system](https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System) (wiki) — system components, REPL, tasks and test entry points
 - [Testing](docs/testing.md) — running server and client test suites
 
 ## License
