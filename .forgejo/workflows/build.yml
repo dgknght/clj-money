@@ -11,8 +11,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      SQL_HOST: postgres
-      REDIS_HOST: redis
+      # env/test/config.edn ignores environment variables, so override it
+      # with JVM system properties
+      JVM_OPTS: -Dsql.host=postgres -Dredis.host=redis -Dredis.password= -Dsession.secret=ci-secret-16byte
     services:
       postgres:
         image: postgres:18
@@ -66,9 +67,6 @@ jobs:
       # measure a single process.
       - name: Run tests
         run: bin/parallel-test -n 2
-        env:
-          REDIS_PASSWORD: ""
-          SESSION_SECRET: ci-secret-16byte
 
   tag:
     needs: test

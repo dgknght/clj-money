@@ -12,9 +12,9 @@
 # While the shards run, a dot is printed for each finished test: green when
 # it passed, red when it failed (. and F when the output isn't a terminal).
 #
-# Configuration comes from env/test/config.edn, but environment variables
-# override it, so unset any SQL_* or DATOMIC_* variables that point at the
-# development database before running this.
+# Configuration comes from env/test/config.edn. Environment variables don't
+# override it; pass JVM system properties in JVM_OPTS instead (e.g.
+# JVM_OPTS="-Dsql.host=postgres"). Each shard adds its own to them.
 set -uo pipefail
 
 shards=4
@@ -55,9 +55,7 @@ for ((k = 1; k <= shards; k++)); do
   progress="log/parallel-test-${k}.progress"
   : > "$progress"
   # shellcheck disable=SC2086 # the namespaces are meant to split into words
-  SQL_DB_NAME="money_${k}_test" \
-    REDIS_PREFIX="test_${k}" \
-    JVM_OPTS="-DLOG_FILE=log/test-${k}.log -Dtest.progress=${progress}" \
+  JVM_OPTS="${JVM_OPTS:-} -Dsql.db.name=money_${k}_test -Dredis.prefix=test_${k} -DLOG_FILE=log/test-${k}.log -Dtest.progress=${progress}" \
     lein test ${assigned[k - 1]} > "log/parallel-test-${k}.out" 2>&1 &
   pids+=($!)
 done

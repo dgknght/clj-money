@@ -32,3 +32,27 @@
               (config/process {:some-value :config/deliberately-nil
                                :deliberately-nil nil})))
       "An explicit nil value is allowed"))
+
+(deftest protect-config-file-values-from-environment-variables
+  (let [file-config {:env-var-overrides? false
+                     :sql-host "localhost"
+                     :sql-db-name "money_test"
+                     :sql-app-user "app_user"}
+        merged (assoc file-config
+                      :sql-host "sql"
+                      :sql-db-name "money_1_test"
+                      :sql-app-user "dev_user"
+                      :home "/home/me")
+        system-props {:sql-db-name "money_1_test"}]
+    (is (= {:env-var-overrides? false
+            :sql-host "localhost"
+            :sql-db-name "money_1_test"
+            :sql-app-user "app_user"
+            :home "/home/me"}
+           (config/protect-file-config merged file-config system-props))
+        "Config file values beat environment variables, but not system properties")
+    (is (= merged
+           (config/protect-file-config merged
+                                       (dissoc file-config :env-var-overrides?)
+                                       system-props))
+        "Environment variables win when the config file doesn't opt out")))

@@ -26,8 +26,23 @@ log to `log/test-<n>.log`; failures are summarized at the end.
 Cloverage can only measure a single process, so CI runs `bin/parallel-test`
 on every push and checks coverage nightly with `lein cloverage`.
 
-Environment variables override `env/test/config.edn`, so unset any `SQL_*`
-or `DATOMIC_*` variables pointing at the development database first.
+### Test configuration
+
+Tests are configured by `env/test/config.edn`. Unlike the other
+environments, it sets `:env-var-overrides? false`, so environment variables
+(such as a shell's `SQL_*` exports pointing at the development database)
+can't replace its values. Override a value with a JVM system property
+instead, usually through `JVM_OPTS`:
+
+```bash
+JVM_OPTS="-Dsql.host=postgres -Dredis.host=redis" lein test
+```
+
+System property names are converted to config keys by lower-casing them and
+replacing `.` and `_` with `-` (`sql.db.name` → `:sql-db-name`).
+`bin/parallel-test` adds each shard's `-Dsql.db.name` and `-Dredis.prefix` to
+whatever `JVM_OPTS` already holds, and CI sets the database and redis hosts
+this way.
 
 Target a data storage strategy
 

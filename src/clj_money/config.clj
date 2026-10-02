@@ -34,4 +34,17 @@
                 x))
             config))
 
-(def env (process cfg/env))
+(defn protect-file-config
+  "Returns the merged configuration with the values from the config file
+  restored over any environment variables that replaced them, if the
+  config file sets :env-var-overrides? to false. JVM system properties still
+  override everything. This keeps a shell that exports the development
+  settings from pointing the tests at the development database."
+  [merged file-config system-props]
+  (if (false? (:env-var-overrides? file-config))
+    (cfg/merge-maps merged file-config system-props)
+    merged))
+
+(def env (process (protect-file-config cfg/env
+                                       (cfg/read-config-file "config.edn")
+                                       (cfg/read-system-props))))

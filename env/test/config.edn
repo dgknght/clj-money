@@ -1,4 +1,9 @@
-{:allow-unbounded-queries true
+{; Keep the shell's environment variables (e.g. the development database
+ ; settings) from overriding these values. Use JVM system properties
+ ; (-Dsql.host=..., usually via JVM_OPTS) to override them instead.
+ ; See docs/testing.md.
+ :env-var-overrides? false
+ :allow-unbounded-queries true
  :application-name "clj-money"
  :db {:strategies {:sql
                    {:clj-money.db/strategy :clj-money.db/sql

@@ -12,8 +12,9 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     env:
-      SQL_HOST: postgres
-      REDIS_HOST: redis
+      # env/test/config.edn ignores environment variables, so override it
+      # with JVM system properties
+      JVM_OPTS: -Dsql.host=postgres -Dredis.host=redis -Dredis.password= -Dsession.secret=ci-secret-16byte
     services:
       postgres:
         image: postgres:18
@@ -61,6 +62,3 @@ jobs:
         run: lein with-profile +test do create-sql, migrate, migrate-auxiliary, partition 2015-01-01 2017-12-31
       - name: Run tests
         run: lein cloverage
-        env:
-          REDIS_PASSWORD: ""
-          SESSION_SECRET: ci-secret-16byte
