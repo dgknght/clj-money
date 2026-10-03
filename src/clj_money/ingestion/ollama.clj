@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [cheshire.core :as json]
+            [lambdaisland.uri :as uri]
             [clj-http.client :as http]
             [clj-money.ingestion :as ing])
   (:import java.util.Base64))
@@ -12,18 +13,31 @@
     (.encodeToString (Base64/getEncoder)
                      (.readAllBytes input))))
 
+(defn- url
+  [{:keys [host
+           port
+           scheme]
+    :or {host "localhost"
+         port 11434
+         scheme "http"}}]
+  (-> (uri/parse "/api/generate")
+      (assoc :host host
+             :port port
+             :scheme scheme)
+      uri/uri-str))
+
 (defn- read-receipt*
-  [source {:keys [model] :or {model  "qwen2.5vl:7b"}}]
+  [source {:as opts :keys [model] :or {model  "qwen2.5vl:7b"}}]
   (let [req {:content-type "application/json"
              :accept "application/json"
              :as :json
              :body (json/generate-string
                      {:model model
-                      :prompt "Describe this image"
+                      :prompt "This is a purchase receipt. Extract the date, location, payment method, and total amount."
                       :stream false
                       :format "json"
                       :images [(->base64 source)]})}
-        {:keys [status body]} (http/post "http://localhost:11434/api/generate"
+        {:keys [status body]} (http/post (url opts)
                                          req)]
     (if (<= 200 status 299)
       body
