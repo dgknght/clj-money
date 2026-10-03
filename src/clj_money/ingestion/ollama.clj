@@ -23,13 +23,8 @@
                       :stream false
                       :format "json"
                       :images [(->base64 source)]})}
-        {:keys [status body]} (try
-                                (http/post "http://localhost:11434/api/generate"
-                                         req)
-                                (catch Exception e
-                                  (pprint {:error (ex-message e)
-                                           :data (ex-data e)
-                                           :stack (mapv str (.getStackTrace e))})))]
+        {:keys [status body]} (http/post "http://localhost:11434/api/generate"
+                                         req)]
     (if (<= 200 status 299)
       body
       (throw (ex-info "Error accessing the ollama service." {:source source})))))
