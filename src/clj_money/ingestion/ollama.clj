@@ -8,13 +8,7 @@
 
 (defn- ->base64
   [input]
-
-  (pprint {::->base64 input})
-
   (let [input (io/input-stream input)]
-
-    (pprint {::input input})
-
     (.encodeToString (Base64/getEncoder)
                      (.readAllBytes input))))
 
@@ -25,15 +19,17 @@
              :as :json
              :body (json/generate-string
                      {:model model
-                      :messages [{:role "user"
-                                  :content [{:type "text"
-                                             :text "Describe this image."}
-                                            {:type "image_url"
-                                             :image_url {:url "gt"}}]
-                                  }]
+                      :prompt "Describe this image"
+                      :stream false
+                      :format "json"
                       :images [(->base64 source)]})}
-        {:keys [status body]} (http/post "http://localhost:11434/v1/chat/completions"
-                                         req)]
+        {:keys [status body]} (try
+                                (http/post "http://localhost:11434/api/generate"
+                                         req)
+                                (catch Exception e
+                                  (pprint {:error (ex-message e)
+                                           :data (ex-data e)
+                                           :stack (mapv str (.getStackTrace e))})))]
     (if (<= 200 status 299)
       body
       (throw (ex-info "Error accessing the ollama service." {:source source})))))

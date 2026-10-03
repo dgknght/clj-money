@@ -114,7 +114,42 @@ Datomic Peer
 podman-compose --profile datomic-peer up
 ```
 
+AI (ollama, for reading receipts)
+
+```bash
+podman-compose --profile ai up
+```
+
+The first run downloads the `qwen2.5vl:7b` model (about 6 GB) into the
+`ollama-data` volume.
+
 Then run the app as described in [Development mode](development.md).
+
+### GPU acceleration for ollama
+
+By default ollama runs on the CPU. On a Linux host with an Intel or AMD GPU
+and Mesa's Vulkan drivers, opt in to GPU acceleration by linking the GPU
+overrides into place:
+
+```bash
+ln -s docker-compose.gpu.yaml docker-compose.override.yaml
+podman-compose --profile ai up -d --no-deps --force-recreate ollama ollama-pull-model
+```
+
+Both services have to be named: Podman won't remove the ollama container
+while `ollama-pull-model` still depends on it, and podman-compose then
+silently restarts the old container instead of recreating it.
+
+`docker-compose.override.yaml` is gitignored and loaded automatically. Don't
+do this on hosts without `/dev/dri` (macOS, headless servers), where the
+ollama container would fail to start. Confirm the GPU was detected with:
+
+```bash
+podman logs clj-money_ollama_1 2>&1 | grep 'inference compute'
+```
+
+A line with `library=vulkan` means the GPU is in use; `library=cpu` alone
+means it fell back to the CPU.
 
 ## Upgrading PostgreSQL (major version)
 
