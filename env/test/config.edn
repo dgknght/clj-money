@@ -1,7 +1,7 @@
 {; Keep the shell's environment variables (e.g. the development database
  ; settings) from overriding these values. Use JVM system properties
  ; (-Dsql.host=..., usually via JVM_OPTS) to override them instead.
- ; See docs/testing.md.
+ ; See https://git.dgknght.com/dgknght/clj-money/wiki/Testing
  :env-var-overrides? false
  :allow-unbounded-queries true
  :application-name "clj-money"
