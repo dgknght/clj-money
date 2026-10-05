@@ -12,6 +12,9 @@
             [clj-money.system :as system]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
+            [clj-money.ingestion :as ing]
+            [clj-money.ingestion.ref]
+            [clj-money.db :as db]
             [clj-money.entities.attachments :as atts]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
@@ -151,3 +154,10 @@
                                               (map :stack)
                                               frequencies)})))
        (sort-by (comp :average second) >)))
+
+(defn read-receipt
+  [source entity]
+  (system/with-system [sys [::ing/reader ::db/storage]]
+    (let [{::ing/keys [reader]} sys
+          result (ing/read-receipt reader source entity)]
+      (pprint result))))

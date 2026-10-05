@@ -35,11 +35,7 @@
   {:model model
    :prompt (rcpts/prompt entity)
    :stream false
-   :format (let [x (rcpts/schema entity)]
-
-             (pprint {::schema x})
-
-             x)
+   :format (rcpts/schema entity)
    :options {:temperature 0
              :num_ctx num-ctx}
    :images [image]})
@@ -77,4 +73,5 @@
       [_ source entity]
       (read-receipt* source
                      entity
-                     config))))
+                     config))
+    (close [_] (println "shut down the ingestion component."))))
