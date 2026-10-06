@@ -43,15 +43,17 @@ erDiagram
   }
 ```
 
-See more at [ERD.md](ERD.md)
+See more at [Entity Relationship Diagram](https://git.dgknght.com/dgknght/clj-money/wiki/Entity-Relationship-Diagram) (wiki)
 
 ## Documentation
 
-- [Development mode](docs/development.md) — tools, setup, running the app locally
-- [Running with Docker (Podman)](docs/docker.md) — container stack configuration
-- [Production configuration](docs/production.md) — required secrets and config keys
-- [The Integrant system](https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System) (wiki) — system components, REPL, tasks and test entry points
-- [Testing](docs/testing.md) — running server and client test suites
+Documentation lives in the [wiki](https://git.dgknght.com/dgknght/clj-money/wiki):
+
+- [Development mode](https://git.dgknght.com/dgknght/clj-money/wiki/Development-Mode) — tools, setup, running the app locally
+- [Running with Docker (Podman)](https://git.dgknght.com/dgknght/clj-money/wiki/Running-with-Docker) — container stack configuration
+- [Production configuration](https://git.dgknght.com/dgknght/clj-money/wiki/Production-Configuration) — required secrets and config keys
+- [The Integrant system](https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System) — system components, REPL, tasks and test entry points
+- [Testing](https://git.dgknght.com/dgknght/clj-money/wiki/Testing) — running server and client test suites
 
 ## License
 

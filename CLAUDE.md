@@ -16,7 +16,8 @@ This application is a web UI over a double-entry accounting system.
   the Integrant system (see the "Integrant System" wiki page)
 - `lein test` - Run the full test suite in serial mode
 - `bin/parallel-test -n 4` - Run the full test suite in parallel processes,
-  each with its own database (faster; see `docs/testing.md`)
+  each with its own database (faster; see the "Testing" wiki page,
+  https://git.dgknght.com/dgknght/clj-money/wiki/Testing)
 - `clj-kondo --lint src:test` - Run the linter
 - `lein fig:build` - Build the client app and start a repl
 - `lein fig:test` - Run the client tests (don't execuite if a client repl is active)
@@ -37,7 +38,10 @@ directly.
 ## Guidelines
 
 - After making changes:
-  - Review the documentation and ensure that it is up-to-date.
+  - Review the documentation and ensure that it is up-to-date. User-facing
+    documentation lives in the Forgejo wiki
+    (https://git.dgknght.com/dgknght/clj-money/wiki), documentation for Claude lives
+    in `.claude/`, and README files stay with the code.
   - Run unit tests with code coverage to ensure all tests pass
     and coverage has not slipped below the configured minimum.
 - Use [Conventional Commit](https://www.conventionalcommits.org/) messages

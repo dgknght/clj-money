@@ -43,8 +43,8 @@ it with `clj-money.web.system/component`. See the "Integrant System" wiki page (
 SQL and Datomic are both supported simultaneously. Tests run against both via
 the `dbtest` macro, which iterates over all configured strategies. API tests
 use the `reset-db` fixture and run against the active strategy only. Both
-reuse one Integrant-managed storage instance per test database (see
-`docs/testing.md`).
+reuse one Integrant-managed storage instance per test database (see the
+"Testing" wiki page, https://git.dgknght.com/dgknght/clj-money/wiki/Testing).
 
 ## Entity Attribute Naming
 
