@@ -84,3 +84,7 @@
      "When selecting an expense account, following these guidelines:"
      "- If the merchant is a restaurant, prefer \"Dining\" over the \"Groceries\" accounts"
      "- If the merchant is a market or big box store, prefer \"Groceries\" accounts over \"Dining\""]))
+
+(defn make-trx
+  [_result _entity]
+  {})
