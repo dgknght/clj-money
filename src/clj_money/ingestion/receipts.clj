@@ -1,6 +1,9 @@
 (ns clj-money.ingestion.receipts
   (:require [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
+            [dgknght.app-lib.core :refer [index-by]]
+            [clj-money.decimal :as d]
             [clj-money.entities :as ents]
             [clj-money.accounts :refer [nest unnest]]))
 
@@ -49,6 +52,7 @@
                                      :description "The address of the merchant"}
                   :total {:type "number"}
                   :tax {:type "number"}
+                  :tax-rate {:type "number"}
                   :payment_account (account-property
                                      "The account that best matches the payment method"
                                      payment-accounts)
@@ -56,6 +60,7 @@
                                :items {:type "object"
                                        :properties {:description {:type "string"}
                                                     :amount {:type "number"}
+                                                    :taxable {:type "boolean"}
                                                     :account (account-property
                                                                "The expense account that best matches the item"
                                                                expense-accounts)}
@@ -79,12 +84,60 @@
      "- *total* The total amount paid."
      "- *line_items* If the receipt includes this level of detail. For each, choose the expense account which best matches the item description."
      "- *payment_account* Select the enum value that best matches the payment method."
-     "- *tax* Total total tax listed on the receipt."
+     "- *tax* Total tax listed on the receipt. (May not be present.)"
+     "- *tax-rate* Tax rate listed on the receipt. (May not be present.)"
      ""
      "When selecting an expense account, following these guidelines:"
      "- If the merchant is a restaurant, prefer \"Dining\" over the \"Groceries\" accounts"
      "- If the merchant is a market or big box store, prefer \"Groceries\" accounts over \"Dining\""]))
 
+(defn- accounts-by-path
+  [entity]
+  (->> (ents/select
+         {:account/type [:in [:expense]]
+          :account/entity entity})
+       nest
+       unnest
+       (index-by (comp #(str/join "/" %)
+                       :account/path))))
+
+(defn- translate-items
+  [entity {:keys [line-items tax-rate]}]
+  (let [accounts (accounts-by-path entity)]
+    (->> line-items
+         (map (comp #(assoc % :total (+ (:amount %)
+                                        (:tax-amount %)))
+                    #(assoc % :tax-amount (* (:tax-rate %)
+                                             (:amount %)))
+                    #(assoc % :tax-rate (if (:taxable %)
+                                          tax-rate
+                                          0.0M))))
+         (group-by :account)
+         (mapv (comp
+                 (fn [[account items]]
+                   #:transaction-item{:account account
+                                      :quantity (d/round
+                                                  (->> items
+                                                       (map :total)
+                                                       (reduce + 0M))
+                                                  2)
+                                      :action :debit})
+                 #(update-in % [0] accounts))))))
+
+(defn- payment-item
+  [{:keys [total
+           payment-account]}
+   entity]
+  #:transaction-item{:account (ents/find-by {:account/name payment-account
+                                             :account/entity entity}) 
+                     :quantity (bigdec total)
+                     :action :credit})
+
 (defn make-trx
-  [_result _entity]
-  {})
+  [{:keys [location-name
+           date] :as receipt}
+   entity]
+  #:transaction{:transaction-date (t/local-date (t/formatter "MM-dd-yyyy") date)
+                :description location-name
+                :items (cons (payment-item receipt entity)
+                             (translate-items entity receipt))})
