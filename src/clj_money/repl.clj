@@ -156,8 +156,11 @@
        (sort-by (comp :average second) >)))
 
 (defn read-receipt
-  [source entity]
+  [source user-email entity-name]
   (system/with-system [sys [::ing/reader ::db/storage]]
     (let [{::ing/keys [reader]} sys
+          entity (entities/find-by {:entity/name entity-name
+                                    :user/email user-email}
+                                   {:type :entity})
           result (ing/read-receipt reader source entity)]
       (pprint result))))
