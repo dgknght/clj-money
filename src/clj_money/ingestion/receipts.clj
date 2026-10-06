@@ -76,7 +76,7 @@
      "- *location_name* The name of the merchant. If unable to find it, \"unknown\"."
      "- *location_address* The physical address of the merchant. If unable to find it, \"unknown\"."
      "- *transaction date* The date on which the transaction took place."
-     "- *total* The total amount paid.amount, and line items. If there are no line items,"
+     "- *total* The total amount paid."
      "- *line_items* If the receipt includes this level of detail. For each, choose the expense account which best matches the item description."
      "- *payment_account* Select the enum value that best matches the payment method."
      "- *tax* Total total tax listed on the receipt."
