@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [cheshire.core :as json]
             [lambdaisland.uri :as uri]
             [clj-http.client :as http]
@@ -61,7 +62,7 @@
                      (:prompt_eval_count body)))
         (-> body
             :response
-            (json/parse-string true)))
+            (json/parse-string ->kebab-case-keyword)))
       (do
         (log/errorf "Error accessing the ollama service: %s" body)
         (throw (ex-info "Error accessing the ollama service." {:source source}))))))
