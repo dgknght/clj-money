@@ -32,16 +32,18 @@
 (defn- request-body
   [image entity {:keys [model
                         num-ctx
-                        no-gpu]
+                        num-gpu]
                  :or {model "qwen2.5vl:7b"
                       num-ctx 8192}}]
   {:model model
    :prompt (rcpts/prompt entity)
    :stream false
    :format (rcpts/schema entity)
-   :options (cond-> {:temperature 0
+   :options (cond-> {:temperature 0.2
+                     :top_k 20
+                     :top_p 0.8
                      :num_ctx num-ctx}
-              no-gpu (assoc :num_gpu 0))
+              num-gpu (assoc :num_gpu num-gpu))
    :images [image]})
 
 (defn- handle-success-response
