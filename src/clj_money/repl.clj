@@ -161,6 +161,16 @@
     (let [{::ing/keys [reader]} sys
           entity (entities/find-by {:entity/name entity-name
                                     :user/email user-email}
-                                   {:type :entity})
-          result (ing/read-receipt reader source entity opts)]
+                                   {:entity-type :entity})
+          _ (assert entity
+                    (format "No entity named %s for user %s"
+                            (pr-str entity-name)
+                            (pr-str user-email)))
+          result (try
+                   (ing/read-receipt reader source entity opts)
+                   (catch Exception e
+                     {:type (type e)
+                      :message (ex-message e)
+                      :data (ex-data e)
+                      :stack (mapv str (.getStackTrace e))}))]
       (pprint result))))
