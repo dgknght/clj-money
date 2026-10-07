@@ -45,7 +45,7 @@
   (let [{:keys [payment-accounts expense-accounts]} (account-options entity)]
     {:type "object"
      :properties {:date {:type "string"
-                         :description "The purchase date in YYYY-MM-DD format"}
+                         :description "The date of the purchase"}
                   :location_name {:type "string"
                                   :description "The name of the merchant"}
                   :location_address {:type "string"
@@ -87,12 +87,12 @@
      "  Some receipts (e.g., for grocery stores) indicate if a line item is"
      "  taxable, often with a \"T\"."
      "- *payment_account* Select the enum value that best matches the payment method."
-     "- *tax* Total tax listed on the receipt. (May not be present.)"
-     "- *tax-rate* Tax rate listed on the receipt. (May not be present.)"
+     "- *tax* Total tax, if listed on the receipt."
+     "- *tax-rate* Tax rate, if listed on the receipt."
      ""
      "When selecting an expense account, following these guidelines:"
      "- If the merchant is a restaurant, prefer \"Dining\" over the \"Groceries\" accounts"
-     "- If the merchant is a market or big box store, prefer \"Groceries\" accounts over \"Dining\""]))
+     "- If the merchant is a grocery or big box store, prefer \"Groceries\" accounts over \"Dining\""]))
 
 (defn- accounts-by-path
   [entity]
