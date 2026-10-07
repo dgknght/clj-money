@@ -55,6 +55,11 @@
       :response
       (json/parse-string ->kebab-case-keyword)))
 
+(defn- handle-failure-response
+  [body source]
+  (log/errorf "Error accessing the ollama service: %s" body)
+  (throw (ex-info "Error accessing the ollama service." {:source source})))
+
 (defn- read-receipt*
   [source entity opts]
   (let [req-body (-> source
@@ -69,9 +74,7 @@
     (log/debugf "request: %s" (with-out-str (pprint (update-in req-body [:images] count))))
     (if (<= 200 status 299)
       (handle-success-response body req-body)
-      (do
-        (log/errorf "Error accessing the ollama service: %s" body)
-        (throw (ex-info "Error accessing the ollama service." {:source source}))))))
+      (handle-failure-response body source))))
 
 (defmethod ing/reader ::ollama
   [config]
