@@ -14,8 +14,8 @@
                                             find-commodity
                                             find-account]]
             [clj-money.entity-helpers :as helpers :refer [assert-invalid
-                                                         assert-updated
-                                                         assert-deleted]]
+                                                          assert-updated
+                                                          assert-deleted]]
             [clj-money.entities.accounts :as accounts]
             [clj-money.test-helpers :refer [dbtest]]))
 
