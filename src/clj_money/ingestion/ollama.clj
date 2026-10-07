@@ -62,6 +62,8 @@
 
 (defn- read-receipt*
   [source entity opts]
+  {:pre [entity]}
+
   (let [req-body (-> source
                      ->base64
                      (request-body entity opts))
