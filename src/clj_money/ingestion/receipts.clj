@@ -44,15 +44,16 @@
   [entity]
   (let [{:keys [payment-accounts expense-accounts]} (account-options entity)]
     {:type "object"
-     :properties {:date {:type "string"
+     :properties {:date {:type ["string" "null"]
                          :description "The date of the purchase"}
-                  :location_name {:type "string"
+                  :location_name {:type ["string" "null"]
                                   :description "The name of the merchant"}
-                  :location_address {:type "string"
+                  :location_address {:type ["string" "null"]
                                      :description "The address of the merchant"}
                   :total {:type "number"}
-                  :tax {:type "number"}
-                  :tax_rate {:type "number"}
+                  :tax {:type ["number" "null"]}
+                  :tax_rate {:type ["number" "null"]}
+                  :tip {:type ["number" "null"]}
                   :payment_account (account-property
                                      "The account that best matches the payment method"
                                      payment-accounts)
@@ -78,17 +79,17 @@
   (str/join
     "\n"
     ["This is a purchase receipt. Extract the the following:"
-     "- *location_name* The name of the merchant. If unable to find it, \"unknown\"."
-     "- *location_address* The physical address of the merchant. If unable to find it, \"unknown\"."
-     "- *date* The date on which the transaction took place. Use \"unknown\" if it cannot be determined."
+     "- *location_name* The name of the merchant."
+     "- *location_address* The physical address of the merchant."
+     "- *date* The date on which the transaction took place."
      "- *total* The total amount paid."
      "- *line_items* If the receipt includes this level of detail. For each,"
      "  choose the expense account which best matches the item description."
      "  Some receipts (e.g., for grocery stores) indicate if a line item is"
      "  taxable, often with a \"T\"."
      "- *payment_account* Select the enum value that best matches the payment method."
-     "- *tax* Total tax, if listed on the receipt, otherwise \"unknown\"."
-     "- *tax_rate* Tax rate, if listed on the receipt, otherwise \"unkown\"."
+     "- *tax* Total tax, if listed on the receipt."
+     "- *tax_rate* Tax rate, if listed on the receipt."
      ""
      "When selecting an expense account, following these guidelines:"
      "- If the merchant is a restaurant, prefer \"Dining\" over the \"Groceries\" accounts"
