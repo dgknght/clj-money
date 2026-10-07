@@ -69,6 +69,7 @@
                      (request-body entity opts))
         req {:content-type "application/json"
              :accept "application/json"
+             :raise false
              :as :json
              :body (json/generate-string req-body)}
         {:keys [status body]} (http/post (url opts)
