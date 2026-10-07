@@ -52,7 +52,7 @@
                                      :description "The address of the merchant"}
                   :total {:type "number"}
                   :tax {:type "number"}
-                  :tax-rate {:type "number"}
+                  :tax_rate {:type "number"}
                   :payment_account (account-property
                                      "The account that best matches the payment method"
                                      payment-accounts)
@@ -80,15 +80,15 @@
     ["This is a purchase receipt. Extract the the following:"
      "- *location_name* The name of the merchant. If unable to find it, \"unknown\"."
      "- *location_address* The physical address of the merchant. If unable to find it, \"unknown\"."
-     "- *transaction date* The date on which the transaction took place."
+     "- *date* The date on which the transaction took place. Use \"unknown\" if it cannot be determined."
      "- *total* The total amount paid."
      "- *line_items* If the receipt includes this level of detail. For each,"
      "  choose the expense account which best matches the item description."
      "  Some receipts (e.g., for grocery stores) indicate if a line item is"
      "  taxable, often with a \"T\"."
      "- *payment_account* Select the enum value that best matches the payment method."
-     "- *tax* Total tax, if listed on the receipt."
-     "- *tax-rate* Tax rate, if listed on the receipt."
+     "- *tax* Total tax, if listed on the receipt, otherwise \"unknown\"."
+     "- *tax_rate* Tax rate, if listed on the receipt, otherwise \"unkown\"."
      ""
      "When selecting an expense account, following these guidelines:"
      "- If the merchant is a restaurant, prefer \"Dining\" over the \"Groceries\" accounts"
