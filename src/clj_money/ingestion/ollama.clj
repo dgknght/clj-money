@@ -30,15 +30,18 @@
       uri/uri-str))
 
 (defn- request-body
-  [image entity {:keys [model num-ctx]
+  [image entity {:keys [model
+                        num-ctx
+                        no-gpu]
                  :or {model "qwen2.5vl:7b"
                       num-ctx 8192}}]
   {:model model
    :prompt (rcpts/prompt entity)
    :stream false
    :format (rcpts/schema entity)
-   :options {:temperature 0
-             :num_ctx num-ctx}
+   :options (cond-> {:temperature 0
+                     :num_ctx num-ctx}
+              no-gpu (assoc :num_gpu 0))
    :images [image]})
 
 (defn- read-receipt*
