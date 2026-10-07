@@ -71,8 +71,8 @@
   [config]
   (reify ing/Reader
     (read-receipt
-      [_ source entity]
+      [_ source entity opts]
       (read-receipt* source
                      entity
-                     config))
+                     (merge config opts)))
     (close [_] (println "shut down the ingestion component."))))
