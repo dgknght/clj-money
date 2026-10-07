@@ -298,4 +298,4 @@ services:
     environment:
       OLLAMA_HOST: ollama:11434
     entrypoint: ["ollama"]
-    command: ["pull", "qwen2.5vl:7b"]
+    command: ["pull", "${OLLAMA_MODEL:-qwen2.5vl:7b}"]
