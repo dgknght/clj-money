@@ -47,8 +47,8 @@
 (defn- read-receipt*
   [source entity opts]
   (let [req-body (-> source
-                       ->base64
-                       (request-body entity opts))
+                     ->base64
+                     (request-body entity opts))
         req {:content-type "application/json"
              :accept "application/json"
              :as :json
