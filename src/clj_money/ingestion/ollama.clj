@@ -44,6 +44,17 @@
               no-gpu (assoc :num_gpu 0))
    :images [image]})
 
+(defn- handle-success-response
+  [body req-body]
+  (log/debugf "result: %s" (with-out-str (pprint (dissoc body :context))))
+  (when (<= (get-in req-body [:options :num_ctx])
+            (:prompt_eval_count body 0))
+    (log/warnf "The prompt filled the context window (%s tokens) and may have been truncated"
+               (:prompt_eval_count body)))
+  (-> body
+      :response
+      (json/parse-string ->kebab-case-keyword)))
+
 (defn- read-receipt*
   [source entity opts]
   (let [req-body (-> source
@@ -55,17 +66,9 @@
              :body (json/generate-string req-body)}
         {:keys [status body]} (http/post (url opts)
                                          req)]
+    (log/debugf "request: %s" (with-out-str (pprint (update-in req-body [:images] count))))
     (if (<= 200 status 299)
-      (do
-        (log/debugf "request: %s" (with-out-str (pprint (update-in req-body [:images] count))))
-        (log/debugf "result: %s" (with-out-str (pprint (dissoc body :context))))
-        (when (<= (get-in req-body [:options :num_ctx])
-                  (:prompt_eval_count body 0))
-          (log/warnf "The prompt filled the context window (%s tokens) and may have been truncated"
-                     (:prompt_eval_count body)))
-        (-> body
-            :response
-            (json/parse-string ->kebab-case-keyword)))
+      (handle-success-response body req-body)
       (do
         (log/errorf "Error accessing the ollama service: %s" body)
         (throw (ex-info "Error accessing the ollama service." {:source source}))))))
