@@ -276,7 +276,7 @@ services:
   ollama:
     profiles:
       - ai
-    image: docker.io/ollama/ollama:0.35.1
+    image: docker.io/ollama/ollama:0.40.0
     restart: unless-stopped
     volumes:
       - ollama-data:/root/.ollama
@@ -291,7 +291,7 @@ services:
   ollama-pull-model:
     profiles:
       - ai
-    image: docker.io/ollama/ollama:0.35.1
+    image: docker.io/ollama/ollama:0.40.0
     depends_on:
       ollama:
         condition: service_healthy
