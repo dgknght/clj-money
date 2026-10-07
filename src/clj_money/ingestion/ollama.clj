@@ -53,7 +53,7 @@
                                          req)]
     (if (<= 200 status 299)
       (do
-        (log/debugf "format: %s" (pr-str (:format req-body)))
+        (log/debugf "request: %s" (with-out-str (pprint (update-in req-body [:images] count))))
         (log/debugf "result: %s" (with-out-str (pprint (dissoc body :context))))
         (when (<= (get-in req-body [:options :num_ctx])
                   (:prompt_eval_count body 0))
