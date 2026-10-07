@@ -72,9 +72,11 @@
              :raise false
              :as :json
              :body (json/generate-string req-body)}
+        _ (log/debugf "request: %s"
+                      (with-out-str
+                        (pprint (update-in req-body [:images] count))))
         {:keys [status body]} (http/post (url opts)
                                          req)]
-    (log/debugf "request: %s" (with-out-str (pprint (update-in req-body [:images] count))))
     (if (<= 200 status 299)
       (handle-success-response body req-body)
       (handle-failure-response body source))))
