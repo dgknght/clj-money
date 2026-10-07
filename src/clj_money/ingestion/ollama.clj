@@ -81,4 +81,4 @@
       (read-receipt* source
                      entity
                      (merge config opts)))
-    (close [_] (println "shut down the ingestion component."))))
+    (close [_])))
