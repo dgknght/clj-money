@@ -18,6 +18,7 @@
                    {:clj-money.db/strategy :clj-money.db/datomic-peer
                     :uri "datomic:mem://money_test"}}
       :active :datomic-peer}
+ :ingestion {:clj-money.ingestion/provider :clj-money.ingestion.mock/mock}
  :detailed-import-logging "false"
  :invitation-expiration-days 10
  :image-storage {:clj-money.images/strategy :clj-money.images/sql
