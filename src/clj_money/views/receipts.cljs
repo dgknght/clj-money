@@ -226,7 +226,12 @@
           :on-click (fn [_]
                       (swap! receipt select-keys [:receipt/transaction-date])
                       (set-focus "transaction-date"))}
-         (icon-with-text :x "Cancel")]]])))
+         (icon-with-text :x "Cancel")]
+        [:button.btn.btn-secondary.ms-2
+         {:type :button
+          :title "Click here to create a transaction from a receipt image."
+          :on-click (fn [_])}
+         (icon-with-text :camera-fill "Upload")]]])))
 
 (defn- load-attachments
   [page-state]
