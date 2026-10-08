@@ -51,7 +51,7 @@
              :entity "Personal"}])
 
 (def ^:private groceries-receipt
-  {:date "09-27-2026"
+  {:date "2026-09-27"
    :location-name "Trader Joe's"
    :location-address "2400 Preston Rd, Plano, TX 75093"
    :total 58.3M
