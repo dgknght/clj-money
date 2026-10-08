@@ -20,16 +20,22 @@
 (defn- account-options
   "Given a list of accounts, returns the account paths the model may choose
   from for the payment method and for the expenses."
-  [entity]
-  {:payment-accounts (mapv :account/name
-                           (ents/select {:account/user-tags :payment-method
-                                         :account/entity entity}))
-   :expense-accounts (->> (ents/select {:account/type :expense
-                                        :account/entity entity})
-                          nest
-                          unnest
-                          (filter leaf-account?)
-                          paths)})
+  [{{:settings/keys [expense-accounts payment-methods]} :entity/settings :as entity}]
+  (let [expense? (if (seq expense-accounts)
+                   (comp (->> expense-accounts
+                              (map :id)
+                              (into #{}))
+                         :id)
+                   leaf-account?)]
+    {:payment-accounts (->> payment-methods
+                            ents/find-many
+                            (mapv :account/name))
+     :expense-accounts (->> (ents/select {:account/type :expense
+                                          :account/entity entity})
+                            nest
+                            unnest
+                            (filter expense?)
+                            paths)}))
 
 (defn- account-property
   [description paths]
@@ -80,41 +86,39 @@
 
 (defn prompt
   "Generates a prompt to read a receipt and return structured data"
-  [_entity]
-  (str/join
-    "\n"
-    ["This is a purchase receipt. Extract the following."
-     "- *location_name* The name of the merchant."
-     "- *location_address* The physical address of the merchant."
-     "- *date* The date on which the transaction took place, written as YYYY-MM-DD."
-     "- *total* The final amount charged, including any tip. When the receipt"
-     "  shows a tip, this is the amount after the tip was added (e.g., the"
-     "  \"Authorized Amount\" or a handwritten total), not the order total before"
-     "  the tip."
-     "- *tip* The tip or gratuity, or null if there is none."
-     "- *tax* The total sales tax charged, from the line labeled TAX or Sales Tax"
-     "  (0 if that line shows 0.00), or null if the receipt has no tax line."
-     "- *tax_rate* The tax rate as a decimal fraction (e.g., 8.25% is 0.0825),"
-     "  only if a rate is printed on the receipt; otherwise null. Do not"
-     "  calculate it."
-     "- *payment_account* The enum value that matches the card brand or payment"
-     "  method printed on the receipt (e.g., \"Discover\" when the receipt says"
-     "  DISCOVER). Choose a cash account only if the receipt shows a cash payment."
-     "- *line_items* One entry for each product or service purchased, with the"
-     "  price actually paid for it (after any discount or savings shown for that"
-     "  item, e.g., a \"You Pay\" column). Leave out lines with no price or a price"
-     "  of 0.00 (e.g., toppings), and lines that are not purchases: subtotal, tax,"
-     "  tip, total, amount, discounts, savings, and payment lines. If the receipt"
-     "  does not list what was purchased, return an empty list. Some receipts"
-     "  (e.g., for grocery stores) mark taxable items, often with a \"T\"."
-     ""
-     "When selecting an expense account, follow these guidelines:"
-     "- If the merchant is a restaurant, prefer \"Dining\" over the \"Groceries\" accounts"
-     "- If the merchant is a grocery or big box store, prefer \"Groceries\" accounts over \"Dining\""
-     "- At a grocery or big box store, use \"Groceries/Food\" for anything meant"
-     "  to be eaten or drunk (including snacks, candy, gum, coffee, and bottled"
-     "  water). Use \"Groceries/Non-food\" only for items that are not eaten or"
-     "  drunk, such as cleaning supplies, paper goods, and flowers."]))
+  [{{:settings/keys [expense-hints]} :entity/settings}]
+  (let [base ["This is a purchase receipt. Extract the following."
+              "- *location_name* The name of the merchant."
+              "- *location_address* The physical address of the merchant."
+              "- *date* The date on which the transaction took place, written as YYYY-MM-DD."
+              "- *total* The final amount charged, including any tip. When the receipt"
+              "  shows a tip, this is the amount after the tip was added (e.g., the"
+                                                                                "  \"Authorized Amount\" or a handwritten total), not the order total before"
+              "  the tip."
+              "- *tip* The tip or gratuity, or null if there is none."
+              "- *tax* The total sales tax charged, from the line labeled TAX or Sales Tax"
+              "  (0 if that line shows 0.00), or null if the receipt has no tax line."
+              "- *tax_rate* The tax rate as a decimal fraction (e.g., 8.25% is 0.0825),"
+              "  only if a rate is printed on the receipt; otherwise null. Do not"
+              "  calculate it."
+              "- *payment_account* The enum value that matches the card brand or payment"
+              "  method printed on the receipt (e.g., \"Discover\" when the receipt says"
+                                                      "  DISCOVER). Choose a cash account only if the receipt shows a cash payment."
+              "- *line_items* One entry for each product or service purchased, with the"
+              "  price actually paid for it (after any discount or savings shown for that"
+                                                   "  item, e.g., a \"You Pay\" column). Leave out lines with no price or a price"
+              "  of 0.00 (e.g., toppings), and lines that are not purchases: subtotal, tax,"
+              "  tip, total, amount, discounts, savings, and payment lines. If the receipt"
+              "  does not list what was purchased, return an empty list. Some receipts"
+              "  (e.g., for grocery stores) mark taxable items, often with a \"T\"."]]
+    (if (seq expense-hints)
+      (str/join "\n"
+                (apply conj
+                       base
+                       ""
+                       "When selecting an expense account, follow these guidelines:"
+                       (map #(str "- %s" %) expense-hints)))
+      (str/join "\n" base))))
 
 (defn- accounts-by-path
   [entity]

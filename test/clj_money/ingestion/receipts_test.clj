@@ -1,7 +1,8 @@
 (ns clj-money.ingestion.receipts-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
+            [clojure.string :as str]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
@@ -15,6 +16,11 @@
 
 (use-fixtures :each reset-db)
 
+(def ^:private expense-hints
+  ["If the merchant is a restaurant, prefer \"Dining\" over the \"Groceries\" accounts"
+   "If the merchant is a grocery or big box store, prefer \"Groceries\" accounts over \"Dining\""
+   "At a grocery or big box store, use \"Groceries/Food\" for anything meant  to be eaten or drunk (including snacks, candy, gum, coffee, and bottled  water). Use \"Groceries/Non-food\" only for items that are not eaten or drunk, such as cleaning supplies, paper goods, and flowers."])
+
 (def ^:private ctx
   [#:user{:email "john@doe.com"
           :first-name "John"
@@ -22,7 +28,8 @@
           :password "Please001!"
           :roles #{:user}}
    #:entity{:name "Personal"
-            :user "john@doe.com"}
+            :user "john@doe.com"
+            :settings #:settings{:expense-hints expense-hints}}
    #:commodity{:name "US Dollar"
                :type :currency
                :symbol "USD"
@@ -48,7 +55,43 @@
    #:account{:name "Non-food"
              :type :expense
              :parent "Groceries"
+             :entity "Personal"}
+   #:account{:name "Rent"
+             :type :expense
              :entity "Personal"}])
+
+(deftest construct-a-prompt
+  (with-context ctx
+    (let [entity (find-entity "Personal")
+          prompt (rcpts/prompt entity)]
+      (is (str/includes? prompt "When selecting an expense account")
+          "The expense account preamble is present")
+      (is (every? #(str/includes? prompt %)
+                  expense-hints)
+          "The entity's expense hints are included in the prompt"))))
+
+(deftest construct-a-schema
+  (with-context ctx
+    (let [entity (find-entity "Personal")]
+      (testing "Explicit expense accounts"
+        (is (comparable?
+              {:type "string"
+               :enum ["Groceries/Food" "Groceries/Non-food"]}
+              (get-in (rcpts/schema
+                        (assoc-in entity
+                                  [:entity/settings
+                                   :settings/expense-accounts]
+                                  (mapv util/->entity-ref
+                                        (find-accounts "Food" "Non-food"))))
+                      [:properties :line_items :items :properties :account]))
+            "The payment account property specifies an enum of the specified expense accounts"))
+      (testing "Implicit expense accounts"
+        (is (comparable?
+              {:type "string"
+               :enum ["Groceries/Food" "Groceries/Non-food" "Rent"]}
+              (get-in (rcpts/schema entity)
+                      [:properties :line_items :items :properties :account]))
+            "The payment account property specifies an enum of the leaf expense accounts")))))
 
 (def ^:private groceries-receipt
   {:date "2026-09-27"
