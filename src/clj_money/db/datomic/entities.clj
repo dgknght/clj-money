@@ -1,14 +1,20 @@
 (ns clj-money.db.datomic.entities
   (:require [clojure.set :refer [difference]]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-yaml.core :as yaml]
             [clj-money.entities :as ents]
             [clj-money.db.datomic :as datomic]))
 
 (defmethod datomic/before-save :entity
   [entity]
   (-> entity
+      (update-in-if [:entity/settings :settings/expense-hints] yaml/generate-string)
       (update-in-if [:entity/settings :settings/budget-tags] pr-str)
       (update-in-if [:entity/settings :settings/monitor-order] pr-str)))
+
+(defmethod datomic/after-read :entity
+  [entity]
+  (update-in-if entity [:entity/settings :settings/expense-hints] yaml/parse-string))
 
 (defmethod datomic/deconstruct :entity
   [entity]

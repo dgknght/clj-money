@@ -68,7 +68,9 @@
       (assert-created
         #:entity{:name "Business"
                  :user (find-user "john@doe.com")
-                 :settings #:settings{:inventory-method :fifo}}))))
+                 :settings #:settings{:inventory-method :fifo
+                                      :expense-hints ["Hint 1"
+                                                      "Hint 2"]}}))))
 
 (dbtest name-is-required
   (with-context entity-context

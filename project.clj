@@ -171,7 +171,8 @@
                  [com.cognitect.aws/api "0.8.838"]
                  [com.cognitect.aws/endpoints "871.2.53.2"]
                  [com.cognitect.aws/s3 "871.2.51.4"]
-                 [integrant "1.0.1"]]
+                 [integrant "1.0.1"]
+                 [clj-commons/clj-yaml "1.0.29"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
