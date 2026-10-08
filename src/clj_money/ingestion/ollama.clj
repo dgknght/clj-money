@@ -10,7 +10,7 @@
             [clj-money.ingestion :as ing])
   (:import java.util.Base64))
 
-(defn- ->base64
+(defn ->base64
   [input]
   (let [input (io/input-stream input)]
     (.encodeToString (Base64/getEncoder)
@@ -29,22 +29,30 @@
              :scheme scheme)
       uri/uri-str))
 
-(defn- request-body
-  [image entity {:keys [model
-                        num-ctx
-                        num-gpu]
-                 :or {model "qwen2.5vl:7b"
-                      num-ctx 8192}}]
-  {:model model
-   :prompt (rcpts/prompt entity)
-   :stream false
-   :format (rcpts/schema entity)
-   :options (cond-> {:temperature 0.2
-                     :top_k 20
-                     :top_p 0.8
-                     :num_ctx num-ctx}
-              num-gpu (assoc :num_gpu num-gpu))
-   :images [image]})
+(defn request-body
+  "Returns the body of a generate request asking the model to read the
+  base64-encoded image."
+  [image prompt schema {:keys [model
+                               num-ctx
+                               num-gpu
+                               num-predict
+                               seed
+                               think]
+                        :or {model "qwen2.5vl:7b"
+                             num-ctx 8192}}]
+  (cond-> {:model model
+          :prompt prompt
+          :stream false
+          :format schema
+          :options (cond-> {:temperature 0.2
+                            :top_k 20
+                            :top_p 0.8
+                            :num_ctx num-ctx}
+                     num-gpu (assoc :num_gpu num-gpu)
+                     num-predict (assoc :num_predict num-predict)
+                     seed (assoc :seed seed))
+          :images [image]}
+    (some? think) (assoc :think think)))
 
 (defn- handle-success-response
   [body req-body]
@@ -62,23 +70,32 @@
   (log/errorf "Error accessing the ollama service: %s" body)
   (throw (ex-info "Error accessing the ollama service." {:source source})))
 
+(defn generate
+  "Posts the request body to the ollama generate endpoint and returns the
+  status and the decoded body."
+  [req-body {:keys [timeout-ms] :as opts}]
+  (log/debugf "request: %s"
+              (with-out-str
+                (pprint (update-in req-body [:images] count))))
+  (-> (http/post (url opts)
+                 (cond-> {:content-type "application/json"
+                          :accept "application/json"
+                          :raise false
+                          :as :json
+                          :body (json/generate-string req-body)}
+                   timeout-ms (assoc :socket-timeout timeout-ms
+                                     :connection-timeout timeout-ms)))
+      (select-keys [:status :body])))
+
 (defn- read-receipt*
   [source entity opts]
   {:pre [entity]}
 
-  (let [req-body (-> source
-                     ->base64
-                     (request-body entity opts))
-        req {:content-type "application/json"
-             :accept "application/json"
-             :raise false
-             :as :json
-             :body (json/generate-string req-body)}
-        _ (log/debugf "request: %s"
-                      (with-out-str
-                        (pprint (update-in req-body [:images] count))))
-        {:keys [status body]} (http/post (url opts)
-                                         req)]
+  (let [req-body (request-body (->base64 source)
+                               (rcpts/prompt entity)
+                               (rcpts/schema entity)
+                               opts)
+        {:keys [status body]} (generate req-body opts)]
     (if (<= 200 status 299)
       (handle-success-response body req-body)
       (handle-failure-response body source))))

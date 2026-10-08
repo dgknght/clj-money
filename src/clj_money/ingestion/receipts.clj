@@ -37,41 +37,46 @@
            :description description}
     (seq paths) (assoc :enum paths)))
 
+(defn build-schema
+  "Returns a JSON schema describing the expected response, given the account
+  names the model may choose from. Ollama constrains the model output to match
+  it, so the account fields can only contain one of the given account paths."
+  [{:keys [payment-accounts expense-accounts]}]
+  {:type "object"
+   :properties {:date {:type ["string" "null"]
+                       :description "The date of the purchase"}
+                :location_name {:type ["string" "null"]
+                                :description "The name of the merchant"}
+                :location_address {:type ["string" "null"]
+                                   :description "The address of the merchant"}
+                :total {:type "number"}
+                :tax {:type ["number" "null"]}
+                :tax_rate {:type ["number" "null"]}
+                :tip {:type ["number" "null"]}
+                :payment_account (account-property
+                                   "The account that best matches the payment method"
+                                   payment-accounts)
+                :line_items {:type "array"
+                             :items {:type "object"
+                                     :properties {:description {:type "string"}
+                                                  :amount {:type "number"}
+                                                  :taxable {:type "boolean"}
+                                                  :account (account-property
+                                                             "The expense account that best matches the item"
+                                                             expense-accounts)}
+                                     :required ["description" "amount" "account"]}}}
+   :required ["date"
+              "location_name"
+              "location_address"
+              "total"
+              "tax"
+              "payment_account"]})
+
 (defn schema
-  "Returns a JSON schema describing the expected response. Ollama constrains
-  the model output to match it, so the account fields can only contain one of
-  the given account paths."
+  "Returns a JSON schema describing the expected response, offering the
+  entity's accounts as the choices for the account fields."
   [entity]
-  (let [{:keys [payment-accounts expense-accounts]} (account-options entity)]
-    {:type "object"
-     :properties {:date {:type ["string" "null"]
-                         :description "The date of the purchase"}
-                  :location_name {:type ["string" "null"]
-                                  :description "The name of the merchant"}
-                  :location_address {:type ["string" "null"]
-                                     :description "The address of the merchant"}
-                  :total {:type "number"}
-                  :tax {:type ["number" "null"]}
-                  :tax_rate {:type ["number" "null"]}
-                  :tip {:type ["number" "null"]}
-                  :payment_account (account-property
-                                     "The account that best matches the payment method"
-                                     payment-accounts)
-                  :line_items {:type "array"
-                               :items {:type "object"
-                                       :properties {:description {:type "string"}
-                                                    :amount {:type "number"}
-                                                    :taxable {:type "boolean"}
-                                                    :account (account-property
-                                                               "The expense account that best matches the item"
-                                                               expense-accounts)}
-                                       :required ["description" "amount" "account"]}}}
-     :required ["date"
-                "location_name"
-                "location_address"
-                "total"
-                "tax"
-                "payment_account"]}))
+  (build-schema (account-options entity)))
 
 (defn prompt
   "Generates a prompt to read a receipt and return structured data"

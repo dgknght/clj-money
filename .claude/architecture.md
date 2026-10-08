@@ -96,3 +96,19 @@ Provides:
 - `find-<entity>` helper functions for locating test records
 - `prepare` multimethod for seeding entity data
 - `basic-context` fixture used across test namespaces
+
+## Receipt Ingestion (`ingestion/`)
+
+A photo of a receipt is read by a vision model and turned into a transaction.
+- `ingestion.clj` - the `Reader` protocol; the provider is chosen by config
+  (`:ingestion` in `env/dev/config.edn`)
+- `ingestion/ollama.clj` - the Ollama provider. `request-body` and `generate`
+  are public so the evaluation harness sends exactly what the app sends
+- `ingestion/receipts.clj` - the prompt, the JSON schema (`schema` looks up
+  the entity's accounts; `build-schema` takes the account names directly), and
+  `make-trx`, which builds the transaction from the model's answer
+- `ingestion/evaluation.clj` - a harness that scores models, with and without
+  the GPU, against receipts with hand-written expected answers
+  (`lein eval-receipts -- --help`). It calls a live Ollama server, so it is
+  not part of the test suite and is excluded from coverage; its scoring
+  functions are unit tested
