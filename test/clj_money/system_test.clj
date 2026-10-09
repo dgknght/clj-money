@@ -123,3 +123,30 @@
                    (throw (RuntimeException. "boom")))))
     (is (= [:init :halt] @events)
         "The system is halted when the body throws")))
+
+(defmethod ig/init-key ::failing
+  [_ _]
+  (throw (RuntimeException. "Induced failure")))
+
+(deftest halt-the-started-components-when-initialization-fails
+  (let [events (atom [])
+        cfg {::probe events
+             ::failing {:probe (ig/ref ::probe)}}
+        ex (try
+             (system/init cfg)
+             nil
+             (catch clojure.lang.ExceptionInfo e
+               e))]
+    (is (= "Induced failure" (some-> ex ex-cause ex-message))
+        "The initialization failure is rethrown")
+    (is (= [:init :halt] @events)
+        "The components already started are halted")))
+
+(deftest exit-when-the-server-cannot-start
+  (with-open [socket (java.net.ServerSocket. 0)]
+    (let [status (atom nil)]
+      (with-redefs [clj-money.config/env test-env
+                    clj-money.web.server/exit #(reset! status %)]
+        (clj-money.web.server/-main (str (.getLocalPort socket))))
+      (is (= 1 @status)
+          "The process exits with a non-zero status"))))
