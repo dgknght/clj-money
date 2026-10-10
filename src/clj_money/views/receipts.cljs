@@ -29,6 +29,7 @@
             [clj-money.api.attachments :as atts]
             [clj-money.api.receipt-ingestions :as ri]
             [clj-money.views.attachments :as atts-view]
+            [clj-money.views.ingestion-settings :as ingestion-settings]
             [clj-money.views.recent-transactions :as recent-trx]))
 
 (defn- clear-receipt-image
@@ -305,6 +306,8 @@
     [bs/spinner {:size :small}]
     [:span.ms-2 "Reading the receipt..."]]])
 
+(def ^:private ingestion-settings-id "receipts-ingestion-settings")
+
 (defn- receipt-form
   [page-state]
   (let [receipt (r/cursor page-state [:receipt])
@@ -315,6 +318,7 @@
         ; offered for acceptance
         reading? (r/cursor page-state [:reading?])
         ingestion (r/cursor page-state [:ingestion])
+        settings-draft (r/cursor page-state [:ingestion-settings])
         accepting? (make-reaction #(let [{:keys [receipt ingested-receipt]} @page-state]
                                      (and ingested-receipt
                                           (= receipt ingested-receipt))))]
@@ -397,7 +401,17 @@
              ; another image can't be chosen until this transaction is
              ; accepted or rejected
              (when-not @ingestion
-               [:div.ms-2
+               [:div.btn-group.ms-2
+                ; opens the file chooser of the hidden image input
+                [:label.btn.btn-secondary
+                 {:for "receipt-image"
+                  :title "Click here to take or choose a photo of a receipt."}
+                 (icon-with-text :camera-fill "Scan" :size :small)]
+                [ingestion-settings/toggle ingestion-settings-id settings-draft]])
+             ; reading starts as soon as an image is chosen, so the
+             ; preview and buttons of the image input aren't needed
+             (when-not @ingestion
+               [:div.d-none
                 [forms/image-input
                  page-state
                  [:receipt-image]
@@ -405,14 +419,7 @@
                   :on-change #(ingest-receipt page-state %)
                   ; large enough to keep the fine print on a receipt legible
                   :resize {:max-dimension 2048
-                           :on-error #(notify/danger "Unable to read the image.")}
-                  :captions {:add (icon-with-text :camera-fill "Scan" :size :small)
-                             :replace (icon-with-text :camera-fill "Replace" :size :small)
-                             :remove (icon-with-text :x "Remove" :size :small)}
-                  :titles {:choose "Click here to take or choose a photo of a receipt."
-                           :remove "Click here to remove the receipt image."}
-                  :preview-html {:alt "The receipt image"}
-                  :choose-html {:class ["btn" "btn-secondary"]}}]])]]
+                           :on-error #(notify/danger "Unable to read the image.")}}]])]]
            [rejection-form page-state]]))))
 
 (defn- receipt-image
@@ -545,21 +552,26 @@
                    (load-transactions page-state))))
     (add-watch current-entity
                ::index
-               (fn [_ _ _ _]
-                 (swap! page-state
-                        #(-> %
-                             (dissoc :attachments-item :attachments)
-                             (assoc :transactions [])))
-                 (new-receipt page-state)
-                 (load-transactions page-state)
-                 (load-historical-transactions page-state)))
+               (fn [_ _ previous current]
+                 ; saving the entity's settings shouldn't reset the page
+                 (when-not (util/id= previous current)
+                   (swap! page-state
+                          #(-> %
+                               (dissoc :attachments-item :attachments)
+                               (assoc :transactions [])))
+                   (new-receipt page-state)
+                   (load-transactions page-state)
+                   (load-historical-transactions page-state))))
     (fn []
       [:<>
        [:h1.mt-3 "Receipts"]
        [:div.row
         [:div.col-md-6
          [:h3 "New Transaction"]
-         [receipt-form page-state]]
+         [receipt-form page-state]
+         [ingestion-settings/drawer
+          ingestion-settings-id
+          (r/cursor page-state [:ingestion-settings])]]
         [:div.col-md-6
          (cond
            (or @reading? @ingested-receipt)

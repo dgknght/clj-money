@@ -142,4 +142,9 @@ Reading a receipt is slow, so it runs in the background, tracked by a
   `:accepted`) and Reject (asks for a reason). Any edit restores Enter and
   Cancel, and saving still accepts it. Until it's accepted or rejected, the image
   input stays hidden and the receipt image stays up
+- `views/ingestion_settings.cljs` - the off-canvas drawer, opened by the gear
+  joined to the Scan button, for the entity settings the reader uses:
+  `:settings/payment-methods` and `:settings/expense-accounts` (sets of
+  account refs; Datomic retracts removed ones in `deconstruct`) and
+  `:settings/expense-hints` (edited one per line)
 - API tests pass their own reader to `web.test-handler/build-app`

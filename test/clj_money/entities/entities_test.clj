@@ -160,6 +160,50 @@
                   :settings/monitor-order))
           "The order persists when the entity is re-fetched"))))
 
+(defn- ingestion-settings
+  [entity]
+  (-> entity
+      :entity/settings
+      (select-keys [:settings/payment-methods
+                    :settings/expense-accounts
+                    :settings/expense-hints])
+      (update-vals #(if (set? %) (set (map :id %)) %))))
+
+(dbtest update-receipt-ingestion-settings
+  (with-context list-context
+    (let [dining (find-account "Dining")
+          groceries (find-account "Groceries")
+          entity (entities/put
+                   (assoc (find-entity "Personal")
+                          :entity/settings
+                          #:settings{:payment-methods #{(util/->entity-ref dining)
+                                                        (util/->entity-ref groceries)}
+                                     :expense-accounts #{(util/->entity-ref dining)
+                                                         (util/->entity-ref groceries)}
+                                     :expense-hints ["Hint 1" "Hint 2"]}))
+          expected #:settings{:payment-methods #{(:id dining) (:id groceries)}
+                              :expense-accounts #{(:id dining) (:id groceries)}
+                              :expense-hints ["Hint 1" "Hint 2"]}]
+      (is (= expected (ingestion-settings entity))
+          "The settings are returned after the initial save")
+      (is (= expected (ingestion-settings (entities/find-by {:entity/name "Personal"})))
+          "The settings persist when the entity is re-fetched")
+      (testing "accounts and hints can be removed"
+        (let [updated (entities/put
+                        (update-in entity
+                                   [:entity/settings]
+                                   assoc
+                                   :settings/payment-methods #{(util/->entity-ref dining)}
+                                   :settings/expense-accounts #{(util/->entity-ref groceries)}
+                                   :settings/expense-hints ["Hint 2"]))
+              expected #:settings{:payment-methods #{(:id dining)}
+                                  :expense-accounts #{(:id groceries)}
+                                  :expense-hints ["Hint 2"]}]
+          (is (= expected (ingestion-settings updated))
+              "The result reflects the removals")
+          (is (= expected (ingestion-settings (entities/find-by {:entity/name "Personal"})))
+              "The removals persist when the entity is re-fetched"))))))
+
 (dbtest delete-an-entity
   (with-context list-context
     (assert-deleted (find-entity "Personal"))))

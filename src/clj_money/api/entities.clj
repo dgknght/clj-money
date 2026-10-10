@@ -33,6 +33,15 @@
       (update-in-if [:entity/settings
                      :settings/budget-tags]
                     #(mapv util/ensure-keyword %))
+      (update-in-if [:entity/settings
+                     :settings/payment-methods]
+                    set)
+      (update-in-if [:entity/settings
+                     :settings/expense-accounts]
+                    set)
+      (update-in-if [:entity/settings
+                     :settings/expense-hints]
+                    vec)
       (update-in [:entity/user] (fnil identity authenticated))))
 
 (defn- create
