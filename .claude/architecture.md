@@ -137,8 +137,9 @@ Reading a receipt is slow, so it runs in the background, tracked by a
 - `views/receipts.cljs` - choosing an image with the Scan button uploads it
   and polls until it's read, then opens the transaction in the form. Until
   then (`:reading?` in the page state), the form is replaced by placeholders
-  and a spinner, and the recent transactions' buttons are disabled. While
+  and a spinner, and the receipt image replaces the recent transactions. While
   the form is unchanged, the buttons are Accept (saves with review status
   `:accepted`) and Reject (asks for a reason). Any edit restores Enter and
-  Cancel, and saving still accepts it
+  Cancel, and saving still accepts it. Until it's accepted or rejected, the image
+  input stays hidden and the receipt image stays up
 - API tests pass their own reader to `web.test-handler/build-app`

@@ -288,7 +288,7 @@
 (defn- reading-placeholder
   "Stands in for the receipt form while the receipt image is read, so no
   other action can be taken until the transaction is ready."
-  [page-state]
+  []
   [:div
    [placeholder-field "Transaction Date"]
    [placeholder-field "Description"]
@@ -303,11 +303,7 @@
        [:span.placeholder.col-3]])]
    [:div.mb-2.d-flex.align-items-center.text-muted
     [bs/spinner {:size :small}]
-    [:span.ms-2 "Reading the receipt..."]]
-   (when-let [url (get-in @page-state [:receipt-image :url])]
-     [:img.img-thumbnail.mb-2 {:src url
-                               :alt "The receipt being read"
-                               :style {:max-height "10em"}}])])
+    [:span.ms-2 "Reading the receipt..."]]])
 
 (defn- receipt-form
   [page-state]
@@ -318,12 +314,13 @@
         ; an unchanged transaction read from a receipt image is
         ; offered for acceptance
         reading? (r/cursor page-state [:reading?])
+        ingestion (r/cursor page-state [:ingestion])
         accepting? (make-reaction #(let [{:keys [receipt ingested-receipt]} @page-state]
                                      (and ingested-receipt
                                           (= receipt ingested-receipt))))]
     (fn []
       (if @reading?
-          [reading-placeholder page-state]
+          [reading-placeholder]
           [:<>
            [:form {:no-validate true
                    :on-submit (fn [e]
@@ -397,23 +394,36 @@
                              (swap! receipt select-keys [:receipt/transaction-date])
                              (set-focus "transaction-date"))}
                 (icon-with-text :x "Cancel")])
-             [:div.ms-2
-              [forms/image-input
-               page-state
-               [:receipt-image]
-               {:capture "environment"
-                :on-change #(ingest-receipt page-state %)
-                ; large enough to keep the fine print on a receipt legible
-                :resize {:max-dimension 2048
-                         :on-error #(notify/danger "Unable to read the image.")}
-                :captions {:add (icon-with-text :camera-fill "Scan" :size :small)
-                           :replace (icon-with-text :camera-fill "Replace" :size :small)
-                           :remove (icon-with-text :x "Remove" :size :small)}
-                :titles {:choose "Click here to take or choose a photo of a receipt."
-                         :remove "Click here to remove the receipt image."}
-                :preview-html {:alt "The receipt image"}
-                :choose-html {:class ["btn" "btn-secondary"]}}]]]]
+             ; another image can't be chosen until this transaction is
+             ; accepted or rejected
+             (when-not @ingestion
+               [:div.ms-2
+                [forms/image-input
+                 page-state
+                 [:receipt-image]
+                 {:capture "environment"
+                  :on-change #(ingest-receipt page-state %)
+                  ; large enough to keep the fine print on a receipt legible
+                  :resize {:max-dimension 2048
+                           :on-error #(notify/danger "Unable to read the image.")}
+                  :captions {:add (icon-with-text :camera-fill "Scan" :size :small)
+                             :replace (icon-with-text :camera-fill "Replace" :size :small)
+                             :remove (icon-with-text :x "Remove" :size :small)}
+                  :titles {:choose "Click here to take or choose a photo of a receipt."
+                           :remove "Click here to remove the receipt image."}
+                  :preview-html {:alt "The receipt image"}
+                  :choose-html {:class ["btn" "btn-secondary"]}}]])]]
            [rejection-form page-state]]))))
+
+(defn- receipt-image
+  "Shows the receipt image while it's read, and then beside the transaction
+  read from it, so the user can compare them."
+  [page-state]
+  (when-let [url (get-in @page-state [:receipt-image :url])]
+    [:div.card
+     [:div.card-header [:strong "Receipt"]]
+     [:img.card-img-bottom {:src url
+                            :alt "The receipt the transaction was read from"}]]))
 
 (defn- load-attachments
   [page-state]
@@ -466,14 +476,13 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-secondary
       {:title "Click here to edit this transaction."
-       :disabled (:reading? @page-state)
        :on-click (fn []
+                   (clear-receipt-image page-state)
                    (clear-ingestion page-state)
                    (swap! page-state assoc :receipt (receipts/<-transaction trx)))}
       (icon :pencil :size :small)]
      [:button.btn.btn-sm.btn-secondary
       {:title "Click here to view attachments for this transaction"
-       :disabled (:reading? @page-state)
        :on-click (fn []
                    (swap! page-state assoc :attachments-item trx)
                    (load-attachments page-state))}
@@ -524,7 +533,9 @@
 (defn- index []
   (let [page-state (r/atom {:filter-date (t/today)
                             :recent-settings recent-trx/default-settings})
-        attachments-item (r/cursor page-state [:attachments-item])]
+        attachments-item (r/cursor page-state [:attachments-item])
+        reading? (r/cursor page-state [:reading?])
+        ingested-receipt (r/cursor page-state [:ingested-receipt])]
     (new-receipt page-state)
     (load-transactions page-state)
     (load-historical-transactions page-state)
@@ -550,7 +561,11 @@
          [:h3 "New Transaction"]
          [receipt-form page-state]]
         [:div.col-md-6
-         (if @attachments-item
+         (cond
+           (or @reading? @ingested-receipt)
+           [receipt-image page-state]
+
+           @attachments-item
            [:<>
             [atts-view/attachments-card page-state
              :on-delete #(swap! page-state
@@ -558,6 +573,8 @@
                                 (:attachment/transaction %)
                                 dec)]
             [atts-view/attachment-form page-state]]
+
+           :else
            [results-table page-state])]]])))
 
 (secretary/defroute "/receipts" []
