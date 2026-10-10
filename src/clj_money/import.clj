@@ -353,7 +353,8 @@
           (update-entity-settings result)))))
 
 (defmethod import-record* :reconciliation
-  [{:keys [account-ids] :as context} {:import/keys [account-id] :as recon}]
+  [{:keys [account-ids] :as context}
+   {:import/keys [account-id include-children?] :as recon}]
   (if-let [new-id (account-ids account-id)]
     (let [created (-> recon
                       (assoc :reconciliation/balance 0M
@@ -363,10 +364,15 @@
                       entities/put)]
       ; We'll use this map later to assocate reconciled transactions
       ; for this account with this reconciliation
-      (update-in context [:account-recons]
-                 (fnil assoc {})
-                 (-> created :reconciliation/account :id)
-                 (:id created)))
+      (cond-> (update-in context [:account-recons]
+                         (fnil assoc {})
+                         (-> created :reconciliation/account :id)
+                         (:id created))
+        ; include-children? isn't saved with the reconciliation, so keep it
+        ; until the reconciliation is finalized
+        include-children? (update-in [:include-children-recons]
+                                     (fnil conj #{})
+                                     (:id created))))
     (assoc-warning
       context
       (format "Unable to resolve account %s for reconciliation on %s"
@@ -629,6 +635,12 @@
       recon)
     identity))
 
+(defn- restore-include-children
+  [{:keys [id] :as recon} {:keys [include-children-recons]}]
+  (cond-> recon
+    (contains? include-children-recons id)
+    (assoc :reconciliation/include-children? true)))
+
 (defn- process-reconciliations
   [{:keys [entity accounts] :as ctx} out-chan]
   (let [reconciliations (entities/select
@@ -644,6 +656,7 @@
                            :import/record-type :declaration}))
         (mapv (comp (notify-reconciliation-finalization out-chan)
                     #(process-reconciliation % ctx)
+                    #(restore-include-children % ctx)
                     #(update-in % [:reconciliation/account] (comp accounts :id)))
               reconciliations)
         (catch Throwable e

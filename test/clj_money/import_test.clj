@@ -315,6 +315,32 @@
         (finally
           (deliver release true))))))
 
+(def ^:private include-children-context
+  (conj base-context
+        #:image{:content (-> "resources/fixtures/include_children_reconciliation.gnucash"
+                             io/input-stream
+                             read-bytes)
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "include_children_reconciliation.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["include_children_reconciliation.gnucash"]}))
+
+(deftest import-a-reconciliation-that-includes-children
+  (with-context include-children-context
+    (let [{:keys [entity notifications]} (execute-import (find-import "Personal"))]
+      (is (empty? notifications) "No errors or warnings are reported")
+      (is (seq-of-maps-like? [#:reconciliation{:account (util/->entity-ref (entities/find-by {:account/name "Savings"}))
+                                               :status :completed
+                                               :end-of-period (t/local-date 2015 1 15)
+                                               :balance 800M}]
+                             (entities/select
+                               (util/entity-type
+                                 {:account/entity entity}
+                                 :reconciliation)))
+          "The parent account's reconciliation is completed with the child account's items"))))
+
 (def ^:private edn-context
   (conj base-context
         #:image{:content (-> "resources/fixtures/sample_0.edn.gz"
