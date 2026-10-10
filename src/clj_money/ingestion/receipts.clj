@@ -28,6 +28,7 @@
                          :id)
                    leaf-account?)]
     {:payment-accounts (->> payment-methods
+                            (mapv :id)
                             ents/find-many
                             (mapv :account/name))
      :expense-accounts (->> (ents/select {:account/type :expense
@@ -178,22 +179,51 @@
                   shares)
             (update-in [largest :transaction-item/quantity] + remainder))))))
 
+(defn- find-payment-account
+  [account-name entity]
+  (when account-name
+    (ents/find-by {:account/name account-name
+                   :account/entity entity})))
+
 (defn- payment-item
   [{:keys [total
            payment-account]}
    entity]
-  #:transaction-item{:account (ents/find-by {:account/name payment-account
-                                             :account/entity entity}) 
+  #:transaction-item{:account (find-payment-account payment-account entity)
                      :quantity (bigdec total)
                      :action :credit})
 
+(defn- apply-default-accounts
+  "Replaces any account the model didn't choose, or chose but doesn't
+  exist, with the first of the accounts it could choose from, for the
+  user to correct when reviewing the transaction."
+  [{:keys [payment-account] :as receipt} entity]
+  (let [{:keys [payment-accounts expense-accounts]} (account-options entity)
+        expense-account? (set (keys (accounts-by-path entity)))
+        default-expense (first (sort expense-accounts))]
+    (-> receipt
+        (assoc :payment-account (if (find-payment-account payment-account entity)
+                                  payment-account
+                                  (first (sort payment-accounts))))
+        (update-in [:line-items]
+                   (partial mapv
+                            (fn [{:keys [account] :as item}]
+                              (if (expense-account? account)
+                                item
+                                (assoc item :account default-expense))))))))
+
 (defn make-trx
-  [{:keys [location-name
-           date
-           total] :as receipt}
-   entity]
-  #:transaction{:transaction-date (t/local-date (t/formatter "yyyy-MM-dd") date)
-                :description location-name
-                :items (cons (payment-item receipt entity)
-                             (-> (translate-items entity receipt)
-                                 (balance-items (bigdec total))))})
+  [receipt entity]
+  (let [{:keys [location-name
+                date
+                total
+                payment-account]
+         :as receipt} (apply-default-accounts receipt entity)]
+    (when-not payment-account
+      (throw (ex-info "Unable to tell which account paid for the receipt. Choose payment methods in the receipt settings."
+                      {:receipt receipt})))
+    #:transaction{:transaction-date (t/local-date (t/formatter "yyyy-MM-dd") date)
+                  :description location-name
+                  :items (cons (payment-item receipt entity)
+                               (-> (translate-items entity receipt)
+                                   (balance-items (bigdec total))))}))

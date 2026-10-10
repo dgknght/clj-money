@@ -109,7 +109,10 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   `make-trx`, which builds the transaction from the model's answer. Whatever
   the items don't cover (tax the model didn't attribute to items, a tip) is
   spread across them in proportion to their amounts, so the transaction
-  balances. Amounts are parsed from the model's JSON as decimals
+  balances. Amounts are parsed from the model's JSON as decimals. An account
+  the model didn't choose, or that doesn't exist, is replaced with the first
+  of its choices (payment methods by name, expense accounts by path) for the
+  user to correct; with no payment methods set up, the read fails
 - `ingestion/evaluation.clj` - a harness that scores models, with and without
   the GPU, against receipts with hand-written expected answers
   (`lein eval-receipts -- --help`). It calls a live Ollama server, so it is

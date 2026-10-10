@@ -10,6 +10,7 @@
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-accounts]]
+            [clj-money.entities :as entities]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.ingestion.receipts :as rcpts]))
@@ -258,3 +259,49 @@
                                                       :taxable true
                                                       :account "Groceries/Food"}])
                                  entity))))))))
+
+(deftest use-the-first-account-when-the-model-doesnt-choose-one
+  (with-context ctx
+    (let [[food mastercard discover] (find-accounts "Food" "Mastercard" "Discover")
+          entity (entities/put
+                   (assoc-in (find-entity "Personal")
+                             [:entity/settings :settings/payment-methods]
+                             #{(util/->entity-ref mastercard)
+                               (util/->entity-ref discover)}))
+          receipt (assoc restaurant-receipt
+                         :total 10M
+                         :line-items [{:amount 10M
+                                       :account nil}])
+          expected (fn [payment]
+                     #{#:transaction-item{:account (util/simplify food)
+                                          :action :debit
+                                          :quantity 10M}
+                       #:transaction-item{:account (util/simplify payment)
+                                          :action :credit
+                                          :quantity 10M}})]
+      (testing "no accounts chosen"
+        (is (= (expected discover)
+               (simplified-items
+                 (rcpts/make-trx (assoc receipt :payment-account nil) entity)))
+            "The first payment method and expense account are used"))
+      (testing "accounts that don't exist"
+        (is (= (expected discover)
+               (simplified-items
+                 (rcpts/make-trx (-> receipt
+                                     (assoc :payment-account "Visa")
+                                     (assoc-in [:line-items 0 :account] "Clothing"))
+                                 entity)))
+            "The first payment method and expense account are used"))
+      (testing "a chosen payment method is kept"
+        (is (= (expected mastercard)
+               (simplified-items
+                 (rcpts/make-trx (assoc receipt :payment-account "Mastercard") entity))))))))
+
+(deftest a-payment-account-is-required
+  (with-context ctx
+    (is (thrown-with-msg?
+          clojure.lang.ExceptionInfo
+          #"Unable to tell which account paid"
+          (rcpts/make-trx (assoc restaurant-receipt :payment-account nil)
+                          (find-entity "Personal")))
+        "Without payment methods to choose from, the read fails with an explanation")))
