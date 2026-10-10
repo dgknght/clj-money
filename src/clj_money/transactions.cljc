@@ -75,10 +75,10 @@
                                               (complement neg?))))
 
 ; A transaction without a source was created by the user
-(s/def :transaction/source #{:user :ingestion})
+(s/def :transaction/source (s/nilable #{:user :ingestion}))
 ; Only ingested transactions need to be reviewed. A rejected transaction is
 ; deleted, so there is no :rejected status.
-(s/def :transaction/review-status #{:pending :accepted})
+(s/def :transaction/review-status (s/nilable #{:pending :accepted}))
 
 (s/def ::common-transaction (s/keys :req [:transaction/entity
                                           :transaction/description
