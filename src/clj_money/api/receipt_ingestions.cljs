@@ -14,7 +14,10 @@
                       :receipt-ingestions)
             {:image [blob "receipt.jpg"]}
             (-> opts
-                (assoc :encoding :multipart)
+                ; the encoding would otherwise set the Accept header to
+                ; application/multipart
+                (assoc :encoding :multipart
+                       :accept "application/edn")
                 (add-error-handler "Unable to upload the receipt: %s"))))
 
 (defn get

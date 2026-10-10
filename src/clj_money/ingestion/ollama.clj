@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [cheshire.core :as json]
+            [cheshire.parse :as json-parse]
             [lambdaisland.uri :as uri]
             [clj-http.client :as http]
             [clj-money.ingestion.receipts :as rcpts]
@@ -61,9 +62,11 @@
             (:prompt_eval_count body 0))
     (log/warnf "The prompt filled the context window (%s tokens) and may have been truncated"
                (:prompt_eval_count body)))
-  (-> body
-      :response
-      (json/parse-string ->kebab-case-keyword)))
+  ; amounts must be decimals, as doubles can't be rounded to cents
+  (binding [json-parse/*use-bigdecimals?* true]
+    (-> body
+        :response
+        (json/parse-string ->kebab-case-keyword))))
 
 (defn- handle-failure-response
   [body source]

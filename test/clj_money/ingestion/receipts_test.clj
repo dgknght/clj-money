@@ -176,3 +176,85 @@
           (pprint {:missing missing :extra extra}))
         (is (= expected-items actual-items)
             "The the receipt items are aggregated into transaction items.")))))
+
+(defn- simplified-items
+  [trx]
+  (->> (:transaction/items trx)
+       (map #(update-in % [:transaction-item/account] util/simplify))
+       set))
+
+(def ^:private restaurant-receipt
+  ; the tax is not attributed to the items
+  {:date "2026-10-01"
+   :location-name "CAVA Plano"
+   :total 38.97M
+   :tax 2.97M
+   :tax-rate nil
+   :tip nil
+   :payment-account "Discover"
+   :line-items [{:description "2 Harissa Avocado Bowl"
+                 :amount 30.30M
+                 :account "Groceries/Food"}
+                {:description "1 Cup Small"
+                 :amount 2.95M
+                 :account "Groceries/Food"}
+                {:description "1 Greyston Brownie"
+                 :amount 2.75M
+                 :account "Groceries/Non-food"}]})
+
+(deftest spread-unattributed-amounts-across-the-items
+  (with-context ctx
+    (let [entity (find-entity "Personal")
+          [food non-food rent discover] (find-accounts "Food"
+                                                       "Non-food"
+                                                       "Rent"
+                                                       "Discover")]
+      (testing "the difference is spread in proportion to the items"
+        (is (= #{#:transaction-item{:account (util/simplify food)
+                                    :action :debit
+                                    :quantity 35.99M}
+                 #:transaction-item{:account (util/simplify non-food)
+                                    :action :debit
+                                    :quantity 2.98M}
+                 #:transaction-item{:account (util/simplify discover)
+                                    :action :credit
+                                    :quantity 38.97M}}
+               (simplified-items (rcpts/make-trx restaurant-receipt entity)))))
+      (testing "a rounding remainder goes to the largest item"
+        ; each share of the 1.00 rounds up, leaving 0.01 too much
+        (is (= #{#:transaction-item{:account (util/simplify food)
+                                    :action :debit
+                                    :quantity 4.66M}
+                 #:transaction-item{:account (util/simplify non-food)
+                                    :action :debit
+                                    :quantity 1.17M}
+                 #:transaction-item{:account (util/simplify rent)
+                                    :action :debit
+                                    :quantity 1.17M}
+                 #:transaction-item{:account (util/simplify discover)
+                                    :action :credit
+                                    :quantity 7M}}
+               (simplified-items
+                 (rcpts/make-trx (assoc restaurant-receipt
+                                        :total 7M
+                                        :line-items [{:amount 4M
+                                                      :account "Groceries/Food"}
+                                                     {:amount 1M
+                                                      :account "Groceries/Non-food"}
+                                                     {:amount 1M
+                                                      :account "Rent"}])
+                                 entity)))))
+      (testing "a taxable item without a tax rate"
+        (is (= #{#:transaction-item{:account (util/simplify food)
+                                    :action :debit
+                                    :quantity 10.83M}
+                 #:transaction-item{:account (util/simplify discover)
+                                    :action :credit
+                                    :quantity 10.83M}}
+               (simplified-items
+                 (rcpts/make-trx (assoc restaurant-receipt
+                                        :total 10.83M
+                                        :line-items [{:amount 10M
+                                                      :taxable true
+                                                      :account "Groceries/Food"}])
+                                 entity))))))))

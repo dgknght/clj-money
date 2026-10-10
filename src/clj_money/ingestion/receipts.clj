@@ -139,7 +139,7 @@
                     #(assoc % :tax-amount (* (:tax-rate %)
                                              (:amount %)))
                     #(assoc % :tax-rate (if (:taxable %)
-                                          tax-rate
+                                          (or tax-rate 0.0M)
                                           0.0M))))
          (group-by :account)
          (mapv (comp
@@ -153,6 +153,31 @@
                                       :action :debit})
                  #(update-in % [0] accounts))))))
 
+(defn- balance-items
+  "Spreads whatever the items don't account for, like tax the model didn't
+  attribute to any item, or a tip, across the items in proportion to their
+  quantities so that they add up to the total. Any rounding remainder goes
+  to the largest item."
+  [items total]
+  (let [quantities (map :transaction-item/quantity items)
+        subtotal (reduce + 0M quantities)
+        difference (- total subtotal)]
+    (if (or (zero? difference)
+            (zero? subtotal))
+      items
+      (let [shares (mapv #(d/round (with-precision 20
+                                     (/ (* difference %) subtotal))
+                                   2)
+                         quantities)
+            remainder (- difference (reduce + 0M shares))
+            largest (apply max-key
+                           (comp :transaction-item/quantity items)
+                           (range (count items)))]
+        (-> (mapv #(update-in %1 [:transaction-item/quantity] + %2)
+                  items
+                  shares)
+            (update-in [largest :transaction-item/quantity] + remainder))))))
+
 (defn- payment-item
   [{:keys [total
            payment-account]}
@@ -164,9 +189,11 @@
 
 (defn make-trx
   [{:keys [location-name
-           date] :as receipt}
+           date
+           total] :as receipt}
    entity]
   #:transaction{:transaction-date (t/local-date (t/formatter "yyyy-MM-dd") date)
                 :description location-name
                 :items (cons (payment-item receipt entity)
-                             (translate-items entity receipt))})
+                             (-> (translate-items entity receipt)
+                                 (balance-items (bigdec total))))})
