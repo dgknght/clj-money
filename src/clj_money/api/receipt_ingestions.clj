@@ -38,6 +38,14 @@
              :transaction/review-status :pending)
       prop/put-and-propagate))
 
+(defn- attach-image
+  "Attaches the receipt image to the transaction created from it."
+  [trx image]
+  (prop/put-and-propagate #:attachment{:transaction trx
+                                       :image image
+                                       :caption "Receipt"})
+  trx)
+
 (defn- read-receipt
   [ingestion reader]
   (let [{:receipt-ingestion/keys [entity image] :as ingestion}
@@ -48,7 +56,8 @@
                                       (images/get (:image/uuid (entities/find image)))
                                       entity
                                       {})
-                    (create-transaction entity))]
+                    (create-transaction entity)
+                    (attach-image image))]
         (entities/put (assoc ingestion
                              :receipt-ingestion/status :complete
                              :receipt-ingestion/transaction (util/->entity-ref trx)

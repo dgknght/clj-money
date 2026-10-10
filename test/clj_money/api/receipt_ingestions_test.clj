@@ -109,6 +109,13 @@
                                      :review-status :pending}
                        (some-> retrieved :receipt-ingestion/transaction entities/find))
           "A transaction awaiting review is created from the receipt")
+      (let [trx (some-> retrieved :receipt-ingestion/transaction entities/find)]
+        (is (= 1 (:transaction/attachment-count trx))
+            "The transaction's attachment count is updated")
+        (is (seq-of-maps-like? [#:attachment{:image (:receipt-ingestion/image retrieved)
+                                             :caption "Receipt"}]
+                               (entities/select #:attachment{:transaction trx}))
+            "The receipt image is attached to the transaction"))
       (is (= (:receipt/transaction-id (:receipt-ingestion/receipt retrieved))
              (:id (:receipt-ingestion/transaction retrieved)))
           "The receipt refers to the transaction, so the form can edit it"))))

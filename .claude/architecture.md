@@ -127,7 +127,8 @@ Reading a receipt is slow, so it runs in the background, tracked by a
   `GET /api/receipt-ingestions/:id` is polled by the client
 - A successful read also creates the transaction, with
   `:transaction/source :ingestion` and `:transaction/review-status :pending`,
-  referenced by `:receipt-ingestion/transaction`. A transaction without a
+  referenced by `:receipt-ingestion/transaction`, and attaches the receipt
+  image to it (caption "Receipt"). A transaction without a
   source was created by the user; it has no review status, or `:accepted`.
   The user accepts by updating the transaction's review status, and rejects
   with `PATCH /api/receipt-ingestions/:id` (`:status :rejected` and a required
