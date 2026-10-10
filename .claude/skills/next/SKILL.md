@@ -38,6 +38,15 @@ Steps:
    column to reflect the claim, drag the card there yourself; the label swap
    is the only automated part of this step.
 6. Do the work described by the issue.
-7. Once the work is complete, push the branch and create a pull request:
-   `fj pr create -H git.dgknght.com --repo dgknght/clj-money --autofill
-   --base main`. Include "fixes #<ISSUE>" in the commit message.
+7. Once the work is complete, push the branch and create a pull request.
+   Include "fixes #<ISSUE>" in the commit message. Run `fj` from a directory
+   outside the clone and name the branch with `--head`: the clone's `origin`
+   points at `docker-host:2222`, and from inside it `fj` fails with "cannot
+   create pull request across instances" (see the `forgejo-cli` skill).
+   Write the body (`## Summary`, `## Test plan`, "fixes #<ISSUE>") to a file
+   in the scratchpad rather than using `--autofill`:
+
+   ```bash
+   cd <scratchpad> && fj pr create -H git.dgknght.com --repo dgknght/clj-money \
+     --base main --head <BRANCH> "<TITLE>" --body-file pr-body.md
+   ```

@@ -23,13 +23,22 @@
   (log/info "Stopping web server")
   (.stop server))
 
+(defn- exit
+  [status]
+  (System/exit status))
+
 (defn -main
-  "Starts the full system, and halts it when the JVM shuts down."
+  "Starts the full system, and halts it when the JVM shuts down. Exits with
+  a non-zero status if the system fails to start."
   [& [port]]
-  (let [sys (system/init (system/config (cond-> env
-                                          port (assoc :port port))))]
-    (.addShutdownHook (Runtime/getRuntime)
-                      (Thread. (fn []
-                                 (log/info "Halting the system")
-                                 (system/halt sys))))
-    sys))
+  (try
+    (let [sys (system/init (system/config (cond-> env
+                                            port (assoc :port port))))]
+      (.addShutdownHook (Runtime/getRuntime)
+                        (Thread. (fn []
+                                   (log/info "Halting the system")
+                                   (system/halt sys))))
+      sys)
+    (catch Throwable e
+      (log/fatal e "Unable to start the system")
+      (exit 1))))

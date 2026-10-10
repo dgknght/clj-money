@@ -4,7 +4,8 @@
   The system configuration is built from the application configuration
   (see clj-money.config), so the settings in env/*/config.edn, including
   :config/* references, are used unchanged."
-  (:require [integrant.core :as ig]
+  (:require [clojure.tools.logging :as log]
+            [integrant.core :as ig]
             [clj-money.config :as config]
             [clj-money.db :as db]
             [clj-money.images :as images]
@@ -54,18 +55,43 @@
     ::web/server {:handler (ig/ref ::web/handler)
                   :port (port env)}}))
 
+(defn- halt-partial-system
+  "Halts the components that had already started when the initialization
+  failure e was thrown. A failure while halting is added to e as a
+  suppressed exception, so that the original failure is the one reported."
+  [^Throwable e]
+  (when-let [sys (:system (ex-data e))]
+    (log/error "System initialization failed, halting the components already started")
+    (try
+      (ig/halt! sys)
+      (catch Throwable halt-e
+        (log/error halt-e "Unable to halt the partially initialized system")
+        (.addSuppressed e halt-e)))))
+
+(defn- init*
+  [f]
+  (try
+    (f)
+    (catch clojure.lang.ExceptionInfo e
+      (when (= ::ig/build-threw-exception (:reason (ex-data e)))
+        (halt-partial-system e))
+      (throw e))))
+
 (defn init
   "Loads the namespaces for the keys in the given Integrant configuration
   (defaults to the full system configuration) and initializes the system.
   Pass a collection of keys to initialize only those keys and their
-  dependencies."
+  dependencies.
+
+  If a component fails to initialize, the components that had already
+  started are halted and the failure is rethrown."
   ([] (init (config)))
   ([cfg]
    (ig/load-namespaces cfg)
-   (ig/init cfg))
+   (init* #(ig/init cfg)))
   ([cfg ks]
    (ig/load-namespaces cfg ks)
-   (ig/init cfg ks)))
+   (init* #(ig/init cfg ks))))
 
 (defn halt
   "Halts a running system."

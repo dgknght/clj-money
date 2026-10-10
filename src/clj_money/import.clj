@@ -353,7 +353,8 @@
           (update-entity-settings result)))))
 
 (defmethod import-record* :reconciliation
-  [{:keys [account-ids] :as context} {:import/keys [account-id] :as recon}]
+  [{:keys [account-ids] :as context}
+   {:import/keys [account-id include-children?] :as recon}]
   (if-let [new-id (account-ids account-id)]
     (let [created (-> recon
                       (assoc :reconciliation/balance 0M
@@ -363,10 +364,15 @@
                       entities/put)]
       ; We'll use this map later to assocate reconciled transactions
       ; for this account with this reconciliation
-      (update-in context [:account-recons]
-                 (fnil assoc {})
-                 (-> created :reconciliation/account :id)
-                 (:id created)))
+      (cond-> (update-in context [:account-recons]
+                         (fnil assoc {})
+                         (-> created :reconciliation/account :id)
+                         (:id created))
+        ; include-children? isn't saved with the reconciliation, so keep it
+        ; until the reconciliation is finalized
+        include-children? (update-in [:include-children-recons]
+                                     (fnil conj #{})
+                                     (:id created))))
     (assoc-warning
       context
       (format "Unable to resolve account %s for reconciliation on %s"
@@ -583,6 +589,19 @@
   [{:keys [id]}]
   (entities/select {:transaction-item/reconciliation {:id id}}))
 
+(defn- reconciliation-error
+  [e recon accounts]
+  (let [account (-> recon
+                    :reconciliation/account
+                    :id
+                    accounts
+                    :account/name)]
+    (log/errorf e "[import] Unable to reconcile account %s" account)
+    {:import/record-type :notification
+     :notification/severity :error
+     :notification/message (format "Unable to reconcile account %s."
+                                   account)}))
+
 (defn- process-reconciliation
   [{:as recon :reconciliation/keys [account items]}
    {:keys [accounts]}]
@@ -601,17 +620,12 @@
     (log/debugf "[import] processed reconciliation for account %s"
                 (:account/name account))
     {:import/record-type :finalize-reconciliation}
+    ; AssertionError is caught along with Exception because a failed
+    ; validation assertion affects only this reconciliation
     (catch Exception e
-      (let [account (-> recon
-                        :reconciliation/account
-                        :id
-                        accounts
-                        :account/name)]
-        (log/errorf e "[import] Unable to reconcile account %s" account)
-        {:import/record-type :notification
-         :notification/severity :error
-         :notification/message (format "Unable to reconcile account %s."
-                                       account)}))))
+      (reconciliation-error e recon accounts))
+    (catch AssertionError e
+      (reconciliation-error e recon accounts))))
 
 (defn- notify-reconciliation-finalization
   [out-chan]
@@ -621,6 +635,12 @@
       recon)
     identity))
 
+(defn- restore-include-children
+  [{:keys [id] :as recon} {:keys [include-children-recons]}]
+  (cond-> recon
+    (contains? include-children-recons id)
+    (assoc :reconciliation/include-children? true)))
+
 (defn- process-reconciliations
   [{:keys [entity accounts] :as ctx} out-chan]
   (let [reconciliations (entities/select
@@ -628,16 +648,25 @@
                             {:account/entity entity}
                             :reconciliation))
         ch (a/promise-chan)]
-    (a/go
-      (when out-chan
-        (a/>! out-chan {:declaration/record-type :finalize-reconciliation
-                        :declaration/record-count (count reconciliations)
-                        :import/record-type :declaration}))
-      (mapv (comp (notify-reconciliation-finalization out-chan)
-                  #(process-reconciliation % ctx)
-                  #(update-in % [:reconciliation/account] (comp accounts :id)))
-            reconciliations)
-      (a/close! ch))
+    (a/thread
+      (try
+        (when out-chan
+          (a/>!! out-chan {:declaration/record-type :finalize-reconciliation
+                           :declaration/record-count (count reconciliations)
+                           :import/record-type :declaration}))
+        (mapv (comp (notify-reconciliation-finalization out-chan)
+                    #(process-reconciliation % ctx)
+                    #(restore-include-children % ctx)
+                    #(update-in % [:reconciliation/account] (comp accounts :id)))
+              reconciliations)
+        (catch Throwable e
+          (log/error e "[import] Unable to finalize reconciliations")
+          (when out-chan
+            (a/>!! out-chan {:import/record-type :notification
+                             :notification/severity :fatal
+                             :notification/message "Unable to finalize reconciliations."})))
+        (finally
+          (a/close! ch))))
     ch))
 
 (defn- forward
@@ -736,6 +765,8 @@
 ; 1. import-record accepts the import record, writes the database record, passes on the database record
 ; 2. filt
 
+(def ^:private reconciliation-timeout-ms (* 30 60 1000))
+
 (defn- import-data*
   [import-spec {:keys [out-chan]}]
   (let [user (-> import-spec :import/user entities/find)
@@ -779,15 +810,21 @@
             (prop/propagate-all (:entity result) {:progress-chan out-chan})
             (log/debugf "[import] data imported, start reconciliations for %s"
                         (:import/entity-name import-spec))
-            (let [t (a/timeout (* 30 60 1000))
-                  x (a/alts!! [(process-reconciliations result
-                                                        out-chan)
-                               t]
-                              :priority true)]
-              (log/debugf (if (= x t)
-                            "[import] timed out waiting for reconciliations for %s"
-                            "[import] finished processing reconciliations for %s")
-                          (:import/entity-name import-spec))))
+            (let [t (a/timeout reconciliation-timeout-ms)
+                  [_ c] (a/alts!! [(process-reconciliations result
+                                                            out-chan)
+                                   t]
+                                  :priority true)]
+              (if (= c t)
+                (do
+                  (log/errorf "[import] timed out waiting for reconciliations for %s"
+                              (:import/entity-name import-spec))
+                  (when out-chan
+                    (a/>! out-chan {:import/record-type :notification
+                                    :notification/severity :fatal
+                                    :notification/message "Timed out waiting for reconciliations to finish."})))
+                (log/debugf "[import] finished processing reconciliations for %s"
+                            (:import/entity-name import-spec)))))
           (when out-chan
             (a/>! out-chan {:import/record-type :termination-signal}))
           (a/>! wait-chan (select-keys result [:notifications :entity])))

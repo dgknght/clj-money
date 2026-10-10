@@ -251,6 +251,96 @@
                                  records)
               "The error notification is sent to the out-chan"))))))
 
+(defn- finalizing-reconciliation?
+  [x]
+  (and (util/entity-type? x :reconciliation)
+       (= :completed (:reconciliation/status x))))
+
+(defn- import-with-failing-reconciliation
+  [error-fn]
+  (let [og-put entities/put]
+    (with-redefs [entities/put (fn [x & args]
+                                 (if (finalizing-reconciliation? x)
+                                   (error-fn)
+                                   (apply og-put x args)))]
+      (let [out-chan (a/chan 100)
+            {:keys [wait-chan]} (import-data (find-import "Personal")
+                                             :out-chan out-chan)
+            records (drain-chan out-chan
+                                #(= :termination-signal (:import/record-type %)))]
+        (a/alts!! [wait-chan (a/timeout 5000)])
+        records))))
+
+(defn- notifications
+  [records]
+  (filter #(= :notification (:import/record-type %))
+          records))
+
+(deftest report-an-assertion-error-while-finalizing-a-reconciliation
+  (with-context gnucash-context
+    (let [records (import-with-failing-reconciliation
+                    #(throw (AssertionError. "Induced assertion error")))]
+      (is (seq-of-maps-like? [{:notification/severity :error
+                               :notification/message "Unable to reconcile account Checking."}]
+                             (notifications records))
+          "The error is reported as a notification")
+      (is (= :termination-signal (:import/record-type (last records)))
+          "The import finishes"))))
+
+(deftest report-an-error-while-finalizing-reconciliations
+  (with-context gnucash-context
+    (let [records (import-with-failing-reconciliation
+                    #(throw (Error. "Induced error")))]
+      (is (seq-of-maps-like? [{:notification/severity :fatal
+                               :notification/message "Unable to finalize reconciliations."}]
+                             (notifications records))
+          "The error is reported as a fatal notification")
+      (is (= :termination-signal (:import/record-type (last records)))
+          "The import finishes"))))
+
+(deftest report-a-timeout-while-finalizing-reconciliations
+  (with-context gnucash-context
+    (let [release (promise)]
+      (try
+        (with-redefs [imp/reconciliation-timeout-ms 100]
+          (let [records (import-with-failing-reconciliation
+                          #(do (deref release)
+                               (throw (ex-info "Released" {}))))]
+            (is (seq-of-maps-like? [{:notification/severity :fatal
+                                     :notification/message "Timed out waiting for reconciliations to finish."}]
+                                   (notifications records))
+                "The timeout is reported as a fatal notification")
+            (is (= :termination-signal (:import/record-type (last records)))
+                "The import finishes")))
+        (finally
+          (deliver release true))))))
+
+(def ^:private include-children-context
+  (conj base-context
+        #:image{:content (-> "resources/fixtures/include_children_reconciliation.gnucash"
+                             io/input-stream
+                             read-bytes)
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "include_children_reconciliation.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["include_children_reconciliation.gnucash"]}))
+
+(deftest import-a-reconciliation-that-includes-children
+  (with-context include-children-context
+    (let [{:keys [entity notifications]} (execute-import (find-import "Personal"))]
+      (is (empty? notifications) "No errors or warnings are reported")
+      (is (seq-of-maps-like? [#:reconciliation{:account (util/->entity-ref (entities/find-by {:account/name "Savings"}))
+                                               :status :completed
+                                               :end-of-period (t/local-date 2015 1 15)
+                                               :balance 800M}]
+                             (entities/select
+                               (util/entity-type
+                                 {:account/entity entity}
+                                 :reconciliation)))
+          "The parent account's reconciliation is completed with the child account's items"))))
+
 (def ^:private edn-context
   (conj base-context
         #:image{:content (-> "resources/fixtures/sample_0.edn.gz"
