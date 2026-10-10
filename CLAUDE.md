@@ -24,6 +24,9 @@ This application is a web UI over a double-entry accounting system.
 
 NEVER RUN THE TEST SUITE AGAINST THE DEVELOPMENT DATABASE.
 
+When tests or the build fail unexpectedly, check `.claude/troubleshooting.md`
+for known problems before investigating.
+
 ## Libraries
 
 We own two of the libraries used throughout this projects.

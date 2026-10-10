@@ -112,3 +112,22 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   (`lein eval-receipts -- --help`). It calls a live Ollama server, so it is
   not part of the test suite and is excluded from coverage; its scoring
   functions are unit tested
+
+Reading a receipt is slow, so it runs in the background, tracked by a
+`receipt-ingestion` entity (`:status` is `:pending`, `:processing`,
+`:complete` or `:failed`).
+- `api/receipt_ingestions.clj` - `POST /api/entities/:entity-id/receipt-ingestions`
+  takes the image (multipart, `image`), creates the receipt-ingestion and
+  reads the receipt in a `future` with the `:ingestion` component. When
+  complete, `:receipt-ingestion/receipt` holds the result in the receipt
+  form's `:receipt/...` shape (accounts as refs), stored as edn.
+  `GET /api/receipt-ingestions/:id` is polled by the client
+- A successful read also creates the transaction, with
+  `:transaction/source :ingestion` and `:transaction/review-status :pending`,
+  referenced by `:receipt-ingestion/transaction`. A transaction without a
+  source was created by the user; it has no review status, or `:accepted`.
+  The user accepts by updating the transaction's review status, and rejects
+  with `PATCH /api/receipt-ingestions/:id` (`:status :rejected` and a required
+  `:rejection-reason`), which deletes the transaction
+- `api/receipt_ingestions.cljs` - the client functions
+- API tests pass their own reader to `web.test-handler/build-app`

@@ -163,6 +163,13 @@
   ([context caption]
    (find context :attachment/caption caption)))
 
+(defn find-receipt-ingestion
+  ([entity-name] (find-receipt-ingestion *context* entity-name))
+  ([context entity-name]
+   (let [entity (find-entity context entity-name)]
+     (find context #(and (= :receipt-ingestion (util/entity-type %))
+                         (id= entity (:receipt-ingestion/entity %)))))))
+
 (defn find-image
   ([arg]
    (if (string? arg)
@@ -372,6 +379,15 @@
   (-> att
       (update-in [:attachment/transaction] #(find-transaction ctx %))
       (update-in [:attachment/image] (find-image ctx))))
+
+(defmethod prepare :receipt-ingestion
+  [ingestion ctx]
+  (-> ingestion
+      (update-in [:receipt-ingestion/entity] (find-entity ctx))
+      (update-in [:receipt-ingestion/image] (comp util/->entity-ref
+                                                  (find-image ctx)))
+      (update-in-if [:receipt-ingestion/transaction] (comp util/->entity-ref
+                                                           #(find-transaction ctx %)))))
 
 (defmethod prepare :grant
   [attr ctx]

@@ -35,6 +35,10 @@
       {:transaction/_self transaction}
       :entity)))
 
+(defmethod fetch-entity :receipt-ingestion
+  [{:receipt-ingestion/keys [entity]}]
+  (fetch-entity* entity))
+
 (defmethod fetch-entity :budget
   [{:budget/keys [entity]}]
   (fetch-entity* entity))

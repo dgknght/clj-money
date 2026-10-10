@@ -6,9 +6,16 @@
             [clj-money.services :as services]
             [clj-money.web.handler :as handler]))
 
+(defn build-app
+  "Returns a handler built with the given components (e.g. {:ingestion
+  reader}) in addition to the default ones."
+  [components]
+  (handler/build (merge {:env env
+                         :services (services/config env)}
+                        components)))
+
 (def ^:private handler
-  (delay (handler/build {:env env
-                         :services (services/config env)})))
+  (delay (build-app {})))
 
 (defn app
   [req]

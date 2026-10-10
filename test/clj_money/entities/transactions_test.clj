@@ -129,6 +129,26 @@
                                          :transaction-item)))
                   "The item indices and balances are calculated")))))
 
+(dbtest create-an-ingested-transaction
+  (with-context base-context
+    (assert-created (assoc (attributes)
+                           :transaction/source :ingestion
+                           :transaction/review-status :pending))))
+
+(dbtest an-ingested-transaction-requires-a-review-status
+  (with-context base-context
+    (assert-invalid (assoc (attributes) :transaction/source :ingestion)
+                    {:transaction/review-status ["An ingested transaction must have a review status, and only an ingested transaction can be pending review"]})))
+
+(dbtest a-user-transaction-cannot-be-pending-review
+  (with-context base-context
+    (assert-invalid (assoc (attributes) :transaction/review-status :pending)
+                    {:transaction/review-status ["An ingested transaction must have a review status, and only an ingested transaction can be pending review"]})))
+
+(dbtest a-user-transaction-can-be-accepted
+  (with-context base-context
+    (assert-created (assoc (attributes) :transaction/review-status :accepted))))
+
 (dbtest transaction-date-is-required
   (with-context base-context
     (assert-invalid (dissoc (attributes)

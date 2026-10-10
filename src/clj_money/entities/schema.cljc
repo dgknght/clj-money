@@ -148,6 +148,10 @@
                            {:id :attachment-count
                             :type :string
                             :transient? true}
+                           {:id :source
+                            :type :keyword}
+                           {:id :review-status
+                            :type :keyword}
                            {:id :items
                             :type :vector}}
                  :refs #{:entity
@@ -279,7 +283,18 @@
                           {:id :expires-at
                            :type :date-time}}
                 :refs #{{:id :invited-by :type :user}
-                        :user}}})
+                        :user}}
+   :receipt-ingestion {:fields #{{:id :status
+                                  :type :keyword}
+                                 {:id :receipt
+                                  :type :string}
+                                 {:id :error
+                                  :type :string}
+                                 {:id :rejection-reason
+                                  :type :string}}
+                       :refs #{:entity
+                               :image
+                               :transaction}}})
 
 (assert (s/valid? ::entities entities)
         "The schema is not valid")

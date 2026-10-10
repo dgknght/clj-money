@@ -98,7 +98,9 @@
    :transaction/items
    :transaction/debit-account
    :transaction/credit-account
-   :transaction/quantity])
+   :transaction/quantity
+   :transaction/source
+   :transaction/review-status])
 
 (def ^:private item-keys
   [:id
@@ -121,6 +123,9 @@
   (-> params
       (dissoc :id)
       (select-keys attribute-keys)
+      ; only the system sets the source
+      (dissoc :transaction/source)
+      (update-in-if [:transaction/review-status] util/ensure-keyword)
       (update-in-if [:transaction/transaction-date] ensure-local-date)
       (update-in-if [:transaction/items] (partial map refine-item))))
 

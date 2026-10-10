@@ -11,6 +11,7 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.cached-accounts :as cached-accts]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon
@@ -28,8 +29,14 @@
             [clj-money.views.attachments :as atts-view]
             [clj-money.views.recent-transactions :as recent-trx]))
 
+(defn- clear-receipt-image
+  [page-state]
+  (some-> (get-in @page-state [:receipt-image :url]) js/URL.revokeObjectURL)
+  (swap! page-state dissoc :receipt-image))
+
 (defn- new-receipt
   [page-state]
+  (clear-receipt-image page-state)
   (let [defaults (-> (get-in @page-state [:receipt])
                      (select-keys [:receipt/transaction-date
                                    :receipt/payment-account])
@@ -215,7 +222,7 @@
          [:tr
           [:td.text-end {:col-span 2}
            (format-decimal @total)]]]]
-       [:div.mb-2
+       [:div.mb-2.d-flex.align-items-center
         [:button.btn.btn-primary
          {:type :submit
           :title "Click here to create this transaction."}
@@ -224,14 +231,24 @@
          {:type :button
           :title "Click here to discard this receipt."
           :on-click (fn [_]
+                      (clear-receipt-image page-state)
                       (swap! receipt select-keys [:receipt/transaction-date])
                       (set-focus "transaction-date"))}
          (icon-with-text :x "Cancel")]
-        [:button.btn.btn-secondary.ms-2
-         {:type :button
-          :title "Click here to create a transaction from a receipt image."
-          :on-click (fn [_])}
-         (icon-with-text :camera-fill "Upload")]]])))
+        [:div.ms-2
+         [forms/image-input
+          page-state
+          [:receipt-image]
+          {:capture "environment"
+           ; large enough to keep the fine print on a receipt legible
+           :resize {:max-dimension 2048
+                    :on-error #(notify/danger "Unable to read the image.")}
+           :captions {:add (icon-with-text :camera-fill "Scan" :size :small)
+                      :replace (icon-with-text :camera-fill "Replace" :size :small)
+                      :remove (icon-with-text :x "Remove" :size :small)}
+           :titles {:choose "Click here to take or choose a photo of a receipt."
+                    :remove "Click here to remove the receipt image."}
+           :preview-html {:alt "The receipt image"}}]]]])))
 
 (defn- load-attachments
   [page-state]

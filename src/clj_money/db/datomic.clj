@@ -57,7 +57,8 @@
     :transaction-item      '[?x :transaction-item/action ?transaction-item-action]
     :account-item          '[?x :account-item/action ?account-item-action]
     :user                  '[?x :user/email ?user-email]
-    :invitation            '[?x :invitation/recipient ?invitation-recipient]))
+    :invitation            '[?x :invitation/recipient ?invitation-recipient]
+    :receipt-ingestion     '[?x :receipt-ingestion/status ?receipt-ingestion-status]))
 
 (defn- unbounded?
   [{:keys [where]}]
@@ -411,7 +412,8 @@
             :transaction/entity
             :scheduled-transaction/entity
             :grant/entity
-            :budget/entity]
+            :budget/entity
+            :receipt-ingestion/entity]
    :commodity [:price/commodity
                :lot/commodity]
    :account [:reconciliation/account

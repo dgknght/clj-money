@@ -38,4 +38,12 @@
   :db/valueType :db.type/long
   :db/cardinality :db.cardinality/one
   :db/noHistory true
-  :db/doc "The number of attachments for the transaction"}]
+  :db/doc "The number of attachments for the transaction"}
+ {:db/ident :transaction/source
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "How the transaction was created (user, ingestion). Absent means user."}
+ {:db/ident :transaction/review-status
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "Whether the user has reviewed an ingested transaction (pending, accepted)"}]

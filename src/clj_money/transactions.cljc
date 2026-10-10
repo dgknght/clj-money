@@ -74,11 +74,19 @@
                                        (s/and integer?
                                               (complement neg?))))
 
+; A transaction without a source was created by the user
+(s/def :transaction/source #{:user :ingestion})
+; Only ingested transactions need to be reviewed. A rejected transaction is
+; deleted, so there is no :rejected status.
+(s/def :transaction/review-status #{:pending :accepted})
+
 (s/def ::common-transaction (s/keys :req [:transaction/entity
                                           :transaction/description
                                           :transaction/transaction-date]
                                     :opt [:transaction/memo
-                                          :transaction/attachment-count]))
+                                          :transaction/attachment-count
+                                          :transaction/source
+                                          :transaction/review-status]))
 
 (s/def ::simple-transaction (s/merge ::common-transaction
                                      (s/keys :req [:transaction/quantity

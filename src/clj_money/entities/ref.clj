@@ -18,4 +18,5 @@
             clj-money.entities.scheduled-transactions
             clj-money.entities.budgets
             clj-money.entities.budget-items
-            clj-money.entities.invitations))
+            clj-money.entities.invitations
+            clj-money.entities.receipt-ingestions))

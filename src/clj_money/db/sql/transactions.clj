@@ -1,6 +1,7 @@
 (ns clj-money.db.sql.transactions
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
@@ -33,7 +34,10 @@
 
 (defmethod sql/after-read :transaction
   [trx]
-  (update-in trx [:transaction/transaction-date] t/local-date))
+  (-> trx
+      (update-in [:transaction/transaction-date] t/local-date)
+      (update-in-if [:transaction/source] keyword)
+      (update-in-if [:transaction/review-status] keyword)))
 
 (defn- ->item-criteria
   [trxs]
