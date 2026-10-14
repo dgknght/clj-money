@@ -12,6 +12,9 @@
             [clj-money.system :as system]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
+            [clj-money.ingestion :as ing]
+            [clj-money.ingestion.ref]
+            [clj-money.db :as db]
             [clj-money.entities.attachments :as atts]
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
@@ -151,3 +154,23 @@
                                               (map :stack)
                                               frequencies)})))
        (sort-by (comp :average second) >)))
+
+(defn read-receipt
+  [source user-email entity-name & {:as opts}]
+  (system/with-system [sys [::ing/reader ::db/storage]]
+    (let [{::ing/keys [reader]} sys
+          entity (entities/find-by {:entity/name entity-name
+                                    :user/email user-email}
+                                   {:entity-type :entity})
+          _ (assert entity
+                    (format "No entity named %s for user %s"
+                            (pr-str entity-name)
+                            (pr-str user-email)))
+          result (try
+                   (ing/read-receipt reader source entity opts)
+                   (catch Exception e
+                     {:type (type e)
+                      :message (ex-message e)
+                      :data (ex-data e)
+                      :stack (mapv str (.getStackTrace e))}))]
+      (pprint result))))

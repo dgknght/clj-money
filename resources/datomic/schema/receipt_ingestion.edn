@@ -1,0 +1,28 @@
+[{:db/ident :receipt-ingestion/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity for which the receipt is being read"}
+ {:db/ident :receipt-ingestion/image
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The image of the receipt"}
+ {:db/ident :receipt-ingestion/status
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The progress of the read (pending, processing, complete, failed)"}
+ {:db/ident :receipt-ingestion/receipt
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The receipt read from the image, serialized as edn"}
+ {:db/ident :receipt-ingestion/error
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The reason the read failed"}
+ {:db/ident :receipt-ingestion/transaction
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The transaction created from the receipt"}
+ {:db/ident :receipt-ingestion/rejection-reason
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "Why the user rejected the transaction created from the receipt"}]

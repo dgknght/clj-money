@@ -68,7 +68,7 @@
 
 (def ^:private qid-patterns
   [#"\A#clj-money\/qid \"(\d+):([a-z\-]+)?\"\z"
-   #"\A(\d+)(:[a-z\-z]+)?\z"])
+   #"\A(\d+)(?::([a-z\-]+))?\z"])
 
 (defn unserialize-qid
   [s]

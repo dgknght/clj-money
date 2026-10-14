@@ -1,0 +1,15 @@
+---
+# GPU acceleration for ollama on Linux hosts with an Intel or AMD GPU and
+# Mesa's Vulkan drivers. Not part of the base file because the container
+# fails to start on hosts without /dev/dri. To opt in, symlink this file to
+# docker-compose.override.yaml (gitignored), which compose loads automatically.
+services:
+  ollama:
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      # Integrated GPUs are skipped unless this is set
+      OLLAMA_IGPU_ENABLE: "1"
+    security_opt:
+      # SELinux blocks device access from containers unless labeling is off
+      - label=disable

@@ -33,6 +33,7 @@
            "reconciliation"
            "scheduled_transaction"
            "invitation"
+           "receipt_ingestion"
            "tx_meta"]))
 
 (defn apply-schema
@@ -41,8 +42,13 @@
    (let [{:as cfg
           :keys [db-name]} (get-in env [:db :strategies config-key])]
      (assert cfg (str "No datomic configuration found for " config-key))
-     (apply-schema cfg
-                   db-name)))
+     (try
+       (apply-schema cfg
+                     db-name)
+       ; Passing true also shuts down the Clojure agents, which is only
+       ; appropriate when running as a task, not when resetting a database
+       ; in a running process (e.g. the test suite)
+       (finally (d/shutdown true)))))
   ([{:keys [uri] :as cfg} {:keys [suppress-output?]}]
    {:pre [(:uri cfg)]}
    (try
@@ -57,5 +63,4 @@
      (log/info "done applying the schema.")
      (catch Exception e
        (log/error e "error when applying the schema.")
-       (throw e))
-     (finally (d/shutdown true)))))
+       (throw e)))))

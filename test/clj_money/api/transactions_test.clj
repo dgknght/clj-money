@@ -381,6 +381,60 @@
   (with-context existing-context
     (assert-blocked-update (update-a-transaction "jane@doe.com"))))
 
+(def ^:private ingested-context
+  (conj context
+        #:transaction{:description "Kroger"
+                      :entity "Personal"
+                      :transaction-date (t/local-date 2016 2 2)
+                      :quantity 10M
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :source :ingestion
+                      :review-status :pending}))
+
+(defn- review-a-transaction
+  [email body]
+  (let [transaction (find-transaction [(t/local-date 2016 2 2) "Kroger"])
+        response (-> (request :patch (path :api
+                                           :transactions
+                                           (:id transaction))
+                              :user (find-user email)
+                              :body (merge transaction body))
+                     app
+                     parse-body)]
+    [response (entities/find transaction)]))
+
+(deftest a-user-can-accept-an-ingested-transaction-in-his-entity
+  (with-context ingested-context
+    (let [[response retrieved] (review-a-transaction
+                                 "john@doe.com"
+                                 {:transaction/review-status :accepted})]
+      (is (http-success? response))
+      (is (comparable? #:transaction{:source :ingestion
+                                     :review-status :accepted}
+                       retrieved)
+          "The review status is updated and the source is kept"))))
+
+(deftest a-user-cannot-accept-an-ingested-transaction-in-anothers-entity
+  (with-context ingested-context
+    (let [[response retrieved] (review-a-transaction
+                                 "jane@doe.com"
+                                 {:transaction/review-status :accepted})]
+      (is (http-not-found? response))
+      (is (comparable? #:transaction{:review-status :pending}
+                       retrieved)
+          "The review status is not updated"))))
+
+(deftest a-user-cannot-change-the-source-of-a-transaction
+  (with-context ingested-context
+    (let [[_ retrieved] (review-a-transaction
+                          "john@doe.com"
+                          {:transaction/source :user})]
+      (is (comparable? #:transaction{:source :ingestion
+                                     :review-status :pending}
+                       retrieved)
+          "The source is not changed"))))
+
 (defn- delete-a-transaction
   [email]
   (with-context existing-context

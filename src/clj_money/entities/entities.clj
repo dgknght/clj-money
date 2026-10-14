@@ -40,12 +40,18 @@
 (s/def :settings/lt-capital-loss-account ::entities/entity-ref)
 (s/def :settings/st-capital-loss-account ::entities/entity-ref)
 (s/def :settings/budget-tags (s/coll-of keyword? :kind vector?))
+(s/def :settings/payment-methods (s/coll-of ::entities/entity-ref :kind set?))
+(s/def :settings/expense-accounts (s/coll-of ::entities/entity-ref :kind set?))
+(s/def :settings/expense-hints (s/coll-of string? :kind sequential?))
 (s/def :entity/settings (s/nilable
                           (s/keys :opt [:settings/inventory-method
                                         :settings/monitored-accounts
                                         :settings/monitor-order
                                         :settings/default-commodity
-                                        :settings/budget-tags])))
+                                        :settings/budget-tags
+                                        :settings/payment-methods
+                                        :settings/expense-accounts
+                                        :settings/expense-hints])))
 
 (s/def ::entities/entity (s/and (s/keys :req [:entity/name
                                               :entity/user]

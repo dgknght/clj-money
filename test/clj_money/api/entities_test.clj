@@ -154,7 +154,7 @@
                          retrieved)
             "The updated entity can be retrieved")))))
 
-(deftest budget-tags-can-be-edited-via-the-api
+(deftest budget-tags-can-be-edited
   (with-context list-context
     (testing "default format (edn)"
       (let [[res retrieved] (edit-an-entity
@@ -180,7 +180,7 @@
                          retrieved)
             "The tags are persisted in the order given")))))
 
-(deftest monitor-order-can-be-edited-via-the-api
+(deftest monitor-order-can-be-edited
   (with-context list-context
     (let [dining (find-account "Dining")
           groceries (find-account "Groceries")]
@@ -206,6 +206,29 @@
           (is (comparable? {:entity/settings {:settings/monitor-order [(:id groceries) (:id dining)]}}
                            retrieved)
               "The order is persisted as given"))))))
+
+(deftest receipt-ingestion-settings-can-be-edited
+  (with-context list-context
+    (let [dining (util/->entity-ref (find-account "Dining"))
+          groceries (util/->entity-ref (find-account "Groceries"))
+          [res retrieved] (edit-an-entity
+                            "john@doe.com"
+                            :changes {:entity/settings
+                                      #:settings{:payment-methods #{dining}
+                                                 :expense-accounts #{dining groceries}
+                                                 :expense-hints ["Prefer Dining at restaurants"]}})]
+      (is (http-success? res))
+      (is (= #:settings{:payment-methods #{dining}
+                        :expense-accounts #{dining groceries}
+                        :expense-hints ["Prefer Dining at restaurants"]}
+             (-> retrieved
+                 :entity/settings
+                 (select-keys [:settings/payment-methods
+                               :settings/expense-accounts
+                               :settings/expense-hints])
+                 (update-in [:settings/payment-methods] (partial into #{} (map util/->entity-ref)))
+                 (update-in [:settings/expense-accounts] (partial into #{} (map util/->entity-ref)))))
+          "The settings are persisted"))))
 
 (deftest a-user-cannot-edit-anothers-entity
   (with-context list-context

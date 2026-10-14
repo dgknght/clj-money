@@ -237,8 +237,11 @@
       ; Use the parking <! here, not <!!, since we're inside a go block;
       ; a blocking call here can starve the core.async dispatch pool
       ; under load, delaying :finish and racing with-propagation's timeout.
-      (when-let [changes (seq (calc-changes to-save saved))]
-        (a/<! (a/onto-chan! out-chan changes close-chan?)))
+      (if-let [changes (seq (calc-changes to-save saved))]
+        (a/<! (a/onto-chan! out-chan changes close-chan?))
+        ; nothing changed, but whoever is reading out-chan still needs to
+        ; know that no changes are coming
+        (when close-chan? (a/close! out-chan)))
       (when ctrl-chan
         (a/>! ctrl-chan :finish)))))
 

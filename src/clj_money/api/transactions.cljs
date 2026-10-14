@@ -1,5 +1,5 @@
 (ns clj-money.api.transactions
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update get])
   (:require [cljs.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.core :refer [update-in-if]]
@@ -33,6 +33,12 @@
                       :transaction-item/account :account-id})
         comparatives/nominalize)
     (add-error-handler opts "Unable to retrieve the transactions: %s")))
+
+(defn get
+  [{:keys [id]} & {:as opts}]
+  (api/get (api/path :transactions id)
+           {}
+           (add-error-handler opts "Unable to retrieve the transaction: %s")))
 
 (defn create
   [transaction opts]

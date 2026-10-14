@@ -1,9 +1,11 @@
 (ns clj-money.system-test
   (:require [clojure.test :refer [deftest is]]
             [integrant.core :as ig]
+            [clj-money.test-helpers]
             [clj-money.config :as config]
             [clj-money.db :as db]
             [clj-money.images :as images]
+            [clj-money.ingestion :as ing]
             [clj-money.progress :as progress]
             [clj-money.services :as services]
             [clj-money.system :as system]
@@ -19,16 +21,19 @@
                     :db {:strategies {:sql {:dbname "money_test"}}
                          :active :sql}
                     :image-storage {:bucket "test-images"}
+                    :ingestion {:model "model-x"}
                     :progress {:strategies {:redis {:prefix "test"}}
                                :active :redis}}]
     (is (= {::system/env app-config
             ::db/storage {:dbname "money_test"}
             ::images/storage {:bucket "test-images"}
+            ::ing/reader {:model "model-x"}
             ::progress/tracker-factory {:prefix "test"}
             ::services/config (services/config app-config)
             ::web/handler {:env (ig/ref ::system/env)
                            :storage (ig/ref ::db/storage)
                            :image-storage (ig/ref ::images/storage)
+                           :ingestion (ig/ref ::ing/reader)
                            :tracker-factory (ig/ref ::progress/tracker-factory)
                            :services (ig/ref ::services/config)}
             ::web/server {:handler (ig/ref ::web/handler)
@@ -51,6 +56,8 @@
           "The storage is available in the running system")
       (is (satisfies? images/Storage (::images/storage sys))
           "The image storage is available in the running system")
+      (is (satisfies? ing/Reader (::ing/reader sys))
+          "The ingestion reader is available in the running system")
       (is (satisfies? progress/TrackerFactory (::progress/tracker-factory sys))
           "The progress tracker factory is available in the running system")
       (is (= (services/config test-env) (::services/config sys))

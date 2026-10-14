@@ -7,13 +7,13 @@
   (is (= "123:user" (str (types/qid 123 :user)))))
 
 (deftest unserialize-an-id
-  (is (types/qid 123 :user)
-      (types/unserialize-qid "123:user")))
+  (is (= (types/qid 123 :user)
+         (types/unserialize-qid "123:user"))))
 
 ; TODO: Do we need both of these?
 (deftest parse-a-qualified-id
-  (is (types/qid 1 :user)
-      (types/parse-qid (str (types/qid 1 :user)))))
+  (is (= (types/qid 1 :user)
+         (types/parse-qid (str (types/qid 1 :user))))))
 
 (deftest qualify-an-id
   (is (= {:id (types/qid 123 :user)

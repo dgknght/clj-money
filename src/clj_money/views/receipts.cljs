@@ -11,6 +11,8 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.cached-accounts :as cached-accts]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon
@@ -25,11 +27,26 @@
             [clj-money.receipts :as receipts]
             [clj-money.api.transactions :as trn]
             [clj-money.api.attachments :as atts]
+            [clj-money.api.receipt-ingestions :as ri]
             [clj-money.views.attachments :as atts-view]
+            [clj-money.views.ingestion-settings :as ingestion-settings]
             [clj-money.views.recent-transactions :as recent-trx]))
+
+(defn- clear-receipt-image
+  [page-state]
+  (some-> (get-in @page-state [:receipt-image :url]) js/URL.revokeObjectURL)
+  (swap! page-state dissoc :receipt-image))
+
+(defn- clear-ingestion
+  "Stops following the read of a receipt image, and forgets the
+  transaction created from it."
+  [page-state]
+  (swap! page-state dissoc :reading? :ingestion :ingested-receipt :rejection))
 
 (defn- new-receipt
   [page-state]
+  (clear-receipt-image page-state)
+  (clear-ingestion page-state)
   (let [defaults (-> (get-in @page-state [:receipt])
                      (select-keys [:receipt/transaction-date
                                    :receipt/payment-account])
@@ -72,9 +89,11 @@
 
 (defn- save-transaction
   [page-state]
-  (let [receipt (:receipt @page-state)]
+  (let [{:keys [receipt ingestion]} @page-state]
     (-> receipt
         receipts/->transaction
+        ; saving a transaction read from a receipt image accepts it
+        (cond-> ingestion (assoc :transaction/review-status :accepted))
         (trn/save
           :callback -busy
           :on-success (fn [trx]
@@ -164,69 +183,282 @@
                (format-decimal value)
                description))
 
+(def ^:private ingestion-poll-interval
+  "How long to wait, in milliseconds, between checks on the read of a
+  receipt image."
+  2000)
+
+(defn- following?
+  "Returns true if the page is still waiting on the specified ingestion."
+  [page-state {:keys [id]}]
+  (= id (get-in @page-state [:ingestion :id])))
+
+(defn cancel-receipt
+  "Discards the changes in the receipt form. A transaction read from a
+  receipt image is restored as read, so the user can still accept or
+  reject it. Otherwise, the receipt is cleared."
+  [page-state]
+  (if-let [ingested (:ingested-receipt @page-state)]
+    (swap! page-state assoc :receipt ingested)
+    (do
+      (clear-receipt-image page-state)
+      (clear-ingestion page-state)
+      (swap! page-state update-in [:receipt] select-keys [:receipt/transaction-date]))))
+
+(defn- load-ingested-receipt
+  "Opens the transaction created from the receipt image in the form, for
+  the user to review."
+  [page-state {:receipt-ingestion/keys [transaction] :as ingestion}]
+  (trn/get transaction
+           :on-failure (fn [_] (clear-ingestion page-state))
+           :on-success
+           (fn [trx]
+             (when (following? page-state ingestion)
+               (let [receipt (-> trx
+                                 receipts/<-transaction
+                                 (update-in [:receipt/items] #(conj (vec %) {})))]
+                 (swap! page-state #(-> %
+                                        (dissoc :reading?)
+                                        (assoc :ingestion ingestion
+                                               :receipt receipt
+                                               :ingested-receipt receipt)))
+                 (set-focus "transaction-date"))))))
+
+(defn- await-ingestion
+  [page-state ingestion]
+  (js/setTimeout
+    (fn []
+      (when (following? page-state ingestion)
+        (ri/get ingestion
+                :on-failure (fn [_] (clear-ingestion page-state))
+                :on-success
+                (fn [{:receipt-ingestion/keys [status error] :as updated}]
+                  (when (following? page-state updated)
+                    (case status
+                      (:rejected :complete)
+                      (load-ingested-receipt page-state updated)
+
+                      :failed
+                      (do
+                        (notify/dangerf "Unable to read the receipt: %s" error)
+                        (clear-ingestion page-state))
+
+                      (:processing :pending)
+                      (do
+                        (swap! page-state assoc :ingestion updated)
+                        (await-ingestion page-state updated))
+
+                      (do
+                        (notify/dangerf "Unrecognized ingestion status: %s" (pr-str status))
+                        (clear-ingestion page-state))))))))
+    ingestion-poll-interval))
+
+(defn- ingest-receipt
+  "Uploads the receipt image to be read in the background, then waits
+  for the transaction created from it."
+  [page-state image]
+  (when image
+    (clear-ingestion page-state)
+    ; the form is withheld until the read is finished
+    (swap! page-state assoc :reading? true)
+    (+busy)
+    (ri/create image
+               :callback -busy
+               :on-failure (fn [_] (clear-ingestion page-state))
+               :on-success (fn [ingestion]
+                             (swap! page-state assoc :ingestion ingestion)
+                             (await-ingestion page-state ingestion)))))
+
+(defn- reject-transaction
+  [page-state]
+  (let [{:keys [ingestion] {:keys [reason]} :rejection} @page-state
+        trx (:receipt-ingestion/transaction ingestion)]
+    (+busy)
+    (ri/reject ingestion
+               reason
+               :callback -busy
+               :on-success (fn [_]
+                             (swap! page-state
+                                    update-in
+                                    [:transactions]
+                                    (partial remove #(util/id= trx %)))
+                             (new-receipt page-state)))))
+
+(defn- rejection-form
+  [page-state]
+  (let [rejection (r/cursor page-state [:rejection])]
+    (fn []
+      (when @rejection
+        [:form.mb-2 {:no-validate true
+                     :on-submit (fn [e]
+                                  (.preventDefault e)
+                                  (v/validate rejection)
+                                  (when (v/valid? rejection)
+                                    (reject-transaction page-state)))}
+         [forms/text-field rejection [:reason] {:caption "Reason for Rejecting"
+                                                :validations #{::v/required}}]
+         [:button.btn.btn-danger
+          {:type :submit
+           :title "Click here to delete the transaction read from the receipt."}
+          (icon-with-text :x "Reject")]
+         [:button.btn.btn-secondary.ms-2
+          {:type :button
+           :title "Click here to keep the transaction."
+           :on-click #(swap! page-state dissoc :rejection)}
+          (icon-with-text :arrow-left-short "Back")]]))))
+
+(defn- placeholder-field
+  [caption]
+  [:div.mb-3
+   [:label.form-label caption]
+   [:div.form-control.placeholder-glow
+    [:span.placeholder.col-6]]])
+
+(defn- reading-placeholder
+  "Stands in for the receipt form while the receipt image is read, so no
+  other action can be taken until the transaction is ready."
+  []
+  [:div
+   [placeholder-field "Transaction Date"]
+   [placeholder-field "Description"]
+   [placeholder-field "Payment Method"]
+   [placeholder-field "Payment Memo"]
+   [:div.placeholder-glow.mb-3
+    (for [i (range 3)]
+      ^{:key (str "placeholder-item-" i)}
+      [:div.d-flex.mb-2
+       [:span.placeholder.col-5.me-2]
+       [:span.placeholder.col-3.me-2]
+       [:span.placeholder.col-3]])]
+   [:div.mb-2.d-flex.align-items-center.text-muted
+    [bs/spinner {:size :small}]
+    [:span.ms-2 "Reading the receipt..."]]])
+
+(def ^:private ingestion-settings-id "receipts-ingestion-settings")
+
 (defn- receipt-form
   [page-state]
   (let [receipt (r/cursor page-state [:receipt])
         item-count (make-reaction #(count (:receipt/items @receipt)))
         history (r/cursor page-state [:historical-transactions])
-        total (make-reaction #(receipts/total @receipt))]
+        total (make-reaction #(receipts/total @receipt))
+        ; an unchanged transaction read from a receipt image is
+        ; offered for acceptance
+        reading? (r/cursor page-state [:reading?])
+        ingestion (r/cursor page-state [:ingestion])
+        settings-draft (r/cursor page-state [:ingestion-settings])
+        accepting? (make-reaction #(let [{:keys [receipt ingested-receipt]} @page-state]
+                                     (and ingested-receipt
+                                          (= receipt ingested-receipt))))]
     (fn []
-      [:form {:no-validate true
-              :on-submit (fn [e]
-                           (.preventDefault e)
-                           (v/validate receipt)
-                           (when (v/valid? receipt)
-                             (save-transaction page-state)))}
-       [forms/date-field receipt [:receipt/transaction-date] {:validations #{::v/required}}]
-       [forms/typeahead-field
-        receipt
-        [:receipt/description]
-        {:mode :direct
-         :validations #{::v/required}
-         :caption "Description"
-         :search-fn (fn [input callback]
-                      (search-transactions input callback @history))
-         :find-fn (constantly nil)
-         :caption-fn :transaction/description
-         :list-caption-fn format-existing-trx
-         :on-change #(swap! page-state reuse-trans %)
-         :value-fn :transaction/description}]
-       [forms/typeahead-field
-        receipt
-        [:receipt/payment-account]
-        {:validations #{::v/required}
-         :caption "Payment Method"
-         :search-fn (search-accounts)
-         :find-fn (fn [account callback]
-                    (callback (@accounts-by-id (:id account))))
-         :caption-fn #(string/join "/" (:account/path %))}]
-       [forms/text-field receipt [:receipt/payment-memo] {:caption "Payment Memo"}]
-       [:table.table.table-borderless
-        [:thead
-         [:tr
-          [:th "Category"]
-          [:th "Amount"]
-          [:th "Memo"]]]
-        [:tbody
-         (->> (range @item-count)
-              (map #(receipt-item-row % receipt page-state))
-              doall)]
-        [:tfoot
-         [:tr
-          [:td.text-end {:col-span 2}
-           (format-decimal @total)]]]]
-       [:div.mb-2
-        [:button.btn.btn-primary
-         {:type :submit
-          :title "Click here to create this transaction."}
-         (icon-with-text :check "Enter")]
-        [:button.btn.btn-secondary.ms-2
-         {:type :button
-          :title "Click here to discard this receipt."
-          :on-click (fn [_]
-                      (swap! receipt select-keys [:receipt/transaction-date])
-                      (set-focus "transaction-date"))}
-         (icon-with-text :x "Cancel")]]])))
+      (if @reading?
+          [reading-placeholder]
+          [:<>
+           [:form {:no-validate true
+                   :on-submit (fn [e]
+                                (.preventDefault e)
+                                (v/validate receipt)
+                                (when (v/valid? receipt)
+                                  (save-transaction page-state)))}
+            [forms/date-field receipt [:receipt/transaction-date] {:validations #{::v/required}}]
+            [forms/typeahead-field
+             receipt
+             [:receipt/description]
+             {:mode :direct
+              :validations #{::v/required}
+              :caption "Description"
+              :search-fn (fn [input callback]
+                           (search-transactions input callback @history))
+              ; shows the description when the form is mounted with one,
+              ; as when a receipt image has been read
+              :find-fn (fn [description callback]
+                         (callback #:transaction{:description description}))
+              :caption-fn :transaction/description
+              :list-caption-fn format-existing-trx
+              :on-change #(swap! page-state reuse-trans %)
+              :value-fn :transaction/description}]
+            [forms/typeahead-field
+             receipt
+             [:receipt/payment-account]
+             {:validations #{::v/required}
+              :caption "Payment Method"
+              :search-fn (search-accounts)
+              :find-fn (fn [account callback]
+                         (callback (@accounts-by-id (:id account))))
+              :caption-fn #(string/join "/" (:account/path %))}]
+            [forms/text-field receipt [:receipt/payment-memo] {:caption "Payment Memo"}]
+            [:table.table.table-borderless
+             [:thead
+              [:tr
+               [:th "Category"]
+               [:th "Amount"]
+               [:th "Memo"]]]
+             [:tbody
+              (->> (range @item-count)
+                   (map #(receipt-item-row % receipt page-state))
+                   doall)]
+             [:tfoot
+              [:tr
+               [:td.text-end {:col-span 2}
+                (format-decimal @total)]]]]
+            [:div.mb-2.d-flex.align-items-center
+             (if @accepting?
+               [:button.btn.btn-success
+                {:type :submit
+                 :title "Click here to accept the transaction read from the receipt."}
+                (icon-with-text :check "Accept")]
+               [:button.btn.btn-primary
+                {:type :submit
+                 :title "Click here to create this transaction."}
+                (icon-with-text :check "Enter")])
+             (if @accepting?
+               [:button.btn.btn-danger.ms-2
+                {:type :button
+                 :title "Click here to reject the transaction read from the receipt."
+                 :on-click #(swap! page-state assoc :rejection {})}
+                (icon-with-text :x "Reject")]
+               [:button.btn.btn-secondary.ms-2
+                {:type :button
+                 :title (if @ingestion
+                          "Click here to discard your changes to the transaction read from the receipt."
+                          "Click here to discard this receipt.")
+                 :on-click (fn [_]
+                             (cancel-receipt page-state)
+                             (set-focus "transaction-date"))}
+                (icon-with-text :x "Cancel")])
+             ; another image can't be chosen until this transaction is
+             ; accepted or rejected
+             (when-not @ingestion
+               [:div.btn-group.ms-2
+                ; opens the file chooser of the hidden image input
+                [:label.btn.btn-secondary
+                 {:for "receipt-image"
+                  :title "Click here to take or choose a photo of a receipt."}
+                 (icon-with-text :camera-fill "Scan" :size :small)]
+                [ingestion-settings/toggle ingestion-settings-id settings-draft]])
+             ; reading starts as soon as an image is chosen, so the
+             ; preview and buttons of the image input aren't needed
+             (when-not @ingestion
+               [:div.d-none
+                [forms/image-input
+                 page-state
+                 [:receipt-image]
+                 {:capture "environment"
+                  :on-change #(ingest-receipt page-state %)
+                  ; large enough to keep the fine print on a receipt legible
+                  :resize {:max-dimension 2048
+                           :on-error #(notify/danger "Unable to read the image.")}}]])]]
+           [rejection-form page-state]]))))
+
+(defn- receipt-image
+  "Shows the receipt image while it's read, and then beside the transaction
+  read from it, so the user can compare them."
+  [page-state]
+  (when-let [url (get-in @page-state [:receipt-image :url])]
+    [:div.card
+     [:div.card-header [:strong "Receipt"]]
+     [:img.card-img-bottom {:src url
+                            :alt "The receipt the transaction was read from"}]]))
 
 (defn- load-attachments
   [page-state]
@@ -279,7 +511,10 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-secondary
       {:title "Click here to edit this transaction."
-       :on-click #(swap! page-state assoc :receipt (receipts/<-transaction trx))}
+       :on-click (fn []
+                   (clear-receipt-image page-state)
+                   (clear-ingestion page-state)
+                   (swap! page-state assoc :receipt (receipts/<-transaction trx)))}
       (icon :pencil :size :small)]
      [:button.btn.btn-sm.btn-secondary
       {:title "Click here to view attachments for this transaction"
@@ -333,7 +568,9 @@
 (defn- index []
   (let [page-state (r/atom {:filter-date (t/today)
                             :recent-settings recent-trx/default-settings})
-        attachments-item (r/cursor page-state [:attachments-item])]
+        attachments-item (r/cursor page-state [:attachments-item])
+        reading? (r/cursor page-state [:reading?])
+        ingested-receipt (r/cursor page-state [:ingested-receipt])]
     (new-receipt page-state)
     (load-transactions page-state)
     (load-historical-transactions page-state)
@@ -343,23 +580,32 @@
                    (load-transactions page-state))))
     (add-watch current-entity
                ::index
-               (fn [_ _ _ _]
-                 (swap! page-state
-                        #(-> %
-                             (dissoc :attachments-item :attachments)
-                             (assoc :transactions [])))
-                 (new-receipt page-state)
-                 (load-transactions page-state)
-                 (load-historical-transactions page-state)))
+               (fn [_ _ previous current]
+                 ; saving the entity's settings shouldn't reset the page
+                 (when-not (util/id= previous current)
+                   (swap! page-state
+                          #(-> %
+                               (dissoc :attachments-item :attachments)
+                               (assoc :transactions [])))
+                   (new-receipt page-state)
+                   (load-transactions page-state)
+                   (load-historical-transactions page-state))))
     (fn []
       [:<>
        [:h1.mt-3 "Receipts"]
        [:div.row
         [:div.col-md-6
          [:h3 "New Transaction"]
-         [receipt-form page-state]]
+         [receipt-form page-state]
+         [ingestion-settings/drawer
+          ingestion-settings-id
+          (r/cursor page-state [:ingestion-settings])]]
         [:div.col-md-6
-         (if @attachments-item
+         (cond
+           (or @reading? @ingested-receipt)
+           [receipt-image page-state]
+
+           @attachments-item
            [:<>
             [atts-view/attachments-card page-state
              :on-delete #(swap! page-state
@@ -367,6 +613,8 @@
                                 (:attachment/transaction %)
                                 dec)]
             [atts-view/attachment-form page-state]]
+
+           :else
            [results-table page-state])]]])))
 
 (secretary/defroute "/receipts" []

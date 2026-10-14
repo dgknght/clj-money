@@ -11,6 +11,8 @@
             [clj-money.images :as images]
             [clj-money.progress :as progress]
             [clj-money.services :as services]
+            [clj-money.ingestion :as ingestion]
+            [clj-money.ingestion.ref]
             [clj-money.web :as-alias web]
             [clj-money.web.handler]
             ; The ::web/server component is defined in clj-money.web.server,
@@ -44,11 +46,13 @@
     ::images/storage (:image-storage env)
     ::progress/tracker-factory (progress/active-config env)
     ::services/config (services/config env)
+    ::ingestion/reader (:ingestion env)
     ::web/handler {:env (ig/ref ::env)
                    :storage (ig/ref ::db/storage)
                    :image-storage (ig/ref ::images/storage)
                    :tracker-factory (ig/ref ::progress/tracker-factory)
-                   :services (ig/ref ::services/config)}
+                   :services (ig/ref ::services/config)
+                   :ingestion (ig/ref ::ingestion/reader)}
     ::web/server {:handler (ig/ref ::web/handler)
                   :port (port env)}}))
 

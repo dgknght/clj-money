@@ -123,7 +123,7 @@
                  [ring-oauth2 "0.3.0" :exclusions [commons-codec]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib
-                  "0.3.56"
+                  "0.4.1"
                   :exclusions
                   [stowaway
                    com.cognitect/transit-java
@@ -202,6 +202,7 @@
             "er-diagram"            ["run" "-m" "clj-money.tasks/er-diagram"]
             "re-index"              ["run" "-m" "clj-money.tasks/re-index"]
             "routes"                ["run" "-m" "clj-money.repl/print-routes"]
+            "eval-receipts"         ["run" "-m" "clj-money.ingestion.evaluation/run"]
             "fig:prod"              ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "prod"]
             "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"               ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
@@ -234,7 +235,8 @@
               :ns-exclude-regex [#"clj-money.api"
                                  #"clj-money.db.sql.tasks"
                                  #"clj-money.repl"
-                                 #"clj-money.tasks"]}
+                                 #"clj-money.tasks"
+                                 #"clj-money.ingestion.evaluation"]}
   :profiles {:test {:dependencies [[peridot "0.5.4"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]
                     ; Reports progress to bin/parallel-test (a no-op unless

@@ -6,6 +6,12 @@
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :as types]))
 
+(defn- ->account-refs
+  [refs]
+  (->> refs
+       (map #(update-in % [:id] (types/qid :account)))
+       set))
+
 (defmethod sql/after-read :entity
   [entity]
   (-> entity
@@ -19,11 +25,9 @@
                     (types/qid :account))
       (update-in-if [:entity/settings :settings/st-capital-loss-account :id]
                     (types/qid :account))
-      (update-in-if [:entity/settings :settings/monitored-accounts]
-                    (fn [refs]
-                      (->> refs
-                           (map #(update-in % [:id] (types/qid :account)))
-                           set)))
+      (update-in-if [:entity/settings :settings/monitored-accounts] ->account-refs)
+      (update-in-if [:entity/settings :settings/payment-methods] ->account-refs)
+      (update-in-if [:entity/settings :settings/expense-accounts] ->account-refs)
       (update-in-if [:entity/settings :settings/monitor-order]
                     (partial mapv (types/qid :account)))
       (update-in-if [:entity/settings :settings/inventory-method] keyword)

@@ -58,4 +58,16 @@
  {:db/ident :settings/budget-tags
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
-  :db/doc "The (serialized) ordered list of account tags used to group budget report sections"}]
+  :db/doc "The (serialized) ordered list of account tags used to group budget report sections"}
+ {:db/ident :settings/payment-methods
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/doc "The accounts from which a payment method can be chosen for a receipt. Used in receipt ingestion."}
+ {:db/ident :settings/expense-accounts
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/doc "The accounts from which an expense can be chosen for a receipt. Used in receipt ingestion."}
+ {:db/ident :settings/expense-hints
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "A list of hints to add to the prompt given to the LLM when ingesting a receipt."}]

@@ -96,3 +96,58 @@ Provides:
 - `find-<entity>` helper functions for locating test records
 - `prepare` multimethod for seeding entity data
 - `basic-context` fixture used across test namespaces
+
+## Receipt Ingestion (`ingestion/`)
+
+A photo of a receipt is read by a vision model and turned into a transaction.
+- `ingestion.clj` - the `Reader` protocol; the provider is chosen by config
+  (`:ingestion` in `env/dev/config.edn`)
+- `ingestion/ollama.clj` - the Ollama provider. `request-body` and `generate`
+  are public so the evaluation harness sends exactly what the app sends
+- `ingestion/receipts.clj` - the prompt, the JSON schema (`schema` looks up
+  the entity's accounts; `build-schema` takes the account names directly), and
+  `make-trx`, which builds the transaction from the model's answer. Whatever
+  the items don't cover (tax the model didn't attribute to items, a tip) is
+  spread across them in proportion to their amounts, so the transaction
+  balances. Amounts are parsed from the model's JSON as decimals. An account
+  the model didn't choose, or that doesn't exist, is replaced with the first
+  of its choices (payment methods by name, expense accounts by path) for the
+  user to correct; with no payment methods set up, the read fails
+- `ingestion/evaluation.clj` - a harness that scores models, with and without
+  the GPU, against receipts with hand-written expected answers
+  (`lein eval-receipts -- --help`). It calls a live Ollama server, so it is
+  not part of the test suite and is excluded from coverage; its scoring
+  functions are unit tested
+
+Reading a receipt is slow, so it runs in the background, tracked by a
+`receipt-ingestion` entity (`:status` is `:pending`, `:processing`,
+`:complete` or `:failed`).
+- `api/receipt_ingestions.clj` - `POST /api/entities/:entity-id/receipt-ingestions`
+  takes the image (multipart, `image`), creates the receipt-ingestion and
+  reads the receipt in a `future` with the `:ingestion` component. When
+  complete, `:receipt-ingestion/receipt` holds the result in the receipt
+  form's `:receipt/...` shape (accounts as refs), stored as edn.
+  `GET /api/receipt-ingestions/:id` is polled by the client
+- A successful read also creates the transaction, with
+  `:transaction/source :ingestion` and `:transaction/review-status :pending`,
+  referenced by `:receipt-ingestion/transaction`, and attaches the receipt
+  image to it (caption "Receipt"). A transaction without a
+  source was created by the user; it has no review status, or `:accepted`.
+  The user accepts by updating the transaction's review status, and rejects
+  with `PATCH /api/receipt-ingestions/:id` (`:status :rejected` and a required
+  `:rejection-reason`), which deletes the transaction
+- `api/receipt_ingestions.cljs` - the client functions
+- `views/receipts.cljs` - choosing an image with the Scan button uploads it
+  and polls until it's read, then opens the transaction in the form. Until
+  then (`:reading?` in the page state), the form is replaced by placeholders
+  and a spinner, and the receipt image replaces the recent transactions. While
+  the form is unchanged, the buttons are Accept (saves with review status
+  `:accepted`) and Reject (asks for a reason). Any edit restores Enter and
+  Cancel, and saving still accepts it. Until it's accepted or rejected, the image
+  input stays hidden and the receipt image stays up
+- `views/ingestion_settings.cljs` - the off-canvas drawer, opened by the gear
+  joined to the Scan button, for the entity settings the reader uses:
+  `:settings/payment-methods` and `:settings/expense-accounts` (sets of
+  account refs; Datomic retracts removed ones in `deconstruct`) and
+  `:settings/expense-hints` (edited one per line)
+- API tests pass their own reader to `web.test-handler/build-app`

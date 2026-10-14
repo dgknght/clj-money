@@ -49,6 +49,17 @@
             {:message "A parent-only account cannot receive transaction items"
              :path [:transaction/items]})
 
+(defn- review-status-matches-source?
+  [input]
+  (let [{:transaction/keys [source review-status]} (unbox input)]
+    (if (= :ingestion source)
+      (some? review-status)
+      (not= :pending review-status))))
+
+(v/reg-spec review-status-matches-source?
+            {:message "An ingested transaction must have a review status, and only an ingested transaction can be pending review"
+             :path [:transaction/review-status]})
+
 (defn- qty-comparable
   [item]
   (-> item
@@ -104,7 +115,8 @@
                                      trxs/sum-of-credits-equals-sum-of-debits?
                                      no-reconciled-quantities-changed?
                                      new-transaction-has-items?
-                                     no-items-use-parent-only-account?))
+                                     no-items-use-parent-only-account?
+                                     review-status-matches-source?))
 
 (defn- specified-entry?
   [ks]
@@ -722,12 +734,13 @@
                  (:transaction/items before)))))
 
 (defn reconciled-items-for-trx
-  [trx]
-  (entities/select
-    (util/entity-type
-      {:transaction/_self trx
-       :transaction-item/reconciliation [:!= nil]}
-      :transaction-item)))
+  [{:as trx :keys [id]}]
+  (when (util/live-id? id)
+    (entities/select
+      (util/entity-type
+        {:transaction/_self trx
+         :transaction-item/reconciliation [:!= nil]}
+        :transaction-item))))
 
 (defmethod entities/before-delete :transaction
   [trx]
