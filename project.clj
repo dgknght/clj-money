@@ -15,8 +15,8 @@
   :managed-dependencies [[clj-time "0.15.2"]
                          [ring/ring-core "1.15.5"]
                          [commons-io "2.22.0"]
-                         [joda-time "2.14.3"]]
-  :dependencies [[org.clojure/clojure "1.12.5" :exclusions [org.clojure/tools.reader]]
+                         [joda-time "2.15.0"]]
+  :dependencies [[org.clojure/clojure "1.12.6" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "1.3.1" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/core.async "1.9.865" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.cli "1.4.256" :exclusions [org.clojure/tools.reader]]
@@ -27,15 +27,15 @@
                                                 commons-io]]
                  [cheshire "6.2.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
-                 [ch.qos.logback/logback-classic "1.6.3" :exclusions [org.clojure/tools.reader]]
+                 [ch.qos.logback/logback-classic "1.6.5" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
                  [com.github.seancorfield/next.jdbc "1.3.1118"]
-                 [com.zaxxer/HikariCP "6.3.0" :exclusions [org.slf4j/slf4j-api]]
-                 [org.postgresql/postgresql "42.7.13" :exclusions [org.clojure/tools.reader]]
+                 [com.zaxxer/HikariCP "6.3.3" :exclusions [org.slf4j/slf4j-api]]
+                 [org.postgresql/postgresql "42.7.14" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.7.1437" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.7.1479" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
@@ -46,7 +46,7 @@
                                             commons-io]]
                  [ring/ring-defaults "0.7.1" :exclusions [commons-fileupload
                                                           ring/ring-core]]
-                 [metosin/reitit "0.10.1" :exclusions [com.cognitect/transit-java
+                 [metosin/reitit "0.11.0" :exclusions [com.cognitect/transit-java
                                                       org.clojure/spec.alpha
                                                       com.bhauman/spell-spec
                                                       ring/ring-core
@@ -58,7 +58,7 @@
                                                       com.cognitect/transit-clj
                                                       prismatic/schema
                                                       com.fasterxml.jackson.core/jackson-core]]
-                 [metosin/muuntaja "0.6.11" :exclusions [com.fasterxml.jackson.core/jackson-annotations
+                 [metosin/muuntaja "0.6.12" :exclusions [com.fasterxml.jackson.core/jackson-annotations
                                                          com.fasterxml.jackson.core/jackson-databind
                                                          com.fasterxml.jackson.core/jackson-core]]
                  [com.cognitect/transit-clj "1.1.363"]
@@ -76,7 +76,7 @@
                                                  org.clojure/tools.reader]]
                  [reagent-utils "0.3.8"]
                  [org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]
-                 [com.google.guava/guava "33.7.1-jre" :exclusions [com.google.code.findbugs/jsr305
+                 [com.google.guava/guava "33.7.2-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
@@ -164,13 +164,13 @@
                    lein-doo]]
                  [lambdaisland/uri "1.19.155"]
                  [com.taoensso/carmine "3.5.0" :exclusions [org.clojure/tools.reader commons-codec]]
-                 [stowaway "0.2.17" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
-                 [io.opentelemetry/opentelemetry-api "1.65.0"]
+                 [stowaway "0.2.18" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
+                 [io.opentelemetry/opentelemetry-api "1.67.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
-                 [com.cognitect.aws/api "0.8.838"]
-                 [com.cognitect.aws/endpoints "871.2.53.2"]
-                 [com.cognitect.aws/s3 "871.2.51.4"]
+                 [com.cognitect.aws/api "0.8.847"]
+                 [com.cognitect.aws/endpoints "871.2.55.12"]
+                 [com.cognitect.aws/s3 "871.2.55.11"]
                  [integrant "1.0.1"]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
