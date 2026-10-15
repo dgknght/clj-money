@@ -154,12 +154,12 @@
       (select-keys [:status :body])))
 
 (defn- read-receipt*
-  [source entity opts]
+  [source entity {:keys [account-options] :as opts}]
   {:pre [entity]}
 
   (let [req-body (request-body (image-for-model source opts)
                                (rcpts/prompt entity)
-                               (rcpts/schema entity)
+                               (rcpts/schema account-options)
                                opts)
         {:keys [status body]} (generate req-body opts)]
     (if (<= 200 status 299)

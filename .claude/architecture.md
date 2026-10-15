@@ -104,8 +104,9 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   (`:ingestion` in `env/dev/config.edn`)
 - `ingestion/ollama.clj` - the Ollama provider. `request-body` and `generate`
   are public so the evaluation harness sends exactly what the app sends
-- `ingestion/receipts.clj` - the prompt, the JSON schema (`schema` looks up
-  the entity's accounts; `build-schema` takes the account names directly), and
+- `ingestion/receipts.clj` - the prompt, the JSON schema (`account-options`
+  looks up the entity's accounts; `schema` takes those options, and each
+  reader passes the `:account-options` it's given), and
   `make-trx`, which builds the transaction from the model's answer. Whatever
   the items don't cover (tax the model didn't attribute to items, a tip) is
   spread across them in proportion to their amounts, so the transaction

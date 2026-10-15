@@ -1,5 +1,7 @@
 (ns clj-money.ingestion.ollama-test
   (:require [clojure.test :refer [deftest is]]
+            [cheshire.core :as json]
+            [clj-http.client :as http]
             [clj-money.ingestion :as ing]
             [clj-money.ingestion.ollama :as ollama])
   (:import java.awt.image.BufferedImage
@@ -59,3 +61,24 @@
 (deftest output-tokens-are-limited-by-default
   (is (= 1500 (get-in (ollama/request-body "image" "prompt" {} {})
                       [:options :num_predict]))))
+
+(deftest the-account-options-constrain-the-response
+  (let [calls (atom [])
+        reader (ing/reader {::ing/provider ::ollama/ollama})]
+    (with-redefs [http/post (fn [_url req]
+                              (swap! calls conj req)
+                              {:status 200
+                               :body {:response "{\"total\": 38.97}"}})]
+      (ing/read-receipt reader
+                        (image-bytes 800 600)
+                        {:id 1}
+                        {:account-options {:payment-accounts ["Discover"]
+                                           :expense-accounts ["Groceries"]}})
+      (let [schema (:format (json/parse-string (:body (first @calls)) true))]
+        (is (= ["Discover"]
+               (get-in schema [:properties :payment_account :enum]))
+            "The payment account is one of the payment account options")
+        (is (= ["Groceries"]
+               (get-in schema [:properties :line_items :items
+                               :properties :account :enum]))
+            "The line item account is one of the expense account options")))))
