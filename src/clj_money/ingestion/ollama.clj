@@ -64,9 +64,12 @@
                (:prompt_eval_count body)))
   ; amounts must be decimals, as doubles can't be rounded to cents
   (binding [json-parse/*use-bigdecimals?* true]
-    (-> body
-        :response
-        (json/parse-string ->kebab-case-keyword))))
+    (some-> body
+            :response
+            (json/parse-string ->kebab-case-keyword)
+            (vary-meta assoc ::ing/usage {:model (:model body)
+                                          :input-tokens (:prompt_eval_count body)
+                                          :output-tokens (:eval_count body)}))))
 
 (defn- handle-failure-response
   [body source]

@@ -27,6 +27,18 @@
 - Use `clj-money.otel/set-attribute` for adding span attributes
 - Attribute keys should follow snake_case convention (handled by helper)
 - Keep span names descriptive and operation-focused
+- Instrument a component by decorating its protocol rather than adding
+  tracing to each implementation (see `clj-money.db/tracing-storage` and
+  `clj-money.otel.ingestion/observable-reader`)
+- Use `clj-money.otel/histogram` and `clj-money.otel/record` for metrics.
+  Follow OpenTelemetry semantic convention names where one exists (e.g.
+  `gen_ai.client.operation.duration`); a duration histogram already counts
+  calls, so a separate counter isn't needed
+- The reader component (`clj-money.ingestion.reader`) wraps every reader
+  in `observable-reader`, so implementations stay free of observability
+  code. A reader reports token usage by attaching `:clj-money.ingestion/usage`
+  metadata
+  (`:model`, `:input-tokens`, `:output-tokens`) to its result
 
 ### Testing
 - Use `clojure.test` framework

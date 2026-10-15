@@ -1,5 +1,6 @@
 (ns clj-money.ingestion.ollama-test
   (:require [clojure.test :refer [deftest is]]
+            [clj-money.ingestion :as ing]
             [clj-money.ingestion.ollama]))
 
 (def ^:private handle-success-response
@@ -13,3 +14,15 @@
         "The total is a decimal")
     (is (decimal? (get-in result [:line-items 0 :amount]))
         "The line item amounts are decimals")))
+
+(deftest token-usage-is-attached-to-the-result
+  (let [result (handle-success-response
+                 {:response "{\"total\": 38.97}"
+                  :model "qwen2.5vl:7b"
+                  :prompt_eval_count 1200
+                  :eval_count 300}
+                 {:options {:num_ctx 4096}})]
+    (is (= {:model "qwen2.5vl:7b"
+            :input-tokens 1200
+            :output-tokens 300}
+           (::ing/usage (meta result))))))

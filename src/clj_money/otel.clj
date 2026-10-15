@@ -2,6 +2,8 @@
   (:require [clojure.string :as string]
             [camel-snake-kebab.core :refer [->snake_case_string]])
   (:import io.opentelemetry.api.GlobalOpenTelemetry
+           [io.opentelemetry.api.common Attributes AttributesBuilder]
+           [io.opentelemetry.api.metrics Meter DoubleHistogram]
            [io.opentelemetry.api.trace Tracer Span StatusCode]))
 
 (def scope-name "clj-money")
@@ -51,3 +53,35 @@
          (finally
            (.close scope#)
            (.end span#))))))
+
+(defn- meter
+  ^Meter []
+  (GlobalOpenTelemetry/getMeter scope-name))
+
+(defn- ->attributes
+  "Converts a map into OpenTelemetry attributes, omitting nil values. Keys
+  are used as-is, so that semantic convention names like
+  \"gen_ai.request.model\" pass through unchanged."
+  ^Attributes [m]
+  (let [^AttributesBuilder builder (Attributes/builder)]
+    (doseq [[k v] m :when (some? v)]
+      (let [^String k (name k)
+            ^String v (if (keyword? v) (name v) (str v))]
+        (.put builder k v)))
+    (.build builder)))
+
+(defn histogram
+  "Returns a delayed double histogram with the specified name, created
+  lazily so that the global OpenTelemetry instance is not resolved at load
+  time."
+  [instrument-name & {:keys [description unit]}]
+  (delay
+    (cond-> (.histogramBuilder (meter) instrument-name)
+      description (.setDescription description)
+      unit (.setUnit unit)
+      true .build)))
+
+(defn record
+  "Records the value in a histogram created with histogram"
+  [instrument value attributes]
+  (.record ^DoubleHistogram @instrument (double value) (->attributes attributes)))

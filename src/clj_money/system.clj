@@ -12,6 +12,7 @@
             [clj-money.progress :as progress]
             [clj-money.services :as services]
             [clj-money.ingestion :as ingestion]
+            [clj-money.ingestion.reader]
             [clj-money.ingestion.ref]
             [clj-money.web :as-alias web]
             [clj-money.web.handler]
