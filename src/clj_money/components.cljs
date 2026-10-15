@@ -119,6 +119,17 @@
      {:ctl-ch ctl-ch
       :items-ch fetch-ch})))
 
+(defn append-chunk
+  "Appends a chunk of items fetched by the loader identified by ctl-ch,
+  unless that loader has since been stopped or superseded. Chunks can still
+  arrive after a loader is told to quit, and appending them then would
+  duplicate items in a list that has been replaced in the meantime (e.g.,
+  by the unreconciled items when a reconciliation is started)."
+  [state ctl-ch items]
+  (if (identical? ctl-ch (:item-loader state))
+    (update-in state [:items] (fnil concat []) items)
+    state))
+
 (defn fill-remaining-height
   [& _args]
   (let [height (r/atom nil)

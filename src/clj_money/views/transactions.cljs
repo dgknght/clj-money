@@ -41,6 +41,7 @@
                                             ->unilateral
                                             ->trade-price]]
             [clj-money.components :refer [load-in-chunks
+                                          append-chunk
                                           audit-history-popover]]
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.transactions :as transactions]
@@ -154,11 +155,19 @@
                           :on-success #(xf ch %))
         (xf ch [])))))
 
+(defn stop-item-loading
+  [page-state]
+  (let [{:keys [all-items-fetched? item-loader]} @page-state]
+    (swap! page-state dissoc :item-loader)
+    (when (and item-loader (not all-items-fetched?))
+      (go (>! item-loader :quit)))))
+
 (defn init-item-loading
   ([page-state] (init-item-loading page-state nil))
   ([page-state {:keys [on-chunk]}]
    (let [account (get-in @page-state [:view-account])
          [first-date last-date :as range] (:account/transaction-date-range account)]
+     (stop-item-loading page-state)
      (if range
        (do (swap! page-state dissoc :items :all-items-fetched?)
            (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges first-date last-date (t/months 6))
@@ -172,25 +181,20 @@
                                                    :chunk-size 100}))
                  out-ch (a/chan
                           1
-                          (map (polarize-quantities account)))]
+                          (map (polarize-quantities account)))
+                 current? #(identical? ctl-ch (:item-loader @page-state))]
+             (swap! page-state assoc :ctl-chan ctl-ch :item-loader ctl-ch)
              (a/pipe items-ch out-ch)
              (go-loop [items (<! out-ch)]
-                      (if items
-                        (do
-                          (swap! page-state update-in [:items] (fnil concat []) items)
-                          (when on-chunk (on-chunk items))
-                          (recur (<! out-ch)))
-                        (swap! page-state assoc :all-items-fetched? true)))
-
-             (swap! page-state assoc :ctl-chan ctl-ch)
+                      (when (current?)
+                        (if items
+                          (do
+                            (swap! page-state append-chunk ctl-ch items)
+                            (when on-chunk (on-chunk items))
+                            (recur (<! out-ch)))
+                          (swap! page-state assoc :all-items-fetched? true))))
              (go (>! ctl-ch :fetch))))
        (swap! page-state assoc :items [] :items-sort nil)))))
-
-(defn stop-item-loading
-  [page-state]
-  (let [{:keys [all-items-fetched? ctl-chan]} @page-state]
-    (when (and ctl-chan (not all-items-fetched?))
-      (go (>! ctl-chan :quit)))))
 
 (defn reset-item-loading
   [page-state]

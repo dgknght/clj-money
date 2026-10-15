@@ -8,6 +8,7 @@
             [clj-money.scheduled-transactions-test]
             [clj-money.routes-test]
             [clj-money.views.recent-transactions-test]
+            [clj-money.components-test]
             [clj-money.views.receipts-test]
             [clj-money.views.budgets-test]
             [clj-money.views.attachments-test]
@@ -27,6 +28,7 @@
     'clj-money.transactions-test
     'clj-money.scheduled-transactions-test
     'clj-money.views.recent-transactions-test
+    'clj-money.components-test
     'clj-money.views.receipts-test
     'clj-money.views.budgets-test
     'clj-money.views.attachments-test
