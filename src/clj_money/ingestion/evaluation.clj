@@ -373,7 +373,7 @@
         result (try
                  (let [{:keys [status body]} (ollama/generate
                                                (ollama/request-body
-                                                 (ollama/->base64 image)
+                                                 (ollama/image-for-model image opts)
                                                  prompt
                                                  schema
                                                  opts)
@@ -622,6 +622,9 @@
                    :parse-fn parse-long]
                   ["-p" "--num-predict N" "The maximum number of tokens to generate"
                    :default 1500
+                   :parse-fn parse-long]
+                  ["-m" "--max-image-dimension N" "The longest side, in pixels, of the image sent to the model"
+                   :default 1280
                    :parse-fn parse-long]
                   [nil "--host HOST" "The ollama host"
                    :default "localhost"]

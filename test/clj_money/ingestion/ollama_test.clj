@@ -1,7 +1,10 @@
 (ns clj-money.ingestion.ollama-test
   (:require [clojure.test :refer [deftest is]]
             [clj-money.ingestion :as ing]
-            [clj-money.ingestion.ollama]))
+            [clj-money.ingestion.ollama :as ollama])
+  (:import java.awt.image.BufferedImage
+           [java.io ByteArrayInputStream ByteArrayOutputStream]
+           javax.imageio.ImageIO))
 
 (def ^:private handle-success-response
   #'clj-money.ingestion.ollama/handle-success-response)
@@ -26,3 +29,33 @@
             :input-tokens 1200
             :output-tokens 300}
            (::ing/usage (meta result))))))
+
+(defn- image-bytes
+  [width height]
+  (let [out (ByteArrayOutputStream.)]
+    (ImageIO/write (BufferedImage. width height BufferedImage/TYPE_INT_RGB)
+                   "jpg"
+                   out)
+    (.toByteArray out)))
+
+(defn- dimensions
+  [image]
+  (let [decoded (ImageIO/read (ByteArrayInputStream. image))]
+    [(.getWidth decoded) (.getHeight decoded)]))
+
+(deftest a-large-image-is-scaled-down-for-the-model
+  (is (= [960 1280]
+         (dimensions (ollama/scale-image (image-bytes 1536 2048) 1280)))
+      "The longest side is scaled to the maximum, keeping the aspect ratio"))
+
+(deftest a-small-image-is-sent-unchanged
+  (let [image (image-bytes 800 600)]
+    (is (identical? image (ollama/scale-image image 1280)))))
+
+(deftest a-file-that-isnt-an-image-is-sent-unchanged
+  (let [pdf (.getBytes "%PDF-1.7")]
+    (is (identical? pdf (ollama/scale-image pdf 1280)))))
+
+(deftest output-tokens-are-limited-by-default
+  (is (= 1500 (get-in (ollama/request-body "image" "prompt" {} {})
+                      [:options :num_predict]))))
