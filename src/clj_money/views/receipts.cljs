@@ -253,14 +253,26 @@
                         (clear-ingestion page-state))))))))
     ingestion-poll-interval))
 
+(defn start-reading
+  "Withholds the form until the read of a receipt image is finished.
+  Called as soon as an image is chosen, before it's resized, so the
+  placeholders appear immediately rather than after the resize."
+  [page-state]
+  (clear-ingestion page-state)
+  (swap! page-state assoc :reading? true))
+
+(defn abandon-reading
+  "Restores the form after an image that couldn't be read."
+  [page-state]
+  (clear-ingestion page-state)
+  (notify/danger "Unable to read the image."))
+
 (defn- ingest-receipt
   "Uploads the receipt image to be read in the background, then waits
   for the transaction created from it."
   [page-state image]
   (when image
-    (clear-ingestion page-state)
-    ; the form is withheld until the read is finished
-    (swap! page-state assoc :reading? true)
+    (start-reading page-state)
     (+busy)
     (ri/create image
                :callback -busy
@@ -444,10 +456,13 @@
                  page-state
                  [:receipt-image]
                  {:capture "environment"
+                  ; on-change waits for the resize, which can take
+                  ; several seconds for a photo taken with a phone
+                  :html {:on-input #(start-reading page-state)}
                   :on-change #(ingest-receipt page-state %)
                   ; large enough to keep the fine print on a receipt legible
                   :resize {:max-dimension 2048
-                           :on-error #(notify/danger "Unable to read the image.")}}]])]]
+                           :on-error #(abandon-reading page-state)}}]])]]
            [rejection-form page-state]]))))
 
 (defn- receipt-image

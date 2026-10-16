@@ -20,7 +20,8 @@ This application is a web UI over a double-entry accounting system.
   https://git.dgknght.com/dgknght/clj-money/wiki/Testing)
 - `clj-kondo --lint src:test` - Run the linter
 - `lein fig:build` - Build the client app and start a repl
-- `lein fig:test` - Run the client tests (don't execuite if a client repl is active)
+- `lein fig:test` - Run the client tests (safe to run while a client repl is
+  active; the test build writes to `resources/node/test`)
 
 NEVER RUN THE TEST SUITE AGAINST THE DEVELOPMENT DATABASE.
 

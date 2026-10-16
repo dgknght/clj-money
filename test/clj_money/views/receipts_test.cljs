@@ -1,5 +1,6 @@
 (ns clj-money.views.receipts-test
   (:require [cljs.test :refer [deftest is]]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.views.receipts :as receipts]))
 
 (def ^:private transaction
@@ -65,3 +66,21 @@
     (is (= #:receipt{:transaction-date "2015-01-02"}
            (:receipt @page-state))
         "Everything but the transaction date is cleared")))
+
+(deftest start-reading-a-receipt-image
+  (let [page-state (atom {:ingestion {:id 201}
+                          :ingested-receipt ingested-receipt
+                          :rejection {}})]
+    (receipts/start-reading page-state)
+    (is (:reading? @page-state)
+        "The form is replaced with placeholders")
+    (is (not-any? #(contains? @page-state %)
+                  [:ingestion :ingested-receipt :rejection])
+        "The previous ingestion is forgotten")))
+
+(deftest abandon-reading-a-receipt-image
+  (let [page-state (atom {:reading? true})]
+    (with-redefs [notify/danger (fn [& _])]
+      (receipts/abandon-reading page-state))
+    (is (not (:reading? @page-state))
+        "The form is restored")))
