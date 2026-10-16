@@ -94,8 +94,16 @@
   [nanos]
   (/ (- (System/nanoTime) nanos) 1e9))
 
+(defn- signal-propagated
+  "Lets subscribers to ::propagated know that the change has been handled,
+  e.g., so that a cache of values that are computed from the propagated
+  state can be updated. It's signaled even when the propagation fails, as
+  the state may have been partially updated."
+  [publisher change]
+  (entities/signal publisher ::propagated {::change change}))
+
 (defn- handle
-  [msg]
+  [publisher msg]
   (if-let [ack (::ack msg)]
     (a/put! ack true)
     (let [entity-type (util/entity-type (some identity msg))
@@ -114,7 +122,9 @@
         ; other change would be propagated
         (catch Throwable e
           (record (assoc attributes "error.type" (.getName (class e))))
-          (log/errorf e "[propagation] unable to propagate change %s" (pr-str msg)))))))
+          (log/errorf e "[propagation] unable to propagate change %s" (pr-str msg)))
+        (finally
+          (signal-propagated publisher msg))))))
 
 (defn- queue-size
   "Returns the number of messages waiting in the channel: those in its
@@ -138,7 +148,8 @@
   ; Subscribes to changes from :publisher for every entity type that has a
   ; propagate implementation and propagates them one at a time, on a
   ; background thread, with :storage bound. Propagating one at a time keeps
-  ; changes to the same account from racing one another.
+  ; changes to the same account from racing one another. After each change
+  ; is handled, a ::propagated signal carrying it is published.
   [_ {:keys [publisher storage]}]
   (let [id (keyword (name ::flush) (str (random-uuid)))
         ch (entities/sub publisher (conj (topics) id))]
@@ -151,7 +162,7 @@
                        entities/*publisher* nil]
                (loop []
                  (when-let [msg (a/<!! ch)]
-                   (handle msg)
+                   (handle publisher msg)
                    (recur)))))}))
 
 (defmethod ig/halt-key! ::subscription

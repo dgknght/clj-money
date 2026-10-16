@@ -2,13 +2,17 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [integrant.core :as ig]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.dates :refer [with-fixed-time]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            propagated
+                                            put-and-propagate]]
+            [clj-money.monitor-cache :as monitor-cache]
             [clj-money.api.test-helper :refer [parse-body
                                                request
                                                jsonize-decimals]]
@@ -18,7 +22,8 @@
                                             find-user
                                             find-entity
                                             find-budget]]
-            [clj-money.web.test-handler :refer [app]]))
+            [clj-money.web.test-handler :refer [app
+                                                build-app]]))
 
 (use-fixtures :each reset-db)
 
@@ -206,8 +211,9 @@
                       :credit-account "Checking"}))
 
 (defn- get-monitor-list
-  [email & {:keys [content-type]
-            :or {content-type "application/edn"}}]
+  [email & {:keys [content-type app]
+            :or {content-type "application/edn"
+                 app app}}]
   (let [entity (find-entity "Personal")]
 
     ; TODO: I'd like to move this into the context, but I've got to
@@ -269,6 +275,30 @@
                              :proratedBudget "45.90"
                              :actualPercent "0.04"}
                     :_type "report"}]))))
+
+(deftest cached-budget-monitors-reflect-new-transactions
+  (with-context monitor-context
+    (let [cache (ig/init-key ::monitor-cache/cache
+                             {:publisher entities/*publisher*})
+          app (comp propagated (build-app {:monitor-cache cache}))
+          actual #(-> (get-monitor-list "john@doe.com" :app app)
+                      :parsed-body
+                      first
+                      (get-in [:report/period :report/actual]))]
+      (try
+        (is (= 85M (actual))
+            "The monitor is computed")
+        (put-and-propagate #:transaction{:transaction-date (t/local-date 2016 1 2)
+                                         :entity (find-entity "Personal")
+                                         :description "Kroger"
+                                         :quantity 15M
+                                         :debit-account (find-account "Groceries")
+                                         :credit-account (find-account "Checking")})
+        (is (monitor-cache/await-evictions cache))
+        (is (= 100M (actual))
+            "The monitor includes the new transaction")
+        (finally
+          (ig/halt-key! ::monitor-cache/cache cache))))))
 
 (deftest a-user-cannot-get-budget-monitors-for-anothers-entity
   (with-context monitor-context

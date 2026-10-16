@@ -32,7 +32,7 @@ test/clj_money/        # Mirrors src structure, _test suffix
 ## Integrant System
 
 `clj-money.system` defines the server's components (storage, the change
-publisher and propagation subscription, image storage,
+publisher and propagation subscription, the budget monitor cache, image storage,
 progress tracker factory, external service config, web handler and web
 server) as an Integrant system. Storage-like components reach the code
 through dynamic vars bound per request, by `system/with-components` and by the
@@ -54,7 +54,9 @@ owned). This follows the publish/subscribe pattern used in clj-groceries:
   to every entity type that implements the `prop/propagate` multimethod and
   propagates the changes **asynchronously**, one at a time, in publish order,
   on a background thread. `propagate` returns the entities to put; those puts
-  are not themselves published.
+  are not themselves published. After handling each change (even when it
+  fails), it signals `::prop/propagated` with the change under
+  `::prop/change`, for subscribers that depend on the propagated state.
 - The publisher taps a single `core.async` mult rather than using `pub`, so
   that a subscriber sees messages in publish order across topics.
 - Because propagation is asynchronous, a transaction can be propagated before
@@ -77,6 +79,26 @@ publisher and subscription for each test. Use `put-and-propagate`,
 `delete-and-propagate`, `propagated` or `await-propagation` from
 `clj-money.test-helpers` before asserting on propagated state. The test web
 handler (`web/test_handler.clj`) waits for propagation after each request.
+
+## Budget Monitor Cache (`monitor_cache.clj`)
+
+The dashboard's budget monitors (`reports/monitor`) are slow to compute, so
+`GET /api/entities/:entity-id/reports/budget-monitors` gets them through the
+`::monitor-cache/cache` component (`monitor-cache/fetch`; with no cache, as
+in the REPL and most tests, they're computed every time). Monitors are
+cached by account and as-of date, and evicted on a background thread:
+
+- for a transaction, on its `::prop/propagated` signal, not on the change
+  itself, because monitors are computed from propagated balances. Only the
+  monitors whose account or descendants (`reports/monitored-account-ids`)
+  appear on its items, before or after the change, are evicted.
+- for any budget, budget item or account change, all monitors.
+- after `:ttl-minutes` (config `:monitor-cache`, default 60), for changes
+  that aren't published (imports, the REPL).
+
+Every eviction advances a generation counter, and a monitor computed while
+the generation changed isn't stored. Use `monitor-cache/await-evictions` in
+tests before asserting on a cached monitor.
 
 ## Dual-Storage Model
 

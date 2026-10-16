@@ -603,14 +603,26 @@
                      (partition (count items))
                      (mapv #(reduce + %)))})))
 
+(defn- account-and-descendants
+  [account]
+  (entities/select (util/entity-type
+                     (util/->entity-ref account)
+                     :account)
+                   {:include-children? true}))
+
+(defn monitored-account-ids
+  "Returns the ids of the accounts whose transactions are reported by the
+  monitor for the given account: the account and its descendants."
+  [account]
+  (->> (account-and-descendants account)
+       (map :id)
+       (into #{(:id account)})))
+
 (defn- append-account-children
   [{:keys [account] :as ctx}]
   (let [children (remove
                   #(entity= %  account)
-                  (entities/select (util/entity-type
-                                   (util/->entity-ref account)
-                                   :account)
-                                 {:include-children? true}))]
+                  (account-and-descendants account))]
     (-> ctx
         (update-in [:account] assoc :account/child-ids (map :id children))
         (assoc :children children))))

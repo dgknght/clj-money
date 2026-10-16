@@ -188,3 +188,17 @@
           (with-redefs [otel/close-gauge (fn [_])]
             (ig/halt-key! ::prop/subscription subscription))
           (ig/halt-key! ::entities/publisher publisher))))))
+
+(dbtest a-propagated-change-is-signaled
+  (with-context basic-context
+    (let [ch (entities/sub entities/*publisher* [::prop/propagated])]
+      (try
+        (entities/put (paycheck (find-entity "Personal") "Paycheck"))
+        (let [{[before after] ::prop/change} (take!! ch)]
+          (is (nil? before))
+          (is (= "Paycheck" (:transaction/description after))
+              "The signal carries the propagated change")
+          (is (= 1000M (:account/quantity (entities/find (find-account "Checking"))))
+              "The change is propagated before the signal"))
+        (finally
+          (entities/unsub entities/*publisher* ch))))))

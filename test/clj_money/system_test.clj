@@ -7,6 +7,7 @@
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
             [clj-money.images :as images]
+            [clj-money.monitor-cache :as monitor-cache]
             [clj-money.ingestion :as ing]
             [clj-money.progress :as progress]
             [clj-money.services :as services]
@@ -24,6 +25,7 @@
                          :active :sql}
                     :image-storage {:bucket "test-images"}
                     :ingestion {:model "model-x"}
+                    :monitor-cache {:ttl-minutes 5}
                     :progress {:strategies {:redis {:prefix "test"}}
                                :active :redis}}]
     (is (= {::system/env app-config
@@ -31,6 +33,8 @@
             ::entities/publisher {}
             ::prop/subscription {:storage (ig/ref ::db/storage)
                                  :publisher (ig/ref ::entities/publisher)}
+            ::monitor-cache/cache {:publisher (ig/ref ::entities/publisher)
+                                   :ttl-minutes 5}
             ::images/storage {:bucket "test-images"}
             ::ing/reader {:model "model-x"}
             ::progress/tracker-factory {:prefix "test"}
@@ -41,7 +45,8 @@
                            :image-storage (ig/ref ::images/storage)
                            :ingestion (ig/ref ::ing/reader)
                            :tracker-factory (ig/ref ::progress/tracker-factory)
-                           :services (ig/ref ::services/config)}
+                           :services (ig/ref ::services/config)
+                           :monitor-cache (ig/ref ::monitor-cache/cache)}
             ::web/server {:handler (ig/ref ::web/handler)
                           :port 3000}}
            (system/config app-config))

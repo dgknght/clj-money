@@ -6,7 +6,9 @@
             [clj-money.authorization :refer [+scope]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
-            [clj-money.reports :as rpt])
+            [clj-money.reports :as rpt]
+            [clj-money.monitor-cache :as monitor-cache]
+            [clj-money.web.system :as system])
   (:import java.math.BigDecimal
            clojure.lang.Ratio))
 
@@ -88,7 +90,8 @@
       (->> (entities/select (util/entity-type {:id [:in (mapv :id refs)]}
                                               :account))
            (map (comp serialize-monitor
-                      rpt/monitor))
+                      (partial monitor-cache/fetch
+                               (system/component req :monitor-cache))))
            api/response)
       (api/response []))
     api/not-found))

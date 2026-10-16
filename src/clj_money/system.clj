@@ -14,6 +14,7 @@
             ; loaded before a propagation subscription starts
             [clj-money.entities.ref]
             [clj-money.images :as images]
+            [clj-money.monitor-cache :as monitor-cache]
             [clj-money.progress :as progress]
             [clj-money.services :as services]
             [clj-money.ingestion :as ingestion]
@@ -52,6 +53,8 @@
     ::entities/publisher {}
     ::prop/subscription {:storage (ig/ref ::db/storage)
                          :publisher (ig/ref ::entities/publisher)}
+    ::monitor-cache/cache (merge {:publisher (ig/ref ::entities/publisher)}
+                                 (:monitor-cache env))
     ::images/storage (:image-storage env)
     ::progress/tracker-factory (progress/active-config env)
     ::services/config (services/config env)
@@ -62,7 +65,8 @@
                    :image-storage (ig/ref ::images/storage)
                    :tracker-factory (ig/ref ::progress/tracker-factory)
                    :services (ig/ref ::services/config)
-                   :ingestion (ig/ref ::ingestion/reader)}
+                   :ingestion (ig/ref ::ingestion/reader)
+                   :monitor-cache (ig/ref ::monitor-cache/cache)}
     ::web/server {:handler (ig/ref ::web/handler)
                   :port (port env)}}))
 
