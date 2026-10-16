@@ -13,7 +13,6 @@
             [clj-money.images :as images]
             [clj-money.entities :as entities]
             [clj-money.entities.images :as img]
-            [clj-money.entities.propagation :as prop]
             [clj-money.ingestion :as ing]
             [clj-money.ingestion.receipts :as rcpts]
             [clj-money.web.system :as system]
@@ -37,18 +36,12 @@
             att #:attachment{:transaction trx
                              :image image
                              :caption "Receipt"}
-            [_ _ saved] (prop/with-propagation [out-chan ctrl-chan]
-                    (entities/put-many
-                      {:out-chan out-chan
-                       :ctrl-chan ctrl-chan
-                       :close-chan? false}
-                      [trx
-                       att
-                       (assoc ingestion
-                              :receipt-ingestion/transaction (util/->entity-ref trx)
-                              :receipt-ingestion/receipt receipt)]))]
-        ; marked complete only after propagation has finished, so the
-        ; transaction is fully updated by the time the client loads it
+            [_ _ saved] (entities/put-many
+                          [trx
+                           att
+                           (assoc ingestion
+                                  :receipt-ingestion/transaction (util/->entity-ref trx)
+                                  :receipt-ingestion/receipt receipt)])]
         (-> saved
             (assoc :receipt-ingestion/status :complete)
             entities/put))
@@ -107,7 +100,7 @@
                                     :receipt-ingestion/rejection-reason rejection-reason))]
     (some-> transaction
             entities/find
-            prop/delete-and-propagate)
+            entities/delete)
     (dissoc result :receipt-ingestion/transaction)))
 
 (defn- can-reject?

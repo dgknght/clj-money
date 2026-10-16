@@ -13,7 +13,6 @@
                                         polarize-quantity]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :as prop]
             [clj-money.entities.prices :as prices]
             [clj-money.util :as util]
             [clj-money.db :as db])
@@ -502,8 +501,6 @@
         create-purchase-transaction
         (put-purchase opts))))
 
-(def buy-and-propagate
-  (prop/+propagation buy))
 
 (defn unbuy
   "Reverses a commodity purchase"
@@ -520,8 +517,6 @@
      :lot lot
      :commodity commodity}))
 
-(def unbuy-and-propagate
-  (prop/+propagation unbuy))
  
 (defn- acquire-lots
   "Given a trade map, finds the next lot containing
@@ -677,8 +672,6 @@
         create-sale-transaction
         (put-sale opts))))
 
-(def sell-and-propagate
-  (prop/+propagation sell))
 
 (defn unsell
   [trx & {:as opts}]
@@ -701,8 +694,6 @@
                        (cons [::db/delete trx]
                              updated-lots))))
 
-(def unsell-and-propagate
-  (prop/+propagation unsell))
 
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account
@@ -822,8 +813,6 @@
             create-transfer-transaction
             (put-transfer opts))))
 
-(def transfer-and-propagate
-  (prop/+propagation transfer))
 
 (defn- append-split-lots
   [{:split/keys [commodity account] :as split}]
@@ -1022,5 +1011,3 @@
             create-split-note
             (put-split (dissoc opts :lot-note)))))
 
-(def split-and-propagate
-  (prop/+propagation split))

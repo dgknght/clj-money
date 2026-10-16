@@ -31,12 +31,52 @@ test/clj_money/        # Mirrors src structure, _test suffix
 
 ## Integrant System
 
-`clj-money.system` defines the server's components (storage, image storage,
+`clj-money.system` defines the server's components (storage, the change
+publisher and propagation subscription, image storage,
 progress tracker factory, external service config, web handler and web
 server) as an Integrant system. Storage-like components reach the code
 through dynamic vars bound per request, by `system/with-components` and by the
 test harness. The service config is passed explicitly: request handlers get
 it with `clj-money.web.system/component`. See the "Integrant System" wiki page (https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System).
+
+## Propagation (publish/subscribe)
+
+Changes to one entity often affect others (a transaction changes account
+balances, a price changes account values, a lot changes a commodity's shares
+owned). This follows the publish/subscribe pattern used in clj-groceries:
+
+- `entities/put-many` and `entities/delete-many` publish a `[before after]`
+  change tuple for each changed entity to the `::entities/publisher`
+  component, bound per request as `entities/*publisher*` (or passed with the
+  `:publisher` option; `nil` publishes nothing). When no publisher is bound
+  (CLI tasks, the REPL, imports), nothing is published.
+- The `::prop/subscription` component (`entities/propagation.clj`) subscribes
+  to every entity type that implements the `prop/propagate` multimethod and
+  propagates the changes **asynchronously**, one at a time, in publish order,
+  on a background thread. `propagate` returns the entities to put; those puts
+  are not themselves published.
+- The publisher taps a single `core.async` mult rather than using `pub`, so
+  that a subscriber sees messages in publish order across topics.
+- Because propagation is asynchronous, a transaction can be propagated before
+  an earlier transaction in the same account has been. Re-indexing takes its
+  basis from the last *indexed* item, and propagating the earlier
+  transaction re-indexes everything after it.
+- Imports and test contexts bind `*publisher*` to nil and run
+  `prop/propagate-all` once at the end instead.
+- The subscription exports metrics: `clj_money.propagation.duration` and
+  `clj_money.propagation.lag` (publish to propagated; `publish*` stamps
+  each message with `::entities/published-at` metadata) histograms, tagged
+  with `entity.type` and, on failure, `error.type`; and the
+  `clj_money.propagation.queue.size` gauge, tagged with `queue`
+  (`publisher` or `subscription`). Each channel buffers 1000 messages and
+  core.async throws on `put!` once 1024 more are pending, so a publisher
+  queue size approaching ~2000 means requests are about to fail.
+
+In tests, `with-test-storage` (used by `dbtest` and `reset-db`) starts a
+publisher and subscription for each test. Use `put-and-propagate`,
+`delete-and-propagate`, `propagated` or `await-propagation` from
+`clj-money.test-helpers` before asserting on propagated state. The test web
+handler (`web/test_handler.clj`) waits for propagation after each request.
 
 ## Dual-Storage Model
 

@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
             [clojure.walk :refer [postwalk]]
+            [integrant.core :as ig]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
@@ -49,6 +50,19 @@
                 x))
             data))
 
+(defn capture-change
+  "Invokes f with a publisher that captures the changes to entities of the
+  given type, and returns f's result and the first change published."
+  [entity-type f]
+  (let [publisher (ig/init-key ::entities/publisher {})
+        ch (entities/sub publisher [entity-type])]
+    (try
+      (let [result (f publisher)
+            [change _ch] (a/alts!! [ch (a/timeout 1000)])]
+        [result change])
+      (finally
+        (ig/halt-key! ::entities/publisher publisher)))))
+
 (defn assert-created
   [attr & {:keys [refs
                   compare-result?
@@ -58,9 +72,11 @@
                 compare-result? true
                 ignore-nils? false
                 ignore-attributes []}}]
-  (let [out-chan (a/chan)
-        handle-nils (if ignore-nils? util/remove-nils identity)
-        result (handle-nils (entities/put attr :out-chan out-chan))
+  (let [handle-nils (if ignore-nils? util/remove-nils identity)
+        [result
+         [before after]] (capture-change (util/entity-type attr)
+                                         #(entities/put attr :publisher %))
+        result (handle-nils result)
         fetched (some-> result
                         :id
                         entities/find
@@ -75,41 +91,39 @@
         "The result contains an :id attribute")
     (is (comparable? expected fetched)
         "The retrieved matches the input")
-    (let [[[before after] _ch] (a/alts!! [out-chan (a/timeout 1000)])]
-      (is (= result after)
-          "The after (newly created) value is passed to the output channel")
-      (is (nil? before)
-          "The before value passed to the output channel is nil"))
+    (is (= result (handle-nils after))
+        "The after (newly created) value is published")
+    (is (nil? before)
+        "The before value published is nil")
     fetched))
 
 (defn assert-updated
   [entity attr]
   {:pre [entity attr]}
-  (let [out-chan (a/chan)
-        result (entities/put (merge entity attr)
-                             :out-chan out-chan)]
+  (let [[result
+         [before after]] (capture-change (util/entity-type entity)
+                                         #(entities/put (merge entity attr)
+                                                        :publisher %))]
     (is (comparable? attr result)
         "The return value contains the updated attributes")
     (is (comparable? attr (entities/find entity))
         "The retrieved value contains the updated attributes")
-    (let [[[before after] _ch] (a/alts!! [out-chan (a/timeout 1000)])]
-      (is (= entity before)
-          "The before value is passed to the output channel")
-      (is (= result after)
-          "The after value is passed to the output channel"))))
+    (is (= entity before)
+        "The before value is published")
+    (is (= result after)
+        "The after value is published")))
 
 (defn assert-deleted
   [entity]
   {:pre [entity (:id entity)]}
-  (let [out-chan (a/chan)]
-    (entities/delete entity :out-chan out-chan)
+  (let [[_ [before after]] (capture-change (util/entity-type entity)
+                                           #(entities/delete entity :publisher %))]
     (is (nil? (entities/find entity))
         "The entity cannot be retrieved after being deleted")
-    (let [[[before after] _ch] (a/alts!! [out-chan (a/timeout 1000)])]
-      (is (= entity before)
-          "The before value is passed to the output channel")
-      (is (nil? after)
-          "The after value passed to the output channel is nil"))))
+    (is (= entity before)
+        "The before value is published")
+    (is (nil? after)
+        "The after value published is nil")))
 
 (defn assert-invalid
   [attr errors & {:keys [message put-opts]}]

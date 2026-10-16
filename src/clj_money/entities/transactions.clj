@@ -399,10 +399,15 @@
        final-limit (take final-limit)))))
 
 (defn- last-transaction-item-before
+  "Returns the last indexed item in the account before the date. Items that
+  haven't been indexed yet (i.e., whose transactions have been saved, but not
+  yet propagated) are skipped, as they can't serve as a basis; propagating
+  them re-indexes the items that follow them."
   [account date]
   (entities/find-by
     (util/entity-type
       {:transaction-item/account account
+       :transaction-item/index [:!= nil]
        :transaction/transaction-date [:< date]}
       :transaction-item)
     {:sort [[:transaction-item/index :desc]]}))
@@ -860,89 +865,3 @@
   (entities/put-many [(assoc from-account :account/quantity 0M)
                       (assoc to-account :account/quantity (:account/quantity from-account))]))
 
-(defn propagate-accounts
-  "Takes a map of account ids to dates and recalculates indices and balances for those
-  accounts as of the associated dates."
-  [{:keys [entity-id] :as x}]
-  (let [entity (entities/find entity-id)
-        accounts (index-by :id (entities/find-many (keys (:accounts x))))
-        commodities (index-by :id (entities/find-many (->> accounts vals (map (comp :id :account/commodity)))))]
-    (entities/put-many ; TODO: don't put directly, just return the updated values
-      (cons (update-in entity
-                       [:entity/transaction-date-range]
-                       #(apply dates/push-boundary % (:entity x)))
-            (->> (:accounts x)
-                 (map (comp
-                        (fn [[account date]]
-                          {:account account
-                           :date date
-                           :basis (or (last-transaction-item-before account date)
-                                      initial-basis)
-                           :items (map #(assoc % :transaction-item/account account)
-                                       (transaction-items-on-or-after account date))})
-                        #(assoc-in % [0 :account/entity] entity)
-                        #(update-in % [0 :account/commodity] (comp commodities :id))
-                        #(update-in % [0] accounts)))
-                 (mapcat (fn [{:keys [account items basis]}]
-                           (re-index account basis items))))))))
-
-(def extract-dates
-  (comp (mapcat identity)
-        (filter identity)
-        (filter (util/entity-type? :transaction))
-        (mapcat (fn [{:transaction/keys [entity transaction-date items]}]
-                  (map (fn [{:transaction-item/keys [account]}]
-                         [entity account transaction-date])
-                       items)))))
-
-(defn accumulate-dates
-  [m [entity account date]]
-  (-> m
-      (assoc :entity-id (:id entity))
-      (update-in [:accounts (:id account)] dates/earliest date)
-      (update-in [:entity 0] dates/earliest date)
-      (update-in [:entity 1] dates/latest date)))
-
-(defmacro with-delayed-propagation
-  "Delays propagation for transactions that are put inside the body. Binds two
-  positional vars:
-    - the output channel to be passed as the option :out-chan to the put-many function
-    - the control channel to be passed as the option :ctrl-chan to the put-many function"
-  [bindings & body]
-  `(let [f# (fn* [~(first bindings) ~(second bindings)] ~@body)
-         out# (a/chan 10)
-         ; Buffered so that emit-changes can offer! :start synchronously
-         ; before spawning each goroutine without blocking the caller.
-         ctrl# (a/chan 1000)
-         pending# (atom 0)
-         all-started# (atom false)
-         complete# (a/promise-chan)
-         _# (a/go-loop [msg# (a/<! ctrl#)]
-                       (when msg#
-                         (case msg#
-                           :start (swap! pending# inc)
-                           :finish (let [count# (swap! pending# dec)]
-                                     (when (and @all-started#
-                                                (= 0 count#))
-                                       (a/>! complete# :done)))
-                           :all-started (do
-                                          (reset! all-started# true)
-                                          (when (= 0 @pending#)
-                                            (a/>! complete# :done))))
-                         (recur (a/<! ctrl#))))
-         reduce# (a/transduce
-                   extract-dates
-                   (completing accumulate-dates)
-                   {:entity []
-                    :accounts {}}
-                   out#)
-         prim-result# (f# out# ctrl#)
-         ; Sentinel: all puts have been called. The go-loop processes
-         ; messages in channel order, so all :start messages offered
-         ; synchronously during the body are already in the buffer ahead
-         ; of this sentinel.
-         _# (a/offer! ctrl# :all-started)]
-     (a/alts!! [complete# (a/timeout 5000)])
-     (a/close! out#)
-     (concat prim-result#
-             (propagate-accounts (a/<!! reduce#)))))

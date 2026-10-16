@@ -120,11 +120,13 @@
 
 (defn- wrap-components
   "Binds the component values that were supplied, so that requests use the
-  storage, image storage and progress tracker factory of the running system.
-  Components that are not supplied are left to their existing bindings."
-  [handler {:keys [storage image-storage tracker-factory]}]
+  storage, publisher, image storage and progress tracker factory of the
+  running system. Components that are not supplied are left to their
+  existing bindings."
+  [handler {:keys [storage publisher image-storage tracker-factory]}]
   (fn [req]
     (binding [db/*storage* (or storage db/*storage*)
+              entities/*publisher* (or publisher entities/*publisher*)
               img/*storage* (or image-storage img/*storage*)
               prog/*tracker-factory* (or tracker-factory prog/*tracker-factory*)]
       (handler req))))

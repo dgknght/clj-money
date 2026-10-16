@@ -11,9 +11,9 @@
             [clj-money.entity-helpers :as helpers :refer [assert-deleted]]
             [clj-money.db :as db]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
             [clj-money.entities.transactions :as transactions]
+            [clj-money.entities.propagation :as prop]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.test-context :refer [with-context
@@ -21,7 +21,11 @@
                                             find-account
                                             find-accounts
                                             find-transaction]]
-            [clj-money.test-helpers :refer [dbtest]]
+            [clj-money.test-helpers :refer [dbtest
+                                              put-and-propagate
+                                              delete-and-propagate
+                                              await-propagation
+                                              with-propagation*]]
             [clj-money.spies :as spy])
   (:import clojure.lang.ExceptionInfo))
 
@@ -106,7 +110,7 @@
 (dbtest create-and-propagate-a-transaction
         (with-context base-context
           (let [date (t/local-date 2016 3 2)]
-            (prop/put-and-propagate (attributes))
+            (put-and-propagate (attributes))
             (testing "entity updates"
               (is (comparable? #:entity{:transaction-date-range [date date]}
                                (entities/find (find-entity "Personal")))
@@ -230,7 +234,7 @@
 
 (dbtest insert-transaction-before-the-end
   (with-context insert-context
-    (prop/put-and-propagate
+    (put-and-propagate
       #:transaction{:transaction-date (t/local-date 2016 3 3)
                     :entity (find-entity "Personal")
                     :description "Kroger"
@@ -262,7 +266,7 @@
 
 (dbtest create-a-transaction-with-multiple-items-for-one-account
   (with-context multi-context
-    (prop/put-and-propagate
+    (put-and-propagate
       #:transaction{:transaction-date (t/local-date 2016 3 2)
                     :entity (find-entity "Personal")
                     :description "Paycheck"
@@ -330,7 +334,7 @@
   (with-context delete-context
     (let [checking-items-before (items-by-account "Checking")
           trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])]
-      (prop/delete-and-propagate trans)
+      (delete-and-propagate trans)
       (testing "checking transaction item balances are adjusted"
         (is (= [#:transaction-item{:index 0 :quantity 1000M :balance 1000M}
                 #:transaction-item{:index 1 :quantity  100M :balance 900M}
@@ -477,7 +481,7 @@
                      1
                      :transaction-item/quantity]
                     99.99M)
-          (prop/put-and-propagate))
+          (put-and-propagate))
       (is (= [#:transaction-item{:index 0 :quantity 1000.00M :balance 1000.00M}
               #:transaction-item{:index 1 :quantity   99.99M :balance  900.01M}
               #:transaction-item{:index 2 :quantity  102.00M :balance  798.01M}]
@@ -521,7 +525,7 @@
                                      :account salary
                                      :quantity 1000M
                                      :memo nil}])
-          prop/put-and-propagate)
+          put-and-propagate)
       (is (= [nil nil]
              (->> (entities/find-by
                     {:transaction/transaction-date (t/local-date 2016 3 2)
@@ -537,7 +541,7 @@
           trx (find-transaction [(t/local-date 2016 3 22) "Kroger"])
           result (-> trx
                      (assoc :transaction/transaction-date (t/local-date 2016 3 10))
-                     prop/put-and-propagate)]
+                     put-and-propagate)]
       (is (= [{:transaction-item/index 0
                :transaction-item/quantity 1000M
                :transaction-item/balance 1000M}
@@ -750,48 +754,50 @@
                     db/reset
                     spy/storage-spy)]
     (db/with-storage [storage]
-      (with-context short-circuit-context
-        (spy/clear storage)
-        (-> (find-transaction [(t/local-date 2016 3 16)
-                               "Kroger"])
-            (assoc :transaction/transaction-date
-                   (t/local-date (t/local-date 2016 3 8)))
-            prop/put-and-propagate)
-        (let [[[_ c1] [_ c2] :as cs] (spy/calls storage :put)
-              checking (find-account "Checking")]
-          (is (= 2 (count cs))
-              "Two calls are made to write to storage (the primary and the propagation)")
-          (is (seq-of-maps-like?
-                [#:transaction{:transaction-date (t/local-date 2016 3 8)
-                               :description "Kroger"}]
-                c1)
-              "The first call puts the modified transaction")
-          (is (seq-of-maps-like?
-                [#:transaction-item{:index 1
-                                    :quantity 102M
-                                    :balance 898M}
-                 #:transaction-item{:index 2
-                                    :quantity 101M
-                                    :balance 797M}]
-                (filter (every-pred
-                          (util/entity-type? :transaction-item)
-                          (comp (partial util/id= checking)
-                                :transaction-item/account))
-                        c2))
-              "The second call includes the updated line items")
-          (is (->> c2
-                   (filter (every-pred
-                             (util/entity-type? :transaction-item)
-                             (comp (partial util/entity= checking)
-                                   :transaction-item/account)
-                             (comp #{3 4}
-                                   :transaction-item/index)))
-                   empty?)
-              "The unchanged items are not updated")
-          (is (->> c2
-                   (filter (util/entity-type? :account))
-                   empty?)
-              "The account is not updated"))))))
+      (with-propagation*
+        storage
+        #(with-context short-circuit-context
+          (spy/clear storage)
+          (-> (find-transaction [(t/local-date 2016 3 16)
+                                 "Kroger"])
+              (assoc :transaction/transaction-date
+                     (t/local-date (t/local-date 2016 3 8)))
+              put-and-propagate)
+          (let [[[_ c1] [_ c2] :as cs] (spy/calls storage :put)
+                checking (find-account "Checking")]
+            (is (= 2 (count cs))
+                "Two calls are made to write to storage (the primary and the propagation)")
+            (is (seq-of-maps-like?
+                  [#:transaction{:transaction-date (t/local-date 2016 3 8)
+                                 :description "Kroger"}]
+                  c1)
+                "The first call puts the modified transaction")
+            (is (seq-of-maps-like?
+                  [#:transaction-item{:index 1
+                                      :quantity 102M
+                                      :balance 898M}
+                   #:transaction-item{:index 2
+                                      :quantity 101M
+                                      :balance 797M}]
+                  (filter (every-pred
+                            (util/entity-type? :transaction-item)
+                            (comp (partial util/id= checking)
+                                  :transaction-item/account))
+                          c2))
+                "The second call includes the updated line items")
+            (is (->> c2
+                     (filter (every-pred
+                               (util/entity-type? :transaction-item)
+                               (comp (partial util/entity= checking)
+                                     :transaction-item/account)
+                               (comp #{3 4}
+                                     :transaction-item/index)))
+                     empty?)
+                "The unchanged items are not updated")
+            (is (->> c2
+                     (filter (util/entity-type? :account))
+                     empty?)
+                "The account is not updated")))))))
 
 (def change-account-context
   (conj base-context
@@ -834,7 +840,7 @@
                      0
                      :transaction-item/account]
                     rent)
-          prop/put-and-propagate)
+          put-and-propagate)
       (is (= [#:transaction-item{:index 0
                                  :quantity 101M
                                  :balance 101M}
@@ -891,7 +897,7 @@
                                       :debit
                                       :credit))
                             items)))
-          prop/put-and-propagate)
+          put-and-propagate)
       (is (= [#:transaction-item{:index 0
                                  :quantity 103M
                                  :balance 103M}
@@ -965,7 +971,7 @@
                   102M)
         (update-in [:transaction/items]
                    (partial take 2))
-        prop/put-and-propagate)
+        put-and-propagate)
     (let [checking (reload-account "Checking")
           pets (reload-account "Pets")]
       (is (= (- 1000M 103M 102M 101M)
@@ -1009,7 +1015,7 @@
                      {:transaction-item/action :debit
                       :transaction-item/account pets
                       :transaction-item/quantity 13M})
-          prop/put-and-propagate)
+          put-and-propagate)
       (testing "item values"
         (is (= [#:transaction-item{:index 0 :quantity 13M :balance 13M}
                 #:transaction-item{:index 1 :quantity 12M :balance 25M}]
@@ -1092,7 +1098,7 @@
 (dbtest same-day-items-are-ordered-by-index-for-balance-as-of
   (with-context base-context
     (let [date (t/local-date 2016 3 2)]
-      (prop/put-and-propagate
+      (put-and-propagate
         #:transaction{:transaction-date date
                       :description "Paycheck"
                       :entity (find-entity "Personal")
@@ -1102,7 +1108,7 @@
                               #:transaction-item{:action :credit
                                                  :account (find-account "Salary")
                                                  :quantity 500M}]})
-      (prop/put-and-propagate
+      (put-and-propagate
         #:transaction{:transaction-date date
                       :description "Reversal"
                       :entity (find-entity "Personal")
@@ -1122,33 +1128,64 @@
           [checking
            salary
            groceries] (find-accounts "Checking" "Salary" "Groceries")]
-      (transactions/with-delayed-propagation [out-chan ctrl-chan]
-        (mapv (comp #(entities/put %
-                                   :out-chan out-chan
-                                   :close-chan? false
-                                   :ctrl-chan ctrl-chan)
-                    #(assoc % :transaction/entity entity))
-              [#:transaction{:transaction-date (t/local-date 2017 1 1)
-                             :description "Paycheck"
-                             :debit-account checking
-                             :credit-account salary
-                             :quantity 1000M}
-               #:transaction{:transaction-date (t/local-date 2017 1 15)
-                             :description "Market Street"
-                             :debit-account groceries
-                             :credit-account checking
-                             :quantity 100M}
-               #:transaction{:transaction-date (t/local-date 2017 2 1)
-                             :description "Paycheck"
-                             :debit-account checking
-                             :credit-account salary
-                             :quantity 1000M}]))
+      (mapv (comp entities/put
+                  #(assoc % :transaction/entity entity))
+            [#:transaction{:transaction-date (t/local-date 2017 1 1)
+                           :description "Paycheck"
+                           :debit-account checking
+                           :credit-account salary
+                           :quantity 1000M}
+             #:transaction{:transaction-date (t/local-date 2017 1 15)
+                           :description "Market Street"
+                           :debit-account groceries
+                           :credit-account checking
+                           :quantity 100M}
+             #:transaction{:transaction-date (t/local-date 2017 2 1)
+                           :description "Paycheck"
+                           :debit-account checking
+                           :credit-account salary
+                           :quantity 1000M}])
+      (await-propagation)
       (is (= 1900M (:account/quantity (reload-account "Checking")))
-          "The account balance is recalculated after the form exits")
+          "The account balance is recalculated")
       (is (comparable? {:entity/transaction-date-range [(t/local-date 2017 1 1)
                                                         (t/local-date 2017 2 1)]}
                        (entities/find entity))
           "The entity transaction date boundaries are updated"))))
+
+;; Propagation is asynchronous, so a transaction can be propagated while an
+;; earlier transaction in the same account is saved, but not yet propagated.
+(dbtest propagate-a-transaction-ahead-of-an-earlier-unpropagated-one
+  (with-context base-context
+    (let [entity (find-entity "Personal")
+          [checking salary] (find-accounts "Checking" "Salary")
+          earlier (entities/put #:transaction{:transaction-date (t/local-date 2017 1 1)
+                                              :entity entity
+                                              :description "Paycheck"
+                                              :debit-account checking
+                                              :credit-account salary
+                                              :quantity 1000M}
+                                ; saved, but not propagated
+                                :publisher nil)]
+      (put-and-propagate #:transaction{:transaction-date (t/local-date 2017 2 1)
+                                       :entity entity
+                                       :description "Paycheck"
+                                       :debit-account checking
+                                       :credit-account salary
+                                       :quantity 500M})
+      (is (comparable? {:entity/transaction-date-range [(t/local-date 2017 2 1)
+                                                        (t/local-date 2017 2 1)]}
+                       (entities/find entity))
+          "The later transaction is propagated")
+      ; now the earlier one catches up
+      (entities/put-many {:publisher nil}
+                         (prop/propagate [nil earlier]))
+      (is (= [#:transaction-item{:index 0 :quantity 1000M :balance 1000M}
+              #:transaction-item{:index 1 :quantity 500M :balance 1500M}]
+             (items-by-account "Checking"))
+          "The items are indexed in date order once both are propagated")
+      (is (= 1500M (:account/quantity (reload-account "Checking")))
+          "The account balance includes both transactions"))))
 
 (def ^:private delayed-propagation-with-history-context
   (conj base-context
@@ -1164,22 +1201,19 @@
     (let [entity (find-entity "Personal")
           [checking
            salary] (find-accounts "Checking" "Salary")]
-      (transactions/with-delayed-propagation [out-chan ctrl-chan]
-        (mapv (comp #(entities/put %
-                                   :out-chan out-chan
-                                   :close-chan? false
-                                   :ctrl-chan ctrl-chan)
-                    #(assoc % :transaction/entity entity))
-              [#:transaction{:transaction-date (t/local-date 2017 1 1)
-                             :description "Paycheck"
-                             :debit-account checking
-                             :credit-account salary
-                             :quantity 1000M}
-               #:transaction{:transaction-date (t/local-date 2017 2 1)
-                             :description "Paycheck"
-                             :debit-account checking
-                             :credit-account salary
-                             :quantity 1000M}]))
+      (mapv (comp entities/put
+                  #(assoc % :transaction/entity entity))
+            [#:transaction{:transaction-date (t/local-date 2017 1 1)
+                           :description "Paycheck"
+                           :debit-account checking
+                           :credit-account salary
+                           :quantity 1000M}
+             #:transaction{:transaction-date (t/local-date 2017 2 1)
+                           :description "Paycheck"
+                           :debit-account checking
+                           :credit-account salary
+                           :quantity 1000M}])
+      (await-propagation)
       (is (= [#:transaction-item{:index 0 :quantity 500M :balance 500M}
               #:transaction-item{:index 1 :quantity 1000M :balance 1500M}
               #:transaction-item{:index 2 :quantity 1000M :balance 2500M}]

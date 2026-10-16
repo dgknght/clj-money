@@ -5,6 +5,7 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
+            [integrant.core :as ig]
             [dgknght.app-lib.test-assertions]
             [clj-money.progress :as prog]
             [clj-money.entities.ref]
@@ -19,6 +20,7 @@
                                             account-ref]]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.entities :as entities]
+            [clj-money.entities.schema :as schema]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data] :as imp]
             [clj-money.import.gnucash]
@@ -185,6 +187,25 @@
 (deftest import-a-simple-gnucash-file
   (with-context gnucash-context
     (test-import)))
+
+(deftest changes-are-not-published-during-an-import
+  (with-context gnucash-context
+    (let [publisher (ig/init-key ::entities/publisher {})
+          ch (entities/sub publisher (keys schema/entities))]
+      (try
+        (binding [entities/*publisher* publisher]
+          (execute-import (find-import "Personal"))
+          ; proves the capture works: a change made outside the import is
+          ; published
+          (entities/put (assoc (entities/find-by {:entity/name "Personal"})
+                               :entity/name "Captured")))
+        (let [[before after] (first (a/alts!! [ch (a/timeout 1000)]))]
+          (is (= ["Personal" "Captured"]
+                 (map :entity/name [before after]))
+              "The first change published is the one made after the import"))
+        (finally
+          (entities/unsub publisher ch)
+          (ig/halt-key! ::entities/publisher publisher))))))
 
 (deftest track-import-progress
   (with-context gnucash-context

@@ -18,6 +18,12 @@ java.lang.AssertionError: Assert failed: (instance? QualifiedID qid)
 This is usually stale compiled output in `target/`, not a code problem.
 Run `lein clean` and then re-run the tests before investigating further.
 
+### `Validation failed ... #:entity{:user {:id ["Id is invalid"]}}` in SQL tests
+
+The `-sql` variants of tests error while `with-context` creates the entity.
+Like the `QualifiedID` assertion above, this has been caused by stale
+compiled output; `lein clean` fixed it.
+
 ### `PSQLException: column "..." of relation "..." does not exist` in SQL tests
 
 The `-sql` variants of tests error because the test database is missing a

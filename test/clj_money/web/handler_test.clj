@@ -5,6 +5,7 @@
             [dgknght.app-lib.test-assertions]
             [clj-money.config :refer [env]]
             [clj-money.db :as db]
+            [clj-money.entities :as entities]
             [clj-money.images :as img]
             [clj-money.progress :as prog]
             [clj-money.web :as-alias web]
@@ -27,14 +28,16 @@
         handler (wrap-components (fn [_]
                                    (reset! bindings
                                            [db/*storage*
+                                            entities/*publisher*
                                             img/*storage*
                                             prog/*tracker-factory*])
                                    {:status 200})
                                  {:storage ::storage
+                                  :publisher ::publisher
                                   :image-storage ::image-storage
                                   :tracker-factory ::tracker-factory})]
     (handler {})
-    (is (= [::storage ::image-storage ::tracker-factory]
+    (is (= [::storage ::publisher ::image-storage ::tracker-factory]
            @bindings)
         "The component values are bound while the request is handled")))
 
@@ -44,12 +47,13 @@
         handler (wrap-components (fn [_]
                                    (reset! bindings
                                            [db/*storage*
+                                            entities/*publisher*
                                             img/*storage*
                                             prog/*tracker-factory*])
                                    {:status 200})
                                  {})]
     (binding [db/*storage* ::outer-storage]
       (handler {}))
-    (is (= [::outer-storage nil nil]
+    (is (= [::outer-storage nil nil nil]
            @bindings)
         "The existing bindings are used")))

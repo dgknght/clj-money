@@ -6,14 +6,14 @@
             [clj-money.util :as util :refer [id=
                                              ->entity-ref]]
             [clj-money.db.ref]
-            [clj-money.test-helpers :refer [dbtest]]
+            [clj-money.test-helpers :refer [dbtest
+                                              delete-and-propagate]]
             [clj-money.accounts :as acts]
             [clj-money.entity-helpers
              :refer [assert-invalid
                      assert-deleted]
              :as helpers]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :as prop]
             [clj-money.entities.ref]
             [clj-money.test-context :refer [with-context
                                             *context*
@@ -655,7 +655,7 @@
     (let [recon (entities/find
                   (find-reconciliation
                     ["Checking" (t/local-date 2017 1 3)]))]
-      (prop/delete-and-propagate recon)
+      (delete-and-propagate recon)
       (is (empty? (entities/select
                     {:transaction-item/reconciliation recon}))
           "The reconciliation is not associated with any items after delete"))))
@@ -677,7 +677,7 @@
                   (find-reconciliation
                     ["Checking" (t/local-date 2017 1 1)]))]
       (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
-                            (prop/delete-and-propagate recon))
+                            (delete-and-propagate recon))
           "an exception is thrown during propagation")
       (is (seq (entities/select
                  {:transaction-item/reconciliation recon}))

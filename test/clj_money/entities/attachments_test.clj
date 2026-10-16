@@ -5,8 +5,6 @@
             [dgknght.app-lib.test]
             [clj-money.images.sql]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :refer [put-and-propagate
-                                                  delete-and-propagate]]
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.factories.user-factory]
@@ -19,7 +17,9 @@
                                             find-transaction
                                             find-image
                                             find-attachment]]
-            [clj-money.test-helpers :refer [dbtest]]))
+            [clj-money.test-helpers :refer [dbtest
+                                              put-and-propagate
+                                              delete-and-propagate]]))
 
 (def ^:private attach-context
   (conj basic-context

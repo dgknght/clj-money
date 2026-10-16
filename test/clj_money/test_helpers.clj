@@ -9,7 +9,11 @@
             [clj-money.decimal :as d]
             [clj-money.db :as db]
             [clj-money.util :as util]
-            [clj-money.entities :as entities]))
+            [clj-money.entities :as entities]
+            [clj-money.entities.propagation :as prop]
+            ; loads the implementations of prop/propagate, which must be
+            ; loaded before a propagation subscription starts
+            [clj-money.entities.ref]))
 
 ; Storage systems, keyed by db config, initialized on first use and
 ; reused by every subsequent test against the same database.
@@ -38,14 +42,66 @@
   (.addShutdownHook (Runtime/getRuntime)
                     (Thread. ^Runnable halt-storage!)))
 
+(def ^:dynamic *propagation*
+  "The propagation subscription started for the current test"
+  nil)
+
+(defn await-propagation
+  "Blocks until every change published so far in the current test has been
+  propagated. Throws if propagation doesn't finish in time."
+  []
+  (when *propagation*
+    (when-not (prop/await-propagation *propagation*)
+      (throw (ex-info "Timed out waiting for propagation" {}))))
+  nil)
+
+(defn propagated
+  "Returns x once every change published so far in the current test has
+  been propagated, e.g.:
+
+    (propagated (entities/put transaction))"
+  [x]
+  (await-propagation)
+  x)
+
+(defn put-and-propagate
+  "Puts the entity and waits for the change to be propagated"
+  [entity & {:as opts}]
+  (propagated (entities/put entity opts)))
+
+(defn delete-and-propagate
+  "Deletes the entity and waits for the change to be propagated"
+  [entity & {:as opts}]
+  (propagated (entities/delete entity opts)))
+
+(defn with-propagation*
+  "Invokes f with a publisher and a propagation subscription started and
+  bound, so that changes are propagated as they are in the running
+  application. Propagation finishes before this function returns."
+  [storage f]
+  (let [publisher (ig/init-key ::entities/publisher {})
+        subscription (ig/init-key ::prop/subscription
+                                  {:storage storage
+                                   :publisher publisher})]
+    (try
+      (binding [entities/*publisher* publisher
+                *propagation* subscription]
+        (f))
+      (finally
+        ; finish propagating before the test ends, so that nothing is
+        ; written to the database after it's reset for the next test
+        (prop/await-propagation subscription)
+        (ig/halt-key! ::prop/subscription subscription)
+        (ig/halt-key! ::entities/publisher publisher)))))
+
 (defn with-test-storage
   "Resets the storage for the given db config and invokes f with that
-  storage bound."
+  storage bound, and with changes propagated (see with-propagation*)."
   [config f]
   (let [storage (test-storage config)]
     (binding [db/*storage* storage]
       (db/reset storage)
-      (f))))
+      (with-propagation* storage f))))
 
 (defn reset-db
   "Deletes all records from all tables in the active database prior to

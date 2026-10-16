@@ -13,7 +13,7 @@
                                             find-account
                                             find-commodity
                                             find-transaction]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db propagated]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.trading :as trading]))
@@ -122,7 +122,7 @@
     (let [personal (find-entity "Personal")
           ira (find-account "IRA")
           commodity (find-commodity "AAPL")]
-      (trading/buy-and-propagate (purchase-attributes))
+      (propagated (trading/buy (purchase-attributes)))
       (testing "The commodity account"
         (is (comparable? #:account{:name "AAPL"
                                    :quantity 100M
@@ -144,7 +144,7 @@
       (-> (purchase-attributes)
           (assoc :trade/fee 5M
                  :trade/fee-account inv-exp)
-          (trading/buy-and-propagate))
+          trading/buy propagated)
       (is (= 995M (:account/quantity (entities/find ira)))
           "The investment account balance reflects the fee")
       (is (= 5M (:account/quantity (entities/find inv-exp)))
@@ -154,14 +154,14 @@
   (with-context base-context
     (let [dividends (find-account "Dividends")
           ira (entities/find (find-account "IRA"))
-          [{:trade/keys [transactions]}] (-> #:trade{:commodity (find-commodity "AAPL")
-                                                     :account (find-account "IRA")
-                                                     :date (t/local-date 2016 2 2)
-                                                     :shares 4.5M
-                                                     :value 50M}
-                                             (assoc :trade/dividend? true
-                                                    :trade/dividend-account dividends)
-                                             (trading/buy-and-propagate))]
+          {:trade/keys [transactions]} (-> #:trade{:commodity (find-commodity "AAPL")
+                                                    :account (find-account "IRA")
+                                                    :date (t/local-date 2016 2 2)
+                                                    :shares 4.5M
+                                                    :value 50M}
+                                            (assoc :trade/dividend? true
+                                                   :trade/dividend-account dividends)
+                                            trading/buy propagated)]
       (is (comparable? #:transaction{:description "Dividend received from AAPL"}
                        (first transactions))
           "The transaction for the receipt of the dividend is returned")
@@ -268,7 +268,7 @@
 
 (deftest propagate-a-sale
   (with-context sale-context
-    (trading/sell-and-propagate (sale-attributes))
+    (propagated (trading/sell (sale-attributes)))
     (testing "The commodity account"
       (is (comparable? #:account{:name "AAPL"
                                  :quantity 75M
@@ -330,10 +330,10 @@
 
 (deftest sell-a-commodity-with-a-fee
   (with-context sale-context
-    (trading/sell-and-propagate
+    (propagated (trading/sell
       (assoc (sale-attributes)
              :trade/fee 5M
-             :trade/fee-account (find-account "Investment Expenses")))
+             :trade/fee-account (find-account "Investment Expenses"))))
     ; Opening balance             $2,000
     ; Purchase AAPL     -1,000 -> $1,000
     ; Sell AAPL          + 375 -> $1,375
@@ -460,9 +460,9 @@
 
 (deftest undo-a-purchase
   (with-context sale-context
-    (trading/unbuy-and-propagate
+    (propagated (trading/unbuy
       (find-transaction [(t/local-date 2016 3 2)
-                         "Purchase 100.000 shares of AAPL at 10.000"] ))
+                         "Purchase 100.000 shares of AAPL at 10.000"] )))
     ; TODO Should we delete the price that was created?
     (testing "The trading account"
       (is (comparable? {:account/quantity 2000M}
@@ -504,7 +504,7 @@
     (let [trx (find-transaction [(t/local-date 2017 3 2)
                                  #"^Sell 25\.000 shares of AAPL"])
           ira (find-account "IRA")]
-      (trading/unsell-and-propagate trx)
+      (propagated (trading/unsell trx))
       (testing "The transaction"
         (is (nil? (entities/find trx))
             "The transaction cannot be retrieved after unsell"))
@@ -529,12 +529,12 @@
     (let [from-account (find-account "IRA")
           to-account (find-account "IRA 2")
           commodity (entities/find (find-commodity "AAPL")) ; reload to get the date boundaries
-          [result] (trading/transfer-and-propagate
+          result (propagated (trading/transfer
                      #:transfer{:commodity commodity
                                 :from-account from-account
                                 :to-account to-account
                                 :shares 100M
-                                :date (t/local-date 2016 4 2)})]
+                                :date (t/local-date 2016 4 2)}))]
       (testing "The transaction"
         (is (comparable?
               #:transaction{:transaction-date (t/local-date 2016 4 2)
@@ -590,11 +590,11 @@
           ira (find-account "IRA")
           commodity (find-commodity "AAPL")
           trx-count-before (entities/count {:transaction/entity entity})
-          [result] (trading/split-and-propagate
+          result (propagated (trading/split
                      #:split{:commodity commodity
                              :account ira
                              :shares-gained 100M
-                             :date (t/local-date 2016 3 3)})]
+                             :date (t/local-date 2016 3 3)}))]
       (is (= 2M (:split/ratio result))
           "The split ratio is returned")
       (is (= trx-count-before

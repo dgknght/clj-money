@@ -33,7 +33,14 @@
 - Use `clj-money.otel/histogram` and `clj-money.otel/record` for metrics.
   Follow OpenTelemetry semantic convention names where one exists (e.g.
   `gen_ai.client.operation.duration`); a duration histogram already counts
-  calls, so a separate counter isn't needed
+  calls, so a separate counter isn't needed. Failures are recorded in the
+  same histogram with an `error.type` attribute rather than a separate
+  counter
+- Pass `:buckets otel/duration-buckets` to duration histograms in seconds;
+  the SDK's default buckets are sized for milliseconds
+- Use `clj-money.otel/gauge` for values sampled at collection time (e.g.
+  queue sizes) and close it with `otel/close-gauge` when the owning
+  component halts
 - The reader component (`clj-money.ingestion.reader`) wraps every reader
   in `observable-reader`, so implementations stay free of observability
   code. A reader reports token usage by attaching `:clj-money.ingestion/usage`

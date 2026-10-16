@@ -1,7 +1,6 @@
 (ns clj-money.entities.budget-items-test
   (:require [clojure.pprint :refer [pprint]]
             [clojure.test :refer [is]]
-            [clojure.core.async :as a]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
@@ -119,16 +118,17 @@
 
 (dbtest remove-an-item
   (with-context existing-context
-    (let [out-chan (a/chan)
-          budget (find-budget "2016")
-          result (entities/put (assoc budget :budget/items [])
-                             :out-chan out-chan)]
+    (let [budget (find-budget "2016")
+          [result
+           [before after]] (helpers/capture-change
+                             :budget
+                             #(entities/put (assoc budget :budget/items [])
+                                            :publisher %))]
       (is (nil? (seq (:budget/items result)))
           "The item is removed from the return value")
       (is (nil? (seq (:budget/items (entities/find budget))))
           "The item is removed from the retrieved value")
-      (let [[[before after] _ch] (a/alts!! [out-chan (a/timeout 1000)])]
-        (is (= budget before)
-            "The before value is passed to the output channel")
-        (is (= result after)
-            "The after value is passed to the output channel")))))
+      (is (= budget before)
+          "The before value is published")
+      (is (= result after)
+          "The after value is published"))))

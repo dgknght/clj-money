@@ -1,15 +1,11 @@
 (ns clj-money.entities.prices-test
   (:require [clojure.test :refer [is testing]]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.async :as a]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [clj-money.core]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :refer [propagation-xf
-                                                  put-and-propagate
-                                                  delete-and-propagate]]
             [clj-money.entity-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.db.ref]
@@ -20,7 +16,9 @@
                                             find-entity
                                             find-commodity
                                             find-price]]
-            [clj-money.test-helpers :refer [dbtest]]
+            [clj-money.test-helpers :refer [dbtest
+                                              put-and-propagate
+                                              delete-and-propagate]]
             [clj-money.entities.prices :as prices]))
 
 (def ^:private price-context
@@ -55,10 +53,8 @@
 (dbtest propagate-a-new-price
   (with-context price-context
     (let [{:as attr :price/keys [trade-date]} (attributes)
-          entity (find-entity "Personal")
-          out-chan (a/chan 1 propagation-xf)]
-      (entities/put attr :out-chan out-chan)
-      (a/alts!! [out-chan (a/timeout 1000)])
+          entity (find-entity "Personal")]
+      (put-and-propagate attr)
       (is (comparable? #:commodity{:price-date-range [trade-date trade-date]}
                        (entities/find-by {:commodity/symbol "AAPL"
                                         :commodity/entity entity}))
@@ -244,3 +240,13 @@
       (is (comparable? {:account/value 1000M}
                        (entities/find-by {:account/name "IRA"}))
           "The parent account value reflects the previous price after delete"))))
+
+(dbtest deleting-the-earliest-price-updates-the-commodity-date-range
+  (with-context account-summary-context-for-update
+    ; this price is created by the trade in the context
+    (delete-and-propagate (entities/find-by #:price{:commodity (find-commodity "AAPL")
+                                                    :trade-date (t/local-date 2015 2 1)}))
+    (is (comparable? #:commodity{:price-date-range [(t/local-date 2015 2 2)
+                                                    (t/local-date 2015 2 2)]}
+                     (entities/find (find-commodity "AAPL")))
+        "The start of the commodity price date range moves to the next price")))

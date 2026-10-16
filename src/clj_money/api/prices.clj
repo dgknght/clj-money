@@ -8,7 +8,6 @@
             [clj-money.comparatives :as comparatives]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :as prop]
             [clj-money.prices.fetch :as fetch]
             [clj-money.web.system :as system]
             [clj-money.authorization :refer [+scope
@@ -57,7 +56,7 @@
   (-> (extract-price req)
       (assoc :price/commodity {:id (:commodity-id params)})
       (authorize ::authorization/create authenticated)
-      prop/put-and-propagate
+      entities/put
       api/creation-response))
 
 (defn- find-and-authorize
@@ -71,7 +70,7 @@
   [req]
   (or (some-> (find-and-authorize req ::authorization/update)
               (merge (extract-price req))
-              prop/put-and-propagate
+              entities/put
               api/update-response)
       api/not-found))
 

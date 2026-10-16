@@ -7,6 +7,7 @@
             [clojure.data :refer [diff]]
             [clojure.walk :refer [postwalk]]
             [clojure.tools.logging :as log]
+            [integrant.core :as ig]
             [dgknght.app-lib.validation :as v]
             [clj-money.util :as util :refer [entity=]]
             [clj-money.db :as db]))
@@ -219,46 +220,96 @@
                 [(before input) after])))
        (filterv changed?)))
 
-(defn- emit-changes
-  [{:keys [to-save
-           saved
-           out-chan
-           close-chan?
-           ctrl-chan]
-    :or {close-chan? true}}]
-  (when out-chan
-    ; offer! :start synchronously before spawning the goroutine so
-    ; that the pending count is correct by the time put-many returns,
-    ; even if the goroutine hasn't been scheduled yet.
-    ; Requires a buffered ctrl-chan.
-    (when ctrl-chan
-      (a/offer! ctrl-chan :start))
-    (a/go
-      ; Use the parking <! here, not <!!, since we're inside a go block;
-      ; a blocking call here can starve the core.async dispatch pool
-      ; under load, delaying :finish and racing with-propagation's timeout.
-      (if-let [changes (seq (calc-changes to-save saved))]
-        (a/<! (a/onto-chan! out-chan changes close-chan?))
-        ; nothing changed, but whoever is reading out-chan still needs to
-        ; know that no changes are coming
-        (when close-chan? (a/close! out-chan)))
-      (when ctrl-chan
-        (a/>! ctrl-chan :finish)))))
+(def ^:dynamic *publisher*
+  "The ::publisher component that put-many and delete-many publish changes
+  to. It's bound per request (see clj-money.web.handler) and per test. When
+  it's unbound, nothing is published."
+  nil)
+
+(defn- topic
+  "Returns the topic of a published message: the entity type of a change
+  tuple, or the ::topic of a signal (see signal)."
+  [msg]
+  (if (map? msg)
+    (::topic msg)
+    (->> msg
+         (filter identity)
+         (some util/entity-type))))
+
+(defmethod ig/init-key ::publisher
+  ; Publishes [before after] change tuples, with the entity type as the
+  ; topic. Subscribe with sub. The source channel is buffered so that
+  ; publishing doesn't wait on slow subscribers.
+  [_ {:keys [buffer-size] :or {buffer-size 1000}}]
+  (let [ch (a/chan buffer-size)]
+    {:ch ch
+     :mult (a/mult ch)}))
+
+(defmethod ig/halt-key! ::publisher
+  ; Closing the source channel closes every subscribed channel.
+  [_ {:keys [ch]}]
+  (a/close! ch))
+
+(defn sub
+  "Returns a channel that receives the changes to entities of the given
+  types (and the signals with the given topics, see signal) from publisher,
+  in the order in which they were published, even across topics.
+
+  Unlike core.async/pub, which delivers each topic separately, this taps a
+  single mult, so that a signal can't overtake the changes published before
+  it."
+  ([publisher topics] (sub publisher topics {}))
+  ([publisher topics {:keys [buf-or-n] :or {buf-or-n 1000}}]
+   (let [topics (set topics)
+         ch (a/chan buf-or-n (filter (comp topics topic)))]
+     (a/tap (:mult publisher) ch)
+     ch)))
+
+(defn unsub
+  "Stops delivery to (and closes) a channel returned by sub."
+  [publisher ch]
+  (a/untap (:mult publisher) ch)
+  (a/close! ch))
+
+(defn- publish*
+  [{:keys [ch]} msgs]
+  ; put! (not onto-chan!) so that messages keep the order in which they were
+  ; published, even across calls, and so that publishing never blocks,
+  ; even when called from inside a go block. The ::published-at metadata
+  ; (from System/nanoTime) lets subscribers measure how long a message
+  ; waited to be handled.
+  (doseq [msg msgs]
+    (a/put! ch (vary-meta msg assoc ::published-at (System/nanoTime)))))
+
+(defn signal
+  "Publishes msg (a map) with the given topic, after any changes already
+  published. Subscribers use signals to learn when they have handled
+  everything published before it (see clj-money.entities.propagation/await-propagation)."
+  [publisher topic msg]
+  (publish* publisher [(assoc msg ::topic topic)]))
+
+(defn- publish
+  "Publishes the given change tuples to the publisher in opts (or
+  *publisher*), if there is one."
+  [opts changes]
+  (when-let [publisher (if (contains? opts :publisher)
+                         (:publisher opts)
+                         *publisher*)]
+    (publish* publisher changes)))
 
 (defn put-many
   "Save a sequence of entities to the database, providing lifecycle hooks that
   are dispatched by entity type, including: before-validation, before-save,
   after-save, etc.
 
+  Change tuples containing the before and after versions of each entity
+  affected by the operation are published to the publisher (see
+  *publisher*), with the entity type as the topic.
+
   Options:
   :on-duplicate - one of :merge-last-wins, :merge-first-wins, or :throw
-  :out-chan     - An async channel that when passed, receives change tuples
-                  containing before and after versions of each entity affected
-                  by the operation.
-  :close-chan?  - A boolean value indicating whether or not the out-chan should be
-                  closed automatically once all pending results have been sent.
-  :ctrl-chan    - Gets a message (:start) when changes are about to be emitted
-                  another (:finish) when the changes have been emitted"
+  :publisher    - The ::publisher component to publish changes to, in place
+                  of *publisher*. Pass nil to publish nothing."
   ([entities] (put-many {} entities))
   ([{:as opts
      :keys [storage]}
@@ -277,9 +328,7 @@
                      (map (comp append-before
                                 after-save
                                 #(after-read* % {}))))]
-     (emit-changes (assoc opts
-                          :to-save to-save
-                          :saved result))
+     (publish opts (calc-changes to-save result))
      result)))
 
 (defn put
@@ -291,22 +340,15 @@
   (db/update (db/storage) changes criteria))
 
 (defn delete-many
+  "Removes the entities from the database and publishes a change tuple for
+  each (see put-many). Accepts the :publisher option, as put-many does."
   ([entities] (delete-many {} entities))
-  ([{:keys [out-chan ctrl-chan]} entities]
+  ([opts entities]
    {:pre [(seq (filter identity entities))]}
    (let [result (->> entities
                      (map before-delete)
                      (db/delete (db/storage)))]
-     (when out-chan
-       (when ctrl-chan
-         (a/offer! ctrl-chan :start))
-       (a/go
-         ; Parking <!, not blocking onto-chan!!/<!!, to avoid starving
-         ; the core.async dispatch pool (see emit-changes above).
-         (a/<! (a/onto-chan! out-chan
-                             (map #(vector % nil) entities)))
-         (when ctrl-chan
-           (a/>! ctrl-chan :finish))))
+     (publish opts (map #(vector % nil) entities))
      result)))
 
 (defn delete

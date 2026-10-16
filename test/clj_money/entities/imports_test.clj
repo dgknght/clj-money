@@ -13,9 +13,9 @@
                                             find-user
                                             find-image
                                             find-import]]
-            [clj-money.test-helpers :refer [dbtest]]
-            [clj-money.entities :as entities]
-            [clj-money.entities.propagation :as prop]))
+            [clj-money.test-helpers :refer [dbtest
+                                              delete-and-propagate]]
+            [clj-money.entities :as entities]))
 
 (def import-context
   [(factory :user {:user/email "john@doe.com"})
@@ -114,7 +114,7 @@
   (with-context delete-context
     (let [user (find-user "john@doe.com")]
       (testing "deleting an import deletes the associated files"
-        (prop/delete-and-propagate (find-import "import entity"))
+        (delete-and-propagate (find-import "import entity"))
         (is (empty? (entities/select #:import{:user user
                                             :entity-name "import entity"}))
             "The import record is removed")

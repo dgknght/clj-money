@@ -16,7 +16,6 @@
             [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
             [clj-money.entities :as entities]
-            [clj-money.entities.transactions :refer [with-delayed-propagation]]
             [clj-money.scheduled-transactions :as sched-trans]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
 
@@ -121,10 +120,7 @@
 (defn- put-many
   [entities]
   (if (seq entities)
-    (with-delayed-propagation [out-chan ctrl-chan]
-      (entities/put-many {:out-chan out-chan
-                          :ctrl-chan ctrl-chan}
-                         entities))
+    (entities/put-many entities)
     []))
 
 (defn- mass-realize-accounts

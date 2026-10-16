@@ -843,5 +843,8 @@
   [import-spec & {:as opts :keys [atomic?]}]
   (if atomic?
     (throw (UnsupportedOperationException. "Atomic imports are not supported"))
-    (binding [accounts/*express-validation* true]
+    ; Changes aren't published during the import, which propagates
+    ; everything at once after the records are saved.
+    (binding [accounts/*express-validation* true
+              entities/*publisher* nil]
       (import-data* import-spec opts))))

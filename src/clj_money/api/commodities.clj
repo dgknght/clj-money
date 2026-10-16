@@ -9,7 +9,6 @@
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :as prop]
             [clj-money.authorization.commodities]))
 
 (defn- extract-criteria
@@ -82,7 +81,7 @@
   (-> (extract-commodity req)
       (assoc :commodity/entity {:id (:entity-id params)})
       (authorize ::authorization/create authenticated)
-      prop/put-and-propagate
+      entities/put
       api/creation-response))
 
 (defn- update
@@ -90,7 +89,7 @@
   (or
     (some-> (find-and-authorize req ::authorization/update)
             (merge (extract-commodity req))
-            prop/put-and-propagate
+            entities/put
             api/update-response)
     api/not-found))
 

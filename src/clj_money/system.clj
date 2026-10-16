@@ -8,6 +8,11 @@
             [integrant.core :as ig]
             [clj-money.config :as config]
             [clj-money.db :as db]
+            [clj-money.entities :as entities]
+            [clj-money.entities.propagation :as prop]
+            ; loads the implementations of prop/propagate, which must be
+            ; loaded before a propagation subscription starts
+            [clj-money.entities.ref]
             [clj-money.images :as images]
             [clj-money.progress :as progress]
             [clj-money.services :as services]
@@ -44,12 +49,16 @@
   ([env]
    {::env env
     ::db/storage (db/active-config env)
+    ::entities/publisher {}
+    ::prop/subscription {:storage (ig/ref ::db/storage)
+                         :publisher (ig/ref ::entities/publisher)}
     ::images/storage (:image-storage env)
     ::progress/tracker-factory (progress/active-config env)
     ::services/config (services/config env)
     ::ingestion/reader (:ingestion env)
     ::web/handler {:env (ig/ref ::env)
                    :storage (ig/ref ::db/storage)
+                   :publisher (ig/ref ::entities/publisher)
                    :image-storage (ig/ref ::images/storage)
                    :tracker-factory (ig/ref ::progress/tracker-factory)
                    :services (ig/ref ::services/config)
@@ -101,11 +110,13 @@
   (ig/halt! system))
 
 (defn with-components*
-  "Calls f with the storage, image storage and progress tracker factory of
-  the given system bound. Components missing from the system (or a nil
+  "Calls f with the storage, publisher, image storage and progress tracker
+  factory of the given system bound. Components missing from the system (or a nil
   system) are left to their existing bindings."
   [system f]
   (binding [db/*storage* (or (::db/storage system) db/*storage*)
+            entities/*publisher* (or (::entities/publisher system)
+                                     entities/*publisher*)
             images/*storage* (or (::images/storage system) images/*storage*)
             progress/*tracker-factory* (or (::progress/tracker-factory system)
                                            progress/*tracker-factory*)]

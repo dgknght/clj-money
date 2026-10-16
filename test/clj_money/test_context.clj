@@ -491,8 +491,7 @@
           entities/put)
       entity)))
 
-(defn realize
-  "Realizes a test context"
+(defn- realize*
   [input]
   (let [result (->> input
                     (reduce (fn [ctx m]
@@ -505,6 +504,13 @@
                     (mapv post-process))]
     (prop/propagate-all)
     result))
+
+(defn realize
+  "Realizes a test context. Changes aren't published while the context is
+  saved; everything is propagated at once afterward instead."
+  [input]
+  (binding [entities/*publisher* nil]
+    (realize* input)))
 
 (defmacro with-context
   [& args]

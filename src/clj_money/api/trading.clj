@@ -21,8 +21,8 @@
    :trade/dividend-account])
 
 (def ^:private trade-fn-map
-  {:buy (comp first trading/buy-and-propagate)
-   :sell (comp first trading/sell-and-propagate)})
+  {:buy trading/buy
+   :sell trading/sell})
 
 (defn- trade-fn
   [{:trade/keys [action]}]

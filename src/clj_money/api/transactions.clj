@@ -15,7 +15,6 @@
             [clj-money.db :refer [unserialize-id]]
             [clj-money.db.ref]
             [clj-money.entities :as entities]
-            [clj-money.entities.propagation :as prop]
             [clj-money.trading :as trading]
             [clj-money.authorization.transactions]
             [clj-money.entities.transactions :as trns]))
@@ -135,7 +134,7 @@
       extract-transaction
       (assoc :transaction/entity {:id (:entity-id params)})
       (authorize ::authorization/create authenticated)
-      prop/put-and-propagate
+      entities/put
       api/creation-response))
 
 (defn- apply-to-existing
@@ -176,7 +175,7 @@
   [req]
   (or (some-> (find-and-auth req ::authorization/update)
               (apply-update req)
-              prop/put-and-propagate
+              entities/put
               api/update-response)
       api/not-found))
 
@@ -194,9 +193,9 @@
   [trx]
   (let [lot-items (trade-lot-items trx)]
     (case (some-> lot-items first :lot-item/action)
-      :buy (trading/unbuy-and-propagate (assoc trx :transaction/lot-items lot-items))
-      :sell (trading/unsell-and-propagate trx)
-      (prop/delete-and-propagate trx))))
+      :buy (trading/unbuy (assoc trx :transaction/lot-items lot-items))
+      :sell (trading/unsell trx)
+      (entities/delete trx))))
 
 (defn- delete
   [req]

@@ -134,13 +134,13 @@
     nil
 
     (= start trade-date)
-    (assoc commodity
-           :commodity/price-date-range
-           (if-let [new-start (-> (->criteria commodity)
-                                  (entities/find-by {:sort [:price/trade-date]})
-                                  :price/trade-date)]
-             [new-start end]
-             nil))
+    [(assoc commodity
+            :commodity/price-date-range
+            (if-let [new-start (-> (->criteria commodity)
+                                   (entities/find-by {:sort [:price/trade-date]})
+                                   :price/trade-date)]
+              [new-start end]
+              nil))]
 
     (= end trade-date)
     (let [new-end (entities/find-by (->criteria commodity)

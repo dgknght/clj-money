@@ -4,6 +4,8 @@
             [clj-money.test-helpers]
             [clj-money.config :as config]
             [clj-money.db :as db]
+            [clj-money.entities :as entities]
+            [clj-money.entities.propagation :as prop]
             [clj-money.images :as images]
             [clj-money.ingestion :as ing]
             [clj-money.progress :as progress]
@@ -26,12 +28,16 @@
                                :active :redis}}]
     (is (= {::system/env app-config
             ::db/storage {:dbname "money_test"}
+            ::entities/publisher {}
+            ::prop/subscription {:storage (ig/ref ::db/storage)
+                                 :publisher (ig/ref ::entities/publisher)}
             ::images/storage {:bucket "test-images"}
             ::ing/reader {:model "model-x"}
             ::progress/tracker-factory {:prefix "test"}
             ::services/config (services/config app-config)
             ::web/handler {:env (ig/ref ::system/env)
                            :storage (ig/ref ::db/storage)
+                           :publisher (ig/ref ::entities/publisher)
                            :image-storage (ig/ref ::images/storage)
                            :ingestion (ig/ref ::ing/reader)
                            :tracker-factory (ig/ref ::progress/tracker-factory)
@@ -56,6 +62,10 @@
           "The storage is available in the running system")
       (is (satisfies? images/Storage (::images/storage sys))
           "The image storage is available in the running system")
+      (is (:mult (::entities/publisher sys))
+          "The publisher is available in the running system")
+      (is (:ch (::prop/subscription sys))
+          "The propagation subscription is running in the running system")
       (is (satisfies? ing/Reader (::ing/reader sys))
           "The ingestion reader is available in the running system")
       (is (satisfies? progress/TrackerFactory (::progress/tracker-factory sys))
@@ -82,16 +92,23 @@
     (system/halt sys)))
 
 (deftest bind-the-components-of-a-system
-  (is (= [::storage ::image-storage ::tracker-factory]
+  (is (= [::storage ::publisher ::image-storage ::tracker-factory]
          (system/with-components {::db/storage ::storage
+                                  ::entities/publisher ::publisher
                                   ::images/storage ::image-storage
                                   ::progress/tracker-factory ::tracker-factory}
-           [db/*storage* images/*storage* progress/*tracker-factory*]))
+           [db/*storage*
+            entities/*publisher*
+            images/*storage*
+            progress/*tracker-factory*]))
       "The system's components are bound")
-  (is (= [::outer-storage nil nil]
+  (is (= [::outer-storage nil nil nil]
          (binding [db/*storage* ::outer-storage]
            (system/with-components nil
-             [db/*storage* images/*storage* progress/*tracker-factory*])))
+             [db/*storage*
+              entities/*publisher*
+              images/*storage*
+              progress/*tracker-factory*])))
       "Existing bindings are kept when there is no system"))
 
 (defmethod ig/init-key ::probe
