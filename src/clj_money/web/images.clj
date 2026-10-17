@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [ring.util.response :as res]
-            [clj-money.authorization :refer [authorize +scope] :as authorization]
+            [clj-money.authorization :as authorization]
             [clj-money.util :as util]
             [clj-money.images :as images]
             [clj-money.images.sql]
@@ -11,12 +11,15 @@
             [clj-money.authorization.images]))
 
 (defn- find-image
+  "Finds the image the user may see: their own, or one shared with an entity
+  they've been granted (see clj-money.authorization.images)"
   [{:keys [params authenticated]}]
-  (some-> params
-          (select-keys [:id])
-          (util/entity-type :image)
-          (+scope :image authenticated)
-          entities/find-by))
+  (when-let [image (some-> params
+                           (select-keys [:id])
+                           (util/entity-type :image)
+                           entities/find-by)]
+    (when (authorization/allowed? image ::authorization/show authenticated)
+      image)))
 
 (defn- ->response
   [{:image/keys [uuid content-type]}]
@@ -32,10 +35,9 @@
       (res/content-type "text/plain")))
 
 (defn show
-  [{:as req :keys [authenticated]}]
+  [req]
   (or (some-> req
               find-image
-              (authorize ::authorization/show authenticated)
               ->response)
       not-found))
 

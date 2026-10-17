@@ -101,6 +101,14 @@
                    util/->entity-ref)
        items))
 
+(def ^:private no-review-status :none)
+
+(defn- remove-no-review-status
+  [item]
+  (if (= no-review-status (:transaction/review-status item))
+    (dissoc item :transaction/review-status)
+    item))
+
 (defn- index
   [req]
   (->> (-> req
@@ -112,8 +120,14 @@
                                                :transaction/transaction-date
                                                :transaction/created-at
                                                :transaction/attachment-count
+                                               :transaction/review-status
                                                :transaction-item/transaction]
-                                 :nil-replacements {:transaction/attachment-count 0})))
+                                 :nil-replacements {:transaction/attachment-count 0
+                                                    ; without a replacement, datomic
+                                                    ; leaves out items whose transaction
+                                                    ; has no review status
+                                                    :transaction/review-status no-review-status})))
+       (map remove-no-review-status)
        (filter-reconciled req)
        (apply-limit req)
        ->entity-refs

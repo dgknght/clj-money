@@ -1,0 +1,18 @@
+{
+  "account": "Credit Card",
+  "institution": "Northstar Rewards Card",
+  "period_start": "2026-09-07",
+  "period_end": "2026-10-07",
+  "opening_balance": 612.35,
+  "closing_balance": 364.59,
+  "transactions": [
+    {"date": "2026-09-08", "description": "Fresh Market #214 Springfield IL", "amount": 64.18, "category": "Groceries"},
+    {"date": "2026-09-09", "description": "Internet Payment - Thank You", "amount": -612.35, "category": "Checking"},
+    {"date": "2026-09-10", "description": "Shell Oil Springfield IL", "amount": 48.90, "category": "Fuel"},
+    {"date": "2026-09-14", "description": "Streamflix.com", "amount": 15.99, "category": "Entertainment"},
+    {"date": "2026-09-19", "description": "Bella Napoli Restaurant Springfield IL", "amount": 72.40, "category": "Dining"},
+    {"date": "2026-09-22", "description": "Amzn Mktp US", "amount": 129.99, "category": "Household"},
+    {"date": "2026-09-25", "description": "Amzn Mktp US Return Credit", "amount": -24.99, "category": "Household"},
+    {"date": "2026-10-02", "description": "Springfield Water Dept", "amount": 58.12, "category": "Utilities"}
+  ]
+}

@@ -2,18 +2,21 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clj-money.otel :as otel]
             [clj-money.ingestion :as ing]
+            [clj-money.ingestion.mock]
             [clj-money.otel.ingestion :as otel-ing]))
 
 (defn- stub-reader
   [f]
-  (reify ing/Reader
+  (reify
+    ing/ReceiptReader
     (read-receipt [_ source entity opts] (f source entity opts))
+    ing/Closeable
     (close [_])))
 
 (defn- read-with-metrics
   [f & {:as opts}]
   (let [recorded (atom [])
-        reader (otel-ing/observable-reader (stub-reader f)
+        reader (otel-ing/observable-receipt-reader (stub-reader f)
                                       {::ing/provider :clj-money.ingestion.ollama/ollama
                                        :model "configured-model"})]
     (with-redefs [otel/record (fn [_instrument value attributes]
@@ -69,3 +72,43 @@
     (testing "the duration is recorded with the error type"
       (is (= 1 (count recorded)))
       (is (= "clojure.lang.ExceptionInfo" (attrs "error.type"))))))
+
+(deftest record-the-token-usage-of-reading-a-statement
+  (let [recorded (atom [])
+        reader (otel-ing/observable-statement-reader
+                 (reify
+                   ing/StatementReader
+                   (read-statement [_ _source _entity _opts]
+                     (with-meta {:closing-balance 10M}
+                                {::ing/usage {:model "response-model"
+                                              :input-tokens 5000
+                                              :output-tokens 900}}))
+                   ing/Closeable
+                   (close [_]))
+                 {::ing/provider :clj-money.ingestion.gemini/gemini
+                  :model "configured-model"})]
+    (with-redefs [otel/record (fn [_instrument value attributes]
+                                (swap! recorded conj [value attributes]))]
+      (is (= {:closing-balance 10M}
+             (ing/read-statement reader "source" {:id 1} {}))
+          "The result of the decorated reader is returned"))
+    (is (= [5000 900]
+           (->> @recorded
+                (filter (comp #(get % "gen_ai.token.type") second))
+                (map first)))
+        "The input and output tokens are recorded")))
+
+(deftest an-observable-reader-can-be-configured
+  (let [recorded (atom [])
+        reader (ing/receipt-reader
+                 {::ing/provider ::otel-ing/observable
+                  :reader {::ing/provider :clj-money.ingestion.mock/mock
+                           :model "configured-model"}})]
+    (with-redefs [otel/record (fn [_instrument value attributes]
+                                (swap! recorded conj [value attributes]))]
+      (ing/read-receipt reader "source" {:id 1} {}))
+    (is (= {"gen_ai.operation.name" "generate_content"
+            "gen_ai.provider.name" "mock"
+            "gen_ai.request.model" "configured-model"}
+           (get-in @recorded [0 1]))
+        "The call is measured as a call to the reader it decorates")))

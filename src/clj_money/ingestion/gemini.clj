@@ -1,5 +1,5 @@
 (ns clj-money.ingestion.gemini
-  "Reads receipts with the Google Gemini API"
+  "Reads receipts and statements with the Google Gemini API"
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -9,6 +9,7 @@
             [cheshire.parse :as json-parse]
             [clj-http.client :as http]
             [clj-money.ingestion.receipts :as rcpts]
+            [clj-money.ingestion.statements :as stmts]
             [clj-money.ingestion :as ing])
   (:import java.util.Base64))
 
@@ -110,34 +111,35 @@
         response))))
 
 (defn handle-success-response
-  "Returns the receipt read from the response, with the token usage attached
-  as metadata. Throws if the model didn't return a receipt (e.g., the image
-  was blocked, or the output was cut off)."
-  [{:keys [candidates promptFeedback usageMetadata modelVersion] :as body}]
-  (log/debugf "result: %s" (with-out-str (pprint body)))
-  (let [{:keys [finishReason content]} (first candidates)
-        text (some :text (:parts content))]
-    (when (= "MAX_TOKENS" finishReason)
-      (throw (ex-info "The model ran out of output tokens before finishing the receipt."
-                      {:finish-reason finishReason
-                       :usage usageMetadata})))
-    (when-not (and text (= "STOP" finishReason))
-      (throw (ex-info "The model did not return a receipt."
-                      {:finish-reason finishReason
-                       :block-reason (:blockReason promptFeedback)})))
-    ; amounts must be decimals, as doubles can't be rounded to cents
-    (binding [json-parse/*use-bigdecimals?* true]
-      (vary-meta (json/parse-string text ->kebab-case-keyword)
-                 assoc
-                 ::ing/usage
-                 {:model modelVersion
-                  :input-tokens (:promptTokenCount usageMetadata)
-                  ; thinking tokens are billed as output
-                  :output-tokens (some->> [(:candidatesTokenCount usageMetadata)
-                                           (:thoughtsTokenCount usageMetadata)]
-                                          (filter some?)
-                                          seq
-                                          (reduce +))}))))
+  "Returns the document (a receipt, by default) read from the response, with
+  the token usage attached as metadata. Throws if the model didn't return
+  one (e.g., the image was blocked, or the output was cut off)."
+  ([body] (handle-success-response body "receipt"))
+  ([{:keys [candidates promptFeedback usageMetadata modelVersion] :as body} document]
+   (log/debugf "result: %s" (with-out-str (pprint body)))
+   (let [{:keys [finishReason content]} (first candidates)
+         text (some :text (:parts content))]
+     (when (= "MAX_TOKENS" finishReason)
+       (throw (ex-info (format "The model ran out of output tokens before finishing the %s." document)
+                       {:finish-reason finishReason
+                        :usage usageMetadata})))
+     (when-not (and text (= "STOP" finishReason))
+       (throw (ex-info (format "The model did not return a %s." document)
+                       {:finish-reason finishReason
+                        :block-reason (:blockReason promptFeedback)})))
+     ; amounts must be decimals, as doubles can't be rounded to cents
+     (binding [json-parse/*use-bigdecimals?* true]
+       (vary-meta (json/parse-string text ->kebab-case-keyword)
+                  assoc
+                  ::ing/usage
+                  {:model modelVersion
+                   :input-tokens (:promptTokenCount usageMetadata)
+                   ; thinking tokens are billed as output
+                   :output-tokens (some->> [(:candidatesTokenCount usageMetadata)
+                                            (:thoughtsTokenCount usageMetadata)]
+                                           (filter some?)
+                                           seq
+                                           (reduce +))})))))
 
 (defn- handle-failure-response
   [status body]
@@ -148,25 +150,60 @@
                     {:status status
                      :error message}))))
 
-(defn- read-receipt*
-  [source entity {:keys [account-options] :as opts}]
-  {:pre [entity]}
+(defn- read-document
+  [source document prompt schema opts]
   (let [{:keys [status body]} (generate (request-body (read-bytes source)
-                                                      (rcpts/prompt entity)
-                                                      (rcpts/schema account-options)
+                                                      prompt
+                                                      schema
                                                       opts)
                                         opts)]
     (if (<= 200 status 299)
-      (handle-success-response body)
+      (handle-success-response body document)
       (handle-failure-response status body))))
 
-(defmethod ing/reader ::gemini
+(defn- read-receipt*
+  [source entity {:keys [account-options] :as opts}]
+  {:pre [entity]}
+  (read-document source
+                 "receipt"
+                 (rcpts/prompt entity)
+                 (rcpts/schema account-options)
+                 opts))
+
+(defn- read-statement*
+  [source entity {:keys [account-options] :as opts}]
+  {:pre [entity]}
+  (read-document source
+                 "statement"
+                 (stmts/prompt entity)
+                 (stmts/schema account-options)
+                 ; a statement lists many more lines than a receipt does
+                 (merge {:max-output-tokens 32768}
+                        opts)))
+
+(defmethod ing/receipt-reader ::gemini
   [{:keys [api-key] :as config}]
   {:pre [api-key]}
-  (reify ing/Reader
+  (reify
+    ing/ReceiptReader
     (read-receipt
       [_ source entity opts]
       (read-receipt* source
                      entity
                      (merge config opts)))
+    ing/Closeable
+    (close [_])))
+
+; Gemini reads the PDF itself
+(defmethod ing/statement-reader ::gemini
+  [{:keys [api-key] :as config}]
+  {:pre [api-key]}
+  (reify
+    ing/StatementReader
+    (read-statement
+      [_ source entity opts]
+      (read-statement* source
+                       entity
+                       (merge config opts)))
+    ing/Closeable
     (close [_])))

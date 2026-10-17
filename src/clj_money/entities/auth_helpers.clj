@@ -39,6 +39,10 @@
   [{:receipt-ingestion/keys [entity]}]
   (fetch-entity* entity))
 
+(defmethod fetch-entity :statement-ingestion
+  [{:statement-ingestion/keys [entity]}]
+  (fetch-entity* entity))
+
 (defmethod fetch-entity :budget
   [{:budget/keys [entity]}]
   (fetch-entity* entity))

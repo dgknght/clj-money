@@ -14,4 +14,8 @@
  {:db/ident :reconciliation/balance
   :db/valueType :db.type/bigdec
   :db/cardinality :db.cardinality/one
-  :db/doc "The balance of the account as of the period-end-date"}]
+  :db/doc "The balance of the account as of the period-end-date"}
+ {:db/ident :reconciliation/statement
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The image (usually a PDF) of the account statement the reconciliation is based on"}]

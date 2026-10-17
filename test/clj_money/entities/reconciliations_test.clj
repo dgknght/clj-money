@@ -6,6 +6,7 @@
             [clj-money.util :as util :refer [id=
                                              ->entity-ref]]
             [clj-money.db.ref]
+            [clj-money.images.sql]
             [clj-money.test-helpers :refer [dbtest
                                               delete-and-propagate]]
             [clj-money.accounts :as acts]
@@ -22,6 +23,7 @@
                                             find-account
                                             find-accounts
                                             find-transaction-item
+                                            find-image
                                             find-reconciliation]]
             [clj-money.entities.reconciliations :as recs]))
 
@@ -91,6 +93,23 @@
                   (mapcat :transaction/items)
                   (not-any? :transaction/recondiliation))
           "None of the transaction items should be marked as reconcilied"))))
+
+(def ^:private statement-context
+  (conj reconciliation-context
+        #:image{:original-filename "statement.pdf"
+                :user "john@doe.com"
+                :content-type "application/pdf"
+                :content "resources/fixtures/statements/checking.pdf"}))
+
+(dbtest create-a-reconciliation-with-a-statement
+  (with-context statement-context
+    (let [statement (->entity-ref (find-image "statement.pdf"))
+          created (entities/put (assoc (attributes)
+                                       :reconciliation/status :new
+                                       :reconciliation/statement statement))]
+      (is (= statement
+             (:reconciliation/statement (entities/find created)))
+          "The reconciliation refers to the statement"))))
 
 (dbtest create-a-completed-reconciliation
   (with-context reconciliation-context

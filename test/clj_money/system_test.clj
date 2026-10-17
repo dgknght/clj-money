@@ -36,14 +36,16 @@
             ::monitor-cache/cache {:publisher (ig/ref ::entities/publisher)
                                    :ttl-minutes 5}
             ::images/storage {:bucket "test-images"}
-            ::ing/reader {:model "model-x"}
+            ::ing/receipt-reader {:model "model-x"}
+            ::ing/statement-reader {:model "model-x"}
             ::progress/tracker-factory {:prefix "test"}
             ::services/config (services/config app-config)
             ::web/handler {:env (ig/ref ::system/env)
                            :storage (ig/ref ::db/storage)
                            :publisher (ig/ref ::entities/publisher)
                            :image-storage (ig/ref ::images/storage)
-                           :ingestion (ig/ref ::ing/reader)
+                           :receipt-reader (ig/ref ::ing/receipt-reader)
+                           :statement-reader (ig/ref ::ing/statement-reader)
                            :tracker-factory (ig/ref ::progress/tracker-factory)
                            :services (ig/ref ::services/config)
                            :monitor-cache (ig/ref ::monitor-cache/cache)}
@@ -71,8 +73,10 @@
           "The publisher is available in the running system")
       (is (:ch (::prop/subscription sys))
           "The propagation subscription is running in the running system")
-      (is (satisfies? ing/Reader (::ing/reader sys))
-          "The ingestion reader is available in the running system")
+      (is (satisfies? ing/ReceiptReader (::ing/receipt-reader sys))
+          "The receipt reader is available in the running system")
+      (is (satisfies? ing/StatementReader (::ing/statement-reader sys))
+          "The statement reader is available in the running system")
       (is (satisfies? progress/TrackerFactory (::progress/tracker-factory sys))
           "The progress tracker factory is available in the running system")
       (is (= (services/config test-env) (::services/config sys))

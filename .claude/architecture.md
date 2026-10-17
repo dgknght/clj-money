@@ -162,8 +162,22 @@ Provides:
 ## Receipt Ingestion (`ingestion/`)
 
 A photo of a receipt is read by a vision model and turned into a transaction.
-- `ingestion.clj` - the `Reader` protocol; the provider is chosen by config
-  (`:ingestion` in `env/dev/config.edn`)
+- `ingestion.clj` - the `ReceiptReader`, `StatementReader` and `Closeable`
+  protocols, and the `receipt-reader` and `statement-reader` multimethods,
+  which build a provider's reader from config (`:ingestion` in
+  `env/dev/config.edn`). `ingestion/reader.clj` defines a component for each,
+  `::ing/receipt-reader` and `::ing/statement-reader` (the handler's
+  `:receipt-reader` and `:statement-reader`), both given the same config: one
+  reader for every kind of document, or, when the config has `:receipts` or
+  `:statements`, a separate reader for that kind (e.g., Gemini for receipts
+  and a local Ollama model for the more sensitive statements). A reader under
+  one of those keys takes nothing from the rest of the config. Readers are
+  composed in the config: a decorator is a provider too, whose method builds
+  the reader under its `:reader` and wraps it. `::otel-ing/observable`
+  (`otel/ingestion.clj`, receipts and statements) traces and measures calls,
+  attributed to the innermost reader's provider and model; `::pdf/pdf`
+  (statements only) is described below. Unwrapped readers aren't measured.
+  `ingestion/ref.clj` requires every provider's namespace so the methods load
 - `ingestion/ollama.clj` - the Ollama provider. `request-body` and `generate`
   are public so the evaluation harness sends exactly what the app sends
 - `ingestion/receipts.clj` - the prompt, the JSON schema (`account-options`
@@ -187,7 +201,7 @@ Reading a receipt is slow, so it runs in the background, tracked by a
 `:complete` or `:failed`).
 - `api/receipt_ingestions.clj` - `POST /api/entities/:entity-id/receipt-ingestions`
   takes the image (multipart, `image`), creates the receipt-ingestion and
-  reads the receipt in a `future` with the `:ingestion` component. When
+  reads the receipt in a `future` with the `:receipt-reader` component. When
   complete, `:receipt-ingestion/receipt` holds the result in the receipt
   form's `:receipt/...` shape (accounts as refs), stored as edn.
   `GET /api/receipt-ingestions/:id` is polled by the client
@@ -213,4 +227,70 @@ Reading a receipt is slow, so it runs in the background, tracked by a
   `:settings/payment-methods` and `:settings/expense-accounts` (sets of
   account refs; Datomic retracts removed ones in `deconstruct`) and
   `:settings/expense-hints` (edited one per line)
+
+## Statement Ingestion (`ingestion/statements.clj`)
+
+A PDF of a bank or credit card statement is read by the model and turned into
+an unfinished (`:new`) reconciliation of the account (issue #182).
+- `StatementReader/read-statement` - Gemini reads the PDF itself, and allows a
+  statement more output tokens than a receipt. Ollama models can't read a PDF,
+  so its config is wrapped in a `::pdf/pdf` reader (`ingestion/pdf.clj`,
+  PDFBox; neither knows of the other), which gives it the PDF's contents in place of the PDF: `{:text ...}`, sent
+  with the prompt to a text model (`qwen3:8b` by default), or, for a PDF with
+  too little text to have been anything but scanned, `{:page-images [...]}`
+  for the `:vision-model`. `ollama/statement-defaults` holds the larger
+  context and output limits a statement needs
+- `ingestion/statements.clj`:
+  - `account-options`: the asset and liability paths the account is chosen
+    from (left out when the user gave the account), and the leaf paths of
+    every non-equity account for the other side of each line
+  - `schema` and `prompt`: each line's `amount` is **signed by its effect on
+    the account balance**, so a deposit to checking and a charge on a credit
+    card are both positive. This matches `:transaction-item/polarized-quantity`
+  - `candidate-items`: the account's items from 7 days before the period
+    through its end that aren't in a completed reconciliation
+  - `match-items`: a pure function pairing each line with an item of the same
+    polarized amount within 7 days. The nearest date wins, then the most
+    similar description (`ingestion/text.clj`). Each item is used once
+  - `make-trx`: a `:source :ingestion`, `:review-status :pending` transaction
+    for each unmatched line. The model's category is used, or the first income
+    (money in) or expense (money out) account
+  - `make-reconciliation`: the matched and new items, the statement's closing
+    date and balance. Adds to the account's reconciliation in progress, if any
+- `api/statement_ingestions.clj` - `POST /api/entities/:entity-id/statement-ingestions`
+  (multipart `statement`, optional `account-id`) and `GET
+  /api/statement-ingestions/:id`, like receipts. It reads the statement in a
+  `future` with the `:statement-reader` component
+- `ingestion/statement_reconciliation.clj` - `reconcile` does the work: reads
+  the statement, resolves the account, matches the lines, creates the
+  transactions and saves the reconciliation. The `statement-ingestion` entity
+  holds the model's raw answer and any `:warnings` (e.g., the opening balance
+  doesn't match the last reconciliation), both as edn. A statement ending on
+  or before the last completed reconciliation fails before anything is saved;
+  if the reconciliation can't be saved, the new transactions are deleted
+- The reconciliation refers to the statement's image
+  (`:reconciliation/statement`), set by the read or attached by hand from the
+  reconciliation form (uploaded with `POST /api/images`). The ref is safe for
+  the join planner because the path from reconciliation to user through the
+  image is longer than the one through the account. The account page's
+  Reconciliations button lists them, latest first, with each statement
+- An image is shared with an entity by what refers to it, an attachment or a
+  reconciliation's statement (`authorization/images.clj`), and a grant's
+  permission for that kind of thing covers the image. `web/images.clj` finds
+  the image by id and leaves the decision to the authorization. Note that
+  grants don't match at all yet: `allowed?` gets namespaced actions
+  (`::authorization/show`) and a grant's permissions hold plain ones (`:show`)
+- The statement-ingestion refers to its account but **not** to the
+  reconciliation: the ref would give stowaway's join planner a second path
+  from reconciliation to entity, as short as the one through the account, and
+  scoped reconciliation queries took it and came back empty. Find the
+  reconciliation as the account's `:new` one
+- Completing a reconciliation (`api/reconciliations.clj`) accepts its pending
+  transactions; saving one from the transaction form accepts it too
+- `views/statement_upload.cljs` - the file input and poll loop, shared by
+  `views/statements.cljs` (the `/statements` page, which hands the account to
+  the accounts page via `:pending-reconciliation` in `app-state`) and the
+  "Read from a statement" input on the reconciliation form
+- Test fixtures (`resources/fixtures/statements/`) are fictitious statements
+  with the expected model answers; real statements must not be committed
 - API tests pass their own reader to `web.test-handler/build-app`

@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Credit Card Statement</title>
+<style>
+  @page { size: letter; margin: 0.5in; }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #000; }
+  .cols { display: flex; gap: 24px; }
+  .col { flex: 1; }
+  .brand { font-weight: bold; font-size: 12pt; }
+  h2 { font-size: 10pt; margin: 16px 0 4px 0; border-bottom: 1px solid #000; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 2px 4px; vertical-align: top; }
+  th { text-align: left; font-weight: normal; font-size: 8pt; border-bottom: 1px solid #888; }
+  td.amt, th.amt { text-align: right; white-space: nowrap; }
+  td.date { width: 50px; white-space: nowrap; }
+  tr.total td { border-top: 1px solid #888; font-weight: bold; }
+  .box { border: 1px solid #000; padding: 6px; margin-top: 8px; }
+  .muted { color: #444; font-size: 8pt; }
+  .page-break { page-break-before: always; }
+  .right { text-align: right; }
+</style>
+</head>
+<body>
+
+<div class="right muted">Page 1 of 2</div>
+<div class="brand">Northstar Rewards Card ending in 7310</div>
+<div>CARDMEMBER SINCE 2011</div>
+<div>OPEN TO CLOSE DATE: 09/07/2026 - 10/07/2026</div>
+
+<div class="cols">
+  <div class="col">
+    <h2>Account Summary &nbsp; <span class="muted">09/07/2026 - 10/07/2026</span></h2>
+    <table>
+      <tr><td>Previous Balance</td><td class="amt">$612.35</td></tr>
+      <tr><td>Payments and Credits</td><td class="amt">- $637.34</td></tr>
+      <tr><td>Transactions</td><td class="amt">+ $389.58</td></tr>
+      <tr><td>Cash Advances</td><td class="amt">+ $0.00</td></tr>
+      <tr><td>Fees Charged</td><td class="amt">+ $0.00</td></tr>
+      <tr><td>Interest Charged</td><td class="amt">+ $0.00</td></tr>
+      <tr class="total"><td>New Balance:</td><td class="amt">$364.59</td></tr>
+    </table>
+    <table style="margin-top: 8px;">
+      <tr><td>Credit Line</td><td class="amt">$12,000.00</td></tr>
+      <tr><td>Credit Line Available</td><td class="amt">$11,635.41</td></tr>
+      <tr><td>Cash Advance Credit Line</td><td class="amt">$3,000.00</td></tr>
+    </table>
+  </div>
+  <div class="col">
+    <h2>Payment Information</h2>
+    <table>
+      <tr><th>New Balance</th><th>Minimum Payment</th><th>Payment Due Date</th></tr>
+      <tr><td>$364.59</td><td>$35.00</td><td>11/01/2026</td></tr>
+    </table>
+    <div class="box muted">
+      LATE PAYMENT WARNING: If we do not receive your minimum payment by your due date, you may have to pay a
+      late fee of up to $41.00.<br><br>
+      MINIMUM PAYMENT WARNING: If you make only the minimum payment each period, you will pay more in interest
+      and it will take you longer to pay off your balance.
+    </div>
+    <div class="muted" style="margin-top: 8px;">Upcoming statement closing date: November 6, 2026</div>
+  </div>
+</div>
+
+<div style="margin: 24px 0;">
+  <div>JANE Q SAMPLE</div>
+  <div>123 EXAMPLE LN</div>
+  <div>SPRINGFIELD, IL 62704-0000</div>
+</div>
+
+<div class="muted">Pay or manage your account at northstarcard.example &nbsp; Customer Service: 800-555-0199</div>
+
+<div class="page-break"></div>
+<div class="right muted">Page 2 of 2</div>
+<div>Account ending in 7310 &nbsp; &nbsp; Payment Due Date: Nov 01, 2026</div>
+
+<h2>Transactions</h2>
+<table>
+  <tr><th>Trans. date</th><th>Post date</th><th>Description</th><th class="amt">Amount</th></tr>
+  <tr><td colspan="4"><b>Payments and Credits</b></td></tr>
+  <tr><td class="date">09/09</td><td class="date">09/09</td><td>INTERNET PAYMENT - THANK YOU</td><td class="amt">-$612.35</td></tr>
+  <tr><td class="date">09/25</td><td class="date">09/26</td><td>AMZN MKTP US RETURN CREDIT</td><td class="amt">-$24.99</td></tr>
+  <tr class="total"><td colspan="3">Total Payments and Credits</td><td class="amt">-$637.34</td></tr>
+  <tr><td colspan="4"><b>Purchases</b></td></tr>
+  <tr><td class="date">09/08</td><td class="date">09/09</td><td>FRESH MARKET #214 SPRINGFIELD IL</td><td class="amt">$64.18</td></tr>
+  <tr><td class="date">09/10</td><td class="date">09/11</td><td>SHELL OIL 57430021 SPRINGFIELD IL</td><td class="amt">$48.90</td></tr>
+  <tr><td class="date">09/14</td><td class="date">09/14</td><td>STREAMFLIX.COM 888-555-0177 CA</td><td class="amt">$15.99</td></tr>
+  <tr><td class="date">09/19</td><td class="date">09/21</td><td>BELLA NAPOLI RESTAURANT SPRINGFIELD IL</td><td class="amt">$72.40</td></tr>
+  <tr><td class="date">09/22</td><td class="date">09/23</td><td>AMZN MKTP US*2K4XY0 SEATTLE WA</td><td class="amt">$129.99</td></tr>
+  <tr><td class="date">10/02</td><td class="date">10/03</td><td>SPRINGFIELD WATER DEPT IL</td><td class="amt">$58.12</td></tr>
+  <tr class="total"><td colspan="3">Total Purchases</td><td class="amt">$389.58</td></tr>
+</table>
+
+<h2>Fees and Interest Charged</h2>
+<table>
+  <tr><td>Total Fees for This Period</td><td class="amt">$0.00</td></tr>
+  <tr><td>Total Interest for This Period</td><td class="amt">$0.00</td></tr>
+</table>
+
+<p class="muted" style="margin-top: 24px;">Northstar Rewards Card is a fictitious card issuer. This statement was generated as a test fixture.</p>
+
+</body>
+</html>

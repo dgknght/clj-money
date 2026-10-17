@@ -70,6 +70,13 @@
          (update-in [:transaction/items] supply-accounts)
          prepare))))
 
+(defn- accept-review
+  "Saving a transaction awaiting review, like one read from a statement,
+  accepts it"
+  [{:transaction/keys [review-status] :as trx}]
+  (cond-> trx
+    (= :pending review-status) (assoc :transaction/review-status :accepted)))
+
 (defn edit-transaction
   [transaction-item page-state]
   (+busy)
@@ -289,7 +296,8 @@
                                 balance]
         :reconciliation/keys [status]
         :transaction/keys [description
-                           transaction-date]
+                           transaction-date
+                           review-status]
         :as item}]
     (let [checked? (get-in @reconciliation [:clj-money.views.reconciliations/item-selection (:id item)])
           muted-class (when checked? "text-body-secondary")]
@@ -304,7 +312,13 @@
         [:span.d-md-none (format-date transaction-date "M/d")]
         [:span.d-none.d-md-inline (format-date transaction-date)]]
        [:td {:class muted-class
-             :style (get-in styles [(:id item)])} description]
+             :style (get-in styles [(:id item)])}
+        [:div.d-flex.justify-content-between
+         [:span description]
+         (when (= :pending review-status)
+           [:span.badge.text-bg-warning.ms-2
+            {:title "This transaction was read from a statement or receipt. Edit it to review it, or complete the reconciliation to accept it."}
+            "Review"])]]
        [:td.text-end {:class muted-class} (format-quantity polarized-quantity account)]
        [:td.text-center.d-none.d-md-table-cell
         {:class muted-class}
@@ -703,7 +717,7 @@
                       (v/validate transaction)
                       (when (v/valid? transaction)
                        (+busy)
-                       (transactions/save (unentryfy @transaction)
+                       (transactions/save (accept-review (unentryfy @transaction))
                                           :callback -busy
                                           :on-success on-save)))}
         [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]
@@ -747,6 +761,7 @@
                        (-> @transaction
                            unaccountify
                            ->unilateral
+                           accept-review
                            (transactions/save :callback -busy
                                               :on-success on-save))))}
        [forms/date-field

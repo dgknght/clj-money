@@ -152,6 +152,7 @@
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
 (s/def :reconciliation/include-children? boolean?)
+(s/def :reconciliation/statement (s/nilable ::entities/entity-ref))
 
 (s/def :reconciliation/item
   (s/or :abbreviated (s/keys :req-un [::entities/id])
@@ -165,7 +166,8 @@
                        :reconciliation/status
                        :reconciliation/balance]
                  :opt [:reconciliation/items
-                       :reconciliation/include-children?])
+                       :reconciliation/include-children?
+                       :reconciliation/statement])
          not-unbalanced?
          no-working-conflict?
          items-belong-to-account?

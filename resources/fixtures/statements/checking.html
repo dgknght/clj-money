@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Checking Statement</title>
+<style>
+  @page { size: letter; margin: 0.5in; }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #000; }
+  .header { display: flex; justify-content: space-between; }
+  .bank { font-weight: bold; font-size: 11pt; }
+  .right { text-align: right; }
+  .muted { color: #444; font-size: 8pt; }
+  .address { margin: 24px 0 24px 0; }
+  h2 { font-size: 10pt; margin: 18px 0 4px 0; border-bottom: 1px solid #000; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 2px 4px; vertical-align: top; }
+  th { text-align: left; font-weight: normal; font-size: 8pt; border-bottom: 1px solid #888; }
+  td.amt, th.amt { text-align: right; white-space: nowrap; }
+  td.date { width: 50px; }
+  tr.total td { border-top: 1px solid #888; font-weight: bold; }
+  .summary { width: 60%; margin-left: 40px; }
+  .disclosure { margin-top: 24px; font-size: 7pt; color: #333; }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="bank">Prairie State Bank, N.A.</div>
+    <div>P O Box 10450</div>
+    <div>Springfield, IL 62791 - 0450</div>
+  </div>
+  <div class="right">
+    <div>August 20, 2026 through September 18, 2026</div>
+    <div>Account Number: &nbsp; 000009914304821</div>
+    <div style="margin-top: 12px;"><b>CUSTOMER SERVICE INFORMATION</b></div>
+    <div>Web site: &nbsp; prairiestatebank.example</div>
+    <div>Service Center: &nbsp; 1-800-555-0142</div>
+  </div>
+</div>
+
+<div class="address">
+  <div class="muted">00012345 DRE 201 210 26226 NNNNNNNNNNN 1 000000000 33 0000</div>
+  <div>JANE Q SAMPLE</div>
+  <div>123 EXAMPLE LN</div>
+  <div>SPRINGFIELD IL 62704-0000</div>
+</div>
+
+<div class="bank">Prairie Everyday Checking</div>
+<h2>CHECKING SUMMARY</h2>
+<table class="summary">
+  <tr><th></th><th class="amt">AMOUNT</th></tr>
+  <tr><td>Beginning Balance</td><td class="amt">$3,512.40</td></tr>
+  <tr><td>Deposits and Additions</td><td class="amt">4,900.08</td></tr>
+  <tr><td>ATM &amp; Debit Card Withdrawals</td><td class="amt">-329.60</td></tr>
+  <tr><td>Electronic Withdrawals</td><td class="amt">-2,146.57</td></tr>
+  <tr><td><b>Ending Balance</b></td><td class="amt"><b>$5,936.31</b></td></tr>
+</table>
+<table class="summary" style="margin-top: 8px;">
+  <tr><td>Annual Percentage Yield Earned This Period</td><td class="amt">0.01%</td></tr>
+  <tr><td>Interest Paid This Period</td><td class="amt">$0.08</td></tr>
+  <tr><td>Interest Paid Year-to-Date</td><td class="amt">$0.71</td></tr>
+</table>
+
+<h2>DEPOSITS AND ADDITIONS</h2>
+<table>
+  <tr><th>DATE</th><th>DESCRIPTION</th><th class="amt">AMOUNT</th></tr>
+  <tr><td class="date">09/01</td><td>Acme Widgets Inc Payroll &nbsp; PPD ID: 4410982231</td><td class="amt">$2,450.00</td></tr>
+  <tr><td class="date">09/15</td><td>Acme Widgets Inc Payroll &nbsp; PPD ID: 4410982231</td><td class="amt">2,450.00</td></tr>
+  <tr><td class="date">09/18</td><td>Interest Payment</td><td class="amt">0.08</td></tr>
+  <tr class="total"><td colspan="2">Total Deposits and Additions</td><td class="amt">$4,900.08</td></tr>
+</table>
+
+<h2>ATM &amp; DEBIT CARD WITHDRAWALS</h2>
+<table>
+  <tr><th>DATE</th><th>DESCRIPTION</th><th class="amt">AMOUNT</th></tr>
+  <tr><td class="date">08/22</td><td>ATM Withdrawal &nbsp; 08/22 100 Main St Springfield IL Card 1234</td><td class="amt">$200.00</td></tr>
+  <tr><td class="date">08/28</td><td>Card Purchase &nbsp; 08/26 Fresh Market #214 Springfield IL Card 1234</td><td class="amt">87.43</td></tr>
+  <tr><td class="date">09/08</td><td>Card Purchase &nbsp; 09/05 Corner Hardware Springfield IL Card 1234</td><td class="amt">42.17</td></tr>
+  <tr class="total"><td colspan="2">Total ATM &amp; Debit Card Withdrawals</td><td class="amt">$329.60</td></tr>
+</table>
+
+<h2>ELECTRONIC WITHDRAWALS</h2>
+<table>
+  <tr><th>DATE</th><th>DESCRIPTION</th><th class="amt">AMOUNT</th></tr>
+  <tr><td class="date">08/25</td><td>Riverside Apartments &nbsp; Rent &nbsp; Web ID: 3300219874</td><td class="amt">$1,250.00</td></tr>
+  <tr><td class="date">09/03</td><td>Zelle Payment To Jordan Lee 30111122233</td><td class="amt">75.00</td></tr>
+  <tr><td class="date">09/04</td><td>City Power &amp; Light &nbsp; Util Pymt &nbsp; PPD ID: 8820014473</td><td class="amt">134.22</td></tr>
+  <tr><td class="date">09/09</td><td>Northstar Card Online Pmt &nbsp; NS0304Acc577C18 Web ID: 9541700001</td><td class="amt">612.35</td></tr>
+  <tr><td class="date">09/16</td><td>Zelle Payment To Jordan Lee 30111144455</td><td class="amt">75.00</td></tr>
+  <tr class="total"><td colspan="2">Total Electronic Withdrawals</td><td class="amt">$2,146.57</td></tr>
+</table>
+
+<div class="page-break"></div>
+<div class="right">
+  <div>August 20, 2026 through September 18, 2026</div>
+  <div>Account Number: &nbsp; 000009914304821</div>
+</div>
+
+<p>You were not charged a Monthly Service Fee on your PRAIRIE EVERYDAY CHECKING account since you had ONE
+of the following during the monthly statement period: $1,500.00+ minimum daily balance, or $500.00+ in
+electronic deposits.</p>
+
+<div class="disclosure">
+  <p><b>IN CASE OF ERRORS OR QUESTIONS ABOUT YOUR ELECTRONIC FUNDS TRANSFERS:</b> Call us at 1-800-555-0142 or
+  write us at the address on the front of this statement immediately if you think your statement or receipt
+  is incorrect or if you need more information about a transfer listed on the statement or receipt. We must
+  hear from you no later than 60 days after we sent you the FIRST statement on which the problem or error
+  appeared. Be prepared to give us your name and account number, a description of the error or the
+  transaction you are unsure about, and the amount of the suspected error.</p>
+  <p>Prairie State Bank, N.A. is a fictitious bank. This statement was generated as a test fixture.</p>
+</div>
+<div class="right muted">Page 2 of 2</div>
+
+</body>
+</html>

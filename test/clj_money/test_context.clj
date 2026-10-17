@@ -170,6 +170,13 @@
      (find context #(and (= :receipt-ingestion (util/entity-type %))
                          (id= entity (:receipt-ingestion/entity %)))))))
 
+(defn find-statement-ingestion
+  ([entity-name] (find-statement-ingestion *context* entity-name))
+  ([context entity-name]
+   (let [entity (find-entity context entity-name)]
+     (find context #(and (= :statement-ingestion (util/entity-type %))
+                         (id= entity (:statement-ingestion/entity %)))))))
+
 (defn find-image
   ([arg]
    (if (string? arg)
@@ -348,6 +355,8 @@
   (let [account (find-account ctx (:reconciliation/account recon))]
     (-> recon
         (assoc :reconciliation/account account)
+        (update-in-if [:reconciliation/statement] (comp util/->entity-ref
+                                                        (find-image ctx)))
         (update-in [:reconciliation/items]
                    (partial mapv (comp #(find-transaction-item ctx %)
                                        #(conj % account)))))))
@@ -388,6 +397,15 @@
                                                   (find-image ctx)))
       (update-in-if [:receipt-ingestion/transaction] (comp util/->entity-ref
                                                            #(find-transaction ctx %)))))
+
+(defmethod prepare :statement-ingestion
+  [ingestion ctx]
+  (-> ingestion
+      (update-in [:statement-ingestion/entity] (find-entity ctx))
+      (update-in [:statement-ingestion/image] (comp util/->entity-ref
+                                                    (find-image ctx)))
+      (update-in-if [:statement-ingestion/account] (comp util/->entity-ref
+                                                         #(find-account ctx %)))))
 
 (defmethod prepare :grant
   [attr ctx]

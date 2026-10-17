@@ -16,6 +16,7 @@
             [clj-money.cli :refer [with-options
                                    default-options]]
             [clj-money.ingestion.receipts :as rcpts]
+            [clj-money.ingestion.text :refer [similarity]]
             [clj-money.ingestion.ollama :as ollama])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
@@ -44,29 +45,6 @@
   (when-let [a (->dec actual)]
     (let [a (if (< 1M a) (/ a 100M) a)]
       (< (abs (- (->dec expected) a)) 0.0005M))))
-
-(defn- tokens
-  [s]
-  (->> (str/split (str/lower-case (str s)) #"[^a-z0-9]+")
-       (remove str/blank?)
-       (map #(get {"street" "st"
-                   "road" "rd"
-                   "drive" "dr"
-                   "suite" "ste"
-                   "texas" "tx"}
-                  %
-                  %))
-       set))
-
-(defn similarity
-  "Returns the share of words the two strings have in common, from 0 to 1."
-  [a b]
-  (let [ta (tokens a)
-        tb (tokens b)]
-    (if (and (seq ta) (seq tb))
-      (/ (count (filter ta tb))
-         (double (count (into ta tb))))
-      0.0)))
 
 (defn- squash
   [s]
@@ -373,7 +351,7 @@
         result (try
                  (let [{:keys [status body]} (ollama/generate
                                                (ollama/request-body
-                                                 (ollama/image-for-model image opts)
+                                                 [(ollama/image-for-model image opts)]
                                                  prompt
                                                  schema
                                                  opts)

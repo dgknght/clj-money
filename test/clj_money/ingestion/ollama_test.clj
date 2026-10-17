@@ -2,6 +2,8 @@
   (:require [clojure.test :refer [deftest is]]
             [cheshire.core :as json]
             [clj-http.client :as http]
+            [clj-http.core]
+            [clojure.java.io :as io]
             [clj-money.ingestion :as ing]
             [clj-money.ingestion.ollama :as ollama])
   (:import java.awt.image.BufferedImage
@@ -59,12 +61,12 @@
     (is (identical? pdf (ollama/scale-image pdf 1280)))))
 
 (deftest output-tokens-are-limited-by-default
-  (is (= 1500 (get-in (ollama/request-body "image" "prompt" {} {})
+  (is (= 1500 (get-in (ollama/request-body ["image"] "prompt" {} {})
                       [:options :num_predict]))))
 
 (deftest the-account-options-constrain-the-response
   (let [calls (atom [])
-        reader (ing/reader {::ing/provider ::ollama/ollama})]
+        reader (ing/receipt-reader {::ing/provider ::ollama/ollama})]
     (with-redefs [http/post (fn [_url req]
                               (swap! calls conj req)
                               {:status 200
@@ -82,3 +84,76 @@
                (get-in schema [:properties :line_items :items
                                :properties :account :enum]))
             "The line item account is one of the expense account options")))))
+
+(def ^:private statement-text
+  {:text "Prairie State Bank\n09/04 City Power & Light 134.22"})
+
+(defn- read-statement
+  [source config]
+  (let [calls (atom [])]
+    (with-redefs [http/post (fn [_url req]
+                              (swap! calls conj req)
+                              {:status 200
+                               :body {:response "{\"transactions\": []}"}})]
+      (ing/read-statement (ing/statement-reader (assoc config
+                                                       ::ing/provider ::ollama/ollama))
+                          source
+                          {:id 1}
+                          {:account-options {:statement-accounts ["Checking"]
+                                             :category-accounts ["Groceries"]}}))
+    (json/parse-string (:body (first @calls)) true)))
+
+(deftest the-text-of-a-statement-is-sent-to-the-model
+  (let [body (read-statement statement-text {})]
+    (is (re-find #"Prairie State Bank" (:prompt body))
+        "The text of the statement follows the prompt")
+    (is (nil? (:images body))
+        "No images are sent")
+    (is (= "qwen3:8b" (:model body))
+        "A text model is used by default")
+    (is (= {:num_ctx 32768 :num_predict 8192}
+           (select-keys (:options body) [:num_ctx :num_predict]))
+        "The context and output are large enough for a statement")
+    (is (false? (:think body))
+        "Thinking is off, so it doesn't use up the output tokens")
+    (is (= ["Checking"]
+           (get-in body [:format :properties :account :enum]))
+        "The account options constrain the response")))
+
+(deftest a-scanned-statement-is-sent-as-images-to-the-vision-model
+  (let [body (read-statement {:page-images [(image-bytes 800 600)
+                                            (image-bytes 800 600)]}
+                             {})]
+    (is (= 2 (count (:images body)))
+        "Each page is sent as an image")
+    (is (= "qwen2.5vl:7b" (:model body))
+        "The vision model is used")))
+
+(deftest the-statement-defaults-can-be-configured
+  (let [body (read-statement statement-text
+                             {:model "qwen3:14b"
+                              :num-ctx 16384})]
+    (is (= "qwen3:14b" (:model body)))
+    (is (= 16384 (get-in body [:options :num_ctx])))))
+
+(deftest an-error-from-the-service-is-explained
+  (with-redefs [clj-http.core/request (fn [_req]
+                                        {:status 404
+                                         :headers {"content-type" "application/json"}
+                                         :body (java.io.ByteArrayInputStream.
+                                                (.getBytes "{\"error\":\"model 'qwen3:8b' not found\"}"))})]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"returned an error: model 'qwen3:8b' not found"
+                          (ing/read-statement (ing/statement-reader {::ing/provider ::ollama/ollama})
+                                              statement-text
+                                              {:id 1}
+                                              {})))))
+
+(deftest a-pdf-itself-cant-be-read
+  ; it must be given the pdf's contents, see clj-money.ingestion.pdf
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"can't read a PDF"
+                        (ollama/statement-request-body
+                          (io/resource "fixtures/statements/checking.pdf")
+                          {:id 1}
+                          {}))))

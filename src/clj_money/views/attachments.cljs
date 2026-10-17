@@ -41,7 +41,8 @@
                                (swap! page-state remove-attachment attachment)
                                (when on-delete (on-delete attachment))))))
 
-(defn- view-image
+(defn view-image
+  "Opens the image (or PDF) in a new tab"
   [{:keys [id]}]
   (a/go
     (let [{:keys [body]} (a/<! (http/get (path :app :images id)

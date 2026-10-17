@@ -13,4 +13,5 @@
             clj-money.db.sql.budget-items
             clj-money.db.sql.reconciliations
             clj-money.db.sql.lot-items
-            clj-money.db.sql.receipt-ingestions))
+            clj-money.db.sql.receipt-ingestions
+            clj-money.db.sql.statement-ingestions))

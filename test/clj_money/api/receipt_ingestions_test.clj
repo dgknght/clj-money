@@ -42,8 +42,10 @@
 (defn- reader
   "Returns a reader that returns the result of calling f"
   [f]
-  (reify ing/Reader
+  (reify
+    ing/ReceiptReader
     (read-receipt [_ _source _entity _opts] (f))
+    ing/Closeable
     (close [_])))
 
 (def ^:private successful-reader
@@ -76,7 +78,7 @@
                                                               :content-type "image/jpeg"}}))
                      (add-auth (find-user email))
                      (req/header "Accept" "application/edn")
-                     ((build-app {:ingestion reader}))
+                     ((build-app {:receipt-reader reader}))
                      parse-body)]
     [response
      (some-> response
@@ -185,7 +187,7 @@
                           :receipt-ingestions
                           (:id (find-receipt-ingestion "Personal")))
                :user (find-user email))
-      ((build-app {:ingestion successful-reader}))
+      ((build-app {:receipt-reader successful-reader}))
       parse-body))
 
 (deftest a-user-can-get-a-receipt-ingestion-in-his-entity
@@ -210,7 +212,7 @@
                               :user (find-user email)
                               :body #:receipt-ingestion{:status :rejected
                                                         :rejection-reason reason})
-                     ((build-app {:ingestion successful-reader}))
+                     ((build-app {:receipt-reader successful-reader}))
                      parse-body)]
     [response
      (entities/find ingestion)

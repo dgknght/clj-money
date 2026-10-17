@@ -41,6 +41,8 @@
                                                                            org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.10.0"]
                  [clojure.java-time "1.4.3"]
+                 [org.apache.pdfbox/pdfbox "3.0.8" :exclusions [commons-io
+                                                            commons-logging]]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
                  [ring "1.15.5" :exclusions [commons-codec
                                             commons-io]]

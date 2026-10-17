@@ -1,0 +1,21 @@
+{
+  "account": "Checking",
+  "institution": "Prairie State Bank",
+  "period_start": "2026-08-20",
+  "period_end": "2026-09-18",
+  "opening_balance": 3512.40,
+  "closing_balance": 5936.31,
+  "transactions": [
+    {"date": "2026-08-22", "description": "ATM Withdrawal 100 Main St Springfield IL", "amount": -200.00, "category": "Cash"},
+    {"date": "2026-08-25", "description": "Riverside Apartments Rent", "amount": -1250.00, "category": "Rent"},
+    {"date": "2026-08-28", "description": "Fresh Market #214 Springfield IL", "amount": -87.43, "category": "Groceries"},
+    {"date": "2026-09-01", "description": "Acme Widgets Inc Payroll", "amount": 2450.00, "category": "Salary"},
+    {"date": "2026-09-03", "description": "Zelle Payment To Jordan Lee", "amount": -75.00, "category": "Gifts"},
+    {"date": "2026-09-04", "description": "City Power & Light", "amount": -134.22, "category": "Utilities"},
+    {"date": "2026-09-08", "description": "Corner Hardware Springfield IL", "amount": -42.17, "category": "Household"},
+    {"date": "2026-09-09", "description": "Northstar Card Online Pmt", "amount": -612.35, "category": "Credit Card"},
+    {"date": "2026-09-15", "description": "Acme Widgets Inc Payroll", "amount": 2450.00, "category": "Salary"},
+    {"date": "2026-09-16", "description": "Zelle Payment To Jordan Lee", "amount": -75.00, "category": "Gifts"},
+    {"date": "2026-09-18", "description": "Interest Payment", "amount": 0.08, "category": "Interest"}
+  ]
+}

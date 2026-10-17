@@ -8,6 +8,7 @@
             [lambdaisland.uri :as uri]
             [clj-http.client :as http]
             [clj-money.ingestion.receipts :as rcpts]
+            [clj-money.ingestion.statements :as stmts]
             [clj-money.ingestion :as ing])
   (:import java.util.Base64
            [java.awt Color RenderingHints]
@@ -87,8 +88,9 @@
 
 (defn request-body
   "Returns the body of a generate request asking the model to read the
-  base64-encoded image."
-  [image prompt schema {:keys [model
+  base64-encoded images. With no images, the prompt itself holds what is to
+  be read."
+  [images prompt schema {:keys [model
                                num-ctx
                                num-gpu
                                num-predict
@@ -109,8 +111,8 @@
                             :num_ctx num-ctx}
                      num-gpu (assoc :num_gpu num-gpu)
                      num-predict (assoc :num_predict num-predict)
-                     seed (assoc :seed seed))
-          :images [image]}
+                     seed (assoc :seed seed))}
+    (seq images) (assoc :images (vec images))
     (some? think) (assoc :think think)))
 
 (defn- handle-success-response
@@ -132,7 +134,10 @@
 (defn- handle-failure-response
   [body source]
   (log/errorf "Error accessing the ollama service: %s" body)
-  (throw (ex-info "Error accessing the ollama service." {:source source})))
+  (throw (ex-info (if-let [error (:error body)]
+                    (format "The ollama service returned an error: %s" error)
+                    "Error accessing the ollama service.")
+                  {:source source})))
 
 (defn generate
   "Posts the request body to the ollama generate endpoint and returns the
@@ -146,32 +151,105 @@
   (-> (http/post (url opts)
                  {:content-type "application/json"
                   :accept "application/json"
-                  :raise false
+                  :throw-exceptions false
                   :as :json
+                  ; ollama explains an error in a json body, e.g.,
+                  ; {"error": "model 'qwen3:8b' not found"}
+                  :coerce :always
                   :body (json/generate-string req-body)
                   :socket-timeout timeout-ms
                   :connection-timeout timeout-ms})
       (select-keys [:status :body])))
 
-(defn- read-receipt*
-  [source entity {:keys [account-options] :as opts}]
-  {:pre [entity]}
-
-  (let [req-body (request-body (image-for-model source opts)
-                               (rcpts/prompt entity)
-                               (rcpts/schema account-options)
-                               opts)
-        {:keys [status body]} (generate req-body opts)]
+(defn- send-request
+  [req-body source opts]
+  (let [{:keys [status body]} (generate req-body opts)]
     (if (<= 200 status 299)
       (handle-success-response body req-body)
       (handle-failure-response body source))))
 
-(defmethod ing/reader ::ollama
+(defn- read-receipt*
+  [source entity {:keys [account-options] :as opts}]
+  {:pre [entity]}
+
+  (let [req-body (request-body [(image-for-model source opts)]
+                               (rcpts/prompt entity)
+                               (rcpts/schema account-options)
+                               opts)]
+    (send-request req-body source opts)))
+
+; A statement is much longer than a receipt, both the text read and the
+; answer, and is better read as text than as images, which a text model
+; handles better than a vision model of the same size
+(def statement-defaults
+  {:model "qwen3:8b"
+   :vision-model "qwen2.5vl:7b"
+   :num-ctx 32768
+   :num-predict 8192
+   :max-image-dimension 1600
+   ; with thinking on, the reasoning uses up the output tokens
+   :think false})
+
+(defn statement-request-body
+  "Returns the body of a generate request asking the model to read the
+  statement, given the contents of its PDF (see
+  clj-money.ingestion/StatementReader), as the models can't open a PDF.
+  The text is sent with the prompt. The images of the pages of a PDF without
+  text (e.g., one scanned from paper) are sent to the vision model instead."
+  [{:keys [text page-images]} entity {:keys [account-options vision-model] :as opts}]
+  (let [prompt (stmts/prompt entity)
+        schema (stmts/schema account-options)]
+    (cond
+      text
+      (request-body []
+                    (str prompt
+                         "\n\nThe text of the statement, extracted from the PDF, follows.\n\n"
+                         text)
+                    schema
+                    opts)
+
+      page-images
+      (request-body (map #(->base64 (scale-image % (:max-image-dimension opts)))
+                         page-images)
+                    prompt
+                    schema
+                    (assoc opts :model vision-model))
+
+      :else
+      (throw (ex-info (str "The ollama models can't read a PDF, only its contents. "
+                           "Configure the ollama reader under the :reader of a "
+                           ":clj-money.ingestion.pdf/pdf reader.")
+                      {})))))
+
+(defn- read-statement*
+  [contents entity opts]
+  {:pre [entity]}
+  (let [opts (merge statement-defaults opts)]
+    (send-request (statement-request-body contents entity opts)
+                  ; not the contents, which would put the statement in the log
+                  :statement
+                  opts)))
+
+(defmethod ing/receipt-reader ::ollama
   [config]
-  (reify ing/Reader
+  (reify
+    ing/ReceiptReader
     (read-receipt
       [_ source entity opts]
       (read-receipt* source
                      entity
                      (merge config opts)))
+    ing/Closeable
+    (close [_])))
+
+(defmethod ing/statement-reader ::ollama
+  [config]
+  (reify
+    ing/StatementReader
+    (read-statement
+      [_ contents entity opts]
+      (read-statement* contents
+                       entity
+                       (merge config opts)))
+    ing/Closeable
     (close [_])))

@@ -44,6 +44,14 @@ implement `deconstruct` if the entity has refs or composite structure.
 Add an entry for the new entity to the `entities` vector in
 `src/clj_money/entities/schema.cljc`. Include fields, refs, and primary key.
 
+Every ref is also an edge in the graph stowaway uses to plan joins. A ref
+that opens a second path between two existing entity types, as short as the
+one queries already use, can send those queries the wrong way (they come back
+empty). For example, a ref from statement-ingestion to reconciliation made
+reconciliation → statement-ingestion → entity as short as reconciliation →
+account → entity. Leave such a ref out, and run the tests of the types it
+connects.
+
 ### 10. Entity `ref.clj`
 Require the new entity namespace in `src/clj_money/entities/ref.clj` to
 trigger multimethod registration.
@@ -68,7 +76,7 @@ for the new entity if it requires `owner-or-granted?`. For multi-hop chains
 (e.g. memo-ledger-entry → lot → entity), call `fetch-entity` recursively.
 
 ### 16. Server Routes
-In `src/clj_money/web/server.clj`, require the new API namespace and add its
+In `src/clj_money/web/handler.clj`, require the new API namespace and add its
 routes to the router.
 
 ### 17. Test Context
@@ -98,6 +106,6 @@ src/clj_money/db/datomic/ref.clj         ← require new ns
 src/clj_money/db/datomic/tasks.clj       ← add schema filename
 src/clj_money/db/datomic.clj             ← bounding-where-clause case
 src/clj_money/entities/auth_helpers.clj  ← fetch-entity dispatch
-src/clj_money/web/server.clj             ← require + routes
+src/clj_money/web/handler.clj            ← require + routes
 test/clj_money/test_context.clj          ← find-<entity> + prepare
 ```

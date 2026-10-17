@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
             [dgknght.app-lib.validation :as v]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.images :as images]
             [clj-money.entities :as entities]))
 
@@ -33,3 +34,13 @@
           (assoc :image/uuid uuid)
           (dissoc :image/content)
           entities/put))))
+
+(defn find-or-create-upload
+  "Given a file uploaded in a multipart request, stores its content and
+  returns the image for it"
+  [{:keys [filename content-type tempfile] :as upload} user]
+  (when upload
+    (find-or-create #:image{:user user
+                            :original-filename filename
+                            :content-type content-type
+                            :content (read-bytes tempfile)})))

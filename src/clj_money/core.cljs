@@ -30,6 +30,7 @@
             [clj-money.views.invitations]
             [clj-money.views.budgets]
             [clj-money.views.receipts]
+            [clj-money.views.statements]
             [clj-money.views.reports]
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :as dashboard]
@@ -64,6 +65,8 @@
    {:id :budgets}
    {:id :receipts
     :tool-tip "Click here to enter receipts"}
+   {:id :statements
+    :tool-tip "Click here to reconcile an account from a statement"}
    {:id :reports
     :tool-tip "Click here to view reports"}
    {:id :scheduled

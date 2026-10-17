@@ -18,6 +18,7 @@
                                             basic-context
                                             find-user
                                             find-account
+                                            find-image
                                             find-reconciliation]]
             [clj-money.web.test-handler :refer [app]]
             [clj-money.entities :as entities]))
@@ -206,6 +207,36 @@
       (create-reconciliation "jane@doe.com"
                              :body (build-recon :new)))))
 
+(def ^:private statement-context
+  (conj recon-context
+        #:image{:original-filename "statement.pdf"
+                :user "john@doe.com"
+                :content-type "application/pdf"
+                :content "resources/fixtures/statements/checking.pdf"}
+        #:image{:original-filename "janes-statement.pdf"
+                :user "jane@doe.com"
+                :content-type "application/pdf"
+                :content "resources/fixtures/statements/credit_card.pdf"}))
+
+(deftest a-user-can-attach-a-statement-to-a-reconciliation
+  (with-context statement-context
+    (let [statement (select-keys (find-image "statement.pdf") [:id])]
+      (assert-create-succeeded
+        (create-reconciliation "john@doe.com"
+                               :body (assoc (build-recon :new)
+                                            :reconciliation/statement statement))
+        :expected #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                                   :statement statement}))))
+
+(deftest a-user-cannot-attach-anothers-image-to-a-reconciliation
+  (with-context statement-context
+    (assert-blocked-create
+      (create-reconciliation "john@doe.com"
+                             :body (assoc (build-recon :new)
+                                          :reconciliation/statement
+                                          (select-keys (find-image "janes-statement.pdf")
+                                                       [:id]))))))
+
 (def ^:private update-context
   (conj recon-context
         #:reconciliation{:end-of-period (t/local-date 2015 2 4)
@@ -271,6 +302,44 @@
 (deftest a-user-cannot-update-a-reconciliation-in-anothers-entity
   (with-context update-context
     (assert-blocked-update (update-reconciliation "jane@doe.com"))))
+
+(def ^:private pending-review-context
+  (conj recon-context
+        #:transaction{:entity "Personal"
+                      :description "Statement line"
+                      :transaction-date (t/local-date 2015 1 11)
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1M
+                      :source :ingestion
+                      :review-status :pending}
+        #:transaction{:entity "Personal"
+                      :description "Unreconciled line"
+                      :transaction-date (t/local-date 2015 1 12)
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 2M
+                      :source :ingestion
+                      :review-status :pending}
+        #:reconciliation{:end-of-period (t/local-date 2015 2 4)
+                         :account "Checking"
+                         :balance 300M
+                         :status :new
+                         :items [[(t/local-date 2015 1 10) 101M]
+                                 [(t/local-date 2015 1 11) 1M]]}))
+
+(deftest completing-a-reconciliation-accepts-the-transactions-awaiting-review
+  (with-context pending-review-context
+    (let [[response] (update-reconciliation "john@doe.com")
+          review-status (fn [date description]
+                          (:transaction/review-status
+                            (entities/find-by #:transaction{:transaction-date date
+                                                            :description description})))]
+      (is (http-success? response))
+      (is (= :accepted (review-status (t/local-date 2015 1 11) "Statement line"))
+          "A transaction in the reconciliation is accepted")
+      (is (= :pending (review-status (t/local-date 2015 1 12) "Unreconciled line"))
+          "A transaction outside the reconciliation still awaits review"))))
 
 (deftest a-user-can-add-a-new-item-when-updating-a-reconciliation
   (with-context recon-context

@@ -157,8 +157,8 @@
 
 (defn read-receipt
   [source user-email entity-name & {:as opts}]
-  (system/with-system [sys [::ing/reader ::db/storage]]
-    (let [{::ing/keys [reader]} sys
+  (system/with-system [sys [::ing/receipt-reader ::db/storage]]
+    (let [{reader ::ing/receipt-reader} sys
           entity (entities/find-by {:entity/name entity-name
                                     :user/email user-email}
                                    {:entity-type :entity})

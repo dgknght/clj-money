@@ -1,7 +1,6 @@
 (ns clj-money.api.receipt-ingestions
   (:refer-clojure :exclude [update])
-  (:require [clojure.set :refer [rename-keys]]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization
@@ -9,7 +8,6 @@
              :refer [+scope
                      authorize]]
             [clj-money.util :as util]
-            [clj-money.io :refer [read-bytes]]
             [clj-money.images :as images]
             [clj-money.entities :as entities]
             [clj-money.entities.images :as img]
@@ -54,15 +52,8 @@
 (defn- create-image
   [{{:keys [image]} :params
     :keys [authenticated]}]
-  (-> image
-      (select-keys [:content-type :filename :tempfile])
-      (update-in [:tempfile] read-bytes)
-      (rename-keys {:filename :image/original-filename
-                    :tempfile :image/content
-                    :content-type :image/content-type})
-      (assoc :image/user authenticated)
-      img/find-or-create
-      util/->entity-ref))
+  (util/->entity-ref
+    (img/find-or-create-upload image authenticated)))
 
 (defn- create
   [{:keys [authenticated] {:keys [entity-id]} :params :as req}]
@@ -72,7 +63,7 @@
                       (assoc :receipt-ingestion/image (create-image req))
                       entities/put)]
     ; reading the receipt takes a while, so the client polls for the result
-    (future (read-receipt ingestion (system/component req :ingestion)))
+    (future (read-receipt ingestion (system/component req :receipt-reader)))
     (api/creation-response ingestion)))
 
 (defn- find-and-auth

@@ -262,7 +262,12 @@
                                :type :date}
                               {:id :items
                                :type :vector}}
-                    :refs #{:account}}
+                    ; a path to the user through the image is longer than
+                    ; the one through the account, so the join planner
+                    ; still scopes reconciliations by the account's entity
+                    :refs #{:account
+                            {:id :statement
+                             :type :image}}}
    :cached-price {:primary-key [:trade-date :id]
                   :fields #{{:id :trade-date
                              :type :date}
@@ -294,7 +299,21 @@
                                   :type :string}}
                        :refs #{:entity
                                :image
-                               :transaction}}})
+                               :transaction}}
+   :statement-ingestion {:fields #{{:id :status
+                                    :type :keyword}
+                                   {:id :statement
+                                    :type :string}
+                                   {:id :warnings
+                                    :type :string}
+                                   {:id :error
+                                    :type :string}}
+                         ; not the reconciliation, which would give queries a
+                         ; second path from it to the entity, as short as the
+                         ; one through its account
+                         :refs #{:entity
+                                 :image
+                                 :account}}})
 
 (assert (s/valid? ::entities entities)
         "The schema is not valid")

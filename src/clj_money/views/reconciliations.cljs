@@ -5,11 +5,14 @@
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
             [dgknght.app-lib.core :refer [index-by]]
+            [dgknght.app-lib.web :refer [format-date]]
             [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [clj-money.components :refer [button]]
+            [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.state :refer [+busy
                                      -busy
                                      current-entity
@@ -22,6 +25,9 @@
             [clj-money.reconciliations :as reconciliations]
             [clj-money.transactions :refer [unaccountify ->unilateral]]
             [clj-money.views.transactions :as trns]
+            [clj-money.views.statement-upload :as statements]
+            [clj-money.views.attachments :refer [view-image]]
+            [clj-money.api.images :as images-api]
             [clj-money.api.accounts :as accounts-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.reconciliations :as recs]))
@@ -205,9 +211,68 @@
                       :icon :check}]]]]]
          [:div.modal-backdrop.show {:on-click cancel}]]))))
 
+(defn- reload-reconciliation
+  "Reloads the reconciliation after a statement was read into it"
+  [page-state]
+  (fn [account]
+    (swap! page-state assoc :view-account account)
+    (load-working-reconciliation page-state)
+    (load-previous-balance page-state)
+    (trns/load-unreconciled-items page-state)))
+
+(defn- statement-upload
+  [page-state reading]
+  [:div.mb-3
+   [statements/statement-input
+    reading
+    :id "reconciliation-statement"
+    :caption "Read from a statement"
+    :account (:view-account @page-state)
+    :on-complete (reload-reconciliation page-state)]
+   [statements/reading-indicator reading]])
+
+(defn- attach-statement
+  [recon file]
+  (+busy)
+  (images-api/create file
+                     :callback -busy
+                     :on-success #(swap! recon
+                                         assoc
+                                         :reconciliation/statement
+                                         (select-keys % [:id]))))
+
+(defn- statement-attachment
+  "Views the reconciliation's statement, or attaches one to a reconciliation
+  done by hand. It's saved with the reconciliation."
+  [recon]
+  (let [statement (:reconciliation/statement @recon)]
+    [:div.mb-3.d-flex
+     (when statement
+       [:button.btn.btn-outline-primary.me-2
+        {:type :button
+         :title "Click here to view the statement in a new tab."
+         :on-click #(view-image statement)}
+        (icon-with-text :file-earmark-pdf "View statement")])
+     [:label.btn.btn-outline-secondary
+      {:for "reconciliation-statement-attachment"
+       :title (if statement
+                "Click here to replace the statement with another PDF."
+                "Click here to attach a PDF of the statement without reading it.")}
+      (icon-with-text :paperclip (if statement "Replace" "Attach statement"))]
+     [:input.d-none
+      {:id "reconciliation-statement-attachment"
+       :type :file
+       :accept "application/pdf"
+       :on-change (fn [e]
+                    (let [target (.-target e)]
+                      (when-let [file (some-> target .-files (aget 0))]
+                        (attach-statement recon file)
+                        (set! (.-value target) ""))))}]]))
+
 (defn reconciliation-form
   [page-state]
-  (let [recon (r/cursor page-state [:reconciliation])
+  (let [reading (r/atom nil)
+        recon (r/cursor page-state [:reconciliation])
         account (r/cursor page-state [:view-account])
         previous-balance (r/cursor page-state [:previous-reconciliation :reconciliation/balance])
         item-selection (r/cursor recon [::item-selection])
@@ -232,6 +297,8 @@
        [:div.card
         [:div.card-header [:strong "Reconcile"]]
         [:div.card-body
+         [statement-upload page-state reading]
+         [statement-attachment recon]
          [forms/date-field recon [:reconciliation/end-of-period]]
          [forms/decimal-field recon [:reconciliation/balance]]
          [forms/checkbox-field
@@ -277,3 +344,69 @@
                                      (swap! page-state dissoc :reconciliation :items-sort)
                                      (trns/reset-item-loading page-state))}
                   :icon :x}]]]])))
+
+(defn load-reconciliations
+  "Shows the list of the account's reconciliations, latest first, with a
+  spinner until they're loaded"
+  [page-state]
+  (swap! page-state assoc :reconciliation-list {})
+  (recs/select {:reconciliation/account (:view-account @page-state)
+                :desc :reconciliation/end-of-period}
+               :on-success (fn [recons]
+                             ; unless the list was closed in the meantime
+                             (swap! page-state
+                                    #(cond-> %
+                                       (:reconciliation-list %)
+                                       (assoc-in [:reconciliation-list :reconciliations]
+                                                 recons))))))
+
+(defn- reconciliation-row
+  [{:reconciliation/keys [end-of-period balance status statement] :as recon}
+   account]
+  ^{:key (str "reconciliation-row-" (:id recon))}
+  [:tr
+   [:td (format-date end-of-period)]
+   [:td.text-end (accounts-logic/format-quantity balance account)]
+   [:td (if (= :completed status) "Completed" "In progress")]
+   [:td.text-center
+    (when statement
+      [:button.btn.btn-sm.btn-outline-primary
+       {:title "Click here to view the statement in a new tab."
+        :on-click #(view-image statement)}
+       (icon :file-earmark-pdf :size :small)])]])
+
+(defn reconciliation-list
+  "Lists the account's reconciliations, with a link to each one's statement"
+  [page-state & {:keys [on-close]}]
+  (let [shown (r/cursor page-state [:reconciliation-list])
+        recons (r/cursor shown [:reconciliations])
+        account (r/cursor page-state [:view-account])]
+    (fn []
+      (when @shown
+        [:div.card
+         [:div.card-header [:strong "Reconciliations"]]
+         [:table.table.mb-0
+          [:thead
+           [:tr
+            [:th "End of Period"]
+            [:th.text-end "Balance"]
+            [:th "Status"]
+            [:th.text-center "Statement"]]]
+          [:tbody
+           (cond
+             (seq @recons)
+             (->> @recons
+                  (map #(reconciliation-row % @account))
+                  doall)
+
+             @recons
+             [:tr [:td.text-center {:col-span 4} "This account has not been reconciled."]]
+
+             :else
+             [:tr [:td.text-center {:col-span 4} (bs/spinner {:size :small})]])]]
+         [:div.card-footer
+          [button {:html {:class "btn-secondary"
+                          :title "Click here to return to the account's transactions."
+                          :on-click on-close}
+                   :caption "Close"
+                   :icon :x}]]]))))

@@ -12,8 +12,8 @@
             [clj-money.web.handler :as handler]))
 
 (defn build-app
-  "Returns a handler built with the given components (e.g. {:ingestion
-  reader}) in addition to the default ones."
+  "Returns a handler built with the given components (e.g.
+  {:receipt-reader reader}) in addition to the default ones."
   [components]
   (handler/build (merge {:env env
                          :services (services/config env)}

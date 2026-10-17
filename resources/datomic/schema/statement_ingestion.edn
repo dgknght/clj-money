@@ -1,0 +1,28 @@
+[{:db/ident :statement-ingestion/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity for which the statement is being read"}
+ {:db/ident :statement-ingestion/image
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The uploaded statement"}
+ {:db/ident :statement-ingestion/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The account the statement is for, given by the user or identified by the model"}
+ {:db/ident :statement-ingestion/status
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "The progress of the read (pending, processing, complete, failed)"}
+ {:db/ident :statement-ingestion/statement
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The statement read from the document, serialized as edn"}
+ {:db/ident :statement-ingestion/warnings
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "Things the user should check when reviewing the reconciliation, serialized as edn"}
+ {:db/ident :statement-ingestion/error
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The reason the read failed"}]

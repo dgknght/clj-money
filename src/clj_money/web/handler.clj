@@ -57,6 +57,8 @@
             [clj-money.api.audit :as audit-api]
             [clj-money.api.invitations :as invitations-api]
             [clj-money.api.receipt-ingestions :as receipt-ingestions-api]
+            [clj-money.api.images :as images-api]
+            [clj-money.api.statement-ingestions :as statement-ingestions-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
             [clj-money.web.apps :as apps]))
 
@@ -181,7 +183,9 @@
                  transaction-items-api/routes
                  sched-trans-api/routes
                  invitations-api/routes
-                 receipt-ingestions-api/routes]]
+                 receipt-ingestions-api/routes
+                 statement-ingestions-api/routes
+                 images-api/routes]]
                {:conflicts (fn [conflicts]
                              (log/warnf "The application has conflicting routes: %s"
                                         (format-exception :path-conflicts nil conflicts)))

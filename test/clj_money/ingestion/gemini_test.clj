@@ -75,9 +75,9 @@
 
 (deftest read-a-receipt
   (let [calls (atom [])
-        reader (ing/reader {::ing/provider ::gemini/gemini
-                            :api-key "secret"
-                            :model "gemini-test"})]
+        reader (ing/receipt-reader {::ing/provider ::gemini/gemini
+                                    :api-key "secret"
+                                    :model "gemini-test"})]
     (with-redefs [http/post (fn [url req]
                               (swap! calls conj [url req])
                               {:status 200 :body success-body})]
@@ -99,8 +99,8 @@
             "The account options constrain the response")))))
 
 (deftest a-failed-request-is-an-error
-  (let [reader (ing/reader {::ing/provider ::gemini/gemini
-                            :api-key "secret"})]
+  (let [reader (ing/receipt-reader {::ing/provider ::gemini/gemini
+                                    :api-key "secret"})]
     (with-redefs [http/post (constantly {:status 400
                                          :body {:error {:message "Bad key"}}})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
@@ -123,8 +123,8 @@
      calls]))
 
 (deftest a-busy-model-is-retried
-  (let [reader (ing/reader {::ing/provider ::gemini/gemini
-                            :api-key "secret"})
+  (let [reader (ing/receipt-reader {::ing/provider ::gemini/gemini
+                                    :api-key "secret"})
         [post calls] (respond-in-turn 503 429 200)
         pauses (atom [])]
     (with-redefs [http/post post
@@ -135,9 +135,9 @@
           "The delay doubles between attempts"))))
 
 (deftest retries-are-limited
-  (let [reader (ing/reader {::ing/provider ::gemini/gemini
-                            :api-key "secret"
-                            :max-attempts 2})
+  (let [reader (ing/receipt-reader {::ing/provider ::gemini/gemini
+                                    :api-key "secret"
+                                    :max-attempts 2})
         [post calls] (respond-in-turn 503)]
     (with-redefs [http/post post
                   gemini/pause (constantly nil)]
@@ -147,8 +147,8 @@
       (is (= 2 @calls)))))
 
 (deftest a-bad-request-is-not-retried
-  (let [reader (ing/reader {::ing/provider ::gemini/gemini
-                            :api-key "secret"})
+  (let [reader (ing/receipt-reader {::ing/provider ::gemini/gemini
+                                    :api-key "secret"})
         [post calls] (respond-in-turn 400)]
     (with-redefs [http/post post
                   gemini/pause (constantly nil)]
@@ -158,4 +158,41 @@
 
 (deftest an-api-key-is-required
   (is (thrown? AssertionError
-               (ing/reader {::ing/provider ::gemini/gemini}))))
+               (ing/receipt-reader {::ing/provider ::gemini/gemini})))
+  (is (thrown? AssertionError
+               (ing/statement-reader {::ing/provider ::gemini/gemini}))))
+
+(deftest read-a-statement
+  (let [calls (atom [])
+        reader (ing/statement-reader {::ing/provider ::gemini/gemini
+                                      :api-key "secret"})
+        pdf (.getBytes "%PDF-1.7")]
+    (with-redefs [http/post (fn [url req]
+                              (swap! calls conj [url req])
+                              {:status 200
+                               :body (assoc-in success-body
+                                               [:candidates 0 :content :parts 0 :text]
+                                               "{\"closing_balance\": 5936.31, \"account\": \"Checking\"}")})]
+      (is (= {:closing-balance 5936.31M
+              :account "Checking"}
+             (ing/read-statement reader
+                                 pdf
+                                 {:id 1}
+                                 {:account-options {:statement-accounts ["Checking"]}})))
+      (let [[_ req] (first @calls)
+            body (json/parse-string (:body req) true)]
+        (is (= "application/pdf"
+               (get-in body [:contents 0 :parts 0 :inlineData :mimeType])))
+        (is (= ["Checking"]
+               (get-in body [:generationConfig :responseFormat :text :schema
+                             :properties :account :enum]))
+            "The account options constrain the response")
+        (is (< 8192 (get-in body [:generationConfig :maxOutputTokens]))
+            "A statement is allowed more output than a receipt")))))
+
+(deftest an-incomplete-statement-is-an-error
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"did not return a statement"
+                        (gemini/handle-success-response
+                          {:promptFeedback {:blockReason "SAFETY"}}
+                          "statement"))))

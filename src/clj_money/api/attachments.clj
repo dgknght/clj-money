@@ -1,14 +1,12 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update])
-  (:require [clojure.set :refer [rename-keys]]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.api :as api]
             [clj-money.authorization
              :as auth
              :refer [+scope
                      authorize]]
             [clj-money.util :as util]
-            [clj-money.io :refer [read-bytes]]
             [clj-money.entities :as entities]
             [clj-money.entities.images :as img]
             [clj-money.authorization.attachments]))
@@ -47,14 +45,7 @@
 (defn- find-or-create-image
   [{{:keys [file]} :params
     :keys [authenticated]}]
-  (-> file
-      (select-keys [:content-type :filename :tempfile])
-      (update-in [:tempfile] read-bytes)
-      (rename-keys {:filename :image/original-filename
-                    :tempfile :image/content
-                    :content-type :image/content-type})
-      (assoc :image/user authenticated)
-      img/find-or-create))
+  (img/find-or-create-upload file authenticated))
 
 (defn- assoc-image
   [att req]

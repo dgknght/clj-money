@@ -183,20 +183,28 @@
   [page-state]
   (trns/init-item-loading page-state))
 
+(defn- view-account
+  [account page-state]
+  (swap! page-state
+         assoc
+         :view-account
+         (update-in account
+                    [:account/commodity]
+                    (comp (:commodities @page-state)
+                          :id))))
+
+(defn- load-account
+  [page-state]
+  (if (system-tagged? (:view-account @page-state) :tradable)
+    (load-tradable-account page-state)
+    (load-regular-account page-state)))
+
 (defn- select-account
   [account page-state]
   (fn []
-    (swap! page-state
-           assoc
-           :view-account
-           (update-in account
-                      [:account/commodity]
-                      (comp (:commodities @page-state)
-                            :id)))
+    (view-account account page-state)
     ; TODO: Maybe this belongs in a watch?
-    (if (system-tagged? account :tradable)
-      (load-tradable-account page-state)
-      (load-regular-account page-state))))
+    (load-account page-state)))
 
 (defn- start-reconciliation
   [page-state]
@@ -205,17 +213,33 @@
   (trns/load-unreconciled-items page-state)
   (set-focus "end-of-period"))
 
+(defn- show-reconciliations
+  [page-state]
+  (trns/stop-item-loading page-state)
+  (recs/load-reconciliations page-state))
+
+(defn- close-reconciliations
+  [page-state]
+  (swap! page-state dissoc :reconciliation-list)
+  (if (system-tagged? (:view-account @page-state) :tradable)
+    ; the lots are still there if the list was opened from the account
+    (when-not (:lots @page-state)
+      (load-tradable-account page-state))
+    (trns/reset-item-loading page-state)))
+
 (defn- reconcile-account
   [account page-state]
   (fn []
-    (swap! page-state
-           assoc
-           :view-account
-           (update-in account
-                      [:account/commodity]
-                      (comp (:commodities @page-state)
-                            :id)))
+    (view-account account page-state)
     (start-reconciliation page-state)))
+
+(defn- list-reconciliations
+  [account page-state]
+  (fn []
+    ; the account's transactions (or lots) aren't loaded until the list is
+    ; closed
+    (view-account account page-state)
+    (recs/load-reconciliations page-state)))
 
 (defn- account-row-buttons
   [account page-state]
@@ -247,6 +271,13 @@
             :on-click (reconcile-account account page-state)}
            (icon :list-check :size :small)
            [:span.ms-2 "Reconcile"]]]
+         [:li
+          [:a.dropdown-item
+           {:title "Click here to see the reconciliations for this account"
+            :href "#"
+            :on-click (list-reconciliations account page-state)}
+           (icon :journal-check :size :small)
+           [:span.ms-2 "Reconciliations"]]]
          (when (system-tagged? account :trading)
            [:li
             [:a.dropdown-item
@@ -787,6 +818,7 @@
            :view-account
            :attachments-item
            :reconciliation
+           :reconciliation-list
            :items
            :lots
            :lot-notes
@@ -806,6 +838,12 @@
                      :disabled @busy?}
               :caption "Reconcile"
               :icon :list-check}]
+     [button {:html {:class "btn-secondary ms-2 d-none d-md-block"
+                     :on-click #(show-reconciliations page-state)
+                     :title "Click here to see this account's reconciliations and their statements."
+                     :disabled @busy?}
+              :caption "Reconciliations"
+              :icon :journal-check}]
      [button {:html {:class "btn-secondary ms-2"
                      :on-click (unselect-account page-state)
                      :title "Click here to return to the account list."}
@@ -962,8 +1000,10 @@
         trade (r/cursor page-state [:trade])
         attachments-item (r/cursor page-state [:attachments-item])
         reconciliation (r/cursor page-state [:reconciliation])
+        reconciliation-list (r/cursor page-state [:reconciliation-list])
         show? (make-reaction #(and @account
                                    (not @attachments-item)
+                                   (not @reconciliation-list)
                                    (or @reconciliation
                                        (not (system-tagged? @account :tradable)))
                                    (or @reconciliation (not @transaction))
@@ -1118,9 +1158,11 @@
   (let [account (r/cursor page-state [:view-account])
         trade (r/cursor page-state [:trade])
         reconciliation (r/cursor page-state [:reconciliation])
+        reconciliation-list (r/cursor page-state [:reconciliation-list])
         show? (make-reaction #(and (system-tagged? @account :tradable)
                                    (not @trade)
-                                   (not @reconciliation)))
+                                   (not @reconciliation)
+                                   (not @reconciliation-list)))
         current-nav (r/atom :lots)
         ctl-chan (r/cursor page-state [:ctl-chan])
         all-items-fetched? (r/cursor page-state [:all-items-fetched?])]
@@ -1157,6 +1199,10 @@
                           (trns/stop-item-loading page-state)
                           (start-reconciliation page-state))}
              (icon-with-text :list-check "Reconcile")]
+            [:button.btn.btn-secondary.ms-2
+             {:title "Click here to see this account's reconciliations and their statements."
+              :on-click #(show-reconciliations page-state)}
+             (icon-with-text :journal-check "Reconciliations")]
             [:button.btn.btn-secondary.ms-2
              {:title "Click here to return the the account list."
               :on-click (unselect-account page-state)}
@@ -1264,13 +1310,15 @@
            :caption "Cancel"}]]]])))
 
 (defn- load-commodities
-  [page-state]
+  [page-state & {:keys [on-loaded]}]
   (when @current-entity
     (+busy)
     (commodities/select {}
-                        :on-success #(swap! page-state
-                                            assoc
-                                            :commodities (index-by :id %))
+                        :on-success (fn [commodities]
+                                      (swap! page-state
+                                             assoc
+                                             :commodities (index-by :id commodities))
+                                      (when on-loaded (on-loaded)))
                         :callback -busy)))
 
 (defn- account-filter
@@ -1350,7 +1398,12 @@
       (swap! app-state dissoc :pending-transaction-item)
       (swap! page-state assoc :view-account account)
       (trns/edit-transaction item page-state))
-    (load-commodities page-state)
+    (let [account (:pending-reconciliation @app-state)]
+      (swap! app-state dissoc :pending-reconciliation)
+      ; the account's commodity is needed to reconcile it
+      (load-commodities page-state
+                        :on-loaded (when account
+                                     (reconcile-account account page-state))))
     (add-watch current-entity
                ::index
                (fn [_ _ _ accts]
@@ -1410,6 +1463,11 @@
         (when @reconciliation
           [:div.col-lg-4
            [recs/reconciliation-form page-state]])]
+       [:div.row
+        [:div.col-lg-8
+         [recs/reconciliation-list
+          page-state
+          :on-close #(close-reconciliations page-state)]]]
        [recs/payment-form page-state]
        [tradable-account-items page-state]
        [transaction-form-container page-state]

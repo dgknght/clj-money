@@ -16,7 +16,7 @@
                                             find-entity
                                             find-account
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db dbtest]]
             [clj-money.web.test-handler :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -164,6 +164,35 @@
   (is (http-success? response))
   (let [body (or parsed-body edn-body)]
     (is (empty? body) "No transaction items are returned")))
+
+(def ^:private review-context
+  (conj basic-context
+        #:transaction{:transaction-date (t/local-date 2017 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :quantity 1000M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}
+        #:transaction{:transaction-date (t/local-date 2017 1 2)
+                      :entity "Personal"
+                      :description "Read from a statement"
+                      :quantity 10M
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :source :ingestion
+                      :review-status :pending}))
+
+; the missing review status is replaced in the datomic query only
+(dbtest the-review-status-of-each-transaction-is-included
+  (with-context review-context
+    (let [{:keys [parsed-body]} (get-a-list "john@doe.com")]
+      (is (= {"Read from a statement" :pending
+              "Paycheck" nil}
+             (->> parsed-body
+                  (map (juxt :transaction/description
+                             :transaction/review-status))
+                  (into {})))
+          "A transaction awaiting review is marked, and every item is returned"))))
 
 (deftest a-user-can-get-a-list-of-transaction-items-in-his-entity
   (with-context context

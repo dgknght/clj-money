@@ -77,11 +77,40 @@
       (update-in-if [:reconciliation/balance] bigdec)
       (update-in-if [:reconciliation/items] refine-items)
       (update-in-if [:reconciliation/include-children?] parse-bool)
+      (update-in-if [:reconciliation/statement] #(some-> % :id util/->entity-ref))
       (select-keys [:reconciliation/end-of-period
                     :reconciliation/balance
                     :reconciliation/status
                     :reconciliation/items
-                    :reconciliation/include-children?])))
+                    :reconciliation/include-children?
+                    :reconciliation/statement])))
+
+(defn- authorize-statement
+  "Ensures the user may see the image given as the statement, as anyone
+  who can see the reconciliation can see its statement"
+  [{:reconciliation/keys [statement] :as recon} user]
+  (when statement
+    (when-not (some-> (entities/find statement)
+                      (authorize ::auth/show user))
+      (throw (ex-info "not found" {:type ::auth/not-found
+                                   :entity :image
+                                   ::auth/opaque? true}))))
+  recon)
+
+(defn- accept-reviewed-transactions
+  "Completing a reconciliation is the user's review of any transactions in it
+  that were read from a statement, so they are marked as accepted"
+  [{:reconciliation/keys [status] :as recon}]
+  (when (= :completed status)
+    (some->> (entities/select
+               (util/entity-type
+                 {:transaction-item/reconciliation (util/->entity-ref recon)}
+                 :transaction))
+             (filter #(= :pending (:transaction/review-status %)))
+             (map #(assoc % :transaction/review-status :accepted))
+             seq
+             entities/put-many))
+  recon)
 
 (defn- create
   [{:keys [authenticated params] :as req}]
@@ -90,7 +119,9 @@
       (update-in-if [:reconciliation/items] itms/resolve-refs)
       (assoc :reconciliation/account {:id (:account-id params)})
       (authorize ::auth/create authenticated)
+      (authorize-statement authenticated)
       entities/put
+      accept-reviewed-transactions
       api/creation-response))
 
 (defn- previous-balance
@@ -110,12 +141,14 @@
           (authorize action authenticated)))
 
 (defn- update
-  [req]
+  [{:keys [authenticated] :as req}]
   (or (some-> req
               (find-and-auth ::auth/update)
               (merge (extract-recon req))
+              (authorize-statement authenticated)
               (update-in-if [:reconciliation/items] itms/resolve-refs)
               entities/put
+              accept-reviewed-transactions
               api/update-response)
       api/not-found))
 

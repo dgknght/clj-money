@@ -31,32 +31,76 @@
   [started]
   (/ (- (System/nanoTime) started) 1e9))
 
-(defn observable-reader
-  "Decorates the reader so that each call to the model is traced and its
-  duration and token usage are exported as metrics. A reader reports token
-  usage by attaching :clj-money.ingestion/usage metadata to the result, with the keys :model,
-  :input-tokens, and :output-tokens."
-  [reader {::ing/keys [provider] :keys [model]}]
-  (reify ing/Reader
+(defn- observe
+  [span-name read-fn {::ing/keys [provider] :keys [model]} opts]
+  (with-tracing [span span-name]
+    (let [attributes {"gen_ai.operation.name" "generate_content"
+                      "gen_ai.provider.name" (some-> provider name)
+                      "gen_ai.request.model" (or (:model opts) model)}
+          started (System/nanoTime)]
+      (try
+        (let [result (read-fn)]
+          (otel/record operation-duration
+                       (elapsed-seconds started)
+                       attributes)
+          (when-let [usage (::ing/usage (meta result))]
+            (record-usage span attributes usage))
+          result)
+        (catch Exception e
+          (otel/record operation-duration
+                       (elapsed-seconds started)
+                       (assoc attributes
+                              "error.type"
+                              (.getName (class e))))
+          (throw e))))))
+
+(defn observable-receipt-reader
+  "Decorates the receipt reader so that each call to the model is traced and
+  its duration and token usage are exported as metrics. A reader reports
+  token usage by attaching :clj-money.ingestion/usage metadata to the
+  result, with the keys :model, :input-tokens, and :output-tokens."
+  [reader config]
+  (reify
+    ing/ReceiptReader
     (read-receipt [_ source entity opts]
-      (with-tracing [span "ingestion/read-receipt"]
-        (let [attributes {"gen_ai.operation.name" "generate_content"
-                          "gen_ai.provider.name" (some-> provider name)
-                          "gen_ai.request.model" (or (:model opts) model)}
-              started (System/nanoTime)]
-          (try
-            (let [result (ing/read-receipt reader source entity opts)]
-              (otel/record operation-duration
-                           (elapsed-seconds started)
-                           attributes)
-              (when-let [usage (::ing/usage (meta result))]
-                (record-usage span attributes usage))
-              result)
-            (catch Exception e
-              (otel/record operation-duration
-                           (elapsed-seconds started)
-                           (assoc attributes
-                                  "error.type"
-                                  (.getName (class e))))
-              (throw e))))))
+      (observe "ingestion/read-receipt"
+               #(ing/read-receipt reader source entity opts)
+               config
+               opts))
+    ing/Closeable
     (close [_] (ing/close reader))))
+
+(defn observable-statement-reader
+  "Decorates the statement reader as observable-receipt-reader decorates a
+  receipt reader"
+  [reader config]
+  (reify
+    ing/StatementReader
+    (read-statement [_ source entity opts]
+      (observe "ingestion/read-statement"
+               #(ing/read-statement reader source entity opts)
+               config
+               opts))
+    ing/Closeable
+    (close [_] (ing/close reader))))
+
+(defn- decorated-config
+  "Returns the config of the reader that calls the model, the innermost of
+  the readers composed in the config"
+  [config]
+  (->> config
+       (iterate :reader)
+       (take-while some?)
+       last))
+
+(defmethod ing/receipt-reader ::observable
+  [{:keys [reader] :as config}]
+  {:pre [reader]}
+  (observable-receipt-reader (ing/receipt-reader reader)
+                             (decorated-config config)))
+
+(defmethod ing/statement-reader ::observable
+  [{:keys [reader] :as config}]
+  {:pre [reader]}
+  (observable-statement-reader (ing/statement-reader reader)
+                               (decorated-config config)))

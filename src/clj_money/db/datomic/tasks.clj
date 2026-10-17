@@ -34,6 +34,7 @@
            "scheduled_transaction"
            "invitation"
            "receipt_ingestion"
+           "statement_ingestion"
            "tx_meta"]))
 
 (defn apply-schema
