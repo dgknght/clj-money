@@ -13,7 +13,7 @@
   {#"yh-finance\.p\.rapidapi\.com\/market\/v2\/get-quotes"
    (fn [_]
      {:status 200
-      :body (io/input-stream "resources/fixtures/yahoo/get-quotes-response.json")})})
+      :body (io/input-stream "fixtures/yahoo/get-quotes-response.json")})})
 
 (deftest get-price-quotes
   (with-web-mocks [calls] mocks

@@ -1,4 +1,4 @@
-{:input "resources/fixtures/budget_sample.gnucash"
+{:input "fixtures/budget_sample.gnucash"
  :expectations {:declaration [{:declaration/record-type :commodity
                                :declaration/record-count 1
                                :import/record-type :declaration}

@@ -22,7 +22,7 @@
    #:image{:original-filename "sample.gnucash"
            :content-type "application/gnucash"
            :user "john@doe.com"
-           :content "resources/fixtures/sample.gnucash"}])
+           :content "fixtures/sample.gnucash"}])
 
 (defn attributes []
   #:import{:user (find-user "john@doe.com")
@@ -90,7 +90,7 @@
         #:image{:user "john@doe.com"
                 :original-filename "sample_with_commodities.gnucash"
                 :content-type "application/gnucash"
-                :content "resources/fixtures/sample_with_commodities.gnucash"}
+                :content "fixtures/sample_with_commodities.gnucash"}
         #:import{:user "john@doe.com"
                  :entity-name "other entity"
                  :images ["sample_with_commodities.gnucash"]}

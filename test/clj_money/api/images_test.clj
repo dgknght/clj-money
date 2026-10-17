@@ -32,7 +32,7 @@
   (with-context basic-context
     (let [{:as response :keys [parsed-body]}
           (upload "john@doe.com"
-                  {:file {:file (io/file (io/resource "fixtures/statements/checking.pdf"))
+                  {:file {:file (io/file "fixtures/statements/checking.pdf")
                           :content-type "application/pdf"}})]
       (is (http-created? response))
       (is (comparable? #:image{:original-filename "checking.pdf"

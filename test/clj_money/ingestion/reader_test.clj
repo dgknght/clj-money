@@ -85,7 +85,7 @@
     (with-redefs [otel/record (fn [_instrument value attributes]
                                 (swap! recorded conj [value attributes]))]
       (ing/read-statement reader
-                          (io/resource "fixtures/statements/checking.pdf")
+                          (io/file "fixtures/statements/checking.pdf")
                           {:id 1}
                           {}))
     (is (re-find #"Prairie State Bank" (:text @read))

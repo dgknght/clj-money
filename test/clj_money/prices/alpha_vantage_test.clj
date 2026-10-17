@@ -13,7 +13,7 @@
   {#"alpha-vantage\.p\.rapidapi\.com"
    (fn [_]
      {:status 200
-      :body (io/input-stream "resources/fixtures/alpha_vantage/digital_currency_daily_response.json")})})
+      :body (io/input-stream "fixtures/alpha_vantage/digital_currency_daily_response.json")})})
 
 (deftest get-price-quote
   (with-web-mocks [calls] mocks

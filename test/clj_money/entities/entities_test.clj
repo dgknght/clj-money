@@ -296,7 +296,7 @@
         #:image{:user "john@doe.com"
                 :original-filename "receipt.jpg"
                 :content-type "image/jpg"
-                :content (io/file (io/resource "fixtures/attachment.jpg"))}
+                :content (io/file "fixtures/attachment.jpg")}
         #:attachment{:caption "Receipt"
                      :transaction [(t/local-date 2017 1 1) "Paycheck"]
                      :image "receipt.jpg"}

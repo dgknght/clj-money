@@ -31,7 +31,7 @@
                       :quantity 1000M }
         #:image{:user "john@doe.com"
                 :original-filename "sample_receipt.jpg"
-                :content "resources/fixtures/sample_receipt.jpg"
+                :content "fixtures/sample_receipt.jpg"
                 :content-type "image/jpeg"}))
 
 (defn- attributes []

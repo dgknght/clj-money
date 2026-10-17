@@ -99,7 +99,7 @@
         #:image{:original-filename "statement.pdf"
                 :user "john@doe.com"
                 :content-type "application/pdf"
-                :content "resources/fixtures/statements/checking.pdf"}))
+                :content "fixtures/statements/checking.pdf"}))
 
 (dbtest create-a-reconciliation-with-a-statement
   (with-context statement-context

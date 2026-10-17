@@ -1,4 +1,4 @@
-{:input "resources/fixtures/scheduled_transactions.gnucash"
+{:input "fixtures/scheduled_transactions.gnucash"
  :expectations {:declaration [{:declaration/record-type :commodity
                                :declaration/record-count 1
                                :import/record-type :declaration}

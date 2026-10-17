@@ -212,11 +212,11 @@
         #:image{:original-filename "statement.pdf"
                 :user "john@doe.com"
                 :content-type "application/pdf"
-                :content "resources/fixtures/statements/checking.pdf"}
+                :content "fixtures/statements/checking.pdf"}
         #:image{:original-filename "janes-statement.pdf"
                 :user "jane@doe.com"
                 :content-type "application/pdf"
-                :content "resources/fixtures/statements/credit_card.pdf"}))
+                :content "fixtures/statements/credit_card.pdf"}))
 
 (deftest a-user-can-attach-a-statement-to-a-reconciliation
   (with-context statement-context

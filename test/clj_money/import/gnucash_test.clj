@@ -34,13 +34,13 @@
              (is (= expected actual) (str "Incorrect results for " k))))))
 
 (deftest read-gnucash-source-with-budget
-  (execute-test "resources/fixtures/gnucash_test/budget.edn"))
+  (execute-test "fixtures/gnucash_test/budget.edn"))
 
 (deftest read-gnucash-source-with-commodities
-  (execute-test "resources/fixtures/gnucash_test/commodities.edn"))
+  (execute-test "fixtures/gnucash_test/commodities.edn"))
 
 (deftest read-gnucash-source-with-trading-actions
-  (execute-test "resources/fixtures/gnucash_test/commodities_ext.edn"))
+  (execute-test "fixtures/gnucash_test/commodities_ext.edn"))
 
 (deftest read-gnucash-source-with-scheduled-transactions
-  (execute-test "resources/fixtures/gnucash_test/scheduled_transactions.edn"))
+  (execute-test "fixtures/gnucash_test/scheduled_transactions.edn"))

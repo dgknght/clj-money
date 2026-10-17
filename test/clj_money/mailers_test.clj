@@ -4,10 +4,10 @@
             [clj-money.mailers :as mailers]))
 
 (def expected-text
-  (slurp "resources/fixtures/mailers/user_invitation_expected.txt"))
+  (slurp "fixtures/mailers/user_invitation_expected.txt"))
 
 (def expected-html
-  (slurp "resources/fixtures/mailers/user_invitation_expected.html"))
+  (slurp "fixtures/mailers/user_invitation_expected.html"))
 
 (def invitation-message
   {:to "jane@doe.com"

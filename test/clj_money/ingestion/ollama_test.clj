@@ -154,6 +154,6 @@
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"can't read a PDF"
                         (ollama/statement-request-body
-                          (io/resource "fixtures/statements/checking.pdf")
+                          (io/file "fixtures/statements/checking.pdf")
                           {:id 1}
                           {}))))

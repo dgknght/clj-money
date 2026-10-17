@@ -18,7 +18,7 @@
   (conj basic-context
         #:image{:user "john@doe.com"
                 :original-filename "checking.pdf"
-                :content "resources/fixtures/statements/checking.pdf"
+                :content "fixtures/statements/checking.pdf"
                 :content-type "application/pdf"}
         #:statement-ingestion{:entity "Personal"
                               :image "checking.pdf"

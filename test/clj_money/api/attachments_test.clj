@@ -38,7 +38,7 @@
 (defn- create-attachment
   [email & {:keys [accept] :or {accept "application/edn"}}]
   (let [transaction (find-transaction [(t/local-date 2015 1 1) "Paycheck"])
-        file (io/file (io/resource "fixtures/attachment.jpg"))
+        file (io/file "fixtures/attachment.jpg")
         response (-> (req/request :post (path :api
                                               :transactions
                                               (:id transaction)
@@ -89,7 +89,7 @@
         #:image{:user "john@doe.com"
                 :original-filename "receipt.jpg"
                 :content-type "image/jpg"
-                :content (io/file (io/resource "fixtures/attachment.jpg"))}
+                :content (io/file "fixtures/attachment.jpg")}
         #:attachment{:caption "Receipt"
                      :transaction [(t/local-date 2015 1 1)
                                    "Paycheck"]

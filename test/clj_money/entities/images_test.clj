@@ -50,7 +50,7 @@
         #:image{:user "john@doe.com"
                 :original-filename "sample.gnucash"
                 :content-type "application/gnucash"
-                :content (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}))
+                :content (read-bytes (io/input-stream "fixtures/sample.gnucash"))}))
 
 (dbtest uuid-is-unique-for-each-user
   (with-context existing-image-context
@@ -67,7 +67,7 @@
     (let [image (imgs/find-or-create (-> (attributes)
                                          (dissoc :image/uuid)
                                          (assoc :image/content
-                                                (-> "resources/fixtures/sample.gnucash"
+                                                (-> "fixtures/sample.gnucash"
                                                     io/input-stream
                                                     read-bytes))))]
       (is (comparable? {:image/uuid "9ce09a549c89ad44100e944410fb3b1b84dc0bea"}

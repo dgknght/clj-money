@@ -69,7 +69,7 @@
 (defn- create-ingestion
   [email & {:keys [reader] :or {reader successful-reader}}]
   (let [entity (find-entity "Personal")
-        file (io/file (io/resource "fixtures/attachment.jpg"))
+        file (io/file "fixtures/attachment.jpg")
         response (-> (req/request :post (path :api
                                               :entities
                                               (:id entity)
@@ -157,7 +157,7 @@
         #:image{:user "john@doe.com"
                 :original-filename "receipt.jpg"
                 :content-type "image/jpeg"
-                :content (io/file (io/resource "fixtures/attachment.jpg"))}
+                :content (io/file "fixtures/attachment.jpg")}
         #:transaction{:description "Kroger"
                       :entity "Personal"
                       :transaction-date (t/local-date 2015 1 2)

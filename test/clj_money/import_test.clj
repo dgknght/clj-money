@@ -170,7 +170,7 @@
 
 (def ^:private gnucash-context
   (conj base-context
-        #:image{:content (-> "resources/fixtures/sample.gnucash"
+        #:image{:content (-> "fixtures/sample.gnucash"
                              io/input-stream
                              read-bytes)
                 :user "john@doe.com"
@@ -338,7 +338,7 @@
 
 (def ^:private include-children-context
   (conj base-context
-        #:image{:content (-> "resources/fixtures/include_children_reconciliation.gnucash"
+        #:image{:content (-> "fixtures/include_children_reconciliation.gnucash"
                              io/input-stream
                              read-bytes)
                 :user "john@doe.com"
@@ -364,13 +364,13 @@
 
 (def ^:private edn-context
   (conj base-context
-        #:image{:content (-> "resources/fixtures/sample_0.edn.gz"
+        #:image{:content (-> "fixtures/sample_0.edn.gz"
                              io/input-stream
                              read-bytes)
                 :user "john@doe.com"
                 :content-type "application/edn"
                 :original-filename "sample_0.edn.gz"}
-        #:image{:content (-> "resources/fixtures/sample_1.edn.gz"
+        #:image{:content (-> "fixtures/sample_1.edn.gz"
                              io/input-stream
                              read-bytes)
                 :user "john@doe.com"
@@ -387,7 +387,7 @@
 
 (def ^:private ext-context
   (conj base-context
-        #:image{:content (-> "resources/fixtures/sample_with_commodities_ext.gnucash"
+        #:image{:content (-> "fixtures/sample_with_commodities_ext.gnucash"
                              io/input-stream
                              read-bytes)
                 :user "john@doe.com"
@@ -402,7 +402,7 @@
                            :st-capital-loss-account "Investment/Short-Term Losses"}}))
 
 (defn- gnucash-budget-sample []
-  (with-open [input (io/input-stream "resources/fixtures/budget_sample.gnucash")]
+  (with-open [input (io/input-stream "fixtures/budget_sample.gnucash")]
     (read-bytes input)))
 
 (def import-budget-context
@@ -445,7 +445,7 @@
             "The retrieved budget has the same items as the imported file")))))
 
 (defn- gnucash-commodities-sample []
-  (with-open [input (io/input-stream "resources/fixtures/sample_with_commodities.gnucash")]
+  (with-open [input (io/input-stream "fixtures/sample_with_commodities.gnucash")]
     (read-bytes input)))
 
 (def ^:private commodities-context
@@ -641,7 +641,7 @@
 
 (def ^:private sched-context
   (conj base-context
-        #:image{:content (-> "resources/fixtures/scheduled_transactions.gnucash"
+        #:image{:content (-> "fixtures/scheduled_transactions.gnucash"
                              io/input-stream
                              read-bytes)
                 :user "john@doe.com"

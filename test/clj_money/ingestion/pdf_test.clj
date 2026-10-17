@@ -19,7 +19,7 @@
       (.toByteArray out))))
 
 (def ^:private checking
-  (io/resource "fixtures/statements/checking.pdf"))
+  (io/file "fixtures/statements/checking.pdf"))
 
 (deftest the-text-of-a-pdf-is-read
   (let [text (pdf/text checking)]

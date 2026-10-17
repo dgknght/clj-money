@@ -34,7 +34,7 @@
   "Returns the expected response for the statement, as the reader returns it"
   [statement-name]
   (binding [json-parse/*use-bigdecimals?* true]
-    (json/parse-string (slurp (io/resource (format "fixtures/statements/%s.json"
+    (json/parse-string (slurp (io/file (format "fixtures/statements/%s.json"
                                                    statement-name)))
                        ->kebab-case-keyword)))
 
@@ -126,7 +126,7 @@
   [email & {:keys [reader account]
             :or {reader checking-reader}}]
   (let [entity (find-entity "Personal")
-        file (io/file (io/resource "fixtures/statements/checking.pdf"))
+        file (io/file "fixtures/statements/checking.pdf")
         response (-> (req/request :post (path :api
                                               :entities
                                               (:id entity)

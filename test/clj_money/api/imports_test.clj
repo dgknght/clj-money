@@ -38,7 +38,7 @@
 
 (deftest a-user-can-create-an-import
   (with-context create-context
-    (let [source-file (io/file (io/resource "fixtures/sample.gnucash"))
+    (let [source-file (io/file "fixtures/sample.gnucash")
           user (find-user "john@doe.com")
           calls (atom [])
           options {:lt-capital-gains-account "Investment Income/Long Term Gains"
@@ -84,7 +84,7 @@
         #:image{:user "john@doe.com"
                 :original-filename "sample.gnucash"
                 :content-type "application/gnucash"
-                :content (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))}
+                :content (read-bytes (io/input-stream "fixtures/sample.gnucash"))}
         #:import{:entity-name "Personal"
                  :user "john@doe.com"
                  :images ["sample.gnucash"]}

@@ -291,6 +291,6 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   `views/statements.cljs` (the `/statements` page, which hands the account to
   the accounts page via `:pending-reconciliation` in `app-state`) and the
   "Read from a statement" input on the reconciliation form
-- Test fixtures (`resources/fixtures/statements/`) are fictitious statements
+- Test fixtures (`fixtures/statements/`) are fictitious statements
   with the expected model answers; real statements must not be committed
 - API tests pass their own reader to `web.test-handler/build-app`
