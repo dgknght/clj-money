@@ -17,6 +17,7 @@
                                    default-options]]
             [clj-money.ingestion.receipts :as rcpts]
             [clj-money.ingestion.text :refer [similarity]]
+            [clj-money.ingestion.image :as image]
             [clj-money.ingestion.ollama :as ollama])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
@@ -351,7 +352,7 @@
         result (try
                  (let [{:keys [status body]} (ollama/generate
                                                (ollama/request-body
-                                                 [(ollama/image-for-model image opts)]
+                                                 [(image/image-for-model image opts)]
                                                  prompt
                                                  schema
                                                  opts)

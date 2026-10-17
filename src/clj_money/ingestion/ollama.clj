@@ -1,77 +1,17 @@
 (ns clj-money.ingestion.ollama
-  (:require [clojure.java.io :as io]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [cheshire.core :as json]
             [cheshire.parse :as json-parse]
             [lambdaisland.uri :as uri]
             [clj-http.client :as http]
+            [clj-money.ingestion.image :refer [->base64
+                                               image-for-model
+                                               scale-image]]
             [clj-money.ingestion.receipts :as rcpts]
             [clj-money.ingestion.statements :as stmts]
-            [clj-money.ingestion :as ing])
-  (:import java.util.Base64
-           [java.awt Color RenderingHints]
-           java.awt.image.BufferedImage
-           [java.io ByteArrayInputStream ByteArrayOutputStream]
-           javax.imageio.ImageIO))
-
-(defn ->base64
-  [input]
-  (let [input (io/input-stream input)]
-    (.encodeToString (Base64/getEncoder)
-                     (.readAllBytes input))))
-
-(defn- read-bytes
-  ^bytes [input]
-  (with-open [in (io/input-stream input)]
-    (.readAllBytes in)))
-
-(defn- resize
-  ^BufferedImage [^BufferedImage image width height]
-  (let [width (int width)
-        height (int height)
-        resized (BufferedImage. width height BufferedImage/TYPE_INT_RGB)
-        g (.createGraphics resized)]
-    (try
-      (.setRenderingHint g
-                         RenderingHints/KEY_INTERPOLATION
-                         RenderingHints/VALUE_INTERPOLATION_BICUBIC)
-      ; fill first, so any transparency becomes white instead of black
-      (.setColor g Color/WHITE)
-      (.fillRect g 0 0 width height)
-      (.drawImage g image 0 0 width height nil)
-      resized
-      (finally
-        (.dispose g)))))
-
-(defn scale-image
-  "Scales the image down so that its longest side is no longer than
-  max-dimension, returning PNG bytes. The model's image token count grows
-  with the pixel count, so this keeps the prompt small. The bytes are
-  returned unchanged if the image is already small enough, or can't be
-  decoded as an image (e.g., a PDF)."
-  ^bytes [^bytes image max-dimension]
-  (if-let [decoded (ImageIO/read (ByteArrayInputStream. image))]
-    (let [width (.getWidth decoded)
-          height (.getHeight decoded)
-          scale (/ max-dimension (max width height))]
-      (if (< scale 1)
-        (let [out (ByteArrayOutputStream.)]
-          (ImageIO/write (resize decoded
-                                 (max 1 (Math/round (double (* scale width))))
-                                 (max 1 (Math/round (double (* scale height)))))
-                         "png"
-                         out)
-          (.toByteArray out))
-        image))
-    image))
-
-(defn image-for-model
-  "Returns the base64-encoded image, scaled down for the model"
-  [source {:keys [max-image-dimension]
-           :or {max-image-dimension 1280}}]
-  (->base64 (scale-image (read-bytes source) max-image-dimension)))
+            [clj-money.ingestion :as ing]))
 
 (defn- url
   [{:keys [host
@@ -168,15 +108,65 @@
       (handle-success-response body req-body)
       (handle-failure-response body source))))
 
-(defn- read-receipt*
-  [source entity {:keys [account-options] :as opts}]
-  {:pre [entity]}
+; A receipt read by OCR is sent as text to a text model, and one sent as an
+; image to the vision model
+(def receipt-defaults
+  {:model "qwen3:8b"
+   :vision-model "qwen2.5vl:7b"
+   ; with thinking on, the reasoning uses up the output tokens
+   :think false})
 
-  (let [req-body (request-body [(image-for-model source opts)]
-                               (rcpts/prompt entity)
-                               (rcpts/schema account-options)
-                               opts)]
-    (send-request req-body source opts)))
+(defn receipt-request-body
+  "Returns the body of a generate request asking the model to read the
+  receipt, given its contents: {:text \"...\"}, the text read by OCR (see
+  clj-money.ingestion.ocr), sent with the prompt to the text model, or
+  {:images [base64 ...]} (see clj-money.ingestion.image), sent to the vision
+  model."
+  [{:keys [text images]} entity {:keys [account-options vision-model] :as opts}]
+  (let [prompt (rcpts/prompt entity)
+        schema (rcpts/schema account-options)]
+    (cond
+      text
+      (request-body []
+                    (str prompt
+                         "\n\nThe text of the receipt, read from the image by OCR, follows.\n\n"
+                         text)
+                    schema
+                    opts)
+
+      images
+      (request-body images
+                    prompt
+                    schema
+                    (assoc opts :model vision-model))
+
+      :else
+      (throw (ex-info (str "The ollama reader must be given the contents of the receipt. "
+                           "Configure it under the :reader of a "
+                           ":clj-money.ingestion.ocr/ocr or "
+                           ":clj-money.ingestion.image/image reader.")
+                      {})))))
+
+(defn- receipt-contents
+  "Returns the contents of the receipt, accepting the image itself, as the
+  reader did before it was given the contents, so that a config without a
+  decorator keeps working"
+  [source opts]
+  (if (map? source)
+    source
+    (do
+      (log/warn (str "The ollama receipt reader was given an image. Configure it "
+                     "under the :reader of a :clj-money.ingestion.image/image reader."))
+      {:images [(image-for-model source opts)]})))
+
+(defn- read-receipt*
+  [source entity opts]
+  {:pre [entity]}
+  (let [opts (merge receipt-defaults opts)]
+    (send-request (receipt-request-body (receipt-contents source opts) entity opts)
+                  ; not the contents, which would put the receipt in the log
+                  :receipt
+                  opts)))
 
 ; A statement is much longer than a receipt, both the text read and the
 ; answer, and is better read as text than as images, which a text model

@@ -20,6 +20,10 @@ RUN mkdir resources/public/css && \
     lein do fig:prod, uberjar
 
 FROM docker.io/clojure:temurin-25-lein-bookworm-slim AS web
+# for the :clj-money.ingestion.ocr/ocr receipt reader
+RUN apt-get update && \
+    apt-get install --yes --no-install-recommends tesseract-ocr && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/clj-money
 COPY --from=build /usr/src/clj-money/target/clj-money.jar .
 # See the :jvm-opts comment in project.clj

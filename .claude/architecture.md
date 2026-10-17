@@ -178,6 +178,15 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   attributed to the innermost reader's provider and model; `::pdf/pdf`
   (statements only) is described below. Unwrapped readers aren't measured.
   `ingestion/ref.clj` requires every provider's namespace so the methods load
+- Ollama models are given a receipt's contents rather than the image, by one
+  of two receipt decorators (issue #208): `::ocr/ocr` (`ingestion/ocr.clj`)
+  runs the `tesseract` command (installed in the Dockerfile; `:command`,
+  `:language` and `:psm` are configurable) and gives `{:text ...}`, read
+  much faster by a text model (`qwen3:8b` by default); a PDF's own text is
+  used when it has some. `::image/image` (`ingestion/image.clj`, which holds
+  `scale-image`) gives `{:images [base64 ...]}`, for the `:vision-model`, as
+  the app did before. An undecorated Ollama receipt reader still accepts the
+  image, with a warning. `ollama/receipt-defaults` holds the models
 - `ingestion/ollama.clj` - the Ollama provider. `request-body` and `generate`
   are public so the evaluation harness sends exactly what the app sends
 - `ingestion/receipts.clj` - the prompt, the JSON schema (`account-options`
