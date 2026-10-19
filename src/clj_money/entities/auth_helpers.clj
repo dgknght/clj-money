@@ -2,7 +2,8 @@
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
-            [clj-money.entities.grants :as grants]))
+            [clj-money.entities.grants :as grants]
+            [clj-money.authorization :as-alias authorization]))
 
 (defmulti ^:private fetch-entity util/entity-type-dispatch)
 
@@ -90,13 +91,20 @@
   [{:lot-note/keys [lots]}]
   (fetch-entity (entities/find (first lots))))
 
+; A grant's permissions hold plain actions (see grants/actions)
+(def ^:private grant-actions
+  {::authorization/show :show
+   ::authorization/create :create
+   ::authorization/update :update
+   ::authorization/destroy :delete
+   ::authorization/recalculate :update})
+
 (defn user-granted-access?
   [resource entity user action]
   (when-let [g (entities/find-by #:grant{:user user
                                        :entity entity})]
-    (grants/has-permission? g
-                            (util/entity-type resource)
-                            action)))
+    (some->> (grant-actions action)
+             (grants/has-permission? g (util/entity-type resource)))))
 
 (defn owner-or-granted?
   [resource user action]

@@ -30,6 +30,18 @@
         #:attachment{:image "attachment.jpg"
                      :transaction [(t/local-date 2015 1 1) "Paycheck"]}))
 
+(def ^:private attachment-grant-context
+  (conj image-context
+        #:grant{:entity "Personal"
+                :user "jane@doe.com"
+                :permissions {:attachment #{:show}}}))
+
+(def ^:private transaction-grant-context
+  (conj image-context
+        #:grant{:entity "Personal"
+                :user "jane@doe.com"
+                :permissions {:transaction #{:show}}}))
+
 (defn- add-auth-cookie
   [req user]
   (if user
@@ -37,8 +49,8 @@
     req))
 
 (defn- get-image
-  [email]
-  (with-context image-context
+  [email & {:keys [context] :or {context image-context}}]
+  (with-context context
     (let [image (find-image "attachment.jpg")]
       (-> (req/request :get (path :app
                                   :images
@@ -67,6 +79,14 @@
 
 (deftest a-user-cannot-view-an-image-in-anothers-entity
   (assert-not-found (get-image "jane@doe.com")))
+
+(deftest a-user-granted-attachments-can-view-an-attached-image
+  (assert-successful-get (get-image "jane@doe.com"
+                                    :context attachment-grant-context)))
+
+(deftest a-grant-without-attachments-does-not-cover-an-attached-image
+  (assert-not-found (get-image "jane@doe.com"
+                               :context transaction-grant-context)))
 
 (deftest an-unauthenticated-user-cannot-view-an-image
   (assert-unauthorized (get-image nil)))

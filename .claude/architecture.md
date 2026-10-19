@@ -137,6 +137,16 @@ functions used throughout the codebase.
 resolves authorization chains — e.g. attachment → transaction → entity → user.
 `owner-or-granted?` performs the final ownership/grant check.
 
+`allowed?` gets namespaced actions (`::authorization/show`), but a grant's
+permissions hold plain ones (`:show`, see `grants/actions`).
+`user-granted-access?` maps one to the other; `::destroy` becomes `:delete`
+and `::recalculate` becomes `:update`. An action missing from that map is
+never granted.
+
+The `scope` rules still limit queries to the entity's owner, so a grant
+takes effect only where no scoped lookup comes before `allowed?`: creating
+things, and viewing images (see issue #218).
+
 Multi-hop chains call `fetch-entity` recursively. Add a dispatch for any new
 entity that requires `owner-or-granted?`.
 
@@ -277,9 +287,7 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
 - An image is shared with an entity by what refers to it, an attachment or a
   reconciliation's statement (`authorization/images.clj`), and a grant's
   permission for that kind of thing covers the image. `web/images.clj` finds
-  the image by id and leaves the decision to the authorization. Note that
-  grants don't match at all yet: `allowed?` gets namespaced actions
-  (`::authorization/show`) and a grant's permissions hold plain ones (`:show`)
+  the image by id and leaves the decision to the authorization
 - The statement-ingestion refers to its account but **not** to the
   reconciliation: the ref would give stowaway's join planner a second path
   from reconciliation to entity, as short as the one through the account, and

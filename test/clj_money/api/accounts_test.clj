@@ -87,6 +87,16 @@
   (with-context
     (assert-blocked-create (create-an-account "jane@doe.com"))))
 
+(def ^:private create-grant-context
+  (conj basic-context
+        #:grant{:entity "Personal"
+                :user "jane@doe.com"
+                :permissions {:account #{:create}}}))
+
+(deftest a-user-granted-account-creation-can-create-an-account-in-anothers-entity
+  (with-context create-grant-context
+    (assert-successful-create (create-an-account "jane@doe.com"))))
+
 (def list-context
   (filter #(or (not= :account (util/entity-type %))
                (= "Checking" (:account/name %)))
