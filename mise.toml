@@ -2,8 +2,8 @@
 java = "temurin-25.0.4+101.0.LTS"
 node = "24"
 leiningen = "2.11.2"
-clj-kondo = "2026.01.19"
-caddy = "2.11.4"
+clj-kondo = "v2026.08.04"
+caddy = "2.11.7"
 
 [tasks.lint]
 description = "Lint Clojure source"
