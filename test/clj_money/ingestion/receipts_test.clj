@@ -69,7 +69,9 @@
           "The expense account preamble is present")
       (is (every? #(str/includes? prompt %)
                   expense-hints)
-          "The entity's expense hints are included in the prompt"))))
+          "The entity's expense hints are included in the prompt")
+      (is (str/includes? prompt "single entry for the total")
+          "A receipt without items is read as a single item"))))
 
 (deftest construct-a-schema
   (is (comparable?
@@ -327,6 +329,25 @@
                                  :transaction-item/account))
                       first))
               "The specified expense account is used"))))))
+
+(deftest a-receipt-without-line-items-gets-one-for-the-total
+  (with-context ctx
+    (let [entity (find-entity "Personal")
+          [food discover] (find-accounts "Food" "Discover")]
+      (is (= #{#:transaction-item{:account (util/simplify food)
+                                  :action :debit
+                                  :quantity 34.67M}
+               #:transaction-item{:account (util/simplify discover)
+                                  :action :credit
+                                  :quantity 34.67M}}
+             (simplified-items
+               (rcpts/make-trx (assoc restaurant-receipt
+                                      :total 34.67M
+                                      :line-items [])
+                               entity
+                               :account-options {:payment-accounts ["Discover"]
+                                                 :expense-accounts ["Groceries/Food"]})))
+          "The total is debited to the first expense account, for the user to correct"))))
 
 (deftest a-payment-account-is-required
   (with-context ctx

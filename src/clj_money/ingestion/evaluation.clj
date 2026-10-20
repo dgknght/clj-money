@@ -17,6 +17,8 @@
                                    default-options]]
             [clj-money.ingestion.receipts :as rcpts]
             [clj-money.ingestion.text :refer [similarity]]
+            [clj-money.ingestion.base64 :as base64]
+            [clj-money.ingestion.scale :as scale]
             [clj-money.ingestion.ollama :as ollama])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
@@ -333,7 +335,7 @@
   "Loads the model with the given hardware settings, so the receipt runs
   don't include the load time. Returns the load time in seconds."
   [model hw-opts opts]
-  (let [{:keys [status body]} (ollama/generate
+  (let [{:keys [status body]} (ollama/post-request
                                 {:model model
                                  :prompt "Reply with OK."
                                  :stream false
@@ -346,12 +348,12 @@
      :load-s (seconds (:load_duration body))}))
 
 (defn- run-one
-  [{:keys [image expected]} prompt schema opts]
+  [{:keys [image expected]} prompt schema {:as opts :keys [max-image-dimension]}]
   (let [started (System/nanoTime)
         result (try
-                 (let [{:keys [status body]} (ollama/generate
+                 (let [{:keys [status body]} (ollama/post-request
                                                (ollama/request-body
-                                                 [(ollama/image-for-model image opts)]
+                                                 [(base64/encode (scale/shrink image max-image-dimension))]
                                                  prompt
                                                  schema
                                                  opts)

@@ -54,7 +54,7 @@
                               (.getName (class e))))
           (throw e))))))
 
-(defn observable-receipt-reader
+(defn- observable-receipt-reader
   "Decorates the receipt reader so that each call to the model is traced and
   its duration and token usage are exported as metrics. A reader reports
   token usage by attaching :clj-money.ingestion/usage metadata to the
@@ -70,7 +70,7 @@
     ing/Closeable
     (close [_] (ing/close reader))))
 
-(defn observable-statement-reader
+(defn- observable-statement-reader
   "Decorates the statement reader as observable-receipt-reader decorates a
   receipt reader"
   [reader config]
@@ -90,7 +90,7 @@
   [config]
   (->> config
        (iterate :reader)
-       (take-while some?)
+       (take-while map?)
        last))
 
 (defmethod ing/receipt-reader ::observable

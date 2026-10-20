@@ -18,18 +18,38 @@
   (read-statement [_ source entity opts]
     "Read an account statement. The source is the PDF or, for a reader that
     can't open a PDF, the PDF's contents: {:text \"...\"} or, for a PDF
-    with no text (e.g., one scanned from paper), {:page-images [png-bytes ...]}."))
+    with no text (e.g., one scanned from paper), the images of its pages,
+    {:page-images [png-bytes ...]} or, base64-encoded for a reader that's
+    sent them that way, {:images [base64 ...]}."))
 
 (defprotocol Closeable
   (close [_] "Release resources held by the instance."))
 
+(defn- provider
+  "Returns the provider in the config or, for a reader that's already been
+  created, ::reader"
+  [config]
+  (if (map? config)
+    (::provider config)
+    ::reader))
+
 (defmulti receipt-reader
-  "Returns a ReceiptReader (and Closeable) for the provider in the config"
-  ::provider)
+  "Returns a ReceiptReader (and Closeable) for the provider in the config.
+  Given a reader in place of a config, returns the reader."
+  provider)
 
 (defmulti statement-reader
-  "Returns a StatementReader (and Closeable) for the provider in the config"
-  ::provider)
+  "Returns a StatementReader (and Closeable) for the provider in the config.
+  Given a reader in place of a config, returns the reader."
+  provider)
+
+(defmethod receipt-reader ::reader
+  [reader]
+  reader)
+
+(defmethod statement-reader ::reader
+  [reader]
+  reader)
 
 (defmethod receipt-reader :default
   [{::keys [provider]}]

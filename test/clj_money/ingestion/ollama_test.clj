@@ -7,7 +7,7 @@
             [clj-money.ingestion :as ing]
             [clj-money.ingestion.ollama :as ollama])
   (:import java.awt.image.BufferedImage
-           [java.io ByteArrayInputStream ByteArrayOutputStream]
+           java.io.ByteArrayOutputStream
            javax.imageio.ImageIO))
 
 (def ^:private handle-success-response
@@ -42,48 +42,62 @@
                    out)
     (.toByteArray out)))
 
-(defn- dimensions
-  [image]
-  (let [decoded (ImageIO/read (ByteArrayInputStream. image))]
-    [(.getWidth decoded) (.getHeight decoded)]))
-
-(deftest a-large-image-is-scaled-down-for-the-model
-  (is (= [960 1280]
-         (dimensions (ollama/scale-image (image-bytes 1536 2048) 1280)))
-      "The longest side is scaled to the maximum, keeping the aspect ratio"))
-
-(deftest a-small-image-is-sent-unchanged
-  (let [image (image-bytes 800 600)]
-    (is (identical? image (ollama/scale-image image 1280)))))
-
-(deftest a-file-that-isnt-an-image-is-sent-unchanged
-  (let [pdf (.getBytes "%PDF-1.7")]
-    (is (identical? pdf (ollama/scale-image pdf 1280)))))
-
 (deftest output-tokens-are-limited-by-default
   (is (= 1500 (get-in (ollama/request-body ["image"] "prompt" {} {})
                       [:options :num_predict]))))
 
-(deftest the-account-options-constrain-the-response
-  (let [calls (atom [])
-        reader (ing/receipt-reader {::ing/provider ::ollama/ollama})]
+(defn- read-receipt
+  [source config]
+  (let [calls (atom [])]
     (with-redefs [http/post (fn [_url req]
                               (swap! calls conj req)
                               {:status 200
                                :body {:response "{\"total\": 38.97}"}})]
-      (ing/read-receipt reader
-                        (image-bytes 800 600)
+      (ing/read-receipt (ing/receipt-reader (assoc config
+                                                   ::ing/provider ::ollama/ollama))
+                        source
                         {:id 1}
                         {:account-options {:payment-accounts ["Discover"]
-                                           :expense-accounts ["Groceries"]}})
-      (let [schema (:format (json/parse-string (:body (first @calls)) true))]
-        (is (= ["Discover"]
-               (get-in schema [:properties :payment_account :enum]))
-            "The payment account is one of the payment account options")
-        (is (= ["Groceries"]
-               (get-in schema [:properties :line_items :items
-                               :properties :account :enum]))
-            "The line item account is one of the expense account options")))))
+                                           :expense-accounts ["Groceries"]}}))
+    (json/parse-string (:body (first @calls)) true)))
+
+(deftest the-account-options-constrain-the-response
+  (let [schema (:format (read-receipt {:text "SPROUTS"} {}))]
+    (is (= ["Discover"]
+           (get-in schema [:properties :payment_account :enum]))
+        "The payment account is one of the payment account options")
+    (is (= ["Groceries"]
+           (get-in schema [:properties :line_items :items
+                           :properties :account :enum]))
+        "The line item account is one of the expense account options")))
+
+(deftest the-text-of-a-receipt-is-sent-to-the-text-model
+  (let [body (read-receipt {:text "SPROUTS FARMERS MARKET\nTOTAL 38.97"} {})]
+    (is (re-find #"SPROUTS FARMERS MARKET" (:prompt body))
+        "The text of the receipt follows the prompt")
+    (is (nil? (:images body))
+        "No images are sent")
+    (is (= "qwen3:8b" (:model body))
+        "A text model is used by default")
+    (is (false? (:think body))
+        "Thinking is off, so it doesn't use up the output tokens")))
+
+(deftest the-images-of-a-receipt-are-sent-to-the-vision-model
+  (let [body (read-receipt {:images ["aW1hZ2U="]} {:vision-model "llava:7b"})]
+    (is (= ["aW1hZ2U="] (:images body))
+        "The images are sent")
+    (is (= "llava:7b" (:model body))
+        "The vision model is used")))
+
+(deftest a-receipt-itself-cant-be-read
+  ; it must be given the receipt's contents, see clj-money.ingestion.ocr and
+  ; clj-money.ingestion.base64
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"can't read a receipt"
+                        (ing/read-receipt (ing/receipt-reader {::ing/provider ::ollama/ollama})
+                                          (image-bytes 800 600)
+                                          {:id 1}
+                                          {}))))
 
 (def ^:private statement-text
   {:text "Prairie State Bank\n09/04 City Power & Light 134.22"})
@@ -121,10 +135,8 @@
         "The account options constrain the response")))
 
 (deftest a-scanned-statement-is-sent-as-images-to-the-vision-model
-  (let [body (read-statement {:page-images [(image-bytes 800 600)
-                                            (image-bytes 800 600)]}
-                             {})]
-    (is (= 2 (count (:images body)))
+  (let [body (read-statement {:images ["cGFnZSAx" "cGFnZSAy"]} {})]
+    (is (= ["cGFnZSAx" "cGFnZSAy"] (:images body))
         "Each page is sent as an image")
     (is (= "qwen2.5vl:7b" (:model body))
         "The vision model is used")))

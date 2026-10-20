@@ -1,6 +1,5 @@
 (ns clj-money.ingestion.pdf
-  "Reads the contents of PDF documents, for models that can't read a PDF
-  themselves"
+  "Converts PDF content into either text or PNG images"
   (:require [clojure.java.io :as io]
             [clj-money.ingestion :as ing])
   (:import [java.io ByteArrayOutputStream]
@@ -52,27 +51,29 @@
                 (.toByteArray out)))
             (range (.getNumberOfPages doc))))))
 
-(defn contents
-  "Returns the contents of the PDF, as a statement reader that can't open a
-  PDF reads them (see clj-money.ingestion/StatementReader)"
+(defn- contents
+  "Returns the contents of the given PDF as text if possible, otherwise as
+  PNG images."
   [input & {:keys [dpi]}]
-  (let [input (read-bytes input)] ; read twice when the pdf has no text
+  (let [input (read-bytes input)]
     (if-let [text (text input)]
       {:text text}
       {:page-images (page-images input :dpi dpi)})))
 
-(defn reader
-  "Decorates a statement reader that can't open a PDF, so that it's given the
-  PDF's contents (see contents) in place of the PDF"
-  [reader & {:keys [dpi] :or {dpi 200}}]
+(defn- reader
+  "Decorates the given reader such that PDF input is translated to text or images"
+  [reader {:keys [dpi] :or {dpi 200}}]
   (reify
     ing/StatementReader
     (read-statement [_ source entity opts]
-      (ing/read-statement reader (contents source :dpi dpi) entity opts))
+      (ing/read-statement reader
+                          (contents source :dpi dpi)
+                          entity
+                          opts))
     ing/Closeable
     (close [_] (ing/close reader))))
 
 (defmethod ing/statement-reader ::pdf
-  [{inner :reader :keys [dpi] :or {dpi 200}}]
+  [{inner :reader :as opts}]
   {:pre [inner]}
-  (reader (ing/statement-reader inner) :dpi dpi))
+  (reader (ing/statement-reader inner) opts))

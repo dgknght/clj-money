@@ -104,8 +104,10 @@
                                                    "  item, e.g., a \"You Pay\" column). Leave out lines with no price or a price"
               "  of 0.00 (e.g., toppings), and lines that are not purchases: subtotal, tax,"
               "  tip, total, amount, discounts, savings, and payment lines. If the receipt"
-              "  does not list what was purchased, return an empty list. Some receipts"
-              "  (e.g., for grocery stores) mark taxable items, often with a \"T\"."]]
+              "  does not list what was purchased (e.g., a credit card slip), return a"
+              "  single entry for the total, with the expense account that best fits the"
+              "  merchant. Some receipts (e.g., for grocery stores) mark taxable items,"
+              "  often with a \"T\"."]]
     (if (seq expense-hints)
       (str/join "\n"
                 (apply conj
@@ -207,23 +209,29 @@
                                 item
                                 (assoc item :account default-expense))))))))
 
+(defn- ensure-line-item
+  "Gives a receipt the model found no items on a single item for the total,
+  as the prompt asks the model to, so that the transaction can be made. Its
+  account is the default (see apply-default-accounts), for the user to
+  correct when reviewing the transaction."
+  [{:keys [line-items location-name total] :as receipt}]
+  (if (seq line-items)
+    receipt
+    (assoc receipt :line-items [{:description location-name
+                                 :amount total}])))
+
 (defn make-trx
   [receipt entity & {:keys [account-options]}]
-
-  (when-not (seq (:line-items receipt))
-    (throw (ex-info
-             "Unable to make a transaction without line items."
-             {:receipt receipt})))
-
   (let [accounts-by-path (accounts-by-path entity)
         {:keys [location-name
                 date
                 total
                 payment-account]
-         :as receipt} (apply-default-accounts receipt
-                                              entity
-                                              account-options
-                                              accounts-by-path)]
+         :as receipt} (-> receipt
+                          ensure-line-item
+                          (apply-default-accounts entity
+                                                  account-options
+                                                  accounts-by-path))]
     (when-not payment-account
       (throw (ex-info "Unable to tell which account paid for the receipt. Choose payment methods in the receipt settings."
                       {:receipt receipt})))

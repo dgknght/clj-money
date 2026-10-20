@@ -11,7 +11,8 @@
             [clj-money.db.ref]
             [clj-money.util :as util]
             [clj-money.ingestion :as ing]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            propagated]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
                                                request
@@ -55,14 +56,15 @@
   (reader #(throw (ex-info "The model is unavailable" {}))))
 
 (defn- await-completion
-  "Waits for the background read of the receipt-ingestion to finish, returning
-  the receipt-ingestion as it was last retrieved."
+  "Waits for the background read of the receipt-ingestion to finish, and for
+  the changes it made (e.g., the transaction's attachment count) to be
+  propagated, returning the receipt-ingestion as it was last retrieved."
   [{:keys [id]}]
   (loop [n 0]
     (let [ingestion (entities/find id)]
       (if (or (#{:complete :failed} (:receipt-ingestion/status ingestion))
               (<= 50 n))
-        ingestion
+        (propagated ingestion)
         (do (Thread/sleep 100)
             (recur (inc n)))))))
 

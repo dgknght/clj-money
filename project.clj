@@ -229,7 +229,12 @@
                               (constantly true)]
                    :api [(fn [n & _]
                            (re-find #"^clj-money\.api\." (name n)))
-                         (constantly true)]}
+                         (constantly true)]
+                   :like [(fn [n & [p]]
+                            {:pre [p]}
+                            (let [ptrn (re-pattern (name p))]
+                              (re-find ptrn (name n))))
+                          (constantly true)]}
   :cloverage {:line-fail-threshold 90
               :form-fail-threshold 80
               :low-watermark 93

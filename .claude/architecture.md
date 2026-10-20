@@ -188,7 +188,29 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   attributed to the innermost reader's provider and model; `::pdf/pdf`
   (statements only) is described below. Unwrapped readers aren't measured.
   `ingestion/ref.clj` requires every provider's namespace so the methods load
-- `ingestion/ollama.clj` - the Ollama provider. `request-body` and `generate`
+- Ollama models are given a receipt's contents rather than the image, by one
+  of two receipt decorators (issue #208): `::ocr/ocr` (`ingestion/ocr.clj`)
+  runs the `tesseract` command (installed in the Dockerfile; `:command`,
+  `:language` and `:psm` are configurable) with Sauvola thresholding, first
+  enlarging an image smaller than `:min-image-dimension` (3000, via
+  `scale/enlarge`), and gives `{:text ...}`, read
+  much faster by a text model (`qwen3:8b` by default); a PDF's own text is
+  used when it has some. Given a `:fallback` reader config (typically
+  `scale` → `base64` → `ollama`), `ocr` sends it the image when no text is
+  read or the total the model read isn't among the amounts in the text
+  (e.g., a handwritten total OCR misread), so the slow vision model only
+  reads what OCR can't. `::base64/base64` (`ingestion/base64.clj`) gives
+  `{:images [base64 ...]}`, for the `:vision-model`, encoding the image as it
+  is; configure it under `::scale/scale` (`ingestion/scale.clj`, which holds
+  `scale-image`, `:max-image-dimension` 1280 by default) to send the image
+  scaled down. `ollama.clj` knows nothing of images beyond sending the
+  base64 it's given, and refuses a receipt or PDF itself. Configure
+  `::orient/orient` (`ingestion/orient.clj`) outside either, to turn a
+  phone photo upright as its EXIF orientation tag says (read from the JPEG
+  header by hand, without an EXIF library); neither Tesseract nor `ImageIO`
+  applies the tag, so a sideways photo reads as nothing.
+  `ollama/receipt-defaults` holds the models
+- `ingestion/ollama.clj` - the Ollama provider. `request-body` and `post-request`
   are public so the evaluation harness sends exactly what the app sends
 - `ingestion/receipts.clj` - the prompt, the JSON schema (`account-options`
   looks up the entity's accounts; `schema` takes those options, and each
@@ -248,8 +270,13 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   PDFBox; neither knows of the other), which gives it the PDF's contents in place of the PDF: `{:text ...}`, sent
   with the prompt to a text model (`qwen3:8b` by default), or, for a PDF with
   too little text to have been anything but scanned, `{:page-images [...]}`
-  for the `:vision-model`. `ollama/statement-defaults` holds the larger
-  context and output limits a statement needs
+  (PNG bytes). `::scale/scale` and `::base64/base64` also decorate statement
+  readers, scaling the page images and turning them into the
+  `{:images [base64 ...]}` the Ollama reader sends to the `:vision-model`;
+  both pass `{:text ...}` on as it is. So the Ollama chain for statements is
+  `pdf` → `scale` (`:max-image-dimension 1600`) → `image` → `ollama`.
+  `ollama/statement-defaults` holds the larger context and output limits a
+  statement needs
 - `ingestion/statements.clj`:
   - `account-options`: the asset and liability paths the account is chosen
     from (left out when the user gave the account), and the leaf paths of
