@@ -6,5 +6,5 @@
   (contains? (:user/roles user) :admin))
 
 (defmethod authorization/scope :invitation
-  [_ _]
+  [_ _ _]
   {})

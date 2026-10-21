@@ -56,7 +56,7 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (+scope :account authenticated)
+          (+scope :account authenticated ::auth/manage)
           entities/find-by
           (authorize action authenticated)))
 

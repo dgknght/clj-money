@@ -7,5 +7,5 @@
   (entity= user (:import/user imp)))
 
 (defmethod authorization/scope :import
-  [_ user]
+  [_ user _action]
   {:import/user user})

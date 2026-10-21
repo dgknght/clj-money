@@ -65,7 +65,7 @@
   [{:keys [params authenticated]} action]
   (when-let [attachment (entities/find-by (-> params
                                             (select-keys [:id])
-                                            (+scope :attachment authenticated)))]
+                                            (+scope :attachment authenticated ::auth/manage)))]
     (authorize
      attachment
      action

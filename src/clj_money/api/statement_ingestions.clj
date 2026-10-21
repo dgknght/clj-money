@@ -49,7 +49,7 @@
   [{:keys [params authenticated]}]
   (or (some-> params
               (select-keys [:id])
-              (+scope :statement-ingestion authenticated)
+              (+scope :statement-ingestion authenticated ::auth/manage)
               entities/find-by
               (authorize ::auth/show authenticated)
               api/response)

@@ -70,7 +70,7 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (+scope :receipt-ingestion authenticated)
+          (+scope :receipt-ingestion authenticated ::auth/manage)
           entities/find-by
           (authorize action authenticated)))
 

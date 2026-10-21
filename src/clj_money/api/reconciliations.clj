@@ -136,7 +136,7 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (+scope :reconciliation authenticated)
+          (+scope :reconciliation authenticated ::auth/manage)
           entities/find-by
           (authorize action authenticated)))
 

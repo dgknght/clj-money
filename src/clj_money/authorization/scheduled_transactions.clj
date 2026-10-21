@@ -1,7 +1,7 @@
 (ns clj-money.authorization.scheduled-transactions
-  (:require [clj-money.util :as util]
-            [clj-money.authorization :as authorization]
-            [clj-money.entities.auth-helpers :refer [owner-or-granted?]]))
+  (:require [clj-money.authorization :as authorization]
+            [clj-money.entities.auth-helpers :refer [owner-or-granted?
+                                                     entity-scope]]))
 
 (derive ::realize ::authorization/manage)
 
@@ -10,5 +10,5 @@
   (owner-or-granted? transaction user action))
 
 (defmethod authorization/scope :scheduled-transaction
-  [_ user]
-  (util/entity-type {:entity/user user} :scheduled-transaction))
+  [_ user action]
+  (entity-scope :scheduled-transaction :scheduled-transaction/entity user action))

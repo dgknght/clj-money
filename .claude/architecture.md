@@ -141,11 +141,25 @@ resolves authorization chains — e.g. attachment → transaction → entity →
 permissions hold plain ones (`:show`, see `grants/actions`).
 `user-granted-access?` maps one to the other; `::destroy` becomes `:delete`
 and `::recalculate` becomes `:update`. An action missing from that map is
-never granted.
+never granted. Resource types that aren't in `grants/resource-types` take
+the permissions of the type they belong to (`grant-resource-types`, e.g. a
+lot or trade takes `:account`'s, and a transaction item or scheduled
+transaction takes `:transaction`'s).
 
-The `scope` rules still limit queries to the entity's owner, so a grant
-takes effect only where no scoped lookup comes before `allowed?`: creating
-things, and viewing images (see issue #218).
+`scope` takes an action. With `::authorization/index`, the default for
+`+scope`, it limits a query to the entities the user owns, plus those the
+user holds an `:index` grant on for the resource type. Lists use this.
+With `::authorization/manage`, any permission on the type will do. Use it
+for a lookup by id that goes on to `authorize`, which then checks the action
+itself. Never pass `::manage` to a lookup that skips `authorize`. Each
+`scope` method calls `auth-helpers/entity-scope` with the attribute that
+reaches the entity, e.g. `:transaction/entity` for an attachment, which
+joins through the transaction. A user without any entities gets the old
+owner-only criteria, because SQL can't query `IN ()`.
+
+`authorize` throws `::authorization/not-found` when the user can't see the
+resource, and `::authorization/forbidden` when the user can see it but not
+take the action. `middleware/handle-exception` returns 404 and 403 for these.
 
 Multi-hop chains call `fetch-entity` recursively. Add a dispatch for any new
 entity that requires `owner-or-granted?`.

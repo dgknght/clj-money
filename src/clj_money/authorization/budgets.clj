@@ -1,13 +1,12 @@
 (ns clj-money.authorization.budgets
-  (:require [clj-money.util :as util]
-            [clj-money.authorization :as authorization]
-            [clj-money.entities.auth-helpers :refer [owner-or-granted?]]))
+  (:require [clj-money.authorization :as authorization]
+            [clj-money.entities.auth-helpers :refer [owner-or-granted?
+                                                     entity-scope]]))
 
 (defmethod authorization/allowed? [:budget ::authorization/manage]
   [budget action user]
   (owner-or-granted? budget user action))
 
 (defmethod authorization/scope :budget
-  [_ user]
-  (util/entity-type {:entity/user user}
-                   :budget))
+  [_ user action]
+  (entity-scope :budget :budget/entity user action))

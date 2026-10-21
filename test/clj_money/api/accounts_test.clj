@@ -141,6 +141,31 @@
   (with-context list-context
     (assert-blocked-list (get-a-list "jane@doe.com"))))
 
+(defn- grant
+  [context permissions]
+  (concat context
+          [#:grant{:entity "Personal"
+                   :user "jane@doe.com"
+                   :permissions permissions}]))
+
+(def ^:private list-grant-context
+  (grant list-context {:account #{:index}}))
+
+(deftest a-user-granted-account-listing-can-get-a-list-of-accounts-in-anothers-entity
+  (with-context list-grant-context
+    (let [res (get-a-list "jane@doe.com")]
+      (is (http-success? res))
+      (is (seq-of-maps-like? [#:account{:name "Checking"}]
+                             (:parsed-body res))
+          "The accounts are returned in the response"))))
+
+(def ^:private show-grant-list-context
+  (grant list-context {:account #{:show}}))
+
+(deftest a-user-granted-only-account-viewing-cannot-get-a-list-of-accounts-in-anothers-entity
+  (with-context show-grant-list-context
+    (assert-blocked-list (get-a-list "jane@doe.com"))))
+
 (deftest a-user-can-get-a-list-of-accounts-by-name
   (with-context
     (let [res (-> (request :get (str (path :api
@@ -199,15 +224,19 @@
       (is (= #{"Rent" "Tax" "Dining"}
              (set (map :account/name (:parsed-body res))))))))
 
+(defn- fetch-an-account
+  [email]
+  (-> (request :get (path :api
+                          :accounts
+                          (:id (find-account "Checking")))
+               :user (find-user email))
+      app
+      parse-body))
+
 (defn- get-an-account
   [email]
   (with-context
-    (-> (request :get (path :api
-                            :accounts
-                            (:id (find-account "Checking")))
-                 :user (find-user email))
-        app
-        parse-body)))
+    (fetch-an-account email)))
 
 (defn- assert-successful-get
   [{:keys [parsed-body] :as response}]
@@ -226,6 +255,20 @@
 
 (deftest a-user-cannot-get-an-account-in-anothers-entity
   (assert-blocked-get (get-an-account "jane@doe.com")))
+
+(def ^:private show-grant-context
+  (grant basic-context {:account #{:show}}))
+
+(deftest a-user-granted-account-viewing-can-get-an-account-in-anothers-entity
+  (with-context show-grant-context
+    (assert-successful-get (fetch-an-account "jane@doe.com"))))
+
+(def ^:private list-grant-get-context
+  (grant basic-context {:account #{:index}}))
+
+(deftest a-user-granted-only-account-listing-cannot-get-an-account-in-anothers-entity
+  (with-context list-grant-get-context
+    (assert-blocked-get (fetch-an-account "jane@doe.com"))))
 
 (defn- update-an-account
   [email & {:keys [content-type body]
@@ -286,6 +329,21 @@
   (with-context
     (assert-blocked-update (update-an-account "jane@doe.com"))))
 
+(def ^:private update-grant-context
+  (grant basic-context {:account #{:update}}))
+
+(deftest a-user-granted-account-updates-can-update-an-account-in-anothers-entity
+  (with-context update-grant-context
+    (assert-successful-update (update-an-account "jane@doe.com"))))
+
+(deftest a-user-granted-only-account-viewing-cannot-update-an-account-in-anothers-entity
+  (with-context show-grant-context
+    (let [[response retrieved] (update-an-account "jane@doe.com")]
+      (is (http-forbidden? response))
+      (is (comparable? {:account/name "Checking"}
+                       retrieved)
+          "The retrieved value does not reflect an update."))))
+
 (deftest a-user-can-hide-an-account-in-his-entity
   (with-context
     (assert-successful-update
@@ -297,17 +355,21 @@
       :expected {:account/hidden true}
       :expected-response {:account/hidden true})))
 
+(defn- delete-the-account
+  [email]
+  (let [account (find-account "Checking")
+        response (-> (request :delete (path :api
+                                            :accounts
+                                            (:id account))
+                              :user (find-user email))
+                     app)
+        retrieved (entities/find account)]
+    [response retrieved]))
+
 (defn- delete-an-account
   [email]
   (with-context
-    (let [account (find-account "Checking")
-          response (-> (request :delete (path :api
-                                              :accounts
-                                              (:id account))
-                                :user (find-user email))
-                       app)
-          retrieved (entities/find account)]
-      [response retrieved])))
+    (delete-the-account email)))
 
 (defn- assert-successful-delete
   [[response retrieved]]
@@ -326,6 +388,13 @@
 
 (deftest a-user-cannot-delete-an-account-in-anothers-entity
   (assert-blocked-delete (delete-an-account "jane@doe.com")))
+
+(def ^:private delete-grant-context
+  (grant basic-context {:account #{:delete}}))
+
+(deftest a-user-granted-account-deletion-can-delete-an-account-in-anothers-entity
+  (with-context delete-grant-context
+    (assert-successful-delete (delete-the-account "jane@doe.com"))))
 
 (defn- recalculate-an-account
   [email]

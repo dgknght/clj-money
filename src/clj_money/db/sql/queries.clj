@@ -19,7 +19,7 @@
                                 columns])))))
          (into {}))
     ; Explicit JOIN for array-based relationships
-    {[:lot :lot-note] [[:id [:any :lot-note/lot-ids]]]}))
+    {[:lot :lot-note] [[:id [:any :lot-note/lot_ids]]]}))
 
 (def ^:private relationships
   (->> (schema/build :sql)

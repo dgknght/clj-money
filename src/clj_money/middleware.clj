@@ -75,11 +75,9 @@
         :validation
         (:type data)))))
 
-(defmethod handle-exception ::authorization/unauthorized
-  [e _]
-  (if (authorization/opaque? (ex-data e))
-    api/not-found
-    api/forbidden))
+(defmethod handle-exception ::authorization/forbidden
+  [_ _]
+  api/forbidden)
 
 (defmethod handle-exception ::authorization/not-found
   [_ _]

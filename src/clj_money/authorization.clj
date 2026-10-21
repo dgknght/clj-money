@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.util :as util]))
 
+(derive ::index ::manage)
 (derive ::create ::manage)
 (derive ::show ::manage)
 (derive ::update ::manage)
@@ -22,10 +23,6 @@
    #(allow? % action user))
   ([entity action user]
    (allowed? entity action user)))
-
-(defn opaque?
-  [error]
-  (::opaque? (ex-data error)))
 
 (defn- auth-error
   [entity action opaque?]
@@ -53,18 +50,25 @@
 (defmulti scope
   "Returns a criteria structure limiting the scope
   of a query to that to which the specified user
-  has access."
+  has access for the action: ::index to list resources,
+  or ::manage to look one up for authorize to check
+  the action taken on it."
   (fn
-    [entity-type _user]
+    [entity-type _user _action]
     entity-type))
 
 (defn +scope
+  "Limits the criteria to what the user can list, or, given
+  ::manage as the action, to what the user may hold any
+  permission on, for a lookup that authorize checks next"
   ([criteria user]
    (+scope criteria (util/entity-type criteria) user))
   ([criteria entity-type user]
-   {:pre [entity-type user]}
+   (+scope criteria entity-type user ::index))
+  ([criteria entity-type user action]
+   {:pre [entity-type user action]}
 
-   (if-let [s (scope entity-type user)]
+   (if-let [s (scope entity-type user action)]
      (if (empty? criteria)
        (cond-> s (empty? s) (util/entity-type entity-type))
        (vary-meta [:and criteria s]

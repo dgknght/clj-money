@@ -29,5 +29,5 @@
             sharing-refs)))
 
 (defmethod authorization/scope :image
-  [_ user]
+  [_ user _action]
   {:image/user user})

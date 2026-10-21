@@ -50,7 +50,7 @@
   [{:keys [params authenticated]} action]
   (-> params
       (select-keys [:id])
-      (+scope :commodity authenticated)
+      (+scope :commodity authenticated ::authorization/manage)
       entities/find-by
       (authorize action authenticated)))
 

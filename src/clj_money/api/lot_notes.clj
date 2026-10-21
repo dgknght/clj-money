@@ -51,7 +51,7 @@
   (when-let [note (entities/find-by
                     (-> params
                         (select-keys [:id])
-                        (+scope :lot-note authenticated)))]
+                        (+scope :lot-note authenticated ::auth/manage)))]
     (authorize note action authenticated)))
 
 (defn- delete

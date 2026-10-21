@@ -47,7 +47,7 @@
   (some-> params
           (select-keys [:id])
           (util/entity-type :entity)
-          (+scope :entity authenticated)
+          (+scope :entity authenticated ::authorization/manage)
           entities/find-by
           (authorize action authenticated)))
 

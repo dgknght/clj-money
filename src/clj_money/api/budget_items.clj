@@ -40,7 +40,8 @@
                       (+scope (util/entity-type {:id (:budget-id params)}
                                                :budget)
                               :budget
-                              authenticated))
+                              authenticated
+                              ::auth/manage))
                     ::auth/update
                     authenticated)]
     (-> req
@@ -55,7 +56,8 @@
   (entities/find-by (+scope (util/entity-type {:id (:id params)}
                                            :budget-item)
                           :budget-item
-                          authenticated)))
+                          authenticated
+                          ::auth/manage)))
 
 (defn- update
   [{:as req :keys [authenticated]}]

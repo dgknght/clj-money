@@ -78,7 +78,7 @@
   (some-> path-params
           (select-keys [:id])
           (update-in [:id] unserialize-id)
-          (+scope :transaction authenticated)
+          (+scope :transaction authenticated ::authorization/manage)
           entities/find-by
           (authorize action authenticated)))
 

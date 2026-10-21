@@ -54,7 +54,7 @@
   [{:keys [params authenticated]} action]
   (when-let [budget (-> params
                         (select-keys [:id])
-                        (+scope :budget authenticated)
+                        (+scope :budget authenticated ::auth/manage)
                         (entities/find-by {:include #{:budget/items}}))]
     (authorize budget action authenticated)))
 

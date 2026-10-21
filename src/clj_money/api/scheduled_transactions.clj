@@ -97,7 +97,7 @@
   [{:keys [params authenticated]} action]
   (-> params
       (select-keys [:id])
-      (+scope :scheduled-transaction authenticated)
+      (+scope :scheduled-transaction authenticated ::authorization/manage)
       entities/find-by
       (authorize action authenticated)))
 
