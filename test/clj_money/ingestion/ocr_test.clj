@@ -80,12 +80,6 @@
     (is (= 2 (count @calls))
         "Each page is read")))
 
-(deftest a-receipt-without-text-cant-be-read
-  (with-redefs [shell/sh (tesseract (atom []) :out " \n")]
-    (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                          #"No text could be read"
-                          (read-text receipt)))))
-
 (deftest a-tesseract-failure-is-explained
   (with-redefs [shell/sh (tesseract (atom []) :exit 1 :out "" :err "Error opening data file\n")]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo
@@ -99,13 +93,10 @@
                           (read-text receipt)))))
 
 (deftest a-receipt-reader-can-be-given-the-text-of-the-receipt
-  (let [{:keys [result]
-         {[[contents _ opts]] :read-receipt
+  (let [{{[[contents _ opts]] :read-receipt
           :keys [close]} :calls}
         (with-redefs [shell/sh (tesseract (atom []))]
           (read-receipt receipt :provider ::ocr/ocr :model "m"))]
-    (is (= ::hlp/result result)
-        "The inner reader result is returned")
     (is (= {:text "SPROUTS\nTOTAL 38.97\n"} contents)
         "The inner reader is given the text")
     (is (= "m" (:model opts))
@@ -113,56 +104,41 @@
     (is (= 1 close)
         "The inner reader is closed")))
 
-(defn- read-with-fallback
+(defn- read-with-result
   "Reads the receipt with an OCR reader whose inner reader returns the
-  result, given the text tesseract reads, and that falls back to another
-  reader. Returns the result and the calls to each reader."
+  result, given the text tesseract reads. Returns the result and the calls
+  to the inner reader."
   [text result]
   (let [inner (hlp/inspectable-reader :result result)
-        fallback (hlp/inspectable-reader :result ::fallback-result)
         reader (ing/receipt-reader {::ing/provider ::ocr/ocr
-                                    :reader inner
-                                    :fallback fallback})
+                                    :reader inner})
         result (with-redefs [shell/sh (tesseract (atom []) :out text)]
-                 (ing/read-receipt reader receipt {} {:model "m"}))]
+                 (ing/read-receipt reader receipt {} {}))]
     (ing/close reader)
     {:result result
-     :inner (hlp/calls inner)
-     :fallback (hlp/calls fallback)}))
+     :inner (hlp/calls inner)}))
 
-(deftest a-total-in-the-text-is-read-without-the-fallback
-  (let [{:keys [result fallback]} (read-with-fallback "TOTAL $38. 97\n"
-                                                      {:total 38.97M})]
-    (is (= {:total 38.97M} result)
-        "The inner reader result is returned")
-    (is (empty? (:read-receipt fallback))
-        "The fallback reader isn't used")
-    (is (= 1 (:close fallback))
-        "The fallback reader is closed")))
+(deftest a-total-in-the-text-is-returned
+  (let [{:keys [result]} (read-with-result "TOTAL $38. 97\n"
+                                           {:total 38.97M})]
+    (is (= {:total 38.97M} result))))
 
 (deftest a-total-with-a-thousands-separator-is-found-in-the-text
-  (let [{:keys [result]} (read-with-fallback "TOTAL 1,234.50\n"
-                                             {:total 1234.5M})]
+  (let [{:keys [result]} (read-with-result "TOTAL 1,234.50\n"
+                                           {:total 1234.5M})]
     (is (= {:total 1234.5M} result))))
 
-(deftest a-total-not-in-the-text-is-read-by-the-fallback
-  (let [{:keys [result inner]
-         {[[image _ opts]] :read-receipt} :fallback}
-        (read-with-fallback "Amount: $28.67\n= Total 34 OF\n"
-                            {:total 6.70M})]
-    (is (= ::fallback-result result)
-        "The fallback reader result is returned")
+(deftest a-total-not-in-the-text-isnt-returned
+  (let [{:keys [result inner]} (read-with-result "Amount: $28.67\n= Total 34 OF\n"
+                                                 {:total 6.70M})]
+    (is (nil? result)
+        "Nothing is returned")
     (is (= 1 (count (:read-receipt inner)))
-        "The inner reader reads the text first")
-    (is (= (seq (.readAllBytes (io/input-stream receipt)))
-           (seq image))
-        "The fallback reader is given the image")
-    (is (= "m" (:model opts))
-        "The options are passed to the fallback reader")))
+        "The inner reader reads the text")))
 
-(deftest a-receipt-without-text-is-read-by-the-fallback
-  (let [{:keys [result inner]} (read-with-fallback " \n" {:total 1M})]
-    (is (= ::fallback-result result)
-        "The fallback reader result is returned")
+(deftest a-receipt-without-text-isnt-read
+  (let [{:keys [result inner]} (read-with-result " \n" {:total 1M})]
+    (is (nil? result)
+        "Nothing is returned")
     (is (empty? (:read-receipt inner))
         "The inner reader isn't given blank text")))

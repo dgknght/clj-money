@@ -209,11 +209,16 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   enlarging an image smaller than `:min-image-dimension` (3000, via
   `scale/enlarge`), and gives `{:text ...}`, read
   much faster by a text model (`qwen3:8b` by default); a PDF's own text is
-  used when it has some. Given a `:fallback` reader config (typically
-  `scale` → `base64` → `ollama`), `ocr` sends it the image when no text is
-  read or the total the model read isn't among the amounts in the text
-  (e.g., a handwritten total OCR misread), so the slow vision model only
-  reads what OCR can't. `::base64/base64` (`ingestion/base64.clj`) gives
+  used when it has some. `ocr` returns nil when no text is read or the
+  total the model read isn't among the amounts in the text (e.g., a
+  handwritten total OCR misread), so configure it as the first of the
+  `:alternatives` of a `::logic/or` reader (`ingestion/logic.clj`, issue
+  #222), followed by `scale` → `base64`, so the slow vision model only reads
+  what OCR can't. `::logic/or` reads the receipt into memory and tries each
+  alternative in turn, returning the first non-nil result (and throwing if
+  there's none); its `:reader` (e.g., `ollama`) is created once and put
+  under the `:reader` of each alternative's innermost decorator.
+  `::base64/base64` (`ingestion/base64.clj`) gives
   `{:images [base64 ...]}`, for the `:vision-model`, encoding the image as it
   is; configure it under `::scale/scale` (`ingestion/scale.clj`, which holds
   `scale-image`, `:max-image-dimension` 1280 by default) to send the image

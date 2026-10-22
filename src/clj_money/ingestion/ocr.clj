@@ -2,8 +2,9 @@
   "Reads the text of receipts with Tesseract OCR, so that a model is given
   the text in place of the image, which is much faster to read. OCR can't
   read everything a model reading the image can, like a handwritten tip, so
-  a receipt whose text can't be read, or that the model can't find the total
-  in, can be read by a fallback reader instead."
+  nil is returned for a receipt whose text can't be read, or that the model
+  can't find the total in, so that another reader can read the image instead
+  (see clj-money.ingestion.logic)."
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
             [clojure.string :as str]
@@ -88,47 +89,38 @@
                 (some #(== total %) (amounts text)))))
 
 (defn- read-text
-  "Reads the receipt with the reader, given its text, falling back to the
-  fallback reader, given the image, if there's no text or the total read
-  isn't in it"
-  [reader fallback content entity opts read-opts]
+  "Reads the receipt with the reader, given its text. Returns nil if there's
+  no text or the total read isn't in it, so that a reader that can read what
+  OCR can't (see clj-money.ingestion.logic) can read it instead."
+  [reader content entity opts read-opts]
   (let [text (text content opts)]
     (if (str/blank? text)
-      (if fallback
-        (do (log/info "No text could be read from the receipt. Reading it with the fallback reader.")
-            (ing/read-receipt fallback content entity read-opts))
-        (throw (ex-info "No text could be read from the receipt." {})))
+      (log/info "No text could be read from the receipt.")
       (let [result (ing/read-receipt reader {:text text} entity read-opts)]
-        (if (and fallback
-                 (not (total-in-text? result text)))
-          (do (log/infof "The total read, %s, isn't in the text of the receipt. Reading it with the fallback reader."
-                         (:total result))
-              (ing/read-receipt fallback content entity read-opts))
-          result)))))
+        (if (total-in-text? result text)
+          result
+          (log/infof "The total read, %s, isn't in the text of the receipt."
+                     (:total result)))))))
 
 (defn- reader
   "Decorates a receipt reader that can read text, so that it's given
-  {:text \"...\"}, the text of the receipt, in place of the image. Given a
-  fallback reader, the image is read by it instead when no text can be read
-  from it or the total read isn't in the text."
-  [reader fallback opts]
+  {:text \"...\"}, the text of the receipt, in place of the image. Returns
+  nil when no text can be read from the image or the total read isn't in
+  the text."
+  [reader opts]
   (reify
     ing/ReceiptReader
     (read-receipt [_ source entity read-opts]
       (read-text reader
-                 fallback
                  (read-bytes source)
                  entity
                  opts
                  read-opts))
     ing/Closeable
-    (close [_]
-      (ing/close reader)
-      (some-> fallback ing/close))))
+    (close [_] (ing/close reader))))
 
 (defmethod ing/receipt-reader ::ocr
-  [{inner :reader :keys [fallback] :as config}]
+  [{inner :reader :as config}]
   {:pre [inner]}
   (reader (ing/receipt-reader inner)
-          (some-> fallback ing/receipt-reader)
           (select-keys config [:command :language :psm :min-image-dimension])))
