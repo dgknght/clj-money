@@ -40,3 +40,9 @@
                    car/rpush (track :rpush calls#)
                    car/lpush (track :rpush calls#)]
        (f# calls#))))
+
+(defn reset
+  [config]
+  (fn [f]
+    (car/wcar config (car/flushdb))
+    (f)))
