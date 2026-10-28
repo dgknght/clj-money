@@ -40,7 +40,6 @@
     :attachment            '[?x :attachment/image ?attachment-image]
     :budget                '[?x :budget/start-date ?budget-start-date]
     :budget-item           '[?x :budget-item/periods ?budget-item-periods]
-    :cached-price          '[?x :cached-price/trade-date ?cached-price-trade-date]
     :commodity             '[?x :commodity/symbol ?commodity-symbol]
     :entity                '[?x :entity/name ?entity-name]
     :grant                 '[?x :grant/user ?grant-user]

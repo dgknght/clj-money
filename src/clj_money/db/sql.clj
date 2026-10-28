@@ -494,7 +494,7 @@
   [ds]
   (jdbc/execute!
     ds
-    ["delete from lot_note; delete from cached_price; delete from transaction_item; delete from \"user\" cascade"]))
+    ["delete from lot_note; delete from transaction_item; delete from \"user\" cascade"]))
 
 (defn- ->pool
   "Creates a connection pool for the given database config. Settings for

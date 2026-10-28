@@ -268,15 +268,6 @@
                     :refs #{:account
                             {:id :statement
                              :type :image}}}
-   :cached-price {:primary-key [:trade-date :id]
-                  :fields #{{:id :trade-date
-                             :type :date}
-                            {:id :symbol
-                             :type :string}
-                            {:id :exchange
-                             :type :keyword}
-                            {:id :value
-                             :type :decimal}}}
    :invitation {:fields #{{:id :recipient
                            :type :string}
                           {:id :note

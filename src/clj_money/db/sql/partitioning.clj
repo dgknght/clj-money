@@ -39,9 +39,7 @@
 
 (def ^:private tables
   {:price {:interval-type :year
-           :interval-count 1}
-   :cached_price {:interval-type :year
-                  :interval-count 1}})
+           :interval-count 1}})
 
 (defmulti ^:private period-range :interval-type)
 
