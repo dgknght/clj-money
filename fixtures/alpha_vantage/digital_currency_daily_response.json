@@ -1,0 +1,27 @@
+{
+    "Meta Data": {
+        "1. Information": "Daily Prices and Volumes for Digital Currency",
+        "2. Digital Currency Code": "BTC",
+        "3. Digital Currency Name": "Bitcoin",
+        "4. Market Code": "USD",
+        "5. Market Name": "United States Dollar",
+        "6. Last Refreshed": "2026-10-28 00:00:00",
+        "7. Time Zone": "UTC"
+    },
+    "Time Series (Digital Currency Daily)": {
+        "2026-10-28": {
+            "1. open": "72574.88000000",
+            "2. high": "72574.88000000",
+            "3. low": "72397.65000000",
+            "4. close": "72481.37000000",
+            "5. volume": "2.88367635"
+        },
+        "2026-10-27": {
+            "1. open": "71590.04000000",
+            "2. high": "72939.61000000",
+            "3. low": "71160.11000000",
+            "4. close": "72599.12000000",
+            "5. volume": "164.25460881"
+        }
+    }
+}

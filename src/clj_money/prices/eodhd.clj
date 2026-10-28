@@ -16,15 +16,20 @@
    :amex "US"
    :otc "US"})
 
+(def ^:private market "USD")
+
+(defn- ticker
+  [{sym :commodity/symbol :commodity/keys [exchange type]}]
+  (if (= :currency type)
+    (format "%s-%s.CC" sym market)
+    (format "%s.%s" sym (exchange-codes exchange "US"))))
+
 (defn- api-uri
-  [{sym :commodity/symbol :commodity/keys [exchange]}
-   {:keys [api-key date]}]
+  [commodity {:keys [api-key date]}]
   (-> (uri base-uri)
       (assoc :path (str/join "/" ["/api"
                                   "eod"
-                                  (format "%s.%s"
-                                          sym
-                                          (exchange-codes exchange "US"))]))
+                                  (ticker commodity)]))
       (assoc-query :api_token api-key
                    :fmt "json"
                    :from (dates/serialize-local-date (t/minus date (t/days 1)))

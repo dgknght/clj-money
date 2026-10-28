@@ -48,7 +48,10 @@ it with `clj-money.web.system/component`. See the "Integrant System" wiki page (
 `(clj-money.web.system/component req :prices)`. Providers are composed in the
 config: a decorator's method builds the provider under its `:inner` key and
 wraps it.
-- `::alpha-vantage/provider`, `::eodhd/provider` call the external APIs
+- `::alpha-vantage/provider`, `::eodhd/provider` call the external APIs.
+  Both quote `:currency` commodities (crypto) in USD: Alpha Vantage with
+  `DIGITAL_CURRENCY_DAILY`, eodhd with the `<SYM>-USD.CC` ticker. The fetch
+  API never asks for the price of the entity's default commodity
 - `::redis/cache` caches fetched prices by symbol and date. `:bypass-cache?
   true` in the fetch options ignores the cached price and replaces it with a
   fresh one (the API's `bypass-cache=true` param, the "Bypass cache" checkbox

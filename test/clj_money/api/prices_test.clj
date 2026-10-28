@@ -260,6 +260,14 @@
    #:entity{:user "john@doe.com"
             :name "Personal"}
    #:commodity{:entity "Personal"
+               :name "US Dollar"
+               :symbol "USD"
+               :type :currency}
+   #:commodity{:entity "Personal"
+               :name "Bitcoin"
+               :symbol "BTC"
+               :type :currency}
+   #:commodity{:entity "Personal"
                :name "Apple, Inc."
                :symbol "AAPL"
                :exchange :nasdaq
@@ -289,7 +297,9 @@
       (fetch [_ {:as commodity :commodity/keys [symbol]} opts]
         (swap! calls conj [commodity opts])
         (when-let [value ({"AAPL" 10.01M
-                           "MSFT" 5.01M}
+                           "MSFT" 5.01M
+                           "BTC" 30000.01M
+                           "USD" 1M}
                           symbol)]
           #:price{:trade-date (t/local-date 2015 3 2)
                   :commodity commodity
@@ -395,6 +405,21 @@
                :bypass-cache? true}]
              (map second (inspect provider)))
           "The bypass option is passed to the provider only when requested"))))
+
+(deftest the-entity-default-commodity-is-not-fetched
+  (with-context fetch-context
+    (let [provider (prices/provider {::prices/provider ::provider})]
+      (assert-successful-fetch
+        (fetch-some-prices "john@doe.com"
+                           :symbols ["USD" "BTC"]
+                           :provider provider)
+        :expected [#:price{:trade-date (t/local-date 2015 3 2)
+                           :value 30000.01M
+                           :commodity (util/->entity-ref (find-commodity "BTC"))}])
+      (is (= ["BTC"]
+             (map (comp :commodity/symbol first)
+                  (inspect provider)))
+          "The provider is not asked for the price of the default commodity"))))
 
 (deftest fetching-prices-that-are-not-available-returns-not-found
   (with-context fetch-context

@@ -10,6 +10,7 @@
             [clj-money.comparatives :as comparatives]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
+            [clj-money.entities.accounts :as accts]
             [clj-money.prices :as prices]
             [clj-money.commodities :refer [price-download-enabled?]]
             [clj-money.web.system :as system]
@@ -85,6 +86,16 @@
       (api/response))
     api/not-found))
 
+(defn- default-commodity?
+  "Returns a predicate that is true for the default commodity of the
+  commodity's entity, which is the currency prices are quoted in and so
+  is never priced itself."
+  []
+  (let [default-commodity (memoize (comp accts/default-commodity
+                                         entities/find))]
+    (fn [{:commodity/keys [entity] :as commodity}]
+      (util/id= commodity (default-commodity entity)))))
+
 (defn- fetch
   "Return prices for a specified list of commodities. Pass bypass-cache=true
   to ignore any cached prices."
@@ -92,6 +103,7 @@
   (if-let [prices (->> (->sequential (:commodity-id params))
                        (entities/find-many)
                        (filter price-download-enabled?)
+                       (remove (default-commodity?))
                        (map #(prices/fetch (system/component req :prices)
                                            %
                                            (cond-> {:date (dates/last-weekday)}

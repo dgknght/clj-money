@@ -48,3 +48,29 @@
             #(= "test-alpha-key"
                 (get-in % [:query-params :apikey])))
           "The api-key is given")))
+
+(def currency-mocks
+  {#"^https:\/\/www\.alphavantage\.co\/query"
+   (fn [_]
+     {:status 200
+      :body (io/input-stream "fixtures/alpha_vantage/digital_currency_daily_response.json")})})
+
+(deftest get-a-digital-currency-price
+  (with-web-mocks [calls] currency-mocks
+    (is (comparable? {:price/value 72599.12M
+                      :price/trade-date (t/local-date 2026 10 27)}
+                     (prices/fetch (prices/provider {::prices/provider ::av/provider
+                                                     :api-key "test-alpha-key"})
+                                   #:commodity{:symbol "BTC"
+                                               :type :currency}
+                                   {:date (t/local-date 2026 10 27)}))
+        "The price entity is returned")
+    (is (called?
+          :once
+          calls
+          #(= {:function "DIGITAL_CURRENCY_DAILY"
+               :symbol "BTC"
+               :market "USD"}
+              (select-keys (:query-params %)
+                           [:function :symbol :market])))
+        "The DIGITAL_CURRENCY_DAILY function is specified with the USD market")))

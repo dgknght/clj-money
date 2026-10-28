@@ -35,3 +35,16 @@
           #(= "test-api-key"
               (get-in % [:query-params :api_token])))
         "The API key is passed on the query string")))
+
+(deftest get-a-digital-currency-price
+  (with-web-mocks [calls] mocks
+    (prices/fetch (prices/provider {::prices/provider ::eod/provider
+                                    :api-key "test-api-key"})
+                  #:commodity{:symbol "BTC"
+                              :type :currency}
+                  {:date (t/local-date 2024 1 3)})
+    (is (called?
+          :once
+          calls
+          #"^https://eodhd\.com\/api\/eod\/BTC-USD\.CC\?")
+        "The EODHD endpoint is called with the crypto ticker")))
