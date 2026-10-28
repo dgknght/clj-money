@@ -33,6 +33,8 @@
 (s/def :trade/value decimal?)
 (s/def :trade/dividend? boolean?)
 (s/def :trade/dividend-account ::entities/entity-ref)
+; merged into each transaction the trade creates (e.g., to mark them for review)
+(s/def :trade/transaction-attributes (s/map-of qualified-keyword? any?))
 
 (defmulti ^:private purchase-spec
   (fn [purchase]
@@ -48,7 +50,8 @@
           :opt [:trade/fee
                 :trade/fee-account
                 :trade/dividend?
-                :trade/dividend-account]))
+                :trade/dividend-account
+                :trade/transaction-attributes]))
 
 (defmethod purchase-spec :separate [_]
   (s/keys :req [:trade/date
@@ -59,7 +62,8 @@
           :opt [:trade/fee
                 :trade/fee-account
                 :trade/dividend?
-                :trade/dividend-account]))
+                :trade/dividend-account
+                :trade/transaction-attributes]))
 
 (s/def ::entities/purchase (s/multi-spec purchase-spec :trade/commodity-account))
 
@@ -80,7 +84,8 @@
                 :trade/st-capital-gains-account
                 :trade/st-capital-loss-account
                 :trade/fee
-                :trade/fee-account]))
+                :trade/fee-account
+                :trade/transaction-attributes]))
 
 (defmethod sale-spec :separate [_]
   (s/keys :req [:trade/date
@@ -94,7 +99,8 @@
                 :trade/st-capital-gains-account
                 :trade/st-capital-loss-account
                 :trade/fee
-                :trade/fee-account]))
+                :trade/fee-account
+                :trade/transaction-attributes]))
 
 (s/def ::entities/sale (s/multi-spec sale-spec :trade/commodity-account))
 
@@ -305,21 +311,23 @@
                  account
                  value
                  entity
-                 date]
+                 date
+                 transaction-attributes]
     :as trade}]
   (if dividend?
     (if dividend-account
       (assoc trade
              :trade/dividend-transaction
-             #:transaction{:entity entity
-                           :transaction-date date
-                           :description (dividend-transaction-description trade)
-                           :items [#:transaction-item{:action :credit
-                                                      :account dividend-account
-                                                      :quantity value}
-                                   #:transaction-item{:action :debit
-                                                      :account account
-                                                      :quantity value}]})
+             (merge #:transaction{:entity entity
+                                  :transaction-date date
+                                  :description (dividend-transaction-description trade)
+                                  :items [#:transaction-item{:action :credit
+                                                             :account dividend-account
+                                                             :quantity value}
+                                          #:transaction-item{:action :debit
+                                                             :account account
+                                                             :quantity value}]}
+                    transaction-attributes))
       (throw (ex-info "Unable to apply the dividend because a dividend account was not specified"
                       trade)))
     trade))
@@ -335,7 +343,8 @@
                  fee
                  entity
                  account
-                 commodity-account]
+                 commodity-account
+                 transaction-attributes]
     :or {fee 0M}
     :as trade}]
   (let [currency-amount (+ value fee)
@@ -346,14 +355,15 @@
                 (conj (trx/item :debit fee-account fee)))]
     (assoc trade
            :trade/transaction
-           #:transaction{:entity entity
-                         :transaction-date date
-                         :description (purchase-transaction-description trade)
-                         :items items
-                         :lot-items [#:lot-item{:lot lot
-                                                :action :buy
-                                                :price (with-precision 10 (/ value shares))
-                                                :shares shares}]})))
+           (merge #:transaction{:entity entity
+                                :transaction-date date
+                                :description (purchase-transaction-description trade)
+                                :items items
+                                :lot-items [#:lot-item{:lot lot
+                                                       :action :buy
+                                                       :price (with-precision 10 (/ value shares))
+                                                       :shares shares}]}
+                  transaction-attributes))))
 
 (defn- gains-account
   [{:trade/keys [lt-capital-gains-account
@@ -411,13 +421,14 @@
 (defn- create-sale-transaction
   "Given a trade map, creates the general currency
   transaction"
-  [{:trade/keys [date account lot-items] :as trade}]
+  [{:trade/keys [date account lot-items transaction-attributes] :as trade}]
   (let [items (create-sale-transaction-items trade)
-        trx #:transaction{:entity (:account/entity account)
-                          :transaction-date date
-                          :description (sale-transaction-description trade)
-                          :items (vec items)
-                          :lot-items lot-items}]
+        trx (merge #:transaction{:entity (:account/entity account)
+                                 :transaction-date date
+                                 :description (sale-transaction-description trade)
+                                 :items (vec items)
+                                 :lot-items lot-items}
+                   transaction-attributes)]
     (-> trade
         (update-in [:trade/transactions] (fnil conj []) trx)
         (assoc :trade/transaction trx))))
@@ -694,6 +705,24 @@
                        (cons [::db/delete trx]
                              updated-lots))))
 
+
+(defn- trade-lot-items
+  "Returns the lot-items that tie a transaction to a trade (buy or sell),
+  or an empty vector for a transaction that isn't part of a trade.
+  A vector, because unbuy relies on indexed get-in access."
+  [trx]
+  (vec (entities/select (util/entity-type {:transaction/_self trx} :lot-item))))
+
+(defn delete-transaction
+  "Deleting a transaction that is part of a trade must also undo the trade
+  (restoring lot and account balances), not just remove the transaction
+  record, otherwise the affected lot is left in an inconsistent state"
+  [trx]
+  (let [lot-items (trade-lot-items trx)]
+    (case (some-> lot-items first :lot-item/action)
+      :buy (unbuy (assoc trx :transaction/lot-items lot-items))
+      :sell (unsell trx)
+      (entities/delete trx))))
 
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account

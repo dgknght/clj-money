@@ -10,7 +10,9 @@
             [clj-money.accounts :refer [nest
                                         unnest
                                         derive-action
-                                        polarize-quantity]]
+                                        polarize-quantity
+                                        trading?
+                                        tradable?]]
             [clj-money.ingestion.text :refer [similarity]]))
 
 (def ^:private statement-account-types #{:asset :liability})
@@ -36,10 +38,22 @@
   [entity]
   (index-by ->path (entity-accounts entity)))
 
+(defn- symbols
+  "Returns the symbols of the commodities the entity trades"
+  [entity]
+  (->> (ents/select {:commodity/entity entity})
+       (remove #(= :currency (:commodity/type %)))
+       (mapv :commodity/symbol)
+       sort
+       vec))
+
 (defn account-options
   "Returns the account paths the model may choose from for the account the
   statement is for, and for the other side of each transaction on it. When
-  the account is already known, the model isn't asked to identify it."
+  the account is already known, the model isn't asked to identify it. When
+  the statement may be for an investment account, the symbols of the
+  commodities the entity trades are included too, and the model is asked to
+  read the trades and holdings."
   [{{:settings/keys [expense-accounts]} :entity/settings :as entity}
    & {:keys [account]}]
   (let [accounts (entity-accounts entity)
@@ -52,14 +66,21 @@
                       :expense (expense? account)
                       :equity false
                       (leaf-account? account)))]
-    {:statement-accounts (when-not account
-                           (->> accounts
-                                (filter (comp statement-account-types
-                                              :account/type))
-                                (mapv ->path)))
-     :category-accounts (->> accounts
-                             (filter category?)
-                             (mapv ->path))}))
+    (cond-> {:statement-accounts (when-not account
+                                   (->> accounts
+                                        (filter (comp statement-account-types
+                                                      :account/type))
+                                        ; a commodity is on the statement for
+                                        ; its trading account
+                                        (remove tradable?)
+                                        (mapv ->path)))
+             :category-accounts (->> accounts
+                                     (filter category?)
+                                     (mapv ->path))}
+      (if account
+        (trading? account)
+        (some trading? accounts))
+      (assoc :symbols (symbols entity)))))
 
 (defn- account-property
   [description paths]
@@ -67,43 +88,110 @@
            :description description}
     (seq paths) (assoc :enum paths)))
 
+(def ^:private line-types ["cash" "buy" "sell" "reinvest"])
+
+(def ^:private investment-line-properties
+  {:type {:type "string"
+          :enum line-types
+          :description "The kind of line: a trade of a commodity, or cash moving in or out of the account"}
+   :symbol {:type ["string" "null"]
+            :description "The ticker symbol of the commodity traded"}
+   :shares {:type ["number" "null"]
+            :description "The number of shares traded"}})
+
+(def ^:private holdings-property
+  {:type "array"
+   :items {:type "object"
+           :properties {:symbol {:type "string"}
+                        :shares {:type "number"}}
+           :required ["symbol" "shares"]}})
+
+(defn- add-investment-properties
+  "Adds what's read from an investment statement: the kind of each line,
+  with the commodity and shares for a trade, and the holdings at the end of
+  the period"
+  [schema]
+  (-> schema
+      (update-in [:properties :transactions :items :properties]
+                 merge
+                 investment-line-properties)
+      (update-in [:properties :transactions :items :required] conj "type")
+      (assoc-in [:properties :holdings] holdings-property)
+      (update-in [:required] conj "holdings")))
+
 (defn schema
   "Returns a JSON schema describing the expected response, given the account
-  paths the model may choose from."
-  [{:keys [statement-accounts category-accounts]}]
+  paths the model may choose from, and, for a statement that may be for an
+  investment account, the symbols of the commodities the entity trades."
+  [{:keys [statement-accounts category-accounts symbols]}]
   (let [identify? (seq statement-accounts)]
-    {:type "object"
-     :properties (cond-> {:institution {:type ["string" "null"]
-                                        :description "The name of the bank or card issuer"}
-                          :period_start {:type "string"
-                                         :description "The first day of the statement period"}
-                          :period_end {:type "string"
-                                       :description "The last day of the statement period"}
-                          :opening_balance {:type "number"}
-                          :closing_balance {:type "number"}
-                          :transactions {:type "array"
-                                         :items {:type "object"
-                                                 :properties {:date {:type "string"}
-                                                              :description {:type "string"}
-                                                              :amount {:type "number"}
-                                                              :category (account-property
-                                                                          "The account that best matches the other side of the transaction"
-                                                                          category-accounts)}
-                                                 :required ["date" "description" "amount" "category"]}}}
-                   identify? (assoc :account (account-property
-                                               "The account the statement is for"
-                                               statement-accounts)))
-     :required (cond-> ["period_start"
-                        "period_end"
-                        "opening_balance"
-                        "closing_balance"
-                        "transactions"]
-                 identify? (conj "account"))}))
+    (cond-> {:type "object"
+             :properties (cond-> {:institution {:type ["string" "null"]
+                                                :description "The name of the bank or card issuer"}
+                                  :period_start {:type "string"
+                                                 :description "The first day of the statement period"}
+                                  :period_end {:type "string"
+                                               :description "The last day of the statement period"}
+                                  :opening_balance {:type "number"}
+                                  :closing_balance {:type "number"}
+                                  :transactions {:type "array"
+                                                 :items {:type "object"
+                                                         :properties {:date {:type "string"}
+                                                                      :description {:type "string"}
+                                                                      :amount {:type "number"}
+                                                                      :category (account-property
+                                                                                  "The account that best matches the other side of the transaction"
+                                                                                  category-accounts)}
+                                                         :required ["date" "description" "amount" "category"]}}}
+                           identify? (assoc :account (account-property
+                                                       "The account the statement is for"
+                                                       statement-accounts)))
+             :required (cond-> ["period_start"
+                                "period_end"
+                                "opening_balance"
+                                "closing_balance"
+                                "transactions"]
+                         identify? (conj "account"))}
+      symbols add-investment-properties)))
+
+(defn- investment-instructions
+  [symbols]
+  (cond-> [""
+           "If this is the statement for an investment (brokerage or retirement) account,"
+           "also extract the following."
+           "- *opening_balance* and *closing_balance* are the cash balance of the account"
+           "  only (e.g., \"Cash\" or \"Core Position\"), not its total value."
+           "- *transactions* also include each trade. Give each line a *type*:"
+           "  - *buy* A purchase of shares. The *amount* is the cash paid, so it is"
+           "    negative."
+           "  - *sell* A sale of shares. The *amount* is the cash received, so it is"
+           "    positive."
+           "  - *reinvest* A dividend used to buy more shares of the commodity that paid"
+           "    it. Statements often show this as a dividend and a purchase; list it"
+           "    once. The *amount* is the dividend, positive, and the *category* is the"
+           "    income account the dividend belongs to."
+           "  - *cash* Anything else: deposits, withdrawals, interest, fees, and"
+           "    dividends paid in cash. The *category* is the other side, as above."
+           "  For a *buy*, *sell* or *reinvest*, *symbol* is the ticker symbol of the"
+           "  commodity and *shares* is the number of shares, always positive. For"
+           "  *cash*, leave them null. The *category* of a *buy* or *sell* isn't used."
+           "- *holdings* Each commodity held at the end of the period, with its ticker"
+           "  *symbol* and the number of *shares*. Leave out cash and the core position."
+           "If this isn't an investment statement, give every line the type *cash* and"
+           "leave *holdings* empty."]
+    (seq symbols) (conj ""
+                        (str "The account holds or has held these symbols: "
+                             (str/join ", " symbols)
+                             "."))))
 
 (defn prompt
-  "Generates a prompt to read a statement and return structured data"
-  [{{:settings/keys [expense-hints]} :entity/settings}]
-  (let [base ["This is a bank account or credit card statement. Extract the following."
+  "Generates a prompt to read a statement and return structured data, given
+  the entity and the account options (see account-options)"
+  [{{:settings/keys [expense-hints]} :entity/settings}
+   {:keys [symbols]}]
+  (let [base [(if symbols
+                "This is a bank account, credit card, or investment account statement. Extract the following."
+                "This is a bank account or credit card statement. Extract the following.")
               "- *account* The enum value that best matches the account the statement is"
               "  for, judging by the institution and the kind of account (e.g., checking,"
               "  savings, or a credit card). If the statement covers more than one account,"
@@ -131,13 +219,11 @@
               "    transaction: the expense for a purchase, the income for a deposit, or"
               "    the other account for a transfer or a payment."]]
     (str/join "\n"
-              (if (seq expense-hints)
-                (apply conj
-                       base
-                       ""
-                       "When selecting a category, follow these guidelines:"
-                       (map #(format "- %s" %) expense-hints))
-                base))))
+              (cond-> base
+                symbols (into (investment-instructions symbols))
+                (seq expense-hints) (into (concat [""
+                                                   "When selecting a category, follow these guidelines:"]
+                                                  (map #(format "- %s" %) expense-hints)))))))
 
 (defn- ->date
   [s]
@@ -153,9 +239,13 @@
       (update-in [:opening-balance] bigdec)
       (update-in [:closing-balance] bigdec)
       (update-in [:transactions]
-                 (partial mapv #(-> %
-                                    (update-in [:date] ->date)
-                                    (update-in [:amount] bigdec))))))
+                 (partial mapv #(cond-> (-> %
+                                            (update-in [:date] ->date)
+                                            (update-in [:amount] bigdec))
+                                  (:shares %) (update-in [:shares] (comp abs bigdec)))))
+      (cond-> (:holdings statement)
+        (update-in [:holdings]
+                   (partial mapv #(update-in % [:shares] bigdec))))))
 
 ; Banks post card purchases a few days after they're made, and a user may
 ; record a transaction on either date
@@ -193,11 +283,11 @@
                                          (:transaction-item/action %)
                                          account))))))
 
-(defn- days-apart
+(defn days-apart
   [d1 d2]
   (abs (t/time-between d1 d2 :days)))
 
-(defn- match?
+(defn- amount-match?
   [{:keys [date amount]}
    {:transaction-item/keys [polarized-quantity]
     :transaction/keys [transaction-date]}]
@@ -210,8 +300,12 @@
   dated within a few days of it. When more than one item fits, the nearest
   date wins, then the most similar description. Each item is used at most
   once. Returns a map with the :matched pairs of [line item] and the
-  :unmatched lines."
-  [lines items]
+  :unmatched lines.
+
+  Options:
+  :match? - a function of a line and an item that is true when the item may
+            match the line, in place of the comparison of amount and date"
+  [lines items & {:keys [match?] :or {match? amount-match?}}]
   (loop [lines (sort-by :date lines)
          items items
          result {:matched [] :unmatched []}]
@@ -245,22 +339,28 @@
          (sort-by ->path)
          first)))
 
+(defn other-account
+  "Returns the account for the other side of a statement line: the category
+  chosen by the model or, if it chose none that fits, the most likely income
+  or expense account"
+  [{:keys [category] :as line} account accounts-by-path]
+  (or (let [a (accounts-by-path category)]
+        (if (and a (not= (:id a) (:id account)))
+          a
+          (default-category line account accounts-by-path)))
+      (throw (ex-info "Unable to find an account for the other side of a statement line."
+                      {:line line}))))
+
 (defn make-trx
   "Returns a transaction, awaiting the user's review, for a statement line
   that matched nothing already recorded"
-  [{:keys [date description amount category] :as line}
+  [{:keys [date description amount] :as line}
    account
    entity
    accounts-by-path]
-  (let [other (let [a (accounts-by-path category)]
-                (if (and a (not= (:id a) (:id account)))
-                  a
-                  (default-category line account accounts-by-path)))
+  (let [other (other-account line account accounts-by-path)
         quantity (abs amount)
         action (derive-action amount account)]
-    (when-not other
-      (throw (ex-info "Unable to find an account for the other side of a statement line."
-                      {:line line})))
     #:transaction{:entity entity
                   :source :ingestion
                   :review-status :pending

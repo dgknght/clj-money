@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Brokerage Statement</title>
+<style>
+  @page { size: letter; margin: 0.5in; }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #000; }
+  .header { display: flex; justify-content: space-between; }
+  .firm { font-weight: bold; font-size: 11pt; }
+  .right { text-align: right; }
+  .address { margin: 24px 0 24px 0; }
+  h2 { font-size: 10pt; margin: 18px 0 4px 0; border-bottom: 1px solid #000; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 2px 4px; vertical-align: top; }
+  th { text-align: left; font-weight: normal; font-size: 8pt; border-bottom: 1px solid #888; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  td.date { width: 50px; }
+  tr.total td { border-top: 1px solid #888; font-weight: bold; }
+  .summary { width: 60%; margin-left: 40px; }
+  .disclosure { margin-top: 24px; font-size: 7pt; color: #333; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="firm">Summit Ridge Investments</div>
+    <div>P O Box 7720</div>
+    <div>Lakewood, CO 80226 - 7720</div>
+  </div>
+  <div class="right">
+    <div>September 1, 2026 through September 30, 2026</div>
+    <div>Traditional IRA &nbsp; Account Number: &nbsp; X41-907753</div>
+    <div style="margin-top: 12px;"><b>QUESTIONS?</b></div>
+    <div>Web site: &nbsp; summitridge.example</div>
+    <div>Client Services: &nbsp; 1-800-555-0187</div>
+  </div>
+</div>
+
+<div class="address">
+  <div>JOHN DOE</div>
+  <div>412 W ELM ST</div>
+  <div>SPRINGFIELD IL 62704</div>
+</div>
+
+<h2>Account Summary</h2>
+<table class="summary">
+  <tr><td>Beginning Cash Balance</td><td class="num">$500.00</td></tr>
+  <tr><td>Contributions</td><td class="num">2,000.00</td></tr>
+  <tr><td>Securities Purchased</td><td class="num">-1,512.50</td></tr>
+  <tr><td>Securities Sold</td><td class="num">800.00</td></tr>
+  <tr><td>Dividends</td><td class="num">12.50</td></tr>
+  <tr><td>Fees</td><td class="num">-5.00</td></tr>
+  <tr class="total"><td>Ending Cash Balance</td><td class="num">$1,795.00</td></tr>
+</table>
+
+<h2>Holdings as of 09/30</h2>
+<table>
+  <tr><th>Description</th><th>Symbol</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Market Value</th></tr>
+  <tr><td>Apple Inc</td><td>AAPL</td><td class="num">25.000</td><td class="num">162.40</td><td class="num">4,060.00</td></tr>
+  <tr><td>Microsoft Corp</td><td>MSFT</td><td class="num">2.050</td><td class="num">251.10</td><td class="num">514.76</td></tr>
+  <tr><td>Core Cash Position</td><td></td><td class="num"></td><td class="num"></td><td class="num">1,795.00</td></tr>
+  <tr class="total"><td colspan="4">Total Account Value</td><td class="num">$6,369.76</td></tr>
+</table>
+
+<h2>Activity</h2>
+<table>
+  <tr><th>Date</th><th>Activity</th><th>Description</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Amount</th></tr>
+  <tr><td class="date">09/02</td><td>Contribution</td><td>Electronic Funds Transfer Received</td><td class="num"></td><td class="num"></td><td class="num">2,000.00</td></tr>
+  <tr><td class="date">09/04</td><td>Bought</td><td>Apple Inc (AAPL)</td><td class="num">10.000</td><td class="num">150.00</td><td class="num">-1,500.00</td></tr>
+  <tr><td class="date">09/15</td><td>Dividend</td><td>Microsoft Corp (MSFT)</td><td class="num"></td><td class="num"></td><td class="num">12.50</td></tr>
+  <tr><td class="date">09/15</td><td>Reinvestment</td><td>Microsoft Corp (MSFT)</td><td class="num">0.050</td><td class="num">250.00</td><td class="num">-12.50</td></tr>
+  <tr><td class="date">09/22</td><td>Sold</td><td>Apple Inc (AAPL)</td><td class="num">-5.000</td><td class="num">160.00</td><td class="num">800.00</td></tr>
+  <tr><td class="date">09/30</td><td>Fee</td><td>Account Maintenance Fee</td><td class="num"></td><td class="num"></td><td class="num">-5.00</td></tr>
+</table>
+
+<div class="disclosure">
+  Summit Ridge Investments is a fictitious firm. This statement was created
+  for testing and describes no real account. Trades settle one business day
+  after the trade date; the dates above are trade dates.
+</div>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "account": "IRA",
+  "institution": "Summit Ridge Investments",
+  "period_start": "2026-09-01",
+  "period_end": "2026-09-30",
+  "opening_balance": 500.00,
+  "closing_balance": 1795.00,
+  "transactions": [
+    {"date": "2026-09-02", "description": "Electronic Funds Transfer Received", "amount": 2000.00, "category": "Checking", "type": "cash", "symbol": null, "shares": null},
+    {"date": "2026-09-04", "description": "Bought Apple Inc", "amount": -1500.00, "category": "Checking", "type": "buy", "symbol": "AAPL", "shares": 10.000},
+    {"date": "2026-09-15", "description": "Dividend Microsoft Corp reinvested", "amount": 12.50, "category": "Dividends", "type": "reinvest", "symbol": "MSFT", "shares": 0.050},
+    {"date": "2026-09-22", "description": "Sold Apple Inc", "amount": 800.00, "category": "Checking", "type": "sell", "symbol": "AAPL", "shares": 5.000},
+    {"date": "2026-09-30", "description": "Account Maintenance Fee", "amount": -5.00, "category": "Investment Fees", "type": "cash", "symbol": null, "shares": null}
+  ],
+  "holdings": [
+    {"symbol": "AAPL", "shares": 25.000},
+    {"symbol": "MSFT", "shares": 2.050}
+  ]
+}

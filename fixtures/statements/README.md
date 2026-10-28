@@ -1,8 +1,8 @@
 # Statement fixtures
 
-Fake bank and credit card statements for testing statement reconciliation
-(#182). The banks, people, account numbers, and transactions are all
-fictitious. Their layouts were modeled on real statements, which must never
+Fake bank, credit card, and brokerage statements for testing statement
+reconciliation (#182, #211). The banks, people, account numbers, and
+transactions are all fictitious. Their layouts were modeled on real statements, which must never
 be committed.
 
 - `*.html` - the source for each statement
@@ -26,3 +26,8 @@ Things the statements exercise on purpose:
 - two identical amounts in one period (Zelle payments of $75.00)
 - a transfer that appears on both statements (the $612.35 card payment)
 - a credit on a credit card (the Amazon return)
+- a brokerage purchase dated a day after it was recorded (the AAPL
+  purchase, recorded on 09/03, shown on its trade date, 09/04)
+- a dividend and its reinvestment, listed as two lines, read as one
+- a sale and a fee that aren't recorded yet
+- the cash balance, which is less than the account's total value

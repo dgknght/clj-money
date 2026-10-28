@@ -334,8 +334,12 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   statement needs
 - `ingestion/statements.clj`:
   - `account-options`: the asset and liability paths the account is chosen
-    from (left out when the user gave the account), and the leaf paths of
-    every non-equity account for the other side of each line
+    from (left out when the user gave the account; commodity accounts are
+    never offered), and the leaf paths of every non-equity account for the
+    other side of each line. `:symbols` (the entity's non-currency commodity
+    symbols) is added when the account is a trading account, or when it's
+    unknown and the entity has one; it's what turns on the investment parts
+    of the `schema` and `prompt`
   - `schema` and `prompt`: each line's `amount` is **signed by its effect on
     the account balance**, so a deposit to checking and a charge on a credit
     card are both positive. This matches `:transaction-item/polarized-quantity`
@@ -346,7 +350,7 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
     similar description (`ingestion/text.clj`). Each item is used once
   - `make-trx`: a `:source :ingestion`, `:review-status :pending` transaction
     for each unmatched line. The model's category is used, or the first income
-    (money in) or expense (money out) account
+    (money in) or expense (money out) account (`other-account`)
   - `make-reconciliation`: the matched and new items, the statement's closing
     date and balance. Adds to the account's reconciliation in progress, if any
 - `api/statement_ingestions.clj` - `POST /api/entities/:entity-id/statement-ingestions`
@@ -355,11 +359,17 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   `future` with the `:statement-reader` component
 - `ingestion/statement_reconciliation.clj` - `reconcile` does the work: reads
   the statement, resolves the account, matches the lines, creates the
-  transactions and saves the reconciliation. The `statement-ingestion` entity
+  transactions and saves the reconciliation (or, for a trading account, the
+  reconciliations; see below). The `statement-ingestion` entity
   holds the model's raw answer and any `:warnings` (e.g., the opening balance
   doesn't match the last reconciliation), both as edn. A statement ending on
   or before the last completed reconciliation fails before anything is saved;
   if the reconciliation can't be saved, the new transactions are deleted
+  with `trading/delete-transaction`, which undoes a trade (restoring its
+  lots), latest first. The statement is attached to the new transactions only
+  once everything else is saved: the background propagation of an
+  attachment re-puts its transaction's `:transaction/attachment-count`, which
+  in Datomic resurrected a transaction deleted by the rollback
 - The reconciliation refers to the statement's image
   (`:reconciliation/statement`), set by the read or attached by hand from the
   reconciliation form (uploaded with `POST /api/images`). The ref is safe for
@@ -384,3 +394,34 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
 - Test fixtures (`fixtures/statements/`) are fictitious statements
   with the expected model answers; real statements must not be committed
 - API tests pass their own reader to `web.test-handler/build-app`
+
+### Investment statements (`ingestion/investment_statements.clj`)
+
+A brokerage or retirement account statement reconciles a trading account
+(issue #211). The trading account holds the cash, in currency, and each
+commodity account beneath it holds shares, so they can't share one balance:
+- With `:symbols` in the account options, each line also has a `type`
+  (`cash`, `buy`, `sell` or `reinvest`), and a trade has its `symbol` and
+  `shares` (always positive; `normalize` takes the absolute value). The
+  statement has `holdings`, the shares of each commodity at the end of the
+  period. The opening and closing balances are of the cash only. A reinvested
+  dividend is one `reinvest` line whose `amount` is the dividend
+- `resolve-lines` finds each trade's commodity by symbol; a trade in a
+  commodity the entity doesn't have is dropped, with a warning
+- `match-lines`: a trade matches an item in its commodity account with the
+  same change in shares within 7 days (`match-items` with `:match?`). Each
+  matched trade's cash movement, dated as it was recorded, is then matched to
+  the trading account's items (two for a reinvestment: the dividend in and
+  the purchase out). Items have no reference to their transaction in
+  Datomic, so they can't be paired that way. The cash lines are matched to
+  the cash items left
+- Unmatched trades are recorded with `trading/buy` (a reinvestment with
+  `:trade/dividend?` and the model's category as the dividend account) or
+  `trading/sell`, with `:trade/transaction-attributes` marking their
+  transactions `:source :ingestion`, `:review-status :pending`. Unmatched
+  cash lines use `make-trx`
+- `make-reconciliations`: one `:new` reconciliation for the trading
+  account's cash, with the closing balance, and one for each commodity
+  account with items on the statement or shares in the holdings, with the
+  shares held (zero if not in the holdings). Holdings of a commodity with no
+  account under the trading account produce a warning

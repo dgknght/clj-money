@@ -175,7 +175,7 @@
   {:pre [entity]}
   (read-document source
                  "statement"
-                 (stmts/prompt entity)
+                 (stmts/prompt entity account-options)
                  (stmts/schema account-options)
                  ; a statement lists many more lines than a receipt does
                  (merge {:max-output-tokens 32768}

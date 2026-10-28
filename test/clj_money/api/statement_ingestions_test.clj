@@ -24,6 +24,7 @@
                                             find-user
                                             find-entity
                                             find-account
+                                            find-commodity
                                             find-transaction]]
             [clj-money.entities :as entities]
             [clj-money.web.test-handler :refer [build-app]]))
@@ -349,3 +350,202 @@
   (with-context statement-context
     (let [[_ {:keys [id]}] (create-ingestion "john@doe.com")]
       (is (http-not-found? (get-ingestion id "jane@doe.com"))))))
+
+(def ^:private brokerage-reader
+  (reader (fn [_] (read-fixture "brokerage"))))
+
+(def ^:private investment-context
+  (conj basic-context
+        #:commodity{:name "Apple, Inc."
+                    :symbol "AAPL"
+                    :type :stock
+                    :exchange :nasdaq
+                    :entity "Personal"}
+        #:commodity{:name "Microsoft Corporation"
+                    :symbol "MSFT"
+                    :type :stock
+                    :exchange :nasdaq
+                    :entity "Personal"}
+        #:account{:name "IRA"
+                  :entity "Personal"
+                  :type :asset}
+        #:account{:name "Dividends"
+                  :entity "Personal"
+                  :type :income}
+        #:account{:name "Investment Fees"
+                  :entity "Personal"
+                  :type :expense}
+        #:transaction{:transaction-date (t/local-date 2026 8 1)
+                      :entity "Personal"
+                      :description "Contribution"
+                      :quantity 3000M
+                      :debit-account "IRA"
+                      :credit-account "Checking"}
+        #:trade{:entity "Personal"
+                :type :purchase
+                :date (t/local-date 2026 8 5)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 20M
+                :value 2000M}
+        #:trade{:entity "Personal"
+                :type :purchase
+                :date (t/local-date 2026 8 6)
+                :account "IRA"
+                :commodity "MSFT"
+                :shares 2M
+                :value 500M}
+        #:reconciliation{:account "IRA"
+                         :end-of-period (t/local-date 2026 8 31)
+                         :balance 500M
+                         :status :completed
+                         :items [[(t/local-date 2026 8 1) 3000M]
+                                 [(t/local-date 2026 8 5) 2000M]
+                                 [(t/local-date 2026 8 6) 500M]]}
+        #:transaction{:transaction-date (t/local-date 2026 9 2)
+                      :entity "Personal"
+                      :description "Contribution"
+                      :quantity 2000M
+                      :debit-account "IRA"
+                      :credit-account "Checking"}
+        ; recorded the day before the trade date shown on the statement
+        #:trade{:entity "Personal"
+                :type :purchase
+                :date (t/local-date 2026 9 3)
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 10M
+                :value 1500M}))
+
+(defn- account-reconciliation
+  [account-name]
+  (entities/find-by #:reconciliation{:account (util/->entity-ref
+                                                (entities/find-by
+                                                  #:account{:name account-name
+                                                            :entity (find-entity "Personal")}))
+                                     :status :new}))
+
+(defn- reconciliation-quantities
+  "Returns the date and quantity of each item in the reconciliation, in order"
+  [recon]
+  (->> (entities/select
+         (util/entity-type
+           {:transaction-item/reconciliation (util/->entity-ref recon)}
+           :transaction-item)
+         {:select-also [:transaction/transaction-date]})
+       (map (juxt :transaction/transaction-date
+                  :transaction-item/quantity))
+       sort
+       vec))
+
+(deftest a-user-can-reconcile-an-investment-statement
+  (with-context investment-context
+    (let [[_ retrieved] (create-ingestion "john@doe.com"
+                                          :reader brokerage-reader)
+          ira (account-reconciliation "IRA")
+          aapl (account-reconciliation "AAPL")
+          msft (account-reconciliation "MSFT")]
+      (is (comparable? #:statement-ingestion{:status :complete
+                                             :account (util/->entity-ref
+                                                        (find-account "IRA"))}
+                       retrieved)
+          "The trading account identified by the model is recorded")
+      (is (empty? (:statement-ingestion/warnings retrieved))
+          "There are no warnings")
+      (is (comparable? #:reconciliation{:end-of-period (t/local-date 2026 9 30)
+                                        :balance 1795M}
+                       ira)
+          "The cash in the trading account is reconciled to the statement's closing balance")
+      (is (= [[(t/local-date 2026 9 2) 2000M]
+              [(t/local-date 2026 9 3) 1500M]
+              [(t/local-date 2026 9 15) 12.50M]
+              [(t/local-date 2026 9 15) 12.50M]
+              [(t/local-date 2026 9 22) 800M]
+              [(t/local-date 2026 9 30) 5M]]
+             (reconciliation-quantities ira))
+          "The cash reconciliation has every cash movement, including both sides of the reinvested dividend")
+      (is (comparable? #:reconciliation{:end-of-period (t/local-date 2026 9 30)
+                                        :balance 25M}
+                       aapl)
+          "A commodity is reconciled to the shares held at the end of the statement")
+      (is (= [[(t/local-date 2026 9 3) 10M]
+              [(t/local-date 2026 9 22) 5M]]
+             (reconciliation-quantities aapl))
+          "The commodity reconciliation has the recorded purchase and the new sale")
+      (is (comparable? #:reconciliation{:balance 2.05M}
+                       msft)
+          "A commodity with only a new reinvestment is reconciled")
+      (is (= [[(t/local-date 2026 9 15) 0.05M]]
+             (reconciliation-quantities msft))
+          "The reinvested shares are in the commodity reconciliation")
+      (is (= (:statement-ingestion/image retrieved)
+             (:reconciliation/statement aapl))
+          "Each reconciliation refers to the statement")
+      (let [created (entities/select #:transaction{:entity (find-entity "Personal")
+                                                   :source :ingestion})]
+        (is (= 4 (count created))
+            "A transaction is created for the fee, the sale, and the dividend and its reinvestment")
+        (is (every? #(= :pending (:transaction/review-status %)) created)
+            "The new transactions await review"))
+      (is (= [15M 10M]
+             (->> (entities/select #:lot{:commodity (find-commodity "AAPL")}
+                                   {:sort [:lot/purchase-date]})
+                  (mapv :lot/shares-owned)))
+          "The sale is taken from the oldest lot")
+      (is (= #{[(t/local-date 2026 9 15) 12.50M]}
+             (->> (entities/select
+                    (util/entity-type
+                      {:transaction-item/account (util/->entity-ref
+                                                   (find-account "Dividends"))}
+                      :transaction-item)
+                    {:select-also [:transaction/transaction-date]})
+                  (map (juxt :transaction/transaction-date
+                             :transaction-item/quantity))
+                  set))
+          "The reinvested dividend is paid from the category chosen by the model"))))
+
+(deftest a-trade-in-an-unknown-commodity-is-reported
+  (with-context investment-context
+    (let [[_ retrieved] (create-ingestion
+                          "john@doe.com"
+                          :reader (reader (fn [_]
+                                            (update-in (read-fixture "brokerage")
+                                                       [:transactions]
+                                                       conj
+                                                       {:date "2026-09-25"
+                                                        :description "Bought Widgets Corp"
+                                                        :amount -100
+                                                        :category "Checking"
+                                                        :type "buy"
+                                                        :symbol "WDGT"
+                                                        :shares 1}))))]
+      (is (= :complete (:statement-ingestion/status retrieved)))
+      (is (= ["The commodity WDGT, traded in \"Bought Widgets Corp\", was not found, so the trade was not recorded."]
+             (:statement-ingestion/warnings retrieved))))))
+
+(def ^:private later-commodity-reconciliation-context
+  (conj investment-context
+        #:reconciliation{:account "AAPL"
+                         :end-of-period (t/local-date 2026 10 15)
+                         :balance 0M
+                         :status :completed
+                         :items []}))
+
+(deftest new-trades-are-undone-when-the-reconciliations-cannot-be-saved
+  (with-context later-commodity-reconciliation-context
+    (let [[_ retrieved] (create-ingestion "john@doe.com"
+                                          :reader brokerage-reader)]
+      (is (= :failed (:statement-ingestion/status retrieved)))
+      (is (empty? (entities/select #:transaction{:entity (find-entity "Personal")
+                                                 :source :ingestion}))
+          "The new transactions are removed")
+      (is (= [20M 10M]
+             (->> (entities/select #:lot{:commodity (find-commodity "AAPL")}
+                                   {:sort [:lot/purchase-date]})
+                  (mapv :lot/shares-owned)))
+          "The lots sold from are restored")
+      (is (empty? (entities/select #:lot{:commodity (find-commodity "MSFT")
+                                         :purchase-date (t/local-date 2026 9 15)}))
+          "The lot bought with the dividend is removed")
+      (is (nil? (account-reconciliation "IRA"))
+          "No reconciliation is left in progress"))))

@@ -179,28 +179,10 @@
               api/update-response)
       api/not-found))
 
-(defn- trade-lot-items
-  "Returns the lot-items that tie a transaction to a trade (buy or sell),
-  or an empty vector for a transaction that isn't part of a trade.
-  A vector, because unbuy relies on indexed get-in access."
-  [trx]
-  (vec (entities/select (util/entity-type {:transaction/_self trx} :lot-item))))
-
-(defn- delete-transaction
-  "Deleting a transaction that is part of a trade must also undo the trade
-  (restoring lot and account balances), not just remove the transaction
-  record, otherwise the affected lot is left in an inconsistent state"
-  [trx]
-  (let [lot-items (trade-lot-items trx)]
-    (case (some-> lot-items first :lot-item/action)
-      :buy (trading/unbuy (assoc trx :transaction/lot-items lot-items))
-      :sell (trading/unsell trx)
-      (entities/delete trx))))
-
 (defn- delete
   [req]
   (or (some-> (find-and-auth req ::authorization/destroy)
-              delete-transaction
+              trading/delete-transaction
               api/response)
       api/not-found))
 

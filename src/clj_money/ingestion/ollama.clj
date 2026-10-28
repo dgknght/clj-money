@@ -177,7 +177,7 @@
   {:images [base64 ...]}, the images of its pages (see
   clj-money.ingestion.base64), sent to the vision model."
   [{:keys [text images]} entity {:keys [account-options vision-model] :as opts}]
-  (let [prompt (stmts/prompt entity)
+  (let [prompt (stmts/prompt entity account-options)
         schema (stmts/schema account-options)]
     (cond
       text

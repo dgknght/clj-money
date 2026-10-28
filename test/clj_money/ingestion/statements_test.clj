@@ -65,7 +65,45 @@
         (is (nil? (:statement-accounts
                     (stmts/account-options entity
                                            :account (find-account "Checking"))))
-            "The model isn't asked to identify the account")))))
+            "The model isn't asked to identify the account")
+        (is (nil? (:symbols
+                    (stmts/account-options entity
+                                           :account (find-account "Checking"))))
+            "The model isn't asked about trades")))))
+
+(def ^:private investment-ctx
+  (conj ctx
+        #:commodity{:name "Apple, Inc."
+                    :type :stock
+                    :exchange :nasdaq
+                    :symbol "AAPL"
+                    :entity "Personal"}
+        #:account{:name "IRA"
+                  :type :asset
+                  :entity "Personal"
+                  :system-tags #{:trading}}
+        #:account{:name "AAPL"
+                  :type :asset
+                  :entity "Personal"
+                  :parent "IRA"
+                  :commodity "AAPL"
+                  :system-tags #{:tradable}}))
+
+(deftest get-the-account-options-for-an-investment-account
+  (with-context investment-ctx
+    (let [entity (find-entity "Personal")]
+      (testing "when the account is not known"
+        (let [{:keys [statement-accounts symbols]} (stmts/account-options entity)]
+          (is (= #{"Checking" "Credit Card" "IRA"}
+                 (set statement-accounts))
+              "The trading account is offered, but not its commodity accounts")
+          (is (= ["AAPL"] symbols)
+              "The symbols the entity trades are included")))
+      (testing "when the account is known"
+        (is (= ["AAPL"]
+               (:symbols (stmts/account-options entity
+                                                :account (find-account "IRA"))))
+            "The symbols the entity trades are included")))))
 
 (deftest the-schema-constrains-the-account-choices
   (let [schema (stmts/schema {:statement-accounts ["Checking"]
@@ -80,11 +118,36 @@
         "The account is left out when it's already known")
     (is (not-any? #{"account"} (:required schema)))))
 
+(deftest the-schema-asks-for-trades-when-the-account-may-be-for-investments
+  (let [schema (stmts/schema {:category-accounts ["Dividends"]})]
+    (is (nil? (get-in schema [:properties :holdings]))
+        "Holdings aren't requested from a bank statement")
+    (is (nil? (get-in schema [:properties :transactions :items :properties :type]))
+        "The type of line isn't requested from a bank statement"))
+  (let [schema (stmts/schema {:category-accounts ["Dividends"]
+                              :symbols ["AAPL"]})]
+    (is (= ["cash" "buy" "sell" "reinvest"]
+           (get-in schema [:properties :transactions :items :properties :type :enum]))
+        "Each line is given a type")
+    (is (some #{"type"} (get-in schema [:properties :transactions :items :required]))
+        "The type is required")
+    (is (get-in schema [:properties :transactions :items :properties :shares])
+        "The shares of a trade are requested")
+    (is (some #{"holdings"} (:required schema))
+        "The holdings are requested")))
+
 (deftest the-prompt-explains-the-sign-convention-and-includes-hints
   (let [prompt (stmts/prompt {:entity/settings
-                              {:settings/expense-hints ["Prefer \"Dining\" for restaurants"]}})]
+                              {:settings/expense-hints ["Prefer \"Dining\" for restaurants"]}}
+                             {})]
     (is (str/includes? prompt "signed by its effect on the balance"))
-    (is (str/includes? prompt "- Prefer \"Dining\" for restaurants"))))
+    (is (str/includes? prompt "- Prefer \"Dining\" for restaurants"))
+    (is (not (str/includes? prompt "investment")))))
+
+(deftest the-prompt-explains-investment-statements-when-the-account-may-be-one
+  (let [prompt (stmts/prompt {} {:symbols ["AAPL" "MSFT"]})]
+    (is (str/includes? prompt "*reinvest*"))
+    (is (str/includes? prompt "these symbols: AAPL, MSFT"))))
 
 (deftest normalize-a-statement
   (is (= {:period-start (t/local-date 2026 8 20)
@@ -100,7 +163,36 @@
                            :closing-balance 5M
                            :transactions [{:date "2026-09-01"
                                            :amount -5M
-                                           :description "Rent"}]}))))
+                                           :description "Rent"}]})))
+  (is (= {:period-start (t/local-date 2026 9 1)
+          :period-end (t/local-date 2026 9 30)
+          :opening-balance 10M
+          :closing-balance 5M
+          :transactions [{:date (t/local-date 2026 9 22)
+                          :amount 800M
+                          :type "sell"
+                          :symbol "AAPL"
+                          :shares 5M}
+                         {:date (t/local-date 2026 9 30)
+                          :amount -5M
+                          :type "cash"
+                          :shares nil}]
+          :holdings [{:symbol "AAPL" :shares 25M}]}
+         (stmts/normalize {:period-start "2026-09-01"
+                           :period-end "2026-09-30"
+                           :opening-balance 10
+                           :closing-balance 5
+                           :transactions [{:date "2026-09-22"
+                                           :amount 800
+                                           :type "sell"
+                                           :symbol "AAPL"
+                                           :shares -5}
+                                          {:date "2026-09-30"
+                                           :amount -5
+                                           :type "cash"
+                                           :shares nil}]
+                           :holdings [{:symbol "AAPL" :shares 25}]}))
+      "The shares are read as positive decimals"))
 
 (defn- item
   [id date quantity description]
