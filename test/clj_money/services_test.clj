@@ -1,5 +1,7 @@
 (ns clj-money.services-test
   (:require [clojure.test :refer [deftest is]]
+            [clojure.pprint :refer [pprint]]
+            [clojure.data :refer [diff]]
             [integrant.core :as ig]
             [clj-money.services :as services]))
 
@@ -20,22 +22,24 @@
    :alpha-vantage-api-key "alpha-key"})
 
 (deftest build-the-service-config-from-the-app-config
-  (is (= {:mailer {:enabled? true
-                   :host "mail.example.com"
-                   :from "no-reply@example.com"
-                   :app-name "Test Money"
-                   :site-url "https://money.example.com"}
-          :honeybadger {:api-key "hb-key"
-                        :environment-name "production"}
-          :auth-secret "jwt-secret"
-          :oauth {:google {:client-id "google-id"
-                           :client-secret "google-secret"}
-                  :github {:client-id "github-id"
-                           :client-secret "github-secret"}}
-          :yahoo-api-key "yahoo-key"
-          :alpha-vantage-api-key "alpha-key"}
-         (services/config app-config))
-      "The service config is extracted from the app config")
+  (let [expected {:mailer {:enabled? true
+                           :host "mail.example.com"
+                           :from "no-reply@example.com"
+                           :app-name "Test Money"
+                           :site-url "https://money.example.com"}
+                  :honeybadger {:api-key "hb-key"
+                                :environment-name "production"}
+                  :auth-secret "jwt-secret"
+                  :oauth {:google {:client-id "google-id"
+                                   :client-secret "google-secret"}
+                          :github {:client-id "github-id"
+                                   :client-secret "github-secret"}}}
+        actual (services/config app-config)
+        [missing extra] (diff expected actual)]
+    (is (not missing) "No services are missing from the config")
+    (is (not extra) "No extra services are in the config")
+    (is (= expected actual)
+        "The service config is extracted from the app config"))
   (is (= "development"
          (get-in (services/config (assoc app-config :dev? true))
                  [:honeybadger :environment-name]))

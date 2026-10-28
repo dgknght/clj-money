@@ -58,7 +58,7 @@
                                          (clj-money.otel/with-tracing)
                                          (clj-money.cli/with-options)
                                          (clj-money.system/with-system)
-                                         (clj-money.progress.redis-test/with-mocked-redis)
+                                         (clj-money.redis-util/with-mocked-redis)
                                          (clj-money.test-helpers/dbtest)]}
            :unused-private-var {:exclude #{clj-money.entities/change
                                            clj-money.entities.transactions/simplify}}
@@ -119,6 +119,7 @@
                                       honeysql.core/format
                                       taoensso.carmine/del
                                       taoensso.carmine/expire
+                                      taoensso.carmine/flushdb
                                       taoensso.carmine/get
                                       taoensso.carmine/incrby
                                       taoensso.carmine/keys

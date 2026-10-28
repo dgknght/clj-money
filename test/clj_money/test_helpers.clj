@@ -6,6 +6,7 @@
             [clj-money.config :refer [env]]
             [dgknght.app-lib.test :as test]
             [clj-money.ingestion.mock]
+            [clj-money.prices.mock]
             [clj-money.decimal :as d]
             [clj-money.db :as db]
             [clj-money.util :as util]

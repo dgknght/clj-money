@@ -55,8 +55,11 @@
               (add-error-handler opts "Unable to remove the price: %s")))
 
 (defn fetch
-  "Gets commodity prices from an external source"
-  [commodity-ids & {:as opts}]
+  "Gets commodity prices from an external source. Pass :bypass-cache? true
+  to ignore any cached prices."
+  [commodity-ids & {:as opts :keys [bypass-cache?]}]
   (api/get (api/path :prices :fetch)
-           {:commodity-id commodity-ids}
-           (add-error-handler opts "Unable to fetch external price information: %s")))
+           (cond-> {:commodity-id commodity-ids}
+             bypass-cache? (assoc :bypass-cache true))
+           (add-error-handler (dissoc opts :bypass-cache?)
+                              "Unable to fetch external price information: %s")))

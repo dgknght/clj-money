@@ -27,6 +27,10 @@
                :commodity/symbol])))
     (constantly true)))
 
+(defn price-download-enabled?
+  [{:commodity/keys [price-config]}]
+  (:price-config/enabled price-config true))
+
 (defn has-shares?
   "Returns true if the given commodity either currently held
   in an investment account, or if it is a currency."

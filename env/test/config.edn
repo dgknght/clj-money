@@ -28,6 +28,7 @@
                  :password :config/sql-app-password
                  :dbtype "postgresql"
                  :dbname :config/sql-db-name}
+ :prices {:clj-money.prices/provider :clj-money.prices.mock/mock}
  :mailer-enabled? true
  :mailer-from "no-reply@clj-money.com"
  :mailer-host "testmailer.com"

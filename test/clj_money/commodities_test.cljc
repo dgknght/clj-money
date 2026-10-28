@@ -55,3 +55,11 @@
     (is ((c/matches-search? "app")
          commodity)
         "The match is case insensitive")))
+
+(deftest check-price-download-enablement
+  (is (c/price-download-enabled? {:commodity/price-config {:price-config/enabled true}})
+      "Prices are enabled if an explicit true is present")
+  (is (c/price-download-enabled? {:commodity/price-config {}})
+      "Prices are enabled if a :price-config/enabled is absent")
+  (is (not (c/price-download-enabled? {:commodity/price-config {:price-config/enabled false}}))
+      "Prices are not enabled if an explicit false is present"))

@@ -39,6 +39,36 @@ through dynamic vars bound per request, by `system/with-components` and by the
 test harness. The service config is passed explicitly: request handlers get
 it with `clj-money.web.system/component`. See the "Integrant System" wiki page (https://git.dgknght.com/dgknght/clj-money/wiki/Integrant-System).
 
+## Price Providers (`prices/`)
+
+`clj-money.prices/Provider` fetches the price of a commodity for a date
+(`(fetch provider commodity {:date d})`, nil when there's none). The
+`::prices/provider` component is built from `:prices` by the
+`prices/provider` multimethod, and request handlers get it with
+`(clj-money.web.system/component req :prices)`. Providers are composed in the
+config: a decorator's method builds the provider under its `:inner` key and
+wraps it.
+- `::alpha-vantage/provider`, `::eodhd/provider` call the external APIs
+- `::redis/cache` caches fetched prices by symbol and date. `:bypass-cache?
+  true` in the fetch options ignores the cached price and replaces it with a
+  fresh one (the API's `bypass-cache=true` param, the "Bypass cache" checkbox
+  in the Prices card)
+- `::fallback/provider` tries each of its `:providers` in order and returns
+  the first price found. A provider that throws is treated as having no
+  price, so the next one is tried; nil when none has a price. The fallback
+  logs only a one-line warning; wrap each provider in `::observable/provider`
+  for the stack trace and error metrics
+- `::observable/provider` logs and traces each fetch (`prices/fetch` span) and
+  records `clj_money.prices.fetch.duration`, attributed to the inner provider
+  and exchange, with an outcome of `found`, `not_found` or `error` (plus
+  `error.type`). The provider is identified by the observable's `:name` (e.g.
+  `"alpha-vantage"`), or by the inner `::prices/provider` key when it's
+  omitted, in the metric and span attributes and as a `[name]` prefix on its
+  log entries. Put it inside the cache so only external calls are measured,
+  and wrap each provider separately to tell them apart
+- Tests use `clj-money.prices.mock/mock` (test config) or pass their own
+  provider to `test-handler/build-app` as `:prices`
+
 ## Propagation (publish/subscribe)
 
 Changes to one entity often affect others (a transaction changes account

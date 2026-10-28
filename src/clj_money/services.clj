@@ -23,9 +23,7 @@
    :oauth {:google {:client-id (:google-client-id env)
                     :client-secret (:google-client-secret env)}
            :github {:client-id (:github-client-id env)
-                    :client-secret (:github-client-secret env)}}
-   :yahoo-api-key (:yahoo-api-key env)
-   :alpha-vantage-api-key (:alpha-vantage-api-key env)})
+                    :client-secret (:github-client-secret env)}}})
 
 (defmethod ig/init-key ::config
   [_ config]

@@ -1,6 +1,7 @@
 (ns clj-money.api.prices-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.web :refer [path]]
@@ -18,11 +19,14 @@
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.prices.alpha-vantage :as alpha]
+            [clj-money.test-helpers :refer [reset-db
+                                               propagated]]
+            [clj-money.prices :as prices]
+            [clj-money.prices.mock :refer [Inspectable
+                                           inspect]]
             [clj-money.entities :as entities]
             [clj-money.entity-helpers :refer [jsonify]]
-            [clj-money.web.test-handler :refer [app]]))
+            [clj-money.web.test-handler :refer [app build-app]]))
 
 (use-fixtures :each reset-db)
 
@@ -264,33 +268,59 @@
                :name "Microsoft, Inc."
                :symbol "MSFT"
                :exchange :nasdaq
-               :type :stock}])
+               :type :stock}
+   #:commodity{:entity "Personal"
+               :type :stock
+               :name "IBM"
+               :symbol "IBM"
+               :exchange :nyse
+               :price-config {:price-config/enabled false}}
+   #:commodity{:entity "Personal"
+               :type :stock
+               :name "General Electric"
+               :symbol "GE"
+               :exchange :nyse}])
+
+(defmethod prices/provider ::provider
+  [_config]
+  (let [calls (atom [])]
+    (reify
+      prices/Provider
+      (fetch [_ {:as commodity :commodity/keys [symbol]} opts]
+        (swap! calls conj [commodity opts])
+        (when-let [value ({"AAPL" 10.01M
+                           "MSFT" 5.01M}
+                          symbol)]
+          #:price{:trade-date (t/local-date 2015 3 2)
+                  :commodity commodity
+                  :value value}))
+
+      Inspectable
+      (inspect [_] @calls))))
 
 (defn- fetch-some-prices
-  [username & {:keys [content-type]
-               :or {content-type "application/edn"}}]
-  (let [appl (find-commodity "AAPL")
-        msft (find-commodity "MSFT")]
-    (with-redefs [alpha/get-quote (fn [symbol _api-key]
-                                    {:commodity/symbol symbol
-                                     :commodity/exchange :nasdaq
-                                     :price/trade-date (t/local-date 2015 3 2)
-                                     :price/value ({"AAPL" 10.01M
-                                                    "MSFT" 5.01M}
-                                                   symbol)})]
-      (with-fixed-time "2015-03-02T12:00:00Z"
-        (-> (request :get (str (path :api
-                                     :prices
-                                     :fetch)
-                               "?commodity-id="
-                               (:id appl)
-                               "&commodity-id="
-                               (:id msft))
-                     :content-type content-type
-                     :user (when username
-                             (find-user username)))
-            app
-            parse-body)))))
+  [username & {:keys [content-type symbols bypass-cache? provider]
+               :or {content-type "application/edn"
+                    symbols ["AAPL" "MSFT" "IBM"]}}]
+  (with-fixed-time "2015-03-03T12:00:00Z"
+    (-> (request :get (str (path :api
+                                 :prices
+                                 :fetch)
+                           "?"
+                           (->> symbols
+                                (map #(str "commodity-id="
+                                           (:id (find-commodity %))))
+                                (cons (when bypass-cache?
+                                        "bypass-cache=true"))
+                                (filter identity)
+                                (string/join "&")))
+                 :content-type content-type
+                 :user (when username
+                         (find-user username)))
+        ((comp propagated
+               (build-app {:prices (or provider
+                                       (prices/provider {::prices/provider ::provider}))})))
+        parse-body)))
 
 (defn- assert-successful-fetch
   [{:as response :keys [parsed-body]}
@@ -342,37 +372,37 @@
                                :commodity msft
                                :_type "price"}])))))
 
+(deftest a-user-can-fetch-the-current-price-for-one-commodity
+  (with-context fetch-context
+    (assert-successful-fetch
+      (fetch-some-prices "john@doe.com" :symbols ["AAPL"])
+      :expected [#:price{:trade-date (t/local-date 2015 3 2)
+                         :value 10.01M
+                         :commodity (util/->entity-ref (find-commodity "AAPL"))}])))
+
+(deftest a-user-can-bypass-the-price-cache
+  (with-context fetch-context
+    (let [provider (prices/provider {::prices/provider ::provider})]
+      (fetch-some-prices "john@doe.com"
+                         :symbols ["AAPL"]
+                         :provider provider)
+      (fetch-some-prices "john@doe.com"
+                         :symbols ["AAPL"]
+                         :bypass-cache? true
+                         :provider provider)
+      (is (= [{:date (t/local-date 2015 3 2)}
+              {:date (t/local-date 2015 3 2)
+               :bypass-cache? true}]
+             (map second (inspect provider)))
+          "The bypass option is passed to the provider only when requested"))))
+
+(deftest fetching-prices-that-are-not-available-returns-not-found
+  (with-context fetch-context
+    (is (http-not-found? (fetch-some-prices "john@doe.com"
+                                            :symbols ["GE" "IBM"])))
+    (is (empty? (entities/select #:price{:trade-date (t/local-date 2015 3 2)}))
+        "No prices are written to the database")))
+
 (deftest an-unauthenticated-user-cannot-fetch-commodity-prices
   (with-context fetch-context
     (is (http-unauthorized? (fetch-some-prices nil)))))
-
-(deftest prices-are-only-fetched-once-per-day
-  (with-context fetch-context
-    (let [user (find-user "john@doe.com")
-          appl (find-commodity "AAPL")
-          msft (find-commodity "MSFT")
-          calls (atom [])
-          make-req #(-> (request :get (str (path :api
-                                                   :prices
-                                                   :fetch)
-                                             "?commodity-id="
-                                             (:id appl)
-                                             "&commodity-id="
-                                             (:id msft))
-                                 :content-type "application/edn"
-                                 :user user)
-                        app
-                        parse-body)]
-      (with-redefs [alpha/get-quote (fn [symbol _api-key]
-                                      (swap! calls conj symbol)
-                                      {:commodity/symbol symbol
-                                       :commodity/exchange :nasdaq
-                                       :price/value 10.01M
-                                       :price/trade-date (t/local-date 2015 3 2)})]
-        (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
-          (make-req)
-          (make-req))
-        (is (= {"MSFT" 1
-                "AAPL" 1}
-               (frequencies @calls))
-            "The external service is called exactly one time for each symbol")))))

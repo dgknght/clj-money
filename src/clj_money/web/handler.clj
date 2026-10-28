@@ -37,6 +37,7 @@
             [clj-money.db.sql.ref]
             [clj-money.db.datomic.ref]
             [clj-money.entities.ref]
+            [clj-money.prices.ref]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
@@ -75,7 +76,8 @@
                   (pprint
                     (-> req
                         (dissoc :reitit.core/match
-                                :reitit.core/router)
+                                :reitit.core/router
+                                ::system/system)
                         entities/scrub-sensitive-data))))
     (let [res (handler req)]
       (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))

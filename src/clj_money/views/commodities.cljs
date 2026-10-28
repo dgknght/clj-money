@@ -233,20 +233,56 @@
                        :on-click #(swap! page-state assoc :page-index @max-index)}
          (icon :chevron-bar-right :size :small)]]])))
 
-(defn- price-download-enabled?
-  [{:commodity/keys [price-config]}]
-  (:price-config/enabled price-config))
+(defn- upsert-price
+  [prices price]
+  (util/upsert-into price
+                    {:sort-key :price/trade-date
+                     :comp t/after?}
+                    prices))
+
+(defn- apply-price
+  [{:commodity/keys [most-recent-price] :as commodity}
+   {:price/keys [trade-date] :as price}]
+  (cond-> (update-in commodity
+                     [:commodity/price-date-range]
+                     (fn [[start end]]
+                       [(dates/earliest start trade-date)
+                        (dates/latest end trade-date)]))
+    (not (some-> most-recent-price
+                 :price/trade-date
+                 (t/after? trade-date)))
+    (assoc :commodity/most-recent-price price)))
+
+(defn- receive-prices
+  "Adds saved prices to the page state. The price date range of each
+  commodity is updated here instead of reloading the commodities, because
+  the server updates it asynchronously after the prices are saved."
+  [state prices]
+  (reduce (fn [s {:price/keys [commodity] :as price}]
+            (cond-> (update-in s
+                               [:commodities]
+                               (fn [cs]
+                                 (map #(if (id= commodity %)
+                                         (apply-price % price)
+                                         %)
+                                      cs)))
+              (id= commodity (:prices-commodity s))
+              (-> (update-in [:prices-commodity] apply-price price)
+                  (update-in [:prices] upsert-price price))))
+          state
+          prices))
 
 (defn- download-prices
   [page-state]
   (when-let [commodity-ids (->> (:commodities @page-state)
-                                (filter (every-pred cmm/has-shares? price-download-enabled?))
+                                (filter (every-pred cmm/has-shares?
+                                                    cmm/price-download-enabled?))
                                 (map :id)
                                 seq)]
     (+busy)
     (prices/fetch commodity-ids
                   :callback -busy
-                  :on-success #(load-commodities page-state))))
+                  :on-success #(swap! page-state receive-prices %))))
 
 (defn- match-fn
   [hide-zero-shares? search-term]
@@ -315,6 +351,7 @@
                        :title "Click here to download recent prices for each commodity."
                        :on-click #(download-prices page-state)}
                 :icon :download
+                :size :small
                 :disabled? selected
                 :caption "Fetch Prices"}]])))
 
@@ -380,12 +417,22 @@
           :else
           (doall (map #(price-row % page-state) @prices)))]])))
 
+(defn- fetch-price
+  [page-state]
+  (+busy)
+  (prices/fetch [(get-in @page-state [:prices-commodity :id])]
+                :bypass-cache? (:bypass-price-cache? @page-state)
+                :callback -busy
+                :on-success #(swap! page-state receive-prices %)))
+
 (defn- price-list
   [page-state]
   (let [commodity (r/cursor page-state [:prices-commodity])
         price (r/cursor page-state [:selected-price])
         all-prices-fetched? (r/cursor page-state [:all-prices-fetched?])
-        ctl-chan (r/cursor page-state [:prices-ctl-chan])]
+        ctl-chan (r/cursor page-state [:prices-ctl-chan])
+        download-disabled? (make-reaction
+                             #(not (cmm/price-download-enabled? @commodity)))]
     (fn []
       [:div.card {:class (cond
                            (nil? @commodity) "d-none"
@@ -405,12 +452,22 @@
                                              #:price{:commodity @commodity
                                                      :trade-date (t/today)})
                                       (set-focus "trade-date"))}
-                   :icon :plus
-                   :caption "Add"}]
+                   :icon :plus}]
+          [button {:html {:class "btn-secondary ms-2"
+                          :title "Click here to download the latest price for this commodity."
+                          :on-click #(fetch-price page-state)}
+                   :icon :download
+                   :disabled? download-disabled?}]
           [button {:html {:class "btn-secondary ms-2"
                           :on-click #(swap! page-state dissoc :prices-commodity)}
-                   :icon :x
-                   :caption "Close"}]]
+                   :icon :x}]]
+         [:div.col-auto
+          [:div.form-check {:title "Fetch the price from the provider even when a recent one has been cached."}
+           [forms/checkbox-input
+            page-state
+            [:bypass-price-cache?]]
+           [:label.form-check-label {:for "bypass-price-cache"}
+            "Bypass cache"]]]
          [:div.col-auto
           [:span.ms-auto
            [load-on-scroll {:target "prices-container"
@@ -423,12 +480,7 @@
     (swap! page-state
            #(-> %
                 (dissoc :selected-price)
-                (update-in [:prices]
-                           (fn [prices]
-                             (util/upsert-into price
-                                               {:sort-key :price/trade-date
-                                                :comp t/after?}
-                                               prices)))))))
+                (receive-prices [price])))))
 (defn- save-price
   [page-state]
   (let [price (:selected-price @page-state)]

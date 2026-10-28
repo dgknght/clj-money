@@ -10,6 +10,7 @@
             [clj-money.monitor-cache :as monitor-cache]
             [clj-money.ingestion :as ing]
             [clj-money.progress :as progress]
+            [clj-money.prices :as prices]
             [clj-money.services :as services]
             [clj-money.system :as system]
             [clj-money.web :as-alias web]
@@ -26,6 +27,7 @@
                     :image-storage {:bucket "test-images"}
                     :ingestion {:model "model-x"}
                     :monitor-cache {:ttl-minutes 5}
+                    :prices {:api-key "price-api-key"}
                     :progress {:strategies {:redis {:prefix "test"}}
                                :active :redis}}]
     (is (= {::system/env app-config
@@ -39,11 +41,13 @@
             ::ing/receipt-reader {:model "model-x"}
             ::ing/statement-reader {:model "model-x"}
             ::progress/tracker-factory {:prefix "test"}
+            ::prices/provider {:api-key "price-api-key"}
             ::services/config (services/config app-config)
             ::web/handler {:env (ig/ref ::system/env)
                            :storage (ig/ref ::db/storage)
                            :publisher (ig/ref ::entities/publisher)
                            :image-storage (ig/ref ::images/storage)
+                           :prices (ig/ref ::prices/provider)
                            :receipt-reader (ig/ref ::ing/receipt-reader)
                            :statement-reader (ig/ref ::ing/statement-reader)
                            :tracker-factory (ig/ref ::progress/tracker-factory)

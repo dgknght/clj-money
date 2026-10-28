@@ -16,6 +16,7 @@
             [clj-money.images :as images]
             [clj-money.monitor-cache :as monitor-cache]
             [clj-money.progress :as progress]
+            [clj-money.prices :as prices]
             [clj-money.services :as services]
             [clj-money.ingestion :as ingestion]
             [clj-money.ingestion.reader]
@@ -56,6 +57,7 @@
     ::monitor-cache/cache (merge {:publisher (ig/ref ::entities/publisher)}
                                  (:monitor-cache env))
     ::images/storage (:image-storage env)
+    ::prices/provider (:prices env)
     ::progress/tracker-factory (progress/active-config env)
     ::services/config (services/config env)
     ::ingestion/receipt-reader (:ingestion env)
@@ -64,6 +66,7 @@
                    :storage (ig/ref ::db/storage)
                    :publisher (ig/ref ::entities/publisher)
                    :image-storage (ig/ref ::images/storage)
+                   :prices (ig/ref ::prices/provider)
                    :tracker-factory (ig/ref ::progress/tracker-factory)
                    :services (ig/ref ::services/config)
                    :receipt-reader (ig/ref ::ingestion/receipt-reader)

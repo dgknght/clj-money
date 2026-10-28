@@ -476,3 +476,19 @@
                 (t/date-time 2000 1 1 12 0 0)
                 (t/date-time 2000 1 1 12 1 0)
                 "1:00")))
+
+; Friday   - 2026-10-23
+; Saturday - 2026-10-24
+; Sunday   - 2026-10-25
+; Monday   - 2026-10-26
+; Tuesday  - 2026-10-27
+
+(deftest get-the-last-weekday
+  (are [given expected] (= expected
+                           (dates/last-weekday given))
+       (t/local-date 2026 10 27) (t/local-date 2026 10 26)
+       (t/local-date 2026 10 26) (t/local-date 2026 10 23)
+       (t/local-date 2026 10 25) (t/local-date 2026 10 23)
+       (t/local-date 2026 10 24) (t/local-date 2026 10 23)
+       (t/local-date 2026 10 23) (t/local-date 2026 10 22)))
+

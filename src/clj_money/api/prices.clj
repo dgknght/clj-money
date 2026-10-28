@@ -2,13 +2,16 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          ->sequential
+                                          parse-bool]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
-            [clj-money.prices.fetch :as fetch]
+            [clj-money.prices :as prices]
+            [clj-money.commodities :refer [price-download-enabled?]]
             [clj-money.web.system :as system]
             [clj-money.authorization :refer [+scope
                                              authorize]
@@ -83,13 +86,24 @@
     api/not-found))
 
 (defn- fetch
-  "Return prices for a specified list of commodities"
+  "Return prices for a specified list of commodities. Pass bypass-cache=true
+  to ignore any cached prices."
   [{:keys [params] :as req}]
-  (->> (entities/find-many (:commodity-id params))
-       (fetch/fetch (system/component req :services))
-       entities/put-many
-       (map #(update-in % [:price/commodity] util/->entity-ref))
-       api/response))
+  (if-let [prices (->> (->sequential (:commodity-id params))
+                       (entities/find-many)
+                       (filter price-download-enabled?)
+                       (map #(prices/fetch (system/component req :prices)
+                                           %
+                                           (cond-> {:date (dates/last-weekday)}
+                                             (parse-bool (:bypass-cache params))
+                                             (assoc :bypass-cache? true))))
+                       (filter identity)
+                       seq)]
+    (->> prices
+         entities/put-many
+         (map #(update-in % [:price/commodity] util/->entity-ref))
+         api/response)
+    api/not-found))
 
 (def routes
   [["commodities/:commodity-id/prices" {:post {:handler create}

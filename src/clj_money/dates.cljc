@@ -558,3 +558,25 @@
              (format "%d:%02d"
                      (quot s 60)
                      (mod s 60)))))
+
+(def ^:private saturday?
+  #?(:clj t/saturday?
+     :cljs #(= 6 (t/day-of-week %))))
+
+(def ^:private sunday?
+  #?(:clj t/sunday?
+     :cljs #(= 7 (t/day-of-week %))))
+
+(def weekend?
+  (some-fn sunday? saturday?))
+
+(def weekday?
+  (complement weekend?))
+
+(defn last-weekday
+  ([] (last-weekday (today)))
+  ([given]
+   (loop [d (t/minus given (t/days 1))]
+     (if (weekday? d)
+       d
+       (recur (t/minus d (t/days 1)))))))

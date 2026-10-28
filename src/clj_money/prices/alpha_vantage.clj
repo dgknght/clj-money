@@ -1,109 +1,47 @@
 (ns clj-money.prices.alpha-vantage
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as string]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [clj-http.client :as http]
-            [jsonista.core :as json]
-            [java-time.api :as t]
-            [camel-snake-kebab.core :refer [->kebab-case-keyword]]
-            [camel-snake-kebab.extras :refer [transform-keys]]
             [lambdaisland.uri :refer [uri
-                                      map->query-string]]
+                                      assoc-query
+                                      uri-str]]
+            [java-time.api :as t]
+            [clj-money.dates :as dates]
             [clj-money.prices :as prices]))
 
-(def service-uri (uri "https://alpha-vantage.p.rapidapi.com/query"))
-(def rapidapi-host "alpha-vantage.p.rapidapi.com")
-
-(def date-time-formatter
-  (t/formatter "yyyy-MM-dd HH:mm:ss"))
-
-(def date-formatter
-  (t/formatter :iso-date))
+(def service-uri (uri "https://www.alphavantage.co/query"))
 
 (defn- get-quote-uri
-  [sym]
+  [sym api-key]
   (-> service-uri
-      (assoc :query (map->query-string {:symbol sym
-                                        :function "DIGITAL_CURRENCY_DAILY"
-                                        :market "USD"}))
-      str))
-
-(defn strip-ordinal [s]
-  (string/replace s #"^\d+[ab]?\. " ""))
-
-(defn strip-parenthetical [s]
-  (string/replace s #"\s?\([^)]+\)" ""))
-
-(defn- adj-key? [k]
-  (and (string? k)
-       (not (re-find #"[A-Z]{3}" k))))
-
-(def ^:private adj-key
-  (comp ->kebab-case-keyword
-        strip-parenthetical
-        strip-ordinal))
-
-(defn- adj-keys [m]
-  (transform-keys #(if (adj-key? %)
-                     (adj-key %)
-                     %)
-                  m))
-
-(defn- extract-currency-map
-  "Extract the currency a price value from the map entry.
-
-  E.g.
-  {\"1a. open (USD)\": \"43451.14000000\"} => {\"USD\" {\"open\" 43451.14M}}
-  {\"5. volume\": \"1505.96873\"} => {\"volume\" 43451.14M}"
-  [m]
-  (reduce-kv (fn [r k v]
-               (let [[_ quote-type currency] (re-find #"([a-z ]+)(?: \(([A-Z]+)\))?$" k)]
-                 (if currency
-                   (update-in r [currency] assoc quote-type (bigdec v))
-                   (assoc r quote-type (bigdec v)))))
-             {}
-             m))
-
-(defn- extract-daily-currency-maps [m]
-  (update-in m
-             ["Time Series (Digital Currency Daily)"]
-             (fn [series-map]
-               (->> series-map
-                    (map #(update-in % [1] extract-currency-map))
-                    (map #(update-in % [0] (partial t/local-date date-formatter)))
-                    (into {})))))
+      (assoc-query :symbol sym
+                   :function "TIME_SERIES_DAILY"
+                   :apikey api-key)
+      uri-str))
 
 (defn- raw-quote
   [sym api-key]
-  (let [url (get-quote-uri sym)
-        _ (log/infof "get-quote %s" url)
-        res (http/get url {:as :string
-                           :headers {:x-rapidapi-host rapidapi-host
-                                     :x-rapidapi-key api-key}})]
-    (log/debugf "get-response response %s: %s" url (prn-str res))
-    (-> (json/read-value (:body res))
-        extract-daily-currency-maps
-        adj-keys
-        (update-in [:meta-data :last-refreshed] (partial t/local-date-time date-time-formatter)))))
+  (let [url (get-quote-uri sym api-key)
+        res (http/get url {:as :json-string-keys})]
+    (if (<= 200 (:status res) 299)
+      (:body res)
+      (throw (ex-info "Unable to fetch the quote" {:symbol sym})))))
 
-(defn- transform-quote
-  [m]
-  (let [trade-date (t/local-date (get-in m [:meta-data :last-refreshed]))]
-    {:price/value (get-in m [:time-series trade-date "USD" :close])
-     :price/trade-date trade-date
-     :commodity/symbol (get-in m [:meta-data :digital-currency-code])
-     :commodity/exchange :currency}))
+(defn- ->price
+  [[date m] commodity]
+  {:price/trade-date (dates/unserialize-local-date date)
+   :price/value (bigdec (get-in m ["4. close"]))
+   :price/commodity commodity})
 
-(defn get-quote
-  "Fetches the quote for the given symbol, authenticating with the given
-  RapidAPI key"
-  [sym api-key]
-  (transform-quote (raw-quote sym api-key)))
+(defn- fetch*
+  [{:as commodity sym :commodity/symbol} {:keys [api-key date]}]
+  (let [d (or date (t/local-date))]
+    (->> (get-in (raw-quote sym api-key) ["Time Series (Daily)"])
+         (map #(->price % commodity))
+         (filter #(= d (:price/trade-date %)))
+         first)))
 
-(deftype AlphaVantageProvider [api-key]
-  prices/PriceProvider
-  (prices/fetch-prices [_ symbols]
-    (->> symbols
-         (map #(get-quote % api-key))
-         (filter identity)
-         (into []))))
+(defmethod prices/provider ::provider
+  [config]
+  (reify
+    prices/Provider
+    (fetch [_ commodity opts] (fetch* commodity (merge config opts)))))
