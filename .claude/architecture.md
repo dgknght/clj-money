@@ -238,12 +238,15 @@ A photo of a receipt is read by a vision model and turned into a transaction.
 - Ollama models are given a receipt's contents rather than the image, by one
   of two receipt decorators (issue #208): `::ocr/ocr` (`ingestion/ocr.clj`)
   runs the `tesseract` command (installed in the Dockerfile; `:command`,
-  `:language` and `:psm` are configurable) with Sauvola thresholding, first
+  `:language` and `:psm` are configurable) with Sauvola thresholding, killing
+  it after `:timeout-ms` (60000, for each image; issue #221, via
+  `clj-money.shell/sh`, which is `clojure.java.shell/sh` with a timeout),
+  first
   enlarging an image smaller than `:min-image-dimension` (3000, via
   `scale/enlarge`), and gives `{:text ...}`, read
   much faster by a text model (`qwen3:8b` by default); a PDF's own text is
-  used when it has some. `ocr` returns nil when no text is read or the
-  total the model read isn't among the amounts in the text (e.g., a
+  used when it has some. `ocr` returns nil when no text is read, Tesseract
+  times out, or the total the model read isn't among the amounts in the text (e.g., a
   handwritten total OCR misread), so configure it as the first of the
   `:alternatives` of a `::logic/or` reader (`ingestion/logic.clj`, issue
   #222), followed by `scale` → `base64`, so the slow vision model only reads
