@@ -1,5 +1,5 @@
 (ns clj-money.api.statement-ingestions
-  (:refer-clojure :exclude [get])
+  (:refer-clojure :exclude [get update])
   (:require [cljs.pprint :refer [pprint]]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [add-error-handler]]))
@@ -31,3 +31,15 @@
            (add-error-handler
              opts
              "Unable to retrieve the statement progress: %s")))
+
+(defn update
+  "Corrects the statement read for a statement-ingestion that couldn't be
+  reconciled, and reconciles it again. The corrections are given as
+  #:statement-ingestion{:account ... :statement {...}}. The response is the
+  statement-ingestion, which tracks the progress of the reconciliation."
+  [{:keys [id]} corrections & {:as opts}]
+  (api/patch (api/path :statement-ingestions id)
+             corrections
+             (add-error-handler
+               opts
+               "Unable to correct the statement: %s")))

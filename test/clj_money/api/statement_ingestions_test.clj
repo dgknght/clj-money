@@ -14,6 +14,7 @@
             [clj-money.db.ref]
             [clj-money.util :as util]
             [clj-money.ingestion :as ing]
+            [clj-money.ingestion.investment-statements :as inv]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
@@ -165,6 +166,17 @@
                     :transaction-item/quantity))
          set)))
 
+(defn- correct-ingestion
+  [{:keys [id]} email corrections]
+  (let [response (-> (request :patch (path :api :statement-ingestions id)
+                              :body corrections
+                              :user (find-user email))
+                     ((build-app {:statement-reader checking-reader}))
+                     parse-body)]
+    [response
+     (when (= 200 (:status response))
+       (await-completion {:id id}))]))
+
 (deftest a-user-can-reconcile-a-statement-in-his-entity
   (with-context statement-context
     (let [[{:as response :keys [parsed-body]} retrieved] (create-ingestion "john@doe.com")
@@ -251,9 +263,25 @@
 
 (def ^:private in-progress-context
   (conj statement-context
+        ; not on the statement
+        #:transaction{:transaction-date (t/local-date 2026 9 10)
+                      :entity "Personal"
+                      :description "Coffee Shop"
+                      :quantity 5M
+                      :debit-account "Household"
+                      :credit-account "Checking"}
         #:reconciliation{:account "Checking"
                          :end-of-period (t/local-date 2026 9 1)
                          :balance 0M
+                         :status :new
+                         :items [[(t/local-date 2026 8 25) 1250M]
+                                 [(t/local-date 2026 9 10) 5M]]}))
+
+(def ^:private matching-in-progress-context
+  (conj statement-context
+        #:reconciliation{:account "Checking"
+                         :end-of-period (t/local-date 2026 9 18)
+                         :balance 5936.31M
                          :status :new
                          :items [[(t/local-date 2026 8 25) 1250M]]}))
 
@@ -271,8 +299,8 @@
                   :entity "Business"
                   :type :asset}))
 
-(deftest statement-lines-are-added-to-a-reconciliation-in-progress
-  (with-context in-progress-context
+(deftest statement-lines-are-added-to-a-matching-reconciliation-in-progress
+  (with-context matching-in-progress-context
     (let [[_ retrieved] (create-ingestion "john@doe.com")
           recons (entities/select #:reconciliation{:account (find-account "Checking")
                                                    :status :new})]
@@ -284,6 +312,54 @@
           "The reconciliation takes the statement's closing date and balance")
       (is (= 11 (count (reconciled-items retrieved)))
           "The reconciliation contains each statement line"))))
+
+(deftest a-reconciliation-in-progress-that-doesnt-match-awaits-confirmation
+  (with-context in-progress-context
+    (let [[_ retrieved] (create-ingestion "john@doe.com")
+          checking (find-account "Checking")]
+      (is (comparable? #:statement-ingestion{:status :conflict
+                                             :error "Checking has a reconciliation in progress, ending on 2026-09-01 with a balance of 0, which doesn't match the statement, ending on 2026-09-18 with a balance of 5936.31."}
+                       retrieved)
+          "The user is asked to confirm that the reconciliation should be replaced")
+      (is (comparable? #:reconciliation{:end-of-period (t/local-date 2026 9 1)
+                                        :balance 0M}
+                       (entities/find-by #:reconciliation{:account checking
+                                                          :status :new}))
+          "The reconciliation in progress is unchanged")
+      (is (= #{[(t/local-date 2026 8 25) 1250M]
+               [(t/local-date 2026 9 10) 5M]}
+             (reconciled-items (assoc retrieved
+                                      :statement-ingestion/account
+                                      (util/->entity-ref checking))))
+          "The reconciliation in progress keeps its items")
+      (is (empty? (entities/select #:transaction{:entity (find-entity "Personal")
+                                                 :source :ingestion}))
+          "No transactions are created"))))
+
+(deftest a-user-can-replace-a-reconciliation-in-progress
+  (with-context in-progress-context
+    (let [[_ conflict] (create-ingestion "john@doe.com")
+          [response retrieved] (correct-ingestion
+                                 conflict
+                                 "john@doe.com"
+                                 #:statement-ingestion{:replace? true})
+          recons (entities/select #:reconciliation{:account (find-account "Checking")
+                                                   :status :new})]
+      (is (http-success? response))
+      (is (comparable? #:statement-ingestion{:status :complete}
+                       retrieved)
+          "The statement is reconciled")
+      (is (= 1 (count recons))
+          "No other reconciliation is created")
+      (is (comparable? #:reconciliation{:end-of-period (t/local-date 2026 9 18)
+                                        :balance 5936.31M}
+                       (first recons))
+          "The reconciliation takes the statement's closing date and balance")
+      (is (= 11 (count (reconciled-items retrieved)))
+          "The reconciliation contains each statement line")
+      (is (not (contains? (reconciled-items retrieved)
+                          [(t/local-date 2026 9 10) 5M]))
+          "An item that isn't on the statement is removed from the reconciliation"))))
 
 (deftest a-mismatched-opening-balance-is-reported
   (with-context statement-context
@@ -301,6 +377,9 @@
       (is (comparable? #:statement-ingestion{:status :failed
                                              :error "The statement ends on 2026-09-18, which is not after the last reconciliation, on 2026-09-30."}
                        retrieved))
+      (is (comparable? {:period-end "2026-09-18"}
+                       (:statement-ingestion/statement retrieved))
+          "The statement read is kept, so that the user can correct it")
       (is (empty? (entities/select #:transaction{:entity (find-entity "Personal")
                                                  :source :ingestion}))
           "No transactions are created"))))
@@ -314,6 +393,105 @@
                                              :error "The model is unavailable"}
                        retrieved)
           "The error is recorded on the statement-ingestion"))))
+
+(def ^:private misread-reader
+  (reader (fn [_] (assoc (read-fixture "checking")
+                         :period-end "2025-09-18"
+                         :closing-balance 9999M))))
+
+(def ^:private unknown-account-reader
+  (reader (fn [_] (assoc (read-fixture "checking")
+                         :account "Savings"))))
+
+(deftest a-user-can-correct-a-statement-that-couldnt-be-reconciled
+  (with-context statement-context
+    (let [[_ failed] (create-ingestion "john@doe.com" :reader misread-reader)
+          _ (is (comparable? #:statement-ingestion{:status :failed
+                                                   :error "The statement ends on 2025-09-18, which is not after the last reconciliation, on 2026-08-19."}
+                             failed)
+                "The misread statement can't be reconciled")
+          [response retrieved] (correct-ingestion
+                                 failed
+                                 "john@doe.com"
+                                 #:statement-ingestion{:statement {:period-end (t/local-date 2026 9 18)
+                                                                   :closing-balance 5936.31M}})]
+      (is (http-success? response))
+      (is (comparable? #:statement-ingestion{:status :pending}
+                       (:parsed-body response))
+          "The response is the statement-ingestion, waiting to be reconciled")
+      (is (comparable? #:statement-ingestion{:status :complete
+                                             :account (util/->entity-ref (find-account "Checking"))}
+                       retrieved)
+          "The statement is reconciled")
+      (is (nil? (:statement-ingestion/error retrieved))
+          "The error is cleared")
+      (is (comparable? {:period-end "2026-09-18"
+                        :closing-balance 5936.31M
+                        :period-start "2026-08-20"}
+                       (:statement-ingestion/statement retrieved))
+          "The corrections are saved with the rest of the statement")
+      (is (comparable? #:reconciliation{:status :new
+                                        :end-of-period (t/local-date 2026 9 18)
+                                        :balance 5936.31M}
+                       (working-reconciliation retrieved))
+          "The reconciliation is created from the corrected statement")
+      (is (= 11 (count (reconciled-items retrieved)))
+          "The reconciliation contains each statement line"))))
+
+(deftest a-user-can-choose-the-account-for-a-statement
+  (with-context statement-context
+    (let [[_ failed] (create-ingestion "john@doe.com" :reader unknown-account-reader)
+          _ (is (comparable? #:statement-ingestion{:status :failed
+                                                   :error "Unable to tell which account the statement is for."}
+                             failed))
+          checking (find-account "Checking")
+          [_ retrieved] (correct-ingestion
+                          failed
+                          "john@doe.com"
+                          #:statement-ingestion{:account {:id (:id checking)}})]
+      (is (comparable? #:statement-ingestion{:status :complete
+                                             :account (util/->entity-ref checking)}
+                       retrieved)
+          "The statement is reconciled against the chosen account"))))
+
+(deftest a-statement-that-was-reconciled-cannot-be-corrected
+  (with-context statement-context
+    (let [[_ complete] (create-ingestion "john@doe.com")
+          [response] (correct-ingestion complete
+                                        "john@doe.com"
+                                        #:statement-ingestion{:statement {:period-end (t/local-date 2026 9 20)}})]
+      (is (http-unprocessable? response))
+      (is (comparable? {:period-end "2026-09-18"}
+                       (:statement-ingestion/statement (entities/find complete)))
+          "The statement is not changed"))))
+
+(deftest a-statement-that-couldnt-be-read-cannot-be-corrected
+  (with-context statement-context
+    (let [[_ failed] (create-ingestion "john@doe.com" :reader failing-reader)
+          [response] (correct-ingestion failed
+                                        "john@doe.com"
+                                        #:statement-ingestion{:statement {:period-end (t/local-date 2026 9 20)}})]
+      (is (http-unprocessable? response)))))
+
+(deftest a-user-cannot-correct-a-statement-in-anothers-entity
+  (with-context statement-context
+    (let [[_ failed] (create-ingestion "john@doe.com" :reader misread-reader)
+          [response] (correct-ingestion failed
+                                        "jane@doe.com"
+                                        #:statement-ingestion{:statement {:period-end (t/local-date 2026 9 18)}})]
+      (is (http-not-found? response))
+      (is (= :failed (:statement-ingestion/status (entities/find failed)))
+          "The statement-ingestion is not changed"))))
+
+(deftest a-user-cannot-reconcile-a-statement-against-anothers-account-when-correcting
+  (with-context other-entity-account-context
+    (let [[_ failed] (create-ingestion "john@doe.com" :reader unknown-account-reader)
+          [response] (correct-ingestion failed
+                                        "john@doe.com"
+                                        #:statement-ingestion{:account {:id (:id (find-account "Jane's Checking"))}})]
+      (is (http-not-found? response))
+      (is (= :failed (:statement-ingestion/status (entities/find failed)))
+          "The statement-ingestion is not changed"))))
 
 (deftest a-user-cannot-create-a-statement-ingestion-in-anothers-entity
   (with-context statement-context
@@ -531,10 +709,31 @@
                          :status :completed
                          :items []}))
 
-(deftest new-trades-are-undone-when-the-reconciliations-cannot-be-saved
+(deftest a-commodity-reconciled-past-the-statement-is-left-as-it-is
   (with-context later-commodity-reconciliation-context
     (let [[_ retrieved] (create-ingestion "john@doe.com"
                                           :reader brokerage-reader)]
+      (is (comparable? #:statement-ingestion{:status :complete
+                                             :warnings ["AAPL is already reconciled through 2026-10-15, so it wasn't reconciled from this statement."]}
+                       retrieved)
+          "The statement is reconciled, with a warning about the commodity")
+      (is (nil? (account-reconciliation "AAPL"))
+          "The commodity isn't reconciled")
+      (is (comparable? #:reconciliation{:balance 2.05M}
+                       (account-reconciliation "MSFT"))
+          "The other commodities are reconciled")
+      (is (comparable? #:reconciliation{:end-of-period (t/local-date 2026 9 30)
+                                        :balance 1795M}
+                       (account-reconciliation "IRA"))
+          "The cash is reconciled"))))
+
+(deftest new-trades-are-undone-when-the-reconciliations-cannot-be-saved
+  (with-context investment-context
+    (let [[_ retrieved] (with-redefs [inv/make-reconciliations
+                                      (fn [& _]
+                                        (throw (ex-info "Unable to save the reconciliations" {})))]
+                          (create-ingestion "john@doe.com"
+                                            :reader brokerage-reader))]
       (is (= :failed (:statement-ingestion/status retrieved)))
       (is (empty? (entities/select #:transaction{:entity (find-entity "Personal")
                                                  :source :ingestion}))

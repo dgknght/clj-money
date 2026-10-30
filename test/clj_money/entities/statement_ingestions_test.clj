@@ -55,3 +55,14 @@
                           #"Validation failed"
                           (entities/put (assoc (find-statement-ingestion "Personal")
                                                :statement-ingestion/status :unknown))))))
+
+(dbtest clear-the-error-of-a-statement-ingestion
+  (with-context ingestion-context
+    (let [failed (entities/put (assoc (find-statement-ingestion "Personal")
+                                      :statement-ingestion/status :failed
+                                      :statement-ingestion/error "Unable to tell which account the statement is for."))
+          _ (entities/put (assoc failed
+                                 :statement-ingestion/status :complete
+                                 :statement-ingestion/error nil))]
+      (is (nil? (:statement-ingestion/error (entities/find failed)))
+          "The error is removed"))))

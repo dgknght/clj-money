@@ -6,7 +6,7 @@
 (s/def :statement-ingestion/entity ::entities/entity-ref)
 (s/def :statement-ingestion/image ::entities/entity-ref)
 (s/def :statement-ingestion/account (s/nilable ::entities/entity-ref))
-(s/def :statement-ingestion/status #{:pending :processing :complete :failed})
+(s/def :statement-ingestion/status #{:pending :processing :complete :failed :conflict})
 (s/def :statement-ingestion/statement (s/nilable map?))
 (s/def :statement-ingestion/warnings (s/nilable (s/coll-of string?)))
 (s/def :statement-ingestion/error (s/nilable string?))

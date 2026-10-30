@@ -356,14 +356,34 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
 - `api/statement_ingestions.clj` - `POST /api/entities/:entity-id/statement-ingestions`
   (multipart `statement`, optional `account-id`) and `GET
   /api/statement-ingestions/:id`, like receipts. It reads the statement in a
-  `future` with the `:statement-reader` component
-- `ingestion/statement_reconciliation.clj` - `reconcile` does the work: reads
-  the statement, resolves the account, matches the lines, creates the
+  `future` with the `:statement-reader` component. `PATCH
+  /api/statement-ingestions/:id` corrects a `:failed` or `:conflict`
+  ingestion whose statement was read (422 otherwise): it merges the
+  `:period-start`, `:period-end`, `:opening-balance` and `:closing-balance`
+  given in `:statement-ingestion/statement` into the stored statement (blank
+  ones keep what the model read), optionally sets
+  `:statement-ingestion/account`, and runs `reconcile-statement` again in a
+  `future`, without the model, replacing the reconciliation in progress if
+  `:statement-ingestion/replace?` is true
+- `ingestion/statement_reconciliation.clj` - `reconcile` reads the statement
+  and saves it on the ingestion, then `reconcile-statement` does the rest,
+  so that a statement that can't be reconciled keeps what the model read, for
+  the user to correct (`views/statement_upload.cljs` shows it in a form in
+  place of the reading indicator; on the reconciliation form, it fills the
+  form's end of period and balance instead, and Try Again sends those):
+  resolves the account, matches the lines, creates the
   transactions and saves the reconciliation (or, for a trading account, the
   reconciliations; see below). The `statement-ingestion` entity
   holds the model's raw answer and any `:warnings` (e.g., the opening balance
   doesn't match the last reconciliation), both as edn. A statement ending on
-  or before the last completed reconciliation fails before anything is saved;
+  or before the last completed reconciliation fails before anything is saved.
+  So does one whose account has a reconciliation in progress with a different
+  end of period or balance, with status `:conflict`, until the user confirms
+  that it should be replaced (`replace?`). Replacing removes the items from
+  the reconciliations in progress first, before any transaction is created:
+  propagating a new transaction re-puts the later items in the account as
+  they were read, which put back an item removed from the reconciliation in
+  the meantime;
   if the reconciliation can't be saved, the new transactions are deleted
   with `trading/delete-transaction`, which undoes a trade (restoring its
   lots), latest first. The statement is attached to the new transactions only
@@ -424,4 +444,6 @@ commodity account beneath it holds shares, so they can't share one balance:
   account's cash, with the closing balance, and one for each commodity
   account with items on the statement or shares in the holdings, with the
   shares held (zero if not in the holdings). Holdings of a commodity with no
-  account under the trading account produce a warning
+  account under the trading account produce a warning. A commodity account
+  with a completed reconciliation on or after the statement's end is left
+  as it is, with a warning, rather than failing the statement

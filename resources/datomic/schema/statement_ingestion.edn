@@ -13,7 +13,7 @@
  {:db/ident :statement-ingestion/status
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/one
-  :db/doc "The progress of the read (pending, processing, complete, failed)"}
+  :db/doc "The progress of the read (pending, processing, complete, failed, or conflict, awaiting confirmation that a reconciliation in progress should be replaced)"}
  {:db/ident :statement-ingestion/statement
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one

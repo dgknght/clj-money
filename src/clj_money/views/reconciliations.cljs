@@ -19,6 +19,7 @@
                                      accounts
                                      accounts-by-id]]
             [clj-money.util :refer [id=]]
+            [clj-money.dates :as dates]
             [clj-money.accounts :as accounts-logic :refer [find-by-path]]
             [clj-money.cached-accounts :refer [fetch-accounts
                                                push-transaction-date!]]
@@ -220,6 +221,28 @@
     (load-previous-balance page-state)
     (trns/load-unreconciled-items page-state)))
 
+(defn- fill-from-statement
+  "Fills the reconciliation's end of period and balance from a statement
+  that was read but couldn't be reconciled, for the user to correct"
+  [page-state]
+  (fn [{{:keys [period-end closing-balance]} :statement-ingestion/statement}]
+    (swap! page-state
+           update-in
+           [:reconciliation]
+           merge
+           (cond-> {}
+             period-end (assoc :reconciliation/end-of-period
+                               (dates/unserialize-local-date period-end))
+             closing-balance (assoc :reconciliation/balance closing-balance)))))
+
+(defn- statement-corrections
+  "Returns the end of period and balance of the reconciliation, as
+  corrections to the statement it was filled from"
+  [page-state]
+  (let [{:reconciliation/keys [end-of-period balance]} (:reconciliation @page-state)]
+    {:period-end end-of-period
+     :closing-balance balance}))
+
 (defn- statement-upload
   [page-state reading]
   [:div.mb-3
@@ -228,8 +251,11 @@
     :id "reconciliation-statement"
     :caption "Read from a statement"
     :account (:view-account @page-state)
-    :on-complete (reload-reconciliation page-state)]
-   [statements/reading-indicator reading]])
+    :on-complete (reload-reconciliation page-state)
+    :on-read-failure (fill-from-statement page-state)]
+   [statements/reading-indicator
+    reading
+    :corrections-fn #(statement-corrections page-state)]])
 
 (defn- attach-statement
   [recon file]

@@ -36,15 +36,43 @@
   reconciliation, which is checked before anything is saved, so that nothing
   needs to be undone"
   [account {:keys [period-end]}]
-  (when-let [last-completed (entities/find-by
-                              #:reconciliation{:account (util/->entity-ref account)
-                                               :status :completed}
-                              {:sort [[:reconciliation/end-of-period :desc]]})]
+  (when-let [last-completed (stmts/last-completed-reconciliation account)]
     (when-not (t/after? period-end (:reconciliation/end-of-period last-completed))
       (throw (ex-info (format "The statement ends on %s, which is not after the last reconciliation, on %s."
                               period-end
                               (:reconciliation/end-of-period last-completed))
                       {:period-end period-end})))))
+
+(defn- ensure-no-conflict
+  "Throws if the account has a reconciliation in progress that doesn't end on
+  the statement's closing date with its closing balance, unless it's to be
+  replaced, so that the user can confirm that it should be"
+  [account {:keys [period-end closing-balance]} replace?]
+  (when-not replace?
+    (when-let [{:reconciliation/keys [end-of-period balance]}
+               (stmts/reconciliation-in-progress account)]
+      (when-not (and (= period-end end-of-period)
+                     (zero? (compare closing-balance balance)))
+        (throw (ex-info (format "%s has a reconciliation in progress, ending on %s with a balance of %s, which doesn't match the statement, ending on %s with a balance of %s."
+                                (:account/name account)
+                                end-of-period
+                                balance
+                                period-end
+                                closing-balance)
+                        {::conflict true}))))))
+
+(defn- release-reconciliation-items
+  "Removes the items from the reconciliations in progress of the account
+  and, for a trading account, its commodity accounts, so that the
+  statement's items take their place. This is done before any transaction
+  is created: propagating a new transaction re-puts the items after it in
+  the account, as they were read, which would put an item removed from the
+  reconciliation in the meantime back in it."
+  [account]
+  (doseq [a (cons account
+                  (when (trading? account)
+                    (vals (inv/commodity-accounts account))))]
+    (stmts/release-items a)))
 
 (defn- warnings
   [account {:keys [opening-balance]}]
@@ -141,33 +169,49 @@
     (entities/put-many reconciliations)
     (concat (:warnings lines) warnings)))
 
-(defn reconcile
-  "Reads the statement uploaded with the ingestion, matches its lines to the
+(defn- fail
+  "Saves the ingestion as failed, with the error, or, if the statement
+  conflicts with a reconciliation in progress, as awaiting the user's
+  confirmation that it should be replaced"
+  [ingestion e]
+  (entities/put (assoc ingestion
+                       :statement-ingestion/status (if (::conflict (ex-data e))
+                                                     :conflict
+                                                     :failed)
+                       :statement-ingestion/error (error-message e))))
+
+(defn reconcile-statement
+  "Matches the lines of the statement read for the ingestion to the
   account's transactions, creates transactions for the lines that match
   none, and saves the account's reconciliation, unfinished, for the user to
   complete. For a trading account, the trades are matched to the commodity
   accounts, and each of them is reconciled too. Returns the ingestion,
-  complete, or failed with an error."
-  [ingestion reader]
-  (let [{:statement-ingestion/keys [entity image account] :as ingestion}
+  complete, or failed with an error. A failed ingestion keeps the
+  statement, so that the user can correct it and try again.
+
+  If the account has a reconciliation in progress that matches the
+  statement, the lines are added to it. If it doesn't match, nothing is
+  changed, and the ingestion is left awaiting the user's confirmation
+  (:conflict) that it should be replaced, which is done when replace? is
+  true. A replaced reconciliation's items are removed before anything else
+  is saved, and aren't restored if the statement can't be reconciled."
+  [ingestion & {:keys [replace?]}]
+  (let [{:statement-ingestion/keys [entity image account statement] :as ingestion}
         (entities/put (assoc ingestion :statement-ingestion/status :processing))
         entity (entities/find entity)
         given (some-> account entities/find)
         created (atom [])]
     (try
       (let [by-path (stmts/accounts-by-path entity)
-            raw (ing/read-statement reader
-                                    (images/get (:image/uuid (entities/find image)))
-                                    entity
-                                    {:account-options (stmts/account-options entity
-                                                                             :account given)})
-            statement (stmts/normalize raw)
-            account (resolve-account statement given by-path)
-            _ (ensure-after-last-reconciliation account statement)
+            normalized (stmts/normalize statement)
+            account (resolve-account normalized given by-path)
+            _ (ensure-after-last-reconciliation account normalized)
+            _ (ensure-no-conflict account normalized replace?)
+            _ (when replace? (release-reconciliation-items account))
             account-warnings ((if (trading? account)
                                 reconcile-trading-account
                                 reconcile-cash-account)
-                              statement
+                              normalized
                               account
                               {:entity entity
                                :image image
@@ -177,16 +221,49 @@
         (entities/put (assoc ingestion
                              :statement-ingestion/status :complete
                              :statement-ingestion/account (util/->entity-ref account)
-                             :statement-ingestion/statement raw
-                             :statement-ingestion/warnings (vec (concat (warnings account statement)
+                             :statement-ingestion/error nil
+                             :statement-ingestion/warnings (vec (concat (warnings account normalized)
                                                                         account-warnings)))))
       (catch Exception e
-        (log/errorf e "[statement-ingestion] unable to read statement %s" (:id ingestion))
+        (if (::conflict (ex-data e))
+          (log/infof "[statement-ingestion] statement %s awaits confirmation: %s"
+                     (:id ingestion)
+                     (ex-message e))
+          (log/errorf e "[statement-ingestion] unable to reconcile statement %s" (:id ingestion)))
         ; the transactions were created for the reconciliation, so they go
         ; if it couldn't be saved. A trade is undone, restoring its lots,
         ; the latest first.
         (doseq [trx (reverse @created)]
           (some-> (entities/find trx) trading/delete-transaction))
-        (entities/put (assoc ingestion
-                             :statement-ingestion/status :failed
-                             :statement-ingestion/error (error-message e)))))))
+        (fail ingestion e)))))
+
+(defn- read-statement
+  "Returns the ingestion with the statement uploaded with it, as read by the
+  reader, or, if it can't be read, the ingestion saved as failed"
+  [{:statement-ingestion/keys [entity image account] :as ingestion} reader]
+  (try
+    (let [entity (entities/find entity)]
+      (assoc ingestion
+             :statement-ingestion/statement
+             (ing/read-statement reader
+                                 (images/get (:image/uuid (entities/find image)))
+                                 entity
+                                 {:account-options (stmts/account-options
+                                                     entity
+                                                     :account (some-> account entities/find))})))
+    (catch Exception e
+      (log/errorf e "[statement-ingestion] unable to read statement %s" (:id ingestion))
+      (fail ingestion e))))
+
+(defn reconcile
+  "Reads the statement uploaded with the ingestion and reconciles the
+  account against it (see reconcile-statement). Returns the ingestion,
+  complete, or failed with an error."
+  [ingestion reader]
+  (let [ingestion (read-statement (entities/put (assoc ingestion
+                                                       :statement-ingestion/status
+                                                       :processing))
+                                  reader)]
+    (if (= :failed (:statement-ingestion/status ingestion))
+      ingestion
+      (reconcile-statement ingestion))))

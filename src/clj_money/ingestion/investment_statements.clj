@@ -2,7 +2,8 @@
   "Reads investment account statements. The cash in the account is
   reconciled in the trading account itself, and each commodity, counted in
   shares, in its own account beneath it."
-  (:require [dgknght.app-lib.core :refer [index-by]]
+  (:require [java-time.api :as t]
+            [dgknght.app-lib.core :refer [index-by]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.entities :as ents]
             [clj-money.accounts :refer [tradable?]]
@@ -133,15 +134,26 @@
                                                       account
                                                       accounts-by-path)))))
 
+(defn- reconciled-through
+  "Returns the end of the account's latest completed reconciliation, if it's
+  on or after the date, as the account can't be reconciled as of the date"
+  [account date]
+  (let [end (:reconciliation/end-of-period
+              (stmts/last-completed-reconciliation account))]
+    (when (and end (not (t/before? end date)))
+      end)))
+
 (defn make-reconciliations
   "Returns the reconciliations for the statement: one for the cash in the
   trading account, with the statement's closing balance, and one for each
   commodity account with items on the statement or shares held at its end,
   with the shares held. A commodity missing from the holdings is no longer
-  held. Returns a map with the :reconciliations and the :warnings for
-  holdings that aren't in any of the commodity accounts."
+  held. A commodity account already reconciled through the end of the
+  statement is left as it is. Returns a map with the :reconciliations and
+  the :warnings for holdings that aren't in any of the commodity accounts
+  and for the commodity accounts left as they are."
   [account
-   {:keys [holdings] :as statement}
+   {:keys [holdings period-end] :as statement}
    items
    commodity-accounts
    & {:keys [image]}]
@@ -159,12 +171,17 @@
         held (->> holdings
                   (map (juxt :symbol :shares))
                   (into {}))
-        reconciled (->> (keys held)
+        candidates (->> (keys held)
                         (keep by-symbol)
                         (concat (filter (comp by-account :id)
                                         (vals commodity-accounts)))
                         (index-by :id)
-                        vals)]
+                        vals)
+        through (->> candidates
+                     (keep #(some->> (reconciled-through % period-end)
+                                     (vector (:id %))))
+                     (into {}))
+        reconciled (remove (comp through :id) candidates)]
     {:reconciliations
      (cons (stmts/make-reconciliation account
                                       statement
@@ -179,8 +196,14 @@
                     (by-account id)
                     :image image))
                 reconciled))
-     :warnings (->> (keys held)
-                    (remove by-symbol)
-                    (map #(format "The statement lists shares of %s, which isn't held in %s."
-                                  %
-                                  (:account/name account))))}))
+     :warnings (concat
+                 (->> (keys held)
+                      (remove by-symbol)
+                      (map #(format "The statement lists shares of %s, which isn't held in %s."
+                                    %
+                                    (:account/name account))))
+                 (->> candidates
+                      (filter (comp through :id))
+                      (map #(format "%s is already reconciled through %s, so it wasn't reconciled from this statement."
+                                    (:account/name %)
+                                    (through (:id %))))))}))

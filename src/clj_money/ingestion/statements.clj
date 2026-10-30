@@ -375,14 +375,33 @@
                                                        :debit)
                                              :quantity quantity}]}))
 
+(defn reconciliation-in-progress
+  "Returns the account's reconciliation in progress, if any"
+  [account]
+  (ents/find-by #:reconciliation{:account (util/->entity-ref account)
+                                 :status :new}))
+
+(defn last-completed-reconciliation
+  "Returns the account's latest completed reconciliation, if any"
+  [account]
+  (ents/find-by #:reconciliation{:account (util/->entity-ref account)
+                                 :status :completed}
+                {:sort [[:reconciliation/end-of-period :desc]]}))
+
+(defn release-items
+  "Removes the items from the account's reconciliation in progress, if any,
+  so that the items of a statement can take their place"
+  [account]
+  (when-let [recon (reconciliation-in-progress account)]
+    (ents/put (assoc recon :reconciliation/items []))))
+
 (defn make-reconciliation
   "Returns the reconciliation for the statement, containing the given items
   and referring to the statement's image. If the account already has a
   reconciliation in progress, the items are added to it, and the statement
   replaces any it had, as the latest statement has the closing balance."
   [account {:keys [period-end closing-balance]} items & {:keys [image]}]
-  (let [existing (ents/find-by #:reconciliation{:account (util/->entity-ref account)
-                                                :status :new})]
+  (let [existing (reconciliation-in-progress account)]
     (cond-> (merge existing
                    #:reconciliation{:account (util/->entity-ref account)
                                     :end-of-period period-end
