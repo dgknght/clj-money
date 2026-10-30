@@ -1,5 +1,6 @@
 (ns clj-money.app
   (:require [accountant.core :as accountant]
+            [clj-money.util :as util]
             [clj-money.state :as state :refer [+busy -busy]]
             [clj-money.api.entities :as entities]
             [clj-money.api.scheduled-transactions :as sched-trxs]))
@@ -14,14 +15,19 @@
               "Unable to fetch the count of pending scheduled transactions."
               e))))
 
+(defn watch-entity
+  [_ _ previous current]
+  (when-not (util/id= previous current)
+    (if current
+      (load-pending-count)
+      (reset! state/pending-scheduled-count 0))))
+
 (defn- receive-entities
   [on-complete]
   (fn [[entity :as entities]]
     (state/set-entities entities)
     (if entity
-      (do
-        (load-pending-count)
-        (when on-complete (on-complete)))
+      (when on-complete (on-complete))
       (accountant/navigate! "/entities"))))
 
 (defn fetch-entities

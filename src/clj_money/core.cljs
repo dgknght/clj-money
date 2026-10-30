@@ -36,7 +36,7 @@
             [clj-money.views.dashboard :as dashboard]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
-            [clj-money.app :refer [fetch-entities]]
+            [clj-money.app :as app :refer [fetch-entities]]
             [clj-money.api.users :as users]
             [clj-money.config :refer [env]]
             [clj-money.service-worker :as sw]))
@@ -339,3 +339,4 @@
 (init!)
 
 (add-watch current-entity ::fetch-accounts watch-entity)
+(add-watch current-entity ::load-pending-count app/watch-entity)
