@@ -39,6 +39,7 @@
             [clj-money.app :as app :refer [fetch-entities]]
             [clj-money.api.users :as users]
             [clj-money.config :refer [env]]
+            [clj-money.otel :as otel]
             [clj-money.service-worker :as sw]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
@@ -326,6 +327,8 @@
     (accountant/navigate! "/login")))
 
 (defn init! []
+  (when-let [endpoint (:otel-endpoint env)]
+    (otel/init! endpoint))
   (accountant/configure-navigation!
    {:nav-handler dispatch-or-not-found
     :path-exists? (comp not server-path?)})

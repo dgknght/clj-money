@@ -47,6 +47,13 @@
   code. A reader reports token usage by attaching `:clj-money.ingestion/usage`
   metadata
   (`:model`, `:input-tokens`, `:output-tokens`) to its result
+- The browser client is traced by the OpenTelemetry JS SDK, bundled by
+  esbuild from `src/js/otel.js` into `resources/js/otel-bundle.js` on
+  `npm install` and loaded as a foreign lib (`src/deps.cljs`).
+  `clj-money.otel` (cljs) starts it when the server passes
+  `:otel-endpoint` (config `:otel-browser-endpoint`) in the app config.
+  Anything ClojureScript reads from the bundle must be declared in
+  `src/otel-externs.js`, or advanced compilation renames it
 
 ### Testing
 - Use `clojure.test` framework

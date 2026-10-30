@@ -1,1 +1,20 @@
-{}
+{
+  "name": "clj-money",
+  "private": true,
+  "scripts": {
+    "build:otel": "esbuild src/js/otel.js --bundle --minify --format=iife --global-name=cljMoneyOtel --target=es2020 --outfile=resources/js/otel-bundle.js",
+    "postinstall": "npm run build:otel"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/auto-instrumentations-web": "^0.69.0",
+    "@opentelemetry/core": "^3.0.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
+    "@opentelemetry/instrumentation": "^0.300.0",
+    "@opentelemetry/resources": "^3.0.0",
+    "@opentelemetry/sdk-trace": "^3.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

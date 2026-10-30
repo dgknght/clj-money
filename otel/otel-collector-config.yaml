@@ -5,6 +5,11 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+        # Lets the browser client post traces (see OTEL_BROWSER_ENDPOINT)
+        cors:
+          allowed_origins:
+            - https://money.localhost
+            - http://localhost:3000
 
 processors:
   batch:

@@ -44,7 +44,8 @@
                                                :oauth
                                                keys
                                                set)
-                          :dev? (boolean (env :dev?))}))
+                          :dev? (boolean (env :dev?))
+                          :otel-endpoint (env :otel-browser-endpoint)}))
             [:body.h-100
              [:div#app.h-100
               [:nav.navbar.navbar-expand-lg.bg-body-tertiary
