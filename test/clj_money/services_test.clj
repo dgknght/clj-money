@@ -18,6 +18,7 @@
    :google-client-secret "google-secret"
    :github-client-id "github-id"
    :github-client-secret "github-secret"
+   :oauth-providers #{:google :github}
    :yahoo-api-key "yahoo-key"
    :alpha-vantage-api-key "alpha-key"})
 
@@ -44,6 +45,19 @@
          (get-in (services/config (assoc app-config :dev? true))
                  [:honeybadger :environment-name]))
       "The HoneyBadger environment name reflects the dev flag"))
+
+(deftest include-only-the-enabled-oauth-providers
+  (is (= {:github {:client-id "github-id"
+                   :client-secret "github-secret"}}
+         (:oauth (services/config (assoc app-config :oauth-providers [:github]))))
+      "Providers that aren't listed are excluded")
+  (is (= {:google {:client-id "google-id"
+                   :client-secret "google-secret"}}
+         (:oauth (services/config (dissoc app-config :github-client-id))))
+      "Providers without a client ID are excluded")
+  (is (= {}
+         (:oauth (services/config (dissoc app-config :oauth-providers))))
+      "No providers are enabled when :oauth-providers is not set"))
 
 (deftest initialize-the-service-config
   (let [config (services/config app-config)

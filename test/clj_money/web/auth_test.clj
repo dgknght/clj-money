@@ -1,14 +1,17 @@
 (ns clj-money.web.auth-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.string :as str]
+            [clojure.edn :as edn]
             [clj-http.core :as http]
             [jsonista.core :as json]
             [buddy.sign.jwt :as jwt]
             [ring.mock.request :as req]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
+            [clj-money.config :refer [env]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.web.test-handler :refer [app]]
+            [clj-money.services :as services]
+            [clj-money.web.test-handler :refer [app build-app]]
             [clj-money.entities.users :as usrs])
   (:import java.io.ByteArrayInputStream
            java.net.URLDecoder))
@@ -24,6 +27,33 @@
   (is (http-redirect-to?
         #"https://github\.com/login/oauth/authorize\?.*client_id=github-id"
         (app (req/request :get "/auth/github/start")))))
+
+(defn- page-oauth-providers
+  [{:keys [body]}]
+  (->> body
+       (re-find #"(?s)<script[^>]*id=\"app-config\"[^>]*>(.*?)</script>")
+       second
+       edn/read-string
+       :oauth-providers))
+
+(deftest show-only-the-oauth-providers-that-are-mounted
+  (let [app (build-app {:services (services/config
+                                    (assoc env :oauth-providers #{:google}))})]
+    (is (= #{:google} (page-oauth-providers (app (req/request :get "/"))))
+        "The login page shows the enabled provider")
+    (is (http-redirect-to? #"https://accounts\.google\.com/"
+                           (app (req/request :get "/auth/google/start")))
+        "The route for the enabled provider is mounted")
+    (is (http-not-found? (app (req/request :get "/auth/github/start")))
+        "The route for the provider that isn't enabled is not mounted")))
+
+(deftest show-no-oauth-providers-when-none-are-configured
+  (let [app (build-app {:services (services/config
+                                    (dissoc env :oauth-providers))})]
+    (is (= #{} (page-oauth-providers (app (req/request :get "/"))))
+        "The login page shows no providers")
+    (is (http-not-found? (app (req/request :get "/auth/google/start")))
+        "No provider routes are mounted")))
 
 (defn- json-body
   [payload]

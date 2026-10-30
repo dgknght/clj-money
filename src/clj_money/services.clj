@@ -8,6 +8,20 @@
   handlers get it)."
   (:require [integrant.core :as ig]))
 
+(defn- oauth-config
+  "Returns the configuration for the OAuth providers that are enabled. A
+  provider is enabled when it is listed in :oauth-providers and has a client
+  ID. When :oauth-providers is not set, no provider is enabled."
+  [env]
+  (let [enabled (set (:oauth-providers env))]
+    (->> {:google {:client-id (:google-client-id env)
+                   :client-secret (:google-client-secret env)}
+          :github {:client-id (:github-client-id env)
+                   :client-secret (:github-client-secret env)}}
+         (filter (fn [[provider {:keys [client-id]}]]
+                   (and (enabled provider) client-id)))
+         (into {}))))
+
 (defn config
   "Returns the external service configuration from the given application
   configuration."
@@ -20,10 +34,7 @@
    :honeybadger {:api-key (:honeybadger-api-key env)
                  :environment-name (if (:dev? env) "development" "production")}
    :auth-secret (:secret env)
-   :oauth {:google {:client-id (:google-client-id env)
-                    :client-secret (:google-client-secret env)}
-           :github {:client-id (:github-client-id env)
-                    :client-secret (:github-client-secret env)}}})
+   :oauth (oauth-config env)})
 
 (defmethod ig/init-key ::config
   [_ config]

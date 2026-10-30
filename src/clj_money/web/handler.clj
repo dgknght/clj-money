@@ -110,17 +110,19 @@
         handler
         (update-in [:body] d/wrap-decimals))))
 
+(def ^:private oauth2-profile-fns
+  {:google google-auth/oauth2-profile
+   :github github-auth/oauth2-profile})
+
 (defn- maybe-wrap-oauth2
-  [handler env {:keys [oauth]}]
-  (let [providers (set (:oauth-providers env))
-        profiles  (not-empty
-                    (merge (when (:google providers)
-                             (google-auth/oauth2-profile (:google oauth)))
-                           (when (:github providers)
-                             (github-auth/oauth2-profile (:github oauth)))))]
-    (if profiles
-      (oauth2/wrap-oauth2 handler profiles)
-      handler)))
+  [handler {:keys [oauth]}]
+  (if-let [profiles (->> oauth
+                         (map (fn [[provider config]]
+                                ((oauth2-profile-fns provider) config)))
+                         (apply merge)
+                         not-empty)]
+    (oauth2/wrap-oauth2 handler profiles)
+    handler))
 
 (defn- wrap-components
   "Binds the component values that were supplied, so that requests use the
@@ -216,7 +218,7 @@
           (ring/create-resource-handler {:path "/"})
           apps/spa-fallback
           (ring/create-default-handler)))
-      (maybe-wrap-oauth2 env services)
+      (maybe-wrap-oauth2 services)
       (wrap-session {:store (session-store env)
                      :cookie-attrs {:same-site :lax
                                     :http-only true}})
