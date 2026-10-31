@@ -1,6 +1,6 @@
 (ns clj-money.monitor-cache
-  "Caches budget monitors (see clj-money.reports/monitor), which are slow
-  to compute, for the dashboard.
+  "Caches budget monitors (see clj-money.reports.monitor/report), which are
+  slow to compute, for the dashboard.
 
   A monitor is cached by account and as-of date, so the cached monitors
   for one day aren't used on the next. Cached monitors are evicted:
@@ -22,7 +22,7 @@
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
-            [clj-money.reports :as rpt]))
+            [clj-money.reports.monitor :as budget-monitor]))
 
 (def ^:private eviction-topics
   #{:budget :budget-item :account ::prop/propagated})
@@ -133,10 +133,10 @@
           {:keys [monitor expires-at]} (get entries k)]
       (if (and monitor (< (now-millis) expires-at))
         monitor
-        (let [monitor (rpt/monitor account (second k))
+        (let [monitor (budget-monitor/report account (second k))
               entry {:monitor monitor
-                     :account-ids (rpt/monitored-account-ids account)
+                     :account-ids (budget-monitor/account-ids account)
                      :expires-at (+ (now-millis) ttl-millis)}]
           (swap! state store k entry generation)
           monitor)))
-    (rpt/monitor account)))
+    (budget-monitor/report account)))

@@ -6,7 +6,9 @@
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
-            [clj-money.reports :as rpt]
+            [clj-money.reports.balance-sheet :as balance-sheet]
+            [clj-money.reports.income-statement :as income-statement]
+            [clj-money.reports.budget :as budget-report]
             [clj-money.report-cache :as cache]))
 
 (def ^:private personal {:id 101 :entity/name "Personal"})
@@ -29,12 +31,12 @@
                   {:report report-type
                    :n (count @computed)})]
     (try
-      (with-redefs [rpt/balance-sheet (fn [entity _as-of]
-                                        (compute :balance-sheet (:id entity)))
-                    rpt/income-statement (fn [entity _since _as-of]
-                                           (compute :income-statement (:id entity)))
-                    rpt/budget (fn [budget _opts]
-                                 (compute :budget (:id budget)))]
+      (with-redefs [balance-sheet/report (fn [entity _as-of]
+                                           (compute :balance-sheet (:id entity)))
+                    income-statement/report (fn [entity _since _as-of]
+                                              (compute :income-statement (:id entity)))
+                    budget-report/report (fn [budget _opts]
+                                           (compute :budget (:id budget)))]
         (with-fixed-time "2016-03-02T12:00:00Z"
           (f {:cache c
               :publisher publisher
@@ -200,12 +202,12 @@
 
 (deftest a-report-computed-during-an-eviction-is-not-cached
   (with-cache [{:keys [cache computed] :as ctx} {}]
-    (let [balance-sheet rpt/balance-sheet]
-      (with-redefs [rpt/balance-sheet (fn [& args]
-                                        (let [result (apply balance-sheet args)]
-                                          (when (= 1 (count @computed))
-                                            (propagated! ctx [nil (trx 101 (t/local-date 2016 1 1))]))
-                                          result))]
+    (let [report balance-sheet/report]
+      (with-redefs [balance-sheet/report (fn [& args]
+                                           (let [result (apply report args)]
+                                             (when (= 1 (count @computed))
+                                               (propagated! ctx [nil (trx 101 (t/local-date 2016 1 1))]))
+                                             result))]
         (cache/balance-sheet cache personal (t/local-date 2016 1 31))
         (cache/balance-sheet cache personal (t/local-date 2016 1 31))))
     (is (= [[:balance-sheet 101] [:balance-sheet 101]] @computed)

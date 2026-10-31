@@ -5,7 +5,7 @@
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
-            [clj-money.reports :as rpt]
+            [clj-money.reports.monitor :as budget-monitor]
             [clj-money.monitor-cache :as cache]))
 
 (def ^:private groceries {:id 101 :account/name "Groceries"})
@@ -17,15 +17,15 @@
         c (ig/init-key ::cache/cache (assoc opts :publisher publisher))
         computed (atom [])]
     (try
-      (with-redefs [rpt/monitor (fn [account & _]
-                                  (swap! computed conj (:id account))
-                                  {:report/caption (:account/name account)
-                                   :report/n (count @computed)})
+      (with-redefs [budget-monitor/report (fn [account & _]
+                                            (swap! computed conj (:id account))
+                                            {:report/caption (:account/name account)
+                                             :report/n (count @computed)})
                     ; Produce (103) is a child of Groceries
-                    rpt/monitored-account-ids (fn [{:keys [id]}]
-                                                (if (= 101 id)
-                                                  #{101 103}
-                                                  #{id}))]
+                    budget-monitor/account-ids (fn [{:keys [id]}]
+                                                 (if (= 101 id)
+                                                   #{101 103}
+                                                   #{id}))]
         (with-fixed-time "2016-01-07T12:00:00Z"
           (f {:cache c
               :publisher publisher
@@ -128,12 +128,12 @@
 
 (deftest a-monitor-computed-during-an-eviction-is-not-cached
   (with-cache [{:keys [cache computed] :as ctx} {}]
-    (let [monitor rpt/monitor]
-      (with-redefs [rpt/monitor (fn [& args]
-                                  (let [result (apply monitor args)]
-                                    (when (= 1 (count @computed))
-                                      (propagated! ctx (trx-change 101)))
-                                    result))]
+    (let [report budget-monitor/report]
+      (with-redefs [budget-monitor/report (fn [& args]
+                                            (let [result (apply report args)]
+                                              (when (= 1 (count @computed))
+                                                (propagated! ctx (trx-change 101)))
+                                              result))]
         (cache/fetch cache groceries)
         (cache/fetch cache groceries)))
     (is (= [101 101] @computed)

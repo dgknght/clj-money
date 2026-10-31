@@ -21,7 +21,8 @@
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.entities :as entities]
             [clj-money.entities.schema :as schema]
-            [clj-money.reports :as reports]
+            [clj-money.reports.balance-sheet :as balance-sheet]
+            [clj-money.reports.income-statement :as income-statement]
             [clj-money.import :refer [import-data] :as imp]
             [clj-money.import.gnucash]
             [clj-money.import.edn]))
@@ -159,13 +160,13 @@
           "Reconciliations can be retrieved"))
     (testing "reports"
       (is (seq-of-maps-like? expected-inc-stmt
-                             (reports/income-statement entity
-                                                       (t/local-date 2015 1 1)
-                                                       (t/local-date 2017 12 31)))
+                             (income-statement/report entity
+                                                      (t/local-date 2015 1 1)
+                                                      (t/local-date 2017 12 31)))
           "An income statement can be produced")
       (is (seq-of-maps-like? expected-bal-sheet
-                             (reports/balance-sheet entity
-                                                    (t/local-date 2017 12 31)))
+                             (balance-sheet/report entity
+                                                   (t/local-date 2017 12 31)))
           "A balance sheet can be produced"))))
 
 (def ^:private gnucash-context

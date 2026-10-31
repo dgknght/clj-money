@@ -115,15 +115,16 @@ handler (`web/test_handler.clj`) waits for propagation after each request.
 
 ## Budget Monitor Cache (`monitor_cache.clj`)
 
-The dashboard's budget monitors (`reports/monitor`) are slow to compute, so
-`GET /api/entities/:entity-id/reports/budget-monitors` gets them through the
-`::monitor-cache/cache` component (`monitor-cache/fetch`; with no cache, as
-in the REPL and most tests, they're computed every time). Monitors are
-cached by account and as-of date, and evicted on a background thread:
+The dashboard's budget monitors (`reports.monitor/report`) are slow to
+compute, so `GET /api/entities/:entity-id/reports/budget-monitors` gets them
+through the `::monitor-cache/cache` component (`monitor-cache/fetch`; with
+no cache, as in the REPL and most tests, they're computed every time).
+Monitors are cached by account and as-of date, and evicted on a background
+thread:
 
 - for a transaction, on its `::prop/propagated` signal, not on the change
   itself, because monitors are computed from propagated balances. Only the
-  monitors whose account or descendants (`reports/monitored-account-ids`)
+  monitors whose account or descendants (`reports.monitor/account-ids`)
   appear on its items, before or after the change, are evicted.
 - for any budget, budget item or account change, all monitors.
 - after `:ttl-minutes` (config `:monitor-cache`, default 60), for changes
@@ -132,6 +133,15 @@ cached by account and as-of date, and evicted on a background thread:
 Every eviction advances a generation counter, and a monitor computed while
 the generation changed isn't stored. Use `monitor-cache/await-evictions` in
 tests before asserting on a cached monitor.
+
+## Reports (`reports.clj`, `reports/`)
+
+Each report lives in its own child namespace of `clj-money.reports`
+(`balance-sheet`, `income-statement`, `budget`, `monitor`, `portfolio`,
+`lots`, `commodities-account-summary`), and each exposes a `report`
+function. Code shared by more than one report, such as
+`valuate-accounts` and `summarize-account-type`, stays in
+`clj-money.reports`.
 
 ## Report Cache (`report_cache.clj`)
 

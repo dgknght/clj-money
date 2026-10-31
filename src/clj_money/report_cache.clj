@@ -1,6 +1,6 @@
 (ns clj-money.report-cache
   "Caches the balance sheet, income statement, and budget reports (see
-  clj-money.reports), which are slow to compute.
+  clj-money.reports.*), which are slow to compute.
 
   A report is cached by its type, its entity or budget, and its dates.
   Each cached report covers a range of transaction dates: a balance sheet
@@ -26,7 +26,9 @@
             [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]
-            [clj-money.reports :as rpt]))
+            [clj-money.reports.balance-sheet :as balance-sheet]
+            [clj-money.reports.income-statement :as income-statement]
+            [clj-money.reports.budget :as budget-report]))
 
 (def ^:private eviction-topics
   #{:account :budget :budget-item :entity ::prop/propagated})
@@ -159,28 +161,28 @@
 
 (defn balance-sheet
   "Returns the balance sheet for the entity as of the date (see
-  clj-money.reports/balance-sheet), from the cache if possible."
+  clj-money.reports.balance-sheet/report), from the cache if possible."
   [cache entity as-of]
   (fetch cache
          [:balance-sheet (:id entity) as-of]
          {:entity-id (:id entity)
           :as-of as-of}
-         #(rpt/balance-sheet entity as-of)))
+         #(balance-sheet/report entity as-of)))
 
 (defn income-statement
   "Returns the income statement for the entity for the dates (see
-  clj-money.reports/income-statement), from the cache if possible."
+  clj-money.reports.income-statement/report), from the cache if possible."
   [cache entity since as-of]
   (fetch cache
          [:income-statement (:id entity) since as-of]
          {:entity-id (:id entity)
           :since since
           :as-of as-of}
-         #(rpt/income-statement entity since as-of)))
+         #(income-statement/report entity since as-of)))
 
 (defn budget
   "Returns the budget report for the budget with the options (see
-  clj-money.reports/budget), from the cache if possible."
+  clj-money.reports.budget/report), from the cache if possible."
   [cache budget {:keys [as-of] :as opts}]
   ; Without an :as-of, the report's date depends on today's, so today's
   ; date is part of the key, and the report covers the whole budget.
@@ -189,4 +191,4 @@
          {:entity-id (-> budget :budget/entity :id)
           :since (:budget/start-date budget)
           :as-of (or as-of (:budget/end-date budget))}
-         #(rpt/budget budget opts)))
+         #(budget-report/report budget opts)))

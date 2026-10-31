@@ -6,7 +6,7 @@
             [clj-money.authorization :refer [+scope]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
-            [clj-money.reports :as rpt]
+            [clj-money.reports.portfolio :as portfolio]
             [clj-money.monitor-cache :as monitor-cache]
             [clj-money.report-cache :as report-cache]
             [clj-money.web.system :as system])
@@ -51,7 +51,7 @@
   [req]
   (or (some-> (fetch-entity req)
               (portfolio-params req)
-              rpt/portfolio
+              portfolio/report
               api/response)
       api/not-found))
 
