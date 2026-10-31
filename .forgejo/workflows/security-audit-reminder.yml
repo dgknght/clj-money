@@ -1,0 +1,34 @@
+name: Security audit reminder
+
+on:
+  schedule:
+    - cron: '0 9 1 1,4,7,10 *'
+  workflow_dispatch: {}
+
+jobs:
+  open-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open a housekeeping issue for the quarterly security audit
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ forgejo.server_url }}/api/v1/repos/${{ forgejo.repository }}
+        run: |
+          set -euo pipefail
+          which jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
+
+          auth=(-H "Authorization: token $FORGEJO_TOKEN" -H "Content-Type: application/json")
+
+          labels=$(curl -sf "${auth[@]}" "$API/labels?limit=50")
+          label_ids=$(echo "$labels" | jq -c '[.[] | select(.name=="housekeeping" or .name=="security") | .id]')
+
+          quarter="Q$(( ($(date +'%-m') - 1) / 3 + 1 )) $(date +'%Y')"
+          title="Security audit — $quarter"
+          body=$'Quarterly security audit. See the "Security Audit" wiki page for\nbackground, commands and what to look for in each step.\n\n- [ ] Triage the open "Security scan findings" issue (if any) and the\n      pending Renovate PRs; re-run the Security scan workflow if the last\n      run is stale.\n- [ ] Review the routes added or changed since the last audit\n      (`git log` over `src/clj_money/api/` and\n      `src/clj_money/web/handler.clj`) and confirm each one authenticates\n      the user and authorizes access to the entity it touches, with a test\n      for the unauthorized case.\n- [ ] Review authentication: session cookie attributes, API token\n      lifetime, OAuth provider apps (redirect URIs, scopes) and who has\n      access to them.\n- [ ] Check the production response headers and TLS configuration.\n- [ ] Run an OWASP ZAP baseline scan against a non-production deployment\n      and triage the alerts.\n- [ ] Review file uploads and ingestion (receipts, statements, images,\n      imports): size limits, content types, and that uploaded content\n      can\'t steer the LLM reader into writing to another entity.\n- [ ] Review secrets and access: rotate or confirm the production\n      secrets, Forgejo tokens, Docker Hub token and cloud keys; remove\n      unused accounts and keys.\n- [ ] Confirm `entities/scrub-sensitive-data` covers any new sensitive\n      fields that reach the request logs.\n- [ ] File a follow-up issue, labeled `security`, for anything that\n      needs code changes, note the date on the wiki page, then close this\n      one.'
+
+          payload=$(jq -n --arg title "$title" --arg body "$body" --argjson labels "$label_ids" \
+            '{title: $title, body: $body, labels: $labels}')
+
+          curl -sf -X POST "${auth[@]}" -d "$payload" "$API/issues" > /dev/null
+
+          echo "Opened housekeeping issue: $title"

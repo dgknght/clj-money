@@ -1,0 +1,4 @@
+# Known gitleaks false positives, by fingerprint (see the "Security Audit" wiki page)
+
+# A truncated example JWT in the CLI authentication docs
+086976270366388efa828e3181119d1eeb76e2f5:docs/features/cli-authentication-client.md:generic-api-key:79

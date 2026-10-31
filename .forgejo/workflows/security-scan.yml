@@ -1,0 +1,107 @@
+name: Security scan
+
+# Weekly automated half of the security audit (see the "Security Audit" wiki
+# page). Scans the published web image, the npm lockfile and the git history,
+# and opens (or comments on) a single "Security scan findings" issue when
+# anything turns up. The quarterly manual audit is opened by
+# security-audit-reminder.yml.
+
+on:
+  schedule:
+    - cron: '0 10 * * 1'
+  workflow_dispatch: {}
+
+env:
+  TRIVY_VERSION: 0.75.0
+  GITLEAKS_VERSION: 8.30.1
+  IMAGE: docker.io/dgknght/clj-money-web:latest
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: https://data.forgejo.org/actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install scanners
+        run: |
+          set -euo pipefail
+          which jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
+          mkdir -p "$RUNNER_TEMP/bin" && cd "$RUNNER_TEMP"
+
+          trivy_tgz="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -sfLO "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${trivy_tgz}"
+          curl -sfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_checksums.txt" \
+            | grep " ${trivy_tgz}\$" | sha256sum -c -
+          tar -xzf "$trivy_tgz" -C bin trivy
+
+          gitleaks_tgz="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sfLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${gitleaks_tgz}"
+          curl -sfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt" \
+            | grep " ${gitleaks_tgz}\$" | sha256sum -c -
+          tar -xzf "$gitleaks_tgz" -C bin gitleaks
+
+          echo "$RUNNER_TEMP/bin" >> "$FORGEJO_PATH"
+      - name: Scan the published image
+        # Covers the Debian packages and every jar in the image, including
+        # the dependencies bundled into the uberjar
+        run: |
+          trivy image --quiet --timeout 20m --scanners vuln \
+            --severity HIGH,CRITICAL --ignore-unfixed \
+            --format json --output trivy.json "$IMAGE"
+      - name: Audit npm dependencies
+        run: npm audit --omit=dev --audit-level=high --json > npm-audit.json || true
+      - name: Scan git history for secrets
+        # Known false positives are listed in .gitleaksignore
+        run: gitleaks git --no-banner --redact --exit-code 0 --report-format json --report-path gitleaks.json .
+      - name: Report findings
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ forgejo.server_url }}/api/v1/repos/${{ forgejo.repository }}
+          RUN_URL: ${{ forgejo.server_url }}/${{ forgejo.repository }}/actions/runs/${{ forgejo.run_number }}
+        run: |
+          set -euo pipefail
+
+          image=$(jq -r '[.Results[]? | .Target as $t | .Vulnerabilities[]?
+                           | "| \(.Severity) | \(.PkgName) | \(.InstalledVersion) | \(.FixedVersion) | [\(.VulnerabilityID)](\(.PrimaryURL // "")) | \(.PkgPath // $t) |"]
+                          | unique | .[]' trivy.json)
+          npm=$(jq -r '.vulnerabilities // {} | to_entries[]
+                        | select(.value.severity == "high" or .value.severity == "critical")
+                        | "| \(.value.severity) | \(.key) | \(.value.range) | \(.value.fixAvailable | if type == "object" then .version else tostring end) |"' npm-audit.json)
+          secrets=$(jq -r '.[] | "| \(.RuleID) | \(.File):\(.StartLine) | \(.Commit[0:8]) | `\(.Fingerprint)` |"' gitleaks.json)
+
+          if [ -z "$image$npm$secrets" ]; then
+            echo "No findings."
+            exit 0
+          fi
+
+          report="Findings from the [weekly security scan]($RUN_URL) on $(date +'%Y-%m-%d'). See the \"Security Audit\" wiki page for how to triage them."$'\n'
+          if [ -n "$image" ]; then
+            report+=$'\n'"### Image (\`$IMAGE\`), HIGH/CRITICAL with a fix available"$'\n\n'
+            report+=$'| Severity | Package | Installed | Fixed in | ID | Found in |\n|---|---|---|---|---|---|\n'"$image"$'\n'
+          fi
+          if [ -n "$npm" ]; then
+            report+=$'\n### npm (production dependencies)\n\n| Severity | Package | Vulnerable range | Fix |\n|---|---|---|---|\n'"$npm"$'\n'
+          fi
+          if [ -n "$secrets" ]; then
+            report+=$'\n### Possible secrets in git history (redacted)\n\n| Rule | Location | Commit | Fingerprint |\n|---|---|---|---|\n'"$secrets"$'\n'
+          fi
+
+          auth=(-H "Authorization: token $FORGEJO_TOKEN" -H "Content-Type: application/json")
+          title="Security scan findings"
+          existing=$(curl -sf "${auth[@]}" "$API/issues?state=open&type=issues&limit=50&q=$(jq -rn --arg t "$title" '$t|@uri')" \
+            | jq -r --arg t "$title" '[.[] | select(.title == $t)][0].number // empty')
+
+          if [ -n "$existing" ]; then
+            jq -n --arg body "$report" '{body: $body}' \
+              | curl -sf -X POST "${auth[@]}" -d @- "$API/issues/$existing/comments" > /dev/null
+            echo "Commented on issue #$existing"
+          else
+            labels=$(curl -sf "${auth[@]}" "$API/labels?limit=50")
+            label_ids=$(echo "$labels" | jq -c '[.[] | select(.name == "defect" or .name == "security" or .name == "status/backlog") | .id]')
+            jq -n --arg title "$title" --arg body "$report" --argjson labels "$label_ids" \
+                '{title: $title, body: $body, labels: $labels}' \
+              | curl -sf -X POST "${auth[@]}" -d @- "$API/issues" > /dev/null
+            echo "Opened issue: $title"
+          fi
