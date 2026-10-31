@@ -27,6 +27,33 @@
                         (ig/init-key ::web/handler
                                      {:env (dissoc env :session-secret)}))))
 
+(defn- session-cookie
+  [site-protocol]
+  (let [handler (ig/init-key ::web/handler
+                             {:env (assoc env :site-protocol site-protocol)
+                              :services {:oauth {:google {:client-id "id"
+                                                          :client-secret "secret"}}}})]
+    (->> (get-in (handler (req/request :get "/auth/google/start"))
+                 [:headers "Set-Cookie"])
+         (filter #(re-find #"^ring-session=" %))
+         first)))
+
+(deftest mark-the-session-cookie-secure-when-served-over-https
+  (let [cookie (session-cookie "https")]
+    (is cookie "The session cookie is set")
+    (is (re-find #"(?i);\s*Secure" cookie)
+        "The cookie is marked Secure")
+    (is (re-find #"(?i);\s*HttpOnly" cookie)
+        "The cookie is marked HttpOnly")
+    (is (re-find #"(?i);\s*SameSite=Lax" cookie)
+        "The cookie is marked SameSite=Lax")))
+
+(deftest leave-the-session-cookie-unsecured-when-served-over-http
+  (let [cookie (session-cookie "http")]
+    (is cookie "The session cookie is set")
+    (is (not (re-find #"(?i);\s*Secure" cookie))
+        "The cookie is not marked Secure")))
+
 (deftest bind-the-component-values-for-each-request
   (let [bindings (atom nil)
         wrap-components @#'handler/wrap-components

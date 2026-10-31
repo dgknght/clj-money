@@ -98,6 +98,16 @@
   (cookie-store {:key (.getBytes (or (:session-secret env)
                                      (throw (ex-info "SESSION_SECRET environment variable is required" {}))))}))
 
+(defn- session-cookie-attrs
+  "Returns the attributes for the session cookie. The cookie is marked Secure
+  when the site is served over https, so that it is never sent over plain
+  http. Local development is served over http, where a Secure cookie would
+  not be sent back at all."
+  [env]
+  {:same-site :lax
+   :http-only true
+   :secure (= "https" (:site-protocol env))})
+
 (defn- wrap-site []
   [wrap-defaults (-> site-defaults
                      (dissoc :session)
@@ -220,8 +230,7 @@
           (ring/create-default-handler)))
       (maybe-wrap-oauth2 services)
       (wrap-session {:store (session-store env)
-                     :cookie-attrs {:same-site :lax
-                                    :http-only true}})
+                     :cookie-attrs (session-cookie-attrs env)})
       wrap-params
       (wrap-components components)
       (system/wrap-system components)))
