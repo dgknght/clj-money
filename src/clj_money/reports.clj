@@ -764,13 +764,15 @@
 
 (defn- aggregate-portfolio-lots
   [{:account/keys [lots]} depth]
-  (map (fn [{:lot/keys [purchase-date
-                        shares-purchased
-                        shares-owned
-                        value
-                        cost-basis
-                        gain]}]
-         {:report/caption (dates/format-local-date purchase-date)
+  (map (fn [{:keys [id]
+              :lot/keys [purchase-date
+                         shares-purchased
+                         shares-owned
+                         value
+                         cost-basis
+                         gain]}]
+         {:id id
+          :report/caption (dates/format-local-date purchase-date)
           :report/depth (inc depth)
           :report/style :data
           :report/shares-purchased shares-purchased
@@ -801,7 +803,8 @@
          (:account/value account)]}
   (let [cost-basis (or cost-basis value 0M)
         gain (or gain (- value cost-basis))
-        shared {:report/caption name
+        shared {:id (:id account)
+                :report/caption name
                 :report/depth depth
                 :report/cost-basis cost-basis
                 :report/gain-loss gain
@@ -816,7 +819,8 @@
       (cons (merge shared
                    {:report/style :header
                     :report/caption name})
-            (cons {:report/caption "Cash"
+            (cons {:id (str "cash-" (:id account))
+                   :report/caption "Cash"
                    :report/style :subheader
                    :report/depth (inc depth)
                    :report/current-value value
@@ -840,20 +844,23 @@
   (let [commodity (:account/commodity (first accounts))
         current-value (sum :account/value accounts)]
     (if (:commodity/default? commodity)
-      (cons {:report/caption (format-commodity commodity)
+      (cons {:id (:id commodity)
+             :report/caption (format-commodity commodity)
              :report/style :header
              :report/current-value current-value
              :report/cost-basis current-value
              :report/gain-loss 0M
              :report/gain-loss-percent 0.0M}
             (map (fn [account]
-                   {:report/caption (:account/name account)
+                   {:id (:id account)
+                    :report/caption (:account/name account)
                     :report/style :data
                     :report/current-value (:account/value account)})
                  accounts))
       (let [cost-basis (sum :account/cost-basis accounts)
             gain (- current-value cost-basis)]
-        (cons {:report/caption (format-commodity commodity)
+        (cons {:id (:id commodity)
+               :report/caption (format-commodity commodity)
                :report/style :header
                :report/shares-purchased (sum :account/shares-purchased accounts)
                :report/shares-owned (sum :account/shares-owned accounts)
@@ -865,13 +872,15 @@
               (->> accounts
                    (mapcat :account/lots)
                    (sort-by :lot/purchase-date t/after?)
-                   (map (fn [{:lot/keys [shares-purchased
+                   (map (fn [{:keys [id]
+                              :lot/keys [shares-purchased
                                          shares-owned
                                          cost-basis
                                          gain
                                          purchase-date
                                          value]}]
-                          {:report/caption (dates/format-local-date purchase-date)
+                          {:id id
+                           :report/caption (dates/format-local-date purchase-date)
                            :report/style :data
                            :report/shares-purchased shares-purchased
                            :report/shares-owned shares-owned

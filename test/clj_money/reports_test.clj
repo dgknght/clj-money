@@ -181,6 +181,31 @@
       (is (seq (remove #(= :summary (:report/style %)) result))
           "A cash-only trading account nested under a parent appears in the portfolio report"))))
 
+(def ^:private same-day-lots-portfolio-context
+  (conj fixtures/portfolio-context
+        #:trade{:date (t/local-date 2015 2 1)
+                :entity "Personal"
+                :type :purchase
+                :account "IRA"
+                :commodity "AAPL"
+                :shares 50M
+                :value 500M}))
+
+(deftest portfolio-rows-have-unique-ids
+  (with-context same-day-lots-portfolio-context
+    (let [entity (entities/find (find-entity "Personal"))]
+      (doseq [aggregate [:by-account :by-commodity]]
+        (testing (name aggregate)
+          (let [ids (->> (reports/portfolio {:aggregate aggregate
+                                             :entity entity
+                                             :as-of (t/local-date 2015 4 30)})
+                         (remove #(= :summary (:report/style %)))
+                         (map :id))]
+            (is (not-any? nil? ids)
+                "Every row has an id")
+            (is (apply distinct? ids)
+                "No two rows share an id, even lots purchased on the same day")))))))
+
 (def ^:private tagged-income-account-context
   (conj fixtures/budget-context
         #:account{:name "Investment Expenses"
