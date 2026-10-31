@@ -16,6 +16,11 @@
     (is (http-success? (handler (req/request :get "/images/logo.svg")))
         "The handler serves requests")))
 
+(deftest respond-with-not-found-for-a-missing-static-asset
+  (let [handler (ig/init-key ::web/handler {:env env})]
+    (is (http-not-found? (handler (req/request :get "/cljs-out/missing.js")))
+        "The app's HTML is not served in place of the asset")))
+
 (deftest the-session-secret-is-required-at-system-initialization
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"SESSION_SECRET"

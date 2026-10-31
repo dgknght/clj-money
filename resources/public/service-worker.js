@@ -1,4 +1,5 @@
-const CACHE_VERSION = 'v1';
+// Bump to discard caches written by earlier versions of this worker
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const STATIC_CACHE = 'static-' + CACHE_VERSION;
 
@@ -14,12 +15,22 @@ const SHELL_URLS = [
 
 const API_PREFIXES = ['/api/', '/oapi/', '/auth/', '/app/'];
 
+// The server answers unknown paths with the app's HTML, so a static asset
+// fetched while it was missing would otherwise be cached as HTML
+const isCacheableAsset = response =>
+  response.ok && !response.headers.get('Content-Type')?.includes('text/html');
+
+const cacheAsset = (cache, url) =>
+  fetch(url).then(response => {
+    if (isCacheableAsset(response)) return cache.put(url, response);
+  });
+
 self.addEventListener('install', event => {
   event.waitUntil(
     Promise.all([
       caches.open(SHELL_CACHE).then(cache => cache.add('/').catch(() => {})),
       caches.open(STATIC_CACHE).then(cache =>
-        Promise.allSettled(SHELL_URLS.map(url => cache.add(url)))
+        Promise.allSettled(SHELL_URLS.map(url => cacheAsset(cache, url)))
       )
     ]).then(() => self.skipWaiting())
   );
@@ -50,8 +61,17 @@ self.addEventListener('fetch', event => {
   }
 
   if (request.headers.get('Accept')?.includes('text/html')) {
+    // Network first, so a deploy's new shell is picked up right away
     event.respondWith(
-      caches.match('/').then(cached => cached || fetch(request)).catch(() => caches.match('/'))
+      fetch(request)
+        .then(response => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(SHELL_CACHE).then(cache => cache.put('/', copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/'))
     );
     return;
   }
@@ -59,7 +79,11 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(request).then(cached => {
       const networkFetch = fetch(request).then(response => {
-        if (response.ok) caches.open(STATIC_CACHE).then(cache => cache.put(request, response.clone()));
+        if (isCacheableAsset(response)) {
+          // Clone before returning; the page consumes the original body
+          const copy = response.clone();
+          caches.open(STATIC_CACHE).then(cache => cache.put(request, copy));
+        }
         return response;
       });
       return cached || networkFetch;

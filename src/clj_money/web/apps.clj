@@ -76,10 +76,19 @@
 (def ^:private server-prefixes
   ["/api/" "/oapi/" "/auth/" "/app/"])
 
+(defn- asset-path?
+  "Returns true if the last segment of the path has a file extension, as a
+  static asset's does and a client route's doesn't. A missing asset must get
+  a 404, not the app's HTML, which the service worker would otherwise cache
+  in the asset's place."
+  [uri]
+  (boolean (re-find #"\.[^/]+$" uri)))
+
 (defn spa-fallback
   [{:keys [request-method uri] :as req}]
   (when (and (= :get request-method)
-             (not-any? #(string/starts-with? uri %) server-prefixes))
+             (not-any? #(string/starts-with? uri %) server-prefixes)
+             (not (asset-path? uri)))
     (index req)))
 
 (def routes
