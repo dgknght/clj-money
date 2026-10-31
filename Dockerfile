@@ -21,7 +21,9 @@ RUN mkdir resources/public/css && \
     npm ci && \
     lein do fig:prod, uberjar
 
-FROM docker.io/clojure:temurin-25-lein-bookworm-slim AS web
+# Runtime needs only a JRE, not Leiningen (whose standalone jar the security
+# scan flags)
+FROM docker.io/eclipse-temurin:25-jre AS web
 # for the :clj-money.ingestion.ocr/ocr receipt reader
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends tesseract-ocr && \

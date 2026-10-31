@@ -17,10 +17,13 @@
       "extractVersionTemplate": "^(?<version>\\d+)"
     },
     {
-      "description": "Update the Java major version embedded in the clojure image tag in the Dockerfile",
+      "description": "Update the Java major version embedded in the clojure and eclipse-temurin image tags in the Dockerfile",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)Dockerfile$/"],
-      "matchStrings": ["clojure:temurin-(?<currentValue>\\d+)-lein"],
+      "matchStrings": [
+        "clojure:temurin-(?<currentValue>\\d+)-lein",
+        "eclipse-temurin:(?<currentValue>\\d+)-jre"
+      ],
       "depNameTemplate": "java",
       "packageNameTemplate": "java-jdk",
       "datasourceTemplate": "java-version",
@@ -44,6 +47,13 @@
       "matchManagers": ["mise", "custom.regex"],
       "matchDepNames": ["java"],
       "groupName": "Java"
+    },
+    {
+      "description": "Leave the eclipse-temurin Java major version to the Java group above",
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["eclipse-temurin"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     },
     {
       "description": "Ignore custom internal Docker images",
