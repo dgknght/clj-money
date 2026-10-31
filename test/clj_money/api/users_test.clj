@@ -1,10 +1,13 @@
 (ns clj-money.api.users-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.pprint :refer [pprint]]
+            [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
             [clj-money.entities.ref]
+            [clj-money.dates :refer [with-fixed-time]]
+            [clj-money.web.auth :as auth]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [parse-body
@@ -148,3 +151,25 @@
                                              :password "please01"})
                        app)]
       (is (http-forbidden? response)))))
+
+(deftest a-user-cannot-get-me-info-with-an-expired-token
+  (with-context context
+    (let [user (find-user "john@doe.com")
+          response (-> (with-fixed-time "2020-01-01T00:00:00Z"
+                         (request :get (path :api
+                                             :users
+                                             :me)
+                                  :user user))
+                       app)]
+      (is (http-unauthorized? response)))))
+
+(deftest a-user-cannot-get-me-info-with-a-tampered-token
+  (with-context context
+    (let [user (find-user "john@doe.com")
+          token (auth/make-token user "not-the-secret")
+          response (-> (request :get (path :api
+                                           :users
+                                           :me))
+                       (req/header "Authorization" (str "Bearer " token))
+                       app)]
+      (is (http-unauthorized? response)))))

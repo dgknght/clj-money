@@ -3,11 +3,12 @@
   (:require [cljs.pprint :refer [pprint]]
             [cljs.reader :as reader :include-macros true]
             [lambdaisland.uri :as uri]
+            [reagent.cookies :as cookies]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.api-3 :as api]
             [clj-money.dates :as dates]
             [clj-money.decimal :as decimal]
-            [clj-money.state :refer [auth-token]]))
+            [clj-money.state :as state :refer [auth-token]]))
 
 (reader/register-tag-parser! 'clj-money/local-date-time clj-money.dates/local-date-time)
 (reader/register-tag-parser! 'clj-money/local-date clj-money.dates/local-date)
@@ -47,6 +48,23 @@
     opts
     (assoc opts :on-error (apply handle-ex msg args))))
 
+(defn- end-session
+  "When the server rejects the auth token (e.g., because it has
+  expired), signs the user out and sends them to the sign in page"
+  [{:keys [status] :as res}]
+  (when (and (= 401 status) @auth-token)
+    (state/logout)
+    (cookies/remove! :auth-token)
+    (.assign js/location "/login"))
+  res)
+
+(defn- authenticate
+  [options]
+  (-> default-options
+      (merge options)
+      (update :pre-xf #(if % (comp (map end-session) %) (map end-session)))
+      (assoc :oauth-token @auth-token)))
+
 (defn- append-query
   [url query]
   {:pre [(string? url)
@@ -62,30 +80,22 @@
   ([url options] (get url {} options))
   ([url query options]
    (api/get (append-query url query)
-            (-> default-options
-                (merge options)
-                (assoc :oauth-token @auth-token)))))
+            (authenticate options))))
 
 (defn post
   ([url options] (post url {} options))
   ([url payload options]
    (api/post url
              payload
-             (-> default-options
-                 (merge options)
-                 (assoc :oauth-token @auth-token)))))
+             (authenticate options))))
 
 (defn patch
   [url payload options]
   (api/patch url
              payload
-             (-> default-options
-                 (merge options)
-                 (assoc :oauth-token @auth-token))))
+             (authenticate options)))
 
 (defn delete
   [url options]
   (api/delete url
-              (-> default-options
-                  (merge options)
-                  (assoc :oauth-token @auth-token))))
+              (authenticate options)))
