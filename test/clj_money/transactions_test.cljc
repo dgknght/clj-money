@@ -518,6 +518,25 @@
                                  :period [1 :quarter]}
                                 items)))))
 
+(deftest append-the-ending-balance-to-each-period-summary
+  (is (= [{:start-date (t/local-date 2016 1 1)
+           :quantity (d 100)
+           :balance (d 600)}
+          {:start-date (t/local-date 2016 2 1)
+           :quantity (d 0)
+           :balance (d 600)}
+          {:start-date (t/local-date 2016 3 1)
+           :quantity (d -50)
+           :balance (d 550)}]
+         (trx/append-balances (d 500)
+                              [{:start-date (t/local-date 2016 1 1)
+                                :quantity (d 100)}
+                               {:start-date (t/local-date 2016 2 1)
+                                :quantity (d 0)}
+                               {:start-date (t/local-date 2016 3 1)
+                                :quantity (d -50)}]))
+      "Each balance is the opening balance plus the activity through the end of the period"))
+
 (deftest calc-the-value-of-a-transaction
   (is (= (d 100)
          (trx/value

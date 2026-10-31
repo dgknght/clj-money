@@ -8,6 +8,11 @@
 (def period-types
   [:year :quarter :month :week])
 
+(def measures
+  "What is charted for each period: the activity in the account during the
+  period, or the balance of the account at the end of the period"
+  [:activity :balance])
+
 (def ^:private month-abbrs
   ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
 
@@ -42,7 +47,8 @@
   {:transaction/transaction-date [(start-of-period start-date period-type)
                                   (t/plus end-date (t/days 1))] ; the end of the range is exclusive
    :transaction-item/account account
-   :period [1 period-type]})
+   :period [1 period-type]
+   :include-balance true})
 
 (defn- period-label
   [date period-type]
@@ -58,20 +64,22 @@
      :cljs (.toNumber quantity)))
 
 (defn- dataset
-  [{:keys [account summary]}]
-  {:label (string/join "/" (:account/path account))
-   :data (mapv (comp ->number :quantity) summary)})
+  [measure]
+  (let [value (if (= :balance measure) :balance :quantity)]
+    (fn [{:keys [account summary]}]
+      {:label (string/join "/" (:account/path account))
+       :data (mapv (comp ->number value) summary)})))
 
 (defn chart-config
   "Returns the configuration for a chart of the given account summaries,
   each of which is a map containing the :account and its :summary, as
   returned by the summarize endpoint for the criteria above"
-  [summaries {:keys [period-type style show-values?]}]
+  [summaries {:keys [period-type measure style show-values?]}]
   {:type style
    :data {:labels (->> (first summaries) ; every summary covers the same periods
                        :summary
                        (mapv #(period-label (:start-date %) period-type)))
-          :datasets (mapv dataset summaries)}
+          :datasets (mapv (dataset measure) summaries)}
    :options {:plugins {:datalabels {:display show-values?
                                     :anchor "end"
                                     :align "end"}}}})

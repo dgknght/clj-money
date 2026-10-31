@@ -805,6 +805,12 @@
        [forms/date-field options [:end-date] {:validate [:required]}]
        [forms/select-field
         options
+        [:measure]
+        (map (juxt identity humanize) hist/measures)
+        {:caption "Show"
+         :transform-fn keyword}]
+       [forms/select-field
+        options
         [:period-type]
         (map (juxt identity humanize) hist/period-types)
         {:caption "Period"
@@ -922,6 +928,7 @@
                                        :start-date (start-of-year)
                                        :end-date (t/today)
                                        :period-type :month
+                                       :measure :activity
                                        :style :bar
                                        :show-values? false}}}))
 

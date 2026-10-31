@@ -25,7 +25,8 @@
   (is (= {:transaction/transaction-date [(t/local-date 2026 1 1)
                                          (t/local-date 2026 7 1)]
           :transaction-item/account groceries
-          :period [1 :month]}
+          :period [1 :month]
+          :include-balance true}
          (hist/criteria groceries {:start-date (t/local-date 2026 1 1)
                                    :end-date (t/local-date 2026 6 30)
                                    :period-type :month}))
@@ -49,12 +50,16 @@
         "The week starts on Monday")))
 
 (defn- summary
-  [start-dates quantities]
-  (map (fn [start-date quantity]
-         {:start-date start-date
-          :quantity (d quantity)})
-       start-dates
-       quantities))
+  ([start-dates quantities]
+   (summary start-dates quantities (repeat "0")))
+  ([start-dates quantities balances]
+   (map (fn [start-date quantity balance]
+          {:start-date start-date
+           :quantity (d quantity)
+           :balance (d balance)})
+        start-dates
+        quantities
+        balances)))
 
 (def ^:private quarters
   [(t/local-date 2026 1 1)
@@ -78,6 +83,19 @@
                             {:period-type :quarter
                              :style :bar
                              :show-values? true}))))
+
+(deftest get-the-config-for-a-chart-of-balances
+  (is (= [{:label "Groceries"
+           :data [1100.0 1300.5 1300.5]}]
+         (get-in (hist/chart-config [{:account groceries
+                                      :summary (summary quarters
+                                                        ["100" "200.5" "0"]
+                                                        ["1100" "1300.5" "1300.5"])}]
+                                    {:period-type :quarter
+                                     :measure :balance
+                                     :style :line})
+                 [:data :datasets]))
+      "The balance at the end of each period is charted instead of the activity"))
 
 (defn- labels
   [period-type start-dates]

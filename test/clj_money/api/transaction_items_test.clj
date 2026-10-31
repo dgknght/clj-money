@@ -397,3 +397,45 @@
 
 (deftest a-user-cannot-summarize-items-in-anothers-entity
   (assert-blocked-summary (summarize-items "jane@doe.com")))
+
+(defn- summarize-balances
+  [user-email]
+  (with-context summary-context
+    (let [entity (find-entity "Personal")
+          groceries (find-account "Groceries")
+          path (format "%s?account-id=%s&transaction-date=2016-02-01&transaction-date=2016-04-30&period-type=month&period-count=1&include-balance=true"
+                       (path :api
+                             :entities
+                             (:id entity)
+                             :transaction-items
+                             :summarize)
+                       (:id groceries))]
+      (-> (request :get path
+                   :content-type "application/edn"
+                   :user (find-user user-email))
+          app
+          parse-body))))
+
+(deftest a-user-can-summarize-balances-in-his-entity
+  (let [{:keys [parsed-body] :as response} (summarize-balances "john@doe.com")]
+    (is (http-success? response))
+    (is (= [{:start-date (t/local-date 2016 2 1)
+             :end-date (t/local-date 2016 2 29)
+             :quantity 0M
+             :balance 201M}
+            {:start-date (t/local-date 2016 3 1)
+             :end-date (t/local-date 2016 3 31)
+             :quantity 102M
+             :balance 303M}
+            {:start-date (t/local-date 2016 4 1)
+             :end-date (t/local-date 2016 4 30)
+             :quantity 0M
+             :balance 303M}]
+           parsed-body)
+        "Each period includes the account balance at the end of the period")))
+
+(deftest a-user-cannot-summarize-balances-in-anothers-entity
+  (let [{:keys [parsed-body] :as response} (summarize-balances "jane@doe.com")]
+    (is (http-success? response))
+    (is (= [0M 0M 0M] (map :balance parsed-body))
+        "The balances of an account the user can't see are not revealed")))

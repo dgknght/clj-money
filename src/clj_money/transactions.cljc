@@ -272,6 +272,15 @@
                      (t/before? start as-of)))
        (map #(summarize-period % items))))
 
+(defn append-balances
+  "Given the balance before the first period and the summaries returned by
+  summarize-items, adds the balance at the end of each period to its summary"
+  [opening-balance summaries]
+  (map (fn [summary balance]
+         (assoc summary :balance balance))
+       summaries
+       (rest (reductions d/+ opening-balance (map :quantity summaries)))))
+
 (defn value
   [{:transaction/keys [items]}]
   (let [sums (->> items

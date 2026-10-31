@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
+            [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-bool
                                           uuid]]
@@ -9,7 +10,8 @@
             [clj-money.dates :as dates]
             [clj-money.util :as util]
             [clj-money.comparatives :as comparatives]
-            [clj-money.transactions :refer [summarize-items]]
+            [clj-money.transactions :refer [summarize-items
+                                            append-balances]]
             [clj-money.entities :as entities]
             [clj-money.entities.transaction-items :as trx-items]
             [clj-money.authorization :refer [+scope]]
@@ -175,19 +177,44 @@
   {:period [(parse-long period-count)
             (keyword period-type)]})
 
+(defn- balance-as-of
+  "Returns the balance of the account as of the date, or zero if the user
+  can't see the account"
+  [account as-of authenticated]
+  (or (:transaction-item/balance
+        (entities/find-by (+scope {:transaction-item/account account
+                                   :transaction-item/index [:!= nil]
+                                   :transaction/transaction-date [:<= as-of]}
+                                  :transaction-item
+                                  authenticated)
+                          {:sort [[:transaction-item/index :desc]]}))
+      0M))
+
+(defn- apply-balances
+  [summaries
+   {:transaction-item/keys [account]
+    [_ since] :transaction/transaction-date}
+   {:keys [params authenticated]}]
+  (if (and account (parse-bool (:include-balance params)))
+    (append-balances (balance-as-of account
+                                    (t/minus since (t/days 1))
+                                    authenticated)
+                     summaries)
+    summaries))
+
 (defn- summarize
   [{:keys [authenticated] :as req}]
   (let [{[_ since as-of] :transaction/transaction-date
-         :as criteria} (extract-summary-criteria req)]
-    (->> (entities/select (+scope criteria
-                                  :transaction-item
-                                  authenticated)
-                          {:select-also [:transaction/transaction-date]})
-         trx-items/polarize-quantities
-         (summarize-items (assoc (extract-summary-options req)
-                                 :since since
-                                 :as-of as-of))
-         api/response)))
+         :as criteria} (extract-summary-criteria req)
+        summaries (->> (entities/select (+scope criteria
+                                                :transaction-item
+                                                authenticated)
+                                        {:select-also [:transaction/transaction-date]})
+                       trx-items/polarize-quantities
+                       (summarize-items (assoc (extract-summary-options req)
+                                               :since since
+                                               :as-of as-of)))]
+    (api/response (apply-balances summaries criteria req))))
 
 (def routes
   [["accounts/:account-id/transaction-items" {:get {:handler index}}]
