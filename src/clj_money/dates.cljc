@@ -294,6 +294,7 @@
 
    (case period-type
      :year (t/years period-count)
+     :quarter (t/months (* 3 period-count))
      :month (t/months period-count)
      :week (t/weeks period-count))))
 

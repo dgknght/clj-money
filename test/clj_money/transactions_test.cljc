@@ -500,6 +500,24 @@
                                  :period [1 :month]}
                                 items)))))
 
+(deftest summarize-some-items-by-quarter
+  (let [items [{:transaction-item/polarized-quantity (d 100)
+                :transaction/transaction-date (t/local-date 2016 1 2)}
+               {:transaction-item/polarized-quantity (d 101)
+                :transaction/transaction-date (t/local-date 2016 3 31)}
+               {:transaction-item/polarized-quantity (d 102)
+                :transaction/transaction-date (t/local-date 2016 4 1)}]]
+    (is (= [{:start-date (t/local-date 2016 1 1)
+             :end-date (t/local-date 2016 3 31)
+             :quantity (d 201)}
+            {:start-date (t/local-date 2016 4 1)
+             :end-date (t/local-date 2016 6 30)
+             :quantity (d 102)}]
+           (trx/summarize-items {:since (t/local-date 2016 1 1)
+                                 :as-of (t/local-date 2016 6 30)
+                                 :period [1 :quarter]}
+                                items)))))
+
 (deftest calc-the-value-of-a-transaction
   (is (= (d 100)
          (trx/value

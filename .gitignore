@@ -31,3 +31,4 @@ node_modules/
 /**/*.local.json
 /docker-compose.override.yaml
 resources/js/otel-bundle.js
+resources/js/chart-bundle.js

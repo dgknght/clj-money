@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "build:otel": "esbuild src/js/otel.js --bundle --minify --format=iife --global-name=cljMoneyOtel --target=es2020 --outfile=resources/js/otel-bundle.js",
-    "postinstall": "npm run build:otel"
+    "build:chart": "esbuild src/js/chart.js --bundle --minify --format=iife --global-name=cljMoneyChart --target=es2020 --outfile=resources/js/chart-bundle.js",
+    "postinstall": "npm run build:otel && npm run build:chart"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.10.0",
@@ -12,7 +13,9 @@
     "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
     "@opentelemetry/instrumentation": "^0.300.0",
     "@opentelemetry/resources": "^3.0.0",
-    "@opentelemetry/sdk-trace": "^3.0.0"
+    "@opentelemetry/sdk-trace": "^3.0.0",
+    "chart.js": "^4.6.1",
+    "chartjs-plugin-datalabels": "^2.2.0"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"

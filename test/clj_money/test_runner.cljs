@@ -1,6 +1,7 @@
 (ns clj-money.test-runner
   (:require [cljs.test :as t]
             [clj-money.dates-test]
+            [clj-money.account-history-test]
             [clj-money.accounts-test]
             [clj-money.budgets-test]
             [clj-money.util-test]
@@ -23,6 +24,7 @@
   (t/run-tests
     'clj-money.routes-test
     'clj-money.dates-test
+    'clj-money.account-history-test
     'clj-money.accounts-test
     'clj-money.budgets-test
     'clj-money.util-test

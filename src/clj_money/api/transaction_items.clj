@@ -157,9 +157,14 @@
       (update-in-if [:transaction/entity] util/->entity-ref)
       (select-keys [:transaction-item/account
                     :transaction/transaction-date
-                    :transaction/entity])))
+                    :transaction/entity])
+      ; The account already limits the items to one entity. Matching on the
+      ; entity as well makes datomic pair every item in the account with
+      ; every transaction in the entity before joining them, which exhausts
+      ; the heap for a large entity.
+      (cond-> (:account-id params) (dissoc :transaction/entity))))
 
-(s/def ::period-type #{"day" "week" "month" "year"})
+(s/def ::period-type #{"day" "week" "month" "quarter" "year"})
 (s/def ::period-count (partial re-matches #"^\d+$"))
 (s/def ::raw-summary-options (s/keys :req-un [::period-type
                                               ::period-count]))

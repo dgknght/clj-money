@@ -1,6 +1,7 @@
 (ns clj-money.views.reports
   (:require [clojure.string :as string]
             [cljs.pprint :refer [pprint]]
+            [cljs.core.async :refer [<! go]]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -22,12 +23,17 @@
                                      icon-with-text]]
             [clj-money.state :refer [app-state
                                      current-entity
+                                     accounts
                                      accounts-by-id
                                      busy?
                                      +busy
                                      -busy]]
             [clj-money.budgets :as budgets :refer [period-description]]
+            [clj-money.accounts :refer [find-by-path]]
+            [clj-money.account-history :as hist]
+            [clj-money.chart :refer [chart]]
             [clj-money.api.budgets :as bdt]
+            [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.reports :as rpt]))
 
 (defmulti ^:private report-row :report/style)
@@ -714,11 +720,143 @@
       [:div.mt-2 {:class (when @hide? "d-none")}
        [render-portfolio page-state]])))
 
+(defmethod load-report :account-history
+  [page-state]
+  (let [{:keys [account-ids] :as opts} (get-in @page-state [:account-history :options])
+        ; an account selected before switching entities won't be found
+        summary-chans (->> account-ids
+                           (keep @accounts-by-id)
+                           (mapv (fn [account]
+                                   (trx-items/summarize
+                                     (hist/criteria account opts)
+                                     :on-success (fn [summary]
+                                                   {:account account
+                                                    :summary summary})))))]
+    (+busy)
+    (swap! page-state update-in [:account-history] dissoc :report)
+    (go
+      (let [summaries (loop [chans summary-chans
+                             result []]
+                        (if-let [ch (first chans)]
+                          (recur (rest chans)
+                                 (conj result (<! ch)))
+                          result))]
+        (-busy)
+        (swap! page-state
+               assoc-in
+               [:account-history :report]
+               (filterv :summary summaries))))))
+
+(defn- remove-account
+  [options account-id]
+  (fn [e]
+    (.preventDefault e)
+    (swap! options update-in [:account-ids] #(filterv (complement #{account-id}) %))))
+
+(defn- selected-account
+  [options]
+  (fn [account-id]
+    ^{:key (str "account-history-account-" account-id)}
+    [:div.d-flex.rounded.bg-secondary-subtle.px-2.me-2.mb-2
+     [:span (string/join "/" (:account/path (@accounts-by-id account-id)))]
+     [:a.ms-1.text-decoration-none
+      {:href "#"
+       :title "Click here to remove this account from the chart"
+       :on-click (remove-account options account-id)}
+      (icon :x :size :small)]]))
+
+(defn- add-account
+  [options]
+  (fn [account]
+    (when account
+      (swap! options
+             #(-> %
+                  (update-in [:account-ids]
+                             (fn [ids]
+                               (if (some #{(:id account)} ids)
+                                 ids
+                                 (conj ids (:id account)))))
+                  (dissoc ::working-account))))))
+
+(defn- account-history-options
+  [page-state]
+  (let [options (r/cursor page-state [:account-history :options])
+        account-ids (r/cursor options [:account-ids])]
+    (fn []
+      [:<>
+       [forms/typeahead-field
+        options
+        [::working-account]
+        {:caption "Accounts"
+         :search-fn (fn [input callback]
+                      (callback (find-by-path input @accounts)))
+         :caption-fn #(string/join "/" (:account/path %))
+         :value-fn :id
+         :find-fn (fn [id callback]
+                    (callback (@accounts-by-id id)))
+         :on-change (add-account options)}]
+       [:div.d-flex.flex-wrap
+        (if (seq @account-ids)
+          (->> @account-ids
+               (map (selected-account options))
+               doall)
+          [:span.text-body-secondary.mb-2 "Select one or more accounts."])]
+       [forms/date-field options [:start-date] {:validate [:required]}]
+       [forms/date-field options [:end-date] {:validate [:required]}]
+       [forms/select-field
+        options
+        [:period-type]
+        (map (juxt identity humanize) hist/period-types)
+        {:caption "Period"
+         :transform-fn keyword}]
+       [forms/select-field
+        options
+        [:style]
+        [[:bar "Bar"]
+         [:line "Line"]]
+        {:transform-fn keyword}]
+       [forms/checkbox-field
+        options
+        [:show-values?]
+        {:caption "Show Values"}]])))
+
+(defn- account-history-header
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :account-history @selected))
+        start-date (r/cursor page-state [:account-history :options :start-date])
+        end-date (r/cursor page-state [:account-history :options :end-date])]
+    (fn []
+      [:span {:class (when @hide? "d-none")}
+       (format-date @start-date)
+       " - "
+       (format-date @end-date)])))
+
+(defn- account-history
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :account-history @selected))
+        options (r/cursor page-state [:account-history :options])
+        report (r/cursor page-state [:account-history :report])]
+    (fn []
+      [:div {:class (when @hide? "d-none")}
+       (cond
+         (seq @report)
+         [chart (hist/chart-config @report @options)]
+
+         @report
+         [:p.text-body-secondary
+          "Click the gear icon to choose the accounts to chart."]
+
+         :else
+         [bs/spinner])])))
+
 (def ^:private report-types
   [:balance-sheet
    :income-statement
    :budget
-   :portfolio])
+   :portfolio
+   :account-history])
 
 (defn- report-nav-item-fn
   [page-state]
@@ -746,7 +884,8 @@
        :income-statement [income-statement-option-fields page-state]
        :balance-sheet    [balance-sheet-option-fields page-state]
        :budget           [budget-options page-state]
-       :portfolio        [portfolio-options page-state])
+       :portfolio        [portfolio-options page-state]
+       :account-history  [account-history-options page-state])
      [:div.mt-3
       [:button.btn.btn-primary
        {:type :submit
@@ -778,7 +917,13 @@
            :portfolio {:options {:filter {:aggregate :by-account
                                           :as-of (t/today)}
                                  :by-account {:visible-ids #{}}
-                                 :by-commodity {:visible-ids #{}}}}}))
+                                 :by-commodity {:visible-ids #{}}}}
+           :account-history {:options {:account-ids []
+                                       :start-date (start-of-year)
+                                       :end-date (t/today)
+                                       :period-type :month
+                                       :style :bar
+                                       :show-values? false}}}))
 
 (defn- small-nav
   [page-state]
@@ -828,7 +973,8 @@
          [income-statement-header page-state]
          [balance-sheet-header page-state]
          [budget-header page-state]
-         [portfolio-header page-state]]]
+         [portfolio-header page-state]
+         [account-history-header page-state]]]
        [:div.d-print-none
         [filter-elem page-state]
         [small-nav page-state]
@@ -837,7 +983,8 @@
         [income-statement page-state]
         [balance-sheet page-state]
         [budget page-state]
-        [portfolio page-state]]])))
+        [portfolio page-state]
+        [account-history page-state]]])))
 
 (secretary/defroute "/reports" []
   (swap! app-state assoc :page #'index :active-nav :reports))

@@ -15,7 +15,7 @@ RUN convert -background none -resize 192x192 resources/public/images/logo.svg re
     convert -background none -resize 512x512 resources/public/images/logo.svg resources/public/images/icon-512.png && \
     convert -background none -resize 180x180 resources/public/images/logo.svg resources/public/images/apple-touch-icon.png
 
-# npm ci also bundles the OpenTelemetry browser SDK (resources/js/otel-bundle.js)
+# npm ci also bundles the browser libraries in src/js (see src/deps.cljs)
 RUN mkdir resources/public/css && \
     sass src/scss/site.scss resources/public/css/site.css && \
     npm ci && \

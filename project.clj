@@ -182,7 +182,7 @@
   :hooks []
   :uberjar-name "clj-money.jar"
   :aot [clj-money.web.server]
-  :clean-targets ^{:protect false} [:target-path]
+  :clean-targets ^{:protect false} [:target-path "resources/public/cljs-out"]
   :source-paths ["src"]
   :aliases {"datomic-schema"        ["run" "-m" "clj-money.db.datomic.tasks/apply-schema"]
             "migrate"               ["run" "-m" "clj-money.db.sql.tasks/migrate"]

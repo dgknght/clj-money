@@ -55,6 +55,18 @@
   Anything ClojureScript reads from the bundle must be declared in
   `src/otel-externs.js`, or advanced compilation renames it
 
+### Charts
+- Charts (e.g. the Account History report) are drawn by Chart.js, bundled
+  by esbuild from `src/js/chart.js` into `resources/js/chart-bundle.js` on
+  `npm install` like the OpenTelemetry bundle above (externs in
+  `src/chart-externs.js`). `clj-money.chart/chart` is a Reagent component
+  that takes a Chart.js configuration as a Clojure map
+- The ClojureScript compiler memoizes what it reads from `src/deps.cljs`
+  for the life of the JVM, so after adding a foreign lib restart the JVM
+  running figwheel (restarting figwheel within the same REPL isn't enough)
+  and run `lein clean` so nothing compiled without the lib is reused (see
+  `.claude/troubleshooting.md`)
+
 ### Testing
 - Use `clojure.test` framework
 - Test files mirror source structure with `_test` suffix
