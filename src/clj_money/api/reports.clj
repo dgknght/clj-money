@@ -8,6 +8,7 @@
             [clj-money.entities :as entities]
             [clj-money.reports :as rpt]
             [clj-money.monitor-cache :as monitor-cache]
+            [clj-money.report-cache :as report-cache]
             [clj-money.web.system :as system])
   (:import java.math.BigDecimal
            clojure.lang.Ratio))
@@ -21,18 +22,22 @@
 
 (defn- income-statement
   [{{:keys [since as-of]} :params :as req}]
-  (or (some-> (fetch-entity req)
-              (rpt/income-statement (dates/unserialize-local-date since)
-                                    (dates/unserialize-local-date as-of))
-              api/response)
-      api/not-found))
+  (if-let [entity (fetch-entity req)]
+    (api/response
+      (report-cache/income-statement (system/component req :report-cache)
+                                     entity
+                                     (dates/unserialize-local-date since)
+                                     (dates/unserialize-local-date as-of)))
+    api/not-found))
 
 (defn- balance-sheet
   [{:keys [params] :as req}]
-  (or (some-> (fetch-entity req)
-              (rpt/balance-sheet (dates/unserialize-local-date (:as-of params)))
-              api/response)
-      api/not-found))
+  (if-let [entity (fetch-entity req)]
+    (api/response
+      (report-cache/balance-sheet (system/component req :report-cache)
+                                  entity
+                                  (dates/unserialize-local-date (:as-of params))))
+    api/not-found))
 
 (defn- portfolio-params
   [entity {:keys [params]}]
@@ -50,17 +55,23 @@
               api/response)
       api/not-found))
 
+(defn- budget-opts
+  [params]
+  (-> params
+      (select-keys [:as-of :tags])
+      (update-in-if [:tags] #(mapv keyword %))
+      (update-in-if [:as-of] dates/unserialize-local-date)))
+
 (defn- budget
-  [{:keys [params authenticated]}]
-  (or (some-> (entities/find-by (+scope {:id (:budget-id params)}
-                                        :budget
-                                        authenticated))
-              (rpt/budget (-> params
-                              (select-keys [:as-of :tags])
-                              (update-in-if [:tags] #(mapv keyword %))
-                              (update-in-if [:as-of] dates/unserialize-local-date)))
-              api/response)
-      api/not-found))
+  [{:keys [params authenticated] :as req}]
+  (if-let [bdg (entities/find-by (+scope {:id (:budget-id params)}
+                                         :budget
+                                         authenticated))]
+    (api/response
+      (report-cache/budget (system/component req :report-cache)
+                           bdg
+                           (budget-opts params)))
+    api/not-found))
 
 (defn- flatten-ratio
   [ratio]

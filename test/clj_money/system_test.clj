@@ -8,6 +8,7 @@
             [clj-money.entities.propagation :as prop]
             [clj-money.images :as images]
             [clj-money.monitor-cache :as monitor-cache]
+            [clj-money.report-cache :as report-cache]
             [clj-money.ingestion :as ing]
             [clj-money.progress :as progress]
             [clj-money.prices :as prices]
@@ -27,6 +28,7 @@
                     :image-storage {:bucket "test-images"}
                     :ingestion {:model "model-x"}
                     :monitor-cache {:ttl-minutes 5}
+                    :report-cache {:ttl-minutes 10}
                     :prices {:api-key "price-api-key"}
                     :progress {:strategies {:redis {:prefix "test"}}
                                :active :redis}}]
@@ -37,6 +39,8 @@
                                  :publisher (ig/ref ::entities/publisher)}
             ::monitor-cache/cache {:publisher (ig/ref ::entities/publisher)
                                    :ttl-minutes 5}
+            ::report-cache/cache {:publisher (ig/ref ::entities/publisher)
+                                  :ttl-minutes 10}
             ::images/storage {:bucket "test-images"}
             ::ing/receipt-reader {:model "model-x"}
             ::ing/statement-reader {:model "model-x"}
@@ -52,7 +56,8 @@
                            :statement-reader (ig/ref ::ing/statement-reader)
                            :tracker-factory (ig/ref ::progress/tracker-factory)
                            :services (ig/ref ::services/config)
-                           :monitor-cache (ig/ref ::monitor-cache/cache)}
+                           :monitor-cache (ig/ref ::monitor-cache/cache)
+                           :report-cache (ig/ref ::report-cache/cache)}
             ::web/server {:handler (ig/ref ::web/handler)
                           :port 3000}}
            (system/config app-config))

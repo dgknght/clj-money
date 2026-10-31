@@ -133,6 +133,24 @@ Every eviction advances a generation counter, and a monitor computed while
 the generation changed isn't stored. Use `monitor-cache/await-evictions` in
 tests before asserting on a cached monitor.
 
+## Report Cache (`report_cache.clj`)
+
+The balance sheet, income statement, and budget reports are fetched through
+the `::report-cache/cache` component (`report-cache/balance-sheet`,
+`income-statement`, `budget`; with no cache they're computed every time).
+It works like the monitor cache, with the same generation counter, TTL
+(config `:report-cache`, default 60 minutes) and `await-evictions`. Each
+report is cached by its entity or budget and dates, and covers a range of
+transaction dates (a balance sheet: up to its as-of date; an income
+statement: since to as-of; a budget report: the budget's start date to its
+as-of date, or end date when none is given). Reports are evicted:
+
+- for a transaction, on its `::prop/propagated` signal, only the reports of
+  its entity whose range includes its transaction date, before or after the
+  change.
+- for a propagated price or lot change, all reports.
+- for any account, budget, budget item or entity change, all reports.
+
 ## Dual-Storage Model
 
 SQL and Datomic are both supported simultaneously. Tests run against both via

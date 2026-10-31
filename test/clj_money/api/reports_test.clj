@@ -13,6 +13,7 @@
                                             propagated
                                             put-and-propagate]]
             [clj-money.monitor-cache :as monitor-cache]
+            [clj-money.report-cache :as report-cache]
             [clj-money.api.test-helper :refer [parse-body
                                                request
                                                jsonize-decimals]]
@@ -105,8 +106,9 @@
     (assert-blocked-income-statement (get-income-statement "jane@doe.com"))))
 
 (defn- get-balance-sheet
-  [email & {:keys [content-type]
-            :or {content-type "application/edn"}}]
+  [email & {:keys [content-type app]
+            :or {content-type "application/edn"
+                 app app}}]
   (let [entity (find-entity "Personal")]
     (with-fixed-time "2016-02-02T00:00:00Z"
       (-> (request :get (path :api
@@ -146,6 +148,31 @@
 (deftest a-user-cannot-get-a-balance-sheet-for-anothers-entity
   (with-context report-context
     (assert-blocked-balance-sheet (get-balance-sheet "jane@doe.com"))))
+
+(deftest cached-balance-sheets-reflect-new-transactions
+  (with-context report-context
+    (let [cache (ig/init-key ::report-cache/cache
+                             {:publisher entities/*publisher*})
+          app (comp propagated (build-app {:report-cache cache}))
+          assets #(->> (get-balance-sheet "john@doe.com" :app app)
+                       :parsed-body
+                       (filter (comp #{"Asset"} caption))
+                       first
+                       :report/value)]
+      (try
+        (is (= 1000M (assets))
+            "The balance sheet is computed")
+        (put-and-propagate #:transaction{:transaction-date (t/local-date 2016 1 15)
+                                         :entity (find-entity "Personal")
+                                         :description "Paycheck"
+                                         :quantity 500M
+                                         :debit-account (find-account "Checking")
+                                         :credit-account (find-account "Salary")})
+        (is (report-cache/await-evictions cache))
+        (is (= 1500M (assets))
+            "The balance sheet includes the new transaction")
+        (finally
+          (ig/halt-key! ::report-cache/cache cache))))))
 
 (def budget-context
   (conj report-context

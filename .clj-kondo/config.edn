@@ -149,5 +149,6 @@
                                         clojure.pprint
                                         cljs.pprint]}
            :missing-protocol-method {:level :off}}
- :lint-as {clj-money.monitor-cache-test/with-cache clojure.core/let}
+ :lint-as {clj-money.monitor-cache-test/with-cache clojure.core/let
+           clj-money.report-cache-test/with-cache clojure.core/let}
  :output {:exclude-files ["data_readers.clj" "deps.cljs"]}}
