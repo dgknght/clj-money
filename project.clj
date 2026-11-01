@@ -277,4 +277,7 @@
                                "-Dotel.service.name=clj-money"
                                "-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318"
                                "-Djava.net.preferIPv4Stack=true"]}
+             ; uberjar cleans first, so keep the client app that fig:prod
+             ; compiled into resources/public/cljs-out
+             :uberjar {:clean-targets ^{:replace true :protect false} [:target-path]}
              :util {:resource-paths ^:replace ["config" "resources" "target"]}})

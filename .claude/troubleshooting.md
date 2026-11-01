@@ -53,3 +53,12 @@ a JVM that didn't know about it yet, so its output in
 of the bundle's `cljMoneyChart` (see `:global-exports` in `src/deps.cljs`).
 Figwheel reuses that output until the source changes. Stop figwheel, run
 `lein clean` (which clears `resources/public/cljs-out`), and start it again.
+
+### Blank page in production with `GET /cljs-out/clj-money.js 404`
+
+The uberjar was built without the compiled client app. `lein uberjar` runs
+`lein clean` first, and `:clean-targets` includes `resources/public/cljs-out`
+(see above), so it deletes what `lein fig:prod` just compiled. The `:uberjar`
+profile in `project.clj` replaces `:clean-targets` with `[:target-path]` to
+prevent this; check that it's still there. `unzip -l target/clj-money.jar |
+grep cljs-out` should list `public/cljs-out/clj-money.js`.
