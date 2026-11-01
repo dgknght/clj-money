@@ -3,7 +3,8 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
-            [clj-money.authorization :refer [+scope]]
+            [clj-money.authorization :as auth :refer [authorize]]
+            [clj-money.authorization.reports]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
             [clj-money.reports.portfolio :as portfolio]
@@ -13,12 +14,20 @@
   (:import java.math.BigDecimal
            clojure.lang.Ratio))
 
+; Running a report takes the :report permission on the entity, whatever
+; the user may do with the entity or the budget the report is run on
+(defn- authorize-report
+  [entity-ref user]
+  ; not tagged with util/entity-type, which only takes stored types; the
+  ; :report type is read from the key
+  (authorize {:report/entity entity-ref} ::auth/show user))
+
 (defn- fetch-entity
   [{:keys [params authenticated]}]
-  (-> {:id (:entity-id params)}
-      (util/entity-type :entity)
-      (+scope :entity authenticated)
-      entities/find-by))
+  (when-let [entity (entities/find-by
+                      (util/entity-type {:id (:entity-id params)} :entity))]
+    (authorize-report entity authenticated)
+    entity))
 
 (defn- income-statement
   [{{:keys [since as-of]} :params :as req}]
@@ -64,13 +73,14 @@
 
 (defn- budget
   [{:keys [params authenticated] :as req}]
-  (if-let [bdg (entities/find-by (+scope {:id (:budget-id params)}
-                                         :budget
-                                         authenticated))]
-    (api/response
+  (if-let [bdg (entities/find-by
+                 (util/entity-type {:id (:budget-id params)} :budget))]
+    (do
+      (authorize-report (:budget/entity bdg) authenticated)
+      (api/response
       (report-cache/budget (system/component req :report-cache)
                            bdg
-                           (budget-opts params)))
+                           (budget-opts params))))
     api/not-found))
 
 (defn- flatten-ratio

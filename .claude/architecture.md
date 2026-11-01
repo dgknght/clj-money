@@ -225,6 +225,15 @@ take the action. `middleware/handle-exception` returns 404 and 403 for these.
 Multi-hop chains call `fetch-entity` recursively. Add a dispatch for any new
 entity that requires `owner-or-granted?`.
 
+Reports aren't stored, so `api/reports.clj` authorizes a pseudo-resource,
+`{:report/entity entity}`, with `::authorization/show`
+(`authorization/reports.clj`). It looks up the entity, or the budget for
+the budget report, without `+scope`. Otherwise a grantee would need an
+`:entity` or `:budget` grant to reach a report. Running a report takes the
+`:report` permission alone. Don't tag the pseudo-resource with
+`util/entity-type`, which only accepts stored types. Its type comes from
+the `:report` key namespace.
+
 ## `bounding-where-clause` (db/datomic.clj)
 
 Needs a case for every entity type. Add one when creating a new entity.

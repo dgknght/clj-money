@@ -55,6 +55,13 @@
        (filter header?)
        (map caption)))
 
+(defn- grant
+  [context permissions]
+  (conj context
+        #:grant{:entity "Personal"
+                :user "jane@doe.com"
+                :permissions permissions}))
+
 (def ^:private report-context
   (conj basic-context
         #:transaction{:transaction-date (t/local-date 2015 1 1)
@@ -105,6 +112,20 @@
   (with-context report-context
     (assert-blocked-income-statement (get-income-statement "jane@doe.com"))))
 
+(def ^:private report-grant-context
+  (grant report-context {:report #{:show}}))
+
+(deftest a-user-granted-reports-can-get-an-income-statement-for-anothers-entity
+  (with-context report-grant-context
+    (assert-successful-income-statement (get-income-statement "jane@doe.com"))))
+
+(def ^:private entity-grant-context
+  (grant report-context {:entity #{:index :show}}))
+
+(deftest a-user-granted-only-entity-access-cannot-get-an-income-statement-for-anothers-entity
+  (with-context entity-grant-context
+    (assert-blocked-income-statement (get-income-statement "jane@doe.com"))))
+
 (defn- get-balance-sheet
   [email & {:keys [content-type app]
             :or {content-type "application/edn"
@@ -147,6 +168,14 @@
 
 (deftest a-user-cannot-get-a-balance-sheet-for-anothers-entity
   (with-context report-context
+    (assert-blocked-balance-sheet (get-balance-sheet "jane@doe.com"))))
+
+(deftest a-user-granted-reports-can-get-a-balance-sheet-for-anothers-entity
+  (with-context report-grant-context
+    (assert-successful-balance-sheet (get-balance-sheet "jane@doe.com"))))
+
+(deftest a-user-granted-only-entity-access-cannot-get-a-balance-sheet-for-anothers-entity
+  (with-context entity-grant-context
     (assert-blocked-balance-sheet (get-balance-sheet "jane@doe.com"))))
 
 (deftest cached-balance-sheets-reflect-new-transactions
@@ -220,6 +249,21 @@
 
 (deftest a-user-cannot-get-a-budget-report-for-anothers-entity
   (with-context budget-context
+    (assert-blocked-budget-report (get-budget-report "jane@doe.com"))))
+
+(def ^:private budget-report-grant-context
+  (grant budget-context {:report #{:show}}))
+
+(deftest a-user-granted-reports-can-get-a-budget-report-for-anothers-entity
+  (with-context budget-report-grant-context
+    (assert-successful-budget-report (get-budget-report "jane@doe.com"))))
+
+(def ^:private budget-grant-context
+  (grant budget-context {:entity #{:index :show}
+                         :budget #{:index :show}}))
+
+(deftest a-user-granted-only-budget-access-cannot-get-a-budget-report-for-anothers-entity
+  (with-context budget-grant-context
     (assert-blocked-budget-report (get-budget-report "jane@doe.com"))))
 
 (def ^:private monitor-context
@@ -331,6 +375,20 @@
   (with-context monitor-context
     (assert-blocked-monitor-list (get-monitor-list "jane@doe.com"))))
 
+(def ^:private monitor-report-grant-context
+  (grant monitor-context {:report #{:show}}))
+
+(deftest a-user-granted-reports-can-get-budget-monitors-for-anothers-entity
+  (with-context monitor-report-grant-context
+    (assert-successful-monitor-list (get-monitor-list "jane@doe.com"))))
+
+(def ^:private monitor-entity-grant-context
+  (grant monitor-context {:entity #{:index :show}}))
+
+(deftest a-user-granted-only-entity-access-cannot-get-budget-monitors-for-anothers-entity
+  (with-context monitor-entity-grant-context
+    (assert-blocked-monitor-list (get-monitor-list "jane@doe.com"))))
+
 (def ^:private portfolio-context
   (conj basic-context
         #:account{:name "IRA"
@@ -397,3 +455,17 @@
 (deftest a-user-cannot-get-a-portfolio-report-for-anothers-entity
  (with-context portfolio-context
    (assert-blocked-portfolio-report (get-portfolio-report "jane@doe.com"))))
+
+(def ^:private portfolio-report-grant-context
+  (grant portfolio-context {:report #{:show}}))
+
+(deftest a-user-granted-reports-can-get-a-portfolio-report-for-anothers-entity
+  (with-context portfolio-report-grant-context
+    (assert-successful-portfolio-report (get-portfolio-report "jane@doe.com"))))
+
+(def ^:private portfolio-entity-grant-context
+  (grant portfolio-context {:entity #{:index :show}}))
+
+(deftest a-user-granted-only-entity-access-cannot-get-a-portfolio-report-for-anothers-entity
+  (with-context portfolio-entity-grant-context
+    (assert-blocked-portfolio-report (get-portfolio-report "jane@doe.com"))))

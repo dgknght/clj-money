@@ -70,6 +70,10 @@
       {:account/_self account}
       :entity)))
 
+(defmethod fetch-entity :report
+  [{:report/keys [entity]}]
+  (fetch-entity* entity))
+
 (defmethod fetch-entity :trade
   [{:trade/keys [entity]}]
   (fetch-entity* entity))
