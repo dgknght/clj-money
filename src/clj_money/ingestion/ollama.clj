@@ -161,7 +161,7 @@
 ; A statement is much longer than a receipt, both the text read and the
 ; answer, and is better read as text than as images, which a text model
 ; handles better than a vision model of the same size
-(def statement-defaults
+(def ^:private statement-defaults
   {:model "qwen3:8b"
    :vision-model "qwen2.5vl:7b"
    :num-ctx 32768
@@ -169,7 +169,7 @@
    ; with thinking on, the reasoning uses up the output tokens
    :think false})
 
-(defn statement-request-body
+(defn- statement-request-body
   "Returns the body of a generate request asking the model to read the
   statement, given the contents of its PDF, as the models can't open a PDF:
   {:text \"...\"} (see clj-money.ingestion.pdf), sent with the prompt to the

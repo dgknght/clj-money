@@ -165,7 +165,5 @@
   ; it must be given the pdf's contents, see clj-money.ingestion.pdf
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"can't read a PDF"
-                        (ollama/statement-request-body
-                          (io/file "fixtures/statements/checking.pdf")
-                          {:id 1}
-                          {}))))
+                        (read-statement (io/file "fixtures/statements/checking.pdf")
+                                        {}))))
