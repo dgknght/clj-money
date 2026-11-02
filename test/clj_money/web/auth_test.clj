@@ -207,3 +207,12 @@
                                 :first-name "Jane"
                                 :last-name "Doe"}
                          (usrs/find-by-email "jane@doe.com")))))))
+
+(deftest reject-an-oauth-callback-without-a-state
+  (with-web-mocks [calls] mocks
+    (let [res (app (assoc (req/request :get "/auth/google/callback")
+                          :query-params {"code" "attacker-code"}))]
+      (is (http-bad-request? res)
+          "A callback that wasn't started from this session is rejected")
+      (is (empty? @calls)
+          "The authorization code is not exchanged for a token"))))

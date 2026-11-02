@@ -109,9 +109,7 @@
    :secure (= "https" (:site-protocol env))})
 
 (defn- wrap-site []
-  [wrap-defaults (-> site-defaults
-                     (dissoc :session)
-                     (update :security dissoc :anti-forgery))])
+  [wrap-defaults (dissoc site-defaults :session)])
 
 (defn- wrap-decimals
   [handler]
@@ -124,6 +122,19 @@
   {:google google-auth/oauth2-profile
    :github github-auth/oauth2-profile})
 
+(defn- wrap-require-oauth2-state
+  "Rejects an OAuth callback unless the session holds the state saved when
+  the flow was launched. ring-oauth2 compares the session state to the
+  callback's state with =, so a callback with neither would pass, letting an
+  attacker sign a victim in to the attacker's account (login CSRF)."
+  [handler profiles]
+  (let [callback-uris (set (map :redirect-uri (vals profiles)))]
+    (fn [{:keys [uri] :as req}]
+      (if (and (callback-uris uri)
+               (nil? (get-in req [:session ::oauth2/state])))
+        (oauth2/state-mismatch-handler req)
+        (handler req)))))
+
 (defn- maybe-wrap-oauth2
   [handler {:keys [oauth]}]
   (if-let [profiles (->> oauth
@@ -131,7 +142,9 @@
                                 ((oauth2-profile-fns provider) config)))
                          (apply merge)
                          not-empty)]
-    (oauth2/wrap-oauth2 handler profiles)
+    (-> handler
+        (oauth2/wrap-oauth2 profiles)
+        (wrap-require-oauth2-state profiles))
     handler))
 
 (defn- wrap-components
