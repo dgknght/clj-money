@@ -1,6 +1,6 @@
 [tools]
 java = "temurin-25.0.5+8.0.LTS"
-node = "24"
+node = "26"
 leiningen = "2.11.2"
 clj-kondo = "v2026.08.04"
 caddy = "2.11.7"
