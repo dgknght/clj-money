@@ -2,7 +2,7 @@
 java = "temurin-25.0.5+8.0.LTS"
 node = "26"
 leiningen = "2.11.2"
-clj-kondo = "v2026.08.04"
+clj-kondo = "v2026.10.26"
 caddy = "2.11.7"
 
 [tasks.lint]
