@@ -9,7 +9,7 @@
  {:db/ident :receipt-ingestion/status
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/one
-  :db/doc "The progress of the read (pending, processing, complete, failed)"}
+  :db/doc "The progress of the read (pending, processing, complete, failed, rejected)"}
  {:db/ident :receipt-ingestion/receipt
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
@@ -18,6 +18,10 @@
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
   :db/doc "The reason the read failed"}
+ {:db/ident :receipt-ingestion/failure-reason
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/doc "Why the read failed, when it's known: not-a-receipt, when the model says it wasn't given one"}
  {:db/ident :receipt-ingestion/transaction
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one

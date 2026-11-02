@@ -81,7 +81,13 @@
                   {:expense-accounts ["Groceries/Food"
                                       "Groceries/Non-food"]})
                 [:properties :line_items :items :properties :account]))
-      "The payment account property specifies an enum of the specified expense accounts"))
+      "The payment account property specifies an enum of the specified expense accounts")
+  (let [schema (rcpts/schema {})]
+    (is (= {:type "boolean"}
+           (select-keys (get-in schema [:properties :is_receipt]) [:type]))
+        "The model says whether it's a receipt")
+    (is (some #{"is_receipt"} (:required schema))
+        "Whether it's a receipt is required")))
 
 (def ^:private groceries-receipt
   {:date "2026-09-27"
@@ -348,6 +354,16 @@
                                :account-options {:payment-accounts ["Discover"]
                                                  :expense-accounts ["Groceries/Food"]})))
           "The total is debited to the first expense account, for the user to correct"))))
+
+(deftest a-total-is-required
+  (with-context ctx
+    (is (thrown-with-msg?
+          clojure.lang.ExceptionInfo
+          #"Unable to read the total"
+          (rcpts/make-trx (assoc restaurant-receipt :total nil)
+                          (find-entity "Personal")
+                          :account-options {:payment-accounts ["Discover"]
+                                            :expense-accounts ["Groceries/Food"]})))))
 
 (deftest a-payment-account-is-required
   (with-context ctx

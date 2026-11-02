@@ -80,3 +80,9 @@
                    [(.getWidth image) (.getHeight image)])
                 (get-in (hlp/calls inner) [:read-statement 0 0 :images])))
         "Each page is rendered, scaled, and encoded")))
+
+(deftest the-contents-of-a-receipt-are-passed-on
+  (let [{{[[contents]] :read-receipt} :calls}
+        (read-receipt {:text "Kroger"}
+                      :provider ::base64/base64)]
+    (is (= {:text "Kroger"} contents))))

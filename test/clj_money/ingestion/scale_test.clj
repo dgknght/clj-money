@@ -88,3 +88,9 @@
           (read-statement {:text "Prairie State Bank"}
                           :provider ::scale/scale)]
       (is (= {:text "Prairie State Bank"} contents)))))
+
+(deftest the-contents-of-a-receipt-are-passed-on
+  (let [{{[[contents]] :read-receipt} :calls}
+        (read-receipt {:text "Kroger"}
+                      :provider ::scale/scale)]
+    (is (= {:text "Kroger"} contents))))

@@ -1,5 +1,6 @@
 (ns clj-money.ingestion.ref
   (:require clj-money.ingestion.base64
+            clj-money.ingestion.email
             clj-money.ingestion.gemini
             clj-money.ingestion.logic
             clj-money.ingestion.ocr

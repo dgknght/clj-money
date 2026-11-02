@@ -126,3 +126,6 @@
         "The options are passed to the inner reader")
     (is (= 1 close)
         "The inner reader is closed")))
+
+(deftest the-contents-of-a-receipt-are-passed-on
+  (is (= {:text "Kroger"} (upright {:text "Kroger"}))))

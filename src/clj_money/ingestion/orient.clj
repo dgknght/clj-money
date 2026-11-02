@@ -110,13 +110,16 @@
 
 (defn- reader
   "Decorates a receipt reader, so that it's given the image turned upright
-  in place of the image"
+  in place of the image. A receipt's contents, already read (e.g., the text
+  of an email, see clj-money.ingestion.email), are passed on as they are."
   [reader]
   (reify
     ing/ReceiptReader
     (read-receipt [_ source entity opts]
       (ing/read-receipt reader
-                        (upright (read-bytes source))
+                        (if (map? source)
+                          source
+                          (upright (read-bytes source)))
                         entity
                         opts))
     ing/Closeable

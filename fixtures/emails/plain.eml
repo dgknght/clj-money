@@ -1,0 +1,18 @@
+Received: from mail.example.com by mx.example.org; Mon, 2 Nov 2026 09:15:00 -0600
+From: Kroger <receipts@kroger.example.com>
+To: john@doe.com
+Subject: Your Kroger receipt
+Date: Mon, 2 Nov 2026 09:14:00 -0600
+Message-ID: <plain-1@kroger.example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+Thank you for shopping at Kroger!
+
+Milk          3.49
+Bread         2.99
+Subtotal      6.48
+Tax           0.00
+Total         6.48
+
+Paid with VISA ending in 1234

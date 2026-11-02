@@ -33,6 +33,15 @@
            (get-in body [:generationConfig :thinkingConfig]))
         "Thinking is kept low by default")))
 
+(deftest the-request-includes-the-text-already-read
+  (is (= [{:text "Subject: Your receipt"}
+          {:text "Read this"}]
+         (get-in (gemini/request-body {:text "Subject: Your receipt" :origin :email}
+                                      "Read this"
+                                      {}
+                                      {})
+                 [:contents 0 :parts]))))
+
 (deftest the-thinking-level-can-be-set-or-omitted
   (is (= {:thinkingLevel "MINIMAL"}
          (get-in (gemini/request-body jpeg "Read this" {} {:thinking-level :minimal})

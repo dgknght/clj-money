@@ -1,0 +1,27 @@
+From: Acme Utilities <billing@acme.example.com>
+To: john@doe.com
+Subject: Your payment receipt
+Date: Mon, 2 Nov 2026 09:14:00 -0600
+Message-ID: <attachment-1@acme.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mixed"
+
+--mixed
+Content-Type: multipart/alternative; boundary="alt"
+
+--alt
+Content-Type: text/plain; charset=UTF-8
+
+Your receipt is attached.
+--alt
+Content-Type: text/html; charset=UTF-8
+
+<p>Your receipt is attached.</p>
+--alt--
+--mixed
+Content-Type: application/pdf; name="receipt.pdf"
+Content-Disposition: attachment; filename="receipt.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQgZmFrZSByZWNlaXB0
+--mixed--

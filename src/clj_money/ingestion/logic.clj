@@ -42,9 +42,12 @@
 
 (defn- read-first
   "Returns the first receipt read by one of the alternatives. The receipt is
-  read into memory first, so that each alternative can read it."
+  read into memory first, so that each alternative can read it, unless it's
+  the receipt's contents, already read (e.g., the text of an email)."
   [alternatives source entity opts]
-  (let [content (read-bytes source)]
+  (let [content (if (map? source)
+                  source
+                  (read-bytes source))]
     (or (some (fn [[i alternative]]
                 (when (pos? i)
                   (log/infof "Reading the receipt with alternative %s." (inc i)))

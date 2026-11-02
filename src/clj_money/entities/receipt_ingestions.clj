@@ -10,6 +10,7 @@
 (s/def :receipt-ingestion/status #{:pending :processing :complete :failed :rejected})
 (s/def :receipt-ingestion/receipt (s/nilable map?))
 (s/def :receipt-ingestion/error (s/nilable string?))
+(s/def :receipt-ingestion/failure-reason (s/nilable #{:not-a-receipt}))
 (s/def :receipt-ingestion/transaction (s/nilable ::entities/entity-ref))
 (s/def :receipt-ingestion/rejection-reason (s/nilable string?))
 
@@ -25,6 +26,7 @@
                                                          :receipt-ingestion/status]
                                                    :opt [:receipt-ingestion/receipt
                                                          :receipt-ingestion/error
+                                                         :receipt-ingestion/failure-reason
                                                          :receipt-ingestion/transaction
                                                          :receipt-ingestion/rejection-reason])
                                            rejection-has-reason?))

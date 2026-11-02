@@ -129,16 +129,19 @@
   {:text \"...\"}, the text of the receipt, in place of the image. Returns
   nil when no text can be read from the image, Tesseract doesn't finish
   within :timeout-ms (for each image), or the total read isn't in the
-  text."
+  text. A receipt's contents, already read (e.g., the text of an email,
+  which OCR didn't misread), are passed on as they are."
   [reader opts]
   (reify
     ing/ReceiptReader
     (read-receipt [_ source entity read-opts]
-      (read-text reader
-                 (read-bytes source)
-                 entity
-                 opts
-                 read-opts))
+      (if (map? source)
+        (ing/read-receipt reader source entity read-opts)
+        (read-text reader
+                   (read-bytes source)
+                   entity
+                   opts
+                   read-opts)))
     ing/Closeable
     (close [_] (ing/close reader))))
 

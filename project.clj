@@ -196,6 +196,8 @@
                  [io.opentelemetry/opentelemetry-api "1.67.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
+                 [org.jsoup/jsoup] ; version managed above
+                 [org.eclipse.angus/angus-mail "2.0.5"]
                  [com.cognitect.aws/api "0.8.847"]
                  [com.cognitect.aws/endpoints "871.2.55.12"]
                  [com.cognitect.aws/s3 "871.2.55.11"]

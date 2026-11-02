@@ -286,6 +286,8 @@
                                   :type :string}
                                  {:id :error
                                   :type :string}
+                                 {:id :failure-reason
+                                  :type :keyword}
                                  {:id :rejection-reason
                                   :type :string}}
                        :refs #{:entity

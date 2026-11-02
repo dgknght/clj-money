@@ -6,13 +6,16 @@
 
 (defn create
   "Uploads a receipt image, given as the {:blob :url} map produced by
-  dgknght.app-lib.forms/image-input, and starts reading it. The response
-  is the receipt-ingestion that tracks the progress of the read."
-  [{:keys [blob]} & {:as opts}]
+  dgknght.app-lib.forms/image-input, or an email, given as {:blob file
+  :filename \"...\"}, and starts reading it. The response is the
+  receipt-ingestion that tracks the progress of the read."
+  [{:keys [blob filename]
+    :or {filename "receipt.jpg"}}
+   & {:as opts}]
   (api/post (api/path :entities
                       @current-entity
                       :receipt-ingestions)
-            {:image [blob "receipt.jpg"]}
+            {:image [blob filename]}
             (-> opts
                 ; the encoding would otherwise set the Accept header to
                 ; application/multipart

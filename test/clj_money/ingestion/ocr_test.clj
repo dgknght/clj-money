@@ -163,3 +163,17 @@
         "Nothing is returned, so that another reader can read the receipt")
     (is (empty? (:read-receipt inner))
         "The inner reader isn't called")))
+
+(deftest the-contents-of-a-receipt-are-passed-on
+  (let [calls (atom [])
+        {:keys [result]
+         {[[contents]] :read-receipt} :calls}
+        (with-redefs [shell/sh (tesseract calls)]
+          (read-receipt {:text "Kroger" :origin :email}
+                        :provider ::ocr/ocr))]
+    (is (= {:text "Kroger" :origin :email} contents)
+        "The inner reader is given the contents")
+    (is (= ::hlp/result result)
+        "The result is returned without looking for the total in the text")
+    (is (empty? @calls)
+        "Tesseract isn't run")))

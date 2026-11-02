@@ -10,7 +10,10 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.util :as util]
+            [clj-money.images :as images]
             [clj-money.ingestion :as ing]
+            [clj-money.ingestion.email :as email]
+            [clj-money.ingestion.helpers :as hlp]
             [clj-money.test-helpers :refer [reset-db
                                             propagated]]
             [clj-money.api.test-helper :refer [add-auth
@@ -69,15 +72,17 @@
             (recur (inc n)))))))
 
 (defn- create-ingestion
-  [email & {:keys [reader] :or {reader successful-reader}}]
+  [email & {:keys [reader file content-type]
+            :or {reader successful-reader
+                 file "fixtures/attachment.jpg"
+                 content-type "image/jpeg"}}]
   (let [entity (find-entity "Personal")
-        file (io/file "fixtures/attachment.jpg")
         response (-> (req/request :post (path :api
                                               :entities
                                               (:id entity)
                                               :receipt-ingestions))
-                     (merge (build-multipart-request {:image {:file file
-                                                              :content-type "image/jpeg"}}))
+                     (merge (build-multipart-request {:image {:file (io/file file)
+                                                              :content-type content-type}}))
                      (add-auth (find-user email))
                      (req/header "Accept" "application/edn")
                      ((build-app {:receipt-reader reader}))
@@ -136,6 +141,84 @@
         (is (util/id= trx
                       (:receipt-ingestion/transaction retrieved))
             "The receipt-ingestion refers to the transaction")))))
+
+(deftest a-user-can-create-a-receipt-ingestion-from-an-email
+  (with-context
+    (configure-ingestion!)
+    (let [inner (hlp/inspectable-reader :result extracted-receipt)
+          [response retrieved] (create-ingestion
+                                 "john@doe.com"
+                                 :file "fixtures/emails/plain.eml"
+                                 :content-type "message/rfc822"
+                                 :reader (ing/receipt-reader {::ing/provider ::email/email
+                                                              :reader inner}))
+          [[contents]] (:read-receipt (hlp/calls inner))]
+      (is (http-created? response))
+      (is (= :email (:origin contents))
+          "The text of the email is read")
+      (is (comparable? #:receipt-ingestion{:status :complete}
+                       retrieved)
+          "The receipt is read")
+      (let [trx (some-> retrieved :receipt-ingestion/transaction entities/find)]
+        (is (comparable? #:transaction{:description "Kroger"
+                                       :review-status :pending}
+                         trx)
+            "A transaction awaiting review is created from the email")
+        (is (comparable? #:image{:content-type "message/rfc822"}
+                         (some-> (entities/select #:attachment{:transaction trx})
+                                 first
+                                 :attachment/image
+                                 entities/find))
+            "The email is attached to the transaction")))))
+
+(deftest the-files-attached-to-an-email-are-attached-to-the-transaction
+  (with-context
+    (configure-ingestion!)
+    (let [[_ retrieved] (create-ingestion
+                          "john@doe.com"
+                          :file "fixtures/emails/embedded_image.eml"
+                          :content-type "message/rfc822"
+                          :reader (ing/receipt-reader {::ing/provider ::email/email
+                                                       :reader (hlp/inspectable-reader
+                                                                 :result extracted-receipt)}))
+          trx (some-> retrieved :receipt-ingestion/transaction entities/find)
+          attachments (->> (entities/select #:attachment{:transaction trx})
+                           (map #(update-in % [:attachment/image] entities/find))
+                           (sort-by :attachment/caption))]
+      (is (= 2 (:transaction/attachment-count trx))
+          "The transaction's attachment count includes the extracted file")
+      (is (seq-of-maps-like? [#:attachment{:caption "Receipt"
+                                           :image #:image{:content-type "message/rfc822"}}
+                              #:attachment{:caption "invoice.pdf"
+                                           :image #:image{:content-type "application/pdf"
+                                                          :original-filename "invoice.pdf"}}]
+                             attachments)
+          "The PDF attached to the email is attached to the transaction beside the email, and the logo isn't")
+      (is (= "%PDF-1.4 fake invoice"
+             (some-> (second attachments)
+                     (get-in [:attachment/image :image/uuid])
+                     images/get
+                     (String. "US-ASCII")))
+          "The PDF's content is stored"))))
+
+(deftest an-email-that-isnt-a-receipt-is-recorded
+  (with-context
+    (configure-ingestion!)
+    (let [[response retrieved] (create-ingestion
+                                 "john@doe.com"
+                                 :reader (reader (constantly {:is-receipt false})))]
+      (is (http-created? response))
+      (is (comparable? #:receipt-ingestion{:status :failed
+                                           :failure-reason :not-a-receipt
+                                           :error "That isn't a receipt."
+                                           :receipt {:is-receipt false}}
+                       retrieved)
+          "The read fails, recording that it isn't a receipt")
+      (is (nil? (:receipt-ingestion/transaction retrieved))
+          "No transaction is created")
+      (is (empty? (entities/select #:transaction{:entity (find-entity "Personal")
+                                                 :source :ingestion}))
+          "No transaction is saved"))))
 
 (deftest a-failed-read-is-recorded
   (with-context

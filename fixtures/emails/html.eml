@@ -1,0 +1,12 @@
+From: Kroger <receipts@kroger.example.com>
+To: john@doe.com
+Subject: Your Kroger receipt
+Date: Mon, 2 Nov 2026 09:14:00 -0600
+Message-ID: <html-1@kroger.example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<html><head><style>td { color: red; }</style></head>
+<body><p>Thank you for shopping at Kroger!</p>
+<table><tr><td>Milk</td><td>3.49</td></tr><tr><td>Total</td><td>3.49</td></tr></table>
+</body></html>

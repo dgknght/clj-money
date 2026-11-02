@@ -81,13 +81,16 @@
 
 (defn- receipt-reader
   "Decorates a receipt reader, so that it's given the image scaled down (see
-  scale-image) in place of the image"
+  scale-image) in place of the image. A receipt's contents, already read
+  (e.g., the text of an email), are passed on as they are."
   [reader opts]
   (reify
     ing/ReceiptReader
     (read-receipt [_ source entity read-opts]
       (ing/read-receipt reader
-                        (shrink-source source opts)
+                        (if (map? source)
+                          source
+                          (shrink-source source opts))
                         entity
                         read-opts))
     ing/Closeable

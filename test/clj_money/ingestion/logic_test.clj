@@ -64,3 +64,18 @@
 
 (deftest the-alternatives-are-closed
   (is (= 1 (get-in (read-or {:total 1M} nil) [:first :close]))))
+
+(deftest the-contents-of-a-receipt-are-passed-to-the-alternatives
+  (let [first-reader (hlp/inspectable-reader :result nil)
+        final-reader (hlp/inspectable-reader :result {:total 2M})
+        reader (ing/receipt-reader {::ing/provider ::logic/or
+                                    :alternatives [first-reader
+                                                   {::ing/provider ::b64/base64}]
+                                    :reader final-reader})]
+    (is (= {:total 2M}
+           (ing/read-receipt reader {:text "Kroger"} {} {}))
+        "The result of an alternative is returned")
+    (is (= {:text "Kroger"}
+           (get-in (hlp/calls first-reader) [:read-receipt 0 0])
+           (get-in (hlp/calls final-reader) [:read-receipt 0 0]))
+        "Each alternative is given the contents")))

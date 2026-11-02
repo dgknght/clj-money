@@ -50,13 +50,15 @@
   it, so the account fields can only contain one of the given account paths."
   [{:keys [payment-accounts expense-accounts]}]
   {:type "object"
-   :properties {:date {:type ["string" "null"]
+   :properties {:is_receipt {:type "boolean"
+                             :description "Whether this is a purchase receipt"}
+                :date {:type ["string" "null"]
                        :description "The date of the purchase"}
                 :location_name {:type ["string" "null"]
                                 :description "The name of the merchant"}
                 :location_address {:type ["string" "null"]
                                    :description "The address of the merchant"}
-                :total {:type "number"}
+                :total {:type ["number" "null"]}
                 :tax {:type ["number" "null"]}
                 :tax_rate {:type ["number" "null"]}
                 :tip {:type ["number" "null"]}
@@ -72,7 +74,8 @@
                                                              "The expense account that best matches the item"
                                                              expense-accounts)}
                                      :required ["description" "amount" "account"]}}}
-   :required ["date"
+   :required ["is_receipt"
+              "date"
               "location_name"
               "location_address"
               "total"
@@ -82,7 +85,10 @@
 (defn prompt
   "Generates a prompt to read a receipt and return structured data"
   [{{:settings/keys [expense-hints]} :entity/settings}]
-  (let [base ["This is a purchase receipt. Extract the following."
+  (let [base ["This is a purchase receipt, or an email that may be one. Extract the following."
+              "- *is_receipt* Whether this is a receipt for a purchase that was paid for."
+              "  False for anything else (e.g., a newsletter, an advertisement, or a"
+              "  shipping notice), in which case the other fields may be null."
               "- *location_name* The name of the merchant."
               "- *location_address* The physical address of the merchant."
               "- *date* The date on which the transaction took place, written as YYYY-MM-DD."
@@ -232,6 +238,9 @@
                           (apply-default-accounts entity
                                                   account-options
                                                   accounts-by-path))]
+    (when-not total
+      (throw (ex-info "Unable to read the total from the receipt."
+                      {:receipt receipt})))
     (when-not payment-account
       (throw (ex-info "Unable to tell which account paid for the receipt. Choose payment methods in the receipt settings."
                       {:receipt receipt})))

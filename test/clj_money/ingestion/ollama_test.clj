@@ -82,6 +82,15 @@
     (is (false? (:think body))
         "Thinking is off, so it doesn't use up the output tokens")))
 
+(deftest the-text-of-an-email-is-introduced-as-an-email
+  (let [{:keys [prompt]} (read-receipt {:text "Subject: Your receipt"
+                                        :origin :email}
+                                       {})]
+    (is (re-find #"The text of the email, which may hold a receipt, follows.\n\nSubject: Your receipt"
+                 prompt))
+    (is (not (re-find #"OCR" prompt))
+        "The text isn't said to be read by OCR")))
+
 (deftest the-images-of-a-receipt-are-sent-to-the-vision-model
   (let [body (read-receipt {:images ["aW1hZ2U="]} {:vision-model "llava:7b"})]
     (is (= ["aW1hZ2U="] (:images body))

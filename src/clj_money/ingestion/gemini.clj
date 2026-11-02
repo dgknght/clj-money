@@ -38,19 +38,27 @@
          (= "WEBP" (String. content 8 4 "US-ASCII"))) "image/webp"
     :else (throw (ex-info "Unsupported image type" {}))))
 
+(defn- content-part
+  [content]
+  (if (map? content)
+    {:text (:text content)}
+    {:inlineData {:mimeType (content-type content)
+                  :data (.encodeToString (Base64/getEncoder)
+                                         ^bytes content)}}))
+
 (defn request-body
   "Returns the body of a generateContent request asking the model to read
-  the image."
-  [^bytes image prompt schema {:keys [max-output-tokens thinking-level]
+  the content: the image or PDF, as bytes, or, for content that's already
+  been read (e.g., the text of an email, see clj-money.ingestion.email),
+  {:text \"...\"}."
+  [content prompt schema {:keys [max-output-tokens thinking-level]
                                :or {; thinking tokens count against this
                                     ; limit, so it leaves room for both
                                     max-output-tokens 8192
                                     ; reading a receipt needs little
                                     ; reasoning, and less is faster
                                     thinking-level "LOW"}}]
-  {:contents [{:parts [{:inlineData {:mimeType (content-type image)
-                                     :data (.encodeToString (Base64/getEncoder)
-                                                            image)}}
+  {:contents [{:parts [(content-part content)
                        {:text prompt}]}]
    :generationConfig (cond-> {:temperature 0.2
                               :maxOutputTokens max-output-tokens
@@ -152,7 +160,9 @@
 
 (defn- read-document
   [source document prompt schema opts]
-  (let [{:keys [status body]} (generate (request-body (read-bytes source)
+  (let [{:keys [status body]} (generate (request-body (if (map? source)
+                                                        source
+                                                        (read-bytes source))
                                                       prompt
                                                       schema
                                                       opts)

@@ -1,0 +1,30 @@
+From: Acme Hosting <billing@acme.example.com>
+To: john@doe.com
+Subject: Your invoice: Paid
+Date: Mon, 2 Nov 2026 09:14:00 -0600
+Message-ID: <embedded-image-1@acme.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mixed"
+
+--mixed
+Content-Type: multipart/related; boundary="related"
+
+--related
+Content-Type: text/html; charset=UTF-8
+
+<p><img src="cid:logo@acme.example.com"></p><p>Your invoice is attached.</p>
+--related
+Content-Type: image/png; name="logo.png"
+Content-Disposition: attachment; filename="logo.png"
+Content-ID: <logo@acme.example.com>
+Content-Transfer-Encoding: base64
+
+ZmFrZSBsb2dv
+--related--
+--mixed
+Content-Type: application/pdf; name="invoice.pdf"
+Content-Disposition: attachment; filename="invoice.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQgZmFrZSBpbnZvaWNl
+--mixed--

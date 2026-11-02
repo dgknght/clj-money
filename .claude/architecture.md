@@ -302,6 +302,24 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   header by hand, without an EXIF library); neither Tesseract nor `ImageIO`
   applies the tag, so a sideways photo reads as nothing.
   `ollama/receipt-defaults` holds the models
+- Receipts can be uploaded as emails (`.eml`, issue #180).
+  `::email/email` (`ingestion/email.clj`) is configured outermost. The
+  Jakarta Mail (`org.eclipse.angus/angus-mail`) and jsoup interop is kept
+  in `clj-money.mime`, which reads a message into plain data (`parse`,
+  `message?`, `html->text`). It recognizes an
+  email by its leading header field and passes anything else on unchanged.
+  An email's first image or PDF attachment goes down the chain like an
+  uploaded photo. A part with a Content-ID (`:embedded?` from `mime/parse`)
+  is skipped: it's an image the HTML body displays, like a logo, even when
+  the sender marks it as an attachment. Without one, its subject, sender
+  and text body (the plain part, or the HTML part turned into lines with
+  jsoup) are passed on as
+  `{:text ... :origin :email}`. Every receipt decorator (`orient`, `logic/or`,
+  `ocr`, `scale`, `base64`) passes a map (contents already read) on
+  unchanged; `ocr` skips its total-in-text check for it. Ollama introduces
+  the text as an email by `:origin`, and Gemini sends `{:text}` as a text
+  part. The schema's required `is_receipt` lets the model say an email
+  isn't a receipt
 - `ingestion/ollama.clj` - the Ollama provider. `request-body` and `post-request`
   are public so the evaluation harness sends exactly what the app sends
 - `ingestion/receipts.clj` - the prompt, the JSON schema (`account-options`
@@ -322,7 +340,10 @@ A photo of a receipt is read by a vision model and turned into a transaction.
 
 Reading a receipt is slow, so it runs in the background, tracked by a
 `receipt-ingestion` entity (`:status` is `:pending`, `:processing`,
-`:complete` or `:failed`).
+`:complete`, `:failed` or `:rejected`). When the model's `:is-receipt` is
+false, the read fails with `:failure-reason :not-a-receipt` (nil for any
+other failure) and no transaction is created; the client shows that as
+information rather than an error.
 - `api/receipt_ingestions.clj` - `POST /api/entities/:entity-id/receipt-ingestions`
   takes the image (multipart, `image`), creates the receipt-ingestion and
   reads the receipt in a `future` with the `:receipt-reader` component. When
@@ -332,13 +353,18 @@ Reading a receipt is slow, so it runs in the background, tracked by a
 - A successful read also creates the transaction, with
   `:transaction/source :ingestion` and `:transaction/review-status :pending`,
   referenced by `:receipt-ingestion/transaction`, and attaches the receipt
-  image to it (caption "Receipt"). A transaction without a
-  source was created by the user; it has no review status, or `:accepted`.
+  image to it (caption "Receipt"). For an uploaded email, each image or PDF
+  attached to it (`email/attachments`, which leaves out embedded parts) is
+  stored as an image of its own and attached too, captioned with its
+  filename, so it can be viewed without opening the `.eml`. A transaction
+  without a source was created by the user; it has no review status, or
+  `:accepted`.
   The user accepts by updating the transaction's review status, and rejects
   with `PATCH /api/receipt-ingestions/:id` (`:status :rejected` and a required
   `:rejection-reason`), which deletes the transaction
 - `api/receipt_ingestions.cljs` - the client functions
-- `views/receipts.cljs` - choosing an image with the Scan button uploads it
+- `views/receipts.cljs` - choosing an image with the Scan button, or an
+  `.eml` with the Email button (no receipt image is shown for it), uploads it
   and polls until it's read, then opens the transaction in the form. Until
   then (`:reading?` in the page state), the form is replaced by placeholders
   and a spinner, and the receipt image replaces the recent transactions. While

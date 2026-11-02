@@ -16,13 +16,16 @@
   "Decorates a receipt reader that is sent images base64-encoded, so that
   it's given {:images [base64 ...]} in place of the image. The image is sent
   as it is, so configure this under a :clj-money.ingestion.scale/scale
-  reader to send a smaller one."
+  reader to send a smaller one. A receipt's contents, already read (e.g.,
+  the text of an email), are passed on as they are."
   [reader]
   (reify
     ing/ReceiptReader
     (read-receipt [_ source entity opts]
       (ing/read-receipt reader
-                        {:images [(encode source)]}
+                        (if (map? source)
+                          source
+                          {:images [(encode source)]})
                         entity
                         opts))
     ing/Closeable

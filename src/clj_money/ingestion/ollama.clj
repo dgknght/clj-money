@@ -118,20 +118,28 @@
    ; with thinking on, the reasoning uses up the output tokens
    :think false})
 
+(def ^:private text-introductions
+  {:email "The text of the email, which may hold a receipt, follows."})
+
 (defn- receipt-request-body
   "Returns the body of a generate request asking the model to read the
   receipt, given its contents: {:text \"...\"}, the text read by OCR (see
-  clj-money.ingestion.ocr), sent with the prompt to the text model, or
-  {:images [base64 ...]} (see clj-money.ingestion.base64), sent to the vision
-  model."
-  [{:keys [text images]} entity {:keys [account-options vision-model] :as opts}]
+  clj-money.ingestion.ocr) or, with :origin :email, the text of an email
+  (see clj-money.ingestion.email), sent with the prompt to the text model,
+  or {:images [base64 ...]} (see clj-money.ingestion.base64), sent to the
+  vision model."
+  [{:keys [text images origin]} entity {:keys [account-options vision-model] :as opts}]
   (let [prompt (rcpts/prompt entity)
         schema (rcpts/schema account-options)]
     (cond
       text
       (request-body []
                     (str prompt
-                         "\n\nThe text of the receipt, read from the image by OCR, follows.\n\n"
+                         "\n\n"
+                         (text-introductions
+                           origin
+                           "The text of the receipt, read from the image by OCR, follows.")
+                         "\n\n"
                          text)
                     schema
                     opts)
