@@ -13,9 +13,35 @@
             "sonatype-snapshots" {:name "sonatype-snapshots"
                                   :url "https://oss.sonatype.org/content/repositories/snapshots"}}
   :managed-dependencies [[clj-time "0.15.2"]
-                         [ring/ring-core "1.15.5"]
+                         [ring/ring-core "1.15.6"]
                          [commons-io "2.22.0"]
-                         [joda-time "2.15.0"]]
+                         [joda-time "2.15.0"]
+                         ; The pins below are transitive dependencies held at
+                         ; versions with known vulnerabilities by their parents
+                         ; (see issue #269)
+                         [com.fasterxml.jackson.core/jackson-core "2.22.4"]
+                         [com.fasterxml.jackson.core/jackson-databind "2.22.4"]
+                         [com.fasterxml.jackson.core/jackson-annotations "2.22"]
+                         [com.fasterxml.jackson.dataformat/jackson-dataformat-cbor "2.22.4"]
+                         [com.fasterxml.jackson.dataformat/jackson-dataformat-smile "2.22.4"]
+                         [com.fasterxml.jackson.datatype/jackson-datatype-jsr310 "2.22.4"]
+                         ; netty comes from the Datomic peer's Artemis client
+                         [io.netty/netty-buffer "4.1.139.Final"]
+                         [io.netty/netty-codec "4.1.139.Final"]
+                         [io.netty/netty-codec-http "4.1.139.Final"]
+                         [io.netty/netty-codec-socks "4.1.139.Final"]
+                         [io.netty/netty-common "4.1.139.Final"]
+                         [io.netty/netty-handler "4.1.139.Final"]
+                         [io.netty/netty-handler-proxy "4.1.139.Final"]
+                         [io.netty/netty-resolver "4.1.139.Final"]
+                         [io.netty/netty-transport "4.1.139.Final"]
+                         [io.netty/netty-transport-classes-epoll "4.1.139.Final"]
+                         [io.netty/netty-transport-classes-kqueue "4.1.139.Final"]
+                         [io.netty/netty-transport-native-epoll "4.1.139.Final" :classifier "linux-x86_64"]
+                         [io.netty/netty-transport-native-kqueue "4.1.139.Final" :classifier "osx-x86_64"]
+                         [io.netty/netty-transport-native-unix-common "4.1.139.Final"]
+                         [io.airlift/aircompressor "2.0.3"] ; via carmine's nippy
+                         [org.jsoup/jsoup "1.23.2"]]        ; via hickory
   :dependencies [[org.clojure/clojure "1.12.6" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "1.3.1" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/core.async "1.9.865" :exclusions [org.clojure/tools.reader]]
@@ -44,7 +70,7 @@
                  [org.apache.pdfbox/pdfbox "3.0.8" :exclusions [commons-io
                                                             commons-logging]]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
-                 [ring "1.15.5" :exclusions [commons-codec
+                 [ring "1.15.6" :exclusions [commons-codec
                                             commons-io]]
                  [ring/ring-defaults "0.7.1" :exclusions [commons-fileupload
                                                           ring/ring-core]]
