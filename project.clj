@@ -15,7 +15,7 @@
   :managed-dependencies [[clj-time "0.15.2"]
                          [ring/ring-core "1.15.6"]
                          [commons-io "2.22.0"]
-                         [joda-time "2.15.0"]
+                         [joda-time "2.15.1"]
                          ; The pins below are transitive dependencies held at
                          ; versions with known vulnerabilities by their parents
                          ; (see issue #269)
@@ -26,22 +26,22 @@
                          [com.fasterxml.jackson.dataformat/jackson-dataformat-smile "2.22.4"]
                          [com.fasterxml.jackson.datatype/jackson-datatype-jsr310 "2.22.4"]
                          ; netty comes from the Datomic peer's Artemis client
-                         [io.netty/netty-buffer "4.1.139.Final"]
-                         [io.netty/netty-codec "4.1.139.Final"]
-                         [io.netty/netty-codec-http "4.1.139.Final"]
-                         [io.netty/netty-codec-socks "4.1.139.Final"]
-                         [io.netty/netty-common "4.1.139.Final"]
-                         [io.netty/netty-handler "4.1.139.Final"]
-                         [io.netty/netty-handler-proxy "4.1.139.Final"]
-                         [io.netty/netty-resolver "4.1.139.Final"]
-                         [io.netty/netty-transport "4.1.139.Final"]
-                         [io.netty/netty-transport-classes-epoll "4.1.139.Final"]
-                         [io.netty/netty-transport-classes-kqueue "4.1.139.Final"]
-                         [io.netty/netty-transport-native-epoll "4.1.139.Final" :classifier "linux-x86_64"]
-                         [io.netty/netty-transport-native-kqueue "4.1.139.Final" :classifier "osx-x86_64"]
-                         [io.netty/netty-transport-native-unix-common "4.1.139.Final"]
+                         [io.netty/netty-buffer "4.2.20.Final"]
+                         [io.netty/netty-codec "4.2.20.Final"]
+                         [io.netty/netty-codec-http "4.2.20.Final"]
+                         [io.netty/netty-codec-socks "4.2.20.Final"]
+                         [io.netty/netty-common "4.2.20.Final"]
+                         [io.netty/netty-handler "4.2.20.Final"]
+                         [io.netty/netty-handler-proxy "4.2.20.Final"]
+                         [io.netty/netty-resolver "4.2.20.Final"]
+                         [io.netty/netty-transport "4.2.20.Final"]
+                         [io.netty/netty-transport-classes-epoll "4.2.20.Final"]
+                         [io.netty/netty-transport-classes-kqueue "4.2.20.Final"]
+                         [io.netty/netty-transport-native-epoll "4.2.20.Final" :classifier "linux-x86_64"]
+                         [io.netty/netty-transport-native-kqueue "4.2.20.Final" :classifier "osx-x86_64"]
+                         [io.netty/netty-transport-native-unix-common "4.2.20.Final"]
                          [io.airlift/aircompressor "2.0.3"] ; via carmine's nippy
-                         [org.jsoup/jsoup "1.23.2"]]        ; via hickory
+                         [org.jsoup/jsoup "1.24.1"]]        ; via hickory
   :dependencies [[org.clojure/clojure "1.12.6" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "1.3.1" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/core.async "1.9.865" :exclusions [org.clojure/tools.reader]]
@@ -51,21 +51,21 @@
                  [org.clojure/data.xml "0.2.0-alpha11"]
                  [clj-http "3.13.1" :exclusions [org.clojure/tools.reader
                                                 commons-io]]
-                 [cheshire "6.2.0" :exclusions [org.clojure/tools.reader]]
+                 [cheshire "6.2.1" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
-                 [ch.qos.logback/logback-classic "1.6.5" :exclusions [org.clojure/tools.reader]]
+                 [ch.qos.logback/logback-classic "1.6.6" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
-                 [com.github.seancorfield/next.jdbc "1.3.1118"]
+                 [com.github.seancorfield/next.jdbc "1.4.72"]
                  [com.zaxxer/HikariCP "7.1.0" :exclusions [org.slf4j/slf4j-api]]
                  [org.postgresql/postgresql "42.7.14" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [com.github.seancorfield/honeysql "2.7.1479" :exclusions [org.clojure/spec.alpha
+                 [com.github.seancorfield/honeysql "2.8.85" :exclusions [org.clojure/spec.alpha
                                                                            org.clojure/clojure
                                                                            org.clojure/core.specs.alpha
                                                                            org.clojure/tools.reader]]
-                 [org.threeten/threeten-extra "1.10.0"]
+                 [org.threeten/threeten-extra "1.11.0"]
                  [clojure.java-time "1.4.3"]
                  [org.apache.pdfbox/pdfbox "3.0.8" :exclusions [commons-io
                                                             commons-logging]]
@@ -89,7 +89,7 @@
                  [metosin/muuntaja "0.6.12" :exclusions [com.fasterxml.jackson.core/jackson-annotations
                                                          com.fasterxml.jackson.core/jackson-databind
                                                          com.fasterxml.jackson.core/jackson-core]]
-                 [com.cognitect/transit-clj "1.1.363"]
+                 [com.cognitect/transit-clj "1.1.367"]
                  [hiccup "2.0.0" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.49" :exclusions [org.clojure/tools.reader
                                                   org.clojure/tools.namespace]]
@@ -104,7 +104,7 @@
                                                  org.clojure/tools.reader]]
                  [reagent-utils "0.3.8"]
                  [org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]
-                 [com.google.guava/guava "33.7.2-jre" :exclusions [com.google.code.findbugs/jsr305
+                 [com.google.guava/guava "33.8.0-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
@@ -123,7 +123,7 @@
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
                  [com.draines/postal "2.0.5" :exclusions [org.clojure/tools.reader]]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [com.datomic/peer "1.0.7705" :exclusions [com.google.errorprone/error_prone_annotations
+                 [com.datomic/peer "1.0.7745" :exclusions [com.google.errorprone/error_prone_annotations
                                                            commons-codec
                                                            org.apache.httpcomponents/httpclient
                                                            org.clojure/tools.cli
@@ -199,7 +199,7 @@
                  [org.jsoup/jsoup] ; version managed above
                  [org.eclipse.angus/angus-mail "2.0.5"]
                  [com.cognitect.aws/api "0.8.847"]
-                 [com.cognitect.aws/endpoints "871.2.55.12"]
+                 [com.cognitect.aws/endpoints "871.2.57.8"]
                  [com.cognitect.aws/s3 "871.2.55.11"]
                  [integrant "1.0.1"]]
   :repl-options {:init-ns clj-money.repl
