@@ -738,14 +738,26 @@
             (map (fn [i] [::db/delete i])
                  (:transaction/items before)))))
 
-(defn reconciled-items-for-trx
+(defn- reconciled-items-for-trx
+  "Returns the transaction's items that are part of a completed
+  reconciliation. An item in a reconciliation in progress isn't reconciled
+  yet, so it can still be changed or deleted."
   [{:as trx :keys [id]}]
   (when (util/live-id? id)
-    (entities/select
-      (util/entity-type
-        {:transaction/_self trx
-         :transaction-item/reconciliation [:!= nil]}
-        :transaction-item))))
+    (when-let [items (seq (entities/select
+                            (util/entity-type
+                              {:transaction/_self trx
+                               :transaction-item/reconciliation [:!= nil]}
+                              :transaction-item)))]
+      (let [completed (->> (entities/select
+                             {:id [:in (->> items
+                                            (map (comp :id :transaction-item/reconciliation))
+                                            distinct)]
+                              :reconciliation/status :completed})
+                           (map :id)
+                           set)]
+        (filter (comp completed :id :transaction-item/reconciliation)
+                items)))))
 
 (defmethod entities/before-delete :transaction
   [trx]

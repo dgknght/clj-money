@@ -21,6 +21,7 @@
                                      current-entity
                                      accounts
                                      accounts-by-id
+                                     open-in-register
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
@@ -28,6 +29,7 @@
             [clj-money.api.transactions :as trn]
             [clj-money.api.attachments :as atts]
             [clj-money.api.receipt-ingestions :as ri]
+            [clj-money.pending-review :as pending-review]
             [clj-money.views.attachments :as atts-view]
             [clj-money.views.ingestion-settings :as ingestion-settings]
             [clj-money.views.recent-transactions :as recent-trx]))
@@ -87,6 +89,39 @@
     (when-let [account (@accounts-by-id id)]
       (cached-accts/push-transaction-date! account trx-date))))
 
+(defn- load-pending-review
+  "Loads the transactions awaiting review, each with the receipt-ingestion
+  it was read from (::ingestion), if it was read from a receipt"
+  [page-state]
+  (+busy)
+  (trn/select {:transaction/review-status :pending
+               :include-items true}
+              :callback -busy
+              :on-success
+              (fn [trxs]
+                (if (seq trxs)
+                  (ri/select-for-transactions
+                    trxs
+                    :on-success
+                    (fn [ingestions]
+                      (let [by-trx (into {}
+                                         (map (juxt (comp :id :receipt-ingestion/transaction)
+                                                    identity))
+                                         ingestions)]
+                        (swap! page-state
+                               assoc
+                               :pending-review
+                               (mapv #(assoc % ::ingestion (by-trx (:id %)))
+                                     trxs)))))
+                  (swap! page-state assoc :pending-review [])))))
+
+(defn- refresh-pending-review
+  "Reloads the transactions awaiting review, and their count in the nav,
+  after one is added, accepted, or rejected"
+  [page-state]
+  (load-pending-review page-state)
+  (pending-review/load-count))
+
 (defn- save-transaction
   [page-state]
   (let [{:keys [receipt ingestion]} @page-state]
@@ -104,6 +139,7 @@
                                                   {:sort-key :transaction/transaction-date}
                                                   %))
                         (update-account-caches receipt (:receipt/transaction-date receipt))
+                        (when ingestion (refresh-pending-review page-state))
                         (new-receipt page-state))))))
 
 (defn- search-accounts []
@@ -236,7 +272,9 @@
                   (when (following? page-state updated)
                     (case status
                       (:rejected :complete)
-                      (load-ingested-receipt page-state updated)
+                      (do
+                        (load-ingested-receipt page-state updated)
+                        (refresh-pending-review page-state))
 
                       :failed
                       (do
@@ -319,6 +357,7 @@
                                     update-in
                                     [:transactions]
                                     (partial remove #(util/id= trx %)))
+                             (refresh-pending-review page-state)
                              (new-receipt page-state)))))
 
 (defn- rejection-form
@@ -566,6 +605,80 @@
         (icon :paperclip :size :small)
         [:span.badge.bg-info.text-dark attachment-count])]]]])
 
+(defn- review-receipt
+  "Opens the transaction read from a receipt in the form, to be accepted
+  or rejected, beside the receipt image, if it's an image"
+  [page-state ingestion]
+  (clear-receipt-image page-state)
+  (clear-ingestion page-state)
+  (swap! page-state assoc :ingestion ingestion)
+  (load-ingested-receipt page-state ingestion)
+  (atts-view/fetch-image
+    (:receipt-ingestion/image ingestion)
+    (fn [blob]
+      (when (and (following? page-state ingestion)
+                 (string/starts-with? (.-type blob) "image/"))
+        (swap! page-state assoc-in [:receipt-image :url] (js/URL.createObjectURL blob))))))
+
+(defn- review-in-register
+  "Leaves a transaction that wasn't read from a receipt (e.g., one read
+  from a statement) for the Accounts view to open, in the register of its
+  asset or liability account, where saving it accepts it, and which
+  returns here afterward. The link it's called from navigates there."
+  [{:transaction/keys [items] :as trx}]
+  (open-in-register
+    trx
+    (->> items
+         (map (comp @accounts-by-id :id :transaction-item/account))
+         (filter (comp #{:asset :liability} :account/type))
+         first
+         :id)
+    :return-to "/receipts"))
+
+(defn- pending-review-row
+  [{:keys [id] ::keys [ingestion] :transaction/keys [transaction-date description value] :as trx}
+   page-state]
+  ^{:key (str "pending-review-row-" id)}
+  [:tr.align-middle
+   [:td (format-date transaction-date)]
+   [:td description]
+   [:td.text-end (format-decimal value)]
+   [:td (if ingestion "Receipt" "Statement")]
+   [:td.text-end
+    (if ingestion
+      [:button.btn.btn-sm.btn-secondary
+       {:title "Click here to accept or reject this transaction read from a receipt."
+        :on-click #(review-receipt page-state ingestion)}
+       (icon :eye :size :small)]
+      ; navigation to a link within the app is handled by accountant
+      [:a.btn.btn-sm.btn-secondary
+       {:href "/accounts"
+        :title "Click here to review this transaction in its account."
+        :on-click #(review-in-register trx)}
+       (icon :eye :size :small)])]])
+
+(defn- pending-review-table
+  "Lists the transactions awaiting review, read from receipts and
+  statements"
+  [page-state]
+  (let [pending (r/cursor page-state [:pending-review])]
+    (fn []
+      (when (seq @pending)
+        [:div.card.mb-3
+         [:div.card-header [:strong "Pending Review"]]
+         [:table.table.table-hover.mb-0
+          [:thead
+           [:tr
+            [:th "Date"]
+            [:th "Description"]
+            [:th.text-end "Amount"]
+            [:th "Source"]
+            [:th]]]
+          [:tbody
+           (->> @pending
+                (map #(pending-review-row % page-state))
+                doall)]]]))))
+
 (def ^:private recent-options-id "receipts-recent-transactions-options")
 
 (defn- results-table
@@ -615,6 +728,7 @@
     (new-receipt page-state)
     (load-transactions page-state)
     (load-historical-transactions page-state)
+    (load-pending-review page-state)
     (add-watch page-state ::filter-date
                (fn [_ _ old new]
                  (when (not= (:filter-date old) (:filter-date new))
@@ -627,10 +741,12 @@
                    (swap! page-state
                           #(-> %
                                (dissoc :attachments-item :attachments)
-                               (assoc :transactions [])))
+                               (assoc :transactions []
+                                      :pending-review [])))
                    (new-receipt page-state)
                    (load-transactions page-state)
-                   (load-historical-transactions page-state))))
+                   (load-historical-transactions page-state)
+                   (load-pending-review page-state))))
     (fn []
       [:<>
        [:h1.mt-3 "Receipts"]
@@ -656,7 +772,9 @@
             [atts-view/attachment-form page-state]]
 
            :else
-           [results-table page-state])]]])))
+           [:<>
+            [pending-review-table page-state]
+            [results-table page-state]])]]])))
 
 (secretary/defroute "/receipts" []
   (swap! app-state assoc :page #'index :active-nav :receipts))

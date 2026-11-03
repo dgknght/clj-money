@@ -188,13 +188,24 @@
     (assoc :badge pending-scheduled-count
            :badge-class "bg-info text-bg-info")))
 
+(defmethod decorate-nav-item :receipts
+  [item {:keys [pending-review-count]}]
+  (cond-> item
+    (pos? pending-review-count)
+    (assoc :badge pending-review-count
+           :badge-class "text-bg-warning"
+           :tool-tip (str "Click here to enter receipts, or review the "
+                          pending-review-count
+                          " transactions read from receipts and statements"))))
+
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])
         items (make-reaction
                 (fn []
                   (map #(decorate-nav-item
                           %
-                          {:pending-scheduled-count @state/pending-scheduled-count})
+                          {:pending-scheduled-count @state/pending-scheduled-count
+                           :pending-review-count @state/pending-review-count})
                        (nav-items @active-nav
                                   @current-user
                                   @current-entity))))]

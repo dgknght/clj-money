@@ -62,3 +62,22 @@ The uberjar was built without the compiled client app. `lein uberjar` runs
 profile in `project.clj` replaces `:clean-targets` with `[:target-path]` to
 prevent this; check that it's still there. `unzip -l target/clj-money.jar |
 grep cljs-out` should list `public/cljs-out/clj-money.js`.
+
+### A link reloads the whole page, losing in-memory state
+
+`accountant` intercepts a click by finding the nearest element with an
+`href` attribute. An icon's `<use href="/images/bootstrap-icons.svg#...">`
+is such an element, so a click on the glyph of an icon inside a link wasn't
+intercepted and the browser loaded the page from the server, losing
+anything left in `app-state` for the next page (e.g., the hand-off from
+`state/open-in-register`). `site.scss` gives `a .bi` `pointer-events:
+none` so the click lands on the link. Rebuild the CSS locally with `sass
+src/scss/site.scss resources/public/css/site.css`.
+
+### New client code isn't running, or the nav throws `No protocol method IDeref.-deref defined for type undefined`
+
+The browser is running stale compiled files: the service worker serves
+`/cljs-out/...` from its cache first, and the server sends them without a
+`Cache-Control` header, so the HTTP cache may keep them too. In DevTools,
+check "Bypass for network" (Application → Service workers) and "Disable
+cache" (Network), then reload.

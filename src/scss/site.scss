@@ -244,3 +244,10 @@ table tfoot td {
 .sched-tran-expired {
   background-color: #CCC;
 }
+
+// Client routing (accountant) handles a click on the nearest element with an
+// href. An icon's <use href="...#name"> would be that element, so the click
+// would reload the page instead of navigating within the app.
+a .bi {
+  pointer-events: none;
+}

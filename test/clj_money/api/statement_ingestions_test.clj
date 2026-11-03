@@ -701,6 +701,53 @@
       (is (= ["The commodity WDGT, traded in \"Bought Widgets Corp\", was not found, so the trade was not recorded."]
              (:statement-ingestion/warnings retrieved))))))
 
+(def ^:private settlement-fund-reader
+  (reader (fn [_]
+            (update-in (read-fixture "brokerage")
+                       [:transactions]
+                       into
+                       [; the purchase made with the reinvested dividend,
+                        ; which the model was asked to leave out
+                        {:date "2026-09-15"
+                         :description "Reinvestment Microsoft Corp"
+                         :amount -12.50M
+                         :category "Dividends"
+                         :type "cash"}
+                        ; the settlement fund's dividend, read as a
+                        ; reinvestment in the fund
+                        {:date "2026-09-30"
+                         :description "Federal Money Market Fund"
+                         :amount 0.40M
+                         :category "Dividends"
+                         :type "reinvest"
+                         :symbol nil
+                         :shares nil}
+                        {:date "2026-09-30"
+                         :description "Federal Money Market Fund"
+                         :amount -0.40M
+                         :category "Dividends"
+                         :type "cash"}]))))
+
+(deftest reinvestments-in-the-settlement-fund-stay-in-the-cash
+  (with-context investment-context
+    (let [[_ retrieved] (create-ingestion "john@doe.com"
+                                          :reader settlement-fund-reader)]
+      (is (= :complete (:statement-ingestion/status retrieved)))
+      (is (empty? (:statement-ingestion/warnings retrieved))
+          "A reinvestment without a symbol isn't reported as an unknown commodity")
+      (is (= [[(t/local-date 2026 9 2) 2000M]
+              [(t/local-date 2026 9 3) 1500M]
+              [(t/local-date 2026 9 15) 12.50M]
+              [(t/local-date 2026 9 15) 12.50M]
+              [(t/local-date 2026 9 22) 800M]
+              [(t/local-date 2026 9 30) 0.40M]
+              [(t/local-date 2026 9 30) 5M]]
+             (reconciliation-quantities (account-reconciliation "IRA")))
+          "The settlement fund's dividend is added to the cash, and the reinvestment purchases aren't recorded twice")
+      (is (= 5 (count (entities/select #:transaction{:entity (find-entity "Personal")
+                                                     :source :ingestion})))
+          "A transaction is created for the settlement fund's dividend, and none for the reinvestments"))))
+
 (def ^:private later-commodity-reconciliation-context
   (conj investment-context
         #:reconciliation{:account "AAPL"

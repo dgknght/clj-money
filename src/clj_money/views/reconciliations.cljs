@@ -31,7 +31,8 @@
             [clj-money.api.images :as images-api]
             [clj-money.api.accounts :as accounts-api]
             [clj-money.api.transactions :as transactions-api]
-            [clj-money.api.reconciliations :as recs]))
+            [clj-money.api.reconciliations :as recs]
+            [clj-money.pending-review :as pending-review]))
 
 (defn- receive-reconciliation
   [page-state]
@@ -126,6 +127,9 @@
     (swap! page-state assoc-in [:reconciliation :reconciliation/status] :completed)
     (save-reconciliation* page-state
                           :on-success (fn [_saved]
+                                        ; completing the reconciliation accepts
+                                        ; the transactions awaiting review in it
+                                        (pending-review/load-count)
                                         (when (reconciliations/requires-payment? account)
                                           (swap! page-state assoc :payment (default-payment account balance)))))))
 

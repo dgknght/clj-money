@@ -32,6 +32,17 @@
              opts
              "Unable to retrieve the receipt progress: %s")))
 
+(defn select-for-transactions
+  "Retrieves the receipt-ingestions that created the given transactions"
+  [transactions & {:as opts}]
+  (api/get (api/path :entities
+                     @current-entity
+                     :receipt-ingestions)
+           {:transaction-id (mapv :id transactions)}
+           (add-error-handler
+             opts
+             "Unable to retrieve the receipts: %s")))
+
 (defn reject
   "Rejects the transaction created from the receipt, which deletes it. The
   reason is required."

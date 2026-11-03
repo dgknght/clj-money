@@ -8,6 +8,7 @@
              :refer [+scope
                      authorize]]
             [clj-money.util :as util]
+            [clj-money.db :refer [unserialize-id]]
             [clj-money.images :as images]
             [clj-money.entities :as entities]
             [clj-money.entities.images :as img]
@@ -107,6 +108,23 @@
     (future (read-receipt ingestion (system/component req :receipt-reader)))
     (api/creation-response ingestion)))
 
+(defn- index
+  "Returns the receipt-ingestions that created the given transactions
+  (transaction-id, which may be repeated), so that a transaction awaiting
+  review can be accepted or rejected with the receipt it was read from"
+  [{:keys [authenticated] {:keys [entity-id transaction-id]} :params}]
+  (if transaction-id
+    (api/response
+      (entities/select
+        (+scope #:receipt-ingestion{:entity {:id entity-id}
+                                    :transaction [:in (mapv #(hash-map :id (unserialize-id %))
+                                                            (if (coll? transaction-id)
+                                                              transaction-id
+                                                              [transaction-id]))]}
+                :receipt-ingestion
+                authenticated)))
+    (api/response {:message "At least one transaction-id is required"} 400)))
+
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
   (some-> params
@@ -152,6 +170,7 @@
     api/not-found))
 
 (def routes
-  [["entities/:entity-id/receipt-ingestions" {:post {:handler create}}]
+  [["entities/:entity-id/receipt-ingestions" {:post {:handler create}
+                                              :get {:handler index}}]
    ["receipt-ingestions/:id" {:get {:handler show}
                               :patch {:handler update}}]])

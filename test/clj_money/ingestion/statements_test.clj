@@ -147,6 +147,8 @@
 (deftest the-prompt-explains-investment-statements-when-the-account-may-be-one
   (let [prompt (stmts/prompt {} {:symbols ["AAPL" "MSFT"]})]
     (is (str/includes? prompt "*reinvest*"))
+    (is (str/includes? prompt "\"Sweep out\"")
+        "The model is told to leave out sweeps into and out of the settlement fund")
     (is (str/includes? prompt "these symbols: AAPL, MSFT"))))
 
 (deftest normalize-a-statement

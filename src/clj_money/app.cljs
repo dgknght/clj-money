@@ -3,7 +3,8 @@
             [clj-money.util :as util]
             [clj-money.state :as state :refer [+busy -busy]]
             [clj-money.api.entities :as entities]
-            [clj-money.api.scheduled-transactions :as sched-trxs]))
+            [clj-money.api.scheduled-transactions :as sched-trxs]
+            [clj-money.pending-review :as pending-review]))
 
 (defn load-pending-count []
   (try
@@ -15,17 +16,28 @@
               "Unable to fetch the count of pending scheduled transactions."
               e))))
 
+(defn- load-pending-counts []
+  (load-pending-count)
+  (pending-review/load-count))
+
 (defn watch-entity
   [_ _ previous current]
   (when-not (util/id= previous current)
     (if current
-      (load-pending-count)
-      (reset! state/pending-scheduled-count 0))))
+      (load-pending-counts)
+      (do (reset! state/pending-scheduled-count 0)
+          (reset! state/pending-review-count 0)))))
 
 (defn- receive-entities
   [on-complete]
   (fn [[entity :as entities]]
-    (state/set-entities entities)
+    (let [previous @state/current-entity]
+      (state/set-entities entities)
+      ; on page load, the entity restored from the cookie has the same id,
+      ; so watch-entity doesn't load the counts
+      (when (and @state/current-entity
+                 (util/id= previous @state/current-entity))
+        (load-pending-counts)))
     (if entity
       (when on-complete (on-complete))
       (accountant/navigate! "/entities"))))

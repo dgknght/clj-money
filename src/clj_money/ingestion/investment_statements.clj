@@ -2,7 +2,8 @@
   "Reads investment account statements. The cash in the account is
   reconciled in the trading account itself, and each commodity, counted in
   shares, in its own account beneath it."
-  (:require [java-time.api :as t]
+  (:require [clojure.string :as str]
+            [java-time.api :as t]
             [dgknght.app-lib.core :refer [index-by]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.entities :as ents]
@@ -27,13 +28,58 @@
   (->> (ents/select {:commodity/entity (util/->entity-ref entity)})
        (index-by :commodity/symbol)))
 
+(defn- reinvestment?
+  [{:keys [type]}]
+  (= "reinvest" type))
+
+(defn- amount-key
+  [amount]
+  (.stripTrailingZeros (bigdec amount)))
+
+(defn- remove-reinvestment-purchases
+  "Removes the cash line for the purchase made with each reinvested
+  dividend: one dated the same as the reinvestment, for the opposite
+  amount. The model is asked to list a reinvestment once, but sometimes
+  lists the purchase too, which would take the dividend back out of the
+  cash."
+  [lines]
+  (let [purchases (->> lines
+                       (filter reinvestment?)
+                       (map (juxt :date (comp amount-key - :amount)))
+                       frequencies)]
+    (:kept (reduce (fn [{:keys [remaining] :as result}
+                        {:keys [type date amount] :as line}]
+                     (let [k [date (amount-key amount)]]
+                       (if (and (= "cash" type)
+                                (pos? (get remaining k 0)))
+                         (update-in result [:remaining k] dec)
+                         (update-in result [:kept] conj line))))
+                   {:remaining purchases
+                    :kept []}
+                   lines))))
+
+(defn- settlement-fund-dividend
+  "Returns the line as cash when it's a reinvestment without a symbol: the
+  dividend of the settlement fund that holds the account's cash, which
+  stays in the cash"
+  [{:keys [symbol] :as line}]
+  (if (and (reinvestment? line)
+           (str/blank? symbol))
+    (assoc line :type "cash")
+    line))
+
 (defn resolve-lines
   "Splits the statement lines into the :trades, each with its :commodity,
   and the :cash lines. A trade in a commodity the entity doesn't have is
-  left out, with one of the :warnings."
+  left out, with one of the :warnings. The purchase made with a reinvested
+  dividend is left out, if listed, and a reinvestment without a symbol is
+  the dividend of the fund that holds the cash, so it's a cash line."
   [lines entity]
   (let [commodities (commodities-by-symbol entity)
-        {trades true cash false} (group-by (comp boolean trade?) lines)]
+        {trades true cash false} (->> lines
+                                      remove-reinvestment-purchases
+                                      (map settlement-fund-dividend)
+                                      (group-by (comp boolean trade?)))]
     (reduce (fn [result {:keys [symbol description] :as line}]
               (if-let [commodity (commodities symbol)]
                 (update-in result [:trades] conj (assoc line :commodity commodity))

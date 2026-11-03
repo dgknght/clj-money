@@ -35,13 +35,15 @@
       (update-in-if [:created-at] unserialize-date)
       (update-in-if [:quantity] bigdec)
       (update-in-if [:account-id] #(hash-map :id (unserialize-id %)))
+      (update-in-if [:review-status] keyword)
       (rename-keys {:transaction-date :transaction/transaction-date
                     :transaction-item-id :transaction-item/_self
                     :created-at :transaction/created-at
                     :entity-id :transaction/entity
                     :description :transaction/description
                     :quantity :transaction-item/quantity
-                    :account-id :transaction-item/account})
+                    :account-id :transaction-item/account
+                    :review-status :transaction/review-status})
       (update-in-if [:transaction/entity] #(hash-map :id %))
       (update-in-if [:transaction-item/_self] #(hash-map :id %))
       (select-keys [:transaction/entity
@@ -50,7 +52,8 @@
                     :transaction/description
                     :transaction-item/_self
                     :transaction-item/quantity
-                    :transaction-item/account])))
+                    :transaction-item/account
+                    :transaction/review-status])))
 
 (defn- ->select-also
   [x]
@@ -72,6 +75,14 @@
       (+scope :transaction authenticated)
       (trns/search (extract-options req))
       api/response))
+
+(defn- count-records
+  [{:keys [authenticated] :as req}]
+  (api/response
+    {:count (-> req
+                extract-criteria
+                (+scope :transaction authenticated)
+                entities/count)}))
 
 (defn- find-and-auth
   [{:keys [path-params authenticated]} action]
@@ -181,15 +192,21 @@
 
 (defn- delete
   [req]
-  (or (some-> (find-and-auth req ::authorization/destroy)
-              trading/delete-transaction
-              api/response)
-      api/not-found))
+  (try
+    (or (some-> (find-and-auth req ::authorization/destroy)
+                trading/delete-transaction
+                api/response)
+        api/not-found)
+    ; e.g., the transaction has items in a completed reconciliation
+    (catch IllegalStateException e
+      (api/response {:message (ex-message e)} 400))))
 
 (def routes
   [["entities/:entity-id"
-    ["/transactions" {:post {:handler create}
-                      :get {:handler index}}]]
+    ["/transactions"
+     ["" {:post {:handler create}
+          :get {:handler index}}]
+     ["/count" {:get {:handler count-records}}]]]
    ["transactions"
     ["" {:get {:handler index}}]
     ["/:id" {:get {:handler show}

@@ -16,6 +16,7 @@
             [clj-money.ingestion.helpers :as hlp]
             [clj-money.test-helpers :refer [reset-db
                                             propagated]]
+            [clj-money.api.util :refer [+query]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-body
                                                request
@@ -286,6 +287,38 @@
 (deftest a-user-cannot-get-a-receipt-ingestion-in-anothers-entity
   (with-context completed-ingestion-context
     (is (http-not-found? (get-ingestion "jane@doe.com")))))
+
+(defn- get-ingestions-for-transactions
+  [email & {:keys [query]}]
+  (-> (request :get (+query (path :api
+                                  :entities
+                                  (:id (find-entity "Personal"))
+                                  :receipt-ingestions)
+                            (or query
+                                {:transaction-id (:id (find-transaction [(t/local-date 2015 1 2) "Kroger"]))}))
+               :user (find-user email))
+      ((build-app {:receipt-reader successful-reader}))
+      parse-body))
+
+(deftest a-user-can-get-the-receipt-ingestions-for-transactions-in-his-entity
+  (with-context completed-ingestion-context
+    (let [{:as response :keys [parsed-body]} (get-ingestions-for-transactions "john@doe.com")]
+      (is (http-success? response))
+      (is (seq-of-maps-like? [#:receipt-ingestion{:status :complete
+                                                   :transaction (util/->entity-ref
+                                                                  (find-transaction [(t/local-date 2015 1 2) "Kroger"]))}]
+                             parsed-body)
+          "The receipt-ingestion that created the transaction is returned"))))
+
+(deftest a-transaction-is-required-to-get-receipt-ingestions
+  (with-context completed-ingestion-context
+    (is (http-bad-request? (get-ingestions-for-transactions "john@doe.com" :query {})))))
+
+(deftest a-user-cannot-get-the-receipt-ingestions-for-transactions-in-anothers-entity
+  (with-context completed-ingestion-context
+    (let [{:as response :keys [parsed-body]} (get-ingestions-for-transactions "jane@doe.com")]
+      (is (http-success? response))
+      (is (empty? parsed-body) "No receipt-ingestions are returned"))))
 
 (defn- reject-ingestion
   [email & {:keys [reason] :or {reason "Wrong store"}}]

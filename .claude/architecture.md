@@ -377,6 +377,27 @@ information rather than an error.
   `:settings/payment-methods` and `:settings/expense-accounts` (sets of
   account refs; Datomic retracts removed ones in `deconstruct`) and
   `:settings/expense-hints` (edited one per line)
+- Pending review queue: transactions with `:transaction/review-status
+  :pending`, from receipts and statements, are listed on the Receipts page
+  (the "Pending Review" card). `GET /api/entities/:entity-id/transactions`
+  filters by `review-status`, and `.../transactions/count` returns
+  `{:count n}`. `GET /api/entities/:entity-id/receipt-ingestions?transaction-id=...`
+  (repeatable, required) finds the ingestions that created the listed
+  transactions: a row with one opens in the receipt form (Accept/Reject);
+  one without (from a statement) opens in the account register through
+  `state/open-in-register` with `:return-to "/receipts"`, and the accounts
+  page navigates back when the transaction form closes. The hand-off carries
+  the account's id, not the account, and the accounts page waits for the
+  cached accounts to load before opening the register
+  (`open-pending-transaction`). The register's transaction form has Delete
+  (`views.transactions/delete-edited-transaction`)
+- `pending_review.cljs` - `load-count` sets `state/pending-review-count`,
+  shown as the badge on the Receipts nav item. It's loaded by
+  `app/watch-entity` when the entity changes, by `app/receive-entities` when
+  the fetched entity has the id restored from the cookie (page load, where
+  the watch sees no change), and after a pending transaction is accepted,
+  rejected or reconciled. Kept out of `app.cljs` because namespaces loaded by
+  the client tests can't require `accountant` (it touches `window` at load)
 
 ## Statement Ingestion (`ingestion/statements.clj`)
 
@@ -470,6 +491,14 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   reconciliation as the account's `:new` one
 - Completing a reconciliation (`api/reconciliations.clj`) accepts its pending
   transactions; saving one from the transaction form accepts it too
+- Only items in a **completed** reconciliation are locked
+  (`entities.transactions/reconciled-items-for-trx`): their quantities and
+  actions can't change and their transaction can't be deleted
+  (`IllegalStateException`, returned as a 400 by `DELETE
+  /api/transactions/:id`). Items in a reconciliation in progress can be
+  edited or deleted. The register loads the account's open reconciliation
+  ids (`:open-reconciliation-ids`) to show those items with a dash rather
+  than a check, and disables Delete on completed ones
 - `views/statement_upload.cljs` - the file input and poll loop, shared by
   `views/statements.cljs` (the `/statements` page, which hands the account to
   the accounts page via `:pending-reconciliation` in `app-state`) and the
@@ -488,9 +517,16 @@ commodity account beneath it holds shares, so they can't share one balance:
   `shares` (always positive; `normalize` takes the absolute value). The
   statement has `holdings`, the shares of each commodity at the end of the
   period. The opening and closing balances are of the cash only. A reinvested
-  dividend is one `reinvest` line whose `amount` is the dividend
+  dividend is one `reinvest` line whose `amount` is the dividend. The
+  settlement (sweep) fund, e.g. Vanguard's Federal Money Market Fund, is the
+  cash: the prompt says to leave out sweeps in and out of it, and to list its
+  dividend as a `cash` line without the reinvestment
 - `resolve-lines` finds each trade's commodity by symbol; a trade in a
-  commodity the entity doesn't have is dropped, with a warning
+  commodity the entity doesn't have is dropped, with a warning. Because the
+  model doesn't always follow the prompt, it first drops a `cash` line dated
+  the same as a reinvestment for the opposite amount (the purchase listed
+  anyway), and treats a `reinvest` line without a symbol as the settlement
+  fund's dividend, a `cash` line
 - `match-lines`: a trade matches an item in its commodity account with the
   same change in shares within 7 days (`match-items` with `:match?`). Each
   matched trade's cash movement, dated as it was recorded, is then matched to

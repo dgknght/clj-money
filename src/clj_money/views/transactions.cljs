@@ -21,11 +21,10 @@
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon]]
-            [clj-money.state :refer [accounts
-                                     accounts-by-id
-                                     app-state
-                                     +busy
-                                     -busy]]
+            [clj-money.state :as state :refer [accounts
+                                               accounts-by-id
+                                               +busy
+                                               -busy]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
@@ -45,11 +44,13 @@
                                           audit-history-popover]]
             [clj-money.api.transaction-items :as trx-items]
             [clj-money.api.transactions :as transactions]
+            [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.attachments :as atts]
             [clj-money.views.attachments :as atts-view]
             [clj-money.views.recent-transactions :as recent-trx]
             [clj-money.api.trading :as trading]
-            [clj-money.api.audit :as audit]))
+            [clj-money.api.audit :as audit]
+            [clj-money.pending-review :as pending-review]))
 
 (defn- supply-accounts
   [items]
@@ -77,6 +78,18 @@
   (cond-> trx
     (= :pending review-status) (assoc :transaction/review-status :accepted)))
 
+(defn- save-transaction
+  "Saves the transaction, accepting it if it's awaiting review, in which
+  case the count of transactions awaiting review is refreshed"
+  [trx on-save]
+  (let [reviewed? (= :pending (:transaction/review-status trx))]
+    (+busy)
+    (transactions/save (accept-review trx)
+                       :callback -busy
+                       :on-success (fn [saved]
+                                     (when reviewed? (pending-review/load-count))
+                                     (when on-save (on-save saved))))))
+
 (defn edit-transaction
   [transaction-item page-state]
   (+busy)
@@ -96,14 +109,8 @@
   items references it, that item is used; otherwise the first item is used."
   ([trx] (navigate-to-transaction trx nil))
   ([trx preferred-account-id]
-   (let [item (or (->> (:transaction/items trx)
-                       (filter #(= preferred-account-id (get-in % [:transaction-item/account :id])))
-                       first)
-                  (first (:transaction/items trx)))
-         account (get-in @accounts-by-id [(get-in item [:transaction-item/account :id])])]
-     (swap! app-state assoc :pending-transaction-item {:item item
-                                                        :account account})
-     (accountant/navigate! "/accounts"))))
+   (state/open-in-register trx preferred-account-id)
+   (accountant/navigate! "/accounts")))
 
 (defn- polarize-quantities
   [account]
@@ -169,12 +176,40 @@
     (when (and item-loader (not all-items-fetched?))
       (go (>! item-loader :quit)))))
 
+(defn- load-open-reconciliations
+  "Loads the ids of the account's reconciliations in progress, whose items
+  aren't reconciled yet"
+  [page-state account]
+  (when account
+    (recs-api/select #:reconciliation{:account account
+                                      :status :new}
+                     :on-success #(swap! page-state
+                                         assoc
+                                         :open-reconciliation-ids
+                                         (set (map :id %))))))
+
+(defn- reconciliation-status
+  [{:transaction-item/keys [reconciliation] :keys [id]} open-reconciliation-ids]
+  (cond
+    (nil? id) :new
+    (nil? reconciliation) :unreconciled
+    (contains? open-reconciliation-ids (:id reconciliation)) :in-progress
+    :else :completed))
+
+(defn- reconciliation-icon
+  [status]
+  (case status
+    :completed (icon :check-square :size :small)
+    (:new :in-progress) (icon :dash-square :size :small)
+    (icon :square :size :small)))
+
 (defn init-item-loading
   ([page-state] (init-item-loading page-state nil))
   ([page-state {:keys [on-chunk]}]
    (let [account (get-in @page-state [:view-account])
          [first-date last-date :as range] (:account/transaction-date-range account)]
      (stop-item-loading page-state)
+     (load-open-reconciliations page-state account)
      (if range
        (do (swap! page-state dissoc :items :all-items-fetched?)
            (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges first-date last-date (t/months 6))
@@ -228,6 +263,24 @@
                         (load-unreconciled-items page-state))
                       (reset-item-loading page-state))))))
 
+(defn delete-edited-transaction
+  "Deletes the transaction open in the form, after confirmation, and closes
+  the form. If it was awaiting review, the count of those is refreshed."
+  [page-state]
+  (let [{:transaction/keys [review-status] :as trx} (:transaction @page-state)]
+    (when (js/confirm "Are you sure you want to delete this transaction?")
+      (+busy)
+      (transactions/delete
+        trx
+        :callback -busy
+        :on-success (fn []
+                      (when (= :pending review-status)
+                        (pending-review/load-count))
+                      (swap! page-state dissoc :transaction)
+                      (if (:reconciliation @page-state)
+                        (load-unreconciled-items page-state)
+                        (reset-item-loading page-state)))))))
+
 (defn update-attachment-count
   "Applies f to the attachment count of each item in :items that belongs to
   the transaction of the given attachment."
@@ -265,7 +318,10 @@
                        ((post-item-row-drop page-state item) created))])
 
 (defn- item-row-buttons
-  [{:as item :transaction/keys [attachment-count]} page-state]
+  [{:as item
+    :transaction/keys [attachment-count]
+    :reconciliation/keys [status]}
+   page-state]
   [:div.btn-group
    [:button.btn.btn-secondary.btn-sm
     {:on-click #(edit-transaction item page-state)
@@ -283,8 +339,11 @@
       (icon :paperclip :size :small)
       [:span.badge.bg-info.text-dark attachment-count])]
    [:button.btn.btn-danger.btn-sm
-    {:on-click #(delete-transaction item page-state)
-     :title "Click here to remove this transaction."}
+    (if (= :completed status)
+      {:disabled true
+       :title "This transaction is part of a completed reconciliation, so it can't be removed."}
+      {:on-click #(delete-transaction item page-state)
+       :title "Click here to remove this transaction."})
     (icon :x-circle :size :small)]])
 
 (defn- item-row
@@ -327,12 +386,7 @@
            reconciliation
            [:clj-money.views.reconciliations/item-selection (:id item)]
            {::forms/decoration ::forms/none}]
-          (icon
-            (case status
-              :completed :check-square
-              :new       :dash-sqaure
-              :square)
-            :size :small))]
+          (reconciliation-icon status))]
        (when-not @reconciliation
          [:td.text-end.d-none.d-md-table-cell (format-quantity balance
                                                                account)])
@@ -399,17 +453,12 @@
 (defn items-table
   [page-state]
   (let [raw-items (r/cursor page-state [:items])
+        open-recons (r/cursor page-state [:open-reconciliation-ids])
         items (make-reaction (fn []
                                (when @raw-items
-                                 (map (fn [{:transaction-item/keys [reconciliation]
-                                            :keys [id]
-                                            :as item}]
-                                        (assoc item
-                                               :reconciliation/status
-                                               (cond
-                                                 (nil? id) :new
-                                                 reconciliation :completed
-                                                 :else :unreconciled)))
+                                 (map #(assoc %
+                                             :reconciliation/status
+                                             (reconciliation-status % @open-recons))
                                       @raw-items))))
         styles (r/cursor page-state [:item-row-styles])
         include-children? (r/cursor page-state [:include-children?])
@@ -533,12 +582,7 @@
      [:td.text-end (format-decimal balance 4)]
      [:td.text-end (currency-format (or value polarized-quantity))]
      [:td.text-center.d-none.d-md-table-cell
-      (icon
-        (case status
-          :completed :check-square
-          :new       :dash-sqaure
-          :square)
-        :size :small)]]))
+      (reconciliation-icon status)]]))
 
 (defn- lot-note-row
   [{:lot-note/keys [transaction-date memo] :as note}]
@@ -551,18 +595,13 @@
   [page-state]
   (let [raw-items (r/cursor page-state [:items])
         lot-notes (r/cursor page-state [:lot-notes])
+        open-recons (r/cursor page-state [:open-reconciliation-ids])
         items (make-reaction
                 (fn []
                   (when @raw-items
-                    (map (fn [{:transaction-item/keys [reconciliation]
-                               :keys [id]
-                               :as item}]
-                           (assoc item
-                                  :reconciliation/status
-                                  (cond
-                                    (nil? id) :new
-                                    reconciliation :completed
-                                    :else :unreconciled)))
+                    (map #(assoc %
+                                :reconciliation/status
+                                (reconciliation-status % @open-recons))
                          @raw-items))))
         all-rows (make-reaction
                    #(sort-by
@@ -716,10 +755,7 @@
                       (.preventDefault e)
                       (v/validate transaction)
                       (when (v/valid? transaction)
-                       (+busy)
-                       (transactions/save (accept-review (unentryfy @transaction))
-                                          :callback -busy
-                                          :on-success on-save)))}
+                        (save-transaction (unentryfy @transaction) on-save)))}
         [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]
         [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
         [:table.table
@@ -757,13 +793,10 @@
                      (.preventDefault e)
                      (v/validate transaction)
                      (when (v/valid? transaction)
-                       (+busy)
                        (-> @transaction
                            unaccountify
                            ->unilateral
-                           accept-review
-                           (transactions/save :callback -busy
-                                              :on-success on-save))))}
+                           (save-transaction on-save))))}
        [forms/date-field
         transaction
         [:transaction/transaction-date]

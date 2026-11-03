@@ -9,6 +9,7 @@
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
+            [accountant.core :as accountant]
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
             [dgknght.app-lib.core :refer [index-by]]
@@ -937,7 +938,12 @@
       [:button.btn.btn-secondary.ms-2
        {:on-click #(swap! page-state dissoc :transaction)
         :title "Click here to cancel this transaction"}
-       (icon-with-text :x "Cancel")]]]))
+       (icon-with-text :x "Cancel")]
+      (when (:id @transaction)
+        [:button.btn.btn-danger.ms-2
+         {:on-click #(trns/delete-edited-transaction page-state)
+          :title "Click here to delete this transaction"}
+         (icon-with-text :x-circle "Delete")])]]))
 
 (defn- transaction-form-container
   [page-state]
@@ -1370,6 +1376,48 @@
         (map :account/value)
         (not-every? #(= 0 %)))))
 
+(defn- reset-for-entity
+  "Closes whatever is open when the user switches to another entity"
+  [page-state]
+  (swap! page-state
+         #(-> %
+              (dissoc :selected
+                      :view-account
+                      :commodities
+                      :all-items-fetched?
+                      :items)
+              (assoc
+                :expanded #{}
+                :filter-tags #{}
+                :show-hidden? false
+                ; the accounts of the new entity aren't loaded yet
+                :hide-zero-balances? true)))
+  (load-commodities page-state))
+
+(defn- open-pending-transaction
+  "Opens the transaction left by another page (see state/open-in-register)
+  in the register of its account. The accounts may still be loading, e.g.,
+  right after the page loads, so it waits for them."
+  [{:keys [item account-id return-to]} page-state]
+  (let [open (fn [accounts]
+               (when-let [account (->> accounts
+                                       (filter #(= account-id (:id %)))
+                                       first)]
+                 (swap! page-state assoc
+                        :view-account account
+                        :return-to return-to)
+                 (trns/edit-transaction item page-state)))]
+    (if-let [loaded (seq (:accounts @app-state))]
+      (open loaded)
+      ; app-state rather than the accounts cursor, which only notifies its
+      ; watches when it's dereferenced
+      (add-watch app-state
+                 ::pending-transaction
+                 (fn [_ _ _ {:keys [accounts]}]
+                   (when (seq accounts)
+                     (remove-watch app-state ::pending-transaction)
+                     (open accounts)))))))
+
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
                             :hide-zero-balances? (any-non-zero-balances?)
@@ -1394,10 +1442,20 @@
                                         @allocation-account
                                         @transaction))
         hide-funnel? (make-reaction #(or @selected @view-account))]
-    (when-let [{:keys [item account]} (:pending-transaction-item @app-state)]
+    (when-let [pending (:pending-transaction-item @app-state)]
       (swap! app-state dissoc :pending-transaction-item)
-      (swap! page-state assoc :view-account account)
-      (trns/edit-transaction item page-state))
+      (open-pending-transaction pending page-state))
+    ; a transaction opened from another page (e.g., the pending review list
+    ; on the receipts page) returns there once it's saved or the edit is
+    ; cancelled, i.e., when the form closes
+    (add-watch page-state
+               ::return-to
+               (fn [_ _ old new]
+                 (when-let [path (:return-to new)]
+                   (when (and (:transaction old)
+                              (not (:transaction new)))
+                     (swap! page-state dissoc :return-to)
+                     (accountant/navigate! path)))))
     (let [account (:pending-reconciliation @app-state)]
       (swap! app-state dissoc :pending-reconciliation)
       ; the account's commodity is needed to reconcile it
@@ -1406,20 +1464,11 @@
                                      (reconcile-account account page-state))))
     (add-watch current-entity
                ::index
-               (fn [_ _ _ accts]
-                 (swap! page-state
-                        #(-> %
-                             (dissoc :selected
-                                     :view-account
-                                     :commodities
-                                     :all-items-fetched?
-                                     :items)
-                             (assoc
-                               :expanded #{}
-                               :filter-tags #{}
-                               :show-hidden? false
-                               :hide-zero-balances? (any-non-zero-balances? accts))))
-                 (load-commodities page-state)))
+               (fn [_ _ previous current]
+                 ; the entity may be replaced by an updated copy of itself,
+                 ; which shouldn't close what's open
+                 (when-not (id= previous current)
+                   (reset-for-entity page-state))))
     (fn []
       [:div.h-100
        [:div.row

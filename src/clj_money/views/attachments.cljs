@@ -41,16 +41,21 @@
                                (swap! page-state remove-attachment attachment)
                                (when on-delete (on-delete attachment))))))
 
-(defn view-image
-  "Opens the image (or PDF) in a new tab"
-  [{:keys [id]}]
+(defn fetch-image
+  "Retrieves the content of the image (or PDF), and passes it, as a
+  js/Blob, to f"
+  [{:keys [id]} f]
   (a/go
     (let [{:keys [body]} (a/<! (http/get (path :app :images id)
                               {:with-credentials? false
                                :response-type :blob
-                               :headers {"Authorization" (str "Bearer " @auth-token)}}))
-          url (obj-url/create body)]
-      (.open js/window url "_blank"))))
+                               :headers {"Authorization" (str "Bearer " @auth-token)}}))]
+      (f body))))
+
+(defn view-image
+  "Opens the image (or PDF) in a new tab"
+  [image]
+  (fetch-image image #(.open js/window (obj-url/create %) "_blank")))
 
 (defn- attachment-row
   [{:as attachment :attachment/keys [caption created-at image]} page-state on-delete]

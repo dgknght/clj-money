@@ -1392,6 +1392,36 @@
       (is (entities/find transaction)
           "The transaction can be retrieved after failed delete attempt"))))
 
+(def ^:private in-progress-reconciliation-context
+  (conj existing-reconciliation-context
+        #:reconciliation{:account "Checking"
+                         :end-of-period (t/local-date 2017 1 31)
+                         :balance 500M
+                         :status :new
+                         :items [[(t/local-date 2017 1 2)
+                                  500M]]}))
+
+(dbtest a-transaction-item-in-a-reconciliation-in-progress-can-be-deleted
+  (with-context in-progress-reconciliation-context
+    (let [transaction (find-transaction [(t/local-date 2017 1 2) "Landlord"])]
+      (entities/delete transaction)
+      (is (nil? (entities/find transaction))
+          "The transaction cannot be retrieved after delete"))))
+
+(dbtest the-quantity-of-an-item-in-a-reconciliation-in-progress-can-be-changed
+  (with-context in-progress-reconciliation-context
+    (let [transaction (find-transaction [(t/local-date 2017 1 2) "Landlord"])]
+      (-> transaction
+          (assoc-in [:transaction/items 0 :transaction-item/quantity] 510M)
+          (assoc-in [:transaction/items 1 :transaction-item/quantity] 510M)
+          entities/put)
+      (is (= #{510M}
+             (->> (entities/find transaction)
+                  :transaction/items
+                  (map :transaction-item/quantity)
+                  set))
+          "The quantity change is persisted"))))
+
 (dbtest the-memo-of-a-reconciled-item-can-be-changed
   (with-context existing-reconciliation-context
     (let [transaction (find-transaction [(t/local-date 2017 1 1) "Paycheck"])]

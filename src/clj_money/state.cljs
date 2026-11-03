@@ -48,6 +48,24 @@
 (def bg-proc-count (r/cursor app-state [:bg-proc-count]))
 (def busy? (make-reaction #(not (zero? @bg-proc-count))))
 (defonce pending-scheduled-count (r/atom 0))
+(defonce pending-review-count (r/atom 0))
+
+(defn open-in-register
+  "Leaves the transaction for the Accounts view to open for editing, in the
+  register of its item for preferred-account-id, if it has one, or of its
+  first item. The caller then navigates to /accounts. Given return-to (a
+  path), the Accounts view navigates there when the transaction is saved or
+  the edit is cancelled."
+  [{:transaction/keys [items]} preferred-account-id & {:keys [return-to]}]
+  (let [item (or (->> items
+                      (filter #(= preferred-account-id
+                                  (get-in % [:transaction-item/account :id])))
+                      first)
+                 (first items))]
+    (swap! app-state assoc :pending-transaction-item
+           {:item item
+            :account-id (get-in item [:transaction-item/account :id])
+            :return-to return-to})))
 
 (defn- browser?
   []
@@ -126,6 +144,7 @@
 
 (defn logout []
   (reset! pending-scheduled-count 0)
+  (reset! pending-review-count 0)
   (swap! app-state
          dissoc
          :auth-token

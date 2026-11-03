@@ -136,6 +136,55 @@
   (with-context existing-context
     (assert-blocked-list (get-a-list "jane@doe.com" :query {:description "pay"}))))
 
+(def ^:private pending-context
+  (conj existing-context
+        #:transaction{:description "Kroger"
+                      :entity "Personal"
+                      :transaction-date (t/local-date 2016 2 2)
+                      :quantity 10M
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :source :ingestion
+                      :review-status :pending}))
+
+(deftest a-user-can-get-the-transactions-awaiting-review-in-his-entity
+  (with-context pending-context
+    (assert-successful-list
+      (get-a-list "john@doe.com" :query {:review-status "pending"})
+      :expected [#:transaction{:description "Kroger"
+                               :review-status :pending}])))
+
+(deftest a-user-cannot-get-the-transactions-awaiting-review-in-anothers-entity
+  (with-context pending-context
+    (assert-blocked-list
+      (get-a-list "jane@doe.com" :query {:review-status "pending"}))))
+
+(defn- count-pending
+  [email]
+  (-> (request :get (+query (path :api
+                                  :entities
+                                  (:id (find-entity "Personal"))
+                                  :transactions
+                                  :count)
+                            {:review-status "pending"})
+               :user (find-user email))
+      app
+      parse-body))
+
+(deftest a-user-can-count-the-transactions-awaiting-review-in-his-entity
+  (with-context pending-context
+    (let [{:as response :keys [parsed-body]} (count-pending "john@doe.com")]
+      (is (http-success? response))
+      (is (= {:count 1} parsed-body)
+          "The response has the number of transactions awaiting review"))))
+
+(deftest a-user-cannot-count-the-transactions-awaiting-review-in-anothers-entity
+  (with-context pending-context
+    (let [{:as response :keys [parsed-body]} (count-pending "jane@doe.com")]
+      (is (http-success? response))
+      (is (= {:count 0} parsed-body)
+          "The transactions in the other user's entity aren't counted"))))
+
 (defn- get-a-list-by-item
   [email]
   (let [item (find-transaction-item [(t/local-date 2016 2 1) 1000M "Checking"])]
@@ -463,6 +512,30 @@
 
 (deftest a-user-cannot-delete-a-transaction-in-anothers-entity
   (assert-blocked-delete (delete-a-transaction "jane@doe.com")))
+
+(def ^:private reconciled-context
+  (conj existing-context
+        #:reconciliation{:account "Checking"
+                         :end-of-period (t/local-date 2016 2 1)
+                         :balance 1000M
+                         :status :completed
+                         :items [[(t/local-date 2016 2 1) 1000M]]}))
+
+(deftest a-transaction-in-a-completed-reconciliation-cannot-be-deleted
+  (with-context reconciled-context
+    (let [transaction (find-transaction [(t/local-date 2016 2 1) "Paycheck"])
+          response (-> (request :delete (path :api
+                                             :transactions
+                                             (:id transaction))
+                                :user (find-user "john@doe.com"))
+                       app
+                       parse-body)]
+      (is (http-bad-request? response))
+      (is (= {:message "Cannot delete transaction with reconciled items"}
+             (:parsed-body response))
+          "The reason is given")
+      (is (entities/find transaction)
+          "The transaction can still be retrieved"))))
 
 (def ^:private purchase-context
   (conj context
