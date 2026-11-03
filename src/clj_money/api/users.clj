@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [find])
   (:require [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.api :as api]
-            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.web.system :as system]
             [clj-money.web.auth :refer [make-token]]
@@ -11,7 +10,7 @@
 (defn- index
   [{:keys [authenticated]}]
   (if (contains? (:user/roles authenticated) :admin)
-    (api/response (entities/select (util/entity-type {} :user)))
+    (api/response (entities/select {} :entity-type :user))
     api/forbidden))
 
 (defn- find
@@ -40,7 +39,7 @@
 
 (defn- create-admin
   [{:keys [params] :as req}]
-  (if (pos? (entities/count (util/entity-type {} :user)))
+  (if (pos? (entities/count {} :entity-type :user))
     api/forbidden
     (let [user (-> params
                    (select-keys [:user/first-name

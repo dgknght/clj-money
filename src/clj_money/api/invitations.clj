@@ -2,7 +2,6 @@
   (:require [java-time.api :as t]
             [dgknght.app-lib.api :as api]
             [clj-money.config :refer [env]]
-            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.authorization :refer [authorize +scope]
              :as authorization]
@@ -50,9 +49,8 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (util/entity-type :invitation)
           (+scope :invitation authenticated)
-          entities/find-by
+          (entities/find-by :entity-type :invitation)
           (authorize action authenticated)))
 
 (defn- index

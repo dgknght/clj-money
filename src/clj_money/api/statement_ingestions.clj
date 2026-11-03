@@ -20,9 +20,9 @@
   user"
   [account-id entity user]
   (some-> account-id
-          (#(util/entity-type {:id %} :account))
+          (#(hash-map :id %))
           (+scope :account user)
-          entities/find-by
+          (entities/find-by :entity-type :account)
           (#(when (id= entity (:account/entity %)) %))))
 
 (defn- create*

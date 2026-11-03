@@ -28,8 +28,8 @@
   [{:as commodity :commodity/keys [price-date-range]}]
   (when price-date-range
     (entities/find-by #:price{:commodity commodity
-                            :trade-date (apply vector :between price-date-range)}
-                    {:sort [[:price/trade-date :desc]]})))
+                              :trade-date (apply vector :between price-date-range)}
+                      :sort [[:price/trade-date :desc]])))
 
 (defn- append-current-prices
   [commodities]
@@ -42,7 +42,7 @@
 (defn- index
   [req]
   (->> (entities/select (extract-criteria req)
-                      {:sort [:commodity/symbol]})
+                        :sort [:commodity/symbol])
        append-current-prices
        api/response))
 

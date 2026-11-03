@@ -35,7 +35,7 @@
   ([]
    (propagate-all {}))
   ([opts]
-   (doseq [entity (entities/select (util/entity-type {} :entity))]
+   (doseq [entity (entities/select {} :entity-type :entity)]
      (propagate-all entity opts)))
   ([entity opts]
    (log/debugf "[propagation] start entity %s"

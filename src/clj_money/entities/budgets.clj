@@ -59,7 +59,7 @@
   (entities/find-by #:budget{:start-date [:<= date]
                              :end-date [:>= date]
                              :entity entity}
-                    {:include #{:budget/items}}))
+                    :include #{:budget/items}))
 
 (defn find-items-by-account
   "Finds items in the specified budget belonging to the specified account or its children."
@@ -67,10 +67,9 @@
   {:pre [(seq items)]}
   (let [ids (if (seq child-ids)
               (conj (into #{} child-ids) account-id)
-              (->> (entities/select (util/entity-type
-                                    {:id account-id}
-                                    :account)
-                                  {:include-children? true})
+              (->> (entities/select {:id account-id}
+                                    :entity-type :account
+                                    :include-children? true)
                    (map :id)
                    (into #{})))]
     (filter #(ids (get-in % [:budget-item/account :id]))
@@ -80,12 +79,11 @@
   [{:budget/keys [entity period]} start-date]
   (let [end-date (t/plus start-date
                          (dates/period period))]
-    (entities/select (util/entity-type
-                       {:transaction/entity entity
-                        :transaction/transaction-date [:between> start-date end-date]
-                        :account/type [:in #{:income :expense}]}
-                       :transaction-item)
-                     {:select-also [:transaction/transaction-date]})))
+    (entities/select {:transaction/entity entity
+                      :transaction/transaction-date [:between> start-date end-date]
+                      :account/type [:in #{:income :expense}]}
+                     :entity-type :transaction-item
+                     :select-also [:transaction/transaction-date])))
 
 (defn- auto-create-items
   [{:budget/keys [period]

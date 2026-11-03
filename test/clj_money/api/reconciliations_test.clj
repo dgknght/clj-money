@@ -7,7 +7,6 @@
             [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]
             [clj-money.entities.ref]
-            [clj-money.util :as util]
             [clj-money.api.util :refer [+query]]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
@@ -264,11 +263,10 @@
                      app
                      parse-body)]
     [response (entities/find-by
-                (util/entity-type
-                  (select-keys recon
-                               [:id
-                                :reconciliation/end-of-period])
-                  :reconciliation))]))
+                (select-keys recon
+                             [:id
+                              :reconciliation/end-of-period])
+                :entity-type :reconciliation)]))
 
 (defn- assert-successful-update
   [[{:as response :keys [edn-body parsed-body]} retrieved]

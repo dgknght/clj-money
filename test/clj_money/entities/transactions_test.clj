@@ -57,7 +57,7 @@
                         :transaction-item/quantity
                         :transaction-item/balance])
        (entities/select {:transaction-item/account account}
-                        {:sort [:transaction-item/index]})))
+                        :sort [:transaction-item/index])))
 
 (def base-context
   [(factory :user, {:user/email "john@doe.com"})
@@ -128,9 +128,8 @@
                                       #:transaction-item{:index 0
                                                          :balance 1000M}]
                                      (entities/select
-                                       (util/entity-type
-                                         {:transaction/transaction-date date}
-                                         :transaction-item)))
+                                       {:transaction/transaction-date date}
+                                       :entity-type :transaction-item))
                   "The item indices and balances are calculated")))))
 
 (dbtest create-an-ingested-transaction
@@ -325,7 +324,7 @@
              :transaction-item/action :credit}]
            (->> (entities/select
                   {:transaction-item/account (find-account "Checking")}
-                  {:sort [:transaction-item/index]})
+                  :sort [:transaction-item/index])
                 (map #(select-keys % [:transaction-item/index
                                       :transaction-item/action]))))
         "The corresponding account items are removed.")))
@@ -465,7 +464,7 @@
                                                           (t/local-date 2017 6 1)
                                                           (t/local-date 2017 6 30)]
                                        :entity (find-entity "Personal")}
-                         {:sort [[:transaction/transaction-date :asc]]}))
+                           :sort [[:transaction/transaction-date :asc]]))
         "The transactions from the specified date range are returned")))
 
 (dbtest update-a-transaction-change-quantity
@@ -995,7 +994,7 @@
                                    :transaction-item/quantity
                                    :transaction-item/balance])
                   (entities/select {:transaction-item/account checking}
-                                   {:sort [:transaction-item/index]})))
+                                   :sort [:transaction-item/index])))
           "The credit account items reflect the removal and are re-indexed")
       (is (empty? (entities/select {:transaction-item/account pets}))
           "The debit account items reflect the removal"))))

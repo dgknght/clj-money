@@ -2,7 +2,6 @@
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
-            [clj-money.util :as util]
             [clj-money.authorization :as auth :refer [authorize]]
             [clj-money.authorization.reports]
             [clj-money.dates :as dates]
@@ -25,7 +24,8 @@
 (defn- fetch-entity
   [{:keys [params authenticated]}]
   (when-let [entity (entities/find-by
-                      (util/entity-type {:id (:entity-id params)} :entity))]
+                      {:id (:entity-id params)}
+                      :entity-type :entity)]
     (authorize-report entity authenticated)
     entity))
 
@@ -74,7 +74,8 @@
 (defn- budget
   [{:keys [params authenticated] :as req}]
   (if-let [bdg (entities/find-by
-                 (util/entity-type {:id (:budget-id params)} :budget))]
+                 {:id (:budget-id params)}
+                 :entity-type :budget)]
     (do
       (authorize-report (:budget/entity bdg) authenticated)
       (api/response
@@ -108,8 +109,7 @@
     (if-let [refs (seq (get-in entity
                                [:entity/settings
                                 :settings/monitored-accounts]))]
-      (->> (entities/select (util/entity-type {:id [:in (mapv :id refs)]}
-                                              :account))
+      (->> (entities/select {:id [:in (mapv :id refs)]} :entity-type :account)
            (map (comp serialize-monitor
                       (partial monitor-cache/fetch
                                (system/component req :monitor-cache))))

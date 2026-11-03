@@ -147,16 +147,15 @@
       "The entity can be retrieved"
       (is (seq-of-maps-like? (expected-accounts)
                              (entities/select {:account/entity entity}
-                                              {:sort [:account/name]}))
+                                              :sort [:account/name]))
           "The accounts can be retrieved")
       (is (seq-of-maps-like? [#:reconciliation{:account (util/->entity-ref (entities/find-by {:account/name "Checking"}))
                                                :status :completed
                                                :end-of-period (t/local-date 2015 1 15)
                                                :balance 800M}]
                              (entities/select
-                               (util/entity-type
-                                 {:account/entity entity}
-                                 :reconciliation)))
+                               {:account/entity entity}
+                               :entity-type :reconciliation))
           "Reconciliations can be retrieved"))
     (testing "reports"
       (is (seq-of-maps-like? expected-inc-stmt
@@ -358,9 +357,8 @@
                                                :end-of-period (t/local-date 2015 1 15)
                                                :balance 800M}]
                              (entities/select
-                               (util/entity-type
-                                 {:account/entity entity}
-                                 :reconciliation)))
+                               {:account/entity entity}
+                               :entity-type :reconciliation))
           "The parent account's reconciliation is completed with the child account's items"))))
 
 (def ^:private edn-context
@@ -422,7 +420,7 @@
           {:keys [entity wait-chan]} (import-data imp)]
       (a/alts!! [wait-chan (a/timeout 5000)])
       (let [retrieved (entities/select {:budget/entity entity}
-                                     {:include #{:budget/items}})]
+                                       :include #{:budget/items})]
         (is (seq-of-maps-like? [#:budget{:name "2017"
                                          :entity (util/->entity-ref entity)
                                          :period [12 :month]
@@ -476,13 +474,12 @@
                               #:price{:trade-date (t/local-date 2015 1 30)
                                       :value 12M}]
                              (entities/select
-                               (util/entity-type
-                                 {:price/trade-date [:between>
-                                                     (t/local-date 2015 1 1)
-                                                     (t/local-date 2016 1 1)]
-                                  :commodity/symbol "AAPL"}
-                                 :price)
-                               {:sort [[:price/trade-date :asc]]}))
+                               {:price/trade-date [:between>
+                                                   (t/local-date 2015 1 1)
+                                                   (t/local-date 2016 1 1)]
+                                :commodity/symbol "AAPL"}
+                               :entity-type :price
+                               :sort [[:price/trade-date :asc]]))
           "The prices can be retrieved"))))
 
 (deftest import-commodities-with-extended-actions
@@ -529,7 +526,7 @@
                                      :transaction-item/balance])
                     (entities/select
                       {:transaction-item/account four-oh-one-k}
-                      {:sort [[:transaction-item/index :asc]]})))
+                      :sort [[:transaction-item/index :asc]])))
             "The 401k account items are created")
 
         ; AAPL in 401k
@@ -547,7 +544,7 @@
                                      :transaction-item/balance])
                     (entities/select
                       {:transaction-item/account four-k-aapl}
-                      {:sort [[:transaction-item/index :asc]]})))
+                      :sort [[:transaction-item/index :asc]])))
             "The 401k AAPL account items are created")
 
         ; IRA
@@ -565,7 +562,7 @@
                                      :transaction-item/balance])
                     (entities/select
                       {:transaction-item/account ira}
-                      {:sort [[:transaction-item/index :asc]]})))
+                      :sort [[:transaction-item/index :asc]])))
             "The IRA account items are created")
 
         ; AAPL in IRA
@@ -584,9 +581,9 @@
                 :transaction-item/balance 100M}]
               (entities/select
                 {:transaction-item/account ira-aapl}
-                {:sort [[:transaction-item/index :asc]]
-                 :select-also [:transaction/transaction-date
-                               :transaction/description]}))
+                :sort [[:transaction-item/index :asc]]
+                :select-also [:transaction/transaction-date
+                              :transaction/description]))
             "The IRA AAPL account items are created"))
 
       (testing "lots"
@@ -635,9 +632,9 @@
                   :transaction-item/action :debit}]
                 (entities/select
                   {:transaction-item/account inv-exp}
-                  {:sort [:transaction/transaction-date]
-                   :select-also [:transaction/transaction-date
-                                 :transaction/description]}))
+                  :sort [:transaction/transaction-date]
+                  :select-also [:transaction/transaction-date
+                                :transaction/description]))
               "The Investment Expenses account receives items for the fees charged on trading actions"))))))
 
 (def ^:private sched-context

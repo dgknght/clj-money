@@ -157,11 +157,10 @@
   [ingestion]
   (when-let [recon (working-reconciliation ingestion)]
     (->> (entities/select
-           (util/entity-type
-             {:transaction-item/reconciliation (util/->entity-ref recon)}
-             :transaction-item)
-           {:select-also [:transaction/transaction-date
-                          :transaction/description]})
+           {:transaction-item/reconciliation (util/->entity-ref recon)}
+           :entity-type :transaction-item
+           :select-also [:transaction/transaction-date
+                         :transaction/description])
          (map (juxt :transaction/transaction-date
                     :transaction-item/quantity))
          set)))
@@ -497,7 +496,7 @@
   (with-context statement-context
     (let [[response] (create-ingestion "jane@doe.com")]
       (is (http-not-found? response))
-      (is (empty? (entities/select (util/entity-type {} :statement-ingestion)))
+      (is (empty? (entities/select {} :entity-type :statement-ingestion))
           "No statement-ingestion is created"))))
 
 (deftest a-user-cannot-reconcile-a-statement-against-anothers-account
@@ -505,7 +504,7 @@
     (let [[response] (create-ingestion "john@doe.com"
                                        :account (find-account "Jane's Checking"))]
       (is (http-not-found? response))
-      (is (empty? (entities/select (util/entity-type {} :statement-ingestion)))
+      (is (empty? (entities/select {} :entity-type :statement-ingestion))
           "No statement-ingestion is created"))))
 
 (defn- get-ingestion
@@ -607,10 +606,9 @@
   "Returns the date and quantity of each item in the reconciliation, in order"
   [recon]
   (->> (entities/select
-         (util/entity-type
-           {:transaction-item/reconciliation (util/->entity-ref recon)}
-           :transaction-item)
-         {:select-also [:transaction/transaction-date]})
+         {:transaction-item/reconciliation (util/->entity-ref recon)}
+         :entity-type :transaction-item
+         :select-also [:transaction/transaction-date])
        (map (juxt :transaction/transaction-date
                   :transaction-item/quantity))
        sort
@@ -667,16 +665,15 @@
             "The new transactions await review"))
       (is (= [15M 10M]
              (->> (entities/select #:lot{:commodity (find-commodity "AAPL")}
-                                   {:sort [:lot/purchase-date]})
+                                   :sort [:lot/purchase-date])
                   (mapv :lot/shares-owned)))
           "The sale is taken from the oldest lot")
       (is (= #{[(t/local-date 2026 9 15) 12.50M]}
              (->> (entities/select
-                    (util/entity-type
-                      {:transaction-item/account (util/->entity-ref
-                                                   (find-account "Dividends"))}
-                      :transaction-item)
-                    {:select-also [:transaction/transaction-date]})
+                    {:transaction-item/account (util/->entity-ref
+                                                 (find-account "Dividends"))}
+                    :entity-type :transaction-item
+                    :select-also [:transaction/transaction-date])
                   (map (juxt :transaction/transaction-date
                              :transaction-item/quantity))
                   set))
@@ -787,7 +784,7 @@
           "The new transactions are removed")
       (is (= [20M 10M]
              (->> (entities/select #:lot{:commodity (find-commodity "AAPL")}
-                                   {:sort [:lot/purchase-date]})
+                                   :sort [:lot/purchase-date])
                   (mapv :lot/shares-owned)))
           "The lots sold from are restored")
       (is (empty? (entities/select #:lot{:commodity (find-commodity "MSFT")

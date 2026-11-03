@@ -23,7 +23,7 @@
     (entities/find-by (cond-> {:reconciliation/account account
                              :reconciliation/status :completed}
                       exclude-id (assoc :id [:!= exclude-id]))
-                    {:sort [[:reconciliation/end-of-period :desc]]})))
+                      :sort [[:reconciliation/end-of-period :desc]])))
 
 (defn- absorbed-by-ancestor?
   "True if descendant's items have already been swept into a reconciliation
@@ -178,27 +178,25 @@
 (defn- fetch-items
   [{:keys [id] :reconciliation/keys [account] :as recon}]
   (if id
-    (let [accounts (entities/select (util/entity-type
-                                      (util/->entity-ref account)
-                                      :account)
-                                    {:include-children? true})
+    (let [accounts (entities/select (util/->entity-ref account)
+                                    :entity-type :account
+                                    :include-children? true)
           by-id (index-by :id accounts)
           criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
       (map #(update-in % [:transaction-item/account] (comp by-id :id))
            (entities/select criteria
-                            {:datalog/hints [:transaction-item/reconciliation
-                                             :transaction-item/account]})))
+                            :datalog/hints [:transaction-item/reconciliation
+                                            :transaction-item/account])))
     []))
 
 (defn- account+children
   "Fetch and return the given account as a full entity, along with its
   children"
   [account]
-  (entities/select (util/entity-type
-                     (util/->entity-ref account)
-                     :account)
-                   {:include-children? true}))
+  (entities/select (util/->entity-ref account)
+                   :entity-type :account
+                   :include-children? true))
 
 (defn- find-last-completed
   "Returns the last completed reconciliation for an account or, when
@@ -212,7 +210,7 @@
       (entities/find-by (cond-> {:reconciliation/account [:in ids]
                                  :reconciliation/status :completed}
                           (:id recon) (assoc :id [:!= (:id recon)]))
-                        {:sort [[:reconciliation/end-of-period :desc]]}))))
+                        :sort [[:reconciliation/end-of-period :desc]]))))
 
 (defn previous-balance
   "Returns the balance to use as the starting point when reconciling the
@@ -237,9 +235,9 @@
 (defn- fetch-transaction-items
   ([recon]
    (entities/select {:transaction-item/reconciliation recon}
-                    {:select-also :transaction/transaction-date
-                     :datalog/hints [:transaction-item/reconciliation
-                                     :transaction-item/transaction-item]})))
+                    :select-also :transaction/transaction-date
+                    :datalog/hints [:transaction-item/reconciliation
+                                    :transaction-item/transaction-item])))
 
 (defmethod entities/before-validation :reconciliation
   [{:reconciliation/keys [account items include-children?] :as recon}]

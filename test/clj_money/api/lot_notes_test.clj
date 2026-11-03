@@ -4,7 +4,6 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
-            [clj-money.util :as util]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [parse-body
                                                request]]
@@ -132,9 +131,8 @@
   [response]
   (is (http-not-found? response))
   (is (empty? (entities/select
-                (util/entity-type
-                  {:lot/commodity (find-commodity "AAPL")}
-                  :lot-note)))))
+                {:lot/commodity (find-commodity "AAPL")}
+                :entity-type :lot-note))))
 
 (deftest a-user-can-create-a-lot-note-for-his-lot
   (with-context base-context

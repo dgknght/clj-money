@@ -8,7 +8,6 @@
                                             basic-context]]
             [clj-money.entities.ref]
             [clj-money.db.ref]
-            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.transaction-items :as trx-items]))
 
@@ -31,10 +30,9 @@
   (with-context context
     (is (= #{"Checking" "Salary" "Groceries"}
            (->> (entities/select
-                  (util/entity-type
-                    {:transaction/entity (find-entity "Personal")}
-                    :transaction-item)
-                  {:sort [[:transaction-item/index :asc]]})
+                  {:transaction/entity (find-entity "Personal")}
+                  :entity-type :transaction-item
+                  :sort [[:transaction-item/index :asc]])
                 (trx-items/realize-accounts)
                 (map (comp :account/name
                            :transaction-item/account))

@@ -3,7 +3,6 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
-            [clj-money.util :as util]
             [clj-money.db.ref]
             [clj-money.entities :as entities]
             [clj-money.entities.ref]
@@ -134,8 +133,7 @@
 
 (dbtest get-items-by-account
   (with-context get-items-context
-    (let [items (entities/select (util/entity-type {:budget/name "2015"}
-                                                :budget-item))]
+    (let [items (entities/select {:budget/name "2015"} :entity-type :budget-item)]
       (testing "a leaf account"
         (let [account (find-account "Food")
               expected [[100M 100M 100M]]

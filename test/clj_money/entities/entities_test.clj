@@ -94,7 +94,7 @@
       (is (seq-of-maps-like? [{:entity/name "Business"}
                               {:entity/name "Personal"}]
                              (entities/select {:entity/user user}
-                                            {:sort [[:entity/name :asc]]}))
+                                              :sort [[:entity/name :asc]]))
           "Entities matching the criteria are returned"))))
 
 (dbtest update-an-entity

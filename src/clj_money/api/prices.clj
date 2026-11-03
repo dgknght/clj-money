@@ -44,7 +44,7 @@
   [req]
   (-> req
       extract-criteria
-      (entities/select {:sort [[:price/trade-date :desc]]})
+      (entities/select :sort [[:price/trade-date :desc]])
       api/response))
 
 (defn- extract-price

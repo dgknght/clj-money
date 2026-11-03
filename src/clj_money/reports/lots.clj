@@ -38,13 +38,13 @@
                                 :lot/shares-owned [:> 0]}
                          commodity
                          (assoc :lot/commodity commodity))
-                       {:sort [[:lot/purchase-date :asc]]})
+                         :sort [[:lot/purchase-date :asc]])
         (map #(assoc %
                      :lot/items
                      (entities/select
                        {:lot-item/lot %}
-                       {:sort [[:transaction/transaction-date :asc]]
-                        :select-also [:transaction/transaction-date]})))
+                       :sort [[:transaction/transaction-date :asc]]
+                       :select-also [:transaction/transaction-date])))
         (group-by (comp :id :lot/commodity))
         (map (comp #(apply valuate-lots %)
                    #(update-in % [0] entities/find)))

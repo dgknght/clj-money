@@ -26,7 +26,7 @@
   [req]
   (api/response
     (entities/select (extract-criteria req)
-                   {:sort [[:budget/start-date :desc]]})))
+                     :sort [[:budget/start-date :desc]])))
 
 (defn- extract-budget
   [{:keys [params]}]
@@ -55,7 +55,7 @@
   (when-let [budget (-> params
                         (select-keys [:id])
                         (+scope :budget authenticated ::auth/manage)
-                        (entities/find-by {:include #{:budget/items}}))]
+                        (entities/find-by :include #{:budget/items}))]
     (authorize budget action authenticated)))
 
 (defn- show

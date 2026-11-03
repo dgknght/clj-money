@@ -33,9 +33,8 @@
 (defmethod fetch-entity :attachment
   [{:attachment/keys [transaction]}]
   (entities/find-by
-    (util/entity-type
-      {:transaction/_self transaction}
-      :entity)))
+    {:transaction/_self transaction}
+    :entity-type :entity))
 
 (defmethod fetch-entity :receipt-ingestion
   [{:receipt-ingestion/keys [entity]}]
@@ -52,23 +51,20 @@
 (defmethod fetch-entity :budget-item
   [budget-item]
   (entities/find-by
-    (util/entity-type
-      {:budget-item/_self budget-item}
-      :entity)))
+    {:budget-item/_self budget-item}
+    :entity-type :entity))
 
 (defmethod fetch-entity :price
   [{:price/keys [commodity]}]
   (entities/find-by
-    (util/entity-type
-      {:commodity/_self commodity}
-      :entity)))
+    {:commodity/_self commodity}
+    :entity-type :entity))
 
 (defmethod fetch-entity :reconciliation
   [{:reconciliation/keys [account]}]
   (entities/find-by
-    (util/entity-type
-      {:account/_self account}
-      :entity)))
+    {:account/_self account}
+    :entity-type :entity))
 
 (defmethod fetch-entity :report
   [{:report/keys [entity]}]
@@ -81,16 +77,14 @@
 (defmethod fetch-entity :lot
   [{:lot/keys [account]}]
   (entities/find-by
-    (util/entity-type
-      {:account/_self account}
-      :entity)))
+    {:account/_self account}
+    :entity-type :entity))
 
 (defmethod fetch-entity :transaction-item
   [{:transaction-item/keys [account]}]
   (entities/find-by
-    (util/entity-type
-      {:account/_self account}
-      :entity)))
+    {:account/_self account}
+    :entity-type :entity))
 
 (defmethod fetch-entity :lot-note
   [{:lot-note/keys [lots]}]

@@ -2,13 +2,12 @@
   (:require [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clj-money.config :refer [env]]
-            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.web.system :as system]
             [hiccup.page :refer [html5 include-js]]))
 
 (defn- needs-setup? []
-  (zero? (entities/count (util/entity-type {} :user))))
+  (zero? (entities/count {} :entity-type :user)))
 
 (defn- head [extra-config]
   [:head

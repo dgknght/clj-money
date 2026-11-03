@@ -110,7 +110,7 @@
   (with-system
     (if-let [e (entities/find-by {:entity/name entity-name
                                   :user/email user-email}
-                                 {:type :entity})]
+                                 :entity-type :entity)]
       (entities/purge! e)
       (println (format "Unable to find an entity named \"%s\" for user \"%s\""
                        entity-name
@@ -161,7 +161,7 @@
     (let [{reader ::ing/receipt-reader} sys
           entity (entities/find-by {:entity/name entity-name
                                     :user/email user-email}
-                                   {:entity-type :entity})
+                                   :entity-type :entity)
           _ (assert entity
                     (format "No entity named %s for user %s"
                             (pr-str entity-name)

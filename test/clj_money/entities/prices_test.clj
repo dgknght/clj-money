@@ -222,7 +222,7 @@
                              (entities/select {:price/trade-date [:between
                                                                 (t/local-date 2015 1 1)
                                                                 (t/local-date 2016 12 31)]}
-                                            {:sort [:price/trade-date]}))
+                                              :sort [:price/trade-date]))
           "The price can be retrieved after update"))))
 
 (dbtest deleting-a-price-updates-account-summary-data

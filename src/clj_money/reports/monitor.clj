@@ -68,10 +68,9 @@
 
 (defn- account-and-descendants
   [account]
-  (entities/select (util/entity-type
-                     (util/->entity-ref account)
-                     :account)
-                   {:include-children? true}))
+  (entities/select (util/->entity-ref account)
+                   :entity-type :account
+                   :include-children? true))
 
 (defn account-ids
   "Returns the ids of the accounts whose transactions are reported by the

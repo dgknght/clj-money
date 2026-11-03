@@ -73,9 +73,10 @@
 
 (declare entity-type)
 
-(defn entity-type-dispatch [x & _]
+(defn entity-type-dispatch [x & [{e-type :entity-type}]]
   {:pre [x]}
-  (entity-type x))
+  (or e-type
+      (entity-type x)))
 
 (defn- extract-entity-type
   [m-or-t]

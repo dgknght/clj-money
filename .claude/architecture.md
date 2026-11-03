@@ -186,6 +186,23 @@ Each entity type has implementations across four layers:
 | Auth | `authorization/<entity>s.clj` | `allowed?`, `scope` |
 | API | `api/<entity>s.clj` + `.cljs` | server handlers, ClojureScript client |
 
+### Querying entities
+
+`entities/select`, `count`, `find-by`, `find` and `find-many` take their
+options as keyword arguments. When the entity type can't be inferred from
+the criteria's attribute namespaces (e.g. `{}`, `{:id ...}`, or criteria
+that mix namespaces), pass it with `:entity-type` rather than wrapping the
+criteria with `util/entity-type`:
+
+```clojure
+(entities/select {:transaction-item/quantity 12.34M}
+                 :entity-type :transaction
+                 :sort [:transaction/transaction-date])
+```
+
+A non-literal options map can still be passed as the last argument (Clojure
+1.11+ accepts a trailing map for keyword arguments).
+
 ## Central Entity Registry (`entities/schema.cljc`)
 
 Defines all 21 entity types with their fields, refs, and primary keys.

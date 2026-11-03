@@ -260,8 +260,8 @@
                                  :transaction-item/balance)
                            #(assoc % :transaction-item/account account))
                      (entities/select {:transaction-item/account account}
-                                      {:select-also [:transaction/transaction-date
-                                                     :transaction/description]})))
+                                      :select-also [:transaction/transaction-date
+                                                    :transaction/description])))
           :separator sep)
         (flush))))
   (exit))

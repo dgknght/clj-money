@@ -13,7 +13,7 @@
   (-> params
       (select-keys [:name])
       (+scope :entity authenticated)
-      (entities/select {:sort [:entity/name]})
+      (entities/select :sort [:entity/name])
       api/response))
 
 (defn- extract-entity
@@ -46,9 +46,8 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (util/entity-type :entity)
           (+scope :entity authenticated ::authorization/manage)
-          entities/find-by
+          (entities/find-by :entity-type :entity)
           (authorize action authenticated)))
 
 (defn- update

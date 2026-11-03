@@ -6,7 +6,6 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.decimal :as d]
             [clj-money.entities :as entities]
@@ -19,8 +18,7 @@
         (select-keys [:price/commodity
                       :price/trade-date])
         (assoc-if :id (when id [:!= id]))
-        (util/entity-type :price)
-        entities/count)))
+        (entities/count :entity-type :price))))
 (v/reg-spec trade-date-unique? {:message "%s already exists"
                                 :path [:price/trade-date]})
 
@@ -54,7 +52,7 @@
          (when (env :allow-unbounded-queries)
            (entities/find-by #:price{:commodity commodity
                                    :trade-date [:<= as-of]}
-                           {:sort [[:price/trade-date :desc]]})))
+                             :sort [[:price/trade-date :desc]])))
 
        (and as-of
             (t/after? earliest as-of))
@@ -71,7 +69,7 @@
                                             earliest
                                             (or as-of
                                                 latest)]}
-                       {:sort [[:price/trade-date :desc]]})))))
+                         :sort [[:price/trade-date :desc]])))))
 
 (defn- apply-to-account
   [{:price/keys [value trade-date]} {:keys [force]}]
@@ -137,14 +135,14 @@
     [(assoc commodity
             :commodity/price-date-range
             (if-let [new-start (-> (->criteria commodity)
-                                   (entities/find-by {:sort [:price/trade-date]})
+                                   (entities/find-by :sort [:price/trade-date])
                                    :price/trade-date)]
               [new-start end]
               nil))]
 
     (= end trade-date)
     (let [new-end (entities/find-by (->criteria commodity)
-                                  {:sort [[:price/trade-date :desc]]})]
+                                    :sort [[:price/trade-date :desc]])]
       (cons (assoc commodity
                    :commodity/price-date-range
                    (if new-end
@@ -189,8 +187,8 @@
 (defn- fetch-prices
   [entity]
   (entities/select
-    (util/entity-type {:commodity/entity entity}
-                     :price)))
+    {:commodity/entity entity}
+    :entity-type :price))
 
 (defn propagate-all
   [entity _opts]

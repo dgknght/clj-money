@@ -6,7 +6,6 @@
             [java-time.api :as t]
             [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.entities :as entities]
-            [clj-money.util :as util]
             [clj-money.accounts :as accounts :refer [system-tagged?
                                                      valuate]]
             [clj-money.entities.transactions :as transactions]
@@ -53,14 +52,13 @@
         lot-items (when (seq lots)
                     (group-by (comp :id :lot-item/lot)
                               (entities/select
-                                (util/entity-type
-                                  {:lot-item/lot [:in (->> (vals lots)
-                                                           (mapcat identity)
-                                                           (mapv :id))]
-                                   :transaction/transaction-date [:between
-                                                                  earliest-date
-                                                                  as-of]}
-                                  :lot-item))))
+                                {:lot-item/lot [:in (->> (vals lots)
+                                                         (mapcat identity)
+                                                         (mapv :id))]
+                                 :transaction/transaction-date [:between
+                                                                earliest-date
+                                                                as-of]}
+                                :entity-type :lot-item)))
         prices (atom {})]
     (reify accounts/ValuationData
       (fetch-entity [_ _account] entity)

@@ -113,9 +113,8 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (util/entity-type :import)
           (+scope :import authenticated)
-          entities/find-by
+          (entities/find-by :entity-type :import)
           (authorize action authenticated)))
 
 (defn- show

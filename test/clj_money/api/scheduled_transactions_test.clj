@@ -367,7 +367,7 @@
   (is (= [#:transaction-item{:index 0 :quantity 50M :balance -50M}
           #:transaction-item{:index 1 :quantity 1000M :balance 950M}]
          (->> (entities/select {:transaction-item/account (find-account "Checking")}
-                               {:sort [:transaction-item/index]})
+                               :sort [:transaction-item/index])
               (map #(select-keys % [:transaction-item/index
                                     :transaction-item/quantity
                                     :transaction-item/balance]))))
@@ -460,7 +460,7 @@
     (is (seq-of-maps-like? expected
                            (entities/select
                              {:transaction/entity (find-entity "Personal")}
-                             {:sort [:transaction/transaction-date]}))
+                             :sort [:transaction/transaction-date]))
         "The transactions can be retrieved.")))
 
 (defn- assert-blocked-mass-realization
@@ -468,7 +468,7 @@
   (is (http-not-found? response))
   (is (empty? (entities/select
                 {:transaction/entity (find-entity "Personal")}
-                {:sort [:transaction/transaction-date]}))
+                :sort [:transaction/transaction-date]))
       "No transactions are created."))
 
 (deftest a-user-can-realize-all-scheduled-transactions-in-his-entity

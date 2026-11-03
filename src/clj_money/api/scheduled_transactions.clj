@@ -160,9 +160,8 @@
 (defn- fetch-entity
   [{:keys [params authenticated]}]
   (some-> {:id (:entity-id params)}
-          (util/entity-type :entity)
           (+scope :entity authenticated)
-          entities/find-by))
+          (entities/find-by :entity-type :entity)))
 
 (defn- enabled
   [req]

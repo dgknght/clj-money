@@ -27,7 +27,7 @@
   (-> req
       extract-criteria
       (+scope :lot authenticated)
-      (entities/select {:sort [[:lot/purchase-date :asc]]})
+      (entities/select :sort [[:lot/purchase-date :asc]])
       api/response))
 
 (def routes

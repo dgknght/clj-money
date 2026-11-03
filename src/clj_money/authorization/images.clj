@@ -14,9 +14,8 @@
 (defn- granted-through?
   [image user action [attr resource-type]]
   (when-let [entity (entities/find-by
-                      (util/entity-type
-                        {attr image}
-                        :entity))]
+                      {attr image}
+                      :entity-type :entity)]
     (user-granted-access? (util/entity-type {} resource-type)
                           entity
                           user

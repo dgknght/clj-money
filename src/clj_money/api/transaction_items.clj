@@ -24,10 +24,10 @@
                [:transaction-item/account]
                (fn [id]
                  [:in (map :id (entities/select
-                                 (util/entity-type {:id id}
-                                                  :account)
-                                 {:include-children? true
-                                  :select [:id]}))]))
+                                 {:id id}
+                                 :entity-type :account
+                                 :include-children? true
+                                 :select [:id]))]))
 
     criteria))
 
@@ -187,7 +187,7 @@
                                    :transaction/transaction-date [:<= as-of]}
                                   :transaction-item
                                   authenticated)
-                          {:sort [[:transaction-item/index :desc]]}))
+                          :sort [[:transaction-item/index :desc]]))
       0M))
 
 (defn- apply-balances
@@ -209,7 +209,7 @@
         summaries (->> (entities/select (+scope criteria
                                                 :transaction-item
                                                 authenticated)
-                                        {:select-also [:transaction/transaction-date]})
+                                        :select-also [:transaction/transaction-date])
                        trx-items/polarize-quantities
                        (summarize-items (assoc (extract-summary-options req)
                                                :since since

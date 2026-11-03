@@ -61,7 +61,7 @@
                               :value 0M
                               :entity (select-keys entity [:id])}]]
       (is (seq-of-maps-like? expected (entities/select #:account{:entity entity}
-                                                       {:sort [:account/name]}))
+                                                       :sort [:account/name]))
           "It returns the accounts for the entity"))))
 
 (def ^:private nested-context
@@ -101,7 +101,7 @@
   (with-context nested-context
     (is (= #{"Savings" "Reserve" "Car" "Doug" "Eli"}
            (->> (entities/select {:account/name "Savings"}
-                                 {:include-children? true})
+                                 :include-children? true)
                 (map :account/name)
                 set)))))
 
@@ -109,7 +109,7 @@
   (with-context nested-context
     (is (= #{"Savings" "Car" "Eli"}
            (->> (entities/select {:account/name "Eli"}
-                                 {:include-parents? true})
+                                 :include-parents? true)
                 (map :account/name)
                 set)))))
 

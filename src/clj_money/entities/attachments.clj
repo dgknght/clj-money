@@ -3,7 +3,6 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [dgknght.app-lib.core :refer [fmin]]
-            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.propagation :as prop]))
 
@@ -24,10 +23,10 @@
 (defn- find-trx
   [{:attachment/keys [transaction transaction-date]}]
   (entities/find-by
-    (cond-> (util/entity-type {:id (:id transaction)}
-                             :transaction)
+    (cond-> {:id (:id transaction)}
       transaction-date (assoc :transaction/transaction-date
-                              transaction-date))))
+                              transaction-date))
+    :entity-type :transaction))
 
 (defn- adjust-trx
   [att f]
@@ -54,9 +53,8 @@
              (:entity/name entity))
   (when-let [attachments (seq
                            (entities/select
-                             (util/entity-type
-                               {:transaction/entity entity}
-                               :attachment)))]
+                             {:transaction/entity entity}
+                             :entity-type :attachment))]
     (let [updates (->> attachments
                        (group-by (comp :id :attachment/transaction))
                        (map #(update-in % [1] count))

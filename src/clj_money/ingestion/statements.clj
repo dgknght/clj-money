@@ -265,15 +265,14 @@
   already part of a completed reconciliation."
   [account {:keys [period-start period-end]}]
   (let [items (ents/select
-                (util/entity-type
-                  {:transaction-item/account (util/->entity-ref account)
-                   :transaction/transaction-date [:between
-                                                  (t/minus period-start
-                                                           (t/days match-window-days))
-                                                  period-end]}
-                  :transaction-item)
-                {:select-also [:transaction/description
-                               :transaction/transaction-date]})
+                {:transaction-item/account (util/->entity-ref account)
+                 :transaction/transaction-date [:between
+                                                (t/minus period-start
+                                                         (t/days match-window-days))
+                                                period-end]}
+                :entity-type :transaction-item
+                :select-also [:transaction/description
+                              :transaction/transaction-date])
         completed? (if-let [ids (->> items
                                      (keep (comp :id :transaction-item/reconciliation))
                                      set
@@ -394,7 +393,7 @@
   [account]
   (ents/find-by #:reconciliation{:account (util/->entity-ref account)
                                  :status :completed}
-                {:sort [[:reconciliation/end-of-period :desc]]}))
+                :sort [[:reconciliation/end-of-period :desc]]))
 
 (defn release-items
   "Removes the items from the account's reconciliation in progress, if any,

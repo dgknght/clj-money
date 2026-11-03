@@ -32,7 +32,7 @@
 (s/def ::entity-ref (s/keys :req-un [::id]))
 
 (defmulti prepare-criteria util/entity-type-dispatch)
-(defmethod prepare-criteria :default [m] m)
+(defmethod prepare-criteria :default [m & _] m)
 
 (defmulti before-validation util/entity-type-dispatch)
 (defmethod before-validation :default [m & _] m)
@@ -84,25 +84,35 @@
   (vary-meta entity assoc ::before entity))
 
 (defn select
-  ([criteria] (select criteria {}))
-  ([criteria options]
-   (map (comp append-before
-              #(after-read* % options))
-        (db/select (db/storage)
-                   (prepare-criteria criteria)
-                   options))))
+  "Returns the entities matching the criteria.
+
+  Options:
+  :entity-type - The type of entity to select, when it can't be inferred
+                 from the criteria
+  :sort        - A sequence of attributes, or [attribute direction] tuples
+  :limit       - The maximum number of entities to return
+
+  Other options are passed through to the storage implementation."
+  [criteria & {:as opts}]
+  (map (comp append-before
+             #(after-read* % opts))
+       (db/select (db/storage)
+                  (prepare-criteria criteria opts)
+                  opts)))
 
 (defn count
-  ([criteria] (count criteria {}))
-  ([criteria opts]
-   (db/select (db/storage)
-              criteria
-              (assoc opts :count true))))
+  "Returns the number of entities matching the criteria. Accepts the same
+  options as select."
+  [criteria & {:as opts}]
+  (db/select (db/storage)
+             criteria
+             (assoc opts :count true)))
 
 (defn find-by
-  ([criteria] (find-by criteria {}))
-  ([criteria options]
-   (first (select criteria (assoc options :limit 1)))))
+  "Returns the first entity matching the criteria. Accepts the same options
+  as select."
+  [criteria & {:as opts}]
+  (first (select criteria (assoc opts :limit 1))))
 
 (defn- db-find
   [id]
@@ -110,7 +120,7 @@
 
 (defn find
   "Return the entity having the specified ID"
-  [id-or-entity & [opts]]
+  [id-or-entity & {:as opts}]
   (some-> id-or-entity
           util/->id
           db/unserialize-id
@@ -119,7 +129,7 @@
 
 (defn find-many
   "Returns the entities having the specified IDs"
-  [ids-or-entities & [opts]]
+  [ids-or-entities & {:as opts}]
   (->> ids-or-entities
        util/->id
        db/unserialize-id

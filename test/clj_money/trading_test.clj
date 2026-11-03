@@ -415,7 +415,7 @@
                                     :purchase-price 20M}]
                              (entities/select #:lot{:commodity commodity
                                                   :account ira}
-                                            {:sort [[:lot/purchase-date :asc]]}))
+                                              :sort [[:lot/purchase-date :asc]]))
           "Shares are sold from the most recent lot"))))
 
 (deftest fifo-sale
@@ -436,7 +436,7 @@
                    :purchase-price 20M}]
             (entities/select #:lot{:commodity commodity
                                    :account ira}
-                             {:sort [[:lot/purchase-date :asc]]}))
+                             :sort [[:lot/purchase-date :asc]]))
           "Shares are sold from the earliest lot"))))
 
 (deftest sell-from-multiple-lots-aggregates-the-description

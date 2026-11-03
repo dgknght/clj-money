@@ -644,9 +644,8 @@
 (defn- process-reconciliations
   [{:keys [entity accounts] :as ctx} out-chan]
   (let [reconciliations (entities/select
-                          (util/entity-type
-                            {:account/entity entity}
-                            :reconciliation))
+                          {:account/entity entity}
+                          :entity-type :reconciliation)
         ch (a/promise-chan)]
     (a/thread
       (try

@@ -103,9 +103,8 @@
   [{:reconciliation/keys [status] :as recon}]
   (when (= :completed status)
     (some->> (entities/select
-               (util/entity-type
-                 {:transaction-item/reconciliation (util/->entity-ref recon)}
-                 :transaction))
+               {:transaction-item/reconciliation (util/->entity-ref recon)}
+               :entity-type :transaction)
              (filter #(= :pending (:transaction/review-status %)))
              (map #(assoc % :transaction/review-status :accepted))
              seq

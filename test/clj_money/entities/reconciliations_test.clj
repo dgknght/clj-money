@@ -117,7 +117,7 @@
           checking-items (entities/select
                            {:transaction-item/account checking
                             :transaction-item/quantity [:!= 45M]}
-                           {:select-also [:transaction/transaction-date]})]
+                           :select-also [:transaction/transaction-date])]
 
       (assert-created (assoc (attributes)
                              :reconciliation/items checking-items
@@ -540,11 +540,10 @@
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
                        :items (entities/select
-                                (util/entity-type
-                                  {:transaction/transaction-date (t/local-date 2017 1 1)
-                                   :transaction-item/quantity 1000M
-                                   :account/name "Checking"}
-                                  :transaction-item)) }
+                                {:transaction/transaction-date (t/local-date 2017 1 1)
+                                 :transaction-item/quantity 1000M
+                                 :account/name "Checking"}
+                                :entity-type :transaction-item) }
       {:reconciliation/items ["No item can belong to another reconciliation"]})))
 
 (dbtest a-working-reconciliation-can-be-updated
@@ -597,8 +596,8 @@
                              identity)
                  (entities/select
                    (-> checking entities/find acts/->criteria)
-                   {:sort [:transaction/transaction-date]
-                    :select-also [:transaction/transaction-date]})))
+                   :sort [:transaction/transaction-date]
+                   :select-also [:transaction/transaction-date])))
           "The retrieved transaction items have the new reconciliation reference"))))
 
 (dbtest cannot-create-a-completed-out-of-balance-reconciliation

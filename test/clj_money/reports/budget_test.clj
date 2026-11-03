@@ -16,7 +16,7 @@
 (deftest create-a-budget-report
   (with-context fixtures/budget-context
     (let [report (budget/report (entities/find-by {:budget/name "2016"}
-                                                {:include #{:budget/items}})
+                                                  :include #{:budget/items})
                                 {:as-of (t/local-date 2016 2 29)})]
       (is (= (:title fixtures/expected-budget-report)
              (:title report))
@@ -29,7 +29,7 @@
 (deftest create-a-budget-report-grouped-by-tags
   (with-context fixtures/budget-context
     (let [report (budget/report (entities/find-by {:budget/name "2016"}
-                                                {:include #{:budget/items}})
+                                                  :include #{:budget/items})
                                 {:as-of (t/local-date 2016 2 29)
                                  :tags [:tax :mandatory :discretionary]})]
       (is (= (:title fixtures/expected-budget-report-by-tag)
@@ -72,7 +72,7 @@
 (deftest create-a-budget-report-when-an-income-account-has-a-group-tag
   (with-context tagged-income-account-context
     (let [report (budget/report (entities/find-by {:budget/name "2016"}
-                                                {:include #{:budget/items}})
+                                                  :include #{:budget/items})
                                 {:as-of (t/local-date 2016 2 29)
                                  :tags [:tax :investment :mandatory :discretionary]})
           by-caption (->> (:items report)

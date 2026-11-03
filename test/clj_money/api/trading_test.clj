@@ -97,7 +97,7 @@
          parse-body)
      (entities/select #:transaction{:entity entity
                                     :transaction-date (t/local-date 2016 3 2)}
-                      {:order-by [:transaction/created-at]})]))
+                      :order-by [:transaction/created-at])]))
 
 (defn- assert-successful-purchase
   [[{:as response :keys [parsed-body]} retrieved]

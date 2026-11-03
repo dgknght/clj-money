@@ -127,7 +127,7 @@
   (let [{ancestors false
          accounts true} (group-by #(id= commodity (:account/commodity %))
                                   (entities/select {:account/commodity commodity}
-                                                 {:include-parents? true}))]
+                                                   :include-parents? true))]
 
     (if accounts
       (map (extract-ancestors (index-by :id (or ancestors []))) ; TODO: Change index-by to allow nil

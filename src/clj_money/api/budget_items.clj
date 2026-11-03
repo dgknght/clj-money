@@ -35,15 +35,10 @@
 
 (defn- create
   [{:keys [authenticated params] :as req}]
-  (if-let [budget (authorize
-                    (entities/find-by
-                      (+scope (util/entity-type {:id (:budget-id params)}
-                                               :budget)
-                              :budget
-                              authenticated
-                              ::auth/manage))
-                    ::auth/update
-                    authenticated)]
+  (if-let [budget (-> {:id (:budget-id params)}
+                      (+scope :budget authenticated ::auth/manage)
+                      (entities/find-by :entity-type :budget)
+                      (authorize ::auth/update authenticated))]
     (-> req
         extract-item
         (assoc :budget-item/budget budget)
@@ -53,11 +48,9 @@
 
 (defn- find-item
   [{:keys [params authenticated]}]
-  (entities/find-by (+scope (util/entity-type {:id (:id params)}
-                                           :budget-item)
-                          :budget-item
-                          authenticated
-                          ::auth/manage)))
+  (-> {:id (:id params)}
+      (+scope :budget-item authenticated ::auth/manage)
+      (entities/find-by :entity-type :budget-item)))
 
 (defn- update
   [{:as req :keys [authenticated]}]

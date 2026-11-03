@@ -244,8 +244,8 @@
   ; order, so it's sufficient on its own to sort items most-recent-first --
   ; :select-also is still needed, though, since callers use the date itself.
   (entities/select (acts/->criteria account options)
-                   {:sort [[:transaction-item/index :desc]]
-                    :select-also [:transaction/transaction-date]}))
+                   :sort [[:transaction-item/index :desc]]
+                   :select-also [:transaction/transaction-date]))
 
 (def ^:dynamic *search-result-limit* 100)
 (def ^:dynamic *item-scan-limit* 500)
@@ -316,10 +316,11 @@
   other entities/select options (:include-items?, :select-also, etc.)
   are passed through as-is."
   [criteria default-limit options]
-  (entities/select (util/entity-type (strip-item-criteria criteria) :transaction)
+  (entities/select (strip-item-criteria criteria)
                    (merge {:sort [[:transaction/transaction-date :desc]]
                            :limit default-limit}
-                          options)))
+                          options
+                          {:entity-type :transaction})))
 
 (defn- search-by-item
   "Finds transactions matching both :transaction/* criteria (entity,
@@ -348,8 +349,9 @@
   search's docstring)."
   [criteria options]
   (let [trxs (date-scoped-transactions criteria *item-scan-limit* (dissoc options :limit))
-        matching-trx-ids (->> (entities/select (util/entity-type (item-criteria criteria) :transaction-item)
-                                               {:select-also [:transaction-item/transaction]})
+        matching-trx-ids (->> (entities/select (item-criteria criteria)
+                                               :entity-type :transaction-item
+                                               :select-also [:transaction-item/transaction])
                               (map (comp :id :transaction-item/transaction))
                               set)]
     (filter (comp matching-trx-ids :id) trxs)))
@@ -405,22 +407,20 @@
   them re-indexes the items that follow them."
   [account date]
   (entities/find-by
-    (util/entity-type
-      {:transaction-item/account account
-       :transaction-item/index [:!= nil]
-       :transaction/transaction-date [:< date]}
-      :transaction-item)
-    {:sort [[:transaction-item/index :desc]]}))
+    {:transaction-item/account account
+     :transaction-item/index [:!= nil]
+     :transaction/transaction-date [:< date]}
+    :entity-type :transaction-item
+    :sort [[:transaction-item/index :desc]]))
 
 (defn last-transaction-item-on-or-before
   [{:as account :account/keys [transaction-date-range]} date]
   (when transaction-date-range
-    (entities/find-by (util/entity-type
-                        {:transaction-item/account account
-                         :transaction/transaction-date [:between
-                                                        (first transaction-date-range)
-                                                        date]}
-                        :transaction-item)
+    (entities/find-by {:transaction-item/account account
+                       :transaction/transaction-date [:between
+                                                      (first transaction-date-range)
+                                                      date]}
+                      :entity-type :transaction-item
                       ; :transaction-item/index is assigned per-account by
                       ; re-index in strict transaction-date order, so it
                       ; already reflects date order on its own -- no need to
@@ -428,7 +428,7 @@
                       ; as well. See #56: doing so previously required
                       ; :select-also, and a missing/stray value there could
                       ; make an older item outrank a truly more recent one.
-                      {:sort [[:transaction-item/index :desc]]})))
+                      :sort [[:transaction-item/index :desc]])))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
@@ -491,7 +491,7 @@
       (entities/find-by
         {:price/commodity commodity
          :price/trade-date (apply vector :between price-date-range)}
-        {:sort [[:price/trade-date :desc]]}))))
+        :sort [[:price/trade-date :desc]]))))
 
 (defn- re-index
   "Given an account and a list of account items, take the index and balance
@@ -547,13 +547,12 @@
 
 (defn- transaction-items-on-or-after
   [account as-of]
-  (entities/select (util/entity-type
-                     {:transaction-item/account account
-                      :transaction/transaction-date [:>= as-of]}
-                     :transaction-item)
-                   {:sort [:transaction/transaction-date
-                           :transaction-item/index]
-                    :select-also [:transaction/transaction-date]}))
+  (entities/select {:transaction-item/account account
+                    :transaction/transaction-date [:>= as-of]}
+                   :entity-type :transaction-item
+                   :sort [:transaction/transaction-date
+                          :transaction-item/index]
+                   :select-also [:transaction/transaction-date]))
 
 (defn- propagate-transaction-items
   "Returns a function that takes a list of transaction items and returns the
@@ -745,10 +744,9 @@
   [{:as trx :keys [id]}]
   (when (util/live-id? id)
     (when-let [items (seq (entities/select
-                            (util/entity-type
-                              {:transaction/_self trx
-                               :transaction-item/reconciliation [:!= nil]}
-                              :transaction-item)))]
+                            {:transaction/_self trx
+                             :transaction-item/reconciliation [:!= nil]}
+                            :entity-type :transaction-item))]
       (let [completed (->> (entities/select
                              {:id [:in (->> items
                                             (map (comp :id :transaction-item/reconciliation))
@@ -782,9 +780,9 @@
   [account]
   (map #(assoc % :transaction-item/account account)
        (entities/select {:transaction-item/account account}
-                        {:sort [:transaction/transaction-date
-                                :transaction-item/index]
-                         :select-also [:transaction/transaction-date]})))
+                        :sort [:transaction/transaction-date
+                               :transaction-item/index]
+                        :select-also [:transaction/transaction-date])))
 
 (defn- process-transaction-items
   [account entity items]

@@ -61,14 +61,14 @@
   [token]
   (entities/find-by #:user{:password-reset-token token
                          :token-expires-at [:> (t/instant)]}
-                  {:include-password? true}))
+                    :include-password? true))
 
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
   needs to operate"
   [{:keys [username password]}]
-  (when-let [user (entities/find-by {:user/email username} {:include-password? true})]
+  (when-let [user (entities/find-by {:user/email username} :include-password? true)]
     (when (hashers/check password (:user/password user))
       (-> user
           (dissoc :user/password)

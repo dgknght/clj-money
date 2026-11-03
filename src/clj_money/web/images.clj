@@ -3,7 +3,6 @@
             [clojure.pprint :refer [pprint]]
             [ring.util.response :as res]
             [clj-money.authorization :as authorization]
-            [clj-money.util :as util]
             [clj-money.images :as images]
             [clj-money.images.sql]
             [clj-money.images.s3]
@@ -16,8 +15,7 @@
   [{:keys [params authenticated]}]
   (when-let [image (some-> params
                            (select-keys [:id])
-                           (util/entity-type :image)
-                           entities/find-by)]
+                           (entities/find-by :entity-type :image))]
     (when (authorization/allowed? image ::authorization/show authenticated)
       image)))
 

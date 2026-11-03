@@ -235,7 +235,7 @@
   (with-context
     (let [[response] (create-ingestion "jane@doe.com")]
       (is (http-not-found? response))
-      (is (empty? (entities/select (util/entity-type {} :receipt-ingestion)))
+      (is (empty? (entities/select {} :entity-type :receipt-ingestion))
           "No receipt-ingestion is created"))))
 
 (def ^:private ingestion-context

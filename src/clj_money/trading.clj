@@ -537,11 +537,11 @@
          :trade/lots (entities/select #:lot{:commodity commodity
                                           :account account
                                           :shares-owned [:!= 0M]}
-                                    {:sort [[:lot/purchase-date
-                                             (if (= :lifo (or inventory-method
-                                                              (:settings/inventory-method entity)))
-                                               :desc
-                                               :asc)]]})))
+                                      :sort [[:lot/purchase-date
+                                              (if (= :lifo (or inventory-method
+                                                               (:settings/inventory-method entity)))
+                                                :desc
+                                                :asc)]])))
 
 (defn- process-lot-sale
   [{:as trade :trade/keys [price commodity]}
@@ -687,13 +687,12 @@
 (defn unsell
   [trx & {:as opts}]
   (let [lot-items (entities/select
-                    (util/entity-type {:transaction/_self trx}
-                                      :lot-item))
+                    {:transaction/_self trx}
+                    :entity-type :lot-item)
         lots (index-by :id
-                       (entities/select (util/entity-type
-                                          {:id [:in (map (comp :id :lot-item/lot)
-                                                         lot-items)]}
-                                          :lot)))
+                       (entities/select {:id [:in (map (comp :id :lot-item/lot)
+                                                       lot-items)]}
+                                        :entity-type :lot))
         updated-lots (vals (reduce (fn [lots lot-item]
                                      (update-in lots
                                                 [(get-in lot-item [:lot-item/lot :id])
@@ -711,7 +710,7 @@
   or an empty vector for a transaction that isn't part of a trade.
   A vector, because unbuy relies on indexed get-in access."
   [trx]
-  (vec (entities/select (util/entity-type {:transaction/_self trx} :lot-item))))
+  (vec (entities/select {:transaction/_self trx} :entity-type :lot-item)))
 
 (defn delete-transaction
   "Deleting a transaction that is part of a trade must also undo the trade
@@ -747,7 +746,7 @@
   (let [lots (->> (entities/select #:lot{:commodity commodity
                                        :account from-account
                                        :shares-owned [:> 0M]}
-                                 {:sort [:lot/purchase-date]})
+                                   :sort [:lot/purchase-date])
                   (reduce (fn [acc {:lot/keys [shares-owned] :as lot}]
                             (if (>= (:shares acc) shares)
                               (reduced acc)

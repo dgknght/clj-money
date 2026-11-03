@@ -2,7 +2,6 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [index-by]]
-            [clj-money.util :as util]
             [clj-money.accounts :refer [polarize-quantity]]
             [clj-money.entities :as entities]))
 
@@ -37,6 +36,5 @@
       full
       (when (seq abbr)
         (entities/select
-          (util/entity-type
-            {:id [:in (map :id abbr)]}
-            :transaction-item))))))
+          {:id [:in (map :id abbr)]}
+          :entity-type :transaction-item)))))
