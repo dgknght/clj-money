@@ -29,6 +29,7 @@
                  :dbtype "postgresql"
                  :dbname :config/sql-db-name}
  :prices {:clj-money.prices/provider :clj-money.prices.mock/mock}
+ :mailbox-key "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
  :mailer-enabled? true
  :mailer-from "no-reply@clj-money.com"
  :mailer-host "testmailer.com"

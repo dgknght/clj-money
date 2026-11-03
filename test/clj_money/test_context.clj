@@ -177,6 +177,13 @@
      (find context #(and (= :statement-ingestion (util/entity-type %))
                          (id= entity (:statement-ingestion/entity %)))))))
 
+(defn find-mailbox
+  ([entity-name] (find-mailbox *context* entity-name))
+  ([context entity-name]
+   (let [entity (find-entity context entity-name)]
+     (find context #(and (= :mailbox (util/entity-type %))
+                         (id= entity (:mailbox/entity %)))))))
+
 (defn find-image
   ([arg]
    (if (string? arg)
@@ -406,6 +413,10 @@
                                                     (find-image ctx)))
       (update-in-if [:statement-ingestion/account] (comp util/->entity-ref
                                                          #(find-account ctx %)))))
+
+(defmethod prepare :mailbox
+  [mailbox ctx]
+  (update-in mailbox [:mailbox/entity] (find-entity ctx)))
 
 (defmethod prepare :grant
   [attr ctx]

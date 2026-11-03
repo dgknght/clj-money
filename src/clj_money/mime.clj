@@ -6,7 +6,7 @@
   (:import java.io.ByteArrayInputStream
            java.util.Properties
            [jakarta.mail Multipart Part Session]
-           [jakarta.mail.internet ContentType MimeMessage]
+           [jakarta.mail.internet ContentType InternetAddress MimeMessage]
            org.jsoup.Jsoup))
 
 (defn message?
@@ -38,18 +38,27 @@
       (.getFileName part) (assoc :filename (.getFileName part))
       (seq (.getHeader part "Content-ID")) (assoc :embedded? true))))
 
+(defn- sender-address
+  [address]
+  (str/lower-case (if (instance? InternetAddress address)
+                    (.getAddress ^InternetAddress address)
+                    (str address))))
+
 (defn parse
-  "Returns the message's :subject, :from (the senders' addresses, as
-  strings), and :parts, each part that holds content with its :mime-type
-  (e.g., \"text/plain\") and its :content, a string for a text part, and
-  bytes for any other, and its :filename, if it has one. A part with a
-  Content-ID, which the HTML body can display (e.g., a logo), is
+  "Returns the message's :subject, :message-id, :from (the senders, as
+  strings, e.g., \"Store <receipts@store.com>\"), :senders (just their
+  addresses, in lower case), and :parts, each part that holds content with
+  its :mime-type (e.g., \"text/plain\") and its :content, a string for a
+  text part, and bytes for any other, and its :filename, if it has one. A
+  part with a Content-ID, which the HTML body can display (e.g., a logo), is
   :embedded?."
   [^bytes content]
   (let [message (MimeMessage. (Session/getInstance (Properties.))
                               (ByteArrayInputStream. content))]
     {:subject (.getSubject message)
+     :message-id (.getMessageID message)
      :from (mapv str (.getFrom message))
+     :senders (mapv sender-address (.getFrom message))
      :parts (mapv ->part (leaf-parts message))}))
 
 (def ^:private block-elements

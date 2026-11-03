@@ -408,6 +408,31 @@ information rather than an error.
   cached accounts to load before opening the register
   (`open-pending-transaction`). The register's transaction form has Delete
   (`views.transactions/delete-edited-transaction`)
+- Mailbox polling (issue #180, PR 3): an entity's receipts can be emailed to
+  a mailbox the app checks over IMAPS.
+  - `mailbox` entity (one per entity, unique `entity_id`): host, port,
+    username, password, folder, allowed senders (edn), and the poll state
+    (`uid-validity`, `last-uid`, `checked-at`, `error`). The password is
+    encrypted with `clj-money.crypto` (AES-GCM) using `:mailbox-key` from
+    the config (in `services/config`); `api/mailboxes.clj` encrypts it on
+    save (a blank one keeps the saved one) and never returns it. Only the
+    entity's owner can manage it: no grant type covers it. Changing the
+    host, username or folder forgets `last-uid`.
+  - `ingestion/mail.clj`: `MailClient` (`imap-client` in production, stubbed
+    in tests) and `check-mailbox`. The first check reads the folder's
+    unread messages; later ones read UIDs after `last-uid` (or unread ones
+    again if UIDVALIDITY changed). A message from a sender not allowed is
+    left alone; a Message-ID already on a receipt-ingestion is only marked
+    read; others are saved as a `message/rfc822` image and read through
+    `ingestion/receipt_processing.clj` (`process`, shared with uploads), then
+    marked read. `receipt-ingestion/message-id` is unique per entity in SQL.
+  - `::ing/mail-poller` component: a scheduled executor, off unless
+    `:mail-poller {:enabled? true :interval-minutes n}` is configured. It
+    binds the storage, publisher and image storage itself, as it runs
+    outside a request.
+  - `views/ingestion_settings.cljs` has the Mailbox section of the receipt
+    settings drawer (`api/mailboxes.cljs`), with the last check's time or
+    error
 - `pending_review.cljs` - `load-count` sets `state/pending-review-count`,
   shown as the badge on the Receipts nav item. It's loaded by
   `app/watch-entity` when the entity changes, by `app/receive-entities` when

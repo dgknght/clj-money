@@ -289,6 +289,8 @@
                                  {:id :failure-reason
                                   :type :keyword}
                                  {:id :rejection-reason
+                                  :type :string}
+                                 {:id :message-id
                                   :type :string}}
                        :refs #{:entity
                                :image
@@ -306,7 +308,28 @@
                          ; one through its account
                          :refs #{:entity
                                  :image
-                                 :account}}})
+                                 :account}}
+   :mailbox {:fields #{{:id :host
+                        :type :string}
+                       {:id :port
+                        :type :integer}
+                       {:id :username
+                        :type :string}
+                       {:id :password
+                        :type :string}
+                       {:id :folder
+                        :type :string}
+                       {:id :allowed-senders
+                        :type :string}
+                       {:id :uid-validity
+                        :type :integer}
+                       {:id :last-uid
+                        :type :integer}
+                       {:id :checked-at
+                        :type :date-time}
+                       {:id :error
+                        :type :string}}
+             :refs #{:entity}}})
 
 (assert (s/valid? ::entities entities)
         "The schema is not valid")

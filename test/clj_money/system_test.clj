@@ -29,6 +29,8 @@
                     :ingestion {:model "model-x"}
                     :monitor-cache {:ttl-minutes 5}
                     :report-cache {:ttl-minutes 10}
+                    :mail-poller {:enabled? true
+                                  :interval-minutes 3}
                     :prices {:api-key "price-api-key"}
                     :progress {:strategies {:redis {:prefix "test"}}
                                :active :redis}}]
@@ -44,6 +46,13 @@
             ::images/storage {:bucket "test-images"}
             ::ing/receipt-reader {:model "model-x"}
             ::ing/statement-reader {:model "model-x"}
+            ::ing/mail-poller {:reader (ig/ref ::ing/receipt-reader)
+                               :services (ig/ref ::services/config)
+                               :storage (ig/ref ::db/storage)
+                               :publisher (ig/ref ::entities/publisher)
+                               :image-storage (ig/ref ::images/storage)
+                               :enabled? true
+                               :interval-minutes 3}
             ::progress/tracker-factory {:prefix "test"}
             ::prices/provider {:api-key "price-api-key"}
             ::services/config (services/config app-config)

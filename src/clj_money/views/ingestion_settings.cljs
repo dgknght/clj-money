@@ -1,8 +1,10 @@
 (ns clj-money.views.ingestion-settings
   "The off-canvas drawer in which the user edits the entity settings
-  used to read receipt images."
+  used to read receipt images, and the mailbox checked for emailed
+  receipts."
   (:require [clojure.string :as string]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.web :refer [format-date-time]]
             [clj-money.util :as util]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
@@ -12,7 +14,8 @@
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
-            [clj-money.api.entities :as entities]))
+            [clj-money.api.entities :as entities]
+            [clj-money.api.mailboxes :as mailboxes]))
 
 (defn- ->draft
   "Extracts the settings to be edited from the entity."
@@ -35,13 +38,96 @@
                                           (remove string/blank?)
                                           vec)))
 
+(def ^:private new-mailbox
+  #:mailbox{:port 993
+            :folder "INBOX"})
+
+(defn- ->mailbox-draft
+  [mailbox]
+  (-> (merge new-mailbox mailbox)
+      (update-in [:mailbox/allowed-senders] #(string/join "\n" %))))
+
+(defn- <-mailbox-draft
+  [mailbox]
+  (update-in mailbox
+             [:mailbox/allowed-senders]
+             ; one sender per line
+             #(->> (string/split-lines (or % ""))
+                   (map string/trim)
+                   (remove string/blank?)
+                   vec)))
+
+(defn- load-mailbox
+  [draft]
+  (mailboxes/select
+    :on-success #(swap! draft assoc :mailbox (->mailbox-draft (first %)))))
+
+(defn- save-mailbox
+  "Saves the mailbox, if one has been set up or is being set up"
+  [{{:keys [id] :mailbox/keys [host] :as mailbox} :mailbox}]
+  (when (or id (not (string/blank? host)))
+    (+busy)
+    (mailboxes/save (<-mailbox-draft mailbox)
+                    :callback -busy)))
+
 (defn- save
   [draft]
   (let [updated (<-draft @current-entity @draft)]
     (+busy)
     (entities/save updated
                    :callback -busy
-                   :on-success #(reset! current-entity updated))))
+                   :on-success #(reset! current-entity updated))
+    (save-mailbox @draft)))
+
+(defn- remove-mailbox
+  [draft]
+  (when (js/confirm "Are you sure you want to stop reading receipts from this mailbox?")
+    (+busy)
+    (mailboxes/delete (:mailbox @draft)
+                      :callback -busy
+                      :on-success #(swap! draft assoc :mailbox (->mailbox-draft nil)))))
+
+(defn- mailbox-status
+  [{:mailbox/keys [checked-at error]}]
+  (cond
+    error [:div.alert.alert-danger.py-2 "The last check failed: " error]
+    checked-at [:div.form-text.mb-2 "Last checked " (format-date-time checked-at)]))
+
+(defn- mailbox-section
+  "Renders the fields for the mailbox checked for emailed receipts"
+  [draft]
+  (let [mailbox (get-in @draft [:mailbox])]
+    [:<>
+     [:h4.mt-4 "Mailbox"]
+     [:p.form-text
+      "Receipts sent to this mailbox are read every few minutes, and wait for your review. "
+      "Use an app password, and a folder or label just for receipts."]
+     (when (:id mailbox)
+       [mailbox-status mailbox])
+     [forms/text-field draft [:mailbox :mailbox/host] {:caption "IMAP Server"
+                                                        :html {:placeholder "imap.gmail.com"}}]
+     [forms/integer-field draft [:mailbox :mailbox/port] {:caption "Port"}]
+     [forms/text-field draft [:mailbox :mailbox/username] {:caption "User Name"
+                                                            :html {:auto-complete "off"}}]
+     [forms/text-field draft [:mailbox :mailbox/password]
+      {:caption "Password"
+       :type :password
+       :html {:auto-complete "new-password"
+              :placeholder (when (:id mailbox) "Unchanged")}}]
+     [forms/text-field draft [:mailbox :mailbox/folder] {:caption "Folder"}]
+     [:div.mb-3
+      [:label.form-label {:for "mailbox-allowed-senders"} "Allowed Senders"]
+      [forms/textarea-elem draft [:mailbox :mailbox/allowed-senders]
+       {:html {:rows 3
+               :id "mailbox-allowed-senders"
+               :placeholder "receipts@store.com\n@example.com"}}]
+      [:div.form-text "Only messages from these addresses, or domains starting with @, one per line, are read. Leave it empty to read every message."]]
+     (when (:id mailbox)
+       [:button.btn.btn-sm.btn-outline-danger.mb-3
+        {:type :button
+         :title "Click here to stop reading receipts from this mailbox."
+         :on-click #(remove-mailbox draft)}
+        (icon-with-text :x-circle "Remove Mailbox" :size :small)])]))
 
 (defn- account-path
   [{:keys [id]}]
@@ -102,7 +188,10 @@
     :data-bs-target (str "#" id)
     :aria-controls id
     :title "Click here to change how receipt images are read."
-    :on-click #(reset! draft (->draft @current-entity))}
+    :on-click (fn []
+                (reset! draft (assoc (->draft @current-entity)
+                                     :mailbox (->mailbox-draft nil)))
+                (load-mailbox draft))}
    (icon :gear :size :small)])
 
 (defn drawer
@@ -129,6 +218,7 @@
         [:label.form-label {:for "expense-hints"} "Expense Hints"]
         [forms/textarea-elem draft [:expense-hints] {:html {:rows 6}}]
         [:div.form-text "Guidelines for choosing expense accounts, one per line."]]
+       [mailbox-section draft]
        [:div.mt-3
         [:button.btn.btn-primary
          {:type :button

@@ -44,6 +44,10 @@
   [{:statement-ingestion/keys [entity]}]
   (fetch-entity* entity))
 
+(defmethod fetch-entity :mailbox
+  [{:mailbox/keys [entity]}]
+  (fetch-entity* entity))
+
 (defmethod fetch-entity :budget
   [{:budget/keys [entity]}]
   (fetch-entity* entity))

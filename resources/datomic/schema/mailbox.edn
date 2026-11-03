@@ -1,0 +1,44 @@
+[{:db/ident :mailbox/entity
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The entity whose receipts are sent to the mailbox"}
+ {:db/ident :mailbox/host
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The IMAP server's host"}
+ {:db/ident :mailbox/port
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "The IMAP server's port (IMAPS)"}
+ {:db/ident :mailbox/username
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user name to sign in with"}
+ {:db/ident :mailbox/password
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The password to sign in with, encrypted (see clj-money.crypto)"}
+ {:db/ident :mailbox/folder
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The folder (or Gmail label) checked for receipts"}
+ {:db/ident :mailbox/allowed-senders
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The addresses or domains whose messages are read, serialized as edn; any sender's when empty"}
+ {:db/ident :mailbox/uid-validity
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "The folder's UIDVALIDITY when it was last checked"}
+ {:db/ident :mailbox/last-uid
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "The UID of the last message seen in the folder"}
+ {:db/ident :mailbox/checked-at
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "When the folder was last checked"}
+ {:db/ident :mailbox/error
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "Why the last check failed, if it did"}]

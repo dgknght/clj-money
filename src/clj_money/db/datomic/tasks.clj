@@ -34,6 +34,7 @@
            "invitation"
            "receipt_ingestion"
            "statement_ingestion"
+           "mailbox"
            "tx_meta"]))
 
 (defn apply-schema

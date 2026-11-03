@@ -21,6 +21,7 @@
             [clj-money.services :as services]
             [clj-money.ingestion :as ingestion]
             [clj-money.ingestion.reader]
+            [clj-money.ingestion.mail]
             [clj-money.ingestion.ref]
             [clj-money.web :as-alias web]
             [clj-money.web.handler]
@@ -65,6 +66,12 @@
     ::services/config (services/config env)
     ::ingestion/receipt-reader (:ingestion env)
     ::ingestion/statement-reader (:ingestion env)
+    ::ingestion/mail-poller (merge {:reader (ig/ref ::ingestion/receipt-reader)
+                                    :services (ig/ref ::services/config)
+                                    :storage (ig/ref ::db/storage)
+                                    :publisher (ig/ref ::entities/publisher)
+                                    :image-storage (ig/ref ::images/storage)}
+                                   (:mail-poller env))
     ::web/handler {:env (ig/ref ::env)
                    :storage (ig/ref ::db/storage)
                    :publisher (ig/ref ::entities/publisher)

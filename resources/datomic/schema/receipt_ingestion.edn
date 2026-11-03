@@ -29,4 +29,8 @@
  {:db/ident :receipt-ingestion/rejection-reason
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
-  :db/doc "Why the user rejected the transaction created from the receipt"}]
+  :db/doc "Why the user rejected the transaction created from the receipt"}
+ {:db/ident :receipt-ingestion/message-id
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The Message-ID of the email the receipt was read from, so that it isn't read again"}]

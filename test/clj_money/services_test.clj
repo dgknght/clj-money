@@ -14,6 +14,7 @@
    :mailer-from "no-reply@example.com"
    :honeybadger-api-key "hb-key"
    :secret "jwt-secret"
+   :mailbox-key "mailbox-key"
    :google-client-id "google-id"
    :google-client-secret "google-secret"
    :github-client-id "github-id"
@@ -31,6 +32,7 @@
                   :honeybadger {:api-key "hb-key"
                                 :environment-name "production"}
                   :auth-secret "jwt-secret"
+                  :mailbox-key "mailbox-key"
                   :oauth {:google {:client-id "google-id"
                                    :client-secret "google-secret"}
                           :github {:client-id "github-id"

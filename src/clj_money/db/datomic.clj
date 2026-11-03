@@ -58,7 +58,8 @@
     :user                  '[?x :user/email ?user-email]
     :invitation            '[?x :invitation/recipient ?invitation-recipient]
     :receipt-ingestion     '[?x :receipt-ingestion/status ?receipt-ingestion-status]
-    :statement-ingestion   '[?x :statement-ingestion/status ?statement-ingestion-status]))
+    :statement-ingestion   '[?x :statement-ingestion/status ?statement-ingestion-status]
+    :mailbox               '[?x :mailbox/host ?mailbox-host]))
 
 (defn- unbounded?
   [{:keys [where]}]
@@ -414,7 +415,8 @@
             :grant/entity
             :budget/entity
             :receipt-ingestion/entity
-            :statement-ingestion/entity]
+            :statement-ingestion/entity
+            :mailbox/entity]
    :commodity [:price/commodity
                :lot/commodity]
    :account [:reconciliation/account

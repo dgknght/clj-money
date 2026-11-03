@@ -19,4 +19,5 @@
             clj-money.entities.budget-items
             clj-money.entities.invitations
             clj-money.entities.receipt-ingestions
-            clj-money.entities.statement-ingestions))
+            clj-money.entities.statement-ingestions
+            clj-money.entities.mailboxes))

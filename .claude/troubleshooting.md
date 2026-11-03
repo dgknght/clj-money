@@ -22,7 +22,13 @@ Run `lein clean` and then re-run the tests before investigating further.
 
 The `-sql` variants of tests error while `with-context` creates the entity.
 Like the `QualifiedID` assertion above, this has been caused by stale
-compiled output; `lein clean` fixed it.
+compiled output; `lein clean` fixed it. `lein clean` also deletes
+`resources/public/cljs-out`, which a running figwheel serves, so when the
+user has one running remove just the AOT output instead:
+`rm -rf target/classes target/stale`. (`clj-money.web.server` is AOT
+compiled, which compiles most of the app into `target/classes`, and those
+classes win over newer source, e.g. a stale `entities/schema` that doesn't
+know a new entity type.)
 
 ### `PSQLException: column "..." of relation "..." does not exist` in SQL tests
 

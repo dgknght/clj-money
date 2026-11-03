@@ -60,6 +60,7 @@
             [clj-money.api.receipt-ingestions :as receipt-ingestions-api]
             [clj-money.api.images :as images-api]
             [clj-money.api.statement-ingestions :as statement-ingestions-api]
+            [clj-money.api.mailboxes :as mailboxes-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
             [clj-money.web.apps :as apps]))
 
@@ -212,6 +213,7 @@
                  invitations-api/routes
                  receipt-ingestions-api/routes
                  statement-ingestions-api/routes
+                 mailboxes-api/routes
                  images-api/routes]]
                {:conflicts (fn [conflicts]
                              (log/warnf "The application has conflicting routes: %s"

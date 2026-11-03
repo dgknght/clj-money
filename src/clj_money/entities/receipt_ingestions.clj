@@ -13,6 +13,7 @@
 (s/def :receipt-ingestion/failure-reason (s/nilable #{:not-a-receipt}))
 (s/def :receipt-ingestion/transaction (s/nilable ::entities/entity-ref))
 (s/def :receipt-ingestion/rejection-reason (s/nilable string?))
+(s/def :receipt-ingestion/message-id (s/nilable string?))
 
 (defn- rejection-has-reason?
   [{:receipt-ingestion/keys [status rejection-reason]}]
@@ -28,7 +29,8 @@
                                                          :receipt-ingestion/error
                                                          :receipt-ingestion/failure-reason
                                                          :receipt-ingestion/transaction
-                                                         :receipt-ingestion/rejection-reason])
+                                                         :receipt-ingestion/rejection-reason
+                                                         :receipt-ingestion/message-id])
                                            rejection-has-reason?))
 
 ; The receipt read from the image is stored as edn, so it keeps its shape

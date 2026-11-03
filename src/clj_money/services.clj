@@ -34,6 +34,8 @@
    :honeybadger {:api-key (:honeybadger-api-key env)
                  :environment-name (if (:dev? env) "development" "production")}
    :auth-secret (:secret env)
+   ; encrypts the passwords of the mailboxes checked for receipts
+   :mailbox-key (:mailbox-key env)
    :oauth (oauth-config env)})
 
 (defmethod ig/init-key ::config

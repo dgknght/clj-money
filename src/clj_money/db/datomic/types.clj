@@ -69,6 +69,7 @@
    :settings/monitor-order read-string
    :settings/budget-tags read-string
    :transaction/created-at #(.toInstant ^java.util.Date %)
+   :mailbox/checked-at #(.toInstant ^java.util.Date %)
    :transaction/transaction-date dates/->local-date
    :scheduled-transaction/start-date dates/->local-date
    :scheduled-transaction/end-date dates/->local-date
