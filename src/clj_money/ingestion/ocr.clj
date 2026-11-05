@@ -5,31 +5,27 @@
   nil is returned for a receipt whose text can't be read, or that the model
   can't find the total in, so that another reader can read the image instead
   (see clj-money.ingestion.logic)."
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [clj-money.content-type :as ct]
+            [clj-money.io :refer [read-bytes]]
+            [clj-money.pdf :as pdf]
             [clj-money.ingestion :as ing]
-            [clj-money.ingestion.pdf :as pdf]
+            [clj-money.ingestion.pdf :as ing-pdf]
             [clj-money.ingestion.scale :as scale]
             [clj-money.shell :as shell])
   (:import java.io.IOException
            clojure.lang.ExceptionInfo))
 
-(defn- read-bytes
-  ^bytes [input]
-  (with-open [in (io/input-stream input)]
-    (.readAllBytes in)))
-
 (defn- pdf?
-  [^bytes content]
-  (and (<= 4 (alength content))
-       (= "%PDF" (String. content 0 4 "US-ASCII"))))
+  [content]
+  (= "application/pdf" (ct/sniff content)))
 
 (defn- image-text
   "Returns the text read from the image by the tesseract command. A small
   image is enlarged first, as Tesseract misreads text much less than about
   30 pixels high."
-  [^bytes image {:keys [command language psm min-image-dimension timeout-ms]
+  [image {:keys [command language psm min-image-dimension timeout-ms]
                  :or {command "tesseract"
                       language "eng"
                       ; a single column of text of varying sizes, as a
@@ -71,9 +67,9 @@
   "Returns the text of the receipt, read from the image, or, for a PDF, the
   text of the PDF or, if it has none (e.g., it was scanned from paper), the
   text read from images of its pages"
-  [^bytes content opts]
+  [content opts]
   (let [text (if (pdf? content)
-               (or (pdf/text content)
+               (or (ing-pdf/text content)
                    (->> (pdf/page-images content :dpi 300)
                         (map #(image-text % opts))
                         (str/join "\n")))

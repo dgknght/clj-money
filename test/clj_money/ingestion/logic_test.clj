@@ -1,6 +1,7 @@
 (ns clj-money.ingestion.logic-test
   (:require [clojure.test :refer [deftest is]]
             [clj-money.ingestion :as ing]
+            [clj-money.base64 :as base64]
             [clj-money.ingestion.base64 :as b64]
             [clj-money.ingestion.logic :as logic]
             [clj-money.ingestion.scale :as scale]
@@ -50,7 +51,7 @@
         (read-or nil {:total 2M})]
     (is (= {:total 2M} result)
         "The result of the next alternative is returned")
-    (is (= {:images [(b64/encode receipt)]} contents)
+    (is (= {:images [(base64/encode receipt)]} contents)
         "The alternative ends with the shared reader")
     (is (= "m" (:model opts))
         "The options are passed to the alternative")

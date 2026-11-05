@@ -334,13 +334,20 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   `::base64/base64` (`ingestion/base64.clj`) gives
   `{:images [base64 ...]}`, for the `:vision-model`, encoding the image as it
   is; configure it under `::scale/scale` (`ingestion/scale.clj`, which holds
-  `scale-image`, `:max-image-dimension` 1280 by default) to send the image
+  `shrink`, `:max-image-dimension` 1280 by default) to send the image
   scaled down. `ollama.clj` knows nothing of images beyond sending the
   base64 it's given, and refuses a receipt or PDF itself. Configure
   `::orient/orient` (`ingestion/orient.clj`) outside either, to turn a
   phone photo upright as its EXIF orientation tag says (read from the JPEG
   header by hand, without an EXIF library); neither Tesseract nor `ImageIO`
   applies the tag, so a sideways photo reads as nothing.
+  The decorators deal in bytes, strings and maps; the Java interop is kept
+  in wrapper namespaces (issue #278), as `clj-money.mime` keeps it for
+  email: `clj-money.images.transform` (EXIF `orientation`, `upright`,
+  `rescale`, with ImageIO and Java 2D), `clj-money.pdf` (`read-text`,
+  `page-images`, with PDFBox), `clj-money.content-type` (`sniff`, by the
+  leading bytes) and `clj-money.base64` (`encode`). Each decorator reads
+  its source with `clj-money.io/read-bytes`.
   `ollama/receipt-defaults` holds the models
 - Receipts can be uploaded as emails (`.eml`, issue #180).
   `::email/email` (`ingestion/email.clj`) is configured outermost. The
@@ -442,7 +449,7 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
 - `StatementReader/read-statement` - Gemini reads the PDF itself, and allows a
   statement more output tokens than a receipt. Ollama models can't read a PDF,
   so its config is wrapped in a `::pdf/pdf` reader (`ingestion/pdf.clj`,
-  PDFBox; neither knows of the other), which gives it the PDF's contents in place of the PDF: `{:text ...}`, sent
+  over `clj-money.pdf`; neither knows of the other), which gives it the PDF's contents in place of the PDF: `{:text ...}`, sent
   with the prompt to a text model (`qwen3:8b` by default), or, for a PDF with
   too little text to have been anything but scanned, `{:page-images [...]}`
   (PNG bytes). `::scale/scale` and `::base64/base64` also decorate statement

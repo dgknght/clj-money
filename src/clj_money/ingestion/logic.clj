@@ -11,14 +11,9 @@
   Each alternative is a chain of decorators that ends with the :reader, which
   is configured under the :reader of the innermost decorator, and is shared by
   all of them."
-  (:require [clojure.java.io :as io]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.ingestion :as ing]))
-
-(defn- read-bytes
-  ^bytes [input]
-  (with-open [in (io/input-stream input)]
-    (.readAllBytes in)))
 
 (defn- shared
   "Returns the reader with a close that does nothing, so that it's closed

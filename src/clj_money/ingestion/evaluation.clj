@@ -17,7 +17,7 @@
                                    default-options]]
             [clj-money.ingestion.receipts :as rcpts]
             [clj-money.ingestion.text :refer [similarity]]
-            [clj-money.ingestion.base64 :as base64]
+            [clj-money.base64 :as base64]
             [clj-money.ingestion.scale :as scale]
             [clj-money.ingestion.ollama :as ollama])
   (:import [java.time LocalDate]

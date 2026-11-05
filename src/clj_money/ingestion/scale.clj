@@ -1,50 +1,13 @@
 (ns clj-money.ingestion.scale
   "Scales images of receipts, and of the pages of statements, down before a
   model reads them"
-  (:require [clojure.java.io :as io]
-            [clj-money.ingestion :as ing])
-  (:import [java.awt Color RenderingHints]
-           java.awt.image.BufferedImage
-           [java.io ByteArrayInputStream ByteArrayOutputStream]
-           javax.imageio.ImageIO))
-
-(defn- read-bytes
-  ^bytes [input]
-  (with-open [in (io/input-stream input)]
-    (.readAllBytes in)))
-
-(defn- resize
-  ^BufferedImage [^BufferedImage image width height]
-  (let [width (int width)
-        height (int height)
-        resized (BufferedImage. width height BufferedImage/TYPE_INT_RGB)
-        g (.createGraphics resized)]
-    (try
-      (.setRenderingHint g
-                         RenderingHints/KEY_INTERPOLATION
-                         RenderingHints/VALUE_INTERPOLATION_BICUBIC)
-      ; fill first, so any transparency becomes white instead of black
-      (.setColor g Color/WHITE)
-      (.fillRect g 0 0 width height)
-      (.drawImage g image 0 0 width height nil)
-      resized
-      (finally
-        (.dispose g)))))
+  (:require [clj-money.io :refer [read-bytes]]
+            [clj-money.images.transform :as transform]
+            [clj-money.ingestion :as ing]))
 
 (defn- longest-side
-  [^BufferedImage image]
-  (max (.getWidth image) (.getHeight image)))
-
-(defn- rescale
-  "Returns the image resized by the factor, as PNG bytes"
-  ^bytes [^BufferedImage image factor]
-  (let [out (ByteArrayOutputStream.)]
-    (ImageIO/write (resize image
-                           (max 1 (Math/round (double (* factor (.getWidth image)))))
-                           (max 1 (Math/round (double (* factor (.getHeight image))))))
-                   "png"
-                   out)
-    (.toByteArray out)))
+  [{:keys [width height]}]
+  (max width height))
 
 (defn shrink
   "Scales the image down so that its longest side is no longer than
@@ -52,13 +15,12 @@
   with the pixel count, so this keeps the prompt small. The bytes are
   returned unchanged if the image is already small enough, or can't be
   decoded as an image (e.g., a PDF)."
-  [^bytes image max-dimension]
-  (if-let [decoded (ImageIO/read (ByteArrayInputStream. image))]
-    (let [factor (/ max-dimension (longest-side decoded))]
-      (if (< factor 1)
-        (rescale decoded factor)
-        image))
-    image))
+  [image max-dimension]
+  (or (transform/rescale image
+                         (fn [dimensions]
+                           (let [factor (/ max-dimension (longest-side dimensions))]
+                             (when (< factor 1) factor))))
+      image))
 
 (defn enlarge
   "Scales the image up so that its longest side is at least min-dimension,
@@ -66,13 +28,12 @@
   from a distance much better once it's enlarged. The bytes are returned
   unchanged if the image is already large enough, or can't be decoded as an
   image."
-  [^bytes image min-dimension]
-  (if-let [decoded (ImageIO/read (ByteArrayInputStream. image))]
-    (let [factor (/ min-dimension (longest-side decoded))]
-      (if (> factor 1)
-        (rescale decoded factor)
-        image))
-    image))
+  [image min-dimension]
+  (or (transform/rescale image
+                         (fn [dimensions]
+                           (let [factor (/ min-dimension (longest-side dimensions))]
+                             (when (> factor 1) factor))))
+      image))
 
 (defn- shrink-source
   [source {:keys [max-image-dimension]

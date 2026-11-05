@@ -1,55 +1,21 @@
 (ns clj-money.ingestion.pdf
   "Converts PDF content into either text or PNG images"
-  (:require [clojure.java.io :as io]
-            [clj-money.ingestion :as ing])
-  (:import [java.io ByteArrayOutputStream]
-           javax.imageio.ImageIO
-           org.apache.pdfbox.Loader
-           org.apache.pdfbox.pdmodel.PDDocument
-           [org.apache.pdfbox.rendering ImageType PDFRenderer]
-           org.apache.pdfbox.text.PDFTextStripper))
-
-(defn- read-bytes
-  ^bytes [input]
-  (with-open [in (io/input-stream input)]
-    (.readAllBytes in)))
-
-(defn- load-document
-  ^PDDocument [input]
-  (Loader/loadPDF (read-bytes input)))
+  (:require [clj-money.io :refer [read-bytes]]
+            [clj-money.pdf :as pdf]
+            [clj-money.ingestion :as ing]))
 
 ; A scanned page can still carry a little text, like a header added by the
 ; scanner, so a page needs more than that to count as having text
 (def ^:private min-chars-per-page 50)
 
 (defn text
-  "Returns the text of the PDF, or nil if it has too little text to read
-  (e.g., the PDF was scanned from paper)"
-  [input]
-  (with-open [doc (load-document input)]
-    (let [stripper (doto (PDFTextStripper.)
-                     ; keeps the columns of a table on the same line
-                     (.setSortByPosition true))
-          text (.getText stripper doc)]
-      (when (<= (* min-chars-per-page (.getNumberOfPages doc))
-                (count (re-seq #"\S" text)))
-        text))))
-
-(defn page-images
-  "Renders each page of the PDF, returning a sequence of PNG bytes"
-  [input & {:keys [dpi] :or {dpi 150}}]
-  (with-open [doc (load-document input)]
-    (let [renderer (PDFRenderer. doc)]
-      (mapv (fn [page]
-              (let [out (ByteArrayOutputStream.)]
-                (ImageIO/write (.renderImageWithDPI renderer
-                                                    (int page)
-                                                    (float dpi)
-                                                    ImageType/RGB)
-                               "png"
-                               out)
-                (.toByteArray out)))
-            (range (.getNumberOfPages doc))))))
+  "Returns the text of the PDF, given as bytes, or nil if it has too little
+  text to read (e.g., the PDF was scanned from paper)"
+  [content]
+  (let [{:keys [text page-count]} (pdf/read-text content)]
+    (when (<= (* min-chars-per-page page-count)
+              (count (re-seq #"\S" text)))
+      text)))
 
 (defn- contents
   "Returns the contents of the given PDF as text if possible, otherwise as
@@ -58,7 +24,7 @@
   (let [input (read-bytes input)]
     (if-let [text (text input)]
       {:text text}
-      {:page-images (page-images input :dpi dpi)})))
+      {:page-images (pdf/page-images input :dpi dpi)})))
 
 (defn- reader
   "Decorates the given reader such that PDF input is translated to text or images"

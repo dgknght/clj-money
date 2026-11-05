@@ -1,50 +1,33 @@
 (ns clj-money.ingestion.gemini
   "Reads receipts and statements with the Google Gemini API"
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [cheshire.core :as json]
             [cheshire.parse :as json-parse]
             [clj-http.client :as http]
+            [clj-money.base64 :as base64]
+            [clj-money.content-type :as ct]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.ingestion.receipts :as rcpts]
             [clj-money.ingestion.statements :as stmts]
-            [clj-money.ingestion :as ing])
-  (:import java.util.Base64))
+            [clj-money.ingestion :as ing]))
 
-(defn- read-bytes
-  ^bytes [input]
-  (with-open [in (io/input-stream input)]
-    (.readAllBytes in)))
-
-(defn- starts-with?
-  [^bytes content & signature]
-  (and (<= (count signature) (alength content))
-       (every? (fn [[i b]]
-                 (= (unchecked-byte b) (aget content i)))
-               (map-indexed vector signature))))
-
-(defn content-type
+(defn- content-type
   "Returns the MIME type of the image, judged by its leading bytes, as the
   API needs it and the image's stored content type isn't passed to the
   reader."
-  [^bytes content]
-  (cond
-    (starts-with? content 0xFF 0xD8 0xFF) "image/jpeg"
-    (starts-with? content 0x89 0x50 0x4E 0x47) "image/png"
-    (starts-with? content 0x25 0x50 0x44 0x46) "application/pdf" ; %PDF
-    (and (starts-with? content 0x52 0x49 0x46 0x46)                ; RIFF
-         (= "WEBP" (String. content 8 4 "US-ASCII"))) "image/webp"
-    :else (throw (ex-info "Unsupported image type" {}))))
+  [content]
+  (or (ct/sniff content)
+      (throw (ex-info "Unsupported image type" {}))))
 
 (defn- content-part
   [content]
   (if (map? content)
     {:text (:text content)}
     {:inlineData {:mimeType (content-type content)
-                  :data (.encodeToString (Base64/getEncoder)
-                                         ^bytes content)}}))
+                  :data (base64/encode content)}}))
 
 (defn request-body
   "Returns the body of a generateContent request asking the model to read

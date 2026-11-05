@@ -8,15 +8,10 @@
 (def ^:private jpeg
   (byte-array (map unchecked-byte [0xFF 0xD8 0xFF 0xE0 0x00])))
 
-(deftest the-content-type-is-judged-by-the-leading-bytes
-  (is (= "image/jpeg" (gemini/content-type jpeg)))
-  (is (= "image/png" (gemini/content-type
-                       (byte-array (map unchecked-byte [0x89 0x50 0x4E 0x47 0x0D])))))
-  (is (= "application/pdf" (gemini/content-type (.getBytes "%PDF-1.7"))))
-  (is (= "image/webp" (gemini/content-type (.getBytes "RIFF\u0000\u0000\u0000\u0000WEBPVP8 "))))
+(deftest an-unsupported-image-type-cant-be-read
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"Unsupported image type"
-                        (gemini/content-type (.getBytes "GIF89a")))))
+                        (gemini/request-body (.getBytes "GIF89a") "Read this" {} {}))))
 
 (deftest the-request-includes-the-image-prompt-and-schema
   (let [body (gemini/request-body jpeg "Read this" {:type "object"} {})]

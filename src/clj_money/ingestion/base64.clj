@@ -1,16 +1,13 @@
 (ns clj-money.ingestion.base64
   "Prepares images of receipts, and of the pages of statements, for models
   that are sent images base64-encoded"
-  (:require [clojure.java.io :as io]
-            [clj-money.ingestion :as ing])
-  (:import java.util.Base64))
+  (:require [clj-money.base64 :as base64]
+            [clj-money.io :refer [read-bytes]]
+            [clj-money.ingestion :as ing]))
 
-(defn encode
-  "Returns the bytes read from the input, base64-encoded"
+(defn- encode
   [input]
-  (with-open [input (io/input-stream input)]
-    (.encodeToString (Base64/getEncoder)
-                     (.readAllBytes input))))
+  (base64/encode (read-bytes input)))
 
 (defn- receipt-reader
   "Decorates a receipt reader that is sent images base64-encoded, so that
