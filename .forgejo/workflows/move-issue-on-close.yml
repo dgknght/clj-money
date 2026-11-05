@@ -1,5 +1,8 @@
 name: Move issue on close
 
+# Closing an issue (directly, or by merging a PR that "fixes" it) moves it
+# from status/in-progress or status/pending-review to status/pending-delivery.
+
 on:
   issues:
     types: [closed]
@@ -8,7 +11,7 @@ jobs:
   swap-label:
     runs-on: ubuntu-latest
     steps:
-      - name: Swap status/in-progress for status/pending-delivery
+      - name: Swap the active status label for status/pending-delivery
         env:
           FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           API: ${{ forgejo.server_url }}/api/v1/repos/${{ forgejo.repository }}
@@ -20,23 +23,25 @@ jobs:
           auth=(-H "Authorization: token $FORGEJO_TOKEN" -H "Content-Type: application/json")
 
           labels=$(curl -sf "${auth[@]}" "$API/labels?limit=50")
-          in_progress_id=$(echo "$labels" | jq -r '.[] | select(.name=="status/in-progress") | .id')
+          active_ids=$(echo "$labels" | jq -c '[.[] | select(.name=="status/in-progress" or .name=="status/pending-review") | .id]')
           pending_id=$(echo "$labels" | jq -r '.[] | select(.name=="status/pending-delivery") | .id')
 
-          if [ -z "$in_progress_id" ] || [ -z "$pending_id" ]; then
-            echo "Could not find status/in-progress and/or status/pending-delivery labels; skipping." >&2
+          if [ "$active_ids" = "[]" ] || [ -z "$pending_id" ]; then
+            echo "Could not find the status/in-progress, status/pending-review and/or status/pending-delivery labels; skipping." >&2
             exit 0
           fi
 
           issue_labels=$(curl -sf "${auth[@]}" "$API/issues/$ISSUE_NUMBER/labels")
-          has_in_progress=$(echo "$issue_labels" | jq --argjson id "$in_progress_id" '[.[] | select(.id == $id)] | length')
+          to_remove=$(echo "$issue_labels" | jq -r --argjson ids "$active_ids" '.[] | select(.id as $id | $ids | index($id)) | .id')
 
-          if [ "$has_in_progress" -eq 0 ]; then
-            echo "Issue #$ISSUE_NUMBER isn't labeled status/in-progress; leaving labels as is."
+          if [ -z "$to_remove" ]; then
+            echo "Issue #$ISSUE_NUMBER isn't labeled status/in-progress or status/pending-review; leaving labels as is."
             exit 0
           fi
 
-          curl -sf -X DELETE "${auth[@]}" "$API/issues/$ISSUE_NUMBER/labels/$in_progress_id"
+          for id in $to_remove; do
+            curl -sf -X DELETE "${auth[@]}" "$API/issues/$ISSUE_NUMBER/labels/$id"
+          done
           curl -sf -X POST "${auth[@]}" -d "{\"labels\":[$pending_id]}" "$API/issues/$ISSUE_NUMBER/labels"
 
-          echo "Moved issue #$ISSUE_NUMBER from status/in-progress to status/pending-delivery"
+          echo "Moved issue #$ISSUE_NUMBER to status/pending-delivery"

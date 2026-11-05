@@ -50,3 +50,6 @@ Steps:
    cd <scratchpad> && fj pr create -H git.dgknght.com --repo dgknght/clj-money \
      --base main --head <BRANCH> "<TITLE>" --body-file pr-body.md
    ```
+8. Once the pull request is open and ready for review, swap the issue's
+   state label: `fj issue edit "dgknght/clj-money#<ISSUE>" labels -H
+   git.dgknght.com -a status/pending-review -r status/in-progress`.
