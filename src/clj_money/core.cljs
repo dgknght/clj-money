@@ -1,5 +1,6 @@
 (ns ^:figwheel-hooks clj-money.core
-  (:require [cljs.pprint :refer [pprint]]
+  (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
@@ -25,7 +26,8 @@
             [clj-money.views.commodities]
             [clj-money.views.accounts]
             [clj-money.views.transactions]
-            [clj-money.views.transaction-search]
+            [clj-money.views.transactions.page]
+            [clj-money.views.transactions.search]
             [clj-money.views.users]
             [clj-money.views.invitations]
             [clj-money.views.budgets]
@@ -326,7 +328,8 @@
 (defn- dispatch-or-not-found
   [path]
   (cond
-    (not (secretary/locate-route path))
+    ; the routes match the path alone; dispatch! separates the query params
+    (not (secretary/locate-route (first (string/split path #"[?#]"))))
     (swap! app-state assoc :page #'not-found)
 
     (or @current-user

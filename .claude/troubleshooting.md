@@ -69,8 +69,8 @@ grep cljs-out` should list `public/cljs-out/clj-money.js`.
 `href` attribute. An icon's `<use href="/images/bootstrap-icons.svg#...">`
 is such an element, so a click on the glyph of an icon inside a link wasn't
 intercepted and the browser loaded the page from the server, losing
-anything left in `app-state` for the next page (e.g., the hand-off from
-`state/open-in-register`). `site.scss` gives `a .bi` `pointer-events:
+anything left in `app-state` for the next page (e.g., the
+`:pending-reconciliation` hand-off from the Statements page). `site.scss` gives `a .bi` `pointer-events:
 none` so the click lands on the link. Rebuild the CSS locally with `sass
 src/scss/site.scss resources/public/css/site.css`.
 
@@ -81,3 +81,20 @@ The browser is running stale compiled files: the service worker serves
 `Cache-Control` header, so the HTTP cache may keep them too. In DevTools,
 check "Bypass for network" (Application → Service workers) and "Disable
 cache" (Network), then reload.
+
+### A client route with a `:param` shows Page Not Found
+
+secretary 1.2.3 extracts the params of a string route like
+`"/transactions/:id"` with `(merge-with vector {} (partition 2 ...))`, which
+current ClojureScript rejects (`No protocol method IMapEntry.-key defined
+for type cljs.core/LazySeq`). Dispatch throws, and the page is never set.
+Use a regex route instead, e.g.
+`(secretary/defroute #"/transactions/([^/]+)" [id query] ...)`. The captured
+groups bind in order, followed by `{:query-params {...}}` when the URL has a
+query string. Bind plain symbols only, since `defroute` also uses the
+bindings as `{:keys [...]}`. `views/transactions/page_test.cljs` dispatches
+its paths to catch this.
+
+A URL with a query string (e.g. `/search?description=...`) also showed Page
+Not Found, because `core/dispatch-or-not-found` looked the route up with
+the query attached. It now looks up the path alone.

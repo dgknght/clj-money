@@ -21,7 +21,6 @@
                                      current-entity
                                      accounts
                                      accounts-by-id
-                                     open-in-register
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
@@ -31,6 +30,7 @@
             [clj-money.api.receipt-ingestions :as ri]
             [clj-money.pending-review :as pending-review]
             [clj-money.views.attachments :as atts-view]
+            [clj-money.views.transactions.page :as trx-page]
             [clj-money.views.ingestion-settings :as ingestion-settings]
             [clj-money.views.recent-transactions :as recent-trx]))
 
@@ -620,20 +620,21 @@
                  (string/starts-with? (.-type blob) "image/"))
         (swap! page-state assoc-in [:receipt-image :url] (js/URL.createObjectURL blob))))))
 
-(defn- review-in-register
-  "Leaves a transaction that wasn't read from a receipt (e.g., one read
-  from a statement) for the Accounts view to open, in the register of its
-  asset or liability account, where saving it accepts it, and which
-  returns here afterward. The link it's called from navigates there."
+(defn- review-path
+  "The path of the page for a transaction that wasn't read from a receipt
+  (e.g., one read from a statement), where saving it accepts it, showing it
+  from the perspective of its asset or liability account. It's rendered with
+  the row, possibly before the accounts are loaded (accounts-by-id is nil
+  until then), in which case the page shows it from its first account."
   [{:transaction/keys [items] :as trx}]
-  (open-in-register
+  (trx-page/path
     trx
-    (->> items
-         (map (comp @accounts-by-id :id :transaction-item/account))
-         (filter (comp #{:asset :liability} :account/type))
-         first
-         :id)
-    :return-to "/receipts"))
+    :account-id (->> items
+                     (map #(get @accounts-by-id
+                                (get-in % [:transaction-item/account :id])))
+                     (filter (comp #{:asset :liability} :account/type))
+                     first
+                     :id)))
 
 (defn- pending-review-row
   [{:keys [id] ::keys [ingestion] :transaction/keys [transaction-date description value] :as trx}
@@ -652,9 +653,8 @@
        (icon :eye :size :small)]
       ; navigation to a link within the app is handled by accountant
       [:a.btn.btn-sm.btn-secondary
-       {:href "/accounts"
-        :title "Click here to review this transaction in its account."
-        :on-click #(review-in-register trx)}
+       {:href (review-path trx)
+        :title "Click here to review this transaction."}
        (icon :eye :size :small)])]])
 
 (defn- pending-review-table

@@ -1,44 +1,31 @@
 (ns clj-money.views.transactions
   (:require [clojure.string :as string]
-            [clojure.zip :as zip]
             [cljs.core.async :as a :refer [<! >! go go-loop]]
             [cljs-time.core :as t]
-            [accountant.core :as accountant]
             [reagent.core :as r]
             [reagent.format :refer [currency-format]]
             [reagent.ratom :refer [make-reaction]]
-            [dgknght.app-lib.core :refer [parse-int]]
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal ]]
             [dgknght.app-lib.inflection :refer [humanize]]
-            [dgknght.app-lib.dom :refer [set-focus
-                                         key-code
-                                         shift-key?]]
-            [dgknght.app-lib.html :refer [space
-                                          special-char]]
+            [dgknght.app-lib.dom :refer [set-focus]]
+            [dgknght.app-lib.html :refer [space]]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon]]
-            [clj-money.state :as state :refer [accounts
-                                               accounts-by-id
-                                               +busy
-                                               -busy]]
+            [clj-money.state :refer [accounts
+                                     accounts-by-id
+                                     +busy
+                                     -busy]]
             [clj-money.util :as util :refer [id=]]
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :refer [find-by-path
                                         format-quantity
                                         polarize-quantity]]
-            [clj-money.transactions :refer [accountify
-                                            unaccountify
-                                            can-accountify?
-                                            entryfy
-                                            unentryfy
-                                            ensure-empty-item
-                                            ->unilateral
-                                            ->trade-price]]
+            [clj-money.transactions :refer [->trade-price]]
             [clj-money.components :refer [load-in-chunks
                                           append-chunk
                                           audit-history-popover]]
@@ -50,45 +37,7 @@
             [clj-money.views.recent-transactions :as recent-trx]
             [clj-money.api.trading :as trading]
             [clj-money.api.audit :as audit]
-            [clj-money.pending-review :as pending-review]))
-
-(defn- supply-accounts
-  [items]
-  (map #(update-in %
-                   [:transaction-item/account]
-                   (comp @accounts-by-id
-                         :id))
-       items))
-
-(defn- prepare-transaction-for-edit
-  ([account]
-   #(prepare-transaction-for-edit % account))
-  ([trx account]
-   (let [prepare (if (can-accountify? trx)
-             (accountify account)
-             entryfy)]
-     (-> trx
-         (update-in [:transaction/items] supply-accounts)
-         prepare))))
-
-(defn- accept-review
-  "Saving a transaction awaiting review, like one read from a statement,
-  accepts it"
-  [{:transaction/keys [review-status] :as trx}]
-  (cond-> trx
-    (= :pending review-status) (assoc :transaction/review-status :accepted)))
-
-(defn- save-transaction
-  "Saves the transaction, accepting it if it's awaiting review, in which
-  case the count of transactions awaiting review is refreshed"
-  [trx on-save]
-  (let [reviewed? (= :pending (:transaction/review-status trx))]
-    (+busy)
-    (transactions/save (accept-review trx)
-                       :callback -busy
-                       :on-success (fn [saved]
-                                     (when reviewed? (pending-review/load-count))
-                                     (when on-save (on-save saved))))))
+            [clj-money.views.transactions.form :as tf]))
 
 (defn edit-transaction
   [transaction-item page-state]
@@ -97,20 +46,11 @@
     transaction-item
     :callback -busy
     :post-xf (comp (map first)
-                   (map (prepare-transaction-for-edit
+                   (map (tf/prepare-for-edit
                           (:view-account @page-state))))
     :on-success (fn [trx]
                   (swap! page-state assoc :transaction trx)
                   (set-focus "transaction-date"))))
-
-(defn navigate-to-transaction
-  "Navigates to the Accounts view and opens the given transaction for
-  editing. When preferred-account-id is given and one of the transaction's
-  items references it, that item is used; otherwise the first item is used."
-  ([trx] (navigate-to-transaction trx nil))
-  ([trx preferred-account-id]
-   (state/open-in-register trx preferred-account-id)
-   (accountant/navigate! "/accounts")))
 
 (defn- polarize-quantities
   [account]
@@ -262,24 +202,6 @@
                                (:id transaction-item))
                         (load-unreconciled-items page-state))
                       (reset-item-loading page-state))))))
-
-(defn delete-edited-transaction
-  "Deletes the transaction open in the form, after confirmation, and closes
-  the form. If it was awaiting review, the count of those is refreshed."
-  [page-state]
-  (let [{:transaction/keys [review-status] :as trx} (:transaction @page-state)]
-    (when (js/confirm "Are you sure you want to delete this transaction?")
-      (+busy)
-      (transactions/delete
-        trx
-        :callback -busy
-        :on-success (fn []
-                      (when (= :pending review-status)
-                        (pending-review/load-count))
-                      (swap! page-state dissoc :transaction)
-                      (if (:reconciliation @page-state)
-                        (load-unreconciled-items page-state)
-                        (reset-item-loading page-state)))))))
 
 (defn update-attachment-count
   "Applies f to the attachment count of each item in :items that belongs to
@@ -644,175 +566,6 @@
           [:tr [:td.text-center.fw-lighter
                 {:col-span 6}
                 "No transaction for this commodity."]])]])))
-
-(defn- ensure-entry-state
-  [page-state]
-  (swap! page-state update-in [:transaction] ensure-empty-item))
-
-(def ^:private item-nav-fields
-  ["account-id" "memo" "credit-quantity" "debit-quantity"])
-
-(defn- item-nav-fields-zip []
-  (zip/seq-zip (cycle item-nav-fields)))
-
-(defn- prev-item-nav-field
-  [current]
-  (loop [fields (zip/next (item-nav-fields-zip))]
-    (if (= current (first (zip/next fields)))
-      (first fields)
-      (recur (zip/next fields)))))
-
-(defn- next-item-nav-field
-  [current]
-  (loop [fields (zip/next (item-nav-fields-zip))]
-    (if (= current (first fields))
-      (first (zip/next fields))
-      (recur (zip/next fields)))))
-
-(defn- arrow-key?
-  [e]
-  (#{:up :down :left :right} (key-code e)))
-
-(defn- item-navigate
-  [e item-count]
-  (when-not (shift-key? e)
-    (let [target-id (.-id (.-target e))
-          [_ field raw-index] (re-find #"(.*)-(\d)" target-id)
-          index (parse-int raw-index)
-          [to-field to-index] (case (key-code e)
-                                :up    [field (mod (dec index) item-count)]
-                                :down  [field (mod (inc index) item-count)]
-                                :left  [(prev-item-nav-field field) index]
-                                :right [(next-item-nav-field field) index]
-                                nil)]
-      (when to-field
-        (.preventDefault e)
-        (set-focus (str to-field "-" to-index))))))
-
-(defn- item-input-row
-  [item index item-count page-state]
-  (let [reconciled? (boolean (:transaction-item/reconciliation @item))]
-    ^{:key (str "item-form-" index)}
-    [:tr
-     [:td.text-center
-      (when reconciled?
-        [:span {:title "This item has been reconciled and cannot be changed."}
-         (icon :lock-fill :size :small)])]
-     [:td [forms/typeahead-input
-           item
-           [:transaction-item/account]
-           {:search-fn (fn [input callback]
-                         (callback (find-by-path input @accounts)))
-            :on-change #(ensure-entry-state page-state)
-            :caption-fn #(string/join "/" (:account/path %))
-            :find-fn (fn [{:keys [id]} callback]
-                       (callback (@accounts-by-id id)))
-            :html {:id (str "account-id-" index)
-                   :on-key-up #(item-navigate % item-count)
-                   :disabled reconciled?}}]]
-     [:td [forms/text-input
-           item
-           [:transaction-item/memo]
-           {:on-change #(ensure-entry-state page-state)
-            :html {:on-key-up #(item-navigate % item-count)
-                   :id (str "memo-" index)}}]]
-     [:td [forms/decimal-input
-           item
-           [:transaction-item/credit-quantity]
-           {:fraction-digits 2
-            :on-accept #(ensure-entry-state page-state)
-            :disabled-fn (constantly reconciled?)
-            :html {:on-key-up #(item-navigate % item-count)
-                   :on-key-down #(when (arrow-key? %) (.preventDefault %))
-                   :id (str "credit-quantity-" index)}}]]
-     [:td [forms/decimal-input
-           item
-           [:transaction-item/debit-quantity]
-           {:fraction-digits 2
-            :on-accept #(ensure-entry-state page-state)
-            :disabled-fn (constantly reconciled?)
-            :html {:id (str "debit-quantity-" index)
-                   :on-key-up #(item-navigate % item-count)
-                   :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]]))
-
-(defn full-transaction-form
-  [page-state & {:keys [on-save]}]
-  (let [transaction (r/cursor page-state [:transaction])
-        total-credits (make-reaction #(->> (:transaction/items @transaction)
-                                           (map :transaction-item/credit-quantity)
-                                           (reduce decimal/+ 0M)))
-        total-debits (make-reaction #(->> (:transaction/items @transaction)
-                                          (map :transaction-item/debit-quantity)
-                                          (reduce decimal/+ 0M)))
-        correction (make-reaction #(decimal/abs (- @total-debits @total-credits)))
-        item-count (make-reaction #(count (:transaction/items @transaction)))]
-    (fn []
-      [:div
-       [:div.alert.alert-warning.d-md-none "Please use a larger screen to use full transaction mode."]
-       [:form#transaction-form.d-none.d-md-block
-        {:no-validate true
-         :on-submit (fn [e]
-                      (.preventDefault e)
-                      (v/validate transaction)
-                      (when (v/valid? transaction)
-                        (save-transaction (unentryfy @transaction) on-save)))}
-        [forms/date-field transaction [:transaction/transaction-date] {:validations #{::v/required}}]
-        [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
-        [:table.table
-         [:thead
-          [:tr
-           [:td (space)]
-           [:td "Account"]
-           [:td "Memo"]
-           [:td "Credit Amount"]
-           [:td "Debit Amount"]]]
-         [:tbody
-          (doall (for [index (range @item-count)]
-                   (item-input-row (r/cursor page-state [:transaction :transaction/items index])
-                                   index
-                                   @item-count
-                                   page-state)))]
-         [:tfoot
-          [:tr
-           [:td {:col-span 3} (special-char :nbsp)]
-           [:td.text-end (format-decimal @total-credits)]
-           [:td.text-end.d-flex.flex-row-reverse.justify-content-between
-            (format-decimal @total-debits)
-            (when-not (decimal/zero? @correction)
-              [:span.text-danger.me-3
-               (special-char :pm)
-               (format-decimal @correction)])]]]]]])))
-
-(defn simple-transaction-form
-  [page-state & {:keys [on-save]}]
-  (let [transaction (r/cursor page-state [:transaction])]
-    (fn []
-      [:form#transaction-form
-       {:no-validate true
-        :on-submit (fn [e]
-                     (.preventDefault e)
-                     (v/validate transaction)
-                     (when (v/valid? transaction)
-                       (-> @transaction
-                           unaccountify
-                           ->unilateral
-                           (save-transaction on-save))))}
-       [forms/date-field
-        transaction
-        [:transaction/transaction-date]
-        {:validations #{::v/required}}]
-       [forms/text-field transaction [:transaction/description] {:validations #{::v/required}}]
-       [forms/text-field transaction [:transaction/item :account-item/memo]]
-       [forms/decimal-field transaction [:transaction/quantity] {:fraction-digits 2
-                                                                 :validations #{::v/required}}]
-       [forms/typeahead-field
-        transaction
-        [:transaction/other-account]
-        {:search-fn (fn [input callback]
-                      (callback (find-by-path input @accounts)))
-         :caption-fn #(string/join "/" (:account/path %))
-         :find-fn (fn [{:keys [id]} callback]
-                    (callback (@accounts-by-id id)))}]])))
 
 (defn trade-transaction-form
   [page-state & {:keys [on-save]}]

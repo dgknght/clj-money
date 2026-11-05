@@ -1,10 +1,12 @@
-(ns clj-money.views.transaction-search
+(ns clj-money.views.transactions.search
   (:require [clojure.string :as string]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
+            [accountant.core :as accountant]
             [reagent.format :refer [currency-format]]
             [dgknght.app-lib.web :refer [format-date]]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.decimal :as decimal]
             [clj-money.state :refer [app-state
                                      accounts
                                      accounts-by-id
@@ -14,7 +16,7 @@
             [clj-money.dates :as dates]
             [clj-money.icons :refer [icon-with-text]]
             [clj-money.accounts :refer [find-by-path]]
-            [clj-money.views.transactions :refer [navigate-to-transaction]]
+            [clj-money.views.transactions.page :as trx-page]
             [clj-money.api.transactions :as transactions]))
 
 (def default-filters
@@ -27,6 +29,39 @@
      (seq description) (assoc :transaction/description description)
      quantity           (assoc :transaction-item/quantity quantity)
      (:id account)      (assoc :transaction-item/account account))))
+
+(defn- filters->query
+  "The filters as query params, so that the search is kept in the URL and
+  restored when the user comes back to the page, e.g., from a transaction.
+  accountant doesn't encode the values."
+  [{:keys [description date-range quantity account]}]
+  (update-vals (cond-> {:date-range date-range}
+                 (seq description) (assoc :description description)
+                 quantity          (assoc :quantity (str quantity))
+                 (:id account)     (assoc :account-id (:id account)))
+               js/encodeURIComponent))
+
+(defn- parse-id
+  "An id from the URL is a string. Datomic ids are numbers on the client."
+  [s]
+  (if (re-matches #"\d+" s)
+    (js/parseInt s)
+    s))
+
+(defn- query->filters
+  [{:keys [description date-range quantity account-id]}]
+  (cond-> default-filters
+    date-range  (assoc :date-range date-range)
+    description (assoc :description description)
+    quantity    (assoc :quantity (decimal/->decimal quantity))
+    account-id  (assoc :account {:id (parse-id account-id)})))
+
+(defn- submit-search
+  "Puts the filters in the URL, which routes back to this page to run the
+  search. The search replaces the current history entry, rather than adding
+  one."
+  [filters]
+  (accountant/navigate! "/search" (filters->query filters)))
 
 (defn- search
   [page-state]
@@ -45,7 +80,7 @@
   ^{:key (str "search-result-" (:id trx))}
   [:tr {:style {:cursor "pointer"}
         :title "Click here to view this transaction."
-        :on-click #(navigate-to-transaction trx (get-in filters [:account :id]))}
+        :on-click #(accountant/navigate! (trx-page/path trx :account-id (get-in filters [:account :id])))}
    [:td (format-date transaction-date)]
    [:td description]
    [:td.text-end (currency-format value)]])
@@ -78,7 +113,7 @@
       [:form {:no-validate true
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (search page-state))}
+                           (submit-search @filters))}
        [forms/text-field filters [:description] {:caption "Description"}]
        [forms/select-field filters [:date-range] dates/date-range-options {:caption "Date"}]
        [forms/decimal-field filters [:quantity] {:caption "Amount"
@@ -92,7 +127,7 @@
          :caption-fn #(string/join "/" (:account/path %))
          :value-fn :id
          :find-fn (fn [id callback]
-                    (callback (@accounts-by-id id)))}]
+                    (callback (get @accounts-by-id id)))}]
        [:button.btn.btn-primary {:type :submit
                                  :disabled @busy?
                                  :title "Click here to search for transactions matching the specified criteria"}
@@ -103,15 +138,20 @@
            [:span.ms-1 "Search"]]
           (icon-with-text :search "Search"))]])))
 
-(defn- index []
-  (let [page-state (r/atom {:filters default-filters
+(defn- index
+  [query-params]
+  (let [page-state (r/atom {:filters (query->filters query-params)
                             :state :still})]
-    (fn []
+    (when (seq query-params)
+      (search page-state))
+    (fn [_query-params]
       [:div.mt-3
        [:h1 "Transaction Search"]
        [search-form page-state]
        [:div.mt-3
         [results-table page-state]]])))
 
-(secretary/defroute "/search" []
-  (swap! app-state assoc :page #'index :active-nav :search))
+(secretary/defroute "/search" [query-params]
+  (swap! app-state assoc
+         :page #(vector index query-params)
+         :active-nav :search))

@@ -1,7 +1,7 @@
-(ns clj-money.views.transaction-search-test
+(ns clj-money.views.transactions.search-test
   (:require [cljs.test :refer [deftest is]]
             [clj-money.dates :as dates]
-            [clj-money.views.transaction-search :as search]))
+            [clj-money.views.transactions.search :as search]))
 
 ;; A Wednesday, so "this week" and "last week" span a month boundary too.
 (def ^:private ref-date (dates/local-date "2024-06-05"))

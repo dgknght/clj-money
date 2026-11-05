@@ -4,6 +4,7 @@
             [cljs-time.core :as t]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
+            [accountant.core :as accountant]
             [reagent.ratom :refer [make-reaction]]
             [camel-snake-kebab.core :as csk]
             [dgknght.app-lib.core :as lib]
@@ -31,7 +32,7 @@
             [clj-money.cached-accounts :as cached-accts]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
-            [clj-money.views.transactions :refer [navigate-to-transaction]]
+            [clj-money.views.transactions.page :as trx-page]
             [clj-money.api.scheduled-transactions :as sched-trans]))
 
 (defn- map-next-occurrence
@@ -413,7 +414,7 @@
   ^{:key (str "created-transaction-row-" (:id trx))}
   [:tr {:style {:cursor "pointer"}
         :title "Click here to view this transaction."
-        :on-click #(navigate-to-transaction trx)}
+        :on-click #(accountant/navigate! (trx-page/path trx))}
    [:td (format-date transaction-date)]
    [:td description]
    [:td (format-decimal value)]])

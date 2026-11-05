@@ -29,6 +29,29 @@ resources/
 test/clj_money/        # Mirrors src structure, _test suffix
 ```
 
+## UI Elements (`views/`)
+
+Each UI element lives in a namespace named for it, and an element that's
+used from more than one place owns its interface: the caller supplies the
+state and arguments the element asks for, rather than the element reaching
+into the caller's page state (issue #281).
+
+- `views/transactions/form.cljs` - the form for entering or editing a
+  transaction. The caller holds the transaction in an atom (or cursor),
+  prepared with `prepare-for-edit`, and renders
+  `[transaction-form transaction :account ... :on-save ... :on-cancel ...
+  :on-delete ...]`. `:account` is the account the simplified form shows it
+  from. The form saves (accepting a transaction pending review) and deletes
+  it itself; the callbacks decide what happens next. The Accounts register
+  renders it in place, or in a modal while reconciling
+- `views/transactions/page.cljs` - `/transactions/:id`, a page that loads one
+  transaction into the form, to open a transaction from anywhere (search
+  results, the scheduled transactions just created, the pending review list).
+  Link to it with `path` (`:account-id` picks the account it's shown from).
+  Saving, deleting or cancelling goes back in the browser history. It doesn't
+  require `accountant`, so the namespaces that link to it stay loadable by the
+  client tests
+
 ## Integrant System
 
 `clj-money.system` defines the server's components (storage, the change
@@ -401,13 +424,9 @@ information rather than an error.
   `{:count n}`. `GET /api/entities/:entity-id/receipt-ingestions?transaction-id=...`
   (repeatable, required) finds the ingestions that created the listed
   transactions: a row with one opens in the receipt form (Accept/Reject);
-  one without (from a statement) opens in the account register through
-  `state/open-in-register` with `:return-to "/receipts"`, and the accounts
-  page navigates back when the transaction form closes. The hand-off carries
-  the account's id, not the account, and the accounts page waits for the
-  cached accounts to load before opening the register
-  (`open-pending-transaction`). The register's transaction form has Delete
-  (`views.transactions/delete-edited-transaction`)
+  one without (from a statement) links to the transaction page
+  (`views.transactions.page/path`, see UI Elements), shown from its asset or
+  liability account, where saving it accepts it
 - `pending_review.cljs` - `load-count` sets `state/pending-review-count`,
   shown as the badge on the Receipts nav item. It's loaded by
   `app/watch-entity` when the entity changes, by `app/receive-entities` when

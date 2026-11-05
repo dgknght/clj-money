@@ -9,7 +9,6 @@
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
-            [accountant.core :as accountant]
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
             [dgknght.app-lib.core :refer [index-by]]
@@ -54,15 +53,8 @@
                                      +busy
                                      -busy
                                      busy?]]
-            [clj-money.transactions :refer [accountify
-                                            unaccountify
-                                            accountified?
-                                            can-accountify?
-                                            entryfy
-                                            unentryfy
-                                            ->unilateral
-                                            ->bilateral]]
             [clj-money.views.transactions :as trns]
+            [clj-money.views.transactions.form :as tf]
             [clj-money.views.reconciliations :as recs]
             [clj-money.views.attachments :as atts]))
 
@@ -859,6 +851,12 @@
          (map :transaction/transaction-date)
          first)))
 
+(defn- reload-items
+  [page-state]
+  (if (:reconciliation @page-state)
+    (trns/load-unreconciled-items page-state)
+    (trns/reset-item-loading page-state)))
+
 (defn- post-transaction-save
   [page-state]
   (fn [result]
@@ -882,68 +880,24 @@
                                   :account account
                                   :action action
                                   :fee-account fee-account}))))
-    (if (:reconciliation @page-state)
-      (trns/load-unreconciled-items page-state)
-      (trns/reset-item-loading page-state))))
+    (reload-items page-state)))
 
-(defn- expand-trx []
-  (fn [trx]
-    (-> trx
-        v/reset
-        unaccountify
-        ->unilateral
-        entryfy)))
-
-(defn- collapse-trx
+(defn- post-transaction-delete
   [page-state]
-  (let [account (:view-account @page-state)]
-    (fn [trx]
-      (-> trx
-          v/reset
-          unentryfy
-          ->bilateral
-          (accountify account)))))
+  (fn [_]
+    (swap! page-state dissoc :transaction)
+    (reload-items page-state)))
 
 (defn- transaction-form
   [page-state]
-  (let [transaction (r/cursor page-state [:transaction])]
-    [:<>
-     [:div.d-flex.justify-content-between
-      [:h3 (if (:id @transaction)
-             "Edit Transaction"
-             "New Transaction")]
-      (cond
-        (accountified? @transaction)
-        [:button.btn.btn-secondary {:title "Click here to show full transaction details."
-                                    :on-click (fn [_]
-                                                (swap! transaction (expand-trx)))}
-         (icon :arrows-expand)]
-
-        (can-accountify? (->bilateral (unentryfy @transaction)))
-        [:button.btn.btn-secondary {:title "Click here to simplify transaction entry."
-                                    :on-click (fn [_]
-                                                (swap! transaction (collapse-trx page-state)))}
-         (icon :arrows-collapse)])]
-     [:div.mt-3
-      (let [f (if (accountified? @transaction)
-                trns/simple-transaction-form
-                trns/full-transaction-form)]
-        [f page-state :on-save (post-transaction-save page-state)])]
-     [:div
-      [:button.btn.btn-primary
-       {:type :submit
-        :form "transaction-form"
-        :title "Click here to save the transaction"}
-       (icon-with-text :check "Save")]
-      [:button.btn.btn-secondary.ms-2
-       {:on-click #(swap! page-state dissoc :transaction)
-        :title "Click here to cancel this transaction"}
-       (icon-with-text :x "Cancel")]
-      (when (:id @transaction)
-        [:button.btn.btn-danger.ms-2
-         {:on-click #(trns/delete-edited-transaction page-state)
-          :title "Click here to delete this transaction"}
-         (icon-with-text :x-circle "Delete")])]]))
+  (let [transaction (r/cursor page-state [:transaction])
+        view-account (r/cursor page-state [:view-account])]
+    (fn []
+      [tf/transaction-form transaction
+       :account @view-account
+       :on-save (post-transaction-save page-state)
+       :on-cancel #(swap! page-state dissoc :transaction)
+       :on-delete (post-transaction-delete page-state)])))
 
 (defn- transaction-form-container
   [page-state]
@@ -1394,30 +1348,6 @@
                 :hide-zero-balances? true)))
   (load-commodities page-state))
 
-(defn- open-pending-transaction
-  "Opens the transaction left by another page (see state/open-in-register)
-  in the register of its account. The accounts may still be loading, e.g.,
-  right after the page loads, so it waits for them."
-  [{:keys [item account-id return-to]} page-state]
-  (let [open (fn [accounts]
-               (when-let [account (->> accounts
-                                       (filter #(= account-id (:id %)))
-                                       first)]
-                 (swap! page-state assoc
-                        :view-account account
-                        :return-to return-to)
-                 (trns/edit-transaction item page-state)))]
-    (if-let [loaded (seq (:accounts @app-state))]
-      (open loaded)
-      ; app-state rather than the accounts cursor, which only notifies its
-      ; watches when it's dereferenced
-      (add-watch app-state
-                 ::pending-transaction
-                 (fn [_ _ _ {:keys [accounts]}]
-                   (when (seq accounts)
-                     (remove-watch app-state ::pending-transaction)
-                     (open accounts)))))))
-
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
                             :hide-zero-balances? (any-non-zero-balances?)
@@ -1442,20 +1372,6 @@
                                         @allocation-account
                                         @transaction))
         hide-funnel? (make-reaction #(or @selected @view-account))]
-    (when-let [pending (:pending-transaction-item @app-state)]
-      (swap! app-state dissoc :pending-transaction-item)
-      (open-pending-transaction pending page-state))
-    ; a transaction opened from another page (e.g., the pending review list
-    ; on the receipts page) returns there once it's saved or the edit is
-    ; cancelled, i.e., when the form closes
-    (add-watch page-state
-               ::return-to
-               (fn [_ _ old new]
-                 (when-let [path (:return-to new)]
-                   (when (and (:transaction old)
-                              (not (:transaction new)))
-                     (swap! page-state dissoc :return-to)
-                     (accountant/navigate! path)))))
     (let [account (:pending-reconciliation @app-state)]
       (swap! app-state dissoc :pending-reconciliation)
       ; the account's commodity is needed to reconcile it
