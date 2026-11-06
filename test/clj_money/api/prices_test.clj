@@ -92,7 +92,7 @@
                       :body {:value 12.34
                              :tradeDate "2016-03-02"
                              :_type "price"})
-      :expected-response {:value {:d 12.34}
+      :expected-response {:value 12.34
                           :tradeDate "2016-03-02"
                           :_type "price"})))
 
@@ -214,7 +214,7 @@
                       :body {:value 9.99
                              :_type "price"})
       :expected-response {:tradeDate "2016-02-27"
-                          :value {:d 9.99}
+                          :value 9.99
                           :_type "price"})))
 
 (deftest a-user-cannot-update-a-price-for-a-commodity-in-anothers-entity
@@ -374,11 +374,11 @@
         (fetch-some-prices "john@doe.com" :content-type "application/json")
         :expected-response (jsonify
                              [{:tradeDate "2015-03-02"
-                               :value {:d 10.01}
+                               :value 10.01
                                :commodity aapl
                                :_type "price"}
                               {:tradeDate "2015-03-02"
-                               :value {:d 5.01}
+                               :value 5.01
                                :commodity msft
                                :_type "price"}])))))
 

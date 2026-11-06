@@ -307,9 +307,7 @@
                                (select-keys [:periods])
                                (update-in [:periods]
                                           (comp set
-                                                #(map (comp format-decimal
-                                                            :d)
-                                                      %))))))
+                                                #(map format-decimal %))))))
                     set))
             "The budget items are included in the response.")))))
 

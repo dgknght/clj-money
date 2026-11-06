@@ -24,7 +24,6 @@
             [clj-money.images :as img]
             [clj-money.progress :as prog]
             [clj-money.web :as-alias web]
-            [clj-money.decimal :as d]
             [clj-money.web.system :as system]
             [clj-money.web.auth.google :as google-auth]
             [clj-money.web.auth.github :as github-auth]
@@ -112,13 +111,6 @@
 (defn- wrap-site []
   [wrap-defaults (dissoc site-defaults :session)])
 
-(defn- wrap-decimals
-  [handler]
-  (fn [req]
-    (-> req
-        handler
-        (update-in [:body] d/wrap-decimals))))
-
 (def ^:private oauth2-profile-fns
   {:google google-auth/oauth2-profile
    :github github-auth/oauth2-profile})
@@ -177,7 +169,6 @@
                  images/routes]
                 ["oapi/" {:middleware [:api
                                        :wrap-format
-                                       wrap-decimals
                                        wrap-merge-params
                                        wrap-parse-id-params
                                        wrap-exceptions
@@ -188,14 +179,12 @@
                 ; are kept there, without the authentication
                 ["api/" {:middleware [:api
                                       :wrap-format
-                                      wrap-decimals
                                       wrap-merge-params
                                       wrap-exceptions
                                       wrap-request-logging]}
                  cli-logins-api/unauthenticated-routes]
                 ["api/" {:middleware [:api
                                       :wrap-format
-                                      wrap-decimals
                                       wrap-merge-params
                                       wrap-parse-id-params
                                       :authentication

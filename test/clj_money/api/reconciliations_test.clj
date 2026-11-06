@@ -175,7 +175,7 @@
                              :content-type "application/json"
                              :body (build-json-recon :completed))
       :expected-response {:endOfPeriod "2015-02-04"
-                          :balance {:d 299.0}
+                          :balance 299.0
                           :_type "reconciliation"})))
 
 (deftest a-user-can-create-an-incomplete-reconciliation-in-his-entity
@@ -191,7 +191,7 @@
                              :content-type "application/json"
                              :body (build-json-recon :new))
       :expected-response {:endOfPeriod "2015-02-04"
-                          :balance {:d 299.0}
+                          :balance 299.0
                           :_type "reconciliation"})))
 
 (deftest a-user-cannot-create-a-completed-reconciliation-in-anothers-entity

@@ -84,7 +84,7 @@
           :expected #:budget-item{:account rent
                                   :periods [200M 201M 202M]}
           :expected-response {:account (->json-entity-ref rent)
-                              :periods [{:d 200} {:d 201} {:d 202}]
+                              :periods [200 201 202]
                               :_type "budget-item"})))))
 
 (deftest a-user-cannot-add-an-item-to-a-budget-in-anothers-entity
@@ -144,7 +144,7 @@
                            :content-type "application/json"
                            :body {:periods [110 111 112]
                                   :_type "budget-item"})
-        :expected-response {:periods [{:d 110} {:d 111} {:d 112}]}))))
+        :expected-response {:periods [110 111 112]}))))
 
 (deftest a-user-cannot-update-an-item-to-a-budget-in-anothers-entity
   (with-context update-ctx

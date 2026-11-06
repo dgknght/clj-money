@@ -166,6 +166,42 @@
         (get-balance-sheet "john@doe.com"
                            :content-type "application/json")))))
 
+(defn- asset-value
+  [rows]
+  (->> rows
+       (filter (comp #{"Asset"} caption))
+       first
+       ((some-fn :report/value :value))))
+
+(deftest balance-sheet-values-are-serialized-as-numbers-in-json
+  (with-context report-context
+    (let [{:keys [parsed-body]} (get-balance-sheet
+                                  "john@doe.com"
+                                  :content-type "application/json")]
+      (is (number? (asset-value parsed-body))
+          "The value is a JSON number")
+      (is (== 1000 (asset-value parsed-body))
+          "The value is correct"))))
+
+(deftest balance-sheet-values-are-tagged-as-decimals-in-edn
+  (with-context report-context
+    (let [entity (find-entity "Personal")
+          body (with-fixed-time "2016-02-02T00:00:00Z"
+                 (-> (request :get (path :api
+                                         :entities
+                                         (:id entity)
+                                         :reports
+                                         :balance-sheet
+                                         "2016-01-31")
+                              :user (find-user "john@doe.com"))
+                     app
+                     :body
+                     slurp))]
+      (is (re-find #":report/value #clj-money/decimal \"1000" body)
+          "The value is printed with the decimal tag")
+      (is (= 1000M (asset-value (:parsed-body (get-balance-sheet "john@doe.com"))))
+          "The value is read back as a decimal"))))
+
 (deftest a-user-cannot-get-a-balance-sheet-for-anothers-entity
   (with-context report-context
     (assert-blocked-balance-sheet (get-balance-sheet "jane@doe.com"))))

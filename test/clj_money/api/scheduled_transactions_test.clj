@@ -212,11 +212,11 @@
                             :memo "biweekly"
                             :_type "scheduled-transaction"
                             :items [{:action "debit"
-                                     :quantity {:d 1000}
+                                     :quantity 1000
                                      :memo "rent"
                                      :_type "scheduled-transaction-item"}
                                     {:action "credit"
-                                     :quantity {:d 1000}
+                                     :quantity 1000
                                      :memo "checking"
                                      :_type "scheduled-transaction-item"}]}))))
 

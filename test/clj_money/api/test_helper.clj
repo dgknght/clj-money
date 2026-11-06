@@ -106,11 +106,15 @@
          (str id))})
 
 (defn jsonize-decimals
+  "Formats the numbers in a JSON response body, other than ids, as decimal
+  strings, so they can be compared with expectations regardless of scale.
+  Decimals in an EDN response body are left as they are."
   [data]
   (postwalk (fn [x]
-              (if (and (map? x)
-                       (= #{:d}
-                          (-> x keys set)))
-                (-> x :d format-decimal)
+              (if (and (map-entry? x)
+                       (not= :id (key x))
+                       (number? (val x))
+                       (not (decimal? (val x))))
+                (update-in x [1] format-decimal)
                 x))
             data))

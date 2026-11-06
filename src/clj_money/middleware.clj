@@ -8,6 +8,7 @@
                                          wrap-format-request
                                          wrap-format-response]]
             [muuntaja.core :as muuntaja]
+            [muuntaja.format.core :as fmt-core]
             [clj-money.dates :refer [serialize-local-date
                                      serialize-local-date-time]]
             [dgknght.app-lib.api :as api]
@@ -20,7 +21,9 @@
             [clj-money.api :refer [log-error]]
             [clj-money.honeybadger :as honeybadger]
             [clj-money.web.system :as system])
-  (:import com.fasterxml.jackson.core.JsonGenerator))
+  (:import [java.io OutputStream Writer]
+           java.math.BigDecimal
+           com.fasterxml.jackson.core.JsonGenerator))
 
 (defn- param-name
   [specified-name]
@@ -184,9 +187,46 @@
   (fn [req]
     (-> req ->clj-keys handler)))
 
+(def ^:private ^:dynamic *tag-decimals?* false)
+
+; Captured once, so that reloading this namespace doesn't capture the
+; method defined below and recurse
+(defonce ^:private print-big-decimal
+  (get-method print-method BigDecimal))
+
+; Tag decimals only while encoding an EDN response, so that the client reads
+; them as decimals rather than floating point numbers, while printing
+; elsewhere (the REPL, logs) is unchanged
+(defmethod print-method BigDecimal
+  [^BigDecimal d ^Writer w]
+  (if *tag-decimals?*
+    (doto w
+      (.write "#clj-money/decimal \"")
+      (.write (.toPlainString d))
+      (.write "\""))
+    (print-big-decimal d w)))
+
+(defn- edn-string
+  [data]
+  (binding [*tag-decimals?* true]
+    (pr-str data)))
+
+(defn- edn-encoder
+  [_options]
+  (reify
+    fmt-core/EncodeToBytes
+    (encode-to-bytes [_ data charset]
+      (.getBytes ^String (edn-string data) ^String charset))
+    fmt-core/EncodeToOutputStream
+    (encode-to-output-stream [_ data charset]
+      (let [s (edn-string data)]
+        (fn [^OutputStream output-stream]
+          (.write output-stream (.getBytes ^String s ^String charset)))))))
+
 (def ^:private muuntoptions
   (-> muuntaja/default-options
       (assoc :default-format "application/edn")
+      (assoc-in [:formats "application/edn" :encoder] [edn-encoder])
       (assoc-in [:formats "application/json" :encoder-opts]
                 {:encoders {clj_money.entities.CompositeID
                             (fn [x ^JsonGenerator gen]
