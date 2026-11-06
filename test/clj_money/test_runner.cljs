@@ -17,7 +17,9 @@
             [clj-money.views.budgets-test]
             [clj-money.views.attachments-test]
             [clj-money.reconciliations-test]
-            [clj-money.api.trading-test]))
+            [clj-money.api.trading-test]
+            [clj-money.api.cli-logins-test]
+            [clj-money.return-path-test]))
 
 (defmethod t/report [:cljs.test/default :end-run-tests] [m]
   (set! (.-exitCode js/process) (if (t/successful? m) 0 1)))
@@ -41,4 +43,6 @@
     'clj-money.views.budgets-test
     'clj-money.views.attachments-test
     'clj-money.reconciliations-test
-    'clj-money.api.trading-test))
+    'clj-money.api.trading-test
+    'clj-money.api.cli-logins-test
+    'clj-money.return-path-test))

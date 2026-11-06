@@ -385,6 +385,10 @@
     :user/token-expires-at
     :identity/provider-id
     :invitation/token
+    :cli-login/device-code
+    :device-code
+    :deviceCode
+    :auth-token
     :oauth2/access-tokens})
 
 (defn scrub-sensitive-data

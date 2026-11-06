@@ -13,6 +13,7 @@
             [clj-money.components :refer [button spinner]]
             [clj-money.state :refer [app-state +busy -busy]]
             [clj-money.app :refer [fetch-entities]]
+            [clj-money.return-path :as return-path]
             [clj-money.api.users :as users]
             [clj-money.views.invitations :as invs]))
 
@@ -26,7 +27,8 @@
                   (swap! app-state assoc
                          :current-user user
                          :auth-token auth-token)
-                  (fetch-entities :on-complete #(accountant/navigate! "/")))))
+                  (fetch-entities :on-complete #(accountant/navigate!
+                                                  (or (return-path/take!) "/"))))))
 
 (defn- oauth-button
   [provider]

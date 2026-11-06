@@ -280,6 +280,13 @@
                            :type :date-time}}
                 :refs #{{:id :invited-by :type :user}
                         :user}}
+   :cli-login {:fields #{{:id :device-code
+                          :type :string}
+                         {:id :user-code
+                          :type :string}
+                         {:id :expires-at
+                          :type :date-time}}
+               :refs #{:user}}
    :receipt-ingestion {:fields #{{:id :status
                                   :type :keyword}
                                  {:id :receipt

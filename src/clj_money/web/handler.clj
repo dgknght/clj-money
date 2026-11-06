@@ -57,6 +57,7 @@
             [clj-money.api.lot-notes :as lot-notes-api]
             [clj-money.api.audit :as audit-api]
             [clj-money.api.invitations :as invitations-api]
+            [clj-money.api.cli-logins :as cli-logins-api]
             [clj-money.api.receipt-ingestions :as receipt-ingestions-api]
             [clj-money.api.images :as images-api]
             [clj-money.api.statement-ingestions :as statement-ingestions-api]
@@ -183,6 +184,15 @@
                                        wrap-request-logging]}
                  users-api/unauthenticated-routes
                  invitations-api/unauthenticated-routes]
+                ; The CLI's client sends every request under api/, so these
+                ; are kept there, without the authentication
+                ["api/" {:middleware [:api
+                                      :wrap-format
+                                      wrap-decimals
+                                      wrap-merge-params
+                                      wrap-exceptions
+                                      wrap-request-logging]}
+                 cli-logins-api/unauthenticated-routes]
                 ["api/" {:middleware [:api
                                       :wrap-format
                                       wrap-decimals
@@ -210,6 +220,7 @@
                  transaction-items-api/routes
                  sched-trans-api/routes
                  invitations-api/routes
+                 cli-logins-api/routes
                  receipt-ingestions-api/routes
                  statement-ingestions-api/routes
                  images-api/routes]]

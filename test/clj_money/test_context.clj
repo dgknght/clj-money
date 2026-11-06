@@ -430,6 +430,11 @@
   [attr ctx]
   (update-in attr [:invitation/invited-by] (find-user ctx)))
 
+(defmethod prepare :cli-login
+  [attr ctx]
+  (cond-> attr
+    (:cli-login/user attr) (update-in [:cli-login/user] (find-user ctx))))
+
 (defmethod prepare :lot
   [attr ctx]
   (-> attr

@@ -57,6 +57,7 @@
     :account-item          '[?x :account-item/action ?account-item-action]
     :user                  '[?x :user/email ?user-email]
     :invitation            '[?x :invitation/recipient ?invitation-recipient]
+    :cli-login             '[?x :cli-login/device-code ?cli-login-device-code]
     :receipt-ingestion     '[?x :receipt-ingestion/status ?receipt-ingestion-status]
     :statement-ingestion   '[?x :statement-ingestion/status ?statement-ingestion-status]))
 

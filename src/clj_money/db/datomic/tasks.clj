@@ -32,6 +32,7 @@
            "reconciliation"
            "scheduled_transaction"
            "invitation"
+           "cli_login"
            "receipt_ingestion"
            "statement_ingestion"
            "tx_meta"]))

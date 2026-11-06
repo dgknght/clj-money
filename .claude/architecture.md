@@ -52,6 +52,34 @@ into the caller's page state (issue #281).
   require `accountant`, so the namespaces that link to it stay loadable by the
   client tests
 
+## Command-Line Sign In (`cli_logins.clj`)
+
+The command-line app (`money login`, dgknght/money-cli) signs in through the
+browser with a device-code flow, as in clj-groceries (issue #22). See the
+`clj-money.cli-logins` docstring for the steps.
+- `api/cli_logins.clj` - `POST /api/cli-logins` and `POST
+  /api/cli-logins/token` take no authentication, because the CLI has none
+  yet: they're in a separate `api/` route group in `web/handler.clj` without
+  `:authentication` (the CLI sends everything under `/api`). The token
+  endpoint takes `deviceCode` (JSON) or `:device-code` (edn) and answers 400
+  with `{"error": ...}` (`authorization_pending`, `expired_token`,
+  `invalid_grant`) until it can answer 200 with `authToken`. JSON keys are
+  camelCase by the API's convention. `POST
+  /api/cli-logins/:user-code/approve` is authenticated
+- A `cli-login` entity (`:device-code`, `:user-code`, `:user`, `:expires-at`)
+  lives for 10 minutes; it's removed when its token is issued or it's found
+  expired, and starting a login removes expired ones. It has no
+  authorization rules, because it's never served as a resource. SQL reads
+  `:expires-at` as a local date-time, so `db/sql/cli_logins.clj` turns it
+  back into an instant
+- `views/cli_logins.cljs` - `/cli/login?code=...`, the approval page. It's
+  not a public path, so a signed-out user is sent to sign in first
+- `return_path.cljs` - when the app sends a user to `/login` (a non-public
+  path while signed out, or a 401 in `api/end-session`), it remembers the
+  path in session storage, and goes back there once they sign in: from the
+  password form, or on the page load that follows an OAuth sign-in
+  (`core/dispatch-or-return`)
+
 ## Integrant System
 
 `clj-money.system` defines the server's components (storage, the change

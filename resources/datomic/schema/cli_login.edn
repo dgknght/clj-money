@@ -1,0 +1,18 @@
+[{:db/ident :cli-login/device-code
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/value
+  :db/doc "The secret code the command-line app polls with for its auth token"}
+ {:db/ident :cli-login/user-code
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/value
+  :db/doc "The short code the user compares in the browser before approving the login"}
+ {:db/ident :cli-login/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/doc "The user who approved the login"}
+ {:db/ident :cli-login/expires-at
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db/doc "The date and time at which the login expires"}]

@@ -30,6 +30,7 @@
             [clj-money.views.transactions.search]
             [clj-money.views.users]
             [clj-money.views.invitations]
+            [clj-money.views.cli-logins]
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.statements]
@@ -41,6 +42,7 @@
             [clj-money.app :as app :refer [fetch-entities]]
             [clj-money.api.users :as users]
             [clj-money.config :refer [env]]
+            [clj-money.return-path :as return-path]
             [clj-money.otel :as otel]
             [clj-money.service-worker :as sw]))
 
@@ -338,7 +340,16 @@
     (secretary/dispatch! path)
 
     :else
-    (accountant/navigate! "/login")))
+    (do (return-path/remember! path)
+        (accountant/navigate! "/login"))))
+
+(defn- dispatch-or-return
+  "Dispatches the current path, unless the user just signed in after being
+  sent to sign in from another page, in which case it goes back there."
+  []
+  (if-let [path (when @auth-token (return-path/take!))]
+    (accountant/navigate! path)
+    (accountant/dispatch-current!)))
 
 (defn init! []
   (when-let [endpoint (:otel-endpoint env)]
@@ -349,7 +360,7 @@
   (mount-root)
   (sign-in-from-cookie)
   (check-url-error)
-  (accountant/dispatch-current!)
+  (dispatch-or-return)
   (when-not (:dev? env)
     (sw/register!)))
 

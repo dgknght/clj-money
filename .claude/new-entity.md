@@ -84,7 +84,13 @@ In `test/clj_money/test_context.clj`:
 - Add a `find-<entity>` helper function
 - Add a `prepare` multimethod dispatch for seeding the entity in test fixtures
 
-### 18. Apply Migration
+### 18. SQL Test Reset
+Tests reset the SQL database with `reset*` in `src/clj_money/db/sql.clj`,
+which deletes users and lets foreign keys cascade. If the new table can hold
+rows that no cascade reaches (e.g. a nullable `user_id`), add a `delete from`
+for it there, or the next test hits duplicate keys.
+
+### 19. Apply Migration
 Run `lein with-profile test migrate` to apply the new migration to the test
 database.
 
@@ -107,5 +113,6 @@ src/clj_money/db/datomic/tasks.clj       ← add schema filename
 src/clj_money/db/datomic.clj             ← bounding-where-clause case
 src/clj_money/entities/auth_helpers.clj  ← fetch-entity dispatch
 src/clj_money/web/handler.clj            ← require + routes
+src/clj_money/db/sql.clj                 ← reset*, if no cascade reaches it
 test/clj_money/test_context.clj          ← find-<entity> + prepare
 ```

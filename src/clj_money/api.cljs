@@ -8,7 +8,8 @@
             [dgknght.app-lib.api-3 :as api]
             [clj-money.dates :as dates]
             [clj-money.decimal :as decimal]
-            [clj-money.state :as state :refer [auth-token]]))
+            [clj-money.state :as state :refer [auth-token]]
+            [clj-money.return-path :as return-path]))
 
 (reader/register-tag-parser! 'clj-money/local-date-time clj-money.dates/local-date-time)
 (reader/register-tag-parser! 'clj-money/local-date clj-money.dates/local-date)
@@ -50,9 +51,11 @@
 
 (defn- end-session
   "When the server rejects the auth token (e.g., because it has
-  expired), signs the user out and sends them to the sign in page"
+  expired), signs the user out and sends them to the sign in page, to come
+  back once they sign in again"
   [{:keys [status] :as res}]
   (when (and (= 401 status) @auth-token)
+    (return-path/remember! (str js/location.pathname js/location.search))
     (state/logout)
     (cookies/remove! :auth-token)
     (.assign js/location "/login"))
