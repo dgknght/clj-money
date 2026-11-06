@@ -10,8 +10,10 @@
   A receipt attached to the email (an image or a PDF) is read as an uploaded
   one would be. Otherwise, the text of the email is read."
   (:require [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [clj-money.io :refer [read-bytes]]
             [clj-money.mime :as mime]
+            [clj-money.pdf :as pdf]
             [clj-money.ingestion :as ing]))
 
 (defn- of-type
@@ -43,6 +45,32 @@
   any the email's body displays, like a logo"
   [content]
   (filterv receipt? (:parts (mime/parse content))))
+
+(defn- body-html
+  "Returns the HTML of the email's body, from its HTML part, with the images
+  it shows from the email's own parts given in place, or, if it has none,
+  from its plain text part"
+  [parts]
+  (if-let [html (of-type "text/html" parts)]
+    (mime/inline-images html parts)
+    (some-> (of-type "text/plain" parts)
+            mime/text->html)))
+
+(defn body-pdf
+  "Returns a PDF (bytes) of the email's body as it's displayed, for an email
+  the receipt is in the body of, i.e., one with no image or PDF attached,
+  so that the receipt can be viewed without opening the email. Returns nil
+  for an email with a receipt attached, or with no body, or if the body
+  can't be rendered."
+  [content]
+  (let [{:keys [parts]} (mime/parse content)]
+    (when-not (some receipt? parts)
+      (when-let [html (body-html parts)]
+        (try
+          (pdf/render-html html)
+          (catch Exception e
+            (log/warn e "[email] unable to render the body of the email")
+            nil))))))
 
 (defn- contents
   "Returns what's read of the email: the first receipt attached to it or,

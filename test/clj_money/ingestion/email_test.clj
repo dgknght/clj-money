@@ -1,6 +1,7 @@
 (ns clj-money.ingestion.email-test
   (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
+            [clj-money.pdf :as pdf]
             [clj-money.ingestion.email :as email]
             [clj-money.ingestion.helpers :refer [read-receipt]]))
 
@@ -54,6 +55,27 @@
          (map #(update-in % [:content] (fn [b] (String. ^bytes b "US-ASCII")))
               (email/attachments (slurp-bytes "fixtures/emails/embedded_image.eml"))))
       "Each image or PDF attached is listed, but not the logo the email displays"))
+
+(defn- body-text
+  [path]
+  (some-> (slurp-bytes path)
+          email/body-pdf
+          pdf/read-text
+          :text))
+
+(deftest render-the-html-body-of-an-email-as-a-pdf
+  (is (re-find #"Thank you for your order!\nHosting 12\.00\nTotal 12\.00"
+               (body-text "fixtures/emails/html_logo.eml"))
+      "The receipt in the HTML body is rendered"))
+
+(deftest render-the-plain-text-body-of-an-email-as-a-pdf
+  (is (re-find #"Total {9}6\.48"
+               (body-text "fixtures/emails/plain.eml"))
+      "The text is rendered as it's laid out"))
+
+(deftest dont-render-the-body-of-an-email-with-a-receipt-attached
+  (is (nil? (email/body-pdf (slurp-bytes "fixtures/emails/attachment.eml")))
+      "The receipt is the attachment, not the body"))
 
 (deftest read-an-email-saved-from-a-mailbox-file
   (let [content (.getBytes (str "From - Mon Nov 02 09:15:00 2026\n"

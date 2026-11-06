@@ -165,12 +165,15 @@
                                        :review-status :pending}
                          trx)
             "A transaction awaiting review is created from the email")
-        (is (comparable? #:image{:content-type "message/rfc822"}
-                         (some-> (entities/select #:attachment{:transaction trx})
-                                 first
-                                 :attachment/image
-                                 entities/find))
-            "The email is attached to the transaction")))))
+        (is (seq-of-maps-like? [#:attachment{:caption "Email"
+                                             :image #:image{:content-type "application/pdf"
+                                                            :original-filename "email.pdf"}}
+                                #:attachment{:caption "Receipt"
+                                             :image #:image{:content-type "message/rfc822"}}]
+                               (->> (entities/select #:attachment{:transaction trx})
+                                    (map #(update-in % [:attachment/image] entities/find))
+                                    (sort-by :attachment/caption)))
+            "The email is attached to the transaction, with a PDF of its body")))))
 
 (deftest the-files-attached-to-an-email-are-attached-to-the-transaction
   (with-context

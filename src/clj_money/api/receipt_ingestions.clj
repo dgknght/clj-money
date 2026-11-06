@@ -19,22 +19,31 @@
             [clj-money.web.system :as system]
             [clj-money.authorization.receipt-ingestions]))
 
+(defn- ->attachment
+  [{:keys [mime-type filename content caption]} user trx]
+  #:attachment{:transaction trx
+               :image (util/->entity-ref
+                        (img/find-or-create
+                          #:image{:user user
+                                  :original-filename (or filename "attachment")
+                                  :content-type mime-type
+                                  :content content}))
+               :caption (or caption filename "Email attachment")})
+
 (defn- extracted-attachments
   "Returns an attachment to the transaction for each image or PDF attached
-  to the email uploaded as the receipt, so that each can be viewed without
-  opening the email. Anything other than an email has none."
+  to the email uploaded as the receipt or, if there are none, for a PDF of
+  the email's body, so that the receipt can be viewed without opening the
+  email. Anything other than an email has none."
   [content user trx]
   (when (mime/message? content)
-    (mapv (fn [{:keys [mime-type filename] :as part}]
-            #:attachment{:transaction trx
-                         :image (util/->entity-ref
-                                  (img/find-or-create
-                                    #:image{:user user
-                                            :original-filename (or filename "attachment")
-                                            :content-type mime-type
-                                            :content (:content part)}))
-                         :caption (or filename "Email attachment")})
-          (email/attachments content))))
+    (mapv #(->attachment % user trx)
+          (or (seq (email/attachments content))
+              (when-let [pdf (email/body-pdf content)]
+                [{:mime-type "application/pdf"
+                  :filename "email.pdf"
+                  :caption "Email"
+                  :content pdf}])))))
 
 (defn- create-transaction
   [{:receipt-ingestion/keys [image] :as ingestion}

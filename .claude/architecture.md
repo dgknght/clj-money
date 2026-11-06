@@ -373,7 +373,7 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   in wrapper namespaces (issue #278), as `clj-money.mime` keeps it for
   email: `clj-money.images.transform` (EXIF `orientation`, `upright`,
   `rescale`, with ImageIO and Java 2D), `clj-money.pdf` (`read-text`,
-  `page-images`, with PDFBox), `clj-money.content-type` (`sniff`, by the
+  `page-images`, with PDFBox, and `render-html`, with openhtmltopdf), `clj-money.content-type` (`sniff`, by the
   leading bytes) and `clj-money.base64` (`encode`). Each decorator reads
   its source with `clj-money.io/read-bytes`.
   `ollama/receipt-defaults` holds the models
@@ -381,7 +381,7 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   `::email/email` (`ingestion/email.clj`) is configured outermost. The
   Jakarta Mail (`org.eclipse.angus/angus-mail`) and jsoup interop is kept
   in `clj-money.mime`, which reads a message into plain data (`parse`,
-  `message?`, `html->text`). It recognizes an
+  `message?`, `html->text`, `inline-images`, `text->html`). It recognizes an
   email by its leading header field and passes anything else on unchanged.
   An email's first image or PDF attachment goes down the chain like an
   uploaded photo. A part with a Content-ID (`:embedded?` from `mime/parse`)
@@ -431,7 +431,18 @@ information rather than an error.
   image to it (caption "Receipt"). For an uploaded email, each image or PDF
   attached to it (`email/attachments`, which leaves out embedded parts) is
   stored as an image of its own and attached too, captioned with its
-  filename, so it can be viewed without opening the `.eml`. A transaction
+  filename, so it can be viewed without opening the `.eml`. An email with
+  none attached (the receipt is its body) gets a PDF of its body instead
+  (`email/body-pdf`, caption "Email", issue #279): the HTML part, with
+  `cid:` images swapped for data URIs from the email's own parts
+  (`mime/inline-images`, by `:content-id`), or the plain part in a `<pre>`,
+  rendered by `pdf/render-html` (openhtmltopdf, CSS 2.1 only). Its URI
+  resolver and resource access control refuse everything but data URIs, so
+  no tracking pixel or other remote resource is fetched (and no request is
+  sent for an uploaded email, SSRF). A body that can't be rendered is
+  logged and skipped. The raw HTML is never attached: the attachment viewer
+  opens a blob URL with the app's origin, where a script could read the
+  auth token. A transaction
   without a source was created by the user; it has no review status, or
   `:accepted`.
   The user accepts by updating the transaction's review status, and rejects

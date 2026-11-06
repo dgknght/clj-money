@@ -1,0 +1,23 @@
+From: Acme Hosting <billing@acme.example.com>
+To: john@doe.com
+Subject: Your order confirmation
+Date: Mon, 2 Nov 2026 09:14:00 -0600
+Message-ID: <html-logo-1@acme.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="related"
+
+--related
+Content-Type: text/html; charset=UTF-8
+
+<html><body><p><img src="cid:logo@acme.example.com" alt="Acme"><img src="cid:missing@acme.example.com"></p>
+<p>Thank you for your order!</p>
+<table><tr><td>Hosting</td><td>12.00</td></tr><tr><td>Total</td><td>12.00</td></tr></table>
+</body></html>
+--related
+Content-Type: image/png; name="logo.png"
+Content-Disposition: inline; filename="logo.png"
+Content-ID: <logo@acme.example.com>
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC
+--related--
