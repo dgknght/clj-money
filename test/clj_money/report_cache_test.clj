@@ -188,10 +188,21 @@
     (fetch-all cache)
     (is (= all-reports @computed))))
 
-(deftest account-budget-and-entity-changes-evict-every-report
+(deftest budget-changes-evict-only-budget-reports
+  ; balance sheets and income statements show actual amounts, which a
+  ; budget doesn't change
   (doseq [change [[nil {:budget/name "2016"}]
                   [{:budget-item/periods [1M]} {:budget-item/periods [2M]}]
-                  [{:account/name "Food"} nil]
+                  [{:budget-item/periods [1M]} nil]]]
+    (testing (pr-str change)
+      (with-cache [{:keys [cache computed] :as ctx} {}]
+        (fetch-all cache)
+        (published! ctx change)
+        (fetch-all cache)
+        (is (= (conj all-reports [:budget 201]) @computed))))))
+
+(deftest account-and-entity-changes-evict-every-report
+  (doseq [change [[{:account/name "Food"} nil]
                   [{:entity/name "Personal"} {:entity/name "Personal Stuff"}]]]
     (testing (pr-str change)
       (with-cache [{:keys [cache computed] :as ctx} {}]

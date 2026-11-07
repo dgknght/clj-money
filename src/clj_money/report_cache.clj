@@ -15,8 +15,10 @@
     ::prop/propagated signal rather than the change itself.
   - when a price or a lot change has been propagated, for every report, as
     they change the value of commodity accounts.
-  - when an account, budget, budget item or entity changes, for every
-    report, as these change rarely.
+  - when a budget or budget item changes, for every budget report. The
+    other reports show actual amounts, which a budget doesn't change.
+  - when an account or entity changes, for every report, as these change
+    rarely.
   - after :ttl-minutes (default 60), to cover changes that aren't
     published, like imports and work done in the REPL."
   (:require [clojure.core.async :as a]
@@ -35,6 +37,9 @@
 
 (def ^:private propagated-eviction-types
   #{:price :lot})
+
+(def ^:private budget-eviction-types
+  #{:budget :budget-item})
 
 (defn- now-millis []
   (System/currentTimeMillis))
@@ -72,7 +77,9 @@
 
           (propagated-eviction-types entity-type)
           (constantly true))))
-    (constantly true)))
+    (if (budget-eviction-types (util/entity-type (some identity msg)))
+      #(= :budget (:report-type %))
+      (constantly true))))
 
 (defn- handle
   [state msg]
@@ -153,6 +160,7 @@
                  store
                  k
                  (assoc scope
+                        :report-type (first k)
                         :report report
                         :expires-at (+ (now-millis) ttl-millis))
                  generation)
