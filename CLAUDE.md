@@ -46,6 +46,7 @@ directly.
     documentation lives in the Forgejo wiki
     (https://git.dgknght.com/dgknght/clj-money/wiki), documentation for Claude lives
     in `.claude/`, and README files stay with the code.
-  - Run unit tests with code coverage to ensure all tests pass
-    and coverage has not slipped below the configured minimum.
+  - Run the tests relevant to the change (e.g. `lein test :only <ns>`) and
+    make sure they pass, then push. Don't wait on the full suite or coverage
+    locally; CI runs both and will catch anything missed.
 - Use [Conventional Commit](https://www.conventionalcommits.org/) messages
