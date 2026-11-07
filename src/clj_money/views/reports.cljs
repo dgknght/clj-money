@@ -864,6 +864,22 @@
    :portfolio
    :account-history])
 
+(defn- show-options []
+  (when-let [elem (.getElementById js/document "report-options")]
+    (.show (.getOrCreateInstance (.-Offcanvas js/bootstrap) elem))))
+
+(defn- report-selected
+  "Loads the newly selected report if it hasn't been loaded yet. The account
+  history report charts nothing until accounts are chosen, so its options are
+  opened when none are."
+  [page-state]
+  (let [{:keys [selected] :as state} @page-state]
+    (when-not (get-in state [selected :report])
+      (load-report page-state))
+    (when (and (= :account-history selected)
+               (empty? (get-in state [:account-history :options :account-ids])))
+      (show-options))))
+
 (defn- report-nav-item-fn
   [page-state]
   (fn [id]
@@ -873,8 +889,7 @@
        :active? (= id selected)
        :nav-fn (fn []
                  (swap! page-state assoc :selected id)
-                 (when-not (get-in @page-state [id :report])
-                   (load-report page-state)))})))
+                 (report-selected page-state))})))
 
 (defn- filter-form
   [page-state]
@@ -941,9 +956,7 @@
       [:selected]
       (map #(vector % (humanize %)) report-types)
       {:transform-fn keyword
-       :on-change (fn [s field]
-                    (when-not (get-in @page-state [(get-in @s field) :report])
-                      (load-report page-state)))}]]))
+       :on-change #(report-selected page-state)}]]))
 
 (defn- big-nav
   [page-state]
