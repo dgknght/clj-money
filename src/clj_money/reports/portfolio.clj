@@ -110,18 +110,27 @@
                     :report/style :data
                     :report/current-value (:account/value account)})
                  accounts))
-      (let [cost-basis (sum :account/cost-basis accounts)
+      ; An account that no longer holds any shares has no lots, and so
+      ; no cost basis or share counts
+      (let [cost-basis (sum #(or (:account/cost-basis %)
+                                 (:account/value %)
+                                 0M)
+                            accounts)
             gain (- current-value cost-basis)]
         (cons {:id (:id commodity)
                :report/caption (format-commodity commodity)
                :report/style :header
-               :report/shares-purchased (sum :account/shares-purchased accounts)
-               :report/shares-owned (sum :account/shares-owned accounts)
+               :report/shares-purchased (sum #(or (:account/shares-purchased %) 0M)
+                                             accounts)
+               :report/shares-owned (sum #(or (:account/shares-owned %) 0M)
+                                         accounts)
                :report/current-value current-value
                :report/cost-basis cost-basis
                :report/gain-loss gain
-               :report/gain-loss-percent (with-precision 3
-                                           (/ gain cost-basis))}
+               :report/gain-loss-percent (if (< 0M cost-basis)
+                                           (with-precision 3
+                                             (/ gain cost-basis))
+                                           0M)}
               (->> accounts
                    (mapcat :account/lots)
                    (sort-by :lot/purchase-date t/after?)
