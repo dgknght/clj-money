@@ -79,8 +79,12 @@
             (is (apply distinct? ids)
                 "No two rows share an id, even lots purchased on the same day")))))))
 
-(def ^:private sold-out-portfolio-context
+(def ^:private closed-accounts-portfolio-context
   (conj fixtures/portfolio-context
+        #:account{:name "Old IRA"
+                  :type :asset
+                  :system-tags #{:trading}
+                  :entity "Personal"}
         #:trade{:date (t/local-date 2015 4 15)
                 :entity "Personal"
                 :type :sale
@@ -89,25 +93,19 @@
                 :shares 300M
                 :value 1200M})) ; $4.00/share
 
-(deftest portfolio-with-a-commodity-no-longer-held
-  (with-context sold-out-portfolio-context
+(deftest portfolio-excludes-closed-accounts
+  (with-context closed-accounts-portfolio-context
     (let [entity (entities/find (find-entity "Personal"))]
-      (testing "by-account"
-        (is (seq (portfolio/report {:aggregate :by-account
-                                    :entity entity
-                                    :as-of (t/local-date 2015 4 30)}))
-            "The report is generated when all shares of a commodity have been sold"))
-      (testing "by-commodity"
-        (is (some #(= % #:report{:caption "Microsoft, Inc. (MSFT)"
-                                 :style :header
-                                 :shares-purchased 0M
-                                 :shares-owned 0M
-                                 :current-value 0M
-                                 :cost-basis 0M
-                                 :gain-loss 0M
-                                 :gain-loss-percent 0M})
-                  (map #(dissoc % :id)
-                       (portfolio/report {:aggregate :by-commodity
-                                          :entity entity
-                                          :as-of (t/local-date 2015 4 30)})))
-            "A commodity whose shares have all been sold is reported with zero values")))))
+      (doseq [aggregate [:by-account :by-commodity]]
+        (testing (name aggregate)
+          (let [captions (->> (portfolio/report {:aggregate aggregate
+                                                 :entity entity
+                                                 :as-of (t/local-date 2015 4 30)})
+                              (map :report/caption)
+                              set)]
+            (is (not-any? #(re-find #"MSFT" %) captions)
+                "A commodity whose shares have all been sold is excluded")
+            (is (not (captions "Old IRA"))
+                "A trading account with no balance is excluded")
+            (is (some #(re-find #"AAPL" %) captions)
+                "A commodity still held is included")))))))

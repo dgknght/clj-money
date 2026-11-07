@@ -191,6 +191,13 @@
                                          (/ gain-loss cost-basis))
                                        0M)})))
 
+(defn- closed?
+  "An account is considered closed when it holds neither cash nor shares of
+  a commodity, either directly or through its children"
+  [{:account/keys [total-value]}]
+  (and total-value
+       (zero? total-value)))
+
 (defn report
   "Returns a portfolio report based on the options:
     entity    - The entity for which a report is to be generated (required)
@@ -224,5 +231,6 @@
                   (dissoc account :account/parent)
                   account)))
          (rpt/valuate-accounts options)
+         (remove closed?)
          (aggregate)
          (append-portfolio-total))))
