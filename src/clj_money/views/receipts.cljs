@@ -30,7 +30,6 @@
             [clj-money.api.receipt-ingestions :as ri]
             [clj-money.pending-review :as pending-review]
             [clj-money.views.attachments :as atts-view]
-            [clj-money.views.transactions.page :as trx-page]
             [clj-money.views.ingestion-settings :as ingestion-settings]
             [clj-money.views.recent-transactions :as recent-trx]))
 
@@ -89,39 +88,6 @@
     (when-let [account (@accounts-by-id id)]
       (cached-accts/push-transaction-date! account trx-date))))
 
-(defn- load-pending-review
-  "Loads the transactions awaiting review, each with the receipt-ingestion
-  it was read from (::ingestion), if it was read from a receipt"
-  [page-state]
-  (+busy)
-  (trn/select {:transaction/review-status :pending
-               :include-items true}
-              :callback -busy
-              :on-success
-              (fn [trxs]
-                (if (seq trxs)
-                  (ri/select-for-transactions
-                    trxs
-                    :on-success
-                    (fn [ingestions]
-                      (let [by-trx (into {}
-                                         (map (juxt (comp :id :receipt-ingestion/transaction)
-                                                    identity))
-                                         ingestions)]
-                        (swap! page-state
-                               assoc
-                               :pending-review
-                               (mapv #(assoc % ::ingestion (by-trx (:id %)))
-                                     trxs)))))
-                  (swap! page-state assoc :pending-review [])))))
-
-(defn- refresh-pending-review
-  "Reloads the transactions awaiting review, and their count in the nav,
-  after one is added, accepted, or rejected"
-  [page-state]
-  (load-pending-review page-state)
-  (pending-review/load-count))
-
 (defn- save-transaction
   [page-state]
   (let [{:keys [receipt ingestion]} @page-state]
@@ -139,7 +105,7 @@
                                                   {:sort-key :transaction/transaction-date}
                                                   %))
                         (update-account-caches receipt (:receipt/transaction-date receipt))
-                        (when ingestion (refresh-pending-review page-state))
+                        (when ingestion (pending-review/load-count))
                         (new-receipt page-state))))))
 
 (defn- search-accounts []
@@ -274,7 +240,7 @@
                       (:rejected :complete)
                       (do
                         (load-ingested-receipt page-state updated)
-                        (refresh-pending-review page-state))
+                        (pending-review/load-count))
 
                       :failed
                       (do
@@ -357,7 +323,7 @@
                                     update-in
                                     [:transactions]
                                     (partial remove #(util/id= trx %)))
-                             (refresh-pending-review page-state)
+                             (pending-review/load-count)
                              (new-receipt page-state)))))
 
 (defn- rejection-form
@@ -477,7 +443,7 @@
               [:tr
                [:td.text-end {:col-span 2}
                 (format-decimal @total)]]]]
-            [:div.mb-2.d-flex.align-items-center
+            [:div.mb-2.d-flex.flex-wrap.align-items-center.gap-2
              (if @accepting?
                [:button.btn.btn-success
                 {:type :submit
@@ -488,12 +454,12 @@
                  :title "Click here to create this transaction."}
                 (icon-with-text :check "Enter")])
              (if @accepting?
-               [:button.btn.btn-danger.ms-2
+               [:button.btn.btn-danger
                 {:type :button
                  :title "Click here to reject the transaction read from the receipt."
                  :on-click #(swap! page-state assoc :rejection {})}
                 (icon-with-text :x "Reject")]
-               [:button.btn.btn-secondary.ms-2
+               [:button.btn.btn-secondary
                 {:type :button
                  :title (if @ingestion
                           "Click here to discard your changes to the transaction read from the receipt."
@@ -505,7 +471,7 @@
              ; another image can't be chosen until this transaction is
              ; accepted or rejected
              (when-not @ingestion
-               [:div.btn-group.ms-2
+               [:div.btn-group
                 ; opens the file chooser of the hidden image input
                 [:label.btn.btn-secondary
                  {:for "receipt-image"
@@ -605,80 +571,6 @@
         (icon :paperclip :size :small)
         [:span.badge.bg-info.text-dark attachment-count])]]]])
 
-(defn- review-receipt
-  "Opens the transaction read from a receipt in the form, to be accepted
-  or rejected, beside the receipt image, if it's an image"
-  [page-state ingestion]
-  (clear-receipt-image page-state)
-  (clear-ingestion page-state)
-  (swap! page-state assoc :ingestion ingestion)
-  (load-ingested-receipt page-state ingestion)
-  (atts-view/fetch-image
-    (:receipt-ingestion/image ingestion)
-    (fn [blob]
-      (when (and (following? page-state ingestion)
-                 (string/starts-with? (.-type blob) "image/"))
-        (swap! page-state assoc-in [:receipt-image :url] (js/URL.createObjectURL blob))))))
-
-(defn- review-path
-  "The path of the page for a transaction that wasn't read from a receipt
-  (e.g., one read from a statement), where saving it accepts it, showing it
-  from the perspective of its asset or liability account. It's rendered with
-  the row, possibly before the accounts are loaded (accounts-by-id is nil
-  until then), in which case the page shows it from its first account."
-  [{:transaction/keys [items] :as trx}]
-  (trx-page/path
-    trx
-    :account-id (->> items
-                     (map #(get @accounts-by-id
-                                (get-in % [:transaction-item/account :id])))
-                     (filter (comp #{:asset :liability} :account/type))
-                     first
-                     :id)))
-
-(defn- pending-review-row
-  [{:keys [id] ::keys [ingestion] :transaction/keys [transaction-date description value] :as trx}
-   page-state]
-  ^{:key (str "pending-review-row-" id)}
-  [:tr.align-middle
-   [:td (format-date transaction-date)]
-   [:td description]
-   [:td.text-end (format-decimal value)]
-   [:td (if ingestion "Receipt" "Statement")]
-   [:td.text-end
-    (if ingestion
-      [:button.btn.btn-sm.btn-secondary
-       {:title "Click here to accept or reject this transaction read from a receipt."
-        :on-click #(review-receipt page-state ingestion)}
-       (icon :eye :size :small)]
-      ; navigation to a link within the app is handled by accountant
-      [:a.btn.btn-sm.btn-secondary
-       {:href (review-path trx)
-        :title "Click here to review this transaction."}
-       (icon :eye :size :small)])]])
-
-(defn- pending-review-table
-  "Lists the transactions awaiting review, read from receipts and
-  statements"
-  [page-state]
-  (let [pending (r/cursor page-state [:pending-review])]
-    (fn []
-      (when (seq @pending)
-        [:div.card.mb-3
-         [:div.card-header [:strong "Pending Review"]]
-         [:table.table.table-hover.mb-0
-          [:thead
-           [:tr
-            [:th "Date"]
-            [:th "Description"]
-            [:th.text-end "Amount"]
-            [:th "Source"]
-            [:th]]]
-          [:tbody
-           (->> @pending
-                (map #(pending-review-row % page-state))
-                doall)]]]))))
-
 (def ^:private recent-options-id "receipts-recent-transactions-options")
 
 (defn- results-table
@@ -728,7 +620,6 @@
     (new-receipt page-state)
     (load-transactions page-state)
     (load-historical-transactions page-state)
-    (load-pending-review page-state)
     (add-watch page-state ::filter-date
                (fn [_ _ old new]
                  (when (not= (:filter-date old) (:filter-date new))
@@ -741,12 +632,10 @@
                    (swap! page-state
                           #(-> %
                                (dissoc :attachments-item :attachments)
-                               (assoc :transactions []
-                                      :pending-review [])))
+                               (assoc :transactions [])))
                    (new-receipt page-state)
                    (load-transactions page-state)
-                   (load-historical-transactions page-state)
-                   (load-pending-review page-state))))
+                   (load-historical-transactions page-state))))
     (fn []
       [:<>
        [:h1.mt-3 "Receipts"]
@@ -772,9 +661,7 @@
             [atts-view/attachment-form page-state]]
 
            :else
-           [:<>
-            [pending-review-table page-state]
-            [results-table page-state]])]]])))
+           [results-table page-state])]]])))
 
 (secretary/defroute "/receipts" []
   (swap! app-state assoc :page #'index :active-nav :receipts))

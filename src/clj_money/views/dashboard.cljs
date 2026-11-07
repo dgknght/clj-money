@@ -337,4 +337,4 @@
 (secretary/defroute "/" []
   (if (env :needs-setup?)
     (accountant/navigate! "/setup")
-    (swap! app-state assoc :page #'index)))
+    (swap! app-state assoc :page #'index :active-nav :dashboard)))

@@ -41,16 +41,27 @@ into the caller's page state (issue #281).
   prepared with `prepare-for-edit`, and renders
   `[transaction-form transaction :account ... :on-save ... :on-cancel ...
   :on-delete ...]`. `:account` is the account the simplified form shows it
-  from. The form saves (accepting a transaction pending review) and deletes
-  it itself; the callbacks decide what happens next. The Accounts register
-  renders it in place, or in a modal while reconciling
+  from. `:choose-account? true` adds an Account field to the simplified form,
+  for a new transaction started with a nil `:transaction/account`. The form
+  saves (accepting a transaction pending review) and deletes it itself; the
+  callbacks decide what happens next. The Accounts register renders it in
+  place, or in a modal while reconciling
 - `views/transactions/page.cljs` - `/transactions/:id`, a page that loads one
   transaction into the form, to open a transaction from anywhere (search
-  results, the scheduled transactions just created, the pending review list).
+  results, the scheduled transactions just created, the Review page).
   Link to it with `path` (`:account-id` picks the account it's shown from).
-  Saving, deleting or cancelling goes back in the browser history. It doesn't
-  require `accountant`, so the namespaces that link to it stay loadable by the
-  client tests
+  `/transactions/new` enters a new one, with the user choosing the account; its route is defined first, because secretary
+  uses the first route that matches. Saving, deleting or cancelling goes back
+  in the browser history. It doesn't require `accountant`, so the namespaces
+  that link to it stay loadable by the client tests
+- `views/bottom_nav.cljs` - the tab bar fixed to the bottom of screens below
+  `lg` (issue #308): Add (the Receipts page), Accounts, Reports, Search, and
+  More, a bottom sheet with the rest of the nav items. Badges show on the
+  slots and in the sheet. The navbar's logo goes to the dashboard. `core/current-page`
+  renders it with the same decorated nav items as the navbar, which then
+  hides its hamburger, once there's a user and an entity; the page root gets
+  `with-bottom-nav` so the content clears the bar. A route sets
+  `:active-nav` to the id of its slot or nav item to highlight it
 
 ## Command-Line Sign In (`cli_logins.clj`)
 
@@ -464,17 +475,19 @@ information rather than an error.
   account refs; Datomic retracts removed ones in `deconstruct`) and
   `:settings/expense-hints` (edited one per line)
 - Pending review queue: transactions with `:transaction/review-status
-  :pending`, from receipts and statements, are listed on the Receipts page
-  (the "Pending Review" card). `GET /api/entities/:entity-id/transactions`
+  :pending`, from receipts and statements, are listed on the Review page
+  (`views/review.cljs`, `/review`). `GET /api/entities/:entity-id/transactions`
   filters by `review-status`, and `.../transactions/count` returns
   `{:count n}`. `GET /api/entities/:entity-id/receipt-ingestions?transaction-id=...`
   (repeatable, required) finds the ingestions that created the listed
-  transactions: a row with one opens in the receipt form (Accept/Reject);
-  one without (from a statement) links to the transaction page
-  (`views.transactions.page/path`, see UI Elements), shown from its asset or
-  liability account, where saving it accepts it
+  transactions, to label each row's source. Every row links to the
+  transaction page (`views.transactions.page/path`, see UI Elements), shown
+  from its asset or liability account, where saving it accepts it. For one
+  read from a receipt, that page shows the receipt image beside the form and
+  offers Reject (with a reason, via the ingestion, which deletes the
+  transaction)
 - `pending_review.cljs` - `load-count` sets `state/pending-review-count`,
-  shown as the badge on the Receipts nav item. It's loaded by
+  shown as the badge on the Review nav item. It's loaded by
   `app/watch-entity` when the entity changes, by `app/receive-entities` when
   the fetched entity has the id restored from the cookie (page load, where
   the watch sees no change), and after a pending transaction is accepted,

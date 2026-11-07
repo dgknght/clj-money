@@ -33,10 +33,12 @@
             [clj-money.views.cli-logins]
             [clj-money.views.budgets]
             [clj-money.views.receipts]
+            [clj-money.views.review]
             [clj-money.views.statements]
             [clj-money.views.reports]
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :as dashboard]
+            [clj-money.views.bottom-nav :refer [bottom-nav]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
             [clj-money.app :as app :refer [fetch-entities]]
@@ -72,6 +74,8 @@
     :tool-tip "Click here to enter receipts"}
    {:id :statements
     :tool-tip "Click here to reconcile an account from a statement"}
+   {:id :review
+    :tool-tip "Click here to review the transactions read from receipts and statements"}
    {:id :reports
     :tool-tip "Click here to view reports"}
    {:id :scheduled
@@ -121,7 +125,10 @@
      (icon (if dark? :sun :moon) :size :small)]))
 
 (defn navbar
-  [items entity-name {:keys [profile-photo-url authenticated?]}]
+  "Renders the navbar. With :bottom-nav?, small screens get their nav items
+  from the bottom tab bar, so the navbar keeps only the brand, the entity and
+  the profile menu."
+  [items entity-name {:keys [profile-photo-url authenticated? bottom-nav?]}]
   [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
    [:div.container
     [:a.navbar-brand {:href "/"}
@@ -136,6 +143,7 @@
                         :aria-controls "entity-selection"}
        entity-name])
     [:button.navbar-toggler {:type :button
+                             :class (when bottom-nav? "d-none")
                              :data-bs-toggle :collapse
                              :data-bs-target "#primary-nav"
                              :aria-controls "primary-nav"
@@ -192,33 +200,36 @@
     (assoc :badge pending-scheduled-count
            :badge-class "bg-info text-bg-info")))
 
-(defmethod decorate-nav-item :receipts
+(defmethod decorate-nav-item :review
   [item {:keys [pending-review-count]}]
   (cond-> item
     (pos? pending-review-count)
     (assoc :badge pending-review-count
            :badge-class "text-bg-warning"
-           :tool-tip (str "Click here to enter receipts, or review the "
+           :tool-tip (str "Click here to review the "
                           pending-review-count
                           " transactions read from receipts and statements"))))
 
-(defn- nav []
-  (let [active-nav (r/cursor app-state [:active-nav])
-        items (make-reaction
-                (fn []
-                  (map #(decorate-nav-item
-                          %
-                          {:pending-scheduled-count @state/pending-scheduled-count
-                           :pending-review-count @state/pending-review-count})
-                       (nav-items @active-nav
-                                  @current-user
-                                  @current-entity))))]
+(defn- decorated-nav-items
+  [active-nav]
+  (make-reaction
     (fn []
-      (navbar
-        @items
-        (:entity/name @current-entity)
-        {:profile-photo-url @state/profile-photo-url
-         :authenticated? (boolean @current-user)}))))
+      ; deref'd here, not in the (lazy) map, so the reaction tracks them
+      (let [counts {:pending-scheduled-count @state/pending-scheduled-count
+                    :pending-review-count @state/pending-review-count}]
+        (map #(decorate-nav-item % counts)
+             (nav-items @active-nav
+                        @current-user
+                        @current-entity))))))
+
+(defn- nav
+  [items bottom-nav?]
+  (navbar
+    items
+    (:entity/name @current-entity)
+    {:profile-photo-url @state/profile-photo-url
+     :authenticated? (boolean @current-user)
+     :bottom-nav? bottom-nav?}))
 
 (defn- alerts []
   (fn []
@@ -270,15 +281,22 @@
              "Manage Imports"]]]]]]])))
 
 (defn- current-page []
-  (let [page (r/cursor app-state [:page])]
+  (let [page (r/cursor app-state [:page])
+        active-nav (r/cursor app-state [:active-nav])
+        items (decorated-nav-items active-nav)
+        ; the bottom nav's slots are pages of the current entity
+        bottom-nav? (make-reaction #(boolean (and @current-user
+                                                  @current-entity)))]
     (fn []
-      [:div.h-100
-       [nav]
+      [:div.h-100 {:class (when @bottom-nav? "with-bottom-nav")}
+       [nav @items @bottom-nav?]
        [entity-selection]
        [:div.container.h-100
         [alerts]
         [render-toasts]
-        [@page]]])))
+        [@page]]
+       (when @bottom-nav?
+         [bottom-nav @items @active-nav])])))
 
 (defn mount-root []
   (let [mounted? (r/cursor app-state [:mounted?])]

@@ -227,8 +227,21 @@
                (special-char :pm)
                (format-decimal @correction)])]]]]]])))
 
+(defn- account-field
+  [transaction field caption validations]
+  [forms/typeahead-field
+   transaction
+   field
+   {:caption caption
+    :validations validations
+    :search-fn (fn [input callback]
+                 (callback (find-by-path input @accounts)))
+    :caption-fn #(string/join "/" (:account/path %))
+    :find-fn (fn [{:keys [id]} callback]
+               (callback (@accounts-by-id id)))}])
+
 (defn- simple-transaction-form
-  [transaction on-save]
+  [transaction on-save choose-account?]
   [:form#transaction-form
    {:no-validate true
     :on-submit (fn [e]
@@ -239,6 +252,8 @@
                        unaccountify
                        ->unilateral
                        (save-transaction on-save))))}
+   (when choose-account?
+     [account-field transaction [:transaction/account] "Account" #{::v/required}])
    [forms/date-field
     transaction
     [:transaction/transaction-date]
@@ -247,14 +262,7 @@
    [forms/text-field transaction [:transaction/item :account-item/memo]]
    [forms/decimal-field transaction [:transaction/quantity] {:fraction-digits 2
                                                              :validations #{::v/required}}]
-   [forms/typeahead-field
-    transaction
-    [:transaction/other-account]
-    {:search-fn (fn [input callback]
-                  (callback (find-by-path input @accounts)))
-     :caption-fn #(string/join "/" (:account/path %))
-     :find-fn (fn [{:keys [id]} callback]
-                (callback (@accounts-by-id id)))}]])
+   [account-field transaction [:transaction/other-account] nil nil]])
 
 (defn- expand
   [trx]
@@ -286,18 +294,31 @@
                                 :on-click #(swap! transaction collapse account)}
      (icon :arrows-collapse)]))
 
+(defn- simple?
+  "A transaction is shown in simplified form once it's accountified, or, when
+  the user chooses the account, while it has a :transaction/account key,
+  even an empty one (expanding it renames the key away)."
+  [trx choose-account?]
+  (or (accountified? trx)
+      (and choose-account?
+           (contains? trx :transaction/account))))
+
 (defn transaction-form
   "Renders the form for the transaction in the given atom (or cursor), which
   must be prepared with prepare-for-edit. Renders nothing while it's empty.
 
   Options:
-    :account   - the account from whose perspective the simplified form shows
-                 the transaction; without it, the form can be expanded but
-                 not simplified
-    :on-save   - called with the saved transaction
-    :on-cancel - called when the user cancels the edit
-    :on-delete - called with the deleted transaction"
-  [transaction & {:keys [account on-save on-cancel on-delete]}]
+    :account         - the account from whose perspective the simplified form
+                       shows the transaction; without it, the form can be
+                       expanded but not simplified
+    :choose-account? - for a new transaction, adds an Account field to the
+                       simplified form, so the user chooses the account it's
+                       shown from. Start the transaction with a nil
+                       :transaction/account to show it simplified.
+    :on-save         - called with the saved transaction
+    :on-cancel       - called when the user cancels the edit
+    :on-delete       - called with the deleted transaction"
+  [transaction & {:keys [account choose-account? on-save on-cancel on-delete]}]
   (when @transaction
     [:<>
      [:div.d-flex.justify-content-between
@@ -306,8 +327,8 @@
              "New Transaction")]
       [mode-toggle transaction account]]
      [:div.mt-3
-      (if (accountified? @transaction)
-        [simple-transaction-form transaction on-save]
+      (if (simple? @transaction choose-account?)
+        [simple-transaction-form transaction on-save choose-account?]
         [full-transaction-form transaction on-save])]
      [:div
       [:button.btn.btn-primary
