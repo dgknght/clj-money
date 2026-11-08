@@ -297,9 +297,14 @@ $bottom-nav-height: 3.5rem;
 }
 
 @include media-breakpoint-down(lg) {
-  // keeps the end of the page clear of the bottom nav
-  .with-bottom-nav {
-    padding-bottom: calc(#{$bottom-nav-height} + env(safe-area-inset-bottom));
+  // Keeps the end of the page clear of the bottom nav. The wrappers are
+  // h-100, so page content overflows them and padding on a wrapper would end
+  // at the viewport's height. A spacer after the page's content scrolls with
+  // it instead.
+  .with-bottom-nav > .container::after {
+    content: "";
+    display: block;
+    height: calc(#{$bottom-nav-height} + env(safe-area-inset-bottom));
   }
 
   .navbar {
