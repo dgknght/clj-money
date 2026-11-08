@@ -6,6 +6,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.util :as util]
+            [clj-money.entities :as entities]
             [clj-money.api.test-helper :refer [parse-body
                                                request
                                                jsonize-decimals]]
@@ -439,3 +440,97 @@
     (is (http-success? response))
     (is (= [0M 0M 0M] (map :balance parsed-body))
         "The balances of an account the user can't see are not revealed")))
+
+(def ^:private commodity-summary-context
+  (conj basic-context
+        #:commodity{:name "Some Fund"
+                    :entity "Personal"
+                    :symbol "FND"
+                    :exchange :nasdaq
+                    :type :fund}
+        #:account{:name "IRA"
+                  :entity "Personal"
+                  :type :asset}
+        #:transaction{:transaction-date (t/local-date 2016 1 1)
+                      :entity "Personal"
+                      :description "Opening Balances"
+                      :debit-account "IRA"
+                      :credit-account "Opening Balances"
+                      :quantity 1000M}
+        #:trade{:type :purchase
+                :entity "Personal"
+                :date (t/local-date 2016 2 1)
+                :account "IRA"
+                :commodity "FND"
+                :shares 10M
+                :value 50M}
+        #:trade{:type :purchase
+                :entity "Personal"
+                :date (t/local-date 2016 3 1)
+                :account "IRA"
+                :commodity "FND"
+                :shares 10M
+                :value 60M}
+        #:trade{:type :sale
+                :entity "Personal"
+                :date (t/local-date 2016 3 15)
+                :account "IRA"
+                :commodity "FND"
+                :shares 5M
+                :value 35M}
+        #:price{:commodity "FND"
+                :trade-date (t/local-date 2016 4 10)
+                :value 8M}))
+
+(defn- summarize-values
+  [user-email account-fn]
+  (with-context commodity-summary-context
+    (let [entity (find-entity "Personal")
+          path (format "%s?account-id=%s&transaction-date=2016-01-01&transaction-date=2016-05-01&period-type=month&period-count=1&include-balance=true&include-value=true"
+                       (path :api
+                             :entities
+                             (:id entity)
+                             :transaction-items
+                             :summarize)
+                       (:id (account-fn entity)))]
+      (-> (request :get path
+                   :content-type "application/edn"
+                   :user (find-user user-email))
+          app
+          parse-body))))
+
+(defn- fund-account
+  [entity]
+  (entities/find-by #:account{:name "FND"
+                              :entity entity}))
+
+(deftest a-user-can-summarize-the-value-of-a-commodity-account
+  (let [{:keys [parsed-body] :as response} (summarize-values "john@doe.com"
+                                                              fund-account)]
+    (is (http-success? response))
+    (is (= [{:quantity 0M :balance 0M :value 0M :balance-value nil}
+            {:quantity 10M :balance 10M :value 50M :balance-value 50M}
+            {:quantity 5M :balance 15M :value 35M :balance-value 105M}
+            {:quantity 0M :balance 15M :value 0M :balance-value 120M}]
+           (map #(select-keys % [:quantity :balance :value :balance-value])
+                parsed-body))
+        "Each period includes the value of the activity, which is the cost of the shares bought less the cost of the shares sold, and the value of the shares held at the end of the period, based on the most recent price")))
+
+(deftest the-value-of-a-default-commodity-account-is-its-balance
+  (let [{:keys [parsed-body] :as response} (summarize-values
+                                             "john@doe.com"
+                                             (fn [_] (find-account "IRA")))]
+    (is (http-success? response))
+    (is (= (map :balance parsed-body)
+           (map :balance-value parsed-body))
+        "The value of the balance is the balance")
+    (is (= (map :quantity parsed-body)
+           (map :value parsed-body))
+        "The value of the activity is the activity")))
+
+(deftest a-user-cannot-summarize-the-value-of-a-commodity-account-in-anothers-entity
+  (let [{:keys [parsed-body] :as response} (summarize-values "jane@doe.com"
+                                                              fund-account)]
+    (is (http-success? response))
+    (is (not-any? #(some % [:value :balance-value]) parsed-body)
+        "No values are revealed")))

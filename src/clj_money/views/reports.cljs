@@ -791,10 +791,23 @@
                                  (conj ids (:id account)))))
                   (dissoc ::working-account))))))
 
+(defn- tracks-other-commodity?
+  "Returns true if the account tracks a commodity other than the entity's
+  default, in which case its quantities are shares rather than money"
+  [{:account/keys [commodity]}]
+  (and commodity
+       (not (id= commodity
+                 (get-in @current-entity
+                         [:entity/settings :settings/default-commodity])))))
+
 (defn- account-history-options
   [page-state]
   (let [options (r/cursor page-state [:account-history :options])
-        account-ids (r/cursor options [:account-ids])]
+        account-ids (r/cursor options [:account-ids])
+        ; value and quantity only differ for commodity accounts
+        show-unit? (make-reaction #(->> @account-ids
+                                        (keep @accounts-by-id)
+                                        (some tracks-other-commodity?)))]
     (fn []
       [:<>
        [forms/typeahead-field
@@ -822,6 +835,13 @@
         (map (juxt identity humanize) hist/measures)
         {:caption "Show"
          :transform-fn keyword}]
+       (when @show-unit?
+         [forms/select-field
+          options
+          [:unit]
+          (map (juxt identity humanize) hist/units)
+          {:caption "In"
+           :transform-fn keyword}])
        [forms/select-field
         options
         [:period-type]
@@ -957,6 +977,7 @@
                                        :end-date (t/today)
                                        :period-type :month
                                        :measure :activity
+                                       :unit :value
                                        :style :bar
                                        :show-values? false}}}))
 

@@ -26,7 +26,8 @@
                                          (t/local-date 2026 7 1)]
           :transaction-item/account groceries
           :period [1 :month]
-          :include-balance true}
+          :include-balance true
+          :include-value true}
          (hist/criteria groceries {:start-date (t/local-date 2026 1 1)
                                    :end-date (t/local-date 2026 6 30)
                                    :period-type :month}))
@@ -50,13 +51,17 @@
         "The week starts on Monday")))
 
 (defn- summary
+  "Returns a summary for an account that tracks the default commodity, for
+  which the values are the same as the quantities"
   ([start-dates quantities]
    (summary start-dates quantities (repeat "0")))
   ([start-dates quantities balances]
    (map (fn [start-date quantity balance]
           {:start-date start-date
            :quantity (d quantity)
-           :balance (d balance)})
+           :value (d quantity)
+           :balance (d balance)
+           :balance-value (d balance)})
         start-dates
         quantities
         balances)))
@@ -96,6 +101,49 @@
                                      :style :line})
                  [:data :datasets]))
       "The balance at the end of each period is charted instead of the activity"))
+
+(def ^:private fund
+  {:id 103
+   :account/path ["IRA" "FND"]})
+
+(def ^:private fund-summary
+  [{:start-date (t/local-date 2026 1 1)
+    :quantity (d "10")
+    :value (d "50")
+    :balance (d "10")
+    :balance-value nil}
+   {:start-date (t/local-date 2026 4 1)
+    :quantity (d "5")
+    :value (d "30")
+    :balance (d "15")
+    :balance-value (d "105")}])
+
+(defn- fund-data
+  [opts]
+  (get-in (hist/chart-config [{:account fund
+                               :summary fund-summary}]
+                             (assoc opts
+                                    :period-type :quarter
+                                    :style :line))
+          [:data :datasets 0 :data]))
+
+(deftest chart-a-commodity-account-by-value-or-quantity
+  (testing "activity"
+    (is (= [50.0 30.0]
+           (fund-data {:measure :activity}))
+        "The value is charted by default")
+    (is (= [10.0 5.0]
+           (fund-data {:measure :activity
+                       :unit :quantity}))
+        "The shares are charted when quantity is selected"))
+  (testing "balance"
+    (is (= [nil 105.0]
+           (fund-data {:measure :balance
+                       :unit :value}))
+        "A period with no price is left blank")
+    (is (= [10.0 15.0]
+           (fund-data {:measure :balance
+                       :unit :quantity})))))
 
 (defn- labels
   [period-type start-dates]

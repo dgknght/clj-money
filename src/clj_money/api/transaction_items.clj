@@ -8,12 +8,16 @@
                                           uuid]]
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
+            [clj-money.decimal :as d]
             [clj-money.util :as util]
+            [clj-money.accounts :refer [polarizer]]
             [clj-money.comparatives :as comparatives]
             [clj-money.transactions :refer [summarize-items
                                             append-balances]]
             [clj-money.entities :as entities]
             [clj-money.entities.transaction-items :as trx-items]
+            [clj-money.entities.accounts :refer [default-commodity]]
+            [clj-money.entities.prices :as prices]
             [clj-money.authorization :refer [+scope]]
             [clj-money.authorization.transaction-items]))
 
@@ -202,19 +206,98 @@
                      summaries)
     summaries))
 
+(defn- polarized-value
+  [{:transaction-item/keys [value action account]}]
+  (d/* (or value d/zero)
+       (polarizer action account)))
+
+(defn- activity-value
+  "Returns the default-commodity value of the items within the summary's
+  period"
+  [{:keys [start-date end-date]} items]
+  (->> items
+       (filter #(dates/within? (:transaction/transaction-date %)
+                               start-date
+                               end-date))
+       (map polarized-value)
+       (reduce d/+ d/zero)))
+
+(defn- price-fn
+  "Returns a function that takes a date and returns the most recent price of
+  the commodity on or before that date, or nil if there isn't one. The prices
+  are looked up once for all of the given dates."
+  [commodity dates]
+  (let [[earliest latest] ((juxt first last) (sort dates))
+        prices (->> (entities/select #:price{:commodity commodity
+                                             :trade-date [:between
+                                                          earliest
+                                                          latest]})
+                    (cons (prices/most-recent commodity earliest))
+                    (filter identity)
+                    (sort-by :price/trade-date t/after?))]
+    (fn [date]
+      (some (fn [{:price/keys [trade-date value]}]
+              (when-not (t/after? trade-date date)
+                value))
+            prices))))
+
+(defn- commodity-values
+  "For an account that holds a commodity other than the entity's default,
+  adds the value of the activity in each period, which is the cost of the
+  shares bought less the cost of the shares sold, and the value of the shares
+  held at the end of the period, which is the number of shares times the most
+  recent price, or nil if the commodity has no price yet."
+  [summaries items {:account/keys [commodity]} as-of]
+  (let [last-day (t/minus as-of (t/days 1)) ; as-of is exclusive
+        price-date #(t/min (:end-date %) last-day)
+        price (price-fn commodity (map price-date summaries))]
+    (map (fn [{:keys [balance] :as summary}]
+           (cond-> (assoc summary :value (activity-value summary items))
+             balance (assoc :balance-value
+                            (some->> (price (price-date summary))
+                                     (d/* balance)))))
+         summaries)))
+
+(defn- apply-values
+  "Adds the value, in the entity's default commodity, of the activity in each
+  period and, when balances are included, of the balance at the end of each
+  period. For an account that tracks the default commodity, these are the
+  same as the quantities."
+  [summaries
+   items
+   {:transaction-item/keys [account]
+    [_ _ as-of] :transaction/transaction-date}
+   {:keys [params authenticated]}]
+  (if-let [{:account/keys [commodity entity]
+            :as account} (when (and account
+                                    (parse-bool (:include-value params)))
+                           (entities/find-by (+scope {:id (:id account)}
+                                                     :account
+                                                     authenticated)))]
+    (if (util/id= commodity (default-commodity (entities/find entity)))
+      (map (fn [{:keys [quantity balance] :as summary}]
+             (cond-> (assoc summary :value quantity)
+               balance (assoc :balance-value balance)))
+           summaries)
+      (commodity-values summaries items account as-of))
+    summaries))
+
 (defn- summarize
   [{:keys [authenticated] :as req}]
   (let [{[_ since as-of] :transaction/transaction-date
          :as criteria} (extract-summary-criteria req)
-        summaries (->> (entities/select (+scope criteria
-                                                :transaction-item
-                                                authenticated)
-                                        :select-also [:transaction/transaction-date])
-                       trx-items/polarize-quantities
-                       (summarize-items (assoc (extract-summary-options req)
-                                               :since since
-                                               :as-of as-of)))]
-    (api/response (apply-balances summaries criteria req))))
+        items (->> (entities/select (+scope criteria
+                                            :transaction-item
+                                            authenticated)
+                                    :select-also [:transaction/transaction-date])
+                   trx-items/polarize-quantities)]
+    (-> (summarize-items (assoc (extract-summary-options req)
+                                :since since
+                                :as-of as-of)
+                         items)
+        (apply-balances criteria req)
+        (apply-values items criteria req)
+        api/response)))
 
 (def routes
   [["accounts/:account-id/transaction-items" {:get {:handler index}}]

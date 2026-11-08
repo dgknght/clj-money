@@ -13,6 +13,13 @@
   period, or the balance of the account at the end of the period"
   [:activity :balance])
 
+(def units
+  "How each measure is expressed: as the value in the entity's default
+  commodity, or as the quantity of the commodity the account tracks (shares,
+  for a stock or fund account). The two are the same for an account that
+  tracks the default commodity."
+  [:value :quantity])
+
 (def ^:private month-abbrs
   ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
 
@@ -48,7 +55,8 @@
                                   (t/plus end-date (t/days 1))] ; the end of the range is exclusive
    :transaction-item/account account
    :period [1 period-type]
-   :include-balance true})
+   :include-balance true
+   :include-value true})
 
 (defn- period-label
   [date period-type]
@@ -59,27 +67,37 @@
     :week (dates/format-local-date date)))
 
 (defn- ->number
+  "Converts the decimal to a number for the chart, leaving nil (a period that
+  can't be valued, which the chart leaves blank) alone"
   [quantity]
-  #?(:clj (double quantity)
-     :cljs (.toNumber quantity)))
+  (when quantity
+    #?(:clj (double quantity)
+       :cljs (.toNumber quantity))))
+
+(def ^:private summary-keys
+  {[:activity :quantity] :quantity
+   [:activity :value]    :value
+   [:balance :quantity]  :balance
+   [:balance :value]     :balance-value})
 
 (defn- dataset
-  [measure]
-  (let [value (if (= :balance measure) :balance :quantity)]
+  [measure unit]
+  (let [k (summary-keys [(or measure :activity)
+                         (or unit :value)])]
     (fn [{:keys [account summary]}]
       {:label (string/join "/" (:account/path account))
-       :data (mapv (comp ->number value) summary)})))
+       :data (mapv (comp ->number k) summary)})))
 
 (defn chart-config
   "Returns the configuration for a chart of the given account summaries,
   each of which is a map containing the :account and its :summary, as
   returned by the summarize endpoint for the criteria above"
-  [summaries {:keys [period-type measure style show-values?]}]
+  [summaries {:keys [period-type measure unit style show-values?]}]
   {:type style
    :data {:labels (->> (first summaries) ; every summary covers the same periods
                        :summary
                        (mapv #(period-label (:start-date %) period-type)))
-          :datasets (mapv (dataset measure) summaries)}
+          :datasets (mapv (dataset measure unit) summaries)}
    :options {:plugins {:datalabels {:display show-values?
                                     :anchor "end"
                                     :align "end"}}}})
