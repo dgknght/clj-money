@@ -98,3 +98,9 @@ its paths to catch this.
 A URL with a query string (e.g. `/search?description=...`) also showed Page
 Not Found, because `core/dispatch-or-not-found` looked the route up with
 the query attached. It now looks up the path alone.
+
+### Server tests fail with `No implementation of method: ... of protocol: #'clj-money.accounts/ValuationData`
+
+Stale AOT-compiled classes in `target/classes/clj_money` define the protocol
+separately from the one loaded from source, so reified implementations no
+longer satisfy it. Delete `target/classes/clj_money` and rerun.
