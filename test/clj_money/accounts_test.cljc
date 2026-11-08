@@ -560,6 +560,30 @@
                    commodity-accounts)]
       #?(:clj (is (seq-of-maps-like? expected actual))
          :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual)))))
+  (testing "A commodity account holding shares not acquired through a purchase (no lots)"
+    (let [expected [{:account/name "DeFi Wallet"
+                     :account/value (d 0)
+                     :account/total-value (d 6000)}
+                    {:account/name "BTC"
+                     :account/value (d 6000)
+                     :account/total-value (d 6000)}]
+          actual (accounts/valuate
+                   (valuation-data {:balances {:wallet (d 0)
+                                               :wallet-btc (d 0.08)}
+                                    :prices {:btc (d 75000)}})
+                   [{:id :wallet
+                     :account/name "DeFi Wallet"
+                     :account/type :asset
+                     :account/system-tags #{:trading}
+                     :account/commodity {:id :usd}}
+                    {:id :wallet-btc
+                     :account/parent {:id :wallet}
+                     :account/name "BTC"
+                     :account/type :asset
+                     :account/system-tags #{:tradable}
+                     :account/commodity {:id :btc}}])]
+      #?(:clj (is (seq-of-maps-like? expected actual))
+         :cljs (is (dgknght.app-lib.test-assertions/seq-of-maps-like? expected actual)))))
   (testing "A subset of accounts whose root's own parent is not included (as when valuating a single budget item and its children)"
     (let [expected [{:account/name "Reserve"
                      :account/value (d 10000)

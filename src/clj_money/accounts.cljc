@@ -355,7 +355,17 @@
              :account/value (sum :lot/value lots)
              :account/gain (sum :lot/gain lots)
              :account/current-price (:lot/current-price (first lots)))
-      (assoc account :account/value (fetch-balance data account)))))
+      ; Shares can arrive without a purchase (e.g., a transfer in), in which
+      ; case there are no lots, and the balance is a quantity of shares
+      ; that must be converted to a value using the current price
+      (let [shares (fetch-balance data account)]
+        (if (or (nil? shares) (d/zero? shares))
+          (assoc account :account/value shares)
+          (let [price (fetch-price data commodity)]
+            (assoc account
+                   :account/shares-owned shares
+                   :account/current-price price
+                   :account/value (d/* shares price))))))))
 
 (defn- valuate-commodity-accounts
   [data accounts]
