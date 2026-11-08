@@ -11,12 +11,13 @@
 (declare aggregate-portfolio-account)
 
 (defn- aggregate-portfolio-commodity-accounts
-  [{:account/keys [children]} depth]
-  (mapcat #(aggregate-portfolio-account % :depth (inc depth))
+  [{:account/keys [children]} depth parent-ids]
+  (mapcat #(aggregate-portfolio-account % :depth (inc depth)
+                                          :parent-ids parent-ids)
           children))
 
 (defn- aggregate-portfolio-lots
-  [{:account/keys [lots]} depth]
+  [{:account/keys [lots]} depth parent-ids]
   (map (fn [{:keys [id]
               :lot/keys [purchase-date
                          shares-purchased
@@ -26,6 +27,7 @@
                          gain]}]
          {:id id
           :report/caption (dates/format-local-date purchase-date)
+          :report/parent-ids parent-ids
           :report/depth (inc depth)
           :report/style :data
           :report/shares-purchased shares-purchased
@@ -37,9 +39,11 @@
                                       (/ gain cost-basis))})
        lots))
 
-(defn- format-commodity
+; A commodity row is captioned with its symbol, with its name as a tooltip
+(defn- commodity-caption
   [{:commodity/keys [name symbol]}]
-  (format "%s (%s)" name symbol))
+  {:report/caption symbol
+   :report/tooltip name})
 
 (defn- aggregate-portfolio-account
   [{:account/keys [name
@@ -51,13 +55,15 @@
                    commodity
                    gain]
     :as account}
-   & {:keys [depth] :or {depth 0}}]
+   & {:keys [depth parent-ids] :or {depth 0 parent-ids []}}]
   {:pre [(:account/total-value account)
          (:account/value account)]}
   (let [cost-basis (or cost-basis value 0M)
         gain (or gain (- value cost-basis))
+        child-parent-ids (conj parent-ids (:id account))
         shared {:id (:id account)
                 :report/caption name
+                :report/parent-ids parent-ids
                 :report/depth depth
                 :report/cost-basis cost-basis
                 :report/gain-loss gain
@@ -74,16 +80,19 @@
                     :report/caption name})
             (cons {:id (str "cash-" (:id account))
                    :report/caption "Cash"
+                   :report/parent-ids child-parent-ids
                    :report/style :subheader
                    :report/depth (inc depth)
                    :report/current-value value
                    :report/cost-basis value
                    :report/gain-loss 0M}
-                  (aggregate-portfolio-commodity-accounts account depth)))
+                  (aggregate-portfolio-commodity-accounts account
+                                                          depth
+                                                          child-parent-ids)))
       (cons (merge shared
-                   {:report/style :subheader
-                    :report/caption (format-commodity commodity)})
-            (aggregate-portfolio-lots account depth)))))
+                   {:report/style :subheader}
+                   (commodity-caption commodity))
+            (aggregate-portfolio-lots account depth child-parent-ids)))))
 
 (defn- aggregate-portfolio-by-account
   [accounts]
@@ -95,18 +104,21 @@
 (defn- aggregate-portfolio-commodity
   [[_commodity-id accounts]]
   (let [commodity (:account/commodity (first accounts))
-        current-value (sum :account/value accounts)]
+        current-value (sum :account/value accounts)
+        child-parent-ids [(:id commodity)]]
     (if (:commodity/default? commodity)
-      (cons {:id (:id commodity)
-             :report/caption (format-commodity commodity)
-             :report/style :header
-             :report/current-value current-value
-             :report/cost-basis current-value
-             :report/gain-loss 0M
-             :report/gain-loss-percent 0.0M}
+      (cons (merge (commodity-caption commodity)
+                   {:id (:id commodity)
+                    :report/parent-ids []
+                    :report/style :header
+                    :report/current-value current-value
+                    :report/cost-basis current-value
+                    :report/gain-loss 0M
+                    :report/gain-loss-percent 0.0M})
             (map (fn [account]
                    {:id (:id account)
                     :report/caption (:account/name account)
+                    :report/parent-ids child-parent-ids
                     :report/style :data
                     :report/current-value (:account/value account)})
                  accounts))
@@ -117,20 +129,21 @@
                                  0M)
                             accounts)
             gain (- current-value cost-basis)]
-        (cons {:id (:id commodity)
-               :report/caption (format-commodity commodity)
-               :report/style :header
-               :report/shares-purchased (sum #(or (:account/shares-purchased %) 0M)
-                                             accounts)
-               :report/shares-owned (sum #(or (:account/shares-owned %) 0M)
-                                         accounts)
-               :report/current-value current-value
-               :report/cost-basis cost-basis
-               :report/gain-loss gain
-               :report/gain-loss-percent (if (< 0M cost-basis)
-                                           (with-precision 3
-                                             (/ gain cost-basis))
-                                           0M)}
+        (cons (merge (commodity-caption commodity)
+                     {:id (:id commodity)
+                      :report/parent-ids []
+                      :report/style :header
+                      :report/shares-purchased (sum #(or (:account/shares-purchased %) 0M)
+                                                    accounts)
+                      :report/shares-owned (sum #(or (:account/shares-owned %) 0M)
+                                                accounts)
+                      :report/current-value current-value
+                      :report/cost-basis cost-basis
+                      :report/gain-loss gain
+                      :report/gain-loss-percent (if (< 0M cost-basis)
+                                                  (with-precision 3
+                                                    (/ gain cost-basis))
+                                                  0M)})
               (->> accounts
                    (mapcat :account/lots)
                    (sort-by :lot/purchase-date t/after?)
@@ -143,6 +156,7 @@
                                          value]}]
                           {:id id
                            :report/caption (dates/format-local-date purchase-date)
+                           :report/parent-ids child-parent-ids
                            :report/style :data
                            :report/shares-purchased shares-purchased
                            :report/shares-owned shares-owned
@@ -202,7 +216,10 @@
   "Returns a portfolio report based on the options:
     entity    - The entity for which a report is to be generated (required)
     as-of     - The date for which a report is to be generated. Defaults to today
-    aggregate - The method, :by-commodity or :by-account, defaults to :by-commodity"
+    aggregate - The method, :by-commodity or :by-account, defaults to :by-commodity
+
+  Each row except the total has :report/parent-ids, the ids of the rows it's
+  nested under, outermost first, so a client can collapse a row's children."
   [{:keys [entity] :as options}]
   {:pre [(:entity options)]}
   (let [accounts (entities/select {:account/entity entity

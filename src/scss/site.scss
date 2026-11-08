@@ -102,10 +102,10 @@ $secondary: #6c6680;
 .portfolio tbody .report-header td {
   border-bottom: none;
   font-size: 105%;
-  cursor: pointer;
 }
 
-.portfolio tbody .report-subheader td {
+// rows with rows nested under them, which a click expands or collapses
+.portfolio tbody .expandable td {
   cursor: pointer;
 }
 

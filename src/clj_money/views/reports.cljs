@@ -588,10 +588,11 @@
                                        [:portfolio :report]
                                        %))))
 
+; A row is shown once every row it's nested under is expanded, so only the
+; top level shows when the report opens
 (defn- visible?
-  [record visible-ids]
-  (or (nil? (:parents record))
-      (every? #(visible-ids %) (:parents record))))
+  [{:report/keys [parent-ids]} visible-ids]
+  (every? visible-ids parent-ids))
 
 (defn- toggle-visibility
   [state id]
@@ -600,10 +601,7 @@
                                  :filter
                                  :aggregate])]
     (update-in state
-               [:portfolio (get-in state [:portfolio
-                                          :options
-                                          aggregate])
-                :visible-ids]
+               [:portfolio :options aggregate :visible-ids]
                (fn [ids]
                  (if (ids id)
                    (disj ids id)
@@ -618,6 +616,7 @@
   [{:report/keys [style
                   depth
                   caption
+                  tooltip
                   shares-owned
                   shares-purchased
                   cost-basis
@@ -626,30 +625,39 @@
                   gain-loss-percent]
     :keys [id]
     :as record}
-   visible-ids
+   {:keys [visible-ids parent-ids]}
    page-state]
-  ^{:key (str "report-row-" (or id caption))}
-  [:tr {:class (cond-> [(str "report-" (name style))]
-                 (not (visible? record visible-ids))
-                 (conj "d-none"))
-        :on-click (when-not (= "data" style)
-                    #(swap! page-state toggle-visibility id))}
-   [:td {:class [(when (= "data" style)
-                  "text-end")
-                 (str "account-depth-" depth)]}
-    caption]
-   [:td.text-end.d-none.d-md-table-cell (format-shares shares-purchased)]
-   [:td.text-end.d-none.d-md-table-cell (format-shares shares-owned)]
-   [:td.text-end.d-none.d-md-table-cell (format-decimal cost-basis)]
-   [:td.text-end (format-decimal current-value)]
-   [:td.text-end {:class (if (> 0 gain-loss)
-                           "text-danger"
-                           "text-success")}
-    (format-decimal gain-loss)]
-   [:td.text-end.d-none.d-md-table-cell {:class (if (> 0 gain-loss)
-                                                  "text-danger"
-                                                  "text-success")}
-    (format-percent gain-loss-percent)]])
+  (let [parent? (parent-ids id)]
+    ^{:key (str "report-row-" (or id caption))}
+    [:tr {:class (cond-> [(str "report-" (name style))]
+                   parent?
+                   (conj "expandable")
+
+                   (not (visible? record visible-ids))
+                   (conj "d-none"))
+          :on-click (when parent?
+                      #(swap! page-state toggle-visibility id))}
+     [:td {:class (str "account-depth-" depth)
+           :title tooltip}
+      (when parent?
+        [:span.me-1
+         (icon (if (visible-ids id)
+                 :chevron-down
+                 :chevron-right)
+               :size :small)])
+      caption]
+     [:td.text-end.d-none.d-md-table-cell (format-shares shares-purchased)]
+     [:td.text-end.d-none.d-md-table-cell (format-shares shares-owned)]
+     [:td.text-end.d-none.d-md-table-cell (format-decimal cost-basis)]
+     [:td.text-end (format-decimal current-value)]
+     [:td.text-end {:class (if (> 0 gain-loss)
+                             "text-danger"
+                             "text-success")}
+      (format-decimal gain-loss)]
+     [:td.text-end.d-none.d-md-table-cell {:class (if (> 0 gain-loss)
+                                                    "text-danger"
+                                                    "text-success")}
+      (format-percent gain-loss-percent)]]))
 
 (defn- empty-position?
   [{:report/keys [style current-value shares-owned]}]
@@ -661,7 +669,9 @@
   [page-state]
   (let [report (r/cursor page-state [:portfolio :report])
         aggregate (r/cursor page-state [:portfolio :options :filter :aggregate])
-        visible-ids (make-reaction #(get-in @page-state [:portfolio :options @aggregate :visible-ids]))]
+        visible-ids (make-reaction #(get-in @page-state [:portfolio :options @aggregate :visible-ids]))
+        ; the ids of the rows that have rows nested under them
+        parent-ids (make-reaction #(set (mapcat :report/parent-ids @report)))]
     (fn []
       [:table.table.table-hover.table-borderless.portfolio
        [:thead
@@ -681,7 +691,10 @@
           (seq @report)
           (->> @report
                (remove empty-position?)
-               (map #(portfolio-report-row % @visible-ids page-state))
+               (map #(portfolio-report-row %
+                                           {:visible-ids @visible-ids
+                                            :parent-ids @parent-ids}
+                                           page-state))
                doall)
 
           :else

@@ -1047,7 +1047,8 @@
 
 (def expected-portfolio-report
   {:by-commodity
-   {(t/local-date 2015 3 31) [#:report{:caption "Cash (USD)"
+   {(t/local-date 2015 3 31) [#:report{:caption "USD"
+                                       :tooltip "Cash"
                                        :style :header
                                        :current-value 16100M}
                               #:report{:caption "401k"
@@ -1056,7 +1057,8 @@
                               #:report{:caption "IRA"
                                        :style :data
                                        :current-value 6900M}
-                              #:report{:caption "Apple, Inc. (AAPL)"
+                              #:report{:caption "AAPL"
+                                       :tooltip "Apple, Inc."
                                        :style :header
                                        :shares-purchased 300M
                                        :shares-owned 300M
@@ -1080,7 +1082,8 @@
                                        :current-value 2200M
                                        :gain-loss 200M
                                        :gain-loss-percent 0.1M}
-                              #:report{:caption "Microsoft, Inc. (MSFT)"
+                              #:report{:caption "MSFT"
+                                       :tooltip "Microsoft, Inc."
                                        :style :header
                                        :shares-purchased 200M
                                        :shares-owned 200M
@@ -1102,7 +1105,8 @@
                                        :current-value 20200M
                                        :gain-loss 200M
                                        :gain-loss-percent 0.01M}]
-    (t/local-date 2015 4 30) [#:report{:caption "Cash (USD)"
+    (t/local-date 2015 4 30) [#:report{:caption "USD"
+                                       :tooltip "Cash"
                                        :style :header
                                        :cost-basis 17000M
                                        :current-value 17000M
@@ -1114,7 +1118,8 @@
                               #:report{:caption "IRA"
                                        :style :data
                                        :current-value 8100M}
-                              #:report{:caption "Apple, Inc. (AAPL)"
+                              #:report{:caption "AAPL"
+                                       :tooltip "Apple, Inc."
                                        :style :header
                                        :shares-owned 200M
                                        :cost-basis 2100M
@@ -1135,7 +1140,8 @@
                                        :current-value 1200M
                                        :gain-loss 200M
                                        :gain-loss-percent 0.2M}
-                              #:report{:caption "Microsoft, Inc. (MSFT)"
+                              #:report{:caption "MSFT"
+                                       :tooltip "Microsoft, Inc."
                                        :style :header
                                        :shares-owned 300M
                                        :cost-basis 1100M
@@ -1174,7 +1180,8 @@
                                        :current-value 9200M
                                        :cost-basis 9200M
                                        :gain-loss 0M}
-                              #:report{:caption "Microsoft, Inc. (MSFT)"
+                              #:report{:caption "MSFT"
+                                       :tooltip "Microsoft, Inc."
                                        :style :subheader
                                        :shares-purchased 200M
                                        :shares-owned 200M
@@ -1201,7 +1208,8 @@
                                        :current-value 6900M
                                        :cost-basis 6900M
                                        :gain-loss 0M}
-                              #:report{:caption "Apple, Inc. (AAPL)"
+                              #:report{:caption "AAPL"
+                                       :tooltip "Apple, Inc."
                                        :style :subheader
                                        :shares-purchased 300M
                                        :shares-owned 300M
@@ -1242,7 +1250,8 @@
                                        :current-value 8900M
                                        :cost-basis 8900M
                                        :gain-loss 0M}
-                              #:report{:caption "Microsoft, Inc. (MSFT)"
+                              #:report{:caption "MSFT"
+                                       :tooltip "Microsoft, Inc."
                                        :style :subheader
                                        :shares-purchased 300M
                                        :shares-owned 300M
@@ -1277,7 +1286,8 @@
                                        :current-value 8100M
                                        :cost-basis 8100M
                                        :gain-loss 0M}
-                              #:report{:caption "Apple, Inc. (AAPL)"
+                              #:report{:caption "AAPL"
+                                       :tooltip "Apple, Inc."
                                        :style :subheader
                                        :shares-purchased 300M
                                        :shares-owned 200M

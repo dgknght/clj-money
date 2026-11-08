@@ -109,3 +109,45 @@
                 "A trading account with no balance is excluded")
             (is (some #(re-find #"AAPL" %) captions)
                 "A commodity still held is included")))))))
+
+(defn- captions-with-parents
+  "Pairs each row's caption with the captions of the rows it's nested under"
+  [records]
+  (let [captions (into {} (map (juxt :id :report/caption)) records)]
+    (map (fn [{:report/keys [caption parent-ids]}]
+           [caption (mapv captions parent-ids)])
+         records)))
+
+(deftest portfolio-rows-identify-their-parents
+  (with-context fixtures/portfolio-context
+    (let [entity (entities/find (find-entity "Personal"))
+          report #(portfolio/report {:aggregate %
+                                     :entity entity
+                                     :as-of (t/local-date 2015 4 30)})]
+      (testing "by account"
+        (is (= [["401k" []]
+                ["Cash" ["401k"]]
+                ["MSFT" ["401k"]]
+                ["4/1/2015" ["401k" "MSFT"]]
+                ["2/1/2015" ["401k" "MSFT"]]
+                ["IRA" []]
+                ["Cash" ["IRA"]]
+                ["AAPL" ["IRA"]]
+                ["3/1/2015" ["IRA" "AAPL"]]
+                ["2/1/2015" ["IRA" "AAPL"]]
+                ["Total" []]]
+               (captions-with-parents (report :by-account)))
+            "Each row lists the account and commodity rows it's nested under"))
+      (testing "by commodity"
+        (is (= [["USD" []]
+                ["401k" ["USD"]]
+                ["IRA" ["USD"]]
+                ["AAPL" []]
+                ["3/1/2015" ["AAPL"]]
+                ["2/1/2015" ["AAPL"]]
+                ["MSFT" []]
+                ["4/1/2015" ["MSFT"]]
+                ["2/1/2015" ["MSFT"]]
+                ["Total" []]]
+               (captions-with-parents (report :by-commodity)))
+            "Each row lists the commodity row it's nested under")))))
