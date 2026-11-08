@@ -23,6 +23,7 @@
             [clj-money.commodities :as cmm]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.prices :as prices]
+            [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      +busy
@@ -282,7 +283,52 @@
     (+busy)
     (prices/fetch commodity-ids
                   :callback -busy
-                  :on-success #(swap! page-state receive-prices %))))
+                  :on-success (fn [fetched]
+                                (swap! page-state
+                                       #(-> %
+                                            (receive-prices fetched)
+                                            (assoc :fetched-prices fetched)))
+                                (fetch-accounts)))))
+
+(defn- fetched-price-row
+  [{:price/keys [commodity trade-date value] :as price} commodities-by-id]
+  (let [{:commodity/keys [name symbol]} (commodities-by-id (:id commodity))]
+    ^{:key (str "fetched-price-" (:id price))}
+    [:tr
+     [:td {:title name} symbol]
+     [:td.text-end (format-date trade-date)]
+     [:td.text-end (currency-format value)]]))
+
+(defn- fetched-prices
+  "Lists the prices returned by the most recent \"Fetch Prices\" request."
+  [page-state]
+  (let [prices (r/cursor page-state [:fetched-prices])
+        commodities-by-id (make-reaction
+                            #(->> (:commodities @page-state)
+                                  (map (juxt :id identity))
+                                  (into {})))]
+    (fn []
+      (when @prices
+        [:div#fetched-prices.card.mb-2
+         [:div.card-header.d-flex.justify-content-between.align-items-center
+          [:strong "Fetched Prices"]
+          [:button.btn-close {:type :button
+                              :aria-label "Close"
+                              :title "Click here to dismiss the fetched prices."
+                              :on-click #(swap! page-state dissoc :fetched-prices)}]]
+         [:table.table.table-striped.mb-0
+          [:thead
+           [:tr
+            [:th "Symbol"]
+            [:th.text-end "Trade Date"]
+            [:th.text-end "Price"]]]
+          [:tbody
+           (->> @prices
+                (sort-by #(get-in @commodities-by-id
+                                  [(get-in % [:price/commodity :id])
+                                   :commodity/symbol]))
+                (map #(fetched-price-row % @commodities-by-id))
+                doall)]]]))))
 
 (defn- match-fn
   [hide-zero-shares? search-term]
@@ -423,7 +469,9 @@
   (prices/fetch [(get-in @page-state [:prices-commodity :id])]
                 :bypass-cache? (:bypass-price-cache? @page-state)
                 :callback -busy
-                :on-success #(swap! page-state receive-prices %)))
+                :on-success (fn [fetched]
+                              (swap! page-state receive-prices fetched)
+                              (fetch-accounts))))
 
 (defn- price-list
   [page-state]
@@ -557,6 +605,7 @@
         [:div.col-md-8
          [commodities-table page-state]]
         [:div.col-md-4
+         [fetched-prices page-state]
          [commodity-form page-state]
          [price-list page-state]
          [price-form page-state]]]])))
