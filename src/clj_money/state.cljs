@@ -1,5 +1,6 @@
 (ns clj-money.state
-  (:require [cljs.pprint :refer [pprint]]
+  (:require [clojure.string :as string]
+            [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.cookies :as cookies]
@@ -19,6 +20,32 @@
                     :current-entity
                     :profile-photo-url])))
 
+(defn- browser?
+  []
+  (exists? js/document))
+
+(def ^:private persisted-cookies [:state :last-entity-id])
+
+(defn- ancestor-directories
+  "The paths, other than the root, that a browser could have scoped a cookie
+  to when it was set without a path on the given page, e.g. \"/a\" and
+  \"/a/b\" for \"/a/b/c\""
+  [pathname]
+  (let [segments (butlast (rest (string/split pathname #"/" -1)))]
+    (map #(str "/" (string/join "/" (take % segments)))
+         (range 1 (inc (count segments))))))
+
+(defn- remove-page-scoped-cookies!
+  "Earlier versions set these cookies without a path, which scoped them to
+  the directory of the page they were set on, shadowing the root ones there"
+  []
+  (when (browser?)
+    (doseq [k persisted-cookies
+            path (ancestor-directories (.-pathname js/location))]
+      (cookies/remove! k path nil))))
+
+(remove-page-scoped-cookies!)
+
 (defonce app-state (r/atom (merge {:mounted? false
                                    :bg-proc-count 0}
                                   (cookies/get :state))))
@@ -26,7 +53,7 @@
 (add-watch app-state
            ::init
            (fn [_ _ _ state]
-             (cookies/set! :state (serialize state))))
+             (cookies/set! :state (serialize state) {:path "/"})))
 
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
@@ -39,7 +66,8 @@
              (when entity
                (cookies/set! :last-entity-id
                               (:id entity)
-                              {:max-age one-year-in-seconds}))))
+                              {:max-age one-year-in-seconds
+                               :path "/"}))))
 
 (def auth-token (r/cursor app-state [:auth-token]))
 (def profile-photo-url (r/cursor app-state [:profile-photo-url]))
@@ -49,10 +77,6 @@
 (def busy? (make-reaction #(not (zero? @bg-proc-count))))
 (defonce pending-scheduled-count (r/atom 0))
 (defonce pending-review-count (r/atom 0))
-
-(defn- browser?
-  []
-  (exists? js/document))
 
 (defn- init-theme []
   (if (browser?)

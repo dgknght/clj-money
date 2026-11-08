@@ -60,7 +60,7 @@
 
 (defn- logout []
   (state/logout)
-  (cookies/remove! :auth-token)
+  (cookies/remove! :auth-token "/" nil)
   (accountant/navigate! "/login"))
 
 (def authenticated-nav-items
@@ -313,7 +313,7 @@
   (when-let [photo (cookies/get :profile-photo)]
     (swap! app-state assoc
            :profile-photo-url (js/decodeURIComponent photo))
-    (cookies/remove! :profile-photo)))
+    (cookies/remove! :profile-photo "/" nil)))
 
 (defn- sign-in-from-cookie []
   (consume-profile-photo-cookie)

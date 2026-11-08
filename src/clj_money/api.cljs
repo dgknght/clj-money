@@ -57,7 +57,7 @@
   (when (and (= 401 status) @auth-token)
     (return-path/remember! (str js/location.pathname js/location.search))
     (state/logout)
-    (cookies/remove! :auth-token)
+    (cookies/remove! :auth-token "/" nil)
     (.assign js/location "/login"))
   res)
 
