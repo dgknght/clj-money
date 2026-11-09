@@ -19,12 +19,12 @@
                          ; The pins below are transitive dependencies held at
                          ; versions with known vulnerabilities by their parents
                          ; (see issue #269)
-                         [com.fasterxml.jackson.core/jackson-core "2.22.4"]
-                         [com.fasterxml.jackson.core/jackson-databind "2.22.4"]
-                         [com.fasterxml.jackson.core/jackson-annotations "2.22"]
-                         [com.fasterxml.jackson.dataformat/jackson-dataformat-cbor "2.22.4"]
-                         [com.fasterxml.jackson.dataformat/jackson-dataformat-smile "2.22.4"]
-                         [com.fasterxml.jackson.datatype/jackson-datatype-jsr310 "2.22.4"]
+                         [com.fasterxml.jackson.core/jackson-core "2.23.0"]
+                         [com.fasterxml.jackson.core/jackson-databind "2.23.0"]
+                         [com.fasterxml.jackson.core/jackson-annotations "2.23"]
+                         [com.fasterxml.jackson.dataformat/jackson-dataformat-cbor "2.23.0"]
+                         [com.fasterxml.jackson.dataformat/jackson-dataformat-smile "2.23.0"]
+                         [com.fasterxml.jackson.datatype/jackson-datatype-jsr310 "2.23.0"]
                          ; netty comes from the Datomic peer's Artemis client
                          [io.netty/netty-buffer "4.2.20.Final"]
                          [io.netty/netty-codec "4.2.20.Final"]
@@ -69,7 +69,7 @@
                  [clojure.java-time "1.4.3"]
                  [org.apache.pdfbox/pdfbox "3.0.8" :exclusions [commons-io
                                                             commons-logging]]
-                 [io.github.openhtmltopdf/openhtmltopdf-pdfbox "1.1.108" :exclusions [org.apache.pdfbox/pdfbox
+                 [io.github.openhtmltopdf/openhtmltopdf-pdfbox "1.1.110" :exclusions [org.apache.pdfbox/pdfbox
                                                                        commons-logging]]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
                  [ring "1.15.6" :exclusions [commons-codec
@@ -193,9 +193,9 @@
                    com.fasterxml.jackson.core/jackson-core
                    lein-doo]]
                  [lambdaisland/uri "1.19.155"]
-                 [com.taoensso/carmine "3.5.0" :exclusions [org.clojure/tools.reader commons-codec]]
+                 [com.taoensso/carmine "3.6.0" :exclusions [org.clojure/tools.reader commons-codec]]
                  [stowaway "0.2.18" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
-                 [io.opentelemetry/opentelemetry-api "1.67.0"]
+                 [io.opentelemetry/opentelemetry-api "1.68.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
                  [org.jsoup/jsoup] ; version managed above
