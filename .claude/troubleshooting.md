@@ -71,8 +71,8 @@ is such an element, so a click on the glyph of an icon inside a link wasn't
 intercepted and the browser loaded the page from the server, losing
 anything left in `app-state` for the next page (e.g., the
 `:pending-reconciliation` hand-off from the Statements page). `site.scss` gives `a .bi` `pointer-events:
-none` so the click lands on the link. Rebuild the CSS locally with `sass
-src/scss/site.scss resources/public/css/site.css`.
+none` so the click lands on the link. Rebuild the CSS locally with `npm run
+build:css`.
 
 ### New client code isn't running, or the nav throws `No protocol method IDeref.-deref defined for type undefined`
 

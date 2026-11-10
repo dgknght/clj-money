@@ -1,8 +1,8 @@
 // Theme customization - purpleish
-$primary: #6f42c1;
-$secondary: #6c6680;
-
-@import 'bootstrap/bootstrap';
+@use 'bootstrap/scss/bootstrap' with (
+  $primary: #6f42c1,
+  $secondary: #6c6680
+);
 
 .account-type {
   font-size: 120%;
@@ -25,7 +25,7 @@ $secondary: #6c6680;
 .value-depth-3 { margin-right: 1.5em }
 .value-depth-4 { margin-right: 2em }
 
-@include media-breakpoint-up(sm) {
+@include bootstrap.media-breakpoint-up(sm) {
   .account-depth-1 { margin-left: 1em }
   .account-depth-2 { margin-left: 2em }
   .account-depth-3 { margin-left: 3em }
@@ -37,7 +37,7 @@ $secondary: #6c6680;
   .value-depth-4 { margin-right: 4em }
 }
 
-@include media-breakpoint-up(md) {
+@include bootstrap.media-breakpoint-up(md) {
   .account-depth-1 { margin-left: 1.5em }
   .account-depth-2 { margin-left: 3em }
   .account-depth-3 { margin-left: 4.5em }
@@ -49,7 +49,7 @@ $secondary: #6c6680;
   .value-depth-4 { margin-right: 6em }
 }
 
-@include media-breakpoint-up(lg) {
+@include bootstrap.media-breakpoint-up(lg) {
   .account-depth-1 { margin-left: 2em }
   .account-depth-2 { margin-left: 4em }
   .account-depth-3 { margin-left: 6em }
@@ -61,7 +61,7 @@ $secondary: #6c6680;
   .value-depth-4 { margin-right: 8em }
 }
 
-@include media-breakpoint-up(md) {
+@include bootstrap.media-breakpoint-up(md) {
   .account-depth-sm-1 { margin-left: 0.5em }
   .account-depth-sm-1 { margin-left: 1em }
   .account-depth-sm-1 { margin-left: 1.5em }
@@ -78,7 +78,7 @@ $secondary: #6c6680;
 }
 
 .report-header td, .report-header th {
-  border-bottom: 1px solid $gray-300;
+  border-bottom: 1px solid bootstrap.$gray-300;
 }
 
 .report-condensed-summary td, .report-condensed-summary th {
@@ -87,11 +87,11 @@ $secondary: #6c6680;
 }
 
 .report-footer td, .report-footer th {
-  border-top: 1px solid $gray-300;
+  border-top: 1px solid bootstrap.$gray-300;
 }
 
 .report-summary {
-  border-top: 1px solid $gray-300;
+  border-top: 1px solid bootstrap.$gray-300;
   font-weight: bold;
   font-size: 105%;
   td {
@@ -129,7 +129,7 @@ $secondary: #6c6680;
 }
 
 .typeahead-list {
-  border: 1px solid $gray-300;
+  border: 1px solid bootstrap.$gray-300;
   background-color: #fff;
   list-style-type: none;
   margin: 0;
@@ -141,7 +141,7 @@ $secondary: #6c6680;
 }
 
 .typeahead-highlight {
-  background-color: $primary;
+  background-color: bootstrap.$primary;
   color: #fff;
 }
 
@@ -190,7 +190,8 @@ td.status {
     background-color: #fff !important;
     color: #000 !important;
   }
-  h1, h2, h3, h4, h5, h6, p, table, tr, td, th, .text-primary, .text-secondary, .text-body, .text-body-emphasis { color: #000 !important; }
+  h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6, p, table, tr, td, th,
+  .text-primary, .text-secondary, .text-body, .text-body-emphasis { color: #000 !important; }
 }
 
 table tfoot td {
@@ -296,7 +297,7 @@ $bottom-nav-height: 3.5rem;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-@include media-breakpoint-down(lg) {
+@include bootstrap.media-breakpoint-down(lg) {
   // Keeps the end of the page clear of the bottom nav. The wrappers are
   // h-100, so page content overflows them and padding on a wrapper would end
   // at the viewport's height. A spacer after the page's content scrolls with

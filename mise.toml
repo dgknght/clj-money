@@ -45,9 +45,10 @@ run = "npm install"
 
 [tasks.sass]
 description = "Install sass and compile stylesheets"
+depends = ["npm-install"]
 run = """
 npm install -g sass
-sass src/scss/site.scss resources/public/css/site.css
+npm run build:css
 """
 
 [tasks.download-otel]

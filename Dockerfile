@@ -15,10 +15,11 @@ RUN convert -background none -resize 192x192 resources/public/images/logo.svg re
     convert -background none -resize 512x512 resources/public/images/logo.svg resources/public/images/icon-512.png && \
     convert -background none -resize 180x180 resources/public/images/logo.svg resources/public/images/apple-touch-icon.png
 
-# npm ci also bundles the browser libraries in src/js (see src/deps.cljs)
+# npm ci also bundles the browser libraries in src/js (see src/deps.cljs) and
+# installs the Bootstrap SCSS that build:css compiles against
 RUN mkdir resources/public/css && \
-    sass src/scss/site.scss resources/public/css/site.css && \
     npm ci && \
+    npm run build:css && \
     lein do fig:prod, uberjar
 
 # Runtime needs only a JRE, not Leiningen (whose standalone jar the security
