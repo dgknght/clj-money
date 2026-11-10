@@ -18,6 +18,7 @@
             [clj-money.views.attachments-test]
             [clj-money.reconciliations-test]
             [clj-money.api.trading-test]
+            [clj-money.api.transfers-test]
             [clj-money.api.cli-logins-test]
             [clj-money.return-path-test]))
 
@@ -44,5 +45,6 @@
     'clj-money.views.attachments-test
     'clj-money.reconciliations-test
     'clj-money.api.trading-test
+    'clj-money.api.transfers-test
     'clj-money.api.cli-logins-test
     'clj-money.return-path-test))

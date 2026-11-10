@@ -10,7 +10,8 @@
             [clj-money.decimal :as d]
             [clj-money.transactions :as trx]
             [clj-money.accounts :refer [system-tagged?
-                                        polarize-quantity]]
+                                        polarize-quantity
+                                        transfer-destination?]]
             [clj-money.dates :as dates]
             [clj-money.entities :as entities]
             [clj-money.entities.prices :as prices]
@@ -723,20 +724,39 @@
       :sell (unsell trx)
       (entities/delete trx))))
 
+(defn- validate-transfer-destination
+  [account]
+  (when-not (transfer-destination? account)
+    (throw (ex-info "Validation failed"
+                    {::v/errors {:transfer/to-account ["Shares can only be transferred to a trading account or an asset account that can become one"]}
+                     :account account})))
+  account)
+
+(defn- tag-account
+  "Returns the account with the tag added, marked to be saved if the tag
+  is new"
+  [account tag]
+  (if (system-tagged? account tag)
+    account
+    (vary-meta (ensure-tag account tag) assoc ::save? true)))
+
 (defn- append-transfer-accounts
   [{:transfer/keys  [from-account
                      to-account
                      commodity]
     :as transfer}]
-  (-> transfer
-      (update-in [:transfer/from-account] entities/resolve-ref)
-      (update-in [:transfer/to-account] (comp #(ensure-tag % :trading)
-                                              entities/resolve-ref))
-      (assoc :transfer/from-commodity-account
-             (entities/find-by #:account{:commodity commodity
-                                       :parent from-account}))
-      (assoc :transfer/to-commodity-account
-             (find-or-create-commodity-account to-account commodity))))
+  (let [to-account (-> to-account
+                       entities/resolve-ref
+                       validate-transfer-destination)]
+    (assoc transfer
+           :transfer/from-account (entities/resolve-ref from-account)
+           :transfer/to-account (tag-account to-account :trading)
+           :transfer/from-commodity-account (entities/find-by #:account{:commodity commodity
+                                                                        :parent from-account})
+           :transfer/to-commodity-account (if-let [existing (entities/find-by #:account{:parent to-account
+                                                                                        :commodity commodity})]
+                                            (tag-account existing :tradable)
+                                            (create-commodity-account to-account commodity)))))
 
 (defn- process-transfer-lots
   [{:transfer/keys [commodity
@@ -756,12 +776,14 @@
                           {:shares 0M
                            :lots []})
                   :lots)]
-    (if (empty? lots)
-      (log/warnf "No lots found to transfer %s" context)
-      (assoc context
-             :transfer/lots
-             (mapv #(assoc % :lot/account to-account)
-                   lots)))))
+    (when (empty? lots)
+      (throw (ex-info "No lots found to transfer"
+                      {::v/errors {:transfer/shares ["No shares are available to transfer"]}
+                       :transfer context})))
+    (assoc context
+           :transfer/lots
+           (mapv #(assoc % :lot/account to-account)
+                 lots))))
 
 (defn- append-most-recent-price
   [{:as transfer :transfer/keys [commodity date]}]
@@ -800,12 +822,14 @@
 (defn- put-transfer
   [{:transfer/keys [transaction
                     lots
+                    to-account
                     to-commodity-account]
     :as transfer}
    opts]
-  (let [result (->> (cond->> (cons transaction lots)
-                      (util/temp-id? to-commodity-account)
-                      (cons to-commodity-account))
+  (let [accounts (filter #(or (util/temp-id? %)
+                              (::save? (meta %)))
+                         [to-account to-commodity-account])
+        result (->> (concat accounts [transaction] lots)
                     (entities/put-many opts)
                     (group-by util/entity-type))]
     (merge transfer

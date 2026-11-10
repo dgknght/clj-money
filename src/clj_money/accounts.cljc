@@ -258,6 +258,15 @@
   [account]
   (system-tagged? account :tradable))
 
+(defn transfer-destination?
+  "Returns true if shares of a commodity can be transferred into the account:
+  a trading account, or an asset account that can become one. A commodity
+  account (tagged :tradable) can't receive a transfer, because it holds one
+  commodity beneath a trading account."
+  [account]
+  (and (= :asset (:account/type account))
+       (not (tradable? account))))
+
 (defn parent-only?
   [account]
   (system-tagged? account :parent-only))

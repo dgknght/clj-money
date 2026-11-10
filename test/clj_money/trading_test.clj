@@ -584,6 +584,70 @@
                          (entities/find to-account))
             "The account balance reflects the cash on hand before the transfer")))))
 
+;; Moving shares into an account makes it a trading account
+(deftest transfer-a-commodity-to-a-new-trading-account
+  (with-context transfer-context
+    (let [to-account (find-account "IRA 2")]
+      (propagated (trading/transfer
+                    #:transfer{:commodity (find-commodity "AAPL")
+                               :from-account (find-account "IRA")
+                               :to-account to-account
+                               :shares 100M
+                               :date (t/local-date 2016 4 2)}))
+      (is (contains? (:account/system-tags (entities/find to-account))
+                     :trading)
+          "The destination account is tagged as a trading account"))))
+
+(defn- attempt-transfer-to
+  [to-account]
+  (let [entity (find-entity "Personal")
+        trx-count-before (entities/count {:transaction/entity entity})]
+    (is (contains? (try (trading/transfer
+                          #:transfer{:commodity (find-commodity "AAPL")
+                                     :from-account (find-account "IRA")
+                                     :to-account to-account
+                                     :shares 100M
+                                     :date (t/local-date 2016 4 2)})
+                        nil
+                        (catch clojure.lang.ExceptionInfo e
+                          (::v/errors (ex-data e))))
+                   :transfer/to-account)
+        "The transfer is rejected because of the destination account")
+    (is (= trx-count-before
+           (entities/count {:transaction/entity entity}))
+        "No transaction is created")
+    (is (seq-of-maps-like? [#:lot{:account (util/->entity-ref (find-account "IRA"))}]
+                           (entities/select {:lot/commodity (find-commodity "AAPL")}))
+        "The lot stays in the source account")))
+
+(deftest transfer-a-commodity-to-a-commodity-account
+  (with-context transfer-context
+    (attempt-transfer-to (entities/find-by #:account{:name "AAPL"
+                                                     :parent (find-account "IRA")}))))
+
+(deftest transfer-a-commodity-to-a-non-asset-account
+  (with-context transfer-context
+    (attempt-transfer-to (find-account "Dividends"))))
+
+(deftest transfer-a-commodity-without-lots
+  (with-context transfer-context
+    (let [commodity (entities/find (find-commodity "AAPL"))
+          ira (find-account "IRA")
+          ira-2 (find-account "IRA 2")
+          trx-count-before (entities/count {:transaction/entity (find-entity "Personal")})]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"No lots found to transfer"
+                            (trading/transfer
+                              #:transfer{:commodity commodity
+                                         :from-account ira-2
+                                         :to-account ira
+                                         :shares 100M
+                                         :date (t/local-date 2016 4 2)}))
+          "The transfer is rejected")
+      (is (= trx-count-before
+             (entities/count {:transaction/entity (find-entity "Personal")}))
+          "No transaction is created"))))
+
 (deftest split-a-commodity
   (with-context sale-context
     (let [entity (find-entity "Personal")

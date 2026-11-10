@@ -238,6 +238,16 @@
         (assoc :transaction/items items)
         (dissoc :trade/account :trade/shares :trade/action :trade/commodity))))
 
+(defn trade->transfer
+  "Converts a trade, as entered in the trade form with the transfer action,
+  into a transfer of its shares from the trade account to the to-account"
+  [{:trade/keys [date shares commodity account to-account]}]
+  #:transfer{:date date
+             :shares shares
+             :commodity commodity
+             :from-account account
+             :to-account to-account})
+
 (defn ->trade-price
   [{:trade/keys [shares value fee value-includes-fee? action]}]
   (let [fee (or fee d/zero)

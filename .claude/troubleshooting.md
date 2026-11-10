@@ -104,3 +104,12 @@ the query attached. It now looks up the path alone.
 Stale AOT-compiled classes in `target/classes/clj_money` define the protocol
 separately from the one loaded from source, so reified implementations no
 longer satisfy it. Delete `target/classes/clj_money` and rerun.
+
+### Tests fail to start with ``Insufficient `com.taoensso/encore` version``
+
+After a dependency update (e.g. carmine 3.6.0, which needs encore 3.172.1),
+`lein test` can fail with ``Insufficient `com.taoensso/encore` version
+(v3.158.0 < v3.172.1)`` even though `lein deps :tree` shows the right
+version. The old encore is in stale AOT-compiled classes under
+`target/classes/taoensso`, which take precedence over the jar. Delete
+`target/classes` and rerun; `project.clj` doesn't need to change.

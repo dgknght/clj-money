@@ -998,3 +998,18 @@
                                                                    :account/type :expense}}
                                :credit-item {:account-item/account {:id "checking"
                                                                     :account/type :asset}}})))))
+
+(deftest convert-a-transfer-trade-into-a-transfer
+  (is (trx= #:transfer{:date "2016-03-02"
+                    :shares (d 100)
+                    :commodity {:id 3}
+                    :from-account {:id 1}
+                    :to-account {:id 2}}
+         (trx/trade->transfer #:trade{:date "2016-03-02"
+                                      :action :transfer
+                                      :shares (d 100)
+                                      :commodity {:id 3}
+                                      :account {:id 1}
+                                      :to-account {:id 2}
+                                      :entity {:id 4}}))
+      "The trade account becomes the from account, and trade-only attributes are dropped"))

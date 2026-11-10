@@ -686,3 +686,15 @@
                                                ::saved true}]}
                                    result)
                       "The results are returned with success count and any thrown errors.")))))))
+
+(deftest identify-a-transfer-destination
+  (is (accounts/transfer-destination? #:account{:type :asset
+                                                :system-tags #{:trading}})
+      "A trading account can receive a transfer")
+  (is (accounts/transfer-destination? #:account{:type :asset})
+      "An asset account that isn't a trading account yet can receive a transfer")
+  (is (not (accounts/transfer-destination? #:account{:type :asset
+                                                     :system-tags #{:tradable}}))
+      "A commodity account can't receive a transfer")
+  (is (not (accounts/transfer-destination? #:account{:type :income}))
+      "A non-asset account can't receive a transfer"))

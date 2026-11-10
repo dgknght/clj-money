@@ -704,7 +704,7 @@
    (swap! page-state dissoc :trade-repeat?)
    (new-trade page-state {}))
   ([page-state {:keys [date commodity commodity-account account action fee-account]}]
-   (let [{:keys [commodities] view-account :view-account} @page-state
+   (let [{view-account :view-account} @page-state
          commodity-account? (system-tagged? view-account :tradable)
          trade (cond-> #:trade{:entity @current-entity
                                :action (or action :buy)
@@ -712,12 +712,10 @@
                                :commodity-account (or commodity-account
                                                       (when commodity-account?
                                                         view-account))
+                               ; The commodity field holds the commodity id
                                :commodity (or commodity
                                               (when commodity-account?
-                                                (-> view-account
-                                                    :account/commodity
-                                                    :id
-                                                    commodities)))
+                                                (get-in view-account [:account/commodity :id])))
                                :account (or account
                                             (if commodity-account?
                                               (:account/parent view-account)
@@ -845,11 +843,11 @@
 
 (defn- extract-trx-date
   [save-result]
-  (if-let [date (:transaction/transaction-date save-result)]
-    date
-    (->> (:trade/transactions save-result)
-         (map :transaction/transaction-date)
-         first)))
+  (or (:transaction/transaction-date save-result)
+      (get-in save-result [:transfer/transaction :transaction/transaction-date])
+      (->> (:trade/transactions save-result)
+           (map :transaction/transaction-date)
+           first)))
 
 (defn- reload-items
   [page-state]

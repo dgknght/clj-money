@@ -23,9 +23,11 @@
             [clj-money.dates :as dates]
             [clj-money.commodities :as cmdts]
             [clj-money.accounts :refer [find-by-path
+                                        transfer-destination?
                                         format-quantity
                                         polarize-quantity]]
-            [clj-money.transactions :refer [->trade-price]]
+            [clj-money.transactions :refer [->trade-price
+                                            trade->transfer]]
             [clj-money.components :refer [load-in-chunks
                                           append-chunk
                                           audit-history-popover]]
@@ -36,6 +38,7 @@
             [clj-money.views.attachments :as atts-view]
             [clj-money.views.recent-transactions :as recent-trx]
             [clj-money.api.trading :as trading]
+            [clj-money.api.transfers :as transfers]
             [clj-money.api.audit :as audit]
             [clj-money.views.transactions.form :as tf]))
 
@@ -567,10 +570,39 @@
                 {:col-span 6}
                 "No transaction for this commodity."]])]])))
 
+(defn- drop-hidden-field-rules
+  "Validation rules stay in the model's metadata after their field is
+  unmounted, so remove the rules for the fields that the selected action
+  doesn't show"
+  [trade]
+  (let [hidden (if (= :transfer (:trade/action @trade))
+                 [[:trade/value]]
+                 [[:trade/to-account]])]
+    (swap! trade
+           vary-meta
+           update-in
+           [::v/validation ::v/rules]
+           #(apply dissoc % hidden))))
+
+(defn- shares-held
+  "Returns the shares of the trade's commodity held in the trade's account,
+  read from the balance of the commodity account beneath it"
+  [{:trade/keys [account commodity]}]
+  (when (and account commodity)
+    (let [commodity-id (or (:id commodity) commodity)]
+      (some (fn [{:account/keys [parent quantity] :as a}]
+              (when (and (id= parent account)
+                         (= commodity-id
+                            (get-in a [:account/commodity :id])))
+                (or quantity (decimal/zero))))
+            @accounts))))
+
 (defn trade-transaction-form
   [page-state & {:keys [on-save]}]
   (let [trade (r/cursor page-state [:trade])
         dividend? (r/cursor trade [:trade/dividend?])
+        transfer? (make-reaction #(= :transfer (:trade/action @trade)))
+        held (make-reaction #(when @transfer? (shares-held @trade)))
         price (make-reaction #(->trade-price @trade))
         commodities (r/cursor page-state [:commodities])]
     (fn []
@@ -578,45 +610,71 @@
        {:no-validate true
         :on-submit (fn [e]
                      (.preventDefault e)
+                     (drop-hidden-field-rules trade)
                      (v/validate trade)
                      (when (v/valid? trade)
                        (+busy)
-                       (trading/create @trade
-                                       :callback -busy
-                                       :on-success on-save)))}
+                       (if @transfer?
+                         (transfers/create (trade->transfer @trade)
+                                           :callback -busy
+                                           :on-success on-save)
+                         (trading/create @trade
+                                         :callback -busy
+                                         :on-success on-save))))}
        [forms/date-field trade [:trade/date] {:validations #{::v/required}}]
        (when-not @dividend?
          [forms/select-field
           trade
           [:trade/action]
           (map (juxt name humanize)
-               [:buy :sell])
+               [:buy :sell :transfer])
           {:transform-fn keyword
            :validations #{::v/required}}])
-       [:div.row
-        [:div.col-md-4
-         [forms/decimal-field trade [:trade/shares] {:validations #{::v/required}}]]
-        [:div.col-md-4
-         [forms/decimal-field trade [:trade/value] {:validations #{::v/required}}]]
-        [:div.col-md-4.d-flex.flex-column
-         [:span.mb-2 "Est. Price"]
-         [:span.mb-3.ms-3 (when @price (format-decimal @price))]]]
-       [:div.row
-        [:div.col-md-4
-         [forms/decimal-field trade [:trade/fee]]]
-        [:div.col-md-4
-         [forms/typeahead-field
-          trade
-          [:trade/fee-account]
-          {:search-fn (fn [input callback]
-                        (->> @accounts
-                             (find-by-path input)
-                             callback))
-           :caption-fn (comp (partial string/join "/") :account/path)
-           :find-fn (fn [{:keys [id]} callback]
-                      (callback (@accounts-by-id id)))}]]
-        [:div.col-md-4.d-flex.align-items-end
-         [forms/checkbox-field trade [:trade/value-includes-fee?] {:caption "Value includes fee"}]]]
+       (if @transfer?
+         [:<>
+          [forms/decimal-field trade [:trade/shares] {:validations #{::v/required}}]
+          (when @held
+            [:p#shares-held.form-text.mt-n2
+             "Shares held: "
+             (format-decimal @held {:fraction-digits 4})])
+          [forms/typeahead-field
+           trade
+           [:trade/to-account]
+           {:search-fn (fn [input callback]
+                         (->> @accounts
+                              (filter transfer-destination?)
+                              (remove #(util/entity= % (:trade/account @trade)))
+                              (find-by-path input)
+                              callback))
+            :caption-fn (comp (partial string/join "/") :account/path)
+            :find-fn (fn [{:keys [id]} callback]
+                       (callback (@accounts-by-id id)))
+            :validations #{::v/required}}]]
+         [:<>
+          [:div.row
+           [:div.col-md-4
+            [forms/decimal-field trade [:trade/shares] {:validations #{::v/required}}]]
+           [:div.col-md-4
+            [forms/decimal-field trade [:trade/value] {:validations #{::v/required}}]]
+           [:div.col-md-4.d-flex.flex-column
+            [:span.mb-2 "Est. Price"]
+            [:span.mb-3.ms-3 (when @price (format-decimal @price))]]]
+          [:div.row
+           [:div.col-md-4
+            [forms/decimal-field trade [:trade/fee]]]
+           [:div.col-md-4
+            [forms/typeahead-field
+             trade
+             [:trade/fee-account]
+             {:search-fn (fn [input callback]
+                           (->> @accounts
+                                (find-by-path input)
+                                callback))
+              :caption-fn (comp (partial string/join "/") :account/path)
+              :find-fn (fn [{:keys [id]} callback]
+                         (callback (@accounts-by-id id)))}]]
+           [:div.col-md-4.d-flex.align-items-end
+            [forms/checkbox-field trade [:trade/value-includes-fee?] {:caption "Value includes fee"}]]]])
        [forms/typeahead-field
         trade
         [:trade/commodity]

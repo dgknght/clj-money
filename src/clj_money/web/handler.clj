@@ -47,6 +47,7 @@
             [clj-money.api.budget-items :as budget-items-api]
             [clj-money.api.reports :as reports-api]
             [clj-money.api.trading :as trading-api]
+            [clj-money.api.transfers :as transfers-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
             [clj-money.api.scheduled-transactions :as sched-trans-api]
@@ -206,6 +207,7 @@
                  recs-api/routes
                  reports-api/routes
                  trading-api/routes
+                 transfers-api/routes
                  transaction-items-api/routes
                  sched-trans-api/routes
                  invitations-api/routes
