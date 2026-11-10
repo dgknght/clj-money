@@ -758,32 +758,70 @@
                                             (tag-account existing :tradable)
                                             (create-commodity-account to-account commodity)))))
 
+(defn- transfer-lot
+  "Moves shares from the lot to the destination account, returning the
+  lots and lot items that record the move along with the number of shares
+  still to be moved. A lot with no more shares than are still to be moved
+  is moved whole. Otherwise it is split: the source lot keeps the shares
+  that aren't moved, and a new lot with the same purchase date and price
+  holds the moved shares in the destination account."
+  [to-account
+   shares-remaining
+   {:lot/keys [shares-owned purchase-price] :as lot}]
+  (if (<= shares-owned shares-remaining)
+    {:lots [(assoc lot :lot/account to-account)]
+     :lot-items []
+     :shares-remaining (- shares-remaining shares-owned)}
+    (let [new-lot (-> lot
+                      (select-keys [:lot/commodity
+                                    :lot/purchase-date
+                                    :lot/purchase-price])
+                      (assoc :id (util/temp-id)
+                             :lot/account to-account
+                             :lot/shares-purchased shares-remaining
+                             :lot/shares-owned shares-remaining))]
+      {:lots [(assoc lot :lot/shares-owned (- shares-owned shares-remaining))
+              new-lot]
+       :lot-items [#:lot-item{:lot lot
+                              :action :transfer
+                              :shares shares-remaining
+                              :price purchase-price}
+                   #:lot-item{:lot new-lot
+                              :action :receive
+                              :shares shares-remaining
+                              :price purchase-price}]
+       :shares-remaining 0M})))
+
 (defn- process-transfer-lots
   [{:transfer/keys [commodity
                     from-account
                     to-account
                     shares] :as context}]
-  (let [lots (->> (entities/select #:lot{:commodity commodity
+  (let [{:keys [lots lot-items]}
+        (reduce (fn [acc lot]
+                  (if (pos? (:shares-remaining acc))
+                    (let [moved (transfer-lot to-account
+                                              (:shares-remaining acc)
+                                              lot)]
+                      (-> acc
+                          (update-in [:lots] into (:lots moved))
+                          (update-in [:lot-items] into (:lot-items moved))
+                          (assoc :shares-remaining (:shares-remaining moved))))
+                    (reduced acc)))
+                {:shares-remaining shares
+                 :lots []
+                 :lot-items []}
+                (entities/select #:lot{:commodity commodity
                                        :account from-account
                                        :shares-owned [:> 0M]}
-                                   :sort [:lot/purchase-date])
-                  (reduce (fn [acc {:lot/keys [shares-owned] :as lot}]
-                            (if (>= (:shares acc) shares)
-                              (reduced acc)
-                              (-> acc
-                                  (update-in [:lots] conj lot)
-                                  (update-in [:shares] + shares-owned))))
-                          {:shares 0M
-                           :lots []})
-                  :lots)]
+                                 :sort [:lot/purchase-date]))]
     (when (empty? lots)
       (throw (ex-info "No lots found to transfer"
                       {::v/errors {:transfer/shares ["No shares are available to transfer"]}
                        :transfer context})))
     (assoc context
-           :transfer/lots
-           (mapv #(assoc % :lot/account to-account)
-                 lots))))
+           :transfer/lots lots
+           :transfer/lot-items lot-items)))
 
 (defn- append-most-recent-price
   [{:as transfer :transfer/keys [commodity date]}]
@@ -797,7 +835,8 @@
                     from-commodity-account
                     to-commodity-account
                     date
-                    shares]
+                    shares
+                    lot-items]
     :as transfer}]
   (when-not most-recent-price
     (throw (ex-info "Unable to process transfer without most recent commodity price"
@@ -805,19 +844,20 @@
   (let [value (d/* shares (:price/value most-recent-price))]
     (assoc transfer
            :transfer/transaction
-           #:transaction{:entity (:commodity/entity commodity)
-                         :transaction-date date
-                         :description (format "Transfer %s shares of %s"
-                                              shares
-                                              (:commodity/symbol commodity))
-                         :items [#:transaction-item{:action :credit
-                                                    :quantity shares
-                                                    :value value
-                                                    :account from-commodity-account}
-                                 #:transaction-item{:action :debit
-                                                    :quantity shares
-                                                    :value value
-                                                    :account to-commodity-account}]})))
+           (cond-> #:transaction{:entity (:commodity/entity commodity)
+                                 :transaction-date date
+                                 :description (format "Transfer %s shares of %s"
+                                                      shares
+                                                      (:commodity/symbol commodity))
+                                 :items [#:transaction-item{:action :credit
+                                                            :quantity shares
+                                                            :value value
+                                                            :account from-commodity-account}
+                                         #:transaction-item{:action :debit
+                                                            :quantity shares
+                                                            :value value
+                                                            :account to-commodity-account}]}
+             (seq lot-items) (assoc :transaction/lot-items lot-items)))))
 
 (defn- put-transfer
   [{:transfer/keys [transaction
@@ -829,7 +869,7 @@
   (let [accounts (filter #(or (util/temp-id? %)
                               (::save? (meta %)))
                          [to-account to-commodity-account])
-        result (->> (concat accounts [transaction] lots)
+        result (->> (concat accounts lots [transaction])
                     (entities/put-many opts)
                     (group-by util/entity-type))]
     (merge transfer

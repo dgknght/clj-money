@@ -16,6 +16,7 @@
             [clj-money.test-helpers :refer [reset-db propagated]]
             [clj-money.util :as util]
             [clj-money.entities :as entities]
+            [clj-money.reports :as reports]
             [clj-money.trading :as trading]))
 
 (use-fixtures :each reset-db)
@@ -904,3 +905,72 @@
                #:transaction-item{:action :credit :quantity 25M :value 250M}]
               (entities/select {:transaction-item/account aapl-acc}))
             "The commodity account is credited at cost basis")))))
+
+(defn- valuate-commodity-account
+  [parent as-of]
+  (let [account (entities/find-by #:account{:commodity (find-commodity "AAPL")
+                                            :parent parent})]
+    (->> [(entities/find parent) account]
+         (reports/valuate-accounts {:entity (entities/find (find-entity "Personal"))
+                                    :as-of as-of})
+         (filter #(util/id= account %))
+         first)))
+
+(deftest transfer-part-of-a-lot
+  (with-context transfer-context
+    (let [from-account (find-account "IRA")
+          to-account (find-account "IRA 2")
+          commodity (entities/find (find-commodity "AAPL"))
+          result (propagated (trading/transfer
+                               #:transfer{:commodity commodity
+                                          :from-account from-account
+                                          :to-account to-account
+                                          :shares 40M
+                                          :date (t/local-date 2016 4 2)}))]
+      (testing "The lots"
+        (is (seq-of-maps-like? [#:lot{:account (util/->entity-ref from-account)
+                                      :shares-owned 60M
+                                      :shares-purchased 100M
+                                      :purchase-price 10M
+                                      :purchase-date (t/local-date 2016 3 2)}
+                                #:lot{:account (util/->entity-ref to-account)
+                                      :shares-owned 40M
+                                      :shares-purchased 40M
+                                      :purchase-price 10M
+                                      :purchase-date (t/local-date 2016 3 2)}]
+                               (sort-by :lot/shares-owned
+                                        >
+                                        (entities/select {:lot/commodity commodity})))
+            "The source lot is reduced and a new lot holds the transferred shares")
+        (is (= 2 (count (:transfer/lots result)))
+            "Both lots are returned"))
+      (testing "The lot items"
+        (is (seq-of-maps-like? [#:lot-item{:action :transfer
+                                           :shares 40M
+                                           :price 10M}
+                                #:lot-item{:action :receive
+                                           :shares 40M
+                                           :price 10M}]
+                               (sort-by (comp name :lot-item/action)
+                                        #(compare %2 %1)
+                                        (entities/select
+                                          {:transaction/_self (:transfer/transaction result)}
+                                          :entity-type :lot-item)))
+            "The transfer transaction records the lot changes"))
+      (testing "The valuation after the transfer"
+        (is (comparable? #:account{:shares-owned 60M
+                                   :value 600M}
+                         (valuate-commodity-account from-account
+                                                    (t/local-date 2016 4 30)))
+            "The source account holds the remaining shares")
+        (is (comparable? #:account{:shares-owned 40M
+                                   :value 400M}
+                         (valuate-commodity-account to-account
+                                                    (t/local-date 2016 4 30)))
+            "The destination account holds the transferred shares"))
+      (testing "The valuation before the transfer"
+        (is (comparable? #:account{:shares-owned 100M
+                                   :value 1000M}
+                         (valuate-commodity-account from-account
+                                                    (t/local-date 2016 3 31)))
+            "The source account holds all of the shares")))))

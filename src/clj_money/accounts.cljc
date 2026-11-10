@@ -326,27 +326,36 @@
   (map #(assoc % :account/value (fetch-balance data %))
        accounts))
 
+(def ^:private acquisition?
+  (comp boolean #{:buy :receive} :lot-item/action))
+
 (defn- append-lot-items
   [data commodity]
   (fn [lot]
-    (if-let [[purchase & sales :as items] (fetch-lot-items data lot)]
-      (let [shares-owned (d/- (:lot-item/shares purchase)
-                              (sum :lot-item/shares (or sales [])))]
-        (if (< 0M shares-owned)
-          (let [price (fetch-price data commodity)
-                cost-basis (d/* (:lot-item/price purchase)
-                                shares-owned)
-                current-value (d/* price shares-owned)]
-            (assoc lot
-                   :lot/items items
-                   :lot/shares-purchased (:lot-item/shares purchase)
-                   :lot/cost-basis cost-basis
-                   :lot/shares-owned shares-owned
-                   :lot/current-price price
-                   :lot/value current-value
-                   :lot/gain (d/- current-value cost-basis)))
-          lot))
-      lot)))
+    ; A lot is acquired by a purchase, or by receiving shares split off of
+    ; another lot in a transfer. Every other item reduces the shares owned.
+    ; Without an acquisition on or before the as-of date, the lot isn't
+    ; held yet and is left out of the valuation.
+    (let [items (fetch-lot-items data lot)
+          {[purchase] true sales false} (group-by acquisition? items)]
+      (if purchase
+        (let [shares-owned (d/- (:lot-item/shares purchase)
+                                (sum :lot-item/shares (or sales [])))]
+          (if (< 0M shares-owned)
+            (let [price (fetch-price data commodity)
+                  cost-basis (d/* (:lot-item/price purchase)
+                                  shares-owned)
+                  current-value (d/* price shares-owned)]
+              (assoc lot
+                     :lot/items items
+                     :lot/shares-purchased (:lot-item/shares purchase)
+                     :lot/cost-basis cost-basis
+                     :lot/shares-owned shares-owned
+                     :lot/current-price price
+                     :lot/value current-value
+                     :lot/gain (d/- current-value cost-basis)))
+            lot))
+        lot))))
 
 (defn- valuate-commodity-account
   [data]

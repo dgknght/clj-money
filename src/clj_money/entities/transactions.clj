@@ -101,7 +101,7 @@
   #{:debit :credit})
 
 (s/def :lot-item/lot ::entities/entity-ref)
-(s/def :lot-item/action #{:buy :sell})
+(s/def :lot-item/action #{:buy :sell :transfer :receive})
 (s/def :lot-item/shares decimal?)
 (s/def ::entities/lot-item (s/keys :req [:lot-item/lot
                                          :lot-item/shares
