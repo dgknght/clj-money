@@ -1146,7 +1146,7 @@
              :lots         [lots-table page-state]
              :transactions [trns/fund-transactions-table page-state])]
           [:div.row.mt-2 {:style {:flex :none}}
-           [:div.col-md-6
+           [:div.col
             [:button.btn.btn-primary
              {:title "Click here to buy or sell this commodity."
               :on-click #(new-trade page-state)}
@@ -1166,7 +1166,7 @@
               :on-click (unselect-account page-state)}
              (icon-with-text :arrow-left-short "Back")]]
            (when (= :transactions @current-nav)
-             [:div.col-md-6.text-end
+             [:div.col-auto.text-end
               [load-on-scroll {:target "tradable-items-container"
                                :all-items-fetched? @all-items-fetched?
                                :load-fn #(go (>! @ctl-chan :fetch))}]])]]]))))
