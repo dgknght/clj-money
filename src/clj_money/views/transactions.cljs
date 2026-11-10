@@ -673,7 +673,7 @@
               :caption-fn (comp (partial string/join "/") :account/path)
               :find-fn (fn [{:keys [id]} callback]
                          (callback (@accounts-by-id id)))}]]
-           [:div.col-md-4.d-flex.align-items-end
+           [:div.col-md-4.d-flex.align-items-end.checkbox-beside-input
             [forms/checkbox-field trade [:trade/value-includes-fee?] {:caption "Value includes fee"}]]]])
        [forms/typeahead-field
         trade

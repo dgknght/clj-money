@@ -311,3 +311,16 @@ $bottom-nav-height: 3.5rem;
     padding-top: calc(var(--bs-navbar-padding-y) + env(safe-area-inset-top));
   }
 }
+
+// Vertically center a checkbox field on the inputs beside it in a form row.
+// The bootstrap-5 checkbox decorator nests .mb-3 > .mb-3.form-check, which
+// leaves the check box sitting near the top of the neighboring inputs.
+.checkbox-beside-input > .mb-3 {
+  display: flex;
+  align-items: center;
+  min-height: $input-height;
+}
+
+.checkbox-beside-input .form-check {
+  margin-bottom: 0 !important;
+}
