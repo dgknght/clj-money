@@ -54,6 +54,25 @@ into the caller's page state (issue #281).
   uses the first route that matches. Saving, deleting or cancelling goes back
   in the browser history. It doesn't require `accountant`, so the namespaces
   that link to it stay loadable by the client tests
+- `views/trades/form.cljs` - the form for entering a trade (buy, sell,
+  transfer, or reinvested dividend). The caller holds the trade in an atom,
+  started with `new-trade` or `new-dividend` (from the account it's entered
+  from), and renders `[trade-form trade :commodities ... :on-save ...
+  :on-cancel ...]`. The form saves the trade itself; with "Save and add
+  another" checked, it starts the next trade in the atom after `:on-save`
+- `views/accounts/page.cljs` - `/accounts`. Holds the state the page's
+  elements share (`page-state`) and decides which are shown. Its elements
+  live in `views/accounts/`: `list` (the accounts table; deletes and
+  reindexes itself, calls back for the rest), `filter` (its options, and
+  `account-filter-fn`), `form` and `bulk_edit` (atom in, `:on-save` /
+  `:on-cancel` out, sharing the `tags` input), `allocation`, `lots` (loads
+  its own lots and prices), `fund_transactions`, `tradable` (the lots and
+  transactions tabs), `register` (the account's items, with the buttons
+  beneath them as callbacks) and `attachments`. `items` loads the account's
+  transaction items into the page state, for the register, the fund
+  transactions table and `views/reconciliations.cljs`. The register,
+  tradable tabs and reconciliation views still take the page state, since
+  they're only used here
 - `views/bottom_nav.cljs` - the tab bar fixed to the bottom of screens below
   `lg` (issue #308): Add (the Receipts page), Accounts, Reports, Search, and
   More, a bottom sheet with the rest of the nav items. Badges show on the

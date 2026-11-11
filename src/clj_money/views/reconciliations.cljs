@@ -25,7 +25,7 @@
                                                push-transaction-date!]]
             [clj-money.reconciliations :as reconciliations]
             [clj-money.transactions :refer [unaccountify ->unilateral]]
-            [clj-money.views.transactions :as trns]
+            [clj-money.views.accounts.items :as items]
             [clj-money.views.statement-upload :as statements]
             [clj-money.views.attachments :refer [view-image]]
             [clj-money.api.images :as images-api]
@@ -85,7 +85,7 @@
         (recs/save :callback -busy
                    :on-success (fn [created]
                                  (swap! page-state dissoc :reconciliation :items-sort)
-                                 (trns/reset-item-loading page-state)
+                                 (items/reset-item-loading page-state)
                                  (when on-success (on-success created)))))))
 
 (defn- save-reconciliation
@@ -158,7 +158,7 @@
                                    (-> state
                                        (dissoc :payment)
                                        (assoc :view-account updated-account)))))
-                        (trns/reset-item-loading page-state)
+                        (items/reset-item-loading page-state)
                         (notify/toast "Success" "The payment was recorded successfully."))))))
 
 (defn payment-form
@@ -223,7 +223,7 @@
     (swap! page-state assoc :view-account account)
     (load-working-reconciliation page-state)
     (load-previous-balance page-state)
-    (trns/load-unreconciled-items page-state)))
+    (items/load-unreconciled-items page-state)))
 
 (defn- fill-from-statement
   "Fills the reconciliation's end of period and balance from a statement
@@ -335,7 +335,7 @@
           page-state
           [:include-children?]
           {:on-change (fn []
-                        (trns/load-unreconciled-items page-state)
+                        (items/load-unreconciled-items page-state)
                         (load-previous-balance page-state))}]]
         [:table.table
          [:tbody
@@ -372,7 +372,7 @@
                          :type :button
                          :on-click (fn []
                                      (swap! page-state dissoc :reconciliation :items-sort)
-                                     (trns/reset-item-loading page-state))}
+                                     (items/reset-item-loading page-state))}
                   :icon :x}]]]])))
 
 (defn load-reconciliations
