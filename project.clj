@@ -102,10 +102,10 @@
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
                  [org.clojure/google-closure-library "0.0-20250515-87401eb8"]
-                 [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler
+                 [secretary "1.2.3" :exclusions [com.cemerick/clojurescript.test
+                                                 com.google.javascript/closure-compiler
                                                  org.clojure/tools.reader]]
                  [reagent-utils "0.3.8"]
-                 [org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "33.8.0-jre" :exclusions [com.google.code.findbugs/jsr305
                                                                    org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
@@ -113,6 +113,7 @@
                                                      org.clojure/tools.reader]]
                  [bidi "2.1.6" :exclusions [org.clojure/tools.reader prismatic/schema]]
                  [venantius/accountant "0.2.5" :exclusions [com.google.javascript/closure-compiler
+                                                            org.clojure/clojurescript
                                                             org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
@@ -194,7 +195,7 @@
                    lein-doo]]
                  [lambdaisland/uri "1.19.155"]
                  [com.taoensso/carmine "3.6.0" :exclusions [org.clojure/tools.reader commons-codec]]
-                 [stowaway "0.2.18" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]
+                 [stowaway "0.2.18" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging org.clojure/clojurescript]]
                  [io.opentelemetry/opentelemetry-api "1.68.0"]
                  [org.clojure/data.csv "1.1.1"]
                  [org.clj-commons/hickory "0.7.7"]
@@ -274,7 +275,11 @@
                                  #"clj-money.repl"
                                  #"clj-money.tasks"
                                  #"clj-money.ingestion.evaluation"]}
-  :profiles {:test {:dependencies [[peridot "0.5.4"]]
+  :profiles {; Only needed to compile the client app, so keep it, and the
+             ; closure-compiler fat jar it brings (which bundles its own
+             ; guava), out of the uberjar
+             :provided {:dependencies [[org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]]}
+             :test {:dependencies [[peridot "0.5.4"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]
                     ; Reports progress to bin/parallel-test (a no-op unless
                     ; -Dtest.progress is set)

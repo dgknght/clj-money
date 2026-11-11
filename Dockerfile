@@ -25,8 +25,11 @@ RUN mkdir resources/public/css && \
 # Runtime needs only a JRE, not Leiningen (whose standalone jar the security
 # scan flags)
 FROM docker.io/eclipse-temurin:27-jre AS web
-# for the :clj-money.ingestion.ocr/ocr receipt reader
+# Upgrade first so the image picks up security fixes (e.g. apt itself) the
+# upstream base image hasn't been rebuilt with yet. tesseract-ocr is for the
+# :clj-money.ingestion.ocr/ocr receipt reader
 RUN apt-get update && \
+    apt-get upgrade --yes && \
     apt-get install --yes --no-install-recommends tesseract-ocr && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/clj-money
