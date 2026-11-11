@@ -75,17 +75,6 @@
   (items/load-unreconciled-items page-state)
   (set-focus "end-of-period"))
 
-(defn- show-reconciliations
-  [page-state]
-  (items/stop-item-loading page-state)
-  (recs/load-reconciliations page-state))
-
-(defn- close-reconciliations
-  [page-state]
-  (swap! page-state dissoc :reconciliation-list)
-  (when-not (system-tagged? (:view-account @page-state) :tradable)
-    (items/reset-item-loading page-state)))
-
 (defn- reconcile-account
   [account page-state]
   (view-account account page-state)
@@ -102,12 +91,6 @@
                                @accounts)]
         (reconcile-account account page-state)))))
 
-(defn- list-reconciliations
-  [account page-state]
-  ; the account's transactions aren't loaded until the list is closed
-  (view-account account page-state)
-  (recs/load-reconciliations page-state))
-
 (defn- unselect-account
   [page-state]
   (items/stop-item-loading page-state)
@@ -115,7 +98,6 @@
          :view-account
          :attachments-item
          :reconciliation
-         :reconciliation-list
          :items
          :all-items-fetched?))
 
@@ -235,7 +217,6 @@
    :on-new-trade #(start-trade page-state trades/new-trade)
    :on-new-dividend #(start-trade page-state trades/new-dividend)
    :on-reconcile #(start-reconciliation page-state)
-   :on-reconciliations #(show-reconciliations page-state)
    :on-back #(unselect-account page-state)})
 
 (defn- index
@@ -305,7 +286,6 @@
                      (swap! page-state assoc :selected account)
                      (set-focus "parent-id"))
           :on-reconcile #(reconcile-account % page-state)
-          :on-reconciliations #(list-reconciliations % page-state)
           :on-allocate #(swap! page-state assoc :allocation (new-allocation %))]
          [button {:html {:class "btn-primary"
                          :on-click (fn []
@@ -337,11 +317,6 @@
         (when @reconciliation
           [:div.col-lg-4
            [recs/reconciliation-form page-state]])]
-       [:div.row
-        [:div.col-lg-8
-         [recs/reconciliation-list
-          page-state
-          :on-close #(close-reconciliations page-state)]]]
        [recs/payment-form page-state]
        [tradable-account-items page-state callbacks]
        [transaction-form-container page-state]

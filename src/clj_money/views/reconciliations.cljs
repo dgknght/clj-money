@@ -5,14 +5,12 @@
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
             [dgknght.app-lib.core :refer [index-by]]
-            [dgknght.app-lib.web :refer [format-date]]
             [dgknght.app-lib.decimal :as decimal]
-            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [clj-money.components :refer [button]]
-            [clj-money.icons :refer [icon icon-with-text]]
+            [clj-money.icons :refer [icon-with-text]]
             [clj-money.state :refer [+busy
                                      -busy
                                      current-entity
@@ -375,68 +373,9 @@
                                      (items/reset-item-loading page-state))}
                   :icon :x}]]]])))
 
-(defn load-reconciliations
-  "Shows the list of the account's reconciliations, latest first, with a
-  spinner until they're loaded"
-  [page-state]
-  (swap! page-state assoc :reconciliation-list {})
-  (recs/select {:reconciliation/account (:view-account @page-state)
-                :desc :reconciliation/end-of-period}
-               :on-success (fn [recons]
-                             ; unless the list was closed in the meantime
-                             (swap! page-state
-                                    #(cond-> %
-                                       (:reconciliation-list %)
-                                       (assoc-in [:reconciliation-list :reconciliations]
-                                                 recons))))))
-
-(defn- reconciliation-row
-  [{:reconciliation/keys [end-of-period balance status statement] :as recon}
-   account]
-  ^{:key (str "reconciliation-row-" (:id recon))}
-  [:tr
-   [:td (format-date end-of-period)]
-   [:td.text-end (accounts-logic/format-quantity balance account)]
-   [:td (if (= :completed status) "Completed" "In progress")]
-   [:td.text-center
-    (when statement
-      [:button.btn.btn-sm.btn-outline-primary
-       {:title "Click here to view the statement in a new tab."
-        :on-click #(view-image statement)}
-       (icon :file-earmark-pdf :size :small)])]])
-
-(defn reconciliation-list
-  "Lists the account's reconciliations, with a link to each one's statement"
-  [page-state & {:keys [on-close]}]
-  (let [shown (r/cursor page-state [:reconciliation-list])
-        recons (r/cursor shown [:reconciliations])
-        account (r/cursor page-state [:view-account])]
-    (fn []
-      (when @shown
-        [:div.card
-         [:div.card-header [:strong "Reconciliations"]]
-         [:table.table.mb-0
-          [:thead
-           [:tr
-            [:th "End of Period"]
-            [:th.text-end "Balance"]
-            [:th "Status"]
-            [:th.text-center "Statement"]]]
-          [:tbody
-           (cond
-             (seq @recons)
-             (->> @recons
-                  (map #(reconciliation-row % @account))
-                  doall)
-
-             @recons
-             [:tr [:td.text-center {:col-span 4} "This account has not been reconciled."]]
-
-             :else
-             [:tr [:td.text-center {:col-span 4} (bs/spinner {:size :small})]])]]
-         [:div.card-footer
-          [button {:html {:class "btn-secondary"
-                          :title "Click here to return to the account's transactions."
-                          :on-click on-close}
-                   :caption "Close"
-                   :icon :x}]]]))))
+(defn list-path
+  "Returns the path of the reconciliations page, listing those of the
+  account, if one is given"
+  [& [{:keys [id]}]]
+  (cond-> "/reconciliations"
+    id (str "?account-id=" (js/encodeURIComponent id))))

@@ -33,7 +33,7 @@
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.review]
-            [clj-money.views.statements]
+            [clj-money.views.reconciliations.page]
             [clj-money.views.reports]
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :as dashboard]
@@ -71,8 +71,8 @@
    {:id :budgets}
    {:id :receipts
     :tool-tip "Click here to enter receipts"}
-   {:id :statements
-    :tool-tip "Click here to reconcile an account from a statement"}
+   {:id :reconciliations
+    :tool-tip "Click here to reconcile an account or upload a statement"}
    {:id :review
     :tool-tip "Click here to review the transactions read from receipts and statements"}
    {:id :reports

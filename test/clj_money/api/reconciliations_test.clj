@@ -6,6 +6,7 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]
+            [lambdaisland.uri :refer [map->query-string]]
             [clj-money.entities.ref]
             [clj-money.api.util :refer [+query]]
             [clj-money.db.ref]
@@ -16,6 +17,7 @@
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-user
+                                            find-entity
                                             find-account
                                             find-image
                                             find-reconciliation]]
@@ -99,6 +101,75 @@
 (deftest a-user-cannot-get-reconciliations-from-anothers-entity
   (with-context recon-context
     (assert-blocked-get (get-reconciliations "jane@doe.com"))))
+
+(defn- get-entity-reconciliations
+  [email]
+  (-> (request :get (path :api
+                          :entities
+                          (:id (find-entity "Personal"))
+                          :reconciliations)
+               :user (find-user email))
+      app
+      parse-body))
+
+(deftest a-user-can-get-the-reconciliations-in-his-entity
+  (with-context recon-context
+    (assert-successful-get
+      (get-entity-reconciliations "john@doe.com")
+      :expected [#:reconciliation{:end-of-period (t/local-date 2015 1 4)
+                                  :balance 400M
+                                  :account {:id (:id (find-account "Checking"))}}])))
+
+(def ^:private two-recons-context
+  (conj recon-context
+        #:reconciliation{:account "Checking"
+                         :balance 299M
+                         :status :new
+                         :end-of-period (t/local-date 2015 1 11)
+                         :items [[(t/local-date 2015 1 10) 101M]]}))
+
+(defn- get-entity-reconciliations-page
+  [criteria]
+  (-> (request :get (str (path :api
+                               :entities
+                               (:id (find-entity "Personal"))
+                               :reconciliations)
+                         "?"
+                         (map->query-string criteria))
+               :user (find-user "john@doe.com"))
+      app
+      parse-body))
+
+(deftest a-user-can-get-a-page-of-the-reconciliations-in-his-entity
+  (with-context two-recons-context
+    (testing "the latest, limited"
+      (assert-successful-get
+        (get-entity-reconciliations-page {:desc "end-of-period"
+                                          :limit 1})
+        :expected [#:reconciliation{:end-of-period (t/local-date 2015 1 11)}]))
+    (testing "those ending on or before a date"
+      (assert-successful-get
+        (get-entity-reconciliations-page {:desc "end-of-period"
+                                          :reconciliation_end-of-period-on-or-before "2015-01-10"})
+        :expected [#:reconciliation{:end-of-period (t/local-date 2015 1 4)}]))
+    (testing "those with a status"
+      (assert-successful-get
+        (get-entity-reconciliations-page {:desc "end-of-period"
+                                          :reconciliation_status "completed"})
+        :expected [#:reconciliation{:end-of-period (t/local-date 2015 1 4)}])
+      (assert-successful-get
+        (get-entity-reconciliations-page {:desc "end-of-period"
+                                          :reconciliation_status "new"})
+        :expected [#:reconciliation{:end-of-period (t/local-date 2015 1 11)}]))
+    (testing "those ending on or after a date"
+      (assert-successful-get
+        (get-entity-reconciliations-page {:desc "end-of-period"
+                                          :reconciliation_end-of-period-on-or-after "2015-01-05"})
+        :expected [#:reconciliation{:end-of-period (t/local-date 2015 1 11)}]))))
+
+(deftest a-user-cannot-get-the-reconciliations-in-anothers-entity
+  (with-context recon-context
+    (assert-blocked-get (get-entity-reconciliations "jane@doe.com"))))
 
 (defn- create-reconciliation
   [email & {:keys [content-type body]

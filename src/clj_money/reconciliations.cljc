@@ -1,5 +1,34 @@
 (ns clj-money.reconciliations
-  (:require [clj-money.decimal :as d]))
+  (:require [clj-money.decimal :as d]
+            [clj-money.dates :as dates]))
+
+(defn- same-date?
+  [d1 d2]
+  ; compared as strings, because cljs-time dates aren't equal by value
+  (= (dates/serialize-local-date d1)
+     (dates/serialize-local-date d2)))
+
+(defn split-page
+  "Given a page of reconciliations, latest first, read with the limit,
+  returns a map of the :reconciliations to show and how to read the rest,
+  which are those ending on or before the date in :next-on-or-before.
+  Those ending on the date of the last one in the page may not all be in it,
+  so they're left for the next page, unless the whole page ends on that
+  date, in which case :fill-date is that date: all of those ending on it
+  are read, then the ones ending before it. Neither is given once all have
+  been read."
+  [recons limit]
+  (if (< (count recons) limit)
+    {:reconciliations recons}
+    (let [last-date (:reconciliation/end-of-period (last recons))
+          shown (take-while #(not (same-date? last-date
+                                              (:reconciliation/end-of-period %)))
+                            recons)]
+      (if (seq shown)
+        {:reconciliations shown
+         :next-on-or-before last-date}
+        {:reconciliations []
+         :fill-date last-date}))))
 
 (defn requires-payment?
   "Returns true if reconciling the account can leave a balance that needs to

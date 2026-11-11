@@ -72,7 +72,22 @@ into the caller's page state (issue #281).
   transaction items into the page state, for the register, the fund
   transactions table and `views/reconciliations.cljs`. The register,
   tradable tabs and reconciliation views still take the page state, since
-  they're only used here
+  they're only used here. An account's Reconciliations button links to the
+  reconciliations page (`recs/list-path`)
+- `views/reconciliations/page.cljs` - `/reconciliations` (issue #209). Lists
+  the entity's reconciliations (`GET /api/entities/:entity-id/reconciliations`),
+  or one account's, chosen in a filter offcanvas or given as `?account-id=`,
+  optionally by status and within a range of end-of-period dates. The filter is applied
+  (copied to `:applied-filter`, without the form's validation state) only
+  when the user clicks Refresh; responses are matched to the latest read by
+  `:request-id`, not by the filter, which form validation replaces with an
+  equal copy (`vary-meta`). They're read 25 at a
+  time ("Load more"), keyed by end of period rather than an offset, which
+  Datomic can't apply before sorting; `reconciliations/split-page` leaves the
+  last date of a full page for the next one so none on that date are
+  skipped. An unfinished one links to `/accounts/:id/reconcile`; a statement upload
+  sits under the table. It requires `accountant`, which can't be loaded by
+  the client tests, so the accounts views link to it rather than navigate
 - `views/bottom_nav.cljs` - the tab bar fixed to the bottom of screens below
   `lg` (issue #308): Add (the Receipts page), Accounts, Reports, Search, and
   More, a bottom sheet with the rest of the nav items. Badges show on the
@@ -614,9 +629,10 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   ids (`:open-reconciliation-ids`) to show those items with a dash rather
   than a check, and disables Delete on completed ones
 - `views/statement_upload.cljs` - the file input and poll loop, shared by
-  `views/statements.cljs` (the `/statements` page, which navigates to
-  `/accounts/:id/reconcile` to open the account's reconciliation) and the
-  "Read from a statement" input on the reconciliation form
+  `views/reconciliations/page.cljs` (the `/reconciliations` page, whose
+  upload navigates to `/accounts/:id/reconcile` to open the account's
+  reconciliation) and the "Read from a statement" input on the
+  reconciliation form
 - Test fixtures (`fixtures/statements/`) are fictitious statements
   with the expected model answers; real statements must not be committed
 - API tests pass their own reader to `web.test-handler/build-app`

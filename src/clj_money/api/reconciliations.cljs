@@ -5,6 +5,7 @@
             [clj-money.entities.schema :as schema]
             [clj-money.dates :as dates]
             [clj-money.util :as util]
+            [clj-money.state :refer [current-entity]]
             [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn- nominal-comparatives
@@ -26,11 +27,16 @@
       (update-keys util/url-safe-keyword)))
 
 (defn select
+  "Selects the reconciliations of the account, given
+  :reconciliation/account, otherwise those of the current entity"
   [{:reconciliation/keys [account] :as criteria} & {:as opts}]
-  {:pre [(:reconciliation/account criteria)]}
-  (api/get (api/path :accounts
-                     account
-                     :reconciliations)
+  (api/get (if account
+             (api/path :accounts
+                       account
+                       :reconciliations)
+             (api/path :entities
+                       @current-entity
+                       :reconciliations))
            (prepare-criteria criteria)
            (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
 

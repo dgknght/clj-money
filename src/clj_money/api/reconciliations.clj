@@ -34,11 +34,15 @@
       (update-in-if [:reconciliation/end-of-period-on-or-before] dates/unserialize-local-date)
       (update-in-if [:reconciliation/end-of-period-on-or-after] dates/unserialize-local-date)
       (symbolic-comparatives)
-      (rename-keys {:account-id :reconciliation/account})
+      (rename-keys {:account-id :reconciliation/account
+                    :entity-id :account/entity})
+      (update-in-if [:account/entity] util/->entity-ref)
       (select-keys [:reconciliation/account
+                    :account/entity
                     :reconciliation/status
                     :reconciliation/end-of-period])
       (update-in-if [:reconciliation/status] util/ensure-keyword)
+      (util/entity-type :reconciliation)
       (+scope :reconciliation authenticated)))
 
 (defn- translate-sort
@@ -152,7 +156,8 @@
       api/not-found))
 
 (def routes
-  [["accounts/:account-id/reconciliations" {:get {:handler index}
+  [["entities/:entity-id/reconciliations" {:get {:handler index}}]
+   ["accounts/:account-id/reconciliations" {:get {:handler index}
                                             :post {:handler create}}]
    ["accounts/:account-id/reconciliations/previous-balance" {:get {:handler previous-balance}}]
    ["reconciliations/:id" {:patch {:handler update}}]])

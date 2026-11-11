@@ -1,11 +1,11 @@
 (ns clj-money.views.accounts.list
   "The entity's accounts, grouped by type and nested beneath their parents,
   with buttons to act on each. Deleting and reindexing an account happen
-  here; the other buttons call back to the caller with the account:
+  here, and Reconciliations links to the reconciliations page; the other
+  buttons call back to the caller with the account:
 
   [accounts-table :filter ... :expanded ... :bulk-edit ...
-   :on-view ... :on-edit ... :on-reconcile ... :on-reconciliations ...
-   :on-allocate ...]
+   :on-view ... :on-edit ... :on-reconcile ... :on-allocate ...]
 
   :filter holds the options of clj-money.views.accounts.filter, :expanded is
   an atom holding the set of the ids of the expanded accounts (and the
@@ -26,7 +26,8 @@
                                         system-tagged?]]
             [clj-money.state :as state :refer [+busy
                                                -busy]]
-            [clj-money.views.accounts.filter :refer [account-filter-fn]]))
+            [clj-money.views.accounts.filter :refer [account-filter-fn]]
+            [clj-money.views.reconciliations :as recs]))
 
 (defn- delete
   [account]
@@ -74,11 +75,11 @@
    (:account/name account)])
 
 (defn- menu-item
-  [{:keys [title on-click]} icon-elem caption]
+  [{:keys [title on-click href]} icon-elem caption]
   [:li
    [:a.dropdown-item
     {:title title
-     :href "#"
+     :href (or href "#")
      :on-click on-click}
     icon-elem
     [:span.ms-2 caption]]])
@@ -88,7 +89,6 @@
                    on-view
                    on-edit
                    on-reconcile
-                   on-reconciliations
                    on-allocate]}]
   [:div.d-flex
    [:div.btn-group
@@ -112,7 +112,8 @@
       (icon :list-check :size :small)
       "Reconcile"]
      [menu-item {:title "Click here to see the reconciliations for this account"
-                 :on-click #(on-reconciliations account)}
+                 ; navigation to a link within the app is handled by accountant
+                 :href (recs/list-path account)}
       (icon :journal-check :size :small)
       "Reconciliations"]
      (when (system-tagged? account :trading)

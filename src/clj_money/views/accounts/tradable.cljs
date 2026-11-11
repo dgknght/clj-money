@@ -11,23 +11,22 @@
                                           fill-remaining-height]]
             [clj-money.views.accounts.items :as items]
             [clj-money.views.accounts.lots :refer [lots-table]]
-            [clj-money.views.accounts.fund-transactions :refer [fund-transactions-table]]))
+            [clj-money.views.accounts.fund-transactions :refer [fund-transactions-table]]
+            [clj-money.views.reconciliations :as recs]))
 
 (defn tradable-account-items
   "Shows the account in the page state's :view-account, when it's tradable
   and nothing else is open over it.
 
-  callbacks is a map of :on-new-trade, :on-reconcile, :on-reconciliations
-  and :on-back, for the buttons beneath the tabs"
-  [page-state {:keys [on-new-trade on-reconcile on-reconciliations on-back]}]
+  callbacks is a map of :on-new-trade, :on-reconcile and :on-back, for the
+  buttons beneath the tabs"
+  [page-state {:keys [on-new-trade on-reconcile on-back]}]
   (let [account (r/cursor page-state [:view-account])
         trade (r/cursor page-state [:trade])
         reconciliation (r/cursor page-state [:reconciliation])
-        reconciliation-list (r/cursor page-state [:reconciliation-list])
         show? (make-reaction #(and (system-tagged? @account :tradable)
                                    (not @trade)
-                                   (not @reconciliation)
-                                   (not @reconciliation-list)))
+                                   (not @reconciliation)))
         current-nav (r/atom :lots)
         all-items-fetched? (r/cursor page-state [:all-items-fetched?])]
     (fn []
@@ -61,9 +60,10 @@
              {:title "Click here to reconcile this account."
               :on-click on-reconcile}
              (icon-with-text :list-check "Reconcile")]
-            [:button.btn.btn-secondary.ms-2
+            ; navigation to a link within the app is handled by accountant
+            [:a.btn.btn-secondary.ms-2
              {:title "Click here to see this account's reconciliations and their statements."
-              :on-click on-reconciliations}
+              :href (recs/list-path @account)}
              (icon-with-text :journal-check "Reconciliations")]
             [:button.btn.btn-secondary.ms-2
              {:title "Click here to return the the account list."

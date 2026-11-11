@@ -28,7 +28,8 @@
             [clj-money.views.recent-transactions :as recent-trx]
             [clj-money.views.transactions.form :as tf]
             [clj-money.views.accounts.items :as items]
-            [clj-money.views.accounts.attachments :as atts]))
+            [clj-money.views.accounts.attachments :as atts]
+            [clj-money.views.reconciliations :as recs]))
 
 (defn- edit-transaction
   [transaction-item page-state]
@@ -309,7 +310,7 @@
          (icon-with-text :plus "Add")]))))
 
 (defn- register-buttons
-  [page-state {:keys [on-reconcile on-reconciliations on-back] :as callbacks}]
+  [page-state {:keys [on-reconcile on-back] :as callbacks}]
   [:div.d-flex.justify-content-between
    [create-trx-button page-state callbacks]
    [button {:html {:class "btn-primary btn-secondary ms-2 d-none d-md-block"
@@ -317,12 +318,11 @@
                    :disabled @busy?}
             :caption "Reconcile"
             :icon :list-check}]
-   [button {:html {:class "btn-secondary ms-2 d-none d-md-block"
-                   :on-click on-reconciliations
-                   :title "Click here to see this account's reconciliations and their statements."
-                   :disabled @busy?}
-            :caption "Reconciliations"
-            :icon :journal-check}]
+   ; navigation to a link within the app is handled by accountant
+   [:a.btn.btn-secondary.ms-2.d-none.d-md-block
+    {:href (recs/list-path (:view-account @page-state))
+     :title "Click here to see this account's reconciliations and their statements."}
+    (icon-with-text :journal-check "Reconciliations")]
    [button {:html {:class "btn-secondary ms-2"
                    :on-click on-back
                    :title "Click here to return to the account list."}
@@ -334,18 +334,16 @@
   something else is open over them.
 
   callbacks is a map of :on-new-transaction, :on-new-trade,
-  :on-new-dividend, :on-reconcile, :on-reconciliations and :on-back, for the
-  buttons beneath the items"
+  :on-new-dividend, :on-reconcile and :on-back, for the buttons beneath the
+  items"
   [page-state callbacks]
   (let [account (r/cursor page-state [:view-account])
         transaction (r/cursor page-state [:transaction])
         trade (r/cursor page-state [:trade])
         attachments-item (r/cursor page-state [:attachments-item])
         reconciliation (r/cursor page-state [:reconciliation])
-        reconciliation-list (r/cursor page-state [:reconciliation-list])
         show? (make-reaction #(and @account
                                    (not @attachments-item)
-                                   (not @reconciliation-list)
                                    (or @reconciliation
                                        (not (system-tagged? @account :tradable)))
                                    (or @reconciliation (not @transaction))
