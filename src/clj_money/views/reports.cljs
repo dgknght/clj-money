@@ -807,7 +807,10 @@
         ; value and quantity only differ for commodity accounts
         show-unit? (make-reaction #(->> @account-ids
                                         (keep @accounts-by-id)
-                                        (some tracks-other-commodity?)))]
+                                        (some tracks-other-commodity?)))
+        ; stacking only means something for bars from more than one account
+        show-stacked? (make-reaction #(and (= :bar (:style @options))
+                                           (< 1 (count @account-ids))))]
     (fn []
       [:<>
        [forms/typeahead-field
@@ -854,6 +857,11 @@
         [[:bar "Bar"]
          [:line "Line"]]
         {:transform-fn keyword}]
+       (when @show-stacked?
+         [forms/checkbox-field
+          options
+          [:stacked?]
+          {:caption "Stacked"}])
        [forms/checkbox-field
         options
         [:show-values?]
@@ -979,6 +987,7 @@
                                        :measure :activity
                                        :unit :value
                                        :style :bar
+                                       :stacked? false
                                        :show-values? false}}}))
 
 (defn- small-nav

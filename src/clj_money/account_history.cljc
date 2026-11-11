@@ -91,13 +91,21 @@
 (defn chart-config
   "Returns the configuration for a chart of the given account summaries,
   each of which is a map containing the :account and its :summary, as
-  returned by the summarize endpoint for the criteria above"
-  [summaries {:keys [period-type measure unit style show-values?]}]
-  {:type style
-   :data {:labels (->> (first summaries) ; every summary covers the same periods
-                       :summary
-                       (mapv #(period-label (:start-date %) period-type)))
-          :datasets (mapv (dataset measure unit) summaries)}
-   :options {:plugins {:datalabels {:display show-values?
-                                    :anchor "end"
-                                    :align "end"}}}})
+  returned by the summarize endpoint for the criteria above.
+
+  When :stacked? is true and the style is :bar, the accounts' bars for each
+  period are stacked on top of one another instead of drawn side by side."
+  [summaries {:keys [period-type measure unit style show-values? stacked?]}]
+  (let [stacked? (and stacked? (= :bar style))
+        ; a label above a stacked segment would cover the segment above it
+        label-position (if stacked? "center" "end")]
+    (cond-> {:type style
+             :data {:labels (->> (first summaries) ; every summary covers the same periods
+                                 :summary
+                                 (mapv #(period-label (:start-date %) period-type)))
+                    :datasets (mapv (dataset measure unit) summaries)}
+             :options {:plugins {:datalabels {:display show-values?
+                                              :anchor label-position
+                                              :align label-position}}}}
+      stacked? (assoc-in [:options :scales] {:x {:stacked true}
+                                             :y {:stacked true}}))))

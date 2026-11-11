@@ -89,6 +89,34 @@
                              :style :bar
                              :show-values? true}))))
 
+(defn- two-account-config
+  [opts]
+  (hist/chart-config [{:account groceries
+                       :summary (summary quarters ["100" "200.5" "0"])}
+                      {:account dining
+                       :summary (summary quarters ["50" "0" "25.25"])}]
+                     (assoc opts
+                            :period-type :quarter
+                            :show-values? true)))
+
+(deftest get-the-config-for-a-stacked-bar-chart
+  (is (= {:plugins {:datalabels {:display true
+                                 :anchor "center"
+                                 :align "center"}}
+          :scales {:x {:stacked true}
+                   :y {:stacked true}}}
+         (:options (two-account-config {:style :bar
+                                        :stacked? true})))
+      "Both axes are stacked and the values are labeled inside their segments"))
+
+(deftest only-a-bar-chart-is-stacked
+  (is (= {:plugins {:datalabels {:display true
+                                 :anchor "end"
+                                 :align "end"}}}
+         (:options (two-account-config {:style :line
+                                        :stacked? true})))
+      "A line chart ignores the stacked option"))
+
 (deftest get-the-config-for-a-chart-of-balances
   (is (= [{:label "Groceries"
            :data [1100.0 1300.5 1300.5]}]
