@@ -461,7 +461,7 @@
   (with-context commodities-context
     (let [imp (find-import "Personal")
           {:keys [wait-chan]} (import-data imp)
-          {:keys [notifications]} (a/alts!! [wait-chan (a/timeout 5000)])]
+          [{:keys [notifications]}] (a/alts!! [wait-chan (a/timeout 5000)])]
       (is (empty? notifications) "No errors or warnings are reported")
       (is (seq-of-maps-like? [#:lot{:purchase-date (t/local-date 2015 1 17)
                                     :shares-purchased 100M
@@ -481,6 +481,73 @@
                                :entity-type :price
                                :sort [[:price/trade-date :asc]]))
           "The prices can be retrieved"))))
+
+(def ^:private symbol-collision-context
+  (conj base-context
+        #:image{:content (with-open [input (io/input-stream "fixtures/commodity_symbol_collision.gnucash")]
+                           (read-bytes input))
+                :user "john@doe.com"
+                :content-type "application/gnucash"
+                :original-filename "commodity_symbol_collision.gnucash"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["commodity_symbol_collision.gnucash"]}))
+
+(deftest import-commodities-that-share-a-symbol
+  (with-context symbol-collision-context
+    (let [{:keys [entity wait-chan]} (import-data (find-import "Personal"))
+          [{:keys [notifications]}] (a/alts!! [wait-chan (a/timeout 5000)])
+          commodity (fn [commodity-name]
+                      (entities/find-by #:commodity{:name commodity-name
+                                                    :entity entity}))
+          bitcoin (commodity "Bitcoin")
+          mini (commodity "Grayscale Bitcoin Mini")
+          account-commodity (fn [account-name]
+                              (:account/commodity
+                                (entities/find-by #:account{:name account-name
+                                                            :entity entity})))
+          price-values (fn [c]
+                         (map :price/value
+                              (entities/select
+                                #:price{:commodity c
+                                        :trade-date [:between>
+                                                     (t/local-date 2015 1 1)
+                                                     (t/local-date 2016 1 1)]})))]
+      (is (empty? notifications) "No errors or warnings are reported")
+      (is (= (:id bitcoin)
+             (:id (account-commodity "Bitcoin")))
+          "The crypto account is linked to the crypto commodity")
+      (is (= (:id mini)
+             (:id (account-commodity "Grayscale Bitcoin Mini")))
+          "The exchange-listed account is linked to the exchange-listed commodity")
+      (is (= [250M] (price-values bitcoin))
+          "The crypto price is linked to the crypto commodity")
+      (is (= [30M] (price-values mini))
+          "The exchange-listed price is linked to the exchange-listed commodity"))))
+
+(def ^:private ambiguous-commodity-context
+  (conj base-context
+        #:image{:content (-> "fixtures/ambiguous_commodity.edn.gz"
+                             io/input-stream
+                             read-bytes)
+                :user "john@doe.com"
+                :content-type "application/edn"
+                :original-filename "ambiguous_commodity.edn.gz"}
+        #:import{:entity-name "Personal"
+                 :user "john@doe.com"
+                 :images ["ambiguous_commodity.edn.gz"]}))
+
+(deftest halt-when-a-commodity-reference-is-ambiguous
+  (with-context ambiguous-commodity-context
+    (let [{:keys [entity wait-chan]} (import-data (find-import "Personal"))
+          [{:keys [notifications]}] (a/alts!! [wait-chan (a/timeout 5000)])]
+      (is (seq-of-maps-like? [{:notification/severity :fatal
+                               :notification/message "An error occurred while trying to save record of type \"account\": The commodity \"BTC\" is ambiguous; 2 commodities have that symbol"}]
+                             notifications)
+          "A fatal error is reported")
+      (is (nil? (entities/find-by #:account{:name "Bitcoin"
+                                            :entity entity}))
+          "The account is not imported"))))
 
 (deftest import-commodities-with-extended-actions
   (with-context ext-context

@@ -533,11 +533,22 @@
   [record _]
   record)
 
+;; Commodity, account and price records must all produce the same exchange
+;; for a commodity, because the import looks commodities up by exchange and
+;; symbol. Only real exchanges are kept; any other namespace (e.g. a custom
+;; CRYPTO namespace) means the commodity has no exchange.
+(defn- commodity-exchange
+  [{:keys [space]}]
+  (some-> space
+          s/lower-case
+          keyword
+          #{:nasdaq :nyse :amex}))
+
 (defmethod ^:private process-record :commodity
   [{:keys [id name quote_source] :as record} _]
   (when-not (= "template" (:space record))
     (let [space (-> record :space s/lower-case keyword)
-          exchange (#{:nasdaq :nyse :amex} space)
+          exchange (commodity-exchange record)
           type (if (or (#{:crypto} space) ; TODO This is a custom namespace I created. we probably need to be able to map this in the UI
                        (#{"currency"} quote_source))
                  :currency
@@ -553,7 +564,7 @@
 (defmethod ^:private process-record :price
   [price state]
   (let [trade-date (-> price :time :date parse-date)
-        exchange (-> price :commodity :space s/lower-case keyword)
+        exchange (commodity-exchange (:commodity price))
         symbol (-> price :commodity :id)
         k [:prices exchange symbol]]
     (swap! state assoc-in [k] trade-date)
@@ -575,8 +586,7 @@
     {:type (if (currency? space)
              :currency
              :stock) ; TODO: Can we distinguish a stock from a fund here?
-     :exchange (when (not (currency? space))
-                 space)}))
+     :exchange (commodity-exchange commodity)}))
 
 (defmethod ^:private process-record :account
   [{:as record :keys [commodity]} state]

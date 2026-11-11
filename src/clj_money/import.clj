@@ -205,12 +205,26 @@
         (update-in [:accounts] apply-purchase-to-accounts result)
         (update-last-trx-dates trx))))
 
+(defn- only-commodity
+  [matches {:commodity/keys [symbol] :as commodity}]
+  (when (< 1 (count matches))
+    (throw (ex-info (format "The commodity \"%s\" is ambiguous; %d commodities have that symbol"
+                            symbol
+                            (count matches))
+                    commodity)))
+  (first matches))
+
+; Commodities are keyed by exchange and symbol, and by symbol alone, and
+; each key maps to every commodity that has it. When more than one commodity
+; matches, the import stops rather than guessing which one is meant.
 (defn- find-commodity
   [{:keys [commodities-by-symbol
            commodities-by-exchange-and-symbol]}
    {:commodity/keys [exchange symbol] :as commodity}]
-  (or (get commodities-by-exchange-and-symbol [exchange symbol])
-      (get commodities-by-symbol symbol)
+  (or (only-commodity (get commodities-by-exchange-and-symbol [exchange symbol])
+                      commodity)
+      (only-commodity (get commodities-by-symbol symbol)
+                      commodity)
       (throw (ex-info (format "Unable to find the commodity \"%s\"" symbol)
                       commodity))))
 
@@ -546,8 +560,8 @@
                  symbol)
       (-> context
           (update-in [:commodities] (fnil conj []) created)
-          (update-in [:commodities-by-symbol] (fnil assoc {}) symbol created)
-          (update-in [:commodities-by-exchange-and-symbol] (fnil assoc {}) [exchange symbol] created)))))
+          (update-in [:commodities-by-symbol symbol] (fnil conj []) created)
+          (update-in [:commodities-by-exchange-and-symbol [exchange symbol]] (fnil conj []) created)))))
 
 (defn- ignore?
   [{:import/keys [ignore?]}]
